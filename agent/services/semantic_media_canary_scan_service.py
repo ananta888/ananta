@@ -6,9 +6,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Iterable, Protocol, Sequence
 
-REQUIRED_CANARY_SURFACES = frozenset(
-    {"log", "db", "audit", "task", "artifact", "metric", "browserstore"}
-)
+REQUIRED_CANARY_SURFACES = frozenset({"log", "db", "audit", "task", "artifact", "metric", "browserstore"})
 
 
 class SemanticMediaCanaryScanError(RuntimeError):

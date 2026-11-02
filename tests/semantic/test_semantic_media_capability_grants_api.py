@@ -43,13 +43,17 @@ class _ShareAuthority:
         }
 
     def get_participants(self, session_id: str):
-        return [
-            {
-                "user_id": "peer-a",
-                "permissions": dict(self.permissions),
-                "revoked_at": None,
-            }
-        ] if session_id == "session-a" else []
+        return (
+            [
+                {
+                    "user_id": "peer-a",
+                    "permissions": dict(self.permissions),
+                    "revoked_at": None,
+                }
+            ]
+            if session_id == "session-a"
+            else []
+        )
 
 
 class _EpochAuthority:
@@ -106,9 +110,7 @@ def _setup(monkeypatch):
         contract_service=lambda: contracts,
     )
     client = app.test_client()
-    client.environ_base["HTTP_AUTHORIZATION"] = (
-        f"Bearer {issue_user_access_token(username='owner-a', role='admin')}"
-    )
+    client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {issue_user_access_token(username='owner-a', role='admin')}"
     return client, share, contracts
 
 

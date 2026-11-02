@@ -6,6 +6,7 @@ Cache key: hash of (repo_commit, index_manifest_hash, task_hash,
 Sensitive content caching can be blocked per policy. The cache is
 filesystem-backed (JSON files under ``settings.data_dir / "pmc_cache"``).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -44,8 +45,12 @@ class ContextPackageCache:
         from agent.adapters.namespace_memory_cache import NamespaceMemoryCache
         from agent.services.memory_storage_boundary import MemoryStorageBoundary
 
-        self._storage = NamespaceMemoryCache(self._dir, boundary=MemoryStorageBoundary("hub-context-cache"),
-                                              ttl_seconds=min(self._ttl, 86400), max_entries=min(self._max, 4096))
+        self._storage = NamespaceMemoryCache(
+            self._dir,
+            boundary=MemoryStorageBoundary("hub-context-cache"),
+            ttl_seconds=min(self._ttl, 86400),
+            max_entries=min(self._max, 4096),
+        )
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -81,11 +86,17 @@ class ContextPackageCache:
     def stats(self) -> dict[str, Any]:
         if not self._enabled:
             return {"enabled": False}
-        return {"enabled": True, "count": self._storage.count(), "max_entries": self._max,
-                "ttl_seconds": self._ttl, "cache_dir": str(self._dir)}
+        return {
+            "enabled": True,
+            "count": self._storage.count(),
+            "max_entries": self._max,
+            "ttl_seconds": self._ttl,
+            "cache_dir": str(self._dir),
+        }
 
 
 # ── Cache key builder ─────────────────────────────────────────────────────────
+
 
 def build_cache_key(
     *,
@@ -102,10 +113,17 @@ def build_cache_key(
         "|".join(sorted(working_files or [])).encode(),
         usedforsecurity=False,
     ).hexdigest()
-    raw = "|".join([
-        str(repo_commit), str(manifest_hash), str(task_hash),
-        wf_hash, str(config_hash), str(mode), str(surface),
-    ])
+    raw = "|".join(
+        [
+            str(repo_commit),
+            str(manifest_hash),
+            str(task_hash),
+            wf_hash,
+            str(config_hash),
+            str(mode),
+            str(surface),
+        ]
+    )
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

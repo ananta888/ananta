@@ -79,9 +79,7 @@ def _assert_read_only_secret_bindings(service: dict) -> None:
 
 def _mount_at(service: dict, target: str) -> dict:
     matches = [
-        mount
-        for mount in service.get("volumes", ())
-        if isinstance(mount, dict) and mount.get("target") == target
+        mount for mount in service.get("volumes", ()) if isinstance(mount, dict) and mount.get("target") == target
     ]
     assert len(matches) == 1
     return matches[0]
@@ -203,10 +201,7 @@ def test_langgraph_worker_uses_a_dedicated_non_host_workspace_volume() -> None:
         "target": "/project-workspaces",
         "volume": {"nocopy": True},
     }
-    assert all(
-        not isinstance(mount, str) or "project-workspaces" not in mount
-        for mount in worker["volumes"]
-    )
+    assert all(not isinstance(mount, str) or "project-workspaces" not in mount for mount in worker["volumes"])
 
 
 def test_dev_and_base_compose_files_do_not_receive_checkpoint_credentials() -> None:

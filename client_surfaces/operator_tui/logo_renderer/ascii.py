@@ -83,7 +83,11 @@ class AsciiRenderer:
             metadata={"renderer": self.name},
         )
         lines = _to_ascii_lines(frame, width_cells=width_cells, height_cells=height_cells)
-        return LogoFrame(kind="text_lines", text_lines=lines, metadata={"renderer": self.name, "ok": bool(lines), "ascii_fallback": True})
+        return LogoFrame(
+            kind="text_lines",
+            text_lines=lines,
+            metadata={"renderer": self.name, "ok": bool(lines), "ascii_fallback": True},
+        )
 
     def render_sequence(
         self,

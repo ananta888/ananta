@@ -38,9 +38,7 @@ class WebrtcPeerKeyRepository:
             try:
                 with Session(engine) as session:
                     row = session.exec(
-                        select(WebrtcKeyConfirmationDB)
-                        .where(WebrtcKeyConfirmationDB.id == row_id)
-                        .with_for_update()
+                        select(WebrtcKeyConfirmationDB).where(WebrtcKeyConfirmationDB.id == row_id).with_for_update()
                     ).first()
                     created = row is None
                     if row is None:

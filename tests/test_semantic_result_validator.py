@@ -19,21 +19,38 @@ class Authority:
 
     def valid_validator_lease(self, lease_id: str, validator_id: str, session_id: str, epoch: int, now_ms: int) -> bool:
         return self.lease and (lease_id, validator_id, session_id, epoch, now_ms) == (
-            "lease", "validator", "session", 1, 1000,
+            "lease",
+            "validator",
+            "session",
+            1,
+            1000,
         )
 
 
 def report(**patch):
     value = {
-        "schema": "ananta.semantic-validator-report.v1", "report_id": "report", "session_id": "session",
-        "contract_id": "contract", "validator_lease_id": "lease", "validator_id": "validator",
-        "validator_role": "validator", "audience": "hub", "epoch": 1, "sequence": 2,
-        "input_digest": DIGEST, "output_digest": DIGEST,
+        "schema": "ananta.semantic-validator-report.v1",
+        "report_id": "report",
+        "session_id": "session",
+        "contract_id": "contract",
+        "validator_lease_id": "lease",
+        "validator_id": "validator",
+        "validator_role": "validator",
+        "audience": "hub",
+        "epoch": 1,
+        "sequence": 2,
+        "input_digest": DIGEST,
+        "output_digest": DIGEST,
         "criteria": {
-            "schema_valid": True, "binding_valid": True, "quality_score": 0.9,
-            "drift_score": 0.01, "deadline_met": True,
+            "schema_valid": True,
+            "binding_valid": True,
+            "quality_score": 0.9,
+            "drift_score": 0.01,
+            "deadline_met": True,
         },
-        "verdict": "pass", "observed_at_ms": 900, "expires_at_ms": 2000,
+        "verdict": "pass",
+        "observed_at_ms": 900,
+        "expires_at_ms": 2000,
         "signature": "signed-validator-report-0001",
     }
     value.update(patch)
@@ -59,8 +76,11 @@ def test_conflicting_admitted_reports_trigger_recovery_and_raw_fields_are_reject
     failed_report = report(
         report_id="failed",
         criteria={
-            "schema_valid": False, "binding_valid": True, "quality_score": 0.9,
-            "drift_score": 0.01, "deadline_met": True,
+            "schema_valid": False,
+            "binding_valid": True,
+            "quality_score": 0.9,
+            "drift_score": 0.01,
+            "deadline_met": True,
         },
         verdict="fail",
     )

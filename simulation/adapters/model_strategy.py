@@ -3,9 +3,8 @@
 Picks the right SimulationModelAdapter for a given agent based on
 the ScenarioConfig.model_strategy list.
 """
-from __future__ import annotations
 
-from typing import Any
+from __future__ import annotations
 
 from simulation.adapters.base import SimulationModelAdapter
 from simulation.adapters.dummy import DummyModelAdapter
@@ -21,8 +20,7 @@ class ModelStrategyResolver:
       3. Fallback: DummyModelAdapter
     """
 
-    def __init__(self, scenario: ScenarioConfig,
-                  adapter_factory: "AdapterFactory | None" = None) -> None:
+    def __init__(self, scenario: ScenarioConfig, adapter_factory: "AdapterFactory | None" = None) -> None:
         self._strategy = scenario.model_strategy
         self._factory = adapter_factory or _DefaultAdapterFactory()
         self._cache: dict[str, SimulationModelAdapter] = {}
@@ -65,6 +63,7 @@ class _DefaultAdapterFactory(AdapterFactory):
         if provider == "ollama":
             try:
                 from simulation.adapters.ollama import OllamaAdapter
+
                 return OllamaAdapter(model=entry.model)
             except ImportError:
                 return DummyModelAdapter()
@@ -72,6 +71,7 @@ class _DefaultAdapterFactory(AdapterFactory):
         if provider == "openrouter":
             try:
                 from simulation.adapters.openrouter import OpenRouterAdapter
+
                 return OpenRouterAdapter(model=entry.model)
             except ImportError:
                 return DummyModelAdapter()

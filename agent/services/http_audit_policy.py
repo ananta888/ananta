@@ -39,8 +39,7 @@ class HttpAuditPolicy:
         normalized_method = str(method or "").upper()
         normalized_path = str(path or "")
         return (
-            normalized_method in cls._SAFE_METHODS
-            or (normalized_method, normalized_path) in cls._READ_ONLY_OPERATIONS
+            normalized_method in cls._SAFE_METHODS or (normalized_method, normalized_path) in cls._READ_ONLY_OPERATIONS
         )
 
     def request_started(self, *, method: str, path: str) -> HttpAuditDecision:

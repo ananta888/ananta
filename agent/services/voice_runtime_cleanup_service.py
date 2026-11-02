@@ -21,9 +21,7 @@ from agent.services.voice_sensitive_text_codec import get_voice_sensitive_text_c
 
 RuntimeStreamDelete = Callable[[str, str], None]
 RestrictedCacheGC = Callable[[VoicePrincipal, str], None]
-_STREAM_CLEANUP_OPERATIONS = frozenset(
-    {"consent_revoke", "profile_delete", "stream_expire", "stream_orphan"}
-)
+_STREAM_CLEANUP_OPERATIONS = frozenset({"consent_revoke", "profile_delete", "stream_expire", "stream_orphan"})
 _CACHE_CLEANUP_OPERATIONS = frozenset({"consent_revoke", "profile_delete"})
 _RUNTIME_STREAM_DELETE = "runtime_stream_delete"
 _RESTRICTED_CACHE_GC = "restricted_cache_gc"
@@ -180,11 +178,7 @@ class VoiceRuntimeCleanupService:
             max_length=200,
         )
         record = self._repository.get_source(principal, normalized_profile_id, normalized_source_id)
-        records = (
-            (record,)
-            if record is not None and (include_provisional or record.state != "provisional")
-            else ()
-        )
+        records = (record,) if record is not None and (include_provisional or record.state != "provisional") else ()
         return self._retry_records(principal, normalized_profile_id, records)
 
     def activate_target(
@@ -220,10 +214,7 @@ class VoiceRuntimeCleanupService:
             normalized_profile_id,
             validate_identifier(source_session_id, field="source_session_id", max_length=200),
         )
-        return bool(
-            record is not None
-            and self._repository.complete(principal, normalized_profile_id, record.id)
-        )
+        return bool(record is not None and self._repository.complete(principal, normalized_profile_id, record.id))
 
     def _retry_records(
         self,
@@ -265,10 +256,7 @@ class VoiceRuntimeCleanupService:
                     succeeded_count += 1
                 continue
             try:
-                if (
-                    record.cleanup_kind != _RUNTIME_STREAM_DELETE
-                    or record.operation not in _STREAM_CLEANUP_OPERATIONS
-                ):
+                if record.cleanup_kind != _RUNTIME_STREAM_DELETE or record.operation not in _STREAM_CLEANUP_OPERATIONS:
                     raise VoiceGovernanceError(
                         code="voice_runtime_cleanup.invalid_stored_operation",
                         message="stored voice runtime cleanup operation is invalid",
@@ -344,9 +332,7 @@ class VoiceRuntimeCleanupService:
         for principal, profile_id in scopes:
             records = self._repository.list_scope(principal, profile_id)
             if not include_provisional:
-                records = tuple(
-                    record for record in records if record.state != "provisional"
-                )
+                records = tuple(record for record in records if record.state != "provisional")
             run = self._retry_records(
                 principal,
                 profile_id,

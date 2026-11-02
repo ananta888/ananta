@@ -32,6 +32,7 @@ def _make_mock_runner(running: bool = True) -> MagicMock:
 # Initial state
 # ---------------------------------------------------------------------------
 
+
 class TestInitialState:
     def test_starts_inactive(self) -> None:
         ctrl = BrowserModeController()
@@ -44,16 +45,18 @@ class TestInitialState:
 # enter_browser_mode
 # ---------------------------------------------------------------------------
 
+
 class TestEnterBrowserMode:
     def test_successful_enter(self) -> None:
         ctrl = BrowserModeController()
         mock_runner = _make_mock_runner()
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -115,11 +118,12 @@ class TestEnterBrowserMode:
         mock_runner = _make_mock_runner()
         mock_runner.start.side_effect = CarbonylNotAvailableError("not found")
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -130,11 +134,12 @@ class TestEnterBrowserMode:
         ctrl = BrowserModeController()
         mock_runner = _make_mock_runner()
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
             # Second call while active — must not change state
@@ -147,16 +152,18 @@ class TestEnterBrowserMode:
 # exit_browser_mode
 # ---------------------------------------------------------------------------
 
+
 class TestExitBrowserMode:
     def test_exit_transitions_to_inactive(self) -> None:
         ctrl = BrowserModeController()
         mock_runner = _make_mock_runner()
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -174,6 +181,7 @@ class TestExitBrowserMode:
 # tick
 # ---------------------------------------------------------------------------
 
+
 class TestTick:
     def test_tick_returns_none_when_inactive(self) -> None:
         ctrl = BrowserModeController()
@@ -184,11 +192,12 @@ class TestTick:
         mock_runner = _make_mock_runner()
         mock_runner.read_output.return_value = b"frame data"
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -200,11 +209,12 @@ class TestTick:
         mock_runner = _make_mock_runner()
         mock_runner.read_output.return_value = b""
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -215,11 +225,12 @@ class TestTick:
         ctrl = BrowserModeController()
         mock_runner = _make_mock_runner()
 
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
 
@@ -232,15 +243,17 @@ class TestTick:
 # handle_input and resize
 # ---------------------------------------------------------------------------
 
+
 class TestHandleInputAndResize:
     def _active_ctrl(self) -> tuple[BrowserModeController, MagicMock]:
         ctrl = BrowserModeController()
         mock_runner = _make_mock_runner()
-        with patch(
-            "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
-            return_value=mock_runner,
-        ), patch.object(
-            ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")
+        with (
+            patch(
+                "client_surfaces.operator_tui.visual.browser.browser_mode_controller.CarbonylRunner",
+                return_value=mock_runner,
+            ),
+            patch.object(ctrl._policy, "create_temp_file", return_value=Path("/tmp/fake.html")),
         ):
             ctrl.enter_browser_mode(_snap(), cols=80, rows=24)
         return ctrl, mock_runner
@@ -266,14 +279,16 @@ class TestHandleInputAndResize:
 
 class TestWebRtcAppHtml:
     def test_build_webrtc_app_html_uses_local_assets_and_scrubs_tokens(self) -> None:
-        html = build_webrtc_app_html({
-            "signaling_url": "",
-            "session_nonce": "nonce",
-            "oidc_subject_hash": "hash",
-            "refresh_token": "secret-refresh",
-            "turn_servers": [{"urls": "turn:example", "credential": "secret-cred"}],
-        })
-        assert "<base href=\"file://" in html
+        html = build_webrtc_app_html(
+            {
+                "signaling_url": "",
+                "session_nonce": "nonce",
+                "oidc_subject_hash": "hash",
+                "refresh_token": "secret-refresh",
+                "turn_servers": [{"urls": "turn:example", "credential": "secret-cred"}],
+            }
+        )
+        assert '<base href="file://' in html
         assert "window.ANANTA_CONFIG" in html
         assert "secret-refresh" not in html
         assert "secret-cred" not in html

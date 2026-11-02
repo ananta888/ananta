@@ -1,4 +1,5 @@
 """Public Hub self-registration and administrator approval routes."""
+
 from __future__ import annotations
 
 import hashlib
@@ -37,14 +38,16 @@ def _token_hash(token: str) -> str:
 def register_routes(auth_bp) -> None:
     @auth_bp.get("/registration/config")
     def registration_config():
-        return api_response(data={
-            "enabled": settings.hub_self_registration_enabled,
-            "email_verification_required": True,
-            "admin_approval_required": settings.hub_self_registration_require_admin_approval,
-            "email_delivery_configured": bool(
-                settings.hub_registration_smtp_host and settings.hub_registration_smtp_from
-            ),
-        })
+        return api_response(
+            data={
+                "enabled": settings.hub_self_registration_enabled,
+                "email_verification_required": True,
+                "admin_approval_required": settings.hub_self_registration_require_admin_approval,
+                "email_delivery_configured": bool(
+                    settings.hub_registration_smtp_host and settings.hub_registration_smtp_from
+                ),
+            }
+        )
 
     @auth_bp.post("/registrations")
     def create_registration():
@@ -79,14 +82,14 @@ def register_routes(auth_bp) -> None:
         base = settings.hub_registration_public_base_url.rstrip("/")
         url = f"{base}/verify-email?{urlencode({'token': token})}"
         try:
-            get_registration_email_sender().send_verification(
-                recipient=email, username=username, verification_url=url
-            )
+            get_registration_email_sender().send_verification(recipient=email, username=username, verification_url=url)
         except Exception:
             repos.user_repo.delete(username)
             _auth_shim._log().exception("Registration verification email delivery failed")
             return api_response(status="error", message="email_delivery_unavailable", code=503)
-        log_audit("hub_registration_created", {"username": username, "requires_admin": user.registration_requires_admin})
+        log_audit(
+            "hub_registration_created", {"username": username, "requires_admin": user.registration_requires_admin}
+        )
         return api_response(data={"status": "verification_email_sent"}, code=201)
 
     @auth_bp.post("/registrations/verify-email")
@@ -99,7 +102,9 @@ def register_routes(auth_bp) -> None:
         user.email_verification_token_hash = None
         user.email_verification_expires_at = None
         _auth_shim._repos().user_repo.save(user)
-        status = "pending_admin_approval" if user.registration_requires_admin and not user.admin_approved_at else "active"
+        status = (
+            "pending_admin_approval" if user.registration_requires_admin and not user.admin_approved_at else "active"
+        )
         log_audit("hub_registration_email_verified", {"username": user.username, "status": status})
         return api_response(data={"status": status})
 
@@ -107,10 +112,16 @@ def register_routes(auth_bp) -> None:
     @admin_required
     def pending_registrations():
         users = _auth_shim._repos().user_repo.get_pending_approval()
-        return api_response(data=[{
-            "username": user.username, "email": user.email,
-            "email_verified": bool(user.email_verified_at),
-        } for user in users])
+        return api_response(
+            data=[
+                {
+                    "username": user.username,
+                    "email": user.email,
+                    "email_verified": bool(user.email_verified_at),
+                }
+                for user in users
+            ]
+        )
 
     @auth_bp.post("/registrations/<username>/approve")
     @admin_required

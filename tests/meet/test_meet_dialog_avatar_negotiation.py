@@ -11,15 +11,15 @@ from agent.services.meet_dialog_service import MeetDialogService
 from agent.services.meet_dialog_tasks import HubDialogTasks
 from agent.services.source_control_access_policy import HubSourcePrincipal
 from ananta_contracts.meet_dialog import validate_assignment
-from tests.test_meet_dialog_avatar_controls import avatar_scope
 from tests.meet.test_meet_dialog_avatar_selection import PIN, image_selection
 from tests.meet.test_meet_dialog_transport import assignment
+from tests.test_meet_dialog_avatar_controls import avatar_scope
 
 pytestmark = pytest.mark.timeout(45)
 
 
 def system(profiles=True):
-    from tests.meet_dialog_lifecycle_fixture import PUBLISHER
+    from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER
 
     f, _ = avatar_scope()
     tasks = HubDialogTasks(publisher_url=PUBLISHER)

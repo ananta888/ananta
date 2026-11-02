@@ -25,8 +25,10 @@ def render(tmp_path, *, guarded, policy=True, options=None):
 
 
 def test_provider_transport_configuration_is_worker_owned_and_never_hub_approval(tmp_path):
-    options = {"MEET_LLM_OPENAI_BASE_URL": "http://synthetic-provider:8081/v1",
-               "MEET_LLM_OPENAI_API_KEY": "synthetic-provider-key"}
+    options = {
+        "MEET_LLM_OPENAI_BASE_URL": "http://synthetic-provider:8081/v1",
+        "MEET_LLM_OPENAI_API_KEY": "synthetic-provider-key",
+    }
     result = render(tmp_path, guarded=False, options=options)
     assert result.returncode == 0, "synthetic provider Compose render failed"
     environment = json.loads(result.stdout)["services"]["meet-media-worker"]["environment"]

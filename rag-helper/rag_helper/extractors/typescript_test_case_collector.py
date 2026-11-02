@@ -10,9 +10,7 @@ TYPESCRIPT_TEST_CASE_PATTERN = re.compile(
     r"^\s*(?P<call_kind>it|test)(?:\.(?:only|skip|todo))?\s*\(\s*"
     r"(?P<quote>['\"])(?P<name>.*?)(?P=quote)\s*,"
 )
-TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN = re.compile(
-    r"(?:async\s*)?\(\s*\{(?P<fixtures>[^}]+)\}\s*\)\s*=>"
-)
+TYPESCRIPT_FIXTURE_ARGUMENT_PATTERN = re.compile(r"(?:async\s*)?\(\s*\{(?P<fixtures>[^}]+)\}\s*\)\s*=>")
 
 
 class TypeScriptTestCaseCollector:
@@ -38,10 +36,7 @@ class TypeScriptTestCaseCollector:
             line_start = index + 1
             line_end = self._typescript_call_end_line(lines, index)
             test_name = match.group("name").strip()
-            test_id = (
-                f"typescript_call:"
-                f"{safe_id(rel_path, match.group('call_kind'), test_name, str(count))}"
-            )
+            test_id = f"typescript_call:{safe_id(rel_path, match.group('call_kind'), test_name, str(count))}"
             record = {
                 "kind": "typescript_call",
                 "record_kind": "test_case",
@@ -85,9 +80,7 @@ class TypeScriptTestCaseCollector:
                         "record_kind": "fixture_relation",
                         "file": rel_path,
                         "id": f"fixture_relation:{safe_id(rel_path, test_id, fixture_name)}",
-                        "record_id": (
-                            f"fixture_relation:{safe_id(rel_path, test_name, fixture_name)}"
-                        ),
+                        "record_id": (f"fixture_relation:{safe_id(rel_path, test_name, fixture_name)}"),
                         "from": test_id,
                         "to": fixture_name,
                         "type": "uses_fixture",
@@ -108,10 +101,7 @@ class TypeScriptTestCaseCollector:
     def _is_typescript_test_path(rel_path: str) -> bool:
         normalized = rel_path.replace("\\", "/").lower()
         basename = normalized.rsplit("/", 1)[-1]
-        return (
-            basename.endswith((".spec.ts", ".spec.tsx", ".test.ts", ".test.tsx"))
-            or "/tests/" in f"/{normalized}"
-        )
+        return basename.endswith((".spec.ts", ".spec.tsx", ".test.ts", ".test.tsx")) or "/tests/" in f"/{normalized}"
 
     @staticmethod
     def _typescript_call_end_line(lines: list[str], start_index: int) -> int:

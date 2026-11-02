@@ -59,10 +59,7 @@ def emit_reference_run_evidence(
         raise AssertionError("release_evidence_proof_category_unknown")
     if set(explicit_proofs.values()) - {"passed", "failed", "incompatible"}:
         raise AssertionError("release_evidence_proof_status_invalid")
-    normalized_proofs = {
-        category: explicit_proofs.get(category, "not_applicable")
-        for category in PROOF_CATEGORIES
-    }
+    normalized_proofs = {category: explicit_proofs.get(category, "not_applicable") for category in PROOF_CATEGORIES}
     observation = RuntimeObservation(
         runtime_id=runtime_id,
         terminal_status=terminal_status,

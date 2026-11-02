@@ -56,9 +56,7 @@ def _authorization_row(
     envelope: SfuHubSecretEnvelopePort,
 ) -> SfuBroadcastGroupKeyAuthorizationDB:
     authorization = state.authorization
-    payload = json.dumps(
-        _authorization_json(authorization), sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    payload = json.dumps(_authorization_json(authorization), sort_keys=True, separators=(",", ":")).encode("utf-8")
     sealed = envelope.seal(
         payload,
         purpose="sfu-group-key-authorization",
@@ -134,9 +132,7 @@ def _authorization_from_row(
     return _authorization_from_json(row.authorization_json)
 
 
-def _authorization_aad(
-    tenant_id: str, authorization_id: str, member_set_digest: str
-) -> bytes:
+def _authorization_aad(tenant_id: str, authorization_id: str, member_set_digest: str) -> bytes:
     return json.dumps(
         {
             "authorization_id": authorization_id,
@@ -163,18 +159,25 @@ def _receipt_row(receipt: SfuGroupKeyReceipt) -> SfuBroadcastGroupKeyReceiptDB:
 
 def _receipt_from_row(row: SfuBroadcastGroupKeyReceiptDB) -> SfuGroupKeyReceipt:
     return SfuGroupKeyReceipt(
-        row.tenant_id, row.actor_digest, row.operation, row.idempotency_key_digest,
-        row.request_digest, json.loads(json.dumps(row.result_json)), row.expires_at_ms,
+        row.tenant_id,
+        row.actor_digest,
+        row.operation,
+        row.idempotency_key_digest,
+        row.request_digest,
+        json.loads(json.dumps(row.result_json)),
+        row.expires_at_ms,
     )
 
 
 def _find_receipt(db: Session, receipt: SfuGroupKeyReceipt) -> SfuBroadcastGroupKeyReceiptDB | None:
-    return db.exec(select(SfuBroadcastGroupKeyReceiptDB).where(
-        SfuBroadcastGroupKeyReceiptDB.tenant_id == receipt.tenant_id,
-        SfuBroadcastGroupKeyReceiptDB.actor_digest == receipt.actor_digest,
-        SfuBroadcastGroupKeyReceiptDB.operation == receipt.operation,
-        SfuBroadcastGroupKeyReceiptDB.idempotency_key_digest == receipt.idempotency_key_digest,
-    )).first()
+    return db.exec(
+        select(SfuBroadcastGroupKeyReceiptDB).where(
+            SfuBroadcastGroupKeyReceiptDB.tenant_id == receipt.tenant_id,
+            SfuBroadcastGroupKeyReceiptDB.actor_digest == receipt.actor_digest,
+            SfuBroadcastGroupKeyReceiptDB.operation == receipt.operation,
+            SfuBroadcastGroupKeyReceiptDB.idempotency_key_digest == receipt.idempotency_key_digest,
+        )
+    ).first()
 
 
 def _receipt_key(receipt: SfuGroupKeyReceipt) -> tuple[str, str, str, str]:

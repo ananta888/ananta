@@ -6,11 +6,8 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Mapping, Protocol, TypeVar, cast, runtime_checkable
 
-
 CONTROL_AUDIT_EVENT = "ananta_sfu_broadcast_control_decision"
-CONTROL_OUTCOMES = frozenset(
-    {"accepted", "reduced", "rejected", "failed", "blocked", "busy", "completed", "replayed"}
-)
+CONTROL_OUTCOMES = frozenset({"accepted", "reduced", "rejected", "failed", "blocked", "busy", "completed", "replayed"})
 CONTROL_REASONS = frozenset(
     {"success", "policy", "capacity", "stale", "conflict", "dependency", "invalid", "unavailable", "timeout", "unknown"}
 )
@@ -72,9 +69,7 @@ class MetricsSfuBroadcastControlObservationAdapter:
     def record(self, *, control_path: str, outcome: str, reason_code: str) -> SfuBroadcastControlObservationResult:
         labels = CONTROL_PATH_LABELS.get(control_path)
         if labels is None or outcome not in CONTROL_OUTCOMES or reason_code not in CONTROL_REASONS:
-            return SfuBroadcastControlObservationResult(
-                False, False, "sfu_control_observation_not_registered"
-            )
+            return SfuBroadcastControlObservationResult(False, False, "sfu_control_observation_not_registered")
         try:
             result = self._recorder.audit(
                 CONTROL_AUDIT_EVENT,

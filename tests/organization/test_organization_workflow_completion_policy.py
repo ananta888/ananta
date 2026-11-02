@@ -547,9 +547,9 @@ def test_completion_policy_rejects_grant_without_hub_verification_record():
             "organization_workflow_gate_approval_workflow_drift",
         ),
         (
-            lambda _current, _candidate, session: session.request.scope[
-                "decision_authority"
-            ].update({"mode": "generic_approval"}),
+            lambda _current, _candidate, session: session.request.scope["decision_authority"].update(
+                {"mode": "generic_approval"}
+            ),
             "organization_workflow_gate_approval_authority_invalid",
         ),
         (

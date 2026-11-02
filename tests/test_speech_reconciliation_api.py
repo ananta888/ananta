@@ -159,9 +159,7 @@ class _Repository:
             row,
             state=target_state,
             reason_code=reason_code,
-            active_attempt_id=(
-                None if target_state in {"paused", "cancel_requested"} else row.active_attempt_id
-            ),
+            active_attempt_id=(None if target_state in {"paused", "cancel_requested"} else row.active_attempt_id),
             version=row.version + 1,
         )
         self.rows[job_id] = row

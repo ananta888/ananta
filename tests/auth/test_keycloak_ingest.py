@@ -13,7 +13,11 @@ def test_keycloak_ingest_creates_chunk_with_source_reference() -> None:
     out = ingest_keycloak_pages(
         source_id="keycloak-official-docs",
         snapshot_id="snap_1234567890ab",
-        citation_source={"license_ref": "license_unknown", "retrieved_at": "2026-05-26T00:00:00Z", "citation_text": "Keycloak citation"},
+        citation_source={
+            "license_ref": "license_unknown",
+            "retrieved_at": "2026-05-26T00:00:00Z",
+            "citation_text": "Keycloak citation",
+        },
         pages=pages,
     )
     assert out
@@ -22,4 +26,3 @@ def test_keycloak_ingest_creates_chunk_with_source_reference() -> None:
     assert first["source_reference"]["source_id"] == "keycloak-official-docs"
     assert first["source_reference"]["snapshot_id"] == "snap_1234567890ab"
     assert first["source_reference"]["canonical_url"].startswith("https://")
-

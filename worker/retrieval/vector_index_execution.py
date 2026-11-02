@@ -54,9 +54,7 @@ class ConfiguredVectorIndexExecution:
         self._factory = factory or VectorStoreFactory()
         self._secret_resolver = secret_resolver or EnvFileSecretResolver()
         self._input_loader = input_loader or BoundedVectorIndexInputLoader()
-        self._preparation_service = (
-            preparation_service or VectorIndexPreparationService()
-        )
+        self._preparation_service = preparation_service or VectorIndexPreparationService()
         self._observer = observer
 
     def execute(
@@ -89,15 +87,9 @@ class ConfiguredVectorIndexExecution:
             preparation = operation_payload.get("preparation")
             if preparation is not None:
                 if not isinstance(preparation, Mapping):
-                    raise ValueError(
-                        "vector_index_preparation_invalid"
-                    )
-                self._preparation_service.validate_embedding_egress(
-                    preparation
-                )
-            config = VectorStoreConfig.from_mapping(
-                self._configuration(resolved_config)
-            )
+                    raise ValueError("vector_index_preparation_invalid")
+                self._preparation_service.validate_embedding_egress(preparation)
+            config = VectorStoreConfig.from_mapping(self._configuration(resolved_config))
             store = self._create_store(config)
             result, checkpoint, activated = self._execute_operation(
                 store=store,
@@ -174,10 +166,7 @@ class ConfiguredVectorIndexExecution:
                 result = store.delete_scope(scope)
             else:
                 result = store.delete(
-                    tuple(
-                        str(item)
-                        for item in list(payload.get("point_ids") or ())
-                    ),
+                    tuple(str(item) for item in list(payload.get("point_ids") or ())),
                     scope=scope,
                 )
             return result, None, None
@@ -200,20 +189,14 @@ class ConfiguredVectorIndexExecution:
                 input_ref,
                 trusted_scope=scope,
             )
-            checkpoint_payload = self._mapping(
-                migration_payload.get("checkpoint")
-            )
+            checkpoint_payload = self._mapping(migration_payload.get("checkpoint"))
             checkpoint = (
                 MigrationCheckpoint(
                     source_digest=str(checkpoint_payload.get("source_digest") or ""),
                     collection_name=str(checkpoint_payload.get("collection_name") or ""),
                     next_offset=int(checkpoint_payload.get("next_offset") or 0),
-                    scope_fingerprint=str(
-                        checkpoint_payload.get("scope_fingerprint") or ""
-                    ),
-                    idempotency_key_hash=str(
-                        checkpoint_payload.get("idempotency_key_hash") or ""
-                    ),
+                    scope_fingerprint=str(checkpoint_payload.get("scope_fingerprint") or ""),
+                    idempotency_key_hash=str(checkpoint_payload.get("idempotency_key_hash") or ""),
                 )
                 if checkpoint_payload
                 else None
@@ -234,11 +217,7 @@ class ConfiguredVectorIndexExecution:
                     reason=plan.reason,
                     indexed_documents=0,
                     diagnostics=asdict(plan),
-                    failed=(
-                        0
-                        if plan.status == "ready"
-                        else plan.source_entries
-                    ),
+                    failed=(0 if plan.status == "ready" else plan.source_entries),
                 )
                 return result, None, False
             migrated = migrator.migrate(
@@ -248,19 +227,13 @@ class ConfiguredVectorIndexExecution:
                 checkpoint=checkpoint,
                 batch_size=self._batch_size(payload.get("batch_size")),
                 max_batches=(
-                    int(migration_payload["max_batches"])
-                    if migration_payload.get("max_batches") is not None
-                    else None
+                    int(migration_payload["max_batches"]) if migration_payload.get("max_batches") is not None else None
                 ),
                 idempotency_key=idempotency_key,
             )
             return (
                 migrated.result,
-                (
-                    asdict(migrated.checkpoint)
-                    if migrated.checkpoint is not None
-                    else None
-                ),
+                (asdict(migrated.checkpoint) if migrated.checkpoint is not None else None),
                 migrated.activated,
             )
 
@@ -271,12 +244,8 @@ class ConfiguredVectorIndexExecution:
             raise ValueError("vector_index_input_ambiguous")
         if preparation:
             if inline_points or not input_ref:
-                raise ValueError(
-                    "vector_index_preparation_input_invalid"
-                )
-            compatibility = self._compatibility(
-                payload.get("compatibility")
-            )
+                raise ValueError("vector_index_preparation_input_invalid")
+            compatibility = self._compatibility(payload.get("compatibility"))
             points = self._preparation_service.prepare(
                 document_input=self._input_loader.load_document_input(
                     input_ref,
@@ -302,9 +271,7 @@ class ConfiguredVectorIndexExecution:
                 batch_size=self._batch_size(payload.get("batch_size")),
             )
         else:
-            compatibility = self._compatibility(
-                payload.get("compatibility")
-            )
+            compatibility = self._compatibility(payload.get("compatibility"))
             plan = VectorIndexWritePlan(
                 batch_size=self._batch_size(payload.get("batch_size")),
             )
@@ -438,11 +405,7 @@ class ConfiguredVectorIndexExecution:
             points.append(
                 PreparedVectorPoint(
                     record_id=str(point.get("record_id") or ""),
-                    point_id=(
-                        str(point["point_id"])
-                        if point.get("point_id") is not None
-                        else None
-                    ),
+                    point_id=(str(point["point_id"]) if point.get("point_id") is not None else None),
                     vector=tuple(float(number) for number in list(point.get("vector") or ())),
                     scope=trusted_scope,
                     payload=cls._mapping(point.get("payload")),
@@ -467,9 +430,7 @@ class ConfiguredVectorIndexExecution:
         if explicit:
             return explicit.split(":", 1)[0]
         candidate = str(exc).split(":", 1)[0].strip()
-        if candidate.startswith(
-            ("vector_", "qdrant_", "migration_", "embedding_")
-        ):
+        if candidate.startswith(("vector_", "qdrant_", "migration_", "embedding_")):
             return candidate
         return "vector_index_operation_failed"
 

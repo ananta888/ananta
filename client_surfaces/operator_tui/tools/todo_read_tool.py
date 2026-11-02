@@ -1,4 +1,5 @@
 """SCTR-005/SCTR-006: read-only Todo track tool for SnakeChat."""
+
 from __future__ import annotations
 
 import json

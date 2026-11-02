@@ -16,9 +16,7 @@ from agent.common.recovery_artifact_manifest_write_boundary import (
     authorize_recovery_artifact_manifest_write,
 )
 
-RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY = (
-    "artifact_manifest_binding"
-)
+RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY = "artifact_manifest_binding"
 
 
 class RecoveryArtifactManifestBindingError(RuntimeError):
@@ -54,20 +52,14 @@ class RecoveryArtifactManifestBindingService:
         task_repository: Any,
     ) -> RecoveryArtifactManifestBindingResult:
         task_id = str(_value(task, "id") or "").strip()
-        details = _mapping(
-            _value(task, "status_reason_details")
-        )
-        lease = _mapping(
-            details.get("recovery_dispatch_lease")
-        )
+        details = _mapping(_value(task, "status_reason_details"))
+        lease = _mapping(details.get("recovery_dispatch_lease"))
         expected = self._expected_binding(
             task_id=task_id,
             lease=lease,
             manifest=manifest,
         )
-        existing = lease.get(
-            RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY
-        )
+        existing = lease.get(RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY)
         if existing is not None:
             normalized_existing = self._validated_existing(
                 existing,
@@ -84,18 +76,10 @@ class RecoveryArtifactManifestBindingService:
             "bound_at": self._bound_at(),
         }
         candidate = copy.deepcopy(task)
-        candidate_details = _mapping(
-            _value(candidate, "status_reason_details")
-        )
-        candidate_lease = _mapping(
-            candidate_details.get("recovery_dispatch_lease")
-        )
-        candidate_lease[
-            RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY
-        ] = dict(binding)
-        candidate_details["recovery_dispatch_lease"] = (
-            candidate_lease
-        )
+        candidate_details = _mapping(_value(candidate, "status_reason_details"))
+        candidate_lease = _mapping(candidate_details.get("recovery_dispatch_lease"))
+        candidate_lease[RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY] = dict(binding)
+        candidate_details["recovery_dispatch_lease"] = candidate_lease
         _set_value(
             candidate,
             "status_reason_details",
@@ -115,18 +99,10 @@ class RecoveryArtifactManifestBindingService:
             ):
                 persisted = task_repository.save(candidate)
         except (TypeError, ValueError) as exc:
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_denied"
-            ) from exc
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_denied") from exc
 
-        persisted_lease = _mapping(
-            _mapping(
-                _value(persisted, "status_reason_details")
-            ).get("recovery_dispatch_lease")
-        )
-        persisted_binding = persisted_lease.get(
-            RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY
-        )
+        persisted_lease = _mapping(_mapping(_value(persisted, "status_reason_details")).get("recovery_dispatch_lease"))
+        persisted_binding = persisted_lease.get(RECOVERY_ARTIFACT_MANIFEST_BINDING_KEY)
         normalized_persisted = self._validated_existing(
             persisted_binding,
             expected=expected,
@@ -140,9 +116,7 @@ class RecoveryArtifactManifestBindingService:
     def _bound_at(self) -> float:
         value = float(self._now_provider())
         if not math.isfinite(value) or value <= 0.0:
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_clock_invalid"
-            )
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_clock_invalid")
         return value
 
     @staticmethod
@@ -155,34 +129,19 @@ class RecoveryArtifactManifestBindingService:
         try:
             lease_revision = int(lease.get("revision"))
         except (TypeError, ValueError) as exc:
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_invalid"
-            ) from exc
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_invalid") from exc
         artifacts = manifest.get("artifacts")
         if not isinstance(artifacts, list):
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_invalid"
-            )
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_invalid")
         return {
-            "schema": (
-                RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA
-            ),
+            "schema": (RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA),
             "task_id": task_id,
             "lease_revision": lease_revision,
-            "token_digest": str(
-                lease.get("token_digest") or ""
-            ),
-            "request_fingerprint": str(
-                lease.get("request_fingerprint") or ""
-            ),
-            "manifest_digest": str(
-                manifest.get("digest") or ""
-            ),
+            "token_digest": str(lease.get("token_digest") or ""),
+            "request_fingerprint": str(lease.get("request_fingerprint") or ""),
+            "manifest_digest": str(manifest.get("digest") or ""),
             "artifact_count": len(artifacts),
-            "total_bytes": sum(
-                int(value["size_bytes"])
-                for value in artifacts
-            ),
+            "total_bytes": sum(int(value["size_bytes"]) for value in artifacts),
         }
 
     @staticmethod
@@ -192,25 +151,14 @@ class RecoveryArtifactManifestBindingService:
         expected: Mapping[str, Any],
     ) -> dict[str, Any]:
         if not isinstance(value, Mapping):
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_invalid"
-            )
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_invalid")
         binding = dict(value)
         try:
             bound_at = float(binding.get("bound_at"))
         except (TypeError, ValueError) as exc:
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_invalid"
-            ) from exc
-        if (
-            set(binding)
-            != RECOVERY_ARTIFACT_MANIFEST_BINDING_FIELDS
-            or not math.isfinite(bound_at)
-            or bound_at <= 0.0
-        ):
-            raise RecoveryArtifactManifestBindingError(
-                "recovery_artifact_manifest_binding_invalid"
-            )
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_invalid") from exc
+        if set(binding) != RECOVERY_ARTIFACT_MANIFEST_BINDING_FIELDS or not math.isfinite(bound_at) or bound_at <= 0.0:
+            raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_binding_invalid")
         for key, expected_value in expected.items():
             actual_value = binding.get(key)
             if key in {
@@ -229,9 +177,7 @@ class RecoveryArtifactManifestBindingService:
             else:
                 matches = actual_value == expected_value
             if not matches:
-                raise RecoveryArtifactManifestBindingError(
-                    "recovery_artifact_manifest_conflict"
-                )
+                raise RecoveryArtifactManifestBindingError("recovery_artifact_manifest_conflict")
         binding["bound_at"] = bound_at
         return binding
 
@@ -262,9 +208,7 @@ def _set_value(value: Any, name: str, item: Any) -> None:
 _SERVICE = RecoveryArtifactManifestBindingService()
 
 
-def get_recovery_artifact_manifest_binding_service() -> (
-    RecoveryArtifactManifestBindingService
-):
+def get_recovery_artifact_manifest_binding_service() -> RecoveryArtifactManifestBindingService:
     return _SERVICE
 
 

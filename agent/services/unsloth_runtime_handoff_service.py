@@ -62,10 +62,9 @@ def validate_runtime_promotion_binding(
             "runtime_handoff_promotion_binding_mismatch",
             "Runtime artifact is not bound to immutable promotion history.",
         )
-    if (
-        sorted(evidence.get("source_ids") or []) != sorted(source_ids)
-        or sorted(evidence.get("run_ids") or []) != sorted(run_ids)
-    ):
+    if sorted(evidence.get("source_ids") or []) != sorted(source_ids) or sorted(
+        evidence.get("run_ids") or []
+    ) != sorted(run_ids):
         raise RuntimeHandoffError(
             "runtime_handoff_promotion_evidence_mismatch",
             "Runtime evidence does not match immutable promotion history.",
@@ -162,9 +161,7 @@ class UnslothRuntimeHandoffService:
             "fallback": None,
         }
         payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        confirmation = hashlib.sha256(
-            f"unsloth-runtime-handoff:{payload_json}".encode()
-        ).hexdigest()
+        confirmation = hashlib.sha256(f"unsloth-runtime-handoff:{payload_json}".encode()).hexdigest()
         return RuntimeHandoffPlan(
             tenant_id=request.tenant_id,
             payload_json=payload_json,
@@ -178,13 +175,8 @@ class UnslothRuntimeHandoffService:
         confirmation_digest: str,
         idempotency_key: str | None = None,
     ) -> str:
-        expected = hashlib.sha256(
-            f"unsloth-runtime-handoff:{plan.payload_json}".encode()
-        ).hexdigest()
-        if (
-            confirmation_digest != plan.confirmation_digest
-            or confirmation_digest != expected
-        ):
+        expected = hashlib.sha256(f"unsloth-runtime-handoff:{plan.payload_json}".encode()).hexdigest()
+        if confirmation_digest != plan.confirmation_digest or confirmation_digest != expected:
             raise RuntimeHandoffError(
                 "runtime_handoff_confirmation_invalid",
                 "The runtime handoff must be explicitly confirmed.",
@@ -205,22 +197,14 @@ class UnslothRuntimeHandoffService:
                 "provider": payload["provider"],
                 "artifact_id": payload["artifact"]["artifact_id"],
                 "artifact_sha256": payload["artifact"]["artifact_sha256"],
-                "expected_endpoint_revision": payload[
-                    "expected_endpoint_revision"
-                ],
-                "manifest_sha256": hashlib.sha256(
-                    plan.payload_json.encode("utf-8")
-                ).hexdigest(),
+                "expected_endpoint_revision": payload["expected_endpoint_revision"],
+                "manifest_sha256": hashlib.sha256(plan.payload_json.encode("utf-8")).hexdigest(),
             },
         )
         return task_id
 
     def _validate(self, request: RuntimeHandoffRequest):
-        if (
-            not request.tenant_id
-            or not request.endpoint_id
-            or not request.provider
-        ):
+        if not request.tenant_id or not request.endpoint_id or not request.provider:
             raise RuntimeHandoffError(
                 "runtime_handoff_scope_missing",
                 "Tenant, endpoint, and provider are required.",
@@ -256,10 +240,8 @@ class UnslothRuntimeHandoffService:
                 "An endpoint revision fence is required.",
             )
         if (
-            request.endpoint_descriptor.get("endpoint_id")
-            != request.endpoint_id
-            or request.provider_descriptor.get("provider_id")
-            != request.provider
+            request.endpoint_descriptor.get("endpoint_id") != request.endpoint_id
+            or request.provider_descriptor.get("provider_id") != request.provider
         ):
             raise RuntimeHandoffError(
                 "runtime_handoff_descriptor_binding_mismatch",
@@ -290,10 +272,7 @@ class UnslothRuntimeHandoffService:
         if (
             not request.api_capabilities
             or not any(request.api_capabilities.values())
-            or not all(
-                isinstance(enabled, bool)
-                for enabled in request.api_capabilities.values()
-            )
+            or not all(isinstance(enabled, bool) for enabled in request.api_capabilities.values())
         ):
             raise RuntimeHandoffError(
                 "runtime_handoff_capabilities_invalid",

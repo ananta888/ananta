@@ -36,15 +36,42 @@ class ExtractionService:
     """Extracts text when feasible and falls back to metadata-only modes."""
 
     FULLY_INDEXED_EXTENSIONS = {
-        ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv",
-        ".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".go", ".rs", ".c", ".cpp", ".cs", ".php",
+        ".md",
+        ".rst",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".csv",
+        ".py",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".java",
+        ".go",
+        ".rs",
+        ".c",
+        ".cpp",
+        ".cs",
+        ".php",
     }
     TEXT_EXTRACTED_EXTENSIONS = {".txt", ".log", ".ini", ".toml", ".html", ".htm"}
     OFFICE_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp"}
     BINARY_REFERENCE_EXTENSIONS = {
-        ".png", ".jpg", ".jpeg", ".webp",
-        ".mp3", ".wav", ".mp4", ".mkv",
-        ".zip", ".tar", ".gz", ".eml", ".msg",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".mp3",
+        ".wav",
+        ".mp4",
+        ".mkv",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".eml",
+        ".msg",
     }
 
     def _base_metadata(self, *, storage_path: str, filename: str, media_type: str, suffix: str) -> dict:
@@ -84,7 +111,9 @@ class ExtractionService:
             return None, "docx_extractor_unavailable"
         try:
             document = DocxDocument(str(path))
-            text = "\n".join(paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()).strip()
+            text = "\n".join(
+                paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()
+            ).strip()
             return text or None, "docx_text_extracted" if text else "docx_no_text"
         except Exception as exc:  # pragma: no cover - parser behavior varies by fixture
             logging.warning("DOCX extraction failed for %s: %s", path, exc)
@@ -153,7 +182,9 @@ class ExtractionService:
     def extract(self, *, storage_path: str, filename: str, media_type: str) -> dict:
         path = Path(storage_path)
         suffix = path.suffix.lower() or Path(filename).suffix.lower()
-        metadata = self._base_metadata(storage_path=storage_path, filename=filename, media_type=media_type, suffix=suffix)
+        metadata = self._base_metadata(
+            storage_path=storage_path, filename=filename, media_type=media_type, suffix=suffix
+        )
 
         if (
             suffix in self.FULLY_INDEXED_EXTENSIONS

@@ -102,8 +102,7 @@ LEGACY_DEFINITION_COLUMNS = {
 
 def _index_names_for_dropped_columns(spec: dict) -> dict:
     return {
-        table_name: tuple(f"ix_{table_name}_{column}" for column in columns)
-        for table_name, columns in spec.items()
+        table_name: tuple(f"ix_{table_name}_{column}" for column in columns) for table_name, columns in spec.items()
     }
 
 

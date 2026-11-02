@@ -1,8 +1,12 @@
 import pytest
-from flask import Flask
-from agent.services.evolution.registry import get_evolution_provider_registry
+
 from agent.services.evolution.engine import EvolutionEngine
-from agent.services.evolution.models import EvolutionContext, EvolutionResult, ValidationResult, ApplyResult, EvolutionProposal
+from agent.services.evolution.models import (
+    EvolutionProposal,
+    EvolutionResult,
+)
+from agent.services.evolution.registry import get_evolution_provider_registry
+
 
 def test_evolution_provider_contract_compliance():
     """
@@ -18,15 +22,17 @@ def test_evolution_provider_contract_compliance():
     for desc in descriptors:
         name = desc["provider_name"]
         provider = registry.get(name)
-        assert isinstance(provider, EvolutionEngine), f"Provider {provider.provider_name} muss von EvolutionEngine erben"
+        assert isinstance(provider, EvolutionEngine), (
+            f"Provider {provider.provider_name} muss von EvolutionEngine erben"
+        )
 
         # Pruefe Basiseigenschaften
-        assert hasattr(provider, 'provider_name'), f"Provider {provider.__class__} fehlt provider_name"
+        assert hasattr(provider, "provider_name"), f"Provider {provider.__class__} fehlt provider_name"
         assert isinstance(provider.provider_name, str)
-        assert hasattr(provider, 'capabilities'), f"Provider {provider.provider_name} fehlt capabilities"
+        assert hasattr(provider, "capabilities"), f"Provider {provider.provider_name} fehlt capabilities"
 
         # Pruefe Analyse-Kontrakt (Pflicht)
-        assert hasattr(provider, 'analyze'), f"Provider {provider.provider_name} muss analyze implementieren"
+        assert hasattr(provider, "analyze"), f"Provider {provider.provider_name} muss analyze implementieren"
 
         # Pruefe, ob die Signatur grob passt (statische Typen koennen wir hier schwer zur Laufzeit pruefen,
         # aber wir koennen einen Dummy-Aufruf mit Validierungs-Error-Erwartung machen oder
@@ -34,6 +40,7 @@ def test_evolution_provider_contract_compliance():
         assert callable(provider.analyze)
         assert callable(provider.validate)
         assert callable(provider.apply)
+
 
 def test_evolution_models_structure_stability():
     """
@@ -52,14 +59,16 @@ def test_evolution_models_structure_stability():
     assert hasattr(prop, "proposal_id")
     assert hasattr(prop, "target_refs")
 
+
 def test_plugin_interface_documentation_alignment():
     """
     Prueft, ob die in docs/extensions.md beschriebenen Seams im Code auffindbar sind.
     """
     from agent.sdk import AnantaSDK
-    sdk_methods = [m for m in dir(AnantaSDK) if not m.startswith('_')]
+
+    sdk_methods = [m for m in dir(AnantaSDK) if not m.startswith("_")]
 
     # Laut Doku muessen diese existieren:
-    expected = ['register_evolution_provider', 'register_blueprint', 'get_config']
+    expected = ["register_evolution_provider", "register_blueprint", "get_config"]
     for exp in expected:
         assert exp in sdk_methods, f"SDK-Methode {exp} fehlt, aber ist in docs/extensions.md dokumentiert"

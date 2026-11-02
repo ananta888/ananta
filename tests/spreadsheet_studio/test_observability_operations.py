@@ -134,9 +134,7 @@ def test_retention_never_deletes_referenced_or_recent_artifacts(tmp_path) -> Non
     os.utime(by_digest[stored[1].sha256], (now - 200_000, now - 200_000))
     os.utime(by_digest[stored[2].sha256], (now, now))
 
-    dry_run = store.enforce_retention(
-        referenced_digests={stored[0].sha256}, retention_seconds=86_400, now=now
-    )
+    dry_run = store.enforce_retention(referenced_digests={stored[0].sha256}, retention_seconds=86_400, now=now)
     deleted = store.enforce_retention(
         referenced_digests={stored[0].sha256}, retention_seconds=86_400, delete=True, now=now
     )
@@ -150,15 +148,12 @@ def test_retention_never_deletes_referenced_or_recent_artifacts(tmp_path) -> Non
 
 def test_hub_reconciliation_terminalizes_stale_jobs_and_preserves_assignment(tmp_path) -> None:
     engine, queue, submitter, _, _, document = _services(tmp_path)
-    queued = submitter.execute_proposal(
-        tenant_id="tenant-a", principal_id="owner-a", proposal=proposal(document)
-    )
+    queued = submitter.execute_proposal(tenant_id="tenant-a", principal_id="owner-a", proposal=proposal(document))
     stale_at = datetime.now(timezone.utc) - timedelta(hours=2)
     with engine.begin() as connection:
         connection.execute(
             text(
-                "UPDATE spreadsheet_execution_jobs SET updated_at=:stale "
-                "WHERE tenant_id='tenant-a' AND job_id=:job_id"
+                "UPDATE spreadsheet_execution_jobs SET updated_at=:stale WHERE tenant_id='tenant-a' AND job_id=:job_id"
             ),
             {"stale": stale_at, "job_id": queued["job_id"]},
         )
@@ -184,7 +179,8 @@ def test_hub_reconciliation_terminalizes_stale_jobs_and_preserves_assignment(tmp
     Draft202012Validator(schema).validate(before)
     assert result["terminalized_job_ids"] == [queued["job_id"]]
     assert queue.get(tenant_id="tenant-a", job_id=queued["job_id"])["status"] == "failed"
-    assert queue.get_assignment(tenant_id="tenant-a", job_id=queued["job_id"])["assignment_digest"] == queued[
-        "assignment_digest"
-    ]
+    assert (
+        queue.get_assignment(tenant_id="tenant-a", job_id=queued["job_id"])["assignment_digest"]
+        == queued["assignment_digest"]
+    )
     assert result["human_intervention_required"] is False

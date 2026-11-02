@@ -1,4 +1,5 @@
 """Persistence-neutral outcomes for atomic OIDC identity provisioning."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

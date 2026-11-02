@@ -4,11 +4,10 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from firefox_automation._config import DEFAULT_PHASES
 from firefox_automation._browser_utils import list_visible_errors
+from firefox_automation._config import DEFAULT_PHASES
 
 
 def parse_phases(raw: str) -> List[str]:
@@ -32,9 +31,7 @@ def default_goal_text_for_benchmark(task_kind: str) -> str:
         return "Create a concrete implementation plan for a Python Fibonacci helper with tests, validation steps, and a short delivery summary."
     if normalized == "review":
         return "Review a small Python Fibonacci helper change, identify issues, propose fixes, and summarize verification steps."
-    return (
-        "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation."
-    )
+    return "Implement a small Python Fibonacci helper, add unit tests, and provide a short summary of the changed files and validation."
 
 
 def record_step(report: dict, phase: str, step: str, started_at: float, ok: bool, details: Optional[dict] = None):
@@ -63,4 +60,3 @@ def gate_visible_errors(session_id: str, report: dict, phase: str, hard_fail: bo
     print("visible_error_texts", json.dumps(visible_errors, ensure_ascii=True), flush=True)
     if hard_fail:
         raise RuntimeError(f"Visible UI errors detected in phase '{phase}' (401={has_401})")
-

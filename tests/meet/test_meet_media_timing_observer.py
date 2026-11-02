@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_media_timing_observer import observe_media_timing_failure
+from tests.meet.meet_media_timing_observer import observe_media_timing_failure
 from tests.meet.test_meet_media_timing_contract import fixture
 from worker.meet_media.media_timing_gate import MediaTimingGate
 

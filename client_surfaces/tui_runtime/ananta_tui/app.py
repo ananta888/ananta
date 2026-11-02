@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Sequence
+from typing import Sequence
 
 from client_surfaces.common.client_api import AnantaApiClient
 from client_surfaces.common.profile_auth import build_client_profile, resolve_session_auth_token
@@ -48,6 +48,7 @@ from .app_keybindings import (
     _run_template_operation,
 )
 from .app_widgets import (
+    ConfigEditRuntime,
     _empty_response,
     _flatten,
     _merge_dict,
@@ -55,7 +56,6 @@ from .app_widgets import (
     _render_api_map_summary,
     _safe_dict,
     _safe_items,
-    ConfigEditRuntime,
 )
 
 
@@ -323,43 +323,59 @@ class TuiRuntimeApp:
             self._client, self._goal_create_text, self._goal_create_mode, self._goal_create_context_json
         )
         task_action_summary = _run_task_action(
-            self._client, self._task_action, self._task_action_json,
-            self._confirm_task_action, state.selected_task_id
+            self._client, self._task_action, self._task_action_json, self._confirm_task_action, state.selected_task_id
         )
         archived_action_summary = _run_archived_action(
-            self._client, self._archived_action, self._archived_action_json,
-            self._confirm_archived_action, self._selected_archived_task_id
+            self._client,
+            self._archived_action,
+            self._archived_action_json,
+            self._confirm_archived_action,
+            self._selected_archived_task_id,
         )
         artifact_action_summary = _run_artifact_action(
-            self._client, self._artifact_action, self._artifact_action_json,
-            self._confirm_artifact_action, state.selected_artifact_id
+            self._client,
+            self._artifact_action,
+            self._artifact_action_json,
+            self._confirm_artifact_action,
+            state.selected_artifact_id,
         )
         knowledge_action_summary = _run_knowledge_action(
-            self._client, self._index_selected_collection, self._confirm_knowledge_index,
-            self._knowledge_search_query, self._knowledge_top_k, state.selected_collection_id
+            self._client,
+            self._index_selected_collection,
+            self._confirm_knowledge_index,
+            self._knowledge_search_query,
+            self._knowledge_top_k,
+            state.selected_collection_id,
         )
         template_operation_summary = _run_template_operation(
             self._client, self._template_operation, self._template_payload_json
         )
         team_action_summary = _run_team_action(
-            self._client, self._team_action, self._team_action_json,
-            self._confirm_team_action, state.selected_team_id
+            self._client, self._team_action, self._team_action_json, self._confirm_team_action, state.selected_team_id
         )
         instruction_action_summary = _run_instruction_action(
-            self._client, self._instruction_action, self._instruction_action_json,
-            self._confirm_instruction_action, state
+            self._client,
+            self._instruction_action,
+            self._instruction_action_json,
+            self._confirm_instruction_action,
+            state,
         )
         automation_action_summary = _run_automation_action(
-            self._client, self._automation_action, self._automation_action_json,
-            self._confirm_automation_action
+            self._client, self._automation_action, self._automation_action_json, self._confirm_automation_action
         )
         approval_action_summary = _run_approval_action(
-            self._client, self._approval_action, self._approval_action_json,
-            self._confirm_approval_action, state.selected_task_id
+            self._client,
+            self._approval_action,
+            self._approval_action_json,
+            self._confirm_approval_action,
+            state.selected_task_id,
         )
         repair_action_summary = _run_repair_action(
-            self._client, self._repair_action, self._repair_action_json,
-            self._confirm_repair_action, state.selected_repair_session_id
+            self._client,
+            self._repair_action,
+            self._repair_action_json,
+            self._confirm_repair_action,
+            state.selected_repair_session_id,
         )
 
         goal_detail = (
@@ -400,9 +416,7 @@ class TuiRuntimeApp:
             if state.selected_blueprint_id
             else _empty_response({})
         )
-        selected_team_type_id = state.selected_team_type_id or (
-            sorted(team_type_ids)[0] if team_type_ids else None
-        )
+        selected_team_type_id = state.selected_team_type_id or (sorted(team_type_ids)[0] if team_type_ids else None)
         roles_for_type = (
             self._client.list_roles_for_team_type(selected_team_type_id)
             if selected_team_type_id
@@ -433,45 +447,80 @@ class TuiRuntimeApp:
             capability_line,
             render_dashboard_view(self._client.profile, dashboard, assistant, health),
             render_goals_view(
-                goals, goal_modes, goal_detail, goal_plan, goal_governance,
-                create_goal_summary, state.selected_goal_id,
+                goals,
+                goal_modes,
+                goal_detail,
+                goal_plan,
+                goal_governance,
+                create_goal_summary,
+                state.selected_goal_id,
             ),
             render_task_workbench_view(tasks, task_timeline, selected_task, task_logs, task_action_summary),
             render_task_orchestration_view(orchestration),
             render_archived_tasks_view(archived_tasks, archived_action_summary),
             render_artifact_explorer_view(
-                artifacts, artifact_detail, artifact_rag_status, artifact_rag_preview, artifact_action_summary,
+                artifacts,
+                artifact_detail,
+                artifact_rag_status,
+                artifact_rag_preview,
+                artifact_action_summary,
             ),
             render_knowledge_view(
-                knowledge_collections, knowledge_profiles, collection_detail, knowledge_action_summary,
+                knowledge_collections,
+                knowledge_profiles,
+                collection_detail,
+                knowledge_action_summary,
             ),
             render_template_management_view(
-                templates, template_variable_registry, template_sample_contexts,
-                template_operation_summary, state.selected_template_id,
+                templates,
+                template_variable_registry,
+                template_sample_contexts,
+                template_operation_summary,
+                state.selected_template_id,
             ),
             render_config_and_provider_view(
-                config, providers, provider_catalog, benchmarks,
-                benchmark_config, runtime_cfg.summary_line,
+                config,
+                providers,
+                provider_catalog,
+                benchmarks,
+                benchmark_config,
+                runtime_cfg.summary_line,
             ),
             render_system_view(health, contracts, agents, stats, stats_history),
             render_team_blueprint_view(
-                teams, blueprints, blueprint_catalog, blueprint_detail,
-                team_types, team_roles, roles_for_type, team_action_summary,
+                teams,
+                blueprints,
+                blueprint_catalog,
+                blueprint_detail,
+                team_types,
+                team_roles,
+                roles_for_type,
+                team_action_summary,
             ),
             render_instruction_layers_view(
-                instruction_model, effective_layers,
-                instruction_profiles, instruction_overlays, instruction_action_summary,
+                instruction_model,
+                effective_layers,
+                instruction_profiles,
+                instruction_overlays,
+                instruction_action_summary,
             ),
             render_automation_view(autopilot, auto_planner, triggers, automation_action_summary),
             render_audit_view(audit_logs, audit_analysis),
             render_approval_repair_view(
-                approvals, repairs, tasks, approval_action_summary, repair_action_summary,
+                approvals,
+                repairs,
+                tasks,
+                approval_action_summary,
+                repair_action_summary,
             ),
             render_help_view(fallback_snapshot),
         ]
         live_block = _render_live_refresh_block(
-            self._client, state, self._live_refresh_cycles,
-            self._live_refresh_interval_seconds, self._live_refresh_target,
+            self._client,
+            state,
+            self._live_refresh_cycles,
+            self._live_refresh_interval_seconds,
+            self._live_refresh_target,
         )
         if live_block:
             sections_output.append(live_block)

@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from typing import Any
@@ -5,11 +6,10 @@ from typing import Any
 from flask import current_app, g
 
 from agent.db_models import GoalDB
-from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
-
 
 # Shared planning state (used by planning_routes and query_routes via helpers)
 _GOAL_ACTIVE_PLANNING_LOCK = threading.Lock()
@@ -110,10 +110,16 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
         return goal
 
     try:
-        planning_runs = [r for r in _repos().planning_run_repo.get_by_goal_id(goal_id, limit=20) if str(getattr(r, "goal_id", "") or "") == goal_id]
+        planning_runs = [
+            r
+            for r in _repos().planning_run_repo.get_by_goal_id(goal_id, limit=20)
+            if str(getattr(r, "goal_id", "") or "") == goal_id
+        ]
         started_runs = [r for r in planning_runs if str(getattr(r, "status", "") or "") == "started"]
         if started_runs:
-            latest_started = sorted(started_runs, key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0), reverse=True)[0]
+            latest_started = sorted(
+                started_runs, key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0), reverse=True
+            )[0]
             started_age = now_ts - float(getattr(latest_started, "updated_at", 0.0) or 0.0)
             if started_age <= 180:
                 return goal
@@ -129,7 +135,7 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
                     readiness=dict(getattr(goal, "readiness", None) or {}),
                 )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_maybe_recover_stalled_planning_goal: ignored Exception", exc_info=True)
 
     tasks = [t for t in _repos().task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
     if tasks:
@@ -152,6 +158,7 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     try:
         effective = dict(getattr(goal, "workflow_effective", None) or {})
         from agent.routes.tasks.auto_planner import auto_planner
+
         result = _services().planning_service.plan_goal(
             planner=auto_planner,
             goal=str(getattr(goal, "goal", "") or ""),
@@ -204,9 +211,10 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
                 security_level="balanced",
             )
             from agent.routes.tasks.autopilot import autonomous_loop
+
             autonomous_loop.wake()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_maybe_recover_stalled_planning_goal: ignored Exception", exc_info=True)
         return goal
     except Exception as exc:
         recovery.update({"last_error": str(exc)[:240]})
@@ -221,10 +229,8 @@ def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
         stale_ids = [
             str(getattr(goal, "id", "") or "")
             for goal in _repos().goal_repo.get_all()
-            if str(getattr(goal, "status", "") or "")
-            in {"planning_running", "planning_queued"}
-            and getattr(goal, "planning_lease_expires_at", None)
-            is not None
+            if str(getattr(goal, "status", "") or "") in {"planning_running", "planning_queued"}
+            and getattr(goal, "planning_lease_expires_at", None) is not None
             and float(
                 getattr(
                     goal,
@@ -240,8 +246,7 @@ def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
             goal = _repos().goal_repo.get_by_id(goal_id)
             if (
                 goal is None
-                or str(getattr(goal, "status", "") or "")
-                not in {"planning_running", "planning_queued"}
+                or str(getattr(goal, "status", "") or "") not in {"planning_running", "planning_queued"}
                 or getattr(
                     goal,
                     "planning_lease_expires_at",
@@ -264,22 +269,18 @@ def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
                 goal,
                 target_status="failed",
                 reason="planning_lease_expired",
-                readiness=dict(
-                    getattr(goal, "readiness", None) or {}
-                ),
+                readiness=dict(getattr(goal, "readiness", None) or {}),
             )
             cancelled += 1
         if cancelled:
             try:
-                current_app.logger.warning(
-                    "planning_preflight_stale_cancelled count=%s actor=%s", cancelled, actor
-                )
+                current_app.logger.warning("planning_preflight_stale_cancelled count=%s actor=%s", cancelled, actor)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_cancel_stale_planning_goals: ignored Exception", exc_info=True)
         return cancelled
     except Exception as exc:
         try:
             current_app.logger.exception("planning_preflight_stale_cancel_failed actor=%s error=%s", actor, exc)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_cancel_stale_planning_goals: ignored Exception", exc_info=True)
         return 0

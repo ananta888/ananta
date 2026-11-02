@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.common.errors import api_response
-from agent.services.memory_audit_read_service import MemoryAuditQuery, MemoryAuditReadService
+from agent.services.memory_audit_read_service import MemoryAuditQuery
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.memory_access import MemoryScope
 
@@ -18,14 +18,9 @@ def _service():
     access = current_app.extensions.get("project_access_authority")
     if access is None:
         raise RuntimeError("memory_audit_read_unavailable")
-    from agent.database import engine
-    from agent.repositories.memory_audit import SQLMemoryAuditRepository
-    from agent.repositories.memory_quarantine_read import SQLMemoryQuarantineReadRepository
-    from agent.repositories.memory_snapshot import SQLMemorySnapshotRepository
+    from agent.services.memory_audit_read_service import build_default_memory_audit_read_service
 
-    return MemoryAuditReadService(access=access, repository=SQLMemoryAuditRepository(engine),
-                                  snapshots=SQLMemorySnapshotRepository(engine),
-                                  quarantine=SQLMemoryQuarantineReadRepository())
+    return build_default_memory_audit_read_service(access)
 
 
 @memory_audit_bp.get("/api/projects/<project_id>/memory-audit/events")
@@ -48,8 +43,11 @@ def memory_audit_events(project_id, diffs=False):
             values["scope"] = MemoryScope(values["scope"])
         service = _service()
         method = service.diffs if diffs else service.page
-        result = method(principal=get_authenticated_source_control_principal(),
-                        project_id=project_id, query=MemoryAuditQuery(**values))
+        result = method(
+            principal=get_authenticated_source_control_principal(),
+            project_id=project_id,
+            query=MemoryAuditQuery(**values),
+        )
         return api_response(data=result)
     except ProjectAccessError as exc:
         return api_response(status="error", message=exc.reason_code, code=exc.public_status)
@@ -76,8 +74,9 @@ def memory_audit_quarantine(project_id):
                 raise ValueError("memory_audit_query_invalid")
             limit = int(raw)
         service = _service()
-        result = service.quarantine_state(principal=get_authenticated_source_control_principal(),
-                                          project_id=project_id, limit=limit)
+        result = service.quarantine_state(
+            principal=get_authenticated_source_control_principal(), project_id=project_id, limit=limit
+        )
         return api_response(data=result)
     except ProjectAccessError as exc:
         return api_response(status="error", message=exc.reason_code, code=exc.public_status)

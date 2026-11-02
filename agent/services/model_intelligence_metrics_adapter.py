@@ -43,8 +43,7 @@ def _labels(labels: Iterable[tuple[str, str]]) -> str:
     if not values:
         return ""
     encoded = ",".join(
-        f'{key}="{value.replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"'
-        for key, value in values
+        f'{key}="{value.replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"' for key, value in values
     )
     return "{" + encoded + "}"
 

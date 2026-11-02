@@ -56,7 +56,11 @@ def task_command(context):
 
 
 def native_setup(
-    tmp_path, *, mutate=lambda command: command, mutate_task=lambda task: task, runner=None,
+    tmp_path,
+    *,
+    mutate=lambda command: command,
+    mutate_task=lambda task: task,
+    runner=None,
     context_reader_factory=lambda client: None,
     hub_task_id="hub-task-1",
     context_bundles=None,
@@ -69,7 +73,8 @@ def native_setup(
     client, context, _ = hub_composition(
         hub_task_id=hub_task_id,
         allowed_artifacts=("not-materialized", "unhydrated"),
-        context_bundles=context_bundles, endpoint_identity=endpoint_identity,
+        context_bundles=context_bundles,
+        endpoint_identity=endpoint_identity,
     )
     command = mutate(task_command(context))
     task = mutate_task(
@@ -86,6 +91,7 @@ def native_setup(
     workspace = tmp_path / "project"
     workspace.mkdir(exist_ok=True)
     credentials = Mock(return_value="synthetic-private-key")
+
     def provider_factory(**options):
         options.update(provider_options or {})
         return provider(tmp_path, runner, **options)

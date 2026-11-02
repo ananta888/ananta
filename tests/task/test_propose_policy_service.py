@@ -1,23 +1,23 @@
 """Tests for ProposePolicy and ProposePolicyService. FA-T002."""
+
 from __future__ import annotations
 
 import pytest
 
 from agent.services.propose_policy import (
-    ProposePolicy,
-    STRATEGY_LEGACY_SGPT,
-    STRATEGY_DETERMINISTIC_HANDLER,
-    STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-    STRATEGY_HUMAN_REVIEW,
     SAFE_DEFAULT_STRATEGY_ORDER,
+    STRATEGY_DETERMINISTIC_HANDLER,
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_LEGACY_SGPT,
+    STRATEGY_TOOL_CALLING_LLM,
+    ProposePolicy,
     build_policy_from_dict,
 )
 from agent.services.propose_policy_service import ProposePolicyService
 
-
 # ── ProposePolicy validation ───────────────────────────────────────────────────
+
 
 class TestProposePolicy:
     def test_default_policy_valid(self):
@@ -64,14 +64,16 @@ class TestProposePolicy:
             ProposePolicy(on_all_strategies_declined="retry")
 
     def test_effective_strategy_order_filters_sgpt(self):
-        p = ProposePolicy(
+        ProposePolicy(
             strategy_order=[STRATEGY_DETERMINISTIC_HANDLER, STRATEGY_LEGACY_SGPT],
             allow_legacy_sgpt=True,
         )
-        p2 = build_policy_from_dict({
-            "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER],
-            "allow_legacy_sgpt": False,
-        })
+        p2 = build_policy_from_dict(
+            {
+                "strategy_order": [STRATEGY_DETERMINISTIC_HANDLER],
+                "allow_legacy_sgpt": False,
+            }
+        )
         assert STRATEGY_LEGACY_SGPT not in p2.effective_strategy_order()
 
     def test_to_dict_contains_schema(self):
@@ -82,6 +84,7 @@ class TestProposePolicy:
 
 
 # ── ProposePolicyService ───────────────────────────────────────────────────────
+
 
 class TestProposePolicyService:
     def _svc(self) -> ProposePolicyService:
@@ -95,9 +98,7 @@ class TestProposePolicyService:
 
     def test_project_policy_overrides_default(self):
         svc = self._svc()
-        p = svc.get_effective_policy(
-            project_config={"propose_policy": {"max_strategy_attempts": 3}}
-        )
+        p = svc.get_effective_policy(project_config={"propose_policy": {"max_strategy_attempts": 3}})
         assert p.max_strategy_attempts == 3
 
     def test_blueprint_role_overrides_project(self):

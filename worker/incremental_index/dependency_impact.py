@@ -77,7 +77,9 @@ class DependencyImpactAnalyzer:
         look total (severity 1.0) and turned each update into a rebuild.
         """
         changed = {str(item) for item in changed_files}
-        direct = {node.artifact_id for node in self.nodes.values() if node.file_path in changed or node.artifact_id in changed}
+        direct = {
+            node.artifact_id for node in self.nodes.values() if node.file_path in changed or node.artifact_id in changed
+        }
         if not self.nodes:
             direct = set(changed)
         transitive: set[str] = set()
@@ -96,7 +98,9 @@ class DependencyImpactAnalyzer:
         action = "delta_build" if severity < 0.45 else "partial_base_rebuild"
         if not changed:
             action = "noop"
-        graph = {item: sorted(self.nodes[item].dependents) for item in sorted(direct | transitive) if item in self.nodes}
+        graph = {
+            item: sorted(self.nodes[item].dependents) for item in sorted(direct | transitive) if item in self.nodes
+        }
         return ImpactResult(changeset_id, direct, transitive, graph, severity, action)
 
     def get_rebuild_plan(self, impact_result: ImpactResult) -> dict[str, Any]:
@@ -106,7 +110,9 @@ class DependencyImpactAnalyzer:
         }
 
 
-def analyze_snapshot_impact(old_symbol_graph: dict[str, Any], new_symbol_graph: dict[str, Any], changeset_id: str) -> ImpactResult:
+def analyze_snapshot_impact(
+    old_symbol_graph: dict[str, Any], new_symbol_graph: dict[str, Any], changeset_id: str
+) -> ImpactResult:
     old_paths = {str(item.get("path") or "") for item in list((old_symbol_graph or {}).get("nodes") or [])}
     new_paths = {str(item.get("path") or "") for item in list((new_symbol_graph or {}).get("nodes") or [])}
     changed = sorted((old_paths ^ new_paths) or ["sha256"])

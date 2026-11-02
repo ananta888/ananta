@@ -16,9 +16,15 @@ class NativeResultReadTransport:
         timeout = max(0.1, min(float(timeout), 5))
         deadline = time.monotonic() + timeout
         response = self._client.post(
-            worker_url.rstrip("/") + endpoint, data=payload, headers={"Authorization": "Bearer " + token},
-            timeout=timeout, return_response=True, allow_redirects=False, stream=True,
-            deadline_monotonic=deadline, raise_on_transport_error=True,
+            worker_url.rstrip("/") + endpoint,
+            data=payload,
+            headers={"Authorization": "Bearer " + token},
+            timeout=timeout,
+            return_response=True,
+            allow_redirects=False,
+            stream=True,
+            deadline_monotonic=deadline,
+            raise_on_transport_error=True,
         )
         try:
             if response.status_code != 200:

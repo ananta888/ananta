@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _SOFTWARE_KEYWORDS = ("software", "project", "app", "application", "prototype")
 _MULTI_FILE_KEYWORDS = (
     "multiple files",
@@ -84,8 +83,22 @@ class GoalExecutionContractService:
     ) -> GoalExecutionContract:
         execution_preferences = dict(execution_preferences or {})
         mode_data = dict(mode_data or {})
-        strategy_mode = str(execution_preferences.get("strategy_mode") or mode_data.get("strategy_mode") or "openai_compatible_tool_calling").strip() or "openai_compatible_tool_calling"
-        execution_mode = str(execution_preferences.get("execution_mode") or mode_data.get("execution_mode") or "llm_first_with_guardrails").strip() or "llm_first_with_guardrails"
+        strategy_mode = (
+            str(
+                execution_preferences.get("strategy_mode")
+                or mode_data.get("strategy_mode")
+                or "openai_compatible_tool_calling"
+            ).strip()
+            or "openai_compatible_tool_calling"
+        )
+        execution_mode = (
+            str(
+                execution_preferences.get("execution_mode")
+                or mode_data.get("execution_mode")
+                or "llm_first_with_guardrails"
+            ).strip()
+            or "llm_first_with_guardrails"
+        )
         max_loops_raw = execution_preferences.get("max_improvement_loops", mode_data.get("max_improvement_loops", 3))
         try:
             max_loops = int(max_loops_raw)
@@ -160,7 +173,9 @@ class GoalExecutionContractService:
         expected_artifacts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         contract = dict(goal_contract or {})
-        artifacts = [dict(a) for a in list(expected_artifacts or contract.get("expected_artifacts") or []) if isinstance(a, dict)]
+        artifacts = [
+            dict(a) for a in list(expected_artifacts or contract.get("expected_artifacts") or []) if isinstance(a, dict)
+        ]
         return {
             "schema": "worker_execution_contract.v1",
             "goal_contract_version": str(contract.get("version") or "v1"),

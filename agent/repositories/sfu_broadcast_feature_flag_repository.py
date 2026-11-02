@@ -18,7 +18,6 @@ from sqlmodel import Session, select
 from agent.database import engine as default_engine
 from agent.db_models import SfuBroadcastFeatureFlagDB, SfuBroadcastFeatureFlagMutationDB
 
-
 SECURITY_LATCH_FLAGS = frozenset(
     {
         "immediate_security_fence",
@@ -181,11 +180,7 @@ class InMemorySfuBroadcastFeatureFlagRepository:
         with self._store.lock:
             if not self._store.available:
                 return SfuBroadcastFeatureFlagSnapshot(scope, {}, available=False)
-            flags = {
-                state.flag: state
-                for state in self._store.states.values()
-                if state.scope == scope
-            }
+            flags = {state.flag: state for state in self._store.states.values() if state.scope == scope}
             return SfuBroadcastFeatureFlagSnapshot(scope, flags)
 
     def page(
@@ -303,9 +298,7 @@ class SqlSfuBroadcastFeatureFlagRepository:
         after = _decode_cursor(cursor) if cursor else None
         try:
             with Session(self._engine) as db:
-                statement = select(SfuBroadcastFeatureFlagDB).where(
-                    SfuBroadcastFeatureFlagDB.tenant_id == tenant_id
-                )
+                statement = select(SfuBroadcastFeatureFlagDB).where(SfuBroadcastFeatureFlagDB.tenant_id == tenant_id)
                 if after is not None:
                     region, cohort, flag, row_id = after
                     statement = statement.where(
@@ -427,14 +420,10 @@ class SqlSfuBroadcastFeatureFlagRepository:
                     db.rollback()
                     raced = True
         except SQLAlchemyError:
-            return SfuBroadcastFeatureFlagMutationResult(
-                "unavailable", reason_code="feature_flag_store_unavailable"
-            )
+            return SfuBroadcastFeatureFlagMutationResult("unavailable", reason_code="feature_flag_store_unavailable")
         if raced:
             return self._result_after_race(mutation.scope.tenant_id, idempotency_digest, request_digest)
-        return SfuBroadcastFeatureFlagMutationResult(
-            "conflict", reason_code="feature_flag_version_conflict"
-        )
+        return SfuBroadcastFeatureFlagMutationResult("conflict", reason_code="feature_flag_version_conflict")
 
     def _result_after_race(
         self,
@@ -456,9 +445,7 @@ class SqlSfuBroadcastFeatureFlagRepository:
                     )
                 return _replay(receipt.request_digest, request_digest, _state_from_receipt(receipt))
         except SQLAlchemyError:
-            return SfuBroadcastFeatureFlagMutationResult(
-                "unavailable", reason_code="feature_flag_store_unavailable"
-            )
+            return SfuBroadcastFeatureFlagMutationResult("unavailable", reason_code="feature_flag_store_unavailable")
 
 
 def _validate_scope(scope: SfuBroadcastFeatureFlagScope) -> None:

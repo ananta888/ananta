@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
-from agent.services.worker_routing_policy_utils import derive_research_specialization
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
+from agent.services.worker_routing_policy_utils import derive_research_specialization
 
 
 class WorkerContractService:
@@ -21,15 +21,21 @@ class WorkerContractService:
     ) -> dict:
         normalized_required = [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()]
         normalized_profile = normalize_worker_execution_profile(
-            ((selection.metadata if hasattr(selection, "metadata") and isinstance(selection.metadata, dict) else {}) or {}).get(
-                "worker_profile"
-            )
+            (
+                (selection.metadata if hasattr(selection, "metadata") and isinstance(selection.metadata, dict) else {})
+                or {}
+            ).get("worker_profile")
         )
-        reasons = list(getattr(selection, "reasons", None) or (["manual_override"] if agent_url else ["no_worker_available"]))
+        reasons = list(
+            getattr(selection, "reasons", None) or (["manual_override"] if agent_url else ["no_worker_available"])
+        )
         return WorkerRoutingDecisionContract(
             worker_url=agent_url,
             selected_by_policy=selected_by_policy,
-            strategy=str(getattr(selection, "strategy", None) or ("capability_quality_load_match" if selected_by_policy else "manual_override")),
+            strategy=str(
+                getattr(selection, "strategy", None)
+                or ("capability_quality_load_match" if selected_by_policy else "manual_override")
+            ),
             reasons=reasons,
             matched_capabilities=list(getattr(selection, "matched_capabilities", None) or []),
             matched_roles=list(getattr(selection, "matched_roles", None) or []),
@@ -40,9 +46,14 @@ class WorkerContractService:
             worker_profile=normalized_profile,
             profile_source=(
                 str(
-                    ((selection.metadata if hasattr(selection, "metadata") and isinstance(selection.metadata, dict) else {}) or {}).get(
-                        "profile_source"
-                    )
+                    (
+                        (
+                            selection.metadata
+                            if hasattr(selection, "metadata") and isinstance(selection.metadata, dict)
+                            else {}
+                        )
+                        or {}
+                    ).get("profile_source")
                     or ""
                 ).strip()
                 or None
@@ -62,14 +73,15 @@ class WorkerContractService:
         routing_decision: dict | None,
     ) -> dict:
         context_policy_payload = dict(
-            context_policy
-            or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
-            or {}
+            context_policy or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy") or {}
         )
         normalized_profile = normalize_worker_execution_profile(
             context_policy_payload.get("worker_profile"),
         )
-        profile_source = str(context_policy_payload.get("worker_profile_source") or "agent_default").strip().lower() or "agent_default"
+        profile_source = (
+            str(context_policy_payload.get("worker_profile_source") or "agent_default").strip().lower()
+            or "agent_default"
+        )
         return WorkerExecutionContextContract(
             instructions=instructions,
             context_bundle_id=getattr(context_bundle, "id", None),
@@ -102,10 +114,14 @@ class WorkerContractService:
             **dict(extra_metadata or {}),
             "routing_decision": dict(routing_decision or {}),
             "task_kind": str(task_kind or "").strip() or None,
-            "required_capabilities": [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
+            "required_capabilities": [
+                str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()
+            ],
             "context_policy": dict(context_policy or {}),
             "worker_profile": normalize_worker_execution_profile(dict(context_policy or {}).get("worker_profile")),
-            "profile_source": str(dict(context_policy or {}).get("worker_profile_source") or "agent_default").strip().lower()
+            "profile_source": str(dict(context_policy or {}).get("worker_profile_source") or "agent_default")
+            .strip()
+            .lower()
             or "agent_default",
         }
 
@@ -193,7 +209,11 @@ class WorkerContractService:
                     {
                         "kind": kind,
                         "required": bool(artifact.get("required", True)),
-                        **({"description": str(artifact.get("description")).strip()} if str(artifact.get("description") or "").strip() else {}),
+                        **(
+                            {"description": str(artifact.get("description")).strip()}
+                            if str(artifact.get("description") or "").strip()
+                            else {}
+                        ),
                     }
                 )
             normalized_tasks.append(
@@ -202,9 +222,17 @@ class WorkerContractService:
                     "title": title,
                     "instructions": instructions,
                     "status": str(item.get("status") or "todo").strip().lower() or "todo",
-                    **({"priority": str(item.get("priority")).strip()} if str(item.get("priority") or "").strip() else {}),
+                    **(
+                        {"priority": str(item.get("priority")).strip()}
+                        if str(item.get("priority") or "").strip()
+                        else {}
+                    ),
                     **({"risk": str(item.get("risk")).strip()} if str(item.get("risk") or "").strip() else {}),
-                    "depends_on": [str(dep).strip() for dep in list(item.get("depends_on") or item.get("dependencies") or []) if str(dep).strip()],
+                    "depends_on": [
+                        str(dep).strip()
+                        for dep in list(item.get("depends_on") or item.get("dependencies") or [])
+                        if str(dep).strip()
+                    ],
                     "allowed_tools": normalize_allowed_tools(item.get("allowed_tools") or allowed_tools),
                     "expected_artifacts": normalized_expected_artifacts,
                     "acceptance_criteria": [
@@ -275,7 +303,6 @@ class WorkerContractService:
                 "todo_result_schema": "https://ananta.local/schemas/worker/worker_todo_result.v1.json",
             },
         }
-
 
     def build_worker_context_handoff_v3(
         self,

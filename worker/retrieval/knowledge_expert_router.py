@@ -66,11 +66,14 @@ class UncertaintyAwareKnowledgeExpertRouter:
         citation_required: bool,
         capability_ready: bool,
     ) -> KnowledgeExpertRoutingDecision:
-        required_scope = tuple(str(scope.get(key) or "").strip() for key in (
-            "tenant_id",
-            "workspace_id",
-            "repository_id",
-        ))
+        required_scope = tuple(
+            str(scope.get(key) or "").strip()
+            for key in (
+                "tenant_id",
+                "workspace_id",
+                "repository_id",
+            )
+        )
         if (
             mode not in _MODES
             or not query.strip()
@@ -95,8 +98,7 @@ class UncertaintyAwareKnowledgeExpertRouter:
             if not item.revoked
             and _DIGEST.fullmatch(item.manifest_digest)
             and math.isfinite(item.score)
-            and (item.tenant_id, item.workspace_id, item.repository_id)
-            == required_scope
+            and (item.tenant_id, item.workspace_id, item.repository_id) == required_scope
         ]
         admitted.sort(key=lambda item: (-float(item.score), item.manifest_digest))
         selected = tuple(item.manifest_digest for item in admitted[: self._top_k])

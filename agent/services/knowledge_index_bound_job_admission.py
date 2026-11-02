@@ -60,13 +60,9 @@ class KnowledgeIndexBoundJobAdmission:
         self._repository_provider = repository_provider
         self._payload_storage = payload_storage
         self._execution_binding_service = execution_binding_service
-        self._destination_resolution_service = (
-            destination_resolution_service
-        )
+        self._destination_resolution_service = destination_resolution_service
         self._worker_directory = worker_directory
-        self._allow_legacy_unresolved_destination = bool(
-            allow_legacy_unresolved_destination
-        )
+        self._allow_legacy_unresolved_destination = bool(allow_legacy_unresolved_destination)
 
     def admit(
         self,
@@ -111,57 +107,35 @@ class KnowledgeIndexBoundJobAdmission:
 
         service = self._execution_binding_service
         if service is None:
-            raise RuntimeError(
-                "knowledge_index_execution_binding_service_unavailable"
-            )
+            raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
         raw_key = str(idempotency_key or "")
         if not raw_key:
             raise ValueError("knowledge_index_idempotency_key_required")
-        idempotency_key_digest = hashlib.sha256(
-            raw_key.encode("utf-8")
-        ).hexdigest()
-        effective_source_policy_version = str(
-            source_policy_version or policy_snapshot_id
-        )
+        idempotency_key_digest = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+        effective_source_policy_version = str(source_policy_version or policy_snapshot_id)
         if effective_source_policy_version != str(policy_snapshot_id):
-            raise ValueError(
-                "knowledge_index_source_policy_binding_mismatch"
-            )
+            raise ValueError("knowledge_index_source_policy_binding_mismatch")
         from ananta_contracts.source_control import (
             GrantOperation,
             GrantTransformation,
         )
 
         try:
-            normalized_operation = GrantOperation(
-                str(source_operation)
-            ).value
-            normalized_transformation = GrantTransformation(
-                str(source_transformation)
-            ).value
+            normalized_operation = GrantOperation(str(source_operation)).value
+            normalized_transformation = GrantTransformation(str(source_transformation)).value
         except ValueError:
-            raise ValueError(
-                "knowledge_index_source_access_intent_invalid"
-            ) from None
+            raise ValueError("knowledge_index_source_access_intent_invalid") from None
         normalized_purpose = str(source_purpose or "").strip()
         if not normalized_purpose or len(normalized_purpose) > 160:
-            raise ValueError(
-                "knowledge_index_source_access_intent_invalid"
-            )
+            raise ValueError("knowledge_index_source_access_intent_invalid")
         source_access_intent = {
             "operation": normalized_operation,
             "transformation": normalized_transformation,
             "purpose": normalized_purpose,
             "policy_version": effective_source_policy_version,
         }
-        assignment_contract = (
-            KnowledgeIndexExecutionAssignment.model_validate(
-                dict(assignment)
-            )
-        )
-        resource_contract = KnowledgeIndexResourceBudget.model_validate(
-            dict(resource_budget)
-        )
+        assignment_contract = KnowledgeIndexExecutionAssignment.model_validate(dict(assignment))
+        resource_contract = KnowledgeIndexResourceBudget.model_validate(dict(resource_budget))
         normalized_destination_selection: dict[str, Any] = {}
         resolver = self._destination_resolution_service
         if resolver is not None:
@@ -172,34 +146,20 @@ class KnowledgeIndexBoundJobAdmission:
                 expected_destination_id=str(destination_id),
                 expected_worker_id=assignment_contract.worker_id,
             )
-            normalized_destination_selection = dict(
-                destination_selection
-            )
+            normalized_destination_selection = dict(destination_selection)
         elif not self._allow_legacy_unresolved_destination:
-            raise RuntimeError(
-                "knowledge_index_destination_resolution_unavailable"
-            )
+            raise RuntimeError("knowledge_index_destination_resolution_unavailable")
         elif destination_selection is not None:
             if not isinstance(destination_selection, Mapping):
-                raise ValueError(
-                    "knowledge_index_destination_selection_invalid"
-                )
-            normalized_destination_selection = dict(
-                destination_selection
-            )
+                raise ValueError("knowledge_index_destination_selection_invalid")
+            normalized_destination_selection = dict(destination_selection)
         if self._worker_directory is None:
-            raise RuntimeError(
-                "knowledge_index_worker_directory_unavailable"
-            )
+            raise RuntimeError("knowledge_index_worker_directory_unavailable")
         # Resolve the immutable assignment before storing a payload or
         # admitting an execution record. A disappeared/ambiguous Worker must
         # not leave an orphaned capability or binding behind.
-        assigned_worker_url = self._worker_directory.resolve_worker_url(
-            assignment_contract.worker_id
-        )
-        if not isinstance(records, list) or any(
-            not isinstance(item, Mapping) for item in records
-        ):
+        assigned_worker_url = self._worker_directory.resolve_worker_url(assignment_contract.worker_id)
+        if not isinstance(records, list) or any(not isinstance(item, Mapping) for item in records):
             raise ValueError("source_records_invalid")
         normalized_records = [dict(item) for item in records]
         payload = {
@@ -215,17 +175,13 @@ class KnowledgeIndexBoundJobAdmission:
                 # semantics is rejected even after a queue-write failure.
                 "dispatch_context_digest": fingerprint(
                     {
-                        "destination_selection": (
-                            normalized_destination_selection
-                        ),
+                        "destination_selection": (normalized_destination_selection),
                         "source_access_intent": source_access_intent,
                     }
                 ),
             },
             "codecompass_prerender": False,
-            "graph_visual_metrics": normalize_graph_visual_metrics_options(
-                None
-            ),
+            "graph_visual_metrics": normalize_graph_visual_metrics_options(None),
         }
         content = canonical_json(payload)
         if len(content) > MAX_JOB_PAYLOAD_BYTES:
@@ -262,9 +218,7 @@ class KnowledgeIndexBoundJobAdmission:
             profile_name=str(profile_name),
             created_by=str(created_by),
         )
-        preexisting_task = self._repository_provider().get_by_id(
-            prepared.job.job_id
-        )
+        preexisting_task = self._repository_provider().get_by_id(prepared.job.job_id)
         if preexisting_task is not None:
             validate_bound_task_projection(
                 preexisting_task,
@@ -284,9 +238,7 @@ class KnowledgeIndexBoundJobAdmission:
                     KnowledgeIndexExecutionBindingError,
                 )
 
-                raise KnowledgeIndexExecutionBindingError(
-                    "knowledge_index_execution_idempotency_conflict"
-                )
+                raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_idempotency_conflict")
             record = existing
         else:
             # Every deterministic contract and current-authority check runs

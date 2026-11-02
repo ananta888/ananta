@@ -1,18 +1,16 @@
 """Tests for Job Module Domain Models (JOBCORE-001/005)."""
+
 from __future__ import annotations
 
-import pytest
 from agent.caseflow.models import CaseFlowCase
-from agent.job_module.models import (
-    EmploymentType,
-    JobApplicationPayload,
-    JOB_APPLICATION_INITIAL,
-    JOB_APPLICATION_STATUSES,
-    RemotePolicy,
-)
 from agent.job_module.document_bundle import (
     ApplicationDocumentBundle,
     DocumentStatus,
+)
+from agent.job_module.models import (
+    JOB_APPLICATION_INITIAL,
+    JobApplicationPayload,
+    RemotePolicy,
 )
 
 

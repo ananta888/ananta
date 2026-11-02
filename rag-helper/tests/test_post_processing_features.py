@@ -19,20 +19,27 @@ class _DuplicateJavaExtractor:
 
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
         type_name = Path(rel_path).stem
-        return [{
-            "kind": "java_type",
-            "file": rel_path,
-            "id": f"java_type:{type_name}",
-            "name": type_name,
-            "type_kind": "class",
-            "fields": [
-                {"name": "id", "type": "Long", "annotations": []},
-                {"name": "name", "type": "String", "annotations": []},
+        return (
+            [
+                {
+                    "kind": "java_type",
+                    "file": rel_path,
+                    "id": f"java_type:{type_name}",
+                    "name": type_name,
+                    "type_kind": "class",
+                    "fields": [
+                        {"name": "id", "type": "Long", "annotations": []},
+                        {"name": "name", "type": "String", "annotations": []},
+                    ],
+                    "role_labels": ["dto"],
+                    "annotations": [],
+                    "embedding_text": "dto",
+                }
             ],
-            "role_labels": ["dto"],
-            "annotations": [],
-            "embedding_text": "dto",
-        }], [], [], {"kind": "java", "file": rel_path}
+            [],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class SpecializedChunkBoundaryTests(unittest.TestCase):
@@ -51,61 +58,82 @@ class SpecializedChunkBoundaryTests(unittest.TestCase):
 
 class _JpaJavaExtractor(_DuplicateJavaExtractor):
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_type",
-            "file": rel_path,
-            "id": "java_type:User",
-            "name": "User",
-            "type_kind": "class",
-            "fields": [
-                {"name": "id", "type": "Long", "annotations": []},
-                {"name": "roles", "type": "List<Role>", "annotations": ["@OneToMany"]},
+        return (
+            [
+                {
+                    "kind": "java_type",
+                    "file": rel_path,
+                    "id": "java_type:User",
+                    "name": "User",
+                    "type_kind": "class",
+                    "fields": [
+                        {"name": "id", "type": "Long", "annotations": []},
+                        {"name": "roles", "type": "List<Role>", "annotations": ["@OneToMany"]},
+                    ],
+                    "role_labels": ["entity"],
+                    "annotations": ["@Entity"],
+                    "embedding_text": "entity",
+                }
             ],
-            "role_labels": ["entity"],
-            "annotations": ["@Entity"],
-            "embedding_text": "entity",
-        }], [], [], {"kind": "java", "file": rel_path}
+            [],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _JpaJavaExtractorWithUnnamedAssociation(_DuplicateJavaExtractor):
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_type",
-            "file": rel_path,
-            "id": "java_type:User",
-            "name": "User",
-            "type_kind": "class",
-            "fields": [
-                {"name": "id", "type": "Long", "annotations": []},
-                {"name": None, "type": "List<Role>", "annotations": ["@OneToMany"]},
+        return (
+            [
+                {
+                    "kind": "java_type",
+                    "file": rel_path,
+                    "id": "java_type:User",
+                    "name": "User",
+                    "type_kind": "class",
+                    "fields": [
+                        {"name": "id", "type": "Long", "annotations": []},
+                        {"name": None, "type": "List<Role>", "annotations": ["@OneToMany"]},
+                    ],
+                    "role_labels": ["entity"],
+                    "annotations": ["@Entity"],
+                    "embedding_text": "entity",
+                }
             ],
-            "role_labels": ["entity"],
-            "annotations": ["@Entity"],
-            "embedding_text": "entity",
-        }], [], [], {"kind": "java", "file": rel_path}
+            [],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _RichJavaExtractor(_DuplicateJavaExtractor):
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [{
-            "kind": "java_type",
-            "file": rel_path,
-            "id": "java_type:PaymentService",
-            "name": "PaymentService",
-            "type_kind": "class",
-            "fields": [
-                {"name": "retryPolicy", "type": "RetryPolicy", "annotations": []},
-                {"name": "invoiceRepository", "type": "InvoiceRepository", "annotations": []},
+        return (
+            [
+                {
+                    "kind": "java_type",
+                    "file": rel_path,
+                    "id": "java_type:PaymentService",
+                    "name": "PaymentService",
+                    "type_kind": "class",
+                    "fields": [
+                        {"name": "retryPolicy", "type": "RetryPolicy", "annotations": []},
+                        {"name": "invoiceRepository", "type": "InvoiceRepository", "annotations": []},
+                    ],
+                    "methods": [
+                        {"name": "retryTimeout", "return_type": "void", "annotations": ["@Transactional"]},
+                        {"name": "loadInvoice", "return_type": "Invoice", "annotations": []},
+                        {"name": "emitMetric", "return_type": "void", "annotations": []},
+                    ],
+                    "role_labels": ["service"],
+                    "annotations": ["@Service"],
+                    "embedding_text": "service",
+                }
             ],
-            "methods": [
-                {"name": "retryTimeout", "return_type": "void", "annotations": ["@Transactional"]},
-                {"name": "loadInvoice", "return_type": "Invoice", "annotations": []},
-                {"name": "emitMetric", "return_type": "void", "annotations": []},
-            ],
-            "role_labels": ["service"],
-            "annotations": ["@Service"],
-            "embedding_text": "service",
-        }], [], [], {"kind": "java", "file": rel_path}
+            [],
+            [],
+            {"kind": "java", "file": rel_path},
+        )
 
 
 class _PomXmlExtractor:
@@ -113,20 +141,75 @@ class _PomXmlExtractor:
         self.kwargs = kwargs
 
     def parse(self, rel_path: str, text: str):
-        return [{
-            "kind": "xml_file",
-            "file": rel_path,
-            "id": f"xml_file:{rel_path}",
-            "xml_kind": "config",
-            "embedding_text": "pom",
-        }], [
-            {"kind": "xml_node_detail", "file": rel_path, "id": "groupId", "tag": "groupId", "path": "/project/groupId", "text": "com.example", "attributes": {}},
-            {"kind": "xml_node_detail", "file": rel_path, "id": "artifactId", "tag": "artifactId", "path": "/project/artifactId", "text": "demo", "attributes": {}},
-            {"kind": "xml_node_detail", "file": rel_path, "id": "version", "tag": "version", "path": "/project/version", "text": "1.0.0", "attributes": {}},
-            {"kind": "xml_node_detail", "file": rel_path, "id": "depGroup", "tag": "groupId", "path": "/project/dependencies/dependency/groupId", "text": "org.example", "attributes": {}},
-            {"kind": "xml_node_detail", "file": rel_path, "id": "depArtifact", "tag": "artifactId", "path": "/project/dependencies/dependency/artifactId", "text": "lib", "attributes": {}},
-            {"kind": "xml_node_detail", "file": rel_path, "id": "depVersion", "tag": "version", "path": "/project/dependencies/dependency/version", "text": "2.0.0", "attributes": {}},
-        ], [], {"kind": "xml", "file": rel_path}
+        return (
+            [
+                {
+                    "kind": "xml_file",
+                    "file": rel_path,
+                    "id": f"xml_file:{rel_path}",
+                    "xml_kind": "config",
+                    "embedding_text": "pom",
+                }
+            ],
+            [
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "groupId",
+                    "tag": "groupId",
+                    "path": "/project/groupId",
+                    "text": "com.example",
+                    "attributes": {},
+                },
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "artifactId",
+                    "tag": "artifactId",
+                    "path": "/project/artifactId",
+                    "text": "demo",
+                    "attributes": {},
+                },
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "version",
+                    "tag": "version",
+                    "path": "/project/version",
+                    "text": "1.0.0",
+                    "attributes": {},
+                },
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "depGroup",
+                    "tag": "groupId",
+                    "path": "/project/dependencies/dependency/groupId",
+                    "text": "org.example",
+                    "attributes": {},
+                },
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "depArtifact",
+                    "tag": "artifactId",
+                    "path": "/project/dependencies/dependency/artifactId",
+                    "text": "lib",
+                    "attributes": {},
+                },
+                {
+                    "kind": "xml_node_detail",
+                    "file": rel_path,
+                    "id": "depVersion",
+                    "tag": "version",
+                    "path": "/project/dependencies/dependency/version",
+                    "text": "2.0.0",
+                    "attributes": {},
+                },
+            ],
+            [],
+            {"kind": "xml", "file": rel_path},
+        )
 
 
 class _NoopExtractor:
@@ -140,58 +223,81 @@ class _PythonTsExtractor:
 
     def parse(self, rel_path: str, text: str):
         if rel_path.endswith(".py"):
-            return [{
-                "kind": "python_file",
-                "file": rel_path,
-                "id": f"python_file:{rel_path}",
-                "imports": ["os"],
-                "classes": [{"name": "Worker", "methods": [{"name": "run"}]}],
-                "functions": [{"name": "helper"}],
-                "symbols": [{"kind": "class", "name": "Worker", "line": 1}],
-                "embedding_text": "python",
-                "summary": {
-                    "import_count": 1,
-                    "class_count": 1,
-                    "function_count": 1,
-                    "method_count": 1,
-                    "symbol_count": 1,
-                },
-            }], [], [], {"kind": "python", "file": rel_path}
-        return [{
-            "kind": "typescript_file",
-            "file": rel_path,
-            "id": f"typescript_file:{rel_path}",
-            "imports": ["./base"],
-            "symbols": [{"kind": "class", "name": "UiService", "line": 1}],
-            "embedding_text": "typescript",
-            "summary": {
-                "import_count": 1,
-                "class_count": 1,
-                "function_count": 0,
-                "method_count": 2,
-                "symbol_count": 1,
-            },
-        }], [], [], {"kind": "typescript", "file": rel_path}
+            return (
+                [
+                    {
+                        "kind": "python_file",
+                        "file": rel_path,
+                        "id": f"python_file:{rel_path}",
+                        "imports": ["os"],
+                        "classes": [{"name": "Worker", "methods": [{"name": "run"}]}],
+                        "functions": [{"name": "helper"}],
+                        "symbols": [{"kind": "class", "name": "Worker", "line": 1}],
+                        "embedding_text": "python",
+                        "summary": {
+                            "import_count": 1,
+                            "class_count": 1,
+                            "function_count": 1,
+                            "method_count": 1,
+                            "symbol_count": 1,
+                        },
+                    }
+                ],
+                [],
+                [],
+                {"kind": "python", "file": rel_path},
+            )
+        return (
+            [
+                {
+                    "kind": "typescript_file",
+                    "file": rel_path,
+                    "id": f"typescript_file:{rel_path}",
+                    "imports": ["./base"],
+                    "symbols": [{"kind": "class", "name": "UiService", "line": 1}],
+                    "embedding_text": "typescript",
+                    "summary": {
+                        "import_count": 1,
+                        "class_count": 1,
+                        "function_count": 0,
+                        "method_count": 2,
+                        "symbol_count": 1,
+                    },
+                }
+            ],
+            [],
+            [],
+            {"kind": "typescript", "file": rel_path},
+        )
 
 
 class _GradleTextExtractor(_PythonTsExtractor):
     def parse(self, rel_path: str, text: str):
         if rel_path.endswith(("settings.gradle", "build.gradle")):
             is_settings = rel_path.endswith("settings.gradle")
-            return [{
-                "kind": "gradle_file",
-                "file": rel_path,
-                "id": f"gradle_file:{rel_path}",
-                "includes": [":core", ":web"] if is_settings else [],
-                "plugins": [] if is_settings else ["org.springframework.boot"],
-                "declarations": ["include ':core', ':web'"] if is_settings else ["plugins { id 'org.springframework.boot' }"],
-                "embedding_text": "gradle",
-                "summary": {
-                    "include_count": 2 if is_settings else 0,
-                    "plugin_count": 0 if is_settings else 1,
-                    "declaration_count": 1,
-                },
-            }], [], [], {"kind": "gradle", "file": rel_path}
+            return (
+                [
+                    {
+                        "kind": "gradle_file",
+                        "file": rel_path,
+                        "id": f"gradle_file:{rel_path}",
+                        "includes": [":core", ":web"] if is_settings else [],
+                        "plugins": [] if is_settings else ["org.springframework.boot"],
+                        "declarations": ["include ':core', ':web'"]
+                        if is_settings
+                        else ["plugins { id 'org.springframework.boot' }"],
+                        "embedding_text": "gradle",
+                        "summary": {
+                            "include_count": 2 if is_settings else 0,
+                            "plugin_count": 0 if is_settings else 1,
+                            "declaration_count": 1,
+                        },
+                    }
+                ],
+                [],
+                [],
+                {"kind": "gradle", "file": rel_path},
+            )
         return super().parse(rel_path, text)
 
 

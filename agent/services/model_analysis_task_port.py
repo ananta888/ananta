@@ -85,9 +85,7 @@ class HubModelAnalysisTaskSubmissionPort:
                 "worker_execution_context": {
                     "model_intelligence": {
                         "job": job.to_wire(),
-                        "tenant_scope_hash": hashlib.sha256(
-                            job.tenant_id.encode()
-                        ).hexdigest(),
+                        "tenant_scope_hash": hashlib.sha256(job.tenant_id.encode()).hexdigest(),
                         "persistence_owner": "hub",
                         "followup_task_creation_allowed": False,
                         "peer_transfer_allowed": False,

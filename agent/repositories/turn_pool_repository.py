@@ -8,12 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-
-from agent.models.turn_pool_contract import (
-    TurnPoolNodeDocument,
-    TurnPoolObservationDocument,
-)
-
 from datetime import UTC, datetime
 from typing import Any, Callable, Mapping, Sequence
 
@@ -22,6 +16,10 @@ from sqlmodel import Session, select
 
 from agent.db_models.turn_pool_nodes import TurnPoolNodeDB, TurnPoolNodeMutationDB
 from agent.models.turn_pool import TurnPoolNode, TurnPoolRegistration
+from agent.models.turn_pool_contract import (
+    TurnPoolNodeDocument,
+    TurnPoolObservationDocument,
+)
 
 
 class TurnPoolRepositoryError(RuntimeError):
@@ -186,10 +184,7 @@ class SqlTurnPoolRepository:
                 self._stop(node, now, "turn_pool_observer_fence_mismatch")
                 session.commit()
                 raise TurnPoolRepositoryError("turn_pool_observer_fence_mismatch")
-            if (
-                normalized.get("config_digest") != node.config_digest
-                or int(normalized.get("contract_version", 0)) != 1
-            ):
+            if normalized.get("config_digest") != node.config_digest or int(normalized.get("contract_version", 0)) != 1:
                 self._stop(node, now, "turn_pool_config_fence_mismatch")
                 session.commit()
                 raise TurnPoolRepositoryError("turn_pool_config_fence_mismatch")
@@ -286,8 +281,7 @@ class SqlTurnPoolRepository:
             "capacity_status": node.capacity_status,
             "cost_units": node.cost_units,
             "fresh_until": (
-                datetime.fromtimestamp(node.fresh_until, tz=UTC).isoformat()
-                if node.fresh_until is not None else None
+                datetime.fromtimestamp(node.fresh_until, tz=UTC).isoformat() if node.fresh_until is not None else None
             ),
             "observation_fencing_token": node.observation_fencing_token,
             "version": node.version,

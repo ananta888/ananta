@@ -41,6 +41,7 @@ def test_load_plugins_handles_crashy_plugin(tmp_path: Path, caplog):
     finally:
         settings.plugin_dirs = old_dirs
 
+
 def test_load_plugins_multiple_providers_in_one_file(tmp_path: Path):
     """
     Testet die Registrierung mehrerer Provider aus einem einzigen Plugin-Modul.
@@ -48,19 +49,24 @@ def test_load_plugins_multiple_providers_in_one_file(tmp_path: Path):
     plugin_dir = tmp_path / "plugins"
     plugin_dir.mkdir(parents=True, exist_ok=True)
     mod = plugin_dir / "multi_provider.py"
-    mod.write_text("\n".join([
-        "from agent.services.evolution.engine import EvolutionEngine",
-        "from agent.services.evolution.models import EvolutionCapability",
-        "class P1(EvolutionEngine):",
-        "    @property\n    def provider_name(self): return 'p1'",
-        "    @property\n    def capabilities(self): return [EvolutionCapability.ANALYZE]",
-        "    def analyze(self, ctx): pass",
-        "class P2(EvolutionEngine):",
-        "    @property\n    def provider_name(self): return 'p2'",
-        "    @property\n    def capabilities(self): return [EvolutionCapability.ANALYZE]",
-        "    def analyze(self, ctx): pass",
-        "evolution_providers = [P1(), P2()]"
-    ]), encoding="utf-8")
+    mod.write_text(
+        "\n".join(
+            [
+                "from agent.services.evolution.engine import EvolutionEngine",
+                "from agent.services.evolution.models import EvolutionCapability",
+                "class P1(EvolutionEngine):",
+                "    @property\n    def provider_name(self): return 'p1'",
+                "    @property\n    def capabilities(self): return [EvolutionCapability.ANALYZE]",
+                "    def analyze(self, ctx): pass",
+                "class P2(EvolutionEngine):",
+                "    @property\n    def provider_name(self): return 'p2'",
+                "    @property\n    def capabilities(self): return [EvolutionCapability.ANALYZE]",
+                "    def analyze(self, ctx): pass",
+                "evolution_providers = [P1(), P2()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     old_dirs = settings.plugin_dirs
     registry = get_evolution_provider_registry()
@@ -111,6 +117,7 @@ def test_load_plugins_reads_manifest_and_skips_disabled_plugins(tmp_path: Path):
         settings.plugin_dirs = old_dirs
         settings.plugins = old_plugins
 
+
 def test_evolution_provider_versioning_support(tmp_path: Path):
     """
     Prueft, ob die Version eines Providers korrekt registriert wird.
@@ -118,15 +125,20 @@ def test_evolution_provider_versioning_support(tmp_path: Path):
     plugin_dir = tmp_path / "plugins"
     plugin_dir.mkdir(parents=True, exist_ok=True)
     mod = plugin_dir / "versioned_provider.py"
-    mod.write_text("\n".join([
-        "from agent.services.evolution.engine import EvolutionEngine",
-        "class VersionedP(EvolutionEngine):",
-        "    @property\n    def provider_name(self): return 'versioned'",
-        "    @property\n    def version(self): return '1.2.3'",
-        "    @property\n    def capabilities(self): return ['analyze']",
-        "    def analyze(self, ctx): pass",
-        "evolution_provider = VersionedP()"
-    ]), encoding="utf-8")
+    mod.write_text(
+        "\n".join(
+            [
+                "from agent.services.evolution.engine import EvolutionEngine",
+                "class VersionedP(EvolutionEngine):",
+                "    @property\n    def provider_name(self): return 'versioned'",
+                "    @property\n    def version(self): return '1.2.3'",
+                "    @property\n    def capabilities(self): return ['analyze']",
+                "    def analyze(self, ctx): pass",
+                "evolution_provider = VersionedP()",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     old_dirs = settings.plugin_dirs
     registry = get_evolution_provider_registry()

@@ -4,7 +4,6 @@ from typing import Any
 
 from agent.tool_capabilities import ToolCapability, build_capability_contract
 
-
 TOOL_CONTRACT_VERSION = "v1"
 
 TOOL_CONTRACT_SCHEMA: dict[str, Any] = {

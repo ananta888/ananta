@@ -125,20 +125,13 @@ class HubRuntimeHandoffTaskController:
             allow_nan=False,
         )
         payload_digest = _sha256(encoded)
-        task_identity = _sha256(
-            f"{tenant_id}\0{idempotency_key}"
-        )
+        task_identity = _sha256(f"{tenant_id}\0{idempotency_key}")
         task_id = f"ush-{task_identity[:32]}"
         existing = self._repository.get_by_id(task_id)
         if existing is not None:
-            context = dict(
-                getattr(existing, "worker_execution_context", None) or {}
-            )
+            context = dict(getattr(existing, "worker_execution_context", None) or {})
             stored = dict(context.get("runtime_handoff") or {})
-            if (
-                stored.get("tenant_id") != tenant_id
-                or stored.get("payload_digest") != payload_digest
-            ):
+            if stored.get("tenant_id") != tenant_id or stored.get("payload_digest") != payload_digest:
                 raise RuntimeHandoffError(
                     "runtime_handoff_task_conflict",
                     "The Hub task ID is bound to another handoff.",
@@ -150,10 +143,7 @@ class HubRuntimeHandoffTaskController:
                 task_id=task_id,
                 status="in_progress",
                 title="Apply provider-neutral runtime endpoint handoff",
-                description=(
-                    "Validate and persist one immutable runtime endpoint "
-                    "revision in the Hub."
-                ),
+                description=("Validate and persist one immutable runtime endpoint revision in the Hub."),
                 priority="high",
                 created_by="system:unsloth-runtime-handoff",
                 source="system",
@@ -193,9 +183,7 @@ class HubRuntimeHandoffTaskController:
                 task_id,
                 "failed",
                 error="runtime_handoff_handler_failed",
-                status_reason_code=str(
-                    getattr(exc, "reason_code", "runtime_handoff_handler_failed")
-                ),
+                status_reason_code=str(getattr(exc, "reason_code", "runtime_handoff_handler_failed")),
                 event_type="runtime_handoff_task_failed",
                 event_actor="system:unsloth-runtime-handoff",
             )
@@ -277,13 +265,9 @@ class UnslothRuntimeHandoffMutationExecutor:
         payload = json.loads(plan.payload_json)
         return {
             "endpoint_id": payload["endpoint_id"],
-            "expected_endpoint_revision": payload[
-                "expected_endpoint_revision"
-            ],
+            "expected_endpoint_revision": payload["expected_endpoint_revision"],
             "promoted_artifact_id": payload["artifact"]["artifact_id"],
-            "promoted_artifact_sha256": payload["artifact"][
-                "artifact_sha256"
-            ],
+            "promoted_artifact_sha256": payload["artifact"]["artifact_sha256"],
             "provider_id": payload["provider_descriptor"]["provider_id"],
             "model_id": payload["provider_descriptor"]["model_id"],
             "api_capabilities": payload["api_capabilities"],
@@ -317,9 +301,7 @@ class UnslothRuntimeHandoffMutationExecutor:
                 endpoint_id=str(operation_payload["endpoint_descriptor"]["endpoint_id"]),
                 required_capability=next(
                     capability
-                    for capability, enabled in dict(
-                        operation_payload["provider_descriptor"]["capabilities"]
-                    ).items()
+                    for capability, enabled in dict(operation_payload["provider_descriptor"]["capabilities"]).items()
                     if enabled is True
                 ),
             )
@@ -412,9 +394,7 @@ class UnslothRuntimeHandoffMutationExecutor:
                 ),
                 source_ids=source_ids,
                 run_ids=run_ids,
-                expected_endpoint_revision=int(
-                    operation_payload["expected_endpoint_revision"]
-                ),
+                expected_endpoint_revision=int(operation_payload["expected_endpoint_revision"]),
                 provider_descriptor=descriptor["provider"],
                 endpoint_descriptor=descriptor["endpoint"],
                 api_capabilities=descriptor["api_capabilities"],
@@ -423,23 +403,17 @@ class UnslothRuntimeHandoffMutationExecutor:
                 adapter_id=record.adapter_id,
                 adapter_sha256=str(record.artifact_sha256 or ""),
                 base_model_id=record.base_model,
-                base_model_sha256=str(
-                    evidence.get("base_model_sha256") or ""
-                ),
+                base_model_sha256=str(evidence.get("base_model_sha256") or ""),
                 job_id=str(evidence.get("job_id") or ""),
                 attempt_id=str(evidence.get("attempt_id") or ""),
-                fencing_token_digest=str(
-                    evidence.get("fencing_token_digest") or ""
-                ),
+                fencing_token_digest=str(evidence.get("fencing_token_digest") or ""),
                 reason_sha256=_sha256(reason),
             )
             return self._handoff.plan(request)
         except RuntimeHandoffError as exc:
             raise _mutation_error(exc) from exc
         except (TypeError, ValueError) as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "runtime_endpoint_descriptor_invalid")
-            )
+            reason_code = str(getattr(exc, "reason_code", "runtime_endpoint_descriptor_invalid"))
             raise UnslothMutationError(
                 reason_code,
                 str(exc),
@@ -457,25 +431,14 @@ def build_runtime_handoff_mutation_executor(
     training = dict(agent_config.get("ml_intern_training") or {})
     runtime = dict(agent_config.get("lora_runtime") or {})
     unsloth = dict(agent_config.get("unsloth") or training.get("unsloth") or {})
-    trusted_source_ids = list(
-        unsloth.get("trusted_source_ids")
-        or training.get("trusted_source_ids")
-        or []
-    )
-    trusted_run_ids = list(
-        unsloth.get("trusted_run_ids")
-        or training.get("trusted_run_ids")
-        or []
-    )
+    trusted_source_ids = list(unsloth.get("trusted_source_ids") or training.get("trusted_source_ids") or [])
+    trusted_run_ids = list(unsloth.get("trusted_run_ids") or training.get("trusted_run_ids") or [])
     registry_path = str(
         runtime.get("runtime_endpoint_registry_path")
         or Path(
             str(
                 runtime.get("adapter_registry_path")
-                or Path(
-                    str(training.get("artifact_root") or "artifacts/lora")
-                )
-                / "adapter_registry.json"
+                or Path(str(training.get("artifact_root") or "artifacts/lora")) / "adapter_registry.json"
             )
         ).with_name("runtime_endpoints.sqlite3")
     )
@@ -483,9 +446,7 @@ def build_runtime_handoff_mutation_executor(
         registry_path,
         storage_references=storage_references,
     )
-    tasks = HubRuntimeHandoffTaskController(
-        handler=RuntimeHandoffTaskHandler(endpoints)
-    )
+    tasks = HubRuntimeHandoffTaskController(handler=RuntimeHandoffTaskHandler(endpoints))
     handoff = UnslothRuntimeHandoffService(
         tasks=tasks,
         audit=_RuntimeHandoffAudit(),
@@ -515,10 +476,7 @@ def runtime_endpoint_registry_from_config(
         or Path(
             str(
                 runtime.get("adapter_registry_path")
-                or Path(
-                    str(training.get("artifact_root") or "artifacts/lora")
-                )
-                / "adapter_registry.json"
+                or Path(str(training.get("artifact_root") or "artifacts/lora")) / "adapter_registry.json"
             )
         ).with_name("runtime_endpoints.sqlite3")
     )

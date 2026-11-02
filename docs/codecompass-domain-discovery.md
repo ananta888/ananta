@@ -288,9 +288,7 @@ clustering = cluster_domains(graph, records=records, manifest=manifest)
 descriptors = index_existing_descriptors("/pfad/zum/projekt")
 mismatches = build_descriptor_mismatches(descriptors, clustering.candidates)
 
-result = compute_boundary_metrics(
-    clustering, graph, descriptor_mismatches=mismatches
-)
+result = compute_boundary_metrics(clustering, graph, descriptor_mismatches=mismatches)
 # result.candidates: list[DomainCandidate]
 # result.boundary_warnings: list[dict]
 # result.coupling_pairs: list[dict]

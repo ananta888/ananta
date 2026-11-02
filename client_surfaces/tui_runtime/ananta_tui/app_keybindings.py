@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
 from time import sleep
 from typing import Any
 
 from client_surfaces.common.client_api import AnantaApiClient
-from client_surfaces.common.types import ClientResponse
 from client_surfaces.tui_runtime.ananta_tui.state import TuiViewState
 
-from .app_widgets import _empty_response, _parse_json_object, _safe_dict, _safe_items
+from .app_widgets import _parse_json_object, _safe_dict, _safe_items
 
 
 def _run_goal_create_action(
@@ -87,10 +85,7 @@ def _run_archived_action(
         response = client.cleanup_archived_tasks(payload)
     else:
         return f"[ARCHIVED-ACTION] rejected=unsupported_action:{archived_action}"
-    return (
-        f"[ARCHIVED-ACTION] applied action={archived_action} "
-        f"state={response.state} status={response.status_code}"
-    )
+    return f"[ARCHIVED-ACTION] applied action={archived_action} state={response.state} status={response.status_code}"
 
 
 def _run_artifact_action(
@@ -115,10 +110,7 @@ def _run_artifact_action(
         response = client.index_artifact(selected_artifact_id, payload)
     else:
         return f"[ARTIFACT-ACTION] rejected=unsupported_action:{artifact_action}"
-    return (
-        f"[ARTIFACT-ACTION] applied action={artifact_action} "
-        f"state={response.state} status={response.status_code}"
-    )
+    return f"[ARTIFACT-ACTION] applied action={artifact_action} state={response.state} status={response.status_code}"
 
 
 def _run_knowledge_action(
@@ -182,9 +174,7 @@ def _run_template_operation(
         response = client.template_validation_diagnostics(payload)
     else:
         return f"[TEMPLATE-OP] rejected=unsupported_operation:{template_operation}"
-    return (
-        f"[TEMPLATE-OP] operation={template_operation} state={response.state} status={response.status_code}"
-    )
+    return f"[TEMPLATE-OP] operation={template_operation} state={response.state} status={response.status_code}"
 
 
 def _run_team_action(
@@ -254,8 +244,7 @@ def _run_instruction_action(
     else:
         return f"[INSTRUCTION-ACTION] rejected=unsupported_action:{instruction_action}"
     return (
-        f"[INSTRUCTION-ACTION] applied action={instruction_action} "
-        f"state={response.state} status={response.status_code}"
+        f"[INSTRUCTION-ACTION] applied action={instruction_action} state={response.state} status={response.status_code}"
     )
 
 
@@ -286,8 +275,7 @@ def _run_automation_action(
     else:
         return f"[AUTOMATION-ACTION] rejected=unsupported_action:{automation_action}"
     return (
-        f"[AUTOMATION-ACTION] applied action={automation_action} "
-        f"state={response.state} status={response.status_code}"
+        f"[AUTOMATION-ACTION] applied action={automation_action} state={response.state} status={response.status_code}"
     )
 
 
@@ -355,10 +343,7 @@ def _run_repair_action(
 
     if bool(payload.get("unsafe")):
         return f"[REPAIR-ACTION] blocked=unsafe_payload session_id={session_id}"
-    return (
-        f"[REPAIR-ACTION] blocked=browser_fallback_required action={repair_action} "
-        f"session_id={session_id}"
-    )
+    return f"[REPAIR-ACTION] blocked=browser_fallback_required action={repair_action} session_id={session_id}"
 
 
 def _render_live_refresh_block(
@@ -378,10 +363,7 @@ def _render_live_refresh_block(
     include_task_logs = live_refresh_target in {"task_logs", "system_task_logs"}
     lines = ["[LIVE-REFRESH]"]
     lines.append(
-        (
-            f"target={live_refresh_target} cycles={live_refresh_cycles} "
-            f"interval_seconds={live_refresh_interval_seconds}"
-        )
+        (f"target={live_refresh_target} cycles={live_refresh_cycles} interval_seconds={live_refresh_interval_seconds}")
     )
     for cycle in range(1, live_refresh_cycles + 1):
         health = client.get_health()
@@ -401,10 +383,7 @@ def _render_live_refresh_block(
                 log_items = _safe_items(task_logs.data)
                 latest = log_items[-1] if log_items else {}
                 lines.append(
-                    (
-                        f"task_logs_state={task_logs.state} task_id={state.selected_task_id} "
-                        f"latest={latest.get('line')}"
-                    )
+                    (f"task_logs_state={task_logs.state} task_id={state.selected_task_id} latest={latest.get('line')}")
                 )
             else:
                 lines.append("task_logs_skipped=selected_task_required")

@@ -5,7 +5,6 @@ from typing import Any
 
 from agent.services.planning_contract import PlanningContract
 
-
 _STABLE_ERROR_CODES = {
     "no_tasks",
     "too_few_tasks",

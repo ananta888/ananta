@@ -20,9 +20,7 @@ class SqlModelRoutingConfigurationRepository:
                 return ModelRoutingConfiguration(revision=0)
             return ModelRoutingConfiguration.model_validate_json(row.value_json)
 
-    def save_if_revision(
-        self, expected_revision: int, value: ModelRoutingConfiguration
-    ) -> bool:
+    def save_if_revision(self, expected_revision: int, value: ModelRoutingConfiguration) -> bool:
         serialized = value.model_dump_json(by_alias=True)
         with Session(engine) as session:
             row = session.exec(select(ConfigDB).where(ConfigDB.key == _KEY)).first()

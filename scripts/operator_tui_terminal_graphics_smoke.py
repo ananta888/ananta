@@ -12,6 +12,7 @@ Usage:
   python scripts/operator_tui_terminal_graphics_smoke.py --save-svg /tmp/test.svg
   python scripts/operator_tui_terminal_graphics_smoke.py --open-external  # wslview/xdg-open
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,6 @@ import os
 import subprocess
 import sys
 import time
-from io import StringIO
 from pathlib import Path
 
 _SAMPLE_MERMAID = """flowchart TD
@@ -60,22 +60,29 @@ Dieses Dokument enthält ein Mermaid-Diagramm.
 def _print_header(title: str) -> None:
     print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print('=' * 60)
+    print("=" * 60)
 
 
 def _print_capabilities() -> dict:
     _print_header("Capability Detection")
     from client_surfaces.operator_tui.visual.capabilities.terminal_detector import detect_image_output_capabilities
+
     caps = detect_image_output_capabilities()
     d = caps.as_dict()
-    ok = lambda v: "✓" if v else "✗"
+
+    def ok(v):
+        return "✓" if v else "✗"
 
     print(f"  mmdc (mermaid-cli):     {ok(d['mermaid_mmdc'])}")
     print(f"  playwright:             {ok(d['mermaid_playwright'])}")
     print(f"  Pillow:                 {ok(d['pillow_available'])}")
     print(f"  cairosvg:               {ok(d['cairosvg_available'])}")
-    print(f"  Kitty protocol:         {ok(d['kitty_supported'])}  (TERM={os.environ.get('TERM','?')}, KITTY_WINDOW_ID={os.environ.get('KITTY_WINDOW_ID','not set')})")
-    print(f"  Sixel protocol:         {ok(d['sixel_supported'])}  (SIXEL_SUPPORTED={os.environ.get('SIXEL_SUPPORTED','not set')})")
+    print(
+        f"  Kitty protocol:         {ok(d['kitty_supported'])}  (TERM={os.environ.get('TERM', '?')}, KITTY_WINDOW_ID={os.environ.get('KITTY_WINDOW_ID', 'not set')})"
+    )
+    print(
+        f"  Sixel protocol:         {ok(d['sixel_supported'])}  (SIXEL_SUPPORTED={os.environ.get('SIXEL_SUPPORTED', 'not set')})"
+    )
     print(f"  WT_SESSION (Windows):   {bool(os.environ.get('WT_SESSION'))}")
     print(f"\n  → can_show_mermaid_image: {ok(d['can_show_mermaid_image'])}")
     if d.get("degraded_reasons"):
@@ -87,11 +94,11 @@ def _print_capabilities() -> dict:
 
 def _render_ansi(width: int = 72) -> None:
     _print_header("ANSI/Unicode Rendering")
-    from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
-    from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
-    from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
-    from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import render_markdown_ansi_lines
     from client_surfaces.operator_tui.visual.markdown.block_art_renderer import svg_to_block_art
+    from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import render_markdown_ansi_lines
+    from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
+    from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
+    from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
 
     blocks = parse_markdown(_SAMPLE_MD)
     renderer = MermaidRenderer()
@@ -115,12 +122,12 @@ def _render_ansi(width: int = 72) -> None:
 
 def _render_kitty(caps: dict, force: bool = False) -> bool:
     _print_header("Kitty Graphics Output")
-    from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
-    from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
-    from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
-    from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-    from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
     from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
+    from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
+    from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
+    from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
+    from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
+    from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
     from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
 
     if not caps.get("kitty_supported") and not force:
@@ -133,9 +140,17 @@ def _render_kitty(caps: dict, force: bool = False) -> bool:
         print(f"  ✗ Mermaid render failed: {result.reason}")
         return False
 
-    node = {"kind": "diagram_image", "diagram_id": "smoke_kitty", "image_format": result.image_format,
-            "image_data": result.image_data, "x": 0, "y": 0, "requested_width": 400, "requested_height": 200,
-            "alt_text": "Smoke test diagram"}
+    node = {
+        "kind": "diagram_image",
+        "diagram_id": "smoke_kitty",
+        "image_format": result.image_format,
+        "image_data": result.image_data,
+        "x": 0,
+        "y": 0,
+        "requested_width": 400,
+        "requested_height": 200,
+        "alt_text": "Smoke test diagram",
+    }
     scene = RenderScene(scene_type="markdown_mermaid_document", nodes=[node], metadata={"animated": False})
     cpu = CpuRasterRenderer(max_width=400, max_height=200)
     frame = cpu.render(scene, width=400, height=200, context=RenderContext(now=time.monotonic()))
@@ -156,8 +171,8 @@ def _render_kitty(caps: dict, force: bool = False) -> bool:
 
 def _render_sixel(caps: dict, force: bool = False) -> bool:
     _print_header("Sixel Output")
-    from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
     from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
+    from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
     from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame
     from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
 
@@ -168,15 +183,19 @@ def _render_sixel(caps: dict, force: bool = False) -> bool:
     # Build a tiny RGBA test frame
     payload = bytes([200, 100, 50, 255] * (8 * 8))
     frame = RenderFrame(
-        frame_type="raster", width=8, height=8,
+        frame_type="raster",
+        width=8,
+        height=8,
         payload={"pixels": payload, "width": 8, "height": 8, "mode": "RGBA"},
-        mime_or_format="application/x-rgba", timestamp=1.0, metadata={},
+        mime_or_format="application/x-rgba",
+        timestamp=1.0,
+        metadata={},
     )
     region = ViewportRegion(x=0, y=0, columns=10, rows=4, pixel_width=40, pixel_height=16)
     adapter = SixelOutputAdapter(supported=True, enabled=True)
     draw = adapter.draw(frame, region=region, stream=sys.stdout, context=DrawContext(now=time.monotonic()))
     if draw.drawn:
-        print(f"\n  ✓ Sixel output sent (real encoding)")
+        print("\n  ✓ Sixel output sent (real encoding)")
         assert "sixel-stub" not in str(draw.metadata), "Sixel must not emit stub!"
         return True
     else:
@@ -203,6 +222,7 @@ def _save_artifact(path: str | None, fmt: str = "svg") -> Path | None:
     print()
 
     from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
+
     renderer = MermaidRenderer()
     result = renderer.render(_SAMPLE_MERMAID)
     if not result.success or not result.image_data:
@@ -219,6 +239,7 @@ def _save_artifact(path: str | None, fmt: str = "svg") -> Path | None:
         # Convert SVG → PNG via cairosvg
         try:
             import cairosvg  # type: ignore
+
             png_bytes = cairosvg.svg2png(bytestring=result.image_data)
             out = out.with_suffix(".png")
             out.write_bytes(png_bytes)
@@ -243,6 +264,7 @@ def _open_external(artifact_path: Path) -> None:
     The opener binary must come from PATH, never from document content.
     """
     import shutil
+
     opener = shutil.which("wslview") or shutil.which("xdg-open") or shutil.which("open")
     if not opener:
         print("  ✗ No external opener found (install wslview for WSL2, or xdg-open on Linux)")
@@ -286,12 +308,18 @@ Examples:
     parser.add_argument("--force-kitty", action="store_true", help="Force Kitty output even if not detected")
     parser.add_argument("--force-sixel", action="store_true", help="Force Sixel output even if not detected")
     parser.add_argument("--require-image", action="store_true", help="Exit non-zero if only ANSI fallback")
-    parser.add_argument("--save-artifact", choices=["svg", "png"], metavar="FMT",
-                        help="Save rendered Mermaid as SVG or PNG to artifacts dir (DEBUG/MANUAL path)")
-    parser.add_argument("--save-path", metavar="PATH",
-                        help="Override save location for --save-artifact")
-    parser.add_argument("--open-external", action="store_true",
-                        help="Open saved artifact externally via wslview/xdg-open (DEBUG/MANUAL only)")
+    parser.add_argument(
+        "--save-artifact",
+        choices=["svg", "png"],
+        metavar="FMT",
+        help="Save rendered Mermaid as SVG or PNG to artifacts dir (DEBUG/MANUAL path)",
+    )
+    parser.add_argument("--save-path", metavar="PATH", help="Override save location for --save-artifact")
+    parser.add_argument(
+        "--open-external",
+        action="store_true",
+        help="Open saved artifact externally via wslview/xdg-open (DEBUG/MANUAL only)",
+    )
     # Legacy alias
     parser.add_argument("--save-svg", metavar="PATH", help=argparse.SUPPRESS)
     parser.add_argument("--width", type=int, default=72)

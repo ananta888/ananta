@@ -35,5 +35,7 @@ def test_codecompass_cache_state_invalidation_on_deleted_output():
         retrieval_engine_version="r1",
         embedding_model_version="e1",
     )
-    assert should_invalidate_channel(previous_state=state, next_state=state, channel="fts", output_file_deleted=True) is True
-
+    assert (
+        should_invalidate_channel(previous_state=state, next_state=state, channel="fts", output_file_deleted=True)
+        is True
+    )

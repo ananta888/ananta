@@ -7,7 +7,7 @@ from contextlib import ExitStack
 
 import pytest
 
-from tests.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
 from tests.meet.meet_receive_infrastructure import private_receive
 from tests.meet.meet_restart_hub_container import RestartHubContainer
 

@@ -7,11 +7,12 @@
 - AI-Kontext/Artefaktinhalte nur wenn Session-Rechte es erlauben
 - Audit: Hash/Metadaten, kein Screenshot-Klartext
 """
+
 from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # Pattern für sensitive Inhalte

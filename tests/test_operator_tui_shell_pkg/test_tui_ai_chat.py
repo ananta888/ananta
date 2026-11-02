@@ -1,40 +1,20 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import sys
 import time
-from importlib import reload
-from argparse import Namespace
 from pathlib import Path
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_config_view import (
     ai_snake_config_items,
     apply_ai_snake_config_value,
     chat_model_option_label,
-    refresh_chat_backend_models,
 )
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
 from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
+from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.renderer import render_operator_shell
 
 
 def test_chat_rag_question_tokens_and_name_lookup_prefer_function_detail(tmp_path: Path) -> None:
@@ -62,7 +42,6 @@ def test_chat_rag_question_tokens_and_name_lookup_prefer_function_detail(tmp_pat
 
     class_context = _load_rag_context_from_dir(out_dir, ["snakeopsmixin"], 5, 1, scope_filter="full")
     assert "SnakeOpsMixin" in "\n".join(class_context)
-
 
 
 def test_chat_llm_prompt_honors_context_char_opt_out_and_prior_messages(monkeypatch) -> None:
@@ -106,7 +85,6 @@ def test_chat_llm_prompt_honors_context_char_opt_out_and_prior_messages(monkeypa
     assert body["max_tokens"] >= 400
 
 
-
 def test_chat_channel_cycle_preserves_input_buffer() -> None:
     from client_surfaces.operator_tui.chat_state import get_sessions
 
@@ -138,7 +116,6 @@ def test_chat_channel_cycle_preserves_input_buffer() -> None:
     if before_cycle == "ai:code-help" and second_id:
         # The cycle should have moved to the second session
         assert chat.get("active_channel") == f"ai:{second_id}"
-
 
 
 def test_chat_input_supports_cursor_backspace_delete_and_history() -> None:
@@ -178,7 +155,6 @@ def test_chat_input_supports_cursor_backspace_delete_and_history() -> None:
     assert chat.get("chat_input_buffer") == "draft"
 
 
-
 def test_ai_chat_send_does_not_pause_snake() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True, "tutorial_mode": False}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
@@ -194,7 +170,6 @@ def test_ai_chat_send_does_not_pause_snake() -> None:
     assert updated.get("tutor_ask_question") == "hi"
     assert updated.get("_ask_submitted") is False
     assert updated.get("tutorial_mode") is False
-
 
 
 def test_chat_panel_shows_timeout_progress_while_ai_typing() -> None:
@@ -215,15 +190,28 @@ def test_chat_panel_shows_timeout_progress_while_ai_typing() -> None:
                     "messages": [{"sender_id": "s1", "sender_kind": "user", "text": "frage", "created_at": now - 2}],
                     "unread": 0,
                 },
-                "room:main": {"id": "room:main", "channel_type": "room", "display_name": "#room", "messages": [], "unread": 0},
-                "notes:self": {"id": "notes:self", "channel_type": "notes", "display_name": "notes", "messages": [], "unread": 0},
+                "room:main": {
+                    "id": "room:main",
+                    "channel_type": "room",
+                    "display_name": "#room",
+                    "messages": [],
+                    "unread": 0,
+                },
+                "notes:self": {
+                    "id": "notes:self",
+                    "channel_type": "notes",
+                    "display_name": "notes",
+                    "messages": [],
+                    "unread": 0,
+                },
             },
         },
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.DETAIL, section_id="tasks", header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.DETAIL, section_id="tasks", header_logo_game=game
+    )
     output = render_operator_shell(state, width=110, height=24)
     assert "timeout in" in output
-
 
 
 def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
@@ -240,14 +228,15 @@ def test_ai_snake_config_panel_toggles_in_middle_content() -> None:
     assert "CFG:on" not in output_closed
 
 
-
 def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
     game = {
         "tutorial_mode": True,
         "ai_snake_config_open": True,
         "snakes": {"s-ai": {"id": "s-ai", "pseudonym": "tutor-ai"}},
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=0, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=0, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0)
 
@@ -262,7 +251,6 @@ def test_ai_snake_config_selected_can_disable_visual_ai() -> None:
     updated = tui.state.header_logo_game or {}
     assert updated.get("tutorial_mode") is False
     assert "s-ai" not in dict(updated.get("snakes") or {})
-
 
 
 def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
@@ -294,14 +282,15 @@ def test_ai_snake_config_open_resets_chat_focus_and_command_mode() -> None:
     assert updated.get("artifact_chat_focus") is False
 
 
-
 def test_ai_snake_config_combo_enter_applies_filter_input_value() -> None:
     game = {
         "ai_snake_config_open": True,
         "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
         "chat_backend": "ananta-worker",
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=4)
 
@@ -313,14 +302,15 @@ def test_ai_snake_config_combo_enter_applies_filter_input_value() -> None:
     assert updated.get("chat_backend") == "code|studio"
 
 
-
 def test_ai_snake_config_combo_arrow_selection_applies_option() -> None:
     game = {
         "ai_snake_config_open": True,
         "chat_backends_available": ["ananta-worker", "opencode", "lmstudio"],
         "chat_backend": "ananta-worker",
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=4, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=4)
 
@@ -332,7 +322,6 @@ def test_ai_snake_config_combo_arrow_selection_applies_option() -> None:
     assert updated.get("chat_backend") == "opencode"
 
 
-
 def test_ai_snake_config_chat_model_combo_loads_lmstudio_models(monkeypatch) -> None:
     game = {
         "ai_snake_config_open": True,
@@ -340,7 +329,9 @@ def test_ai_snake_config_chat_model_combo_loads_lmstudio_models(monkeypatch) -> 
         "chat_backend_api_base": "http://lmstudio.test/v1",
         "chat_backend_models": [],
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
 
@@ -376,7 +367,6 @@ def test_ai_snake_config_chat_model_combo_loads_lmstudio_models(monkeypatch) -> 
     assert "google/gemma-3n-e4b" in models
 
 
-
 def test_ai_snake_config_chat_model_fetch_falls_back_to_localhost(monkeypatch) -> None:
     game = {
         "ai_snake_config_open": True,
@@ -384,7 +374,9 @@ def test_ai_snake_config_chat_model_fetch_falls_back_to_localhost(monkeypatch) -
         "chat_backend_api_base": "http://192.168.178.100:1234/v1",
         "chat_backend_models": [],
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
 
@@ -421,7 +413,6 @@ def test_ai_snake_config_chat_model_fetch_falls_back_to_localhost(monkeypatch) -
     assert str(updated.get("chat_backend_api_base") or "").startswith("http://localhost:1234")
 
 
-
 def test_ai_snake_config_chat_model_fetch_includes_unloaded_lmstudio_models(monkeypatch) -> None:
     game = {
         "ai_snake_config_open": True,
@@ -429,7 +420,9 @@ def test_ai_snake_config_chat_model_fetch_includes_unloaded_lmstudio_models(monk
         "chat_backend_api_base": "http://localhost:1234/v1",
         "chat_backend_models": [],
     }
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game)
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.CONTENT, selected_index=5, header_logo_game=game
+    )
     tui = InteractiveOperatorTui(state)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=5)
 
@@ -477,7 +470,6 @@ def test_ai_snake_config_chat_model_fetch_includes_unloaded_lmstudio_models(monk
     assert states.get("microsoft_-_phi-3.5-mini-instruct") == "not_loaded"
 
 
-
 def test_chat_model_option_label_marks_loaded_status() -> None:
     game = {
         "chat_backend_model_states": {
@@ -491,7 +483,6 @@ def test_chat_model_option_label_marks_loaded_status() -> None:
     assert chat_model_option_label(game, "unknown/model").endswith("[status unbekannt]")
 
 
-
 def test_chat_codecompass_context_can_be_disabled_via_config() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -502,7 +493,6 @@ def test_chat_codecompass_context_can_be_disabled_via_config() -> None:
     hints = tui._chat_codecompass_context_for_question(question="wie geht x")
 
     assert hints == []
-
 
 
 def test_chat_double_slash_toggles_middle_shortcuts() -> None:
@@ -528,7 +518,6 @@ def test_chat_double_slash_toggles_middle_shortcuts() -> None:
     assert updated.get("shortcut_help_middle_open") is False
 
 
-
 def test_chat_focus_toggle_uses_same_shortcut_for_enter_and_exit() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
@@ -541,12 +530,10 @@ def test_chat_focus_toggle_uses_same_shortcut_for_enter_and_exit() -> None:
     assert tui._chat_focus_active() is False
 
 
-
 def test_ai_snake_config_includes_chat_ask_timeout_field() -> None:
     items = ai_snake_config_items({})
     keys = [str(item.get("key") or "") for item in items]
     assert "chat_ask_timeout_s" in keys
-
 
 
 def test_ai_snake_config_includes_chat_provider_and_api_base_fields() -> None:
@@ -555,7 +542,6 @@ def test_ai_snake_config_includes_chat_provider_and_api_base_fields() -> None:
     assert "chat_backend" in by_key
     assert str(by_key["chat_backend"].get("label") or "") == "Chat Provider"
     assert "chat_api_base" in by_key
-
 
 
 def test_ai_snake_config_includes_chat_context_control_fields() -> None:
@@ -575,13 +561,11 @@ def test_ai_snake_config_includes_chat_context_control_fields() -> None:
     assert "chat_answer_chars" in keys
 
 
-
 def test_ai_snake_config_applies_chat_ask_timeout_value() -> None:
     game: dict[str, object] = {}
     status = apply_ai_snake_config_value(game, key="chat_ask_timeout_s", value="90")
     assert game.get("chat_ask_timeout_s") == 90.0
     assert "90" in status
-
 
 
 def test_ai_snake_config_applies_chat_context_settings() -> None:
@@ -618,11 +602,9 @@ def test_ai_snake_config_applies_chat_context_settings() -> None:
     assert "AN" in status_j
 
 
-
 def test_chat_state_sanitize_text_can_keep_long_messages() -> None:
     long_text = "x" * 1500
     assert len(sanitize_text(long_text, max_len=None)) == 1500
-
 
 
 def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> None:
@@ -654,7 +636,6 @@ def test_ai_snake_config_backend_switch_fetches_lmstudio_models(monkeypatch) -> 
     assert "modelle" in status
 
 
-
 def test_ai_snake_config_backend_switch_sets_ananta_worker_default_model(monkeypatch) -> None:
     game: dict[str, object] = {"chat_backend_models": []}
     monkeypatch.setattr(
@@ -668,7 +649,6 @@ def test_ai_snake_config_backend_switch_sets_ananta_worker_default_model(monkeyp
     assert "google/gemma-4-e4b" in models
     assert game.get("chat_backend_model") == "google/gemma-4-e4b"
     assert "ananta-worker" in status
-
 
 
 def test_ai_snake_config_backend_switch_uses_opencode_default_model(monkeypatch) -> None:
@@ -687,7 +667,6 @@ def test_ai_snake_config_backend_switch_uses_opencode_default_model(monkeypatch)
     assert "opencode/test-model" in models
     assert game.get("chat_backend_model") == "opencode/test-model"
     assert "opencode" in status
-
 
 
 def test_chat_backend_use_sets_default_model_for_opencode(monkeypatch) -> None:
@@ -715,7 +694,6 @@ def test_chat_backend_use_sets_default_model_for_opencode(monkeypatch) -> None:
     assert game.get("chat_backend_model") == "opencode/cli-default"
 
 
-
 def test_chat_ask_uses_timeout_from_ai_snake_config() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -726,9 +704,8 @@ def test_chat_ask_uses_timeout_from_ai_snake_config() -> None:
     assert float(game.get("tutor_ask_timeout_s") or 0.0) == 75.0
 
 
-
 def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
-    from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
+    from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
 
     chat = default_chat_state("s1")
     chat["active_channel"] = "ai:tutor"
@@ -761,9 +738,8 @@ def test_chat_panel_renders_in_detail_pane_without_overlay() -> None:
     assert "Tutorial-AI propose flow" not in plain
 
 
-
 def test_chat_messages_use_participant_colors_and_labels() -> None:
-    from client_surfaces.operator_tui.chat_state import default_chat_state, make_message, append_message
+    from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
 
     chat = default_chat_state("s1")
     chat["active_channel"] = "room:main"
@@ -806,5 +782,3 @@ def test_chat_messages_use_participant_colors_and_labels() -> None:
 
     assert "\x1b[38;2;170;255;210malice: Hallo\x1b[0m" in output
     assert "\x1b[38;2;255;205;130mAI-snake: Bereit\x1b[0m" in output
-
-

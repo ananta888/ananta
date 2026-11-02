@@ -1,10 +1,9 @@
 """DRR-T004: RepairStepResult and RepairExecutionResult contract tests."""
+
 from __future__ import annotations
 
 import json
 import time
-
-import pytest
 
 from worker.core.execution_envelope import (
     RepairExecutionResult,
@@ -93,7 +92,9 @@ class TestRepairExecutionResultContract:
         step_results = [
             RepairStepResult(step_id="s1", status=RepairStepResultStatus.success),
             RepairStepResult(step_id="s2", status=RepairStepResultStatus.success),
-            RepairStepResult(step_id="s3", status=RepairStepResultStatus.verification_failed, reason_code="verification_failed"),
+            RepairStepResult(
+                step_id="s3", status=RepairStepResultStatus.verification_failed, reason_code="verification_failed"
+            ),
         ]
         result = RepairExecutionResult(
             plan_id="plan-002",

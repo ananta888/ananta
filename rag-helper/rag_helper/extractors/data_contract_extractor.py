@@ -34,12 +34,9 @@ class JsonDocumentExtractor:
         self.embedding_text_mode = embedding_text_mode
         self.max_nodes = max_nodes
         self.max_depth = max_depth
-        self.planning_todo_extractor = (
-            planning_todo_extractor
-            or PlanningTodoExtractor(
-                embedding_text_mode=embedding_text_mode,
-                max_records=max_nodes,
-            )
+        self.planning_todo_extractor = planning_todo_extractor or PlanningTodoExtractor(
+            embedding_text_mode=embedding_text_mode,
+            max_records=max_nodes,
         )
         self.schema_parser = schema_parser or JsonSchemaContractParser(
             embedding_text_mode=embedding_text_mode,

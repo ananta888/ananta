@@ -1,12 +1,12 @@
 """Tests for worker/core/subworker.py (EW-T038 through EW-T042)."""
-import time
+
 import threading
+import time
+
 import pytest
 from pydantic import ValidationError
 
-from worker.core.execution_envelope import (
-    ApprovalRef, CapabilityGrant, ExecutionEnvelope
-)
+from worker.core.execution_envelope import ApprovalRef, CapabilityGrant, ExecutionEnvelope
 from worker.core.subworker import (
     CancellationToken,
     CoordinatedTask,
@@ -21,15 +21,19 @@ from worker.core.subworker import (
 
 def _parent_env(**overrides) -> ExecutionEnvelope:
     defaults = dict(
-        task_id="parent-t1", actor_ref="hub:test",
-        capability_grant=CapabilityGrant(capabilities=[
-            "planning", "code_read", "patch_propose", "subworker_spawn"
-        ]),
-        context_envelope_ref="ctx:1", audit_correlation_id="audit:1",
-        approval_refs=[ApprovalRef(
-            ref_id="r1", operation="subworker_spawn",
-            granted_at=time.time(), granted_by="admin",
-        )],
+        task_id="parent-t1",
+        actor_ref="hub:test",
+        capability_grant=CapabilityGrant(capabilities=["planning", "code_read", "patch_propose", "subworker_spawn"]),
+        context_envelope_ref="ctx:1",
+        audit_correlation_id="audit:1",
+        approval_refs=[
+            ApprovalRef(
+                ref_id="r1",
+                operation="subworker_spawn",
+                granted_at=time.time(),
+                granted_by="admin",
+            )
+        ],
     )
     defaults.update(overrides)
     return ExecutionEnvelope(**defaults)
@@ -50,6 +54,7 @@ GATE = SubworkerSpawnGate()
 
 
 # ── EW-T038: SubworkerEnvelope ────────────────────────────────────────────────
+
 
 class TestSubworkerEnvelope:
     def test_valid_sub_env(self):
@@ -84,6 +89,7 @@ class TestSubworkerEnvelope:
 
 # ── EW-T039: SubworkerSpawnGate ───────────────────────────────────────────────
 
+
 class TestSubworkerSpawnGate:
     def test_valid_spawn_allowed(self):
         parent = _parent_env()
@@ -92,9 +98,7 @@ class TestSubworkerSpawnGate:
         assert result.allowed
 
     def test_missing_subworker_spawn_capability_denied(self):
-        parent = _parent_env(
-            capability_grant=CapabilityGrant(capabilities=["planning"])
-        )
+        parent = _parent_env(capability_grant=CapabilityGrant(capabilities=["planning"]))
         sub = _sub_env()
         result = GATE.check(parent, sub)
         assert result.allowed is False
@@ -130,10 +134,14 @@ class TestSubworkerSpawnGate:
     def test_capability_exceeds_parent_blocked(self):
         parent = _parent_env(
             capability_grant=CapabilityGrant(capabilities=["planning", "subworker_spawn"]),
-            approval_refs=[ApprovalRef(
-                ref_id="r1", operation="subworker_spawn",
-                granted_at=time.time(), granted_by="admin",
-            )],
+            approval_refs=[
+                ApprovalRef(
+                    ref_id="r1",
+                    operation="subworker_spawn",
+                    granted_at=time.time(),
+                    granted_by="admin",
+                )
+            ],
         )
         sub = _sub_env(reduced_capability_grant=CapabilityGrant(capabilities=["shell_execute"]))
         result = GATE.check(parent, sub)
@@ -149,6 +157,7 @@ class TestSubworkerSpawnGate:
 
 
 # ── EW-T040: ParallelExecutionCoordinator ─────────────────────────────────────
+
 
 class TestParallelExecutionCoordinator:
     def setup_method(self):
@@ -190,7 +199,7 @@ class TestParallelExecutionCoordinator:
         assert task in parallel
 
     def test_merge_results_preserves_order(self):
-        env = _parent_env()
+        _parent_env()
         t1 = CoordinatedTask("t1", is_mutation=False, state=ExecutionState.succeeded)
         t2 = CoordinatedTask("t2", is_mutation=False, state=ExecutionState.succeeded)
         t3 = CoordinatedTask("t3", is_mutation=True, state=ExecutionState.succeeded)
@@ -207,23 +216,32 @@ class TestParallelExecutionCoordinator:
 
 # ── EW-T041: DelegationArtifact ───────────────────────────────────────────────
 
+
 class TestDelegationArtifact:
     def test_add_records(self):
         artifact = DelegationArtifact(artifact_id="da1", parent_task_id="p1")
-        artifact.add_record(DelegationRecord(
-            child_task_id="c1", objective="do X",
-            capabilities=["planning"], context_refs=["ctx:1"],
-            result_status="success",
-        ))
+        artifact.add_record(
+            DelegationRecord(
+                child_task_id="c1",
+                objective="do X",
+                capabilities=["planning"],
+                context_refs=["ctx:1"],
+                result_status="success",
+            )
+        )
         assert len(artifact.records) == 1
 
     def test_as_dict_has_required_fields(self):
         artifact = DelegationArtifact(artifact_id="da1", parent_task_id="p1")
-        artifact.add_record(DelegationRecord(
-            child_task_id="c1", objective="do Y",
-            capabilities=["planning"], context_refs=[],
-            result_status="failed",
-        ))
+        artifact.add_record(
+            DelegationRecord(
+                child_task_id="c1",
+                objective="do Y",
+                capabilities=["planning"],
+                context_refs=[],
+                result_status="failed",
+            )
+        )
         d = artifact.as_dict()
         assert d["kind"] == "delegation_artifact"
         assert d["child_count"] == 1
@@ -232,11 +250,16 @@ class TestDelegationArtifact:
     def test_audit_reconstruction(self):
         artifact = DelegationArtifact(artifact_id="da1", parent_task_id="parent-1")
         for i in range(3):
-            artifact.add_record(DelegationRecord(
-                child_task_id=f"child-{i}", objective=f"task {i}",
-                capabilities=["planning"], context_refs=[],
-                result_status="success", depth=i + 1,
-            ))
+            artifact.add_record(
+                DelegationRecord(
+                    child_task_id=f"child-{i}",
+                    objective=f"task {i}",
+                    capabilities=["planning"],
+                    context_refs=[],
+                    result_status="success",
+                    depth=i + 1,
+                )
+            )
         d = artifact.as_dict()
         assert d["child_count"] == 3
         depths = [r["depth"] for r in d["records"]]
@@ -244,6 +267,7 @@ class TestDelegationArtifact:
 
 
 # ── EW-T042: CancellationToken ────────────────────────────────────────────────
+
 
 class TestCancellationToken:
     def test_not_cancelled_by_default(self):

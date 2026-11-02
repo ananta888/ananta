@@ -13,4 +13,3 @@ def test_hotspot_guardrail_report_marks_over_budget_targets(tmp_path, monkeypatc
     assert by_path["large.py"]["lines"] == 3
     assert by_path["missing.py"]["exists"] is False
     assert len(report["over_budget"]) == 1
-

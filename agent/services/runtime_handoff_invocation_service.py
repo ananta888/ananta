@@ -90,10 +90,8 @@ class RuntimeHandoffInvocationService:
             or not isinstance(limits, Mapping)
             or provider_id != str(getattr(profile, "provider_id", "") or "").strip().lower()
             or model_id != str(getattr(profile, "model", "") or "").strip()
-            or int(limits.get("max_output_tokens") or 0)
-            != int(getattr(profile, "max_output_tokens", 0) or 0)
-            or int(limits.get("context_tokens") or 0)
-            != int(getattr(profile, "context_tokens", 0) or 0)
+            or int(limits.get("max_output_tokens") or 0) != int(getattr(profile, "max_output_tokens", 0) or 0)
+            or int(limits.get("context_tokens") or 0) != int(getattr(profile, "context_tokens", 0) or 0)
         ):
             raise ModelRoutingConfigurationError("runtime_handoff_invocation_binding_invalid")
         return self._provider.invoke(

@@ -12,8 +12,9 @@ pytestmark = pytest.mark.timeout(30)
 
 
 def test_fit_check_uses_the_window_minus_the_answer_reserve():
-    fit = cw.check_fit(prompt="x" * 4000, messages=[{"content": "y" * 400}], window_tokens=2048,
-                       output_reserve_tokens=1024)
+    fit = cw.check_fit(
+        prompt="x" * 4000, messages=[{"content": "y" * 400}], window_tokens=2048, output_reserve_tokens=1024
+    )
     assert fit.estimated_tokens == 1100 and fit.budget_tokens == 1024
     assert not fit.fits and fit.overflow_tokens == 76 and fit.ratio > 1
     assert cw.check_fit(prompt="kurz").fits and cw.check_fit(prompt="kurz").window_tokens == 32768
@@ -50,8 +51,9 @@ def test_generate_text_puts_the_truncation_on_its_result(app, monkeypatch):
     from agent import llm_integration
 
     def call(*args, **kwargs):
-        cw.record_truncation("llm.trim_messages", "trim_messages", before_tokens=40000, after_tokens=31000,
-                             dropped_items=3)
+        cw.record_truncation(
+            "llm.trim_messages", "trim_messages", before_tokens=40000, after_tokens=31000, dropped_items=3
+        )
         return {"text": "ok", "usage": {}}
 
     monkeypatch.setattr(llm_integration, "_call_llm", call)
@@ -71,8 +73,15 @@ def test_the_tool_loop_records_condensed_results():
 
     results = [{"tool_name": f"t{i}", "status": "ok", "data": "z" * 6000} for i in range(4)]
     with cw.truncation_scope() as events:
-        build_tool_loop_prompt(original_prompt="p", instructions="i", tool_results=results, iteration=5,
-                               max_iterations=6, max_tool_result_chars=8000, max_total_tool_result_chars=13000)
+        build_tool_loop_prompt(
+            original_prompt="p",
+            instructions="i",
+            tool_results=results,
+            iteration=5,
+            max_iterations=6,
+            max_tool_result_chars=8000,
+            max_total_tool_result_chars=13000,
+        )
     assert [(e.site, e.kind, e.dropped_items) for e in events] == [("tool_loop.results", "condense", 2)]
 
 
@@ -90,9 +99,14 @@ def test_the_context_bundle_enforces_its_token_budget():
 def test_compression_settings_reach_the_adapter_config():
     from agent.services.context_compression.settings_config import compression_config_from_settings
 
-    settings = SimpleNamespace(context_compression_enabled=True, context_compression_mode="compress",
-                               context_compression_ccr_enabled=True, context_compression_ccr_path="/data/ccr",
-                               context_compression_ccr_ttl_hours=24, context_compression_min_quality_score=None)
+    settings = SimpleNamespace(
+        context_compression_enabled=True,
+        context_compression_mode="compress",
+        context_compression_ccr_enabled=True,
+        context_compression_ccr_path="/data/ccr",
+        context_compression_ccr_ttl_hours=24,
+        context_compression_min_quality_score=None,
+    )
     config = compression_config_from_settings(settings)
     assert config["enabled"] and config["mode"] == "compress"
     assert config["ccr_store_path"] == "/data/ccr" and config["ccr_ttl_hours"] == 24

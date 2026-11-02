@@ -78,18 +78,21 @@ def _receipt():
 def test_signed_receipt_binds_admission_without_paths_or_content() -> None:
     service, key, receipt = _receipt()
     assert verify_admission_receipt(receipt, key.public_key())
-    assert service.issue(
-        offer_id="offer-test",
-        inventory_root_digest=digest("inventory"),
-        resolution_digest=digest("resolution"),
-        accepted_group_ids=("group-a",),
-        rejected_group_ids=("group-b",),
-        quarantined_group_ids=("group-c",),
-        consent_digest=digest("consent"),
-        policy_digest=digest("policy"),
-        pair_id="pair-test",
-        direction="sender_to_receiver",
-    ) == receipt
+    assert (
+        service.issue(
+            offer_id="offer-test",
+            inventory_root_digest=digest("inventory"),
+            resolution_digest=digest("resolution"),
+            accepted_group_ids=("group-a",),
+            rejected_group_ids=("group-b",),
+            quarantined_group_ids=("group-c",),
+            consent_digest=digest("consent"),
+            policy_digest=digest("policy"),
+            pair_id="pair-test",
+            direction="sender_to_receiver",
+        )
+        == receipt
+    )
     public = receipt.public_dict()
     assert "path" not in " ".join(public)
     assert set(receipt.accepted_group_ids).isdisjoint(receipt.rejected_group_ids)

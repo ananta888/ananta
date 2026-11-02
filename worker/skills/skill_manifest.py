@@ -1,4 +1,5 @@
 """SkillManifest: versioned, capability-bound skill descriptor. AWF-T027."""
+
 from __future__ import annotations
 
 import hashlib
@@ -6,13 +7,18 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-
 VALID_RISK_CLASSES = frozenset({"low", "medium", "high", "critical"})
 
 # Tools that elevate risk class — skill risk_class must not be "low" if any of these appear
-_HIGH_RISK_TOOLS = frozenset({
-    "run_shell", "shell_execute", "file_write", "memory_write", "provider_cloud_call",
-})
+_HIGH_RISK_TOOLS = frozenset(
+    {
+        "run_shell",
+        "shell_execute",
+        "file_write",
+        "memory_write",
+        "provider_cloud_call",
+    }
+)
 
 
 @dataclass
@@ -22,6 +28,7 @@ class SkillManifest:
     Skills are instruction-based workflows bound to an explicit capability set.
     They are not arbitrary executable code.
     """
+
     id: str
     version: str
     name: str
@@ -41,14 +48,17 @@ class SkillManifest:
     @property
     def content_hash(self) -> str:
         """Stable hash over security-relevant fields. Changes if policy changes. AWF-T027."""
-        payload = json.dumps({
-            "id": self.id,
-            "version": self.version,
-            "required_capabilities": sorted(self.required_capabilities),
-            "allowed_tools": sorted(self.allowed_tools),
-            "denied_tools": sorted(self.denied_tools),
-            "risk_class": self.risk_class,
-        }, sort_keys=True)
+        payload = json.dumps(
+            {
+                "id": self.id,
+                "version": self.version,
+                "required_capabilities": sorted(self.required_capabilities),
+                "allowed_tools": sorted(self.allowed_tools),
+                "denied_tools": sorted(self.denied_tools),
+                "risk_class": self.risk_class,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
     def as_dict(self) -> dict[str, Any]:
@@ -95,8 +105,6 @@ def validate_skill_manifest(
     # Risk class must not be "low" if high-risk tools are in allowed_tools
     high_risk_used = frozenset(manifest.allowed_tools) & _HIGH_RISK_TOOLS
     if high_risk_used and manifest.risk_class == "low":
-        errors.append(
-            f"skill_manifest_invalid:risk_class_too_low_for_tools:{sorted(high_risk_used)}"
-        )
+        errors.append(f"skill_manifest_invalid:risk_class_too_low_for_tools:{sorted(high_risk_used)}")
 
     return errors

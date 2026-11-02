@@ -1,15 +1,14 @@
 """SS05.01: Tests für TUI Snapshot/Delta Stream."""
+
 from __future__ import annotations
 
 import os
-import time
 import uuid
-import pytest
 
 from client_surfaces.operator_tui.share_view_policy import ViewSharePolicy
 from client_surfaces.operator_tui.share_view_stream import (
-    ViewStreamSender,
     ViewStreamReceiver,
+    ViewStreamSender,
     _text_hash,
 )
 
@@ -97,6 +96,7 @@ def test_receiver_hash_mismatch_marks_stale():
     receiver = ViewStreamReceiver(key)
     receiver._current_hash = "old_hash_abc"
     from client_surfaces.operator_tui.share_crypto import encrypt_view
+
     plaintext = b"delta content"
     msg_id = str(uuid.uuid4())
     encrypted = encrypt_view(plaintext, key, msg_id)

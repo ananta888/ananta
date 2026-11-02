@@ -11,7 +11,9 @@ def test_retrieval_planning_parity_between_hub_and_standalone_like_inputs() -> N
         pipeline_contract={"channels": ["dense", "lexical"], "fallback_order": ["dense", "lexical"]},
         channel_results={
             "dense": [{"path": "src/auth.py", "content_hash": "h1", "score": 0.9, "text": "auth bug fix"}],
-            "lexical": [{"path": "tests/test_auth.py", "content_hash": "h2", "score": 0.8, "text": "auth tests failing"}],
+            "lexical": [
+                {"path": "tests/test_auth.py", "content_hash": "h2", "score": 0.8, "text": "auth tests failing"}
+            ],
         },
         top_k=2,
     )
@@ -26,4 +28,3 @@ def test_retrieval_planning_parity_between_hub_and_standalone_like_inputs() -> N
     )
     assert retrieval["selected"][0]["path"] == "src/auth.py"
     assert [step["step_id"] for step in plan["steps"]] == ["inspect", "patch", "verify"]
-

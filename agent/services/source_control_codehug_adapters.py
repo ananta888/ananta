@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 
 from sqlalchemy import update
@@ -55,7 +54,6 @@ from ananta_contracts.source_control import (
     SourceAccessGrant,
 )
 
-
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _REASON = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,63}$")
 _LIVE_EXECUTION_STATES = frozenset({"issued", "queued", "running"})
@@ -90,10 +88,7 @@ class SQLCodeHugMutationIntentCatalog:
             scope = dict(approval.scope or {})
             if (
                 approval.status != "granted"
-                or (
-                    approval.expires_at is not None
-                    and approval.expires_at <= float(self._clock())
-                )
+                or (approval.expires_at is not None and approval.expires_at <= float(self._clock()))
                 or scope.get("tenant_id") != tenant_id
                 or scope.get("project_id") != project_id
                 or scope.get("actor_id") != actor_id
@@ -107,21 +102,14 @@ class SQLCodeHugMutationIntentCatalog:
                 or execution.project_id != project_id
                 or execution.owner_id != actor_id
                 or execution.state not in _LIVE_EXECUTION_STATES
-                or execution.lease_expires_epoch_ms
-                <= int(float(self._clock()) * 1000)
+                or execution.lease_expires_epoch_ms <= int(float(self._clock()) * 1000)
             ):
                 return None
             tool_id = str(scope.get("tool_id") or approval.tool_name or "")
-            payload_reference_id = str(
-                approval.content_artifact_ref
-                or scope.get("payload_reference_id")
-                or ""
-            )
+            payload_reference_id = str(approval.content_artifact_ref or scope.get("payload_reference_id") or "")
             try:
                 operation = GrantOperation(str(scope.get("operation") or ""))
-                transformation = GrantTransformation(
-                    str(scope.get("transformation") or "")
-                )
+                transformation = GrantTransformation(str(scope.get("transformation") or ""))
             except ValueError:
                 return None
             exact_scope = {
@@ -131,10 +119,7 @@ class SQLCodeHugMutationIntentCatalog:
                 "lease_id": execution.lease_id,
                 "source_access_grant_id": execution.source_access_grant_id,
             }
-            if any(
-                scope.get(name) != value
-                for name, value in exact_scope.items()
-            ):
+            if any(scope.get(name) != value for name, value in exact_scope.items()):
                 return None
             values = (
                 intent_id,
@@ -162,9 +147,7 @@ class SQLCodeHugMutationIntentCatalog:
                 lease_id=execution.lease_id,
                 payload_reference_id=payload_reference_id,
                 source_access_grant_id=execution.source_access_grant_id,
-                source_access_grant_digest=(
-                    execution.source_access_grant_digest
-                ),
+                source_access_grant_digest=(execution.source_access_grant_digest),
             )
 
 
@@ -186,36 +169,27 @@ class SQLCodeHugRevisionCatalog:
         with Session(self._engine) as db:
             revision = db.exec(
                 select(SourceRevisionDB).where(
-                    SourceRevisionDB.source_revision_id
-                    == source_revision_id,
+                    SourceRevisionDB.source_revision_id == source_revision_id,
                     SourceRevisionDB.tenant_id == tenant_id,
                     SourceRevisionDB.project_id == project_id,
                     SourceRevisionDB.owner_id == intent.actor_id,
                     SourceRevisionDB.admission_state == "admitted",
                 )
             ).first()
-            execution = db.get(
-                KnowledgeIndexExecutionBindingDB, intent.job_id
-            )
+            execution = db.get(KnowledgeIndexExecutionBindingDB, intent.job_id)
             grant = db.exec(
                 select(SourceAccessGrantDB).where(
-                    SourceAccessGrantDB.grant_id
-                    == intent.source_access_grant_id,
+                    SourceAccessGrantDB.grant_id == intent.source_access_grant_id,
                     SourceAccessGrantDB.tenant_id == tenant_id,
                     SourceAccessGrantDB.project_id == project_id,
                     SourceAccessGrantDB.owner_id == intent.actor_id,
-                    SourceAccessGrantDB.source_revision_id
-                    == source_revision_id,
-                    SourceAccessGrantDB.destination_id
-                    == intent.destination_id,
-                    SourceAccessGrantDB.operation
-                    == intent.operation.value,
-                    SourceAccessGrantDB.transformation
-                    == intent.transformation.value,
+                    SourceAccessGrantDB.source_revision_id == source_revision_id,
+                    SourceAccessGrantDB.destination_id == intent.destination_id,
+                    SourceAccessGrantDB.operation == intent.operation.value,
+                    SourceAccessGrantDB.transformation == intent.transformation.value,
                     SourceAccessGrantDB.purpose == intent.purpose,
                     SourceAccessGrantDB.state == "active",
-                    SourceAccessGrantDB.expires_at_epoch
-                    > float(self._clock()),
+                    SourceAccessGrantDB.expires_at_epoch > float(self._clock()),
                 )
             ).first()
             if revision is None or execution is None or grant is None:
@@ -225,11 +199,9 @@ class SQLCodeHugRevisionCatalog:
             if (
                 digest != intent.source_access_grant_digest
                 or execution.source_access_grant_digest != digest
-                or execution.source_revision_digest
-                != revision.revision_digest
+                or execution.source_revision_digest != revision.revision_digest
                 or execution.policy_snapshot_id != grant.policy_version
-                or execution.policy_snapshot_digest
-                != str(grant.policy_snapshot_digest or "")
+                or execution.policy_snapshot_digest != str(grant.policy_snapshot_digest or "")
             ):
                 return None
             return CodeHugRevisionBinding(
@@ -237,9 +209,7 @@ class SQLCodeHugRevisionCatalog:
                 revision_digest=revision.revision_digest,
                 policy_digest=execution.policy_snapshot_digest,
                 content_manifest_id=revision.content_manifest_id,
-                content_manifest_digest=(
-                    revision.content_manifest_digest
-                ),
+                content_manifest_digest=(revision.content_manifest_digest),
                 source_access_grant_id=grant.grant_id,
                 source_access_grant_digest=digest,
             )
@@ -327,10 +297,7 @@ class SQLCodeHugApprovalStore:
             if (
                 approval.status != "granted"
                 or approval.tool_name != tool_id
-                or (
-                    approval.expires_at is not None
-                    and approval.expires_at <= now
-                )
+                or (approval.expires_at is not None and approval.expires_at <= now)
                 or any(scope.get(name) != value for name, value in expected.items())
             ):
                 return False
@@ -375,9 +342,7 @@ class ScopedEffectiveSourceAccessRouter:
         )
         verify = getattr(service, "verify_dispatch", None)
         if not callable(verify):
-            raise PersistentCodeHugAdapterError(
-                "effective_source_access_unavailable", status_code=503
-            )
+            raise PersistentCodeHugAdapterError("effective_source_access_unavailable", status_code=503)
         return verify(**kwargs)
 
 
@@ -387,9 +352,7 @@ class ContentFreeCodeHugSecurityAudit:
             actor_id=str(event.get("actor_id") or ""),
             tenant_id=str(event.get("tenant_id") or ""),
             project_id=str(event.get("project_id") or ""),
-            source_revision_id=str(
-                event.get("source_revision_id") or ""
-            ),
+            source_revision_id=str(event.get("source_revision_id") or ""),
             decision=str(event.get("decision") or "deny"),
             reason_code=str(event.get("reason_code") or "codehug_denied"),
         )
@@ -404,19 +367,13 @@ def build_persistent_codehug_authorization(
     signing_key: SourceAccessSigningKey,
 ) -> CodeHugMutationAuthorizationService:
     if not callable(getattr(tools, "resolve", None)):
-        raise PersistentCodeHugAdapterError(
-            "codehug_tool_provider_unavailable", status_code=503
-        )
+        raise PersistentCodeHugAdapterError("codehug_tool_provider_unavailable", status_code=503)
     if not callable(getattr(executor, "execute", None)):
-        raise PersistentCodeHugAdapterError(
-            "codehug_mutation_executor_unavailable", status_code=503
-        )
+        raise PersistentCodeHugAdapterError("codehug_mutation_executor_unavailable", status_code=503)
     grants = SQLSourceAccessEnforcementAdapter(engine)
     return CodeHugMutationAuthorizationService(
         tools=tools,
-        effective_access=ScopedEffectiveSourceAccessRouter(
-            effective_access
-        ),
+        effective_access=ScopedEffectiveSourceAccessRouter(effective_access),
         grants=SourceAccessEnforcementService(
             grants=grants,
             consumptions=grants,
@@ -442,12 +399,8 @@ def _grant_contract(row: SourceAccessGrantDB) -> SourceAccessGrant:
         purpose=row.purpose,
         policy_version=row.policy_version,
         state=row.state,
-        issued_at=datetime.fromtimestamp(
-            row.issued_at_epoch, tz=timezone.utc
-        ),
-        expires_at=datetime.fromtimestamp(
-            row.expires_at_epoch, tz=timezone.utc
-        ),
+        issued_at=datetime.fromtimestamp(row.issued_at_epoch, tz=timezone.utc),
+        expires_at=datetime.fromtimestamp(row.expires_at_epoch, tz=timezone.utc),
     )
 
 
@@ -463,9 +416,7 @@ def _emit_codehug_audit(
     safe_reason = str(reason_code or "").strip().lower().replace("-", "_")
     if _REASON.fullmatch(safe_reason) is None:
         safe_reason = "codehug_denied"
-    trace = hashlib.sha256(
-        f"{actor_id}\0{source_revision_id}\0{safe_reason}".encode("utf-8")
-    ).hexdigest()[:24]
+    trace = hashlib.sha256(f"{actor_id}\0{source_revision_id}\0{safe_reason}".encode("utf-8")).hexdigest()[:24]
     emit_source_control_audit(
         SourceControlAuditEvent(
             operation=SourceControlAuditOperation.approval,
@@ -475,11 +426,7 @@ def _emit_codehug_audit(
             resource_kind="source_revision",
             resource_id=source_revision_id,
             trace_id=f"codehug-{trace}",
-            decision=(
-                SourceControlDecision.allow
-                if decision == "allow"
-                else SourceControlDecision.deny
-            ),
+            decision=(SourceControlDecision.allow if decision == "allow" else SourceControlDecision.deny),
             reason_code=safe_reason,
         )
     )

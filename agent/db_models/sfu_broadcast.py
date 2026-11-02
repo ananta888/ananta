@@ -6,7 +6,6 @@ import uuid
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-
 _ACTIVE_PROJECTION = sa.text("status = 'active' AND tombstoned_at IS NULL")
 
 
@@ -94,8 +93,7 @@ class SfuBroadcastAudienceDB(_SfuBroadcastProjectionDB, table=True):
             name="ck_sfu_broadcast_audience_epochs_non_negative",
         ),
         sa.CheckConstraint(
-            "length(audience_digest) = 64 AND length(policy_digest) = 64 "
-            "AND length(membership_digest) = 64",
+            "length(audience_digest) = 64 AND length(policy_digest) = 64 AND length(membership_digest) = 64",
             name="ck_sfu_broadcast_audience_digest_length",
         ),
         sa.Index(
@@ -145,8 +143,7 @@ class SfuReceiverGroupDB(_SfuBroadcastProjectionDB, table=True):
             name="ck_sfu_receiver_group_epochs_non_negative",
         ),
         sa.CheckConstraint(
-            "length(group_digest) = 64 AND length(membership_digest) = 64 "
-            "AND length(key_digest) = 64",
+            "length(group_digest) = 64 AND length(membership_digest) = 64 AND length(key_digest) = 64",
             name="ck_sfu_receiver_group_digest_length",
         ),
         sa.Index(

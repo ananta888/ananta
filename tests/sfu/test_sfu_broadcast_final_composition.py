@@ -3,6 +3,9 @@ from __future__ import annotations
 from flask import Blueprint, Flask
 
 import agent.bootstrap.sfu_broadcast_final_composition as composition
+from agent.repositories.sfu_fleet_reconciliation_repository import (
+    SqlSfuRouteReconciliationScopeRepository,
+)
 from agent.repositories.sfu_hub_control_repository import (
     SqlSfuBroadcastCommandLedger,
     SqlSfuBroadcastOperationsSnapshotRepository,
@@ -16,9 +19,6 @@ from agent.repositories.turn_observer_identity_repository import (
     SqlTurnObserverIdentityRepository,
 )
 from agent.repositories.turn_pool_repository import SqlTurnPoolRepository
-from agent.repositories.sfu_fleet_reconciliation_repository import (
-    SqlSfuRouteReconciliationScopeRepository,
-)
 
 
 def test_final_composition_wires_only_durable_local_control(monkeypatch) -> None:

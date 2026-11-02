@@ -43,15 +43,9 @@ def build_source_control_connector_extensions(
             )
         )
     if generic_git is not None:
-        connectors.append(
-            _require_type(generic_git.connector(), "generic_git")
-        )
+        connectors.append(_require_type(generic_git.connector(), "generic_git"))
     if registered_workspace is not None:
-        connectors.extend(
-            build_registered_workspace_source_connectors(
-                registered_workspace
-            )
-        )
+        connectors.extend(build_registered_workspace_source_connectors(registered_workspace))
     return tuple(connectors)
 
 

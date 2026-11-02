@@ -5,11 +5,12 @@ Verifies that:
 - New fields are correctly loaded
 - Missing fields receive safe defaults
 """
+
 from __future__ import annotations
 
 import pytest
-from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 
+from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 
 _BASE_PROFILE = {
     "profile_id": "test-local",
@@ -27,6 +28,7 @@ def _load_one(raw_profile: dict) -> ModelProfile:
 
 
 # ── Safe defaults for legacy profiles ─────────────────────────────────────────
+
 
 def test_legacy_profile_loads_without_new_fields():
     profile = _load_one(_BASE_PROFILE)
@@ -46,6 +48,7 @@ def test_legacy_profile_existing_fields_unaffected():
 
 
 # ── New field loading ─────────────────────────────────────────────────────────
+
 
 def test_context_window_tokens_loaded():
     profile = _load_one({**_BASE_PROFILE, "context_window_tokens": 131072})

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 from uuid import uuid4
 
 from worker.retrieval.duckdb_connection_factory import DuckDBConnectionFactory, DuckDBNotInstalledError
@@ -310,8 +310,13 @@ class DuckDBVectorStore:
                 ).fetchall()
                 records.extend(
                     {
-                        "id": row[0], "path": row[1], "kind": row[2], "symbol": row[3],
-                        "text": row[4], "source_hash": row[5], "embedding": list(row[6] or []),
+                        "id": row[0],
+                        "path": row[1],
+                        "kind": row[2],
+                        "symbol": row[3],
+                        "text": row[4],
+                        "source_hash": row[5],
+                        "embedding": list(row[6] or []),
                         "model": row[7],
                     }
                     for row in existing

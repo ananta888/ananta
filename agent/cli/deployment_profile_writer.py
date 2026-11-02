@@ -78,17 +78,11 @@ def write_deployment_profile(
 def _deployment_examples(target: str, runtime_mode: str) -> list[str]:
     if target == "docker-compose":
         if runtime_mode == "strict":
-            return [
-                "docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build"
-            ]
+            return ["docker compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build"]
         return ["docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build"]
     if runtime_mode == "strict":
-        return [
-            "podman compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build"
-        ]
-    return [
-        "podman compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build"
-    ]
+        return ["podman compose --env-file .env -f docker/compose-next/compose.stack.distributed.yml up -d --build"]
+    return ["podman compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml up -d --build"]
 
 
 def _container_hardening_profile(*, runtime_mode: str, runtime_profile: str) -> dict[str, Any]:

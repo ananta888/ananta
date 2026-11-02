@@ -49,12 +49,21 @@ class NativeContextBundleProjection:
 
     @classmethod
     def create(
-        cls, *, hub_task_id: str, bundle_id: str, command: Mapping[str, Any], approved: NativeApprovedContext,
+        cls,
+        *,
+        hub_task_id: str,
+        bundle_id: str,
+        command: Mapping[str, Any],
+        approved: NativeApprovedContext,
     ) -> NativeContextBundleProjection:
         approved.assert_valid()
         value = cls(
-            hub_task_id, bundle_id, native_context_digest(dict(command)), approved.policy_digest,
-            approved.content, native_context_digest(approved.content),
+            hub_task_id,
+            bundle_id,
+            native_context_digest(dict(command)),
+            approved.policy_digest,
+            approved.content,
+            native_context_digest(approved.content),
         )
         value.assert_valid()
         return value

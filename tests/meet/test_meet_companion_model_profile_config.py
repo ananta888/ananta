@@ -9,8 +9,7 @@ from agent.bootstrap.meet_companion_model_profile import CONFIG, ENVIRONMENT, co
 
 
 def profile():
-    return {"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64,
-            "auto_execute": True}
+    return {"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64, "auto_execute": True}
 
 
 @pytest.mark.parametrize("auto_execute", [True, False])
@@ -22,9 +21,17 @@ def test_explicit_environment_profile_keeps_operator_auto_execution_choice(monke
     assert app.config[CONFIG] == value
 
 
-@pytest.mark.parametrize("raw", ['{"model":"first","model":"second"}', 'NaN', 'x' * 2049,
-    json.dumps(profile() | {"endpoint": "http://untrusted.test"}),
-    json.dumps(profile() | {"auto_execute": 1}), json.dumps(profile() | {"environment_digest": "unknown"})])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"model":"first","model":"second"}',
+        "NaN",
+        "x" * 2049,
+        json.dumps(profile() | {"endpoint": "http://untrusted.test"}),
+        json.dumps(profile() | {"auto_execute": 1}),
+        json.dumps(profile() | {"environment_digest": "unknown"}),
+    ],
+)
 def test_malformed_unknown_or_implicit_auto_policy_is_rejected_without_private_value(monkeypatch, raw):
     app = Flask(__name__)
     monkeypatch.setenv(ENVIRONMENT, raw)

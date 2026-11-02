@@ -36,8 +36,11 @@ def is_holdout(case_id: str) -> bool:
 def evaluate_at(observations: Sequence[Observation], threshold: float) -> dict[str, Any]:
     """Precision and coverage of the accepted answers at one fixed threshold."""
     row = threshold_table(observations, (threshold,))[0]
-    return {"threshold": threshold, "total": len(observations), **{
-        key: value for key, value in row.as_dict().items() if key != "threshold"}}
+    return {
+        "threshold": threshold,
+        "total": len(observations),
+        **{key: value for key, value in row.as_dict().items() if key != "threshold"},
+    }
 
 
 @dataclass(frozen=True)
@@ -64,24 +67,30 @@ def wilson_lower_bound(correct: int, total: int, z: float = 1.645) -> float:
     return max(0.0, (centre - margin) / denominator)
 
 
-def threshold_table(observations: Sequence[Observation],
-                    thresholds: Iterable[float] = DEFAULT_THRESHOLDS) -> list[ThresholdRow]:
+def threshold_table(
+    observations: Sequence[Observation], thresholds: Iterable[float] = DEFAULT_THRESHOLDS
+) -> list[ThresholdRow]:
     total = len(observations)
     rows = []
     for threshold in thresholds:
         accepted = [item for item in observations if item.probability >= threshold]
         correct = sum(item.correct for item in accepted)
-        rows.append(ThresholdRow(
-            threshold=threshold, accepted=len(accepted), correct=correct,
-            coverage=round(len(accepted) / total, 4) if total else 0.0,
-            precision=round(correct / len(accepted), 4) if accepted else 1.0,
-            precision_lower_bound=round(wilson_lower_bound(correct, len(accepted)), 4),
-        ))
+        rows.append(
+            ThresholdRow(
+                threshold=threshold,
+                accepted=len(accepted),
+                correct=correct,
+                coverage=round(len(accepted) / total, 4) if total else 0.0,
+                precision=round(correct / len(accepted), 4) if accepted else 1.0,
+                precision_lower_bound=round(wilson_lower_bound(correct, len(accepted)), 4),
+            )
+        )
     return rows
 
 
-def recommend_threshold(rows: Sequence[ThresholdRow], *, target_precision: float,
-                        min_accepted: int = 10) -> float | None:
+def recommend_threshold(
+    rows: Sequence[ThresholdRow], *, target_precision: float, min_accepted: int = 10
+) -> float | None:
     """Lowest threshold whose accepted answers provably reach the target precision.
 
     The one-sided 95 % lower bound of the precision must reach the target, so
@@ -107,8 +116,11 @@ def expected_calibration_error(observations: Sequence[Observation], bins: int = 
     error = 0.0
     for index in range(bins):
         low, high = index / bins, (index + 1) / bins
-        members = [item for item in observations
-                   if low <= item.probability < high or (index == bins - 1 and item.probability == 1.0)]
+        members = [
+            item
+            for item in observations
+            if low <= item.probability < high or (index == bins - 1 and item.probability == 1.0)
+        ]
         if members:
             confidence = sum(item.probability for item in members) / len(members)
             accuracy = sum(item.correct for item in members) / len(members)
@@ -124,8 +136,9 @@ def confusion(observations: Sequence[Observation]) -> dict[str, dict[str, int]]:
     return matrix
 
 
-def calibration_report(observations: Sequence[Observation], *, target_precision: float = 0.95,
-                       min_accepted: int = 10) -> dict[str, Any]:
+def calibration_report(
+    observations: Sequence[Observation], *, target_precision: float = 0.95, min_accepted: int = 10
+) -> dict[str, Any]:
     rows = threshold_table(observations)
     total = len(observations)
     return {
@@ -135,20 +148,27 @@ def calibration_report(observations: Sequence[Observation], *, target_precision:
         "expected_calibration_error": expected_calibration_error(observations),
         "target_precision": target_precision,
         "recommended_min_confidence": recommend_threshold(
-            rows, target_precision=target_precision, min_accepted=min_accepted),
+            rows, target_precision=target_precision, min_accepted=min_accepted
+        ),
         "thresholds": [row.as_dict() for row in rows],
         "confusion": confusion(observations),
         "errors": [item.__dict__ for item in observations if not item.correct],
     }
 
 
-def split_report(observations: Sequence[Observation], *, target_precision: float = 0.95, min_accepted: int = 10,
-                 fallback_threshold: float = 0.8) -> dict[str, Any]:
+def split_report(
+    observations: Sequence[Observation],
+    *,
+    target_precision: float = 0.95,
+    min_accepted: int = 10,
+    fallback_threshold: float = 0.8,
+) -> dict[str, Any]:
     """Choose the threshold on the validation split only, then measure it once on the untouched holdout."""
     validation = [item for item in observations if not is_holdout(item.case_id)]
     holdout = [item for item in observations if is_holdout(item.case_id)]
-    chosen = recommend_threshold(threshold_table(validation), target_precision=target_precision,
-                                 min_accepted=min_accepted)
+    chosen = recommend_threshold(
+        threshold_table(validation), target_precision=target_precision, min_accepted=min_accepted
+    )
     applied = fallback_threshold if chosen is None else chosen
     return {
         "validation": calibration_report(validation, target_precision=target_precision, min_accepted=min_accepted),

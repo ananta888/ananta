@@ -14,7 +14,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "1e6f8a0c2d4b"
 down_revision: str | Sequence[str] | None = "0d5f7b9c1e3a"
 branch_labels: str | Sequence[str] | None = None
@@ -236,17 +235,18 @@ def upgrade() -> None:
             "version": int(row["version"]),
             "policy_digest": row["policy_digest"],
         }
-        snapshot_id = "cpv_" + hashlib.sha256(
-            json.dumps(
-                payload,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("ascii")
-        ).hexdigest()
-        snapshots[
-            (row["tenant_id"], row["project_id"], snapshot_id)
-        ] = row["policy_digest"]
+        snapshot_id = (
+            "cpv_"
+            + hashlib.sha256(
+                json.dumps(
+                    payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                ).encode("ascii")
+            ).hexdigest()
+        )
+        snapshots[(row["tenant_id"], row["project_id"], snapshot_id)] = row["policy_digest"]
     for (tenant_id, project_id, snapshot_id), digest in snapshots.items():
         bind.execute(
             sa.text(
@@ -295,9 +295,7 @@ def upgrade() -> None:
                 "project_id": row["project_id"],
                 "resource_id": row["connection_id"],
                 "job_id": row["to_knowledge_index_id"],
-                "event_type": event_types.get(
-                    row["action"], "index_reconciled"
-                ),
+                "event_type": event_types.get(row["action"], "index_reconciled"),
                 "trace_id": row["event_id"],
                 "occurred_at_epoch": row["occurred_at_epoch"],
                 "created_at_epoch": row["occurred_at_epoch"],
@@ -315,6 +313,4 @@ def downgrade() -> None:
         "ix_source_access_grants_policy_snapshot_digest",
         table_name="source_access_grants",
     )
-    op.drop_column(
-        "source_access_grants", "policy_snapshot_digest"
-    )
+    op.drop_column("source_access_grants", "policy_snapshot_digest")

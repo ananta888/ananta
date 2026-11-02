@@ -69,9 +69,7 @@ def _build_member_index(candidates: list[DomainCandidate]) -> dict[str, str]:
     return index
 
 
-def _aggregate_pair_edges(
-    graph: DomainGraph, members: dict[str, str]
-) -> dict[tuple[str, str], _DirectionalPair]:
+def _aggregate_pair_edges(graph: DomainGraph, members: dict[str, str]) -> dict[tuple[str, str], _DirectionalPair]:
     pairs: dict[tuple[str, str], _DirectionalPair] = {}
     for edge in graph.relation_edges:
         src = members.get(edge.source)
@@ -120,18 +118,14 @@ def _detect_mutual_coupling(
                     "evidence": {
                         "a_to_b_edges": pair.a_to_b,
                         "b_to_a_edges": pair.b_to_a,
-                        "edge_type_counts": dict(
-                            sorted(pair.edge_type_counts.items())
-                        ),
+                        "edge_type_counts": dict(sorted(pair.edge_type_counts.items())),
                     },
                 }
             )
     return warnings
 
 
-def _detect_layer_spans(
-    layer_index: dict[str, list[str]], *, min_domains: int
-) -> list[dict]:
+def _detect_layer_spans(layer_index: dict[str, list[str]], *, min_domains: int) -> list[dict]:
     warnings: list[dict] = []
     for layer, domains in sorted(layer_index.items()):
         if len(domains) >= min_domains:
@@ -155,13 +149,8 @@ def _detect_heterogeneous_root(
 ) -> list[dict]:
     warnings: list[dict] = []
     for candidate in candidates:
-        internal = int(
-            candidate.metrics.get("internal_edge_count", 0) or 0
-        )
-        if (
-            candidate.record_count >= min_records
-            and internal <= max_internal_edges
-        ):
+        internal = int(candidate.metrics.get("internal_edge_count", 0) or 0)
+        if candidate.record_count >= min_records and internal <= max_internal_edges:
             warnings.append(
                 {
                     "source_domain": candidate.domain_id,
@@ -221,9 +210,7 @@ def compute_boundary_metrics(
     mutual_threshold: int = DEFAULT_MUTUAL_COUPLING_THRESHOLD,
     layer_min_domains: int = DEFAULT_LAYER_SPAN_DOMAINS,
     heterogeneous_min_records: int = DEFAULT_HETEROGENEOUS_MIN_RECORDS,
-    heterogeneous_max_internal_edges: int = (
-        DEFAULT_HETEROGENEOUS_MAX_INTERNAL_EDGES
-    ),
+    heterogeneous_max_internal_edges: int = (DEFAULT_HETEROGENEOUS_MAX_INTERNAL_EDGES),
     descriptor_mismatches: list[dict] | None = None,
 ) -> BoundaryResult:
     """Compute coupling matrix and boundary warnings from a clustering result.
@@ -264,9 +251,7 @@ def compute_boundary_metrics(
     by_domain: dict[str, list[dict]] = defaultdict(list)
     for warning in warnings:
         source = warning.get("source_domain", "")
-        if source and source != "*" and any(
-            c.domain_id == source for c in candidates
-        ):
+        if source and source != "*" and any(c.domain_id == source for c in candidates):
             by_domain[source].append(warning)
         # layer_spans / heterogeneous warnings carry "*" as target_domain
         # and are recorded against the source domain only.

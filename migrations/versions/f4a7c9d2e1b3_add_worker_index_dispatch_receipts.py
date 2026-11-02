@@ -105,12 +105,7 @@ def upgrade() -> None:
 
     if _EXECUTION_TABLE not in tables:
         return
-    columns = {
-        column["name"]
-        for column in sa.inspect(op.get_bind()).get_columns(
-            _EXECUTION_TABLE
-        )
-    }
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns(_EXECUTION_TABLE)}
     additions = (
         sa.Column(
             "completion_projection_state",
@@ -152,12 +147,7 @@ def upgrade() -> None:
     for column in additions:
         if column.name not in columns:
             op.add_column(_EXECUTION_TABLE, column)
-    indexes = {
-        index["name"]
-        for index in sa.inspect(op.get_bind()).get_indexes(
-            _EXECUTION_TABLE
-        )
-    }
+    indexes = {index["name"] for index in sa.inspect(op.get_bind()).get_indexes(_EXECUTION_TABLE)}
     index_name = "ix_knowledge_index_execution_completion_projection"
     if index_name not in indexes:
         op.create_index(
@@ -170,19 +160,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     if _EXECUTION_TABLE in _table_names():
         inspector = sa.inspect(op.get_bind())
-        indexes = {
-            index["name"]
-            for index in inspector.get_indexes(_EXECUTION_TABLE)
-        }
-        index_name = (
-            "ix_knowledge_index_execution_completion_projection"
-        )
+        indexes = {index["name"] for index in inspector.get_indexes(_EXECUTION_TABLE)}
+        index_name = "ix_knowledge_index_execution_completion_projection"
         if index_name in indexes:
             op.drop_index(index_name, table_name=_EXECUTION_TABLE)
-        columns = {
-            column["name"]
-            for column in inspector.get_columns(_EXECUTION_TABLE)
-        }
+        columns = {column["name"] for column in inspector.get_columns(_EXECUTION_TABLE)}
         for name in (
             "completion_projected_at_epoch_ms",
             "completion_projection_updated_at_epoch_ms",

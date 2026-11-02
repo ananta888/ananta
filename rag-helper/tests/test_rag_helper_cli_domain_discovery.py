@@ -34,9 +34,7 @@ def _make_project(tmp: Path, *, ext: str = "java", files_per_dir: int = 4) -> Pa
         d = root / f"domain_{i}"
         d.mkdir()
         for j in range(files_per_dir):
-            (d / f"mod_{j}.{ext}").write_text(
-                f"class Mod{j} {{}}\n", encoding="utf-8"
-            )
+            (d / f"mod_{j}.{ext}").write_text(f"class Mod{j} {{}}\n", encoding="utf-8")
     return root
 
 
@@ -58,8 +56,10 @@ class _StubJava(_Stub):
     clustering needs at least one record per domain to produce a
     candidate, and descriptor suggestions are written per candidate.
     """
+
     def parse(self, rel_path, text=None, known_package_types=None, **kwargs):
         from pathlib import Path
+
         domain_id = rel_path.split("/")[0]
         package_name = f"com.example.{domain_id}"
         file_stem = Path(rel_path).stem
@@ -74,6 +74,7 @@ class _StubJava(_Stub):
             "name": type_name,
         }
         return [record], [], [], {"records": 1}
+
 
 def _run_cli(args: list[str], tmp: Path) -> int:
     """Run the RAG-Helper CLI with the given args and return the exit code."""
@@ -125,14 +126,10 @@ class TestCLIDomainDiscovery(unittest.TestCase):
             tmp = Path(tmp_dir)
             root = _make_project(tmp)
             out_dir = tmp / "out"
-            rc = _run_cli(
-                [str(root), "-o", str(out_dir)], tmp=tmp
-            )
+            rc = _run_cli([str(root), "-o", str(out_dir)], tmp=tmp)
             self.assertEqual(rc, 0)
             self.assertFalse((out_dir / "domains.detected.json").exists())
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertNotIn("domain_discovery", manifest)
 
     def test_basic_mode_writes_artifacts(self) -> None:
@@ -174,15 +171,9 @@ class TestCLIDomainDiscovery(unittest.TestCase):
                 tmp=tmp,
             )
             self.assertEqual(rc, 0)
-            suggestions_root = (
-                out_dir / "domain_descriptor_suggestions"
-            )
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
-            domain_count = manifest.get("domain_discovery", {}).get(
-                "domain_count", 0
-            )
+            suggestions_root = out_dir / "domain_descriptor_suggestions"
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            domain_count = manifest.get("domain_discovery", {}).get("domain_count", 0)
             self.assertGreater(
                 domain_count,
                 0,

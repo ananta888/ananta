@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import ipaddress
+import logging
 import math
 import ssl
 from dataclasses import dataclass, field
@@ -34,9 +35,7 @@ class QdrantExtraRequiredError(QdrantClientError):
     def __init__(self) -> None:
         super().__init__(QDRANT_EXTRA_REQUIRED, operation="load_client")
         self.install_hint = "pip install 'ananta[qdrant]'"
-        self.args = (
-            f"{self.operation} failed ({self.reason}); install with {self.install_hint}",
-        )
+        self.args = (f"{self.operation} failed ({self.reason}); install with {self.install_hint}",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,16 +165,11 @@ def validate_endpoint_policy(endpoint: Any) -> tuple[str, str | None]:
     rest_origin = normalise_origin(str(getattr(endpoint, "rest_url", "") or ""))
     raw_grpc = str(getattr(endpoint, "grpc_url", "") or "").strip()
     grpc_origin = normalise_origin(raw_grpc) if raw_grpc else None
-    allowed = {
-        normalise_origin(str(item))
-        for item in tuple(getattr(endpoint, "allowed_origins", ()) or ())
-    }
+    allowed = {normalise_origin(str(item)) for item in tuple(getattr(endpoint, "allowed_origins", ()) or ())}
     try:
         trusted_private = frozenset(
             normalize_trusted_private_origins(
-                tuple(
-                    getattr(endpoint, "trusted_private_origins", ()) or ()
-                ),
+                tuple(getattr(endpoint, "trusted_private_origins", ()) or ()),
                 allowed_origins=tuple(allowed),
             )
         )
@@ -190,16 +184,10 @@ def validate_endpoint_policy(endpoint: Any) -> tuple[str, str | None]:
         if origin not in allowed:
             raise QdrantClientError(INVALID_ORIGIN, operation="validate_endpoint")
         trusted = origin in trusted_private
-        if (
-            not _is_loopback(origin)
-            and not trusted
-            and not bool(getattr(endpoint, "external_calls_allowed", False))
-        ):
+        if not _is_loopback(origin) and not trusted and not bool(getattr(endpoint, "external_calls_allowed", False)):
             raise QdrantClientError(INVALID_ORIGIN, operation="validate_endpoint")
         secure = origin.startswith("https://") or origin.startswith("grpcs://")
-        if not _is_loopback(origin) and (
-            not secure or not bool(getattr(endpoint, "tls_verify", True))
-        ):
+        if not _is_loopback(origin) and (not secure or not bool(getattr(endpoint, "tls_verify", True))):
             raise QdrantClientError(TLS_POLICY_VIOLATION, operation="validate_endpoint")
     return rest_origin, grpc_origin
 
@@ -399,7 +387,7 @@ class QdrantClientAdapter:
                     try:
                         close()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
                 raise
             except Exception as exc:
                 close = getattr(raw_client, "close", None)
@@ -407,7 +395,7 @@ class QdrantClientAdapter:
                     try:
                         close()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
                 raise _classify_error(
                     exc,
                     operation="configure_client",
@@ -434,9 +422,7 @@ class QdrantClientAdapter:
             grpc_origin=grpc_origin,
             api_key=api_key,
             tls_ca_cert_pem=tls_ca_cert_pem,
-            connect_timeout_seconds=float(
-                getattr(endpoint, "connect_timeout_seconds", 3.0)
-            ),
+            connect_timeout_seconds=float(getattr(endpoint, "connect_timeout_seconds", 3.0)),
             timeout_seconds=float(
                 getattr(
                     endpoint,
@@ -540,9 +526,7 @@ class QdrantClientAdapter:
         operations: list[Any] = []
         if self.resolve_alias(alias_name) is not None:
             operations.append(
-                self._models.DeleteAliasOperation(
-                    delete_alias=self._models.DeleteAlias(alias_name=alias_name)
-                )
+                self._models.DeleteAliasOperation(delete_alias=self._models.DeleteAlias(alias_name=alias_name))
             )
         operations.append(
             self._models.CreateAliasOperation(
@@ -554,9 +538,7 @@ class QdrantClientAdapter:
         )
         self._invoke(
             "swap_alias",
-            lambda: self._client.update_collection_aliases(
-                change_aliases_operations=operations
-            ),
+            lambda: self._client.update_collection_aliases(change_aliases_operations=operations),
         )
 
     def upsert(self, collection_name: str, points: Sequence[ClientPoint]) -> None:

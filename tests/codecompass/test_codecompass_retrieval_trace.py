@@ -54,4 +54,3 @@ def test_task_scoped_execution_extracts_retrieval_trace_link():
     assert link["retrieval_trace_id"] == "retrieval-abc123"
     assert link["retrieval_context_hash"] == "ctx-1"
     assert link["retrieval_manifest_hash"] == "mh-1"
-

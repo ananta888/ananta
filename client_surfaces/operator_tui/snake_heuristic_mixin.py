@@ -16,22 +16,21 @@ ASH-002: movement_mode and governance_mode are orthogonal.
 
 ASH-015: candidate generation is rate-limited (max 3/h, 300s cooldown).
 """
+
 from __future__ import annotations
 
 import json
-import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
+from typing import Any
 
 _HEURISTICS_ROOT = Path(__file__).resolve().parents[2] / "heuristics"
-_HEURISTICS_DIR = _HEURISTICS_ROOT / "active" / "tui_snake"   # ASH-010: domain subdir
+_HEURISTICS_DIR = _HEURISTICS_ROOT / "active" / "tui_snake"  # ASH-010: domain subdir
 _CANDIDATES_DIR = _HEURISTICS_ROOT / "candidates" / "tui_snake"
-_HEURISTIC_CACHE_TTL = 60.0        # reload heuristic files at most once per minute
-_PROPOSAL_MIN_TRACES = 25           # generate a proposal after this many decisions
-_PROPOSAL_MIN_INTERVAL = 300.0      # at most one proposal every 5 minutes (cooldown)
-_PROPOSAL_MAX_PER_HOUR = 3          # ASH-015: hard hourly cap
+_HEURISTIC_CACHE_TTL = 60.0  # reload heuristic files at most once per minute
+_PROPOSAL_MIN_TRACES = 25  # generate a proposal after this many decisions
+_PROPOSAL_MIN_INTERVAL = 300.0  # at most one proposal every 5 minutes (cooldown)
+_PROPOSAL_MAX_PER_HOUR = 3  # ASH-015: hard hourly cap
 _PROPOSAL_HOUR = 3600.0
 
 
@@ -47,7 +46,8 @@ class SnakeHeuristicMixin:
     @_governance_mode.setter
     def _governance_mode(self, value: str) -> None:
         from agent.services.heuristic_runtime.governance import GovernanceMode
-        GovernanceMode.from_str(value)          # validates; raises ValueError on unknown
+
+        GovernanceMode.from_str(value)  # validates; raises ValueError on unknown
         self._snake_governance_mode = value
 
     @property
@@ -61,6 +61,7 @@ class SnakeHeuristicMixin:
     def _allows_candidate_creation(self) -> bool:
         try:
             from agent.services.heuristic_runtime.governance import GovernanceMode
+
             return GovernanceMode.from_str(self._governance_mode).allows_candidate_creation
         except Exception:
             return True
@@ -83,12 +84,14 @@ class SnakeHeuristicMixin:
 
         selected: dict[str, Any] | None = None
         for h in heuristics:
-            if self._evaluate_heuristic_triggers(h, section=section, ai_status=ai_status, artifact_present=artifact_present):
+            if self._evaluate_heuristic_triggers(
+                h, section=section, ai_status=ai_status, artifact_present=artifact_present
+            ):
                 selected = h
                 break
 
         if selected is None:
-            selected = heuristics[0]   # fallback: first heuristic (follow_with_distance)
+            selected = heuristics[0]  # fallback: first heuristic (follow_with_distance)
             fallback_reason = "no_trigger_match"
         else:
             fallback_reason = ""
@@ -151,9 +154,7 @@ class SnakeHeuristicMixin:
         if pending is None:
             executor: ThreadPoolExecutor = getattr(self, "_heuristic_load_executor", None)  # type: ignore[assignment]
             if executor is None:
-                executor = ThreadPoolExecutor(
-                    max_workers=1, thread_name_prefix="tui-heuristic-loader"
-                )
+                executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-heuristic-loader")
                 self._heuristic_load_executor = executor
                 # First load: also run candidate migration (ASH-016)
                 executor.submit(self._run_startup_migration)
@@ -169,6 +170,7 @@ class SnakeHeuristicMixin:
         self._candidate_migration_done = True
         try:
             from agent.services.heuristic_runtime.candidate_migration import run_candidate_migration
+
             run_candidate_migration(domain="tui_snake")
         except Exception:
             pass
@@ -334,6 +336,7 @@ class SnakeHeuristicMixin:
 
         try:
             from agent.services.heuristic_runtime.shadow_runner import ShadowRunner
+
             assert isinstance(runner, ShadowRunner)
         except Exception:
             return
@@ -376,6 +379,7 @@ class SnakeHeuristicMixin:
             return
         try:
             from agent.services.heuristic_runtime.candidate_scorer import compute_score
+
             sim_result = candidate.get("simulation_result") or {}
             score = compute_score(
                 simulation_passed=bool(sim_result.get("can_activate", False)),
@@ -404,6 +408,7 @@ class SnakeHeuristicMixin:
         """Write updated candidate data back to its file (background-safe call)."""
         try:
             import json
+
             cid = str(candidate.get("proposal_id") or "")
             if not cid:
                 return
@@ -419,6 +424,7 @@ class SnakeHeuristicMixin:
     def _quarantine_candidate(self, candidate: dict[str, Any], *, reason_code: str) -> None:
         """Move candidate file to quarantine/tui_snake/."""
         import json
+
         try:
             cid = str(candidate.get("proposal_id") or "")
             if not cid:
@@ -436,6 +442,7 @@ class SnakeHeuristicMixin:
                 )
                 src.unlink()
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.candidate_quarantined(candidate_id=cid, reason_code=reason_code)
         except Exception:
             pass
@@ -444,6 +451,7 @@ class SnakeHeuristicMixin:
         """Trigger auto-promotion to active/ if policy allows (ASH-030)."""
         try:
             from agent.services.heuristic_runtime.governance import GovernanceMode
+
             gmode = GovernanceMode.from_str(self._governance_mode)
             if not gmode.allows_auto_promotion:
                 return
@@ -453,6 +461,7 @@ class SnakeHeuristicMixin:
         if executor is None:
             return
         import copy
+
         candidate_copy = copy.deepcopy(candidate)
         executor.submit(self._run_promote_bg, candidate_copy)
 
@@ -460,6 +469,7 @@ class SnakeHeuristicMixin:
         """Background: promote candidate to active/tui_snake/ via progressive rollout."""
         try:
             from agent.services.heuristic_runtime.auto_activator import AutoActivator
+
             activator = AutoActivator()
             activator.promote(candidate)
         except Exception:
@@ -468,17 +478,16 @@ class SnakeHeuristicMixin:
     def start_shadow_run(self, candidate: dict[str, Any]) -> None:
         """Start a shadow run for the given candidate (call from background thread)."""
         try:
-            from agent.services.heuristic_runtime.shadow_runner import ShadowRunner
             from agent.services.heuristic_runtime import snake_audit_events as audit
+            from agent.services.heuristic_runtime.shadow_runner import ShadowRunner
+
             runner = ShadowRunner(
                 candidate,
                 on_watchdog_trigger=lambda cid, trigger, val: None,
             )
             self._shadow_runner = runner
             self._shadow_candidate = candidate
-            audit.candidate_shadow_started(
-                candidate_id=str(candidate.get("proposal_id") or "unknown")
-            )
+            audit.candidate_shadow_started(candidate_id=str(candidate.get("proposal_id") or "unknown"))
         except Exception:
             pass
 
@@ -540,9 +549,11 @@ class SnakeHeuristicMixin:
                     pid, dominant_id = result
                     game = dict(self.state.header_logo_game or {})
                     if bool(game.get("active")):
-                        self._set_state(self.state.with_updates(
-                            status_message=f"heuristic proposal generiert: {dominant_id} [{pid}]"
-                        ))
+                        self._set_state(
+                            self.state.with_updates(
+                                status_message=f"heuristic proposal generiert: {dominant_id} [{pid}]"
+                            )
+                        )
             except Exception:
                 pass
 
@@ -565,29 +576,24 @@ class SnakeHeuristicMixin:
 
         executor: ThreadPoolExecutor = getattr(self, "_heuristic_load_executor", None)  # type: ignore[assignment]
         if executor is None:
-            executor = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="tui-heuristic-loader"
-            )
+            executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-heuristic-loader")
             self._heuristic_load_executor = executor
 
         traces_snapshot = list(traces)
-        self._heuristic_traces = []        # reset optimistically
-        self._last_heuristic_proposal_at = now   # prevent double-trigger
+        self._heuristic_traces = []  # reset optimistically
+        self._last_heuristic_proposal_at = now  # prevent double-trigger
         # ASH-015: record this proposal timestamp for hourly cap
         proposal_timestamps.append(now)
         self._proposal_timestamps_hour = proposal_timestamps
-        self._heuristic_proposal_future = executor.submit(
-            self._run_generate_proposal_bg, traces_snapshot
-        )
+        self._heuristic_proposal_future = executor.submit(self._run_generate_proposal_bg, traces_snapshot)
 
     def _run_generate_proposal_bg(self, traces_snapshot: list) -> tuple[str, str] | None:
         """Background worker: generate and save proposal, returns (pid, dominant_id)."""
         try:
             from agent.services.heuristic_runtime.proposal_service import ProposalService
+
             svc = ProposalService()
-            result = svc.generate_from_traces(
-                traces_snapshot, proposed_by="tui-heuristic-mixin", domain="tui_snake"
-            )
+            result = svc.generate_from_traces(traces_snapshot, proposed_by="tui-heuristic-mixin", domain="tui_snake")
             svc.save_candidate(result.proposal)
             return result.proposal.proposal_id[:8], result.dominant_heuristic_id
         except Exception:
@@ -601,10 +607,11 @@ class SnakeHeuristicMixin:
         Adjusts score for the current heuristic/candidate and emits audit event.
         """
         hid = getattr(self, "_selected_heuristic_id", "")
-        candidate = getattr(self, "_shadow_candidate", None)
+        getattr(self, "_shadow_candidate", None)
         feedback_type = "positive" if positive else "negative"
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.emit(
                 "snake_user_feedback",
                 heuristic_id=hid,
@@ -629,14 +636,13 @@ class SnakeHeuristicMixin:
             return
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.heuristic_rollback(
                 from_heuristic_id=hid,
                 to_heuristic_id="default_active",
                 reason_code="user_requested_rollback",
             )
-            self._set_state(self.state.with_updates(
-                status_message=f"snake: rollback ausgelöst für {hid[:8]}"
-            ))
+            self._set_state(self.state.with_updates(status_message=f"snake: rollback ausgelöst für {hid[:8]}"))
         except Exception:
             pass
 
@@ -646,10 +652,9 @@ class SnakeHeuristicMixin:
         hid = getattr(self, "_selected_heuristic_id", "")
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             audit.emit("snake_heuristic_pinned", heuristic_id=hid)
-            self._set_state(self.state.with_updates(
-                status_message=f"snake: heuristik gepinnt ({hid[:8]})"
-            ))
+            self._set_state(self.state.with_updates(status_message=f"snake: heuristik gepinnt ({hid[:8]})"))
         except Exception:
             pass
 
@@ -661,7 +666,6 @@ class SnakeHeuristicMixin:
         rollout_stage = None
         rollout_quota = None
         if runner is not None:
-            state = runner.state
             rollout_stage = None  # rollout stage comes from auto_activator
         # Get rollout info from active heuristic metadata
         hid = str(game.get("active_heuristic_id") or "")
@@ -678,9 +682,11 @@ class SnakeHeuristicMixin:
 
         try:
             from agent.services.heuristic_runtime import snake_audit_events as audit
+
             recent_events = audit.get_events(limit=5)
             last_reason_codes = [
-                e.get("fallback_reason") for e in recent_events
+                e.get("fallback_reason")
+                for e in recent_events
                 if e.get("event_type") == "snake_decision" and e.get("fallback_reason")
             ][:3]
         except Exception:

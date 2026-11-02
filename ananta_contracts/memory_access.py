@@ -53,8 +53,14 @@ class MemoryTrust(str, Enum):
 
 
 def require_memory_identifier(value: str, field: str) -> str:
-    if (not isinstance(value, str) or not value or len(value) > 160
-            or value != value.strip() or "*" in value or any(ord(c) < 32 for c in value)):
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 160
+        or value != value.strip()
+        or "*" in value
+        or any(ord(c) < 32 for c in value)
+    ):
         raise MemoryContractError(f"memory_{field}_invalid")
     try:
         value.encode("utf-8")
@@ -116,19 +122,31 @@ class MemorySecurityMetadata:
     trust_level: MemoryTrust = MemoryTrust.untrusted
 
     def __post_init__(self):
-        for field, kind in (("scope", MemoryScope), ("sensitivity", MemorySensitivity),
-                            ("retention_class", MemoryRetention), ("trust_level", MemoryTrust)):
+        for field, kind in (
+            ("scope", MemoryScope),
+            ("sensitivity", MemorySensitivity),
+            ("retention_class", MemoryRetention),
+            ("trust_level", MemoryTrust),
+        ):
             if not isinstance(getattr(self, field), kind):
                 raise MemoryContractError(f"memory_{field}_invalid")
 
     def to_mapping(self) -> dict[str, str]:
-        return {"scope": self.scope.value, "sensitivity": self.sensitivity.value,
-                "retention_class": self.retention_class.value, "trust_level": self.trust_level.value}
+        return {
+            "scope": self.scope.value,
+            "sensitivity": self.sensitivity.value,
+            "retention_class": self.retention_class.value,
+            "trust_level": self.trust_level.value,
+        }
 
     @classmethod
     def from_mapping(cls, value: dict) -> MemorySecurityMetadata:
-        fields = {"scope": MemoryScope, "sensitivity": MemorySensitivity,
-                  "retention_class": MemoryRetention, "trust_level": MemoryTrust}
+        fields = {
+            "scope": MemoryScope,
+            "sensitivity": MemorySensitivity,
+            "retention_class": MemoryRetention,
+            "trust_level": MemoryTrust,
+        }
         if not isinstance(value, dict) or set(value) - fields.keys():
             raise MemoryContractError("memory_security_metadata_invalid")
         try:
@@ -196,9 +214,13 @@ class MemoryCapability:
         if not isinstance(self.namespace, MemoryNamespace):
             raise MemoryContractError("memory_capability_namespace_invalid")
         self.namespace.key(self.scope)
-        if (not isinstance(self.operations, tuple) or not self.operations or len(self.operations) > 5
-                or any(not isinstance(item, MemoryOperation) for item in self.operations)
-                or len(set(self.operations)) != len(self.operations)):
+        if (
+            not isinstance(self.operations, tuple)
+            or not self.operations
+            or len(self.operations) > 5
+            or any(not isinstance(item, MemoryOperation) for item in self.operations)
+            or len(set(self.operations)) != len(self.operations)
+        ):
             raise MemoryContractError("memory_capability_operations_invalid")
         if not isinstance(self.sensitivity_ceiling, MemorySensitivity):
             raise MemoryContractError("memory_sensitivity_invalid")
@@ -227,8 +249,11 @@ class MemoryRunPolicy:
         require_memory_timestamp(self.expires_at, "expires_at")
         if self.trace_id is not None:
             require_memory_identifier(self.trace_id, "trace_id")
-        if (not isinstance(self.capabilities, tuple) or len(self.capabilities) > 32
-                or any(not isinstance(item, MemoryCapability) for item in self.capabilities)):
+        if (
+            not isinstance(self.capabilities, tuple)
+            or len(self.capabilities) > 32
+            or any(not isinstance(item, MemoryCapability) for item in self.capabilities)
+        ):
             raise MemoryContractError("memory_capability_manifest_invalid")
         for capability in self.capabilities:
             if capability.namespace.tenant_id != self.namespace.tenant_id or capability.expires_at > self.expires_at:

@@ -65,4 +65,3 @@ def register_worker(app, agents):
             authorized_capabilities=list(credential.allowed_capabilities),
         )
     )
-

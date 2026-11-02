@@ -20,4 +20,3 @@ def rewrite_query(query: str) -> dict[str, str]:
         expansions.extend(_SYNONYMS.get(normalized, ()))
     rewritten = " ".join([original, *expansions]).strip()
     return {"original": original, "rewritten": rewritten}
-

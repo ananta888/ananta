@@ -137,11 +137,7 @@ def _valid_partial_grid(grid: tuple[int, ...]) -> bool:
     groups.extend(grid[row * 9 : row * 9 + 9] for row in range(9))
     groups.extend(grid[column::9] for column in range(9))
     groups.extend(
-        tuple(
-            grid[(box_row + row) * 9 + box_column + column]
-            for row in range(3)
-            for column in range(3)
-        )
+        tuple(grid[(box_row + row) * 9 + box_column + column] for row in range(3) for column in range(3))
         for box_row in (0, 3, 6)
         for box_column in (0, 3, 6)
     )

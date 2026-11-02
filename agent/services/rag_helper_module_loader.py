@@ -25,9 +25,7 @@ def load_rag_helper_modules(rag_helper_root: Path) -> dict[str, Any]:
         project_processor = importlib.import_module("rag_helper.application.project_processor")
         file_filters = importlib.import_module("rag_helper.filesystem.file_filters")
         file_scanner = importlib.import_module("rag_helper.application.file_scanner")
-        incremental_cache = importlib.import_module(
-            "rag_helper.application.incremental_cache"
-        )
+        incremental_cache = importlib.import_module("rag_helper.application.incremental_cache")
     except Exception as exc:
         raise RuntimeError(f"rag_helper_import_failed:{exc}") from exc
     finally:
@@ -39,7 +37,5 @@ def load_rag_helper_modules(rag_helper_root: Path) -> dict[str, Any]:
         "process_project": project_processor.process_project,
         "effective_extension": file_filters.effective_extension,
         "build_source_fingerprint": file_scanner.build_source_fingerprint,
-        "invalidate_incremental_cache_paths": (
-            incremental_cache.invalidate_incremental_cache_paths
-        ),
+        "invalidate_incremental_cache_paths": (incremental_cache.invalidate_incremental_cache_paths),
     }

@@ -168,13 +168,17 @@ def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
         assert payload["routing_tools"]
         assert token == "token"
         assert timeout is None
-        return {"data": {"reason": "", "tool_calls": [
-            {"id": "call-1", "name": "read_file", "args": {"path": "agent/config.py"}}
-        ], "inference": {
-            "profile_id": "local_lfm25_agentic_fast",
-            "provider": "llamacpp",
-            "model": "lfm2.5-2.6b-agentic-q8_0",
-        }}}
+        return {
+            "data": {
+                "reason": "",
+                "tool_calls": [{"id": "call-1", "name": "read_file", "args": {"path": "agent/config.py"}}],
+                "inference": {
+                    "profile_id": "local_lfm25_agentic_fast",
+                    "provider": "llamacpp",
+                    "model": "lfm2.5-2.6b-agentic-q8_0",
+                },
+            }
+        }
 
     monkeypatch.setattr("agent.services.task_runtime_service.forward_to_worker", forward)
     response, trace = _worker_profile_chat(
@@ -216,7 +220,8 @@ def test_snake_shadow_observation_is_forced_candidate_only(monkeypatch) -> None:
             return type("Decision", (), {"reason_code": "shadow_candidate_validated"})()
 
     monkeypatch.setattr(
-        "agent.services.tiny_router.service.get_tiny_tool_router_service", lambda: Router(),
+        "agent.services.tiny_router.service.get_tiny_tool_router_service",
+        lambda: Router(),
     )
     reason = observe_snake_candidate(
         "status",

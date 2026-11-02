@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
+from tests.meet.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 
 

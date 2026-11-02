@@ -6,20 +6,22 @@ from agent.services.workflow_registry import WorkflowRegistry
 
 
 def _registry() -> WorkflowRegistry:
-    return WorkflowRegistry(descriptors=[
-        {
-            "provider": "mock",
-            "workflow_id": "wf",
-            "display_name": "wf",
-            "capability": "read",
-            "risk_class": "low",
-            "approval_required": False,
-            "dry_run_supported": True,
-            "callback_required": False,
-            "input_schema": {"type": "object"},
-            "output_schema": {"type": "object"},
-        }
-    ])
+    return WorkflowRegistry(
+        descriptors=[
+            {
+                "provider": "mock",
+                "workflow_id": "wf",
+                "display_name": "wf",
+                "capability": "read",
+                "risk_class": "low",
+                "approval_required": False,
+                "dry_run_supported": True,
+                "callback_required": False,
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"},
+            }
+        ]
+    )
 
 
 def test_execution_adapter_dry_run_with_mock_provider() -> None:

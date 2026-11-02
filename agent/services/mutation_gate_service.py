@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shlex
 import time
 from dataclasses import dataclass
@@ -62,15 +63,17 @@ class MutationGateService:
 
         approval_payload = self._approval_payload(approval_decision)
         risk_payload = self._risk_payload(risk_decision)
-        mutation_class = self.classify_mutation_class(command=command, tool_calls=tool_calls, approval_payload=approval_payload)
+        mutation_class = self.classify_mutation_class(
+            command=command, tool_calls=tool_calls, approval_payload=approval_payload
+        )
         normalized_target = self.normalize_target(command=command, tool_calls=tool_calls, task=task)
         is_mutation = mutation_class != "read_only"
         scope = self._approval_scope(task=task, trace_id=trace_id, actor=actor)
-        governance_mode = str(
-            approval_payload.get("governance_mode")
-            or (agent_cfg or {}).get("governance_mode")
-            or "balanced"
-        ).strip().lower()
+        governance_mode = (
+            str(approval_payload.get("governance_mode") or (agent_cfg or {}).get("governance_mode") or "balanced")
+            .strip()
+            .lower()
+        )
         operation_class = str(approval_payload.get("operation_class") or "read_only").strip().lower()
 
         # ALWA-015: every Block-Decision flows through this single
@@ -82,6 +85,7 @@ class MutationGateService:
                     AUDIT_WORKSPACE_MUTATION_BLOCKED,
                     audit_workspace_mutation_event,
                 )
+
                 audit_workspace_mutation_event(
                     AUDIT_WORKSPACE_MUTATION_BLOCKED,
                     task_id=str((task or {}).get("id") or "") or None,
@@ -94,7 +98,7 @@ class MutationGateService:
                     **details,
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_block: ignored Exception", exc_info=True)
             return MutationGateDecision(
                 classification="blocked",
                 reason_code=reason_code,
@@ -230,7 +234,18 @@ class MutationGateService:
     ) -> str:
         command_text = str(command or "").strip().lower()
         if command_text:
-            if any(token in command_text for token in ("pip install", "pip uninstall", "npm install", "apt install", "apt remove", "brew install", "brew uninstall")):
+            if any(
+                token in command_text
+                for token in (
+                    "pip install",
+                    "pip uninstall",
+                    "npm install",
+                    "apt install",
+                    "apt remove",
+                    "brew install",
+                    "brew uninstall",
+                )
+            ):
                 return "install_remove"
             if any(token in command_text for token in ("apply_patch", "git apply", "patch -p")):
                 return "patch_apply"
@@ -271,9 +286,15 @@ class MutationGateService:
         }
         return fallback.get(operation_class, "read_only")
 
-    def normalize_target(self, *, command: str | None, tool_calls: list[dict] | None, task: dict | None) -> dict[str, Any]:
+    def normalize_target(
+        self, *, command: str | None, tool_calls: list[dict] | None, task: dict | None
+    ) -> dict[str, Any]:
         task_payload = dict(task or {})
-        base_dir = str((task_payload.get("worker_execution_context") or {}).get("cwd") or task_payload.get("working_directory") or Path.cwd())
+        base_dir = str(
+            (task_payload.get("worker_execution_context") or {}).get("cwd")
+            or task_payload.get("working_directory")
+            or Path.cwd()
+        )
         target: dict[str, Any] = {
             "target_type": "none",
             "path": None,
@@ -401,7 +422,26 @@ class MutationGateService:
             return None
         if not parts:
             return None
-        ignored = {"bash", "sh", "python", "python3", "node", "npm", "git", "apt", "pip", "sudo", "echo", "cat", "tee", "mv", "cp", "chmod", "chown", "sed"}
+        ignored = {
+            "bash",
+            "sh",
+            "python",
+            "python3",
+            "node",
+            "npm",
+            "git",
+            "apt",
+            "pip",
+            "sudo",
+            "echo",
+            "cat",
+            "tee",
+            "mv",
+            "cp",
+            "chmod",
+            "chown",
+            "sed",
+        }
         for token in parts[1:]:
             value = str(token or "").strip()
             if not value or value.startswith("-") or value in {"&&", "||", ";"}:
@@ -474,7 +514,7 @@ class MutationGateService:
                 },
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_legacy_bypass: ignored Exception", exc_info=True)
 
     def _validate_scoped_approval(
         self,
@@ -508,7 +548,9 @@ class MutationGateService:
         if expected_actor and expected_actor != str(actor or "").strip():
             return {"ok": False, "present": True, "reason_code": "mutation_scope_mismatch:actor"}
 
-        allowed_classes = [str(item).strip().lower() for item in list(scoped.get("mutation_classes") or []) if str(item).strip()]
+        allowed_classes = [
+            str(item).strip().lower() for item in list(scoped.get("mutation_classes") or []) if str(item).strip()
+        ]
         if allowed_classes and mutation_class.lower() not in set(allowed_classes):
             return {"ok": False, "present": True, "reason_code": "mutation_scope_mismatch:class"}
 

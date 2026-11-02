@@ -148,9 +148,17 @@ class DuckDBVectorStoreConfig:
                 cause_reason="free_sql_network_or_attach",
             )
         object.__setattr__(self, "snapshot_root", root)
-        object.__setattr__(self, "active_pointer_name", _strict_text(self.active_pointer_name, reason="pointer", default="active-snapshot.json"))
-        object.__setattr__(self, "schema_version", _strict_text(self.schema_version, reason="schema", default=SCHEMA_VERSION))
-        object.__setattr__(self, "retention_snapshots", _strict_int(self.retention_snapshots, lo=1, hi=10, reason="retention"))
+        object.__setattr__(
+            self,
+            "active_pointer_name",
+            _strict_text(self.active_pointer_name, reason="pointer", default="active-snapshot.json"),
+        )
+        object.__setattr__(
+            self, "schema_version", _strict_text(self.schema_version, reason="schema", default=SCHEMA_VERSION)
+        )
+        object.__setattr__(
+            self, "retention_snapshots", _strict_int(self.retention_snapshots, lo=1, hi=10, reason="retention")
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {

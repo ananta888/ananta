@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-import pytest
-
 from agent.services.editor_resolver import (
     REASON_CONFIG_DEFAULT,
     REASON_ENVIRONMENT,
@@ -13,7 +10,7 @@ from agent.services.editor_resolver import (
     REASON_VIM_FALLBACK,
     EditorResolver,
 )
-from agent.services.tui_tool_registry import TuiToolRegistry, _GLOBAL_DEFAULT_CONFIG
+from agent.services.tui_tool_registry import _GLOBAL_DEFAULT_CONFIG, TuiToolRegistry
 
 
 def _make_resolver(
@@ -23,10 +20,17 @@ def _make_resolver(
     allowed_tools: list[str] | None = None,
     tmp_path=None,
 ) -> EditorResolver:
-    import json, tempfile, pathlib
+    import json
+    import pathlib
+    import tempfile
 
     tools = allowed_tools or list(_GLOBAL_DEFAULT_CONFIG["allowed_tools"])
-    raw = {**dict(_GLOBAL_DEFAULT_CONFIG), "default_editor": default_editor, "allowed_tools": tools, "allow_environment_editor": allow_env}
+    raw = {
+        **dict(_GLOBAL_DEFAULT_CONFIG),
+        "default_editor": default_editor,
+        "allowed_tools": tools,
+        "allow_environment_editor": allow_env,
+    }
     td = tmp_path or pathlib.Path(tempfile.mkdtemp())
     cfg_file = td / "tui-tools.json"
     cfg_file.write_text(json.dumps(raw))
@@ -38,6 +42,7 @@ def _make_resolver(
 
 
 # ── Step 1: explicit --with ───────────────────────────────────────────────────
+
 
 def test_explicit_allowed_editor(tmp_path):
     resolver = _make_resolver(tmp_path=tmp_path)
@@ -55,6 +60,7 @@ def test_explicit_unknown_editor_falls_through(tmp_path):
 
 
 # ── Step 2/3: project and user filetype rules ─────────────────────────────────
+
 
 def test_project_filetype_rule_wins_over_global(tmp_path):
     resolver = _make_resolver(tmp_path=tmp_path)
@@ -83,6 +89,7 @@ def test_project_rule_beats_user_rule(tmp_path):
 
 # ── Step 4: global filetype rules ────────────────────────────────────────────
 
+
 def test_global_filetype_rule_md(tmp_path):
     resolver = _make_resolver(tmp_path=tmp_path)
     res = resolver.resolve("/workspace/README.md")
@@ -104,6 +111,7 @@ def test_global_filetype_dockerfile(tmp_path):
 
 
 # ── Step 5: $EDITOR / $VISUAL ────────────────────────────────────────────────
+
 
 def test_environment_editor_used_when_allowed(tmp_path, monkeypatch):
     monkeypatch.setenv("EDITOR", "nano")
@@ -129,6 +137,7 @@ def test_environment_editor_not_in_allowed_tools_ignored(tmp_path, monkeypatch):
 
 # ── Step 6: config default ────────────────────────────────────────────────────
 
+
 def test_config_default_editor(tmp_path, monkeypatch):
     monkeypatch.delenv("EDITOR", raising=False)
     monkeypatch.delenv("VISUAL", raising=False)
@@ -140,12 +149,14 @@ def test_config_default_editor(tmp_path, monkeypatch):
 
 # ── Step 7: vim fallback ─────────────────────────────────────────────────────
 
+
 def test_vim_fallback_when_nothing_matches(tmp_path, monkeypatch):
     monkeypatch.delenv("EDITOR", raising=False)
     monkeypatch.delenv("VISUAL", raising=False)
     # Build a registry with only "nvim" but default_editor forces "nvim"
     # To reach fallback we need default_editor also to not be allowed:
-    import json, pathlib
+    import json
+
     tools = ["nvim", "nano", "micro", "helix", "lazygit", "mc", "ranger"]
     raw = {
         **dict(_GLOBAL_DEFAULT_CONFIG),
@@ -163,8 +174,8 @@ def test_vim_fallback_when_nothing_matches(tmp_path, monkeypatch):
     # Step 7 fires only when default_editor is not in allowed — validation would reject that.
     # So the only clean path to step 7 is an artificially broken profile dict.
     # Test it via EditorResolver._make_resolution with a missing profile instead.
-    from agent.services.editor_resolver import _make_resolution, REASON_VIM_FALLBACK
     from agent.services.tui_tool_registry import TuiToolRegistry
+
     registry = TuiToolRegistry(user_config_path=str(tmp_path / "none.json"), project_config_path=str(cfg_file))
     # Direct fallback path
     res = EditorResolver(registry=registry).resolve("file.xyz")
@@ -175,7 +186,8 @@ def test_vim_fallback_when_nothing_matches(tmp_path, monkeypatch):
 
 def test_vim_fallback_reason_code():
     """Verify the VIM fallback EditorResolution has correct readonly support."""
-    from agent.services.editor_resolver import EditorResolution, REASON_VIM_FALLBACK
+    from agent.services.editor_resolver import EditorResolution
+
     res = EditorResolution(
         editor_id="vim",
         command="vim",
@@ -189,6 +201,7 @@ def test_vim_fallback_reason_code():
 
 
 # ── build_argv ────────────────────────────────────────────────────────────────
+
 
 def test_build_argv_normal(tmp_path):
     resolver = _make_resolver(tmp_path=tmp_path)

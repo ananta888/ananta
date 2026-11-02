@@ -86,9 +86,7 @@ def _envelope(operation: str = "index") -> dict:
         "scope": scope,
         "scope_fingerprint": scope_fingerprint,
         "idempotency_key": idempotency_key,
-        "request_fingerprint": hashlib.sha256(
-            _canonical_json(request_intent)
-        ).hexdigest(),
+        "request_fingerprint": hashlib.sha256(_canonical_json(request_intent)).hexdigest(),
         "resolved_config": {
             "schema": "ananta.vector_store_resolved_config.v1",
             "provider": "json",
@@ -125,8 +123,7 @@ def _handler(
     return VectorIndexWorkerTaskHandler(
         execution,
         task_verifier=TASK_VERIFIER,
-        replay_guard=replay_guard
-        or InMemoryVectorIndexReplayGuard(),
+        replay_guard=replay_guard or InMemoryVectorIndexReplayGuard(),
         dispatch_admission=dispatch_admission or _Admission(),
         worker_audience=worker_audience,
         clock=clock,
@@ -222,11 +219,7 @@ def test_worker_requires_hub_admission_before_vector_mutation() -> None:
     ]
     assert len(execution_calls) == 1
 
-    denied = _Admission(
-        RuntimeError(
-            "vector_index_dispatch_admission_terminal"
-        )
-    )
+    denied = _Admission(RuntimeError("vector_index_dispatch_admission_terminal"))
     with pytest.raises(
         RuntimeError,
         match="vector_index_dispatch_admission_terminal",
@@ -352,9 +345,7 @@ def test_worker_handler_rejects_attested_scope_inconsistency() -> None:
     try:
         _handler(Execution()).execute(task=_task(inconsistent))
     except ValueError as exc:
-        assert str(exc) == (
-            "vector_index_task_scope_fingerprint_mismatch"
-        )
+        assert str(exc) == ("vector_index_task_scope_fingerprint_mismatch")
     else:
         raise AssertionError("inconsistent Hub scope reached execution")
 
@@ -384,9 +375,7 @@ def test_worker_handler_rejects_tampered_config_and_delete_scope() -> None:
                 },
             }
         ),
-        lambda envelope: envelope["payload"].update(
-            {"delete_all_scope": True}
-        ),
+        lambda envelope: envelope["payload"].update({"delete_all_scope": True}),
     ):
         forged = _envelope()
         mutate(forged)
@@ -502,10 +491,7 @@ def test_worker_handler_consumes_proposal_and_fences_its_replay() -> None:
         sequence=2,
         attempt_id="dispatch-execute-00000002",
     )
-    assert (
-        handler.execute(task=_task(execution))["status"]
-        == "completed"
-    )
+    assert handler.execute(task=_task(execution))["status"] == "completed"
     assert len(calls) == 1
 
 
@@ -556,24 +542,9 @@ def test_worker_handler_canonicalizes_equivalent_audience_origins() -> None:
 
 
 def test_audience_origin_canonicalization_covers_https_and_ipv6() -> None:
-    assert (
-        canonicalize_vector_index_worker_audience(
-            "HTTPS://EXAMPLE.COM:443/"
-        )
-        == "https://example.com"
-    )
-    assert (
-        canonicalize_vector_index_worker_audience(
-            "http://[2001:0DB8:0:0::1]:80/"
-        )
-        == "http://[2001:db8::1]"
-    )
-    assert (
-        canonicalize_vector_index_worker_audience(
-            "https://[::1]:8443"
-        )
-        == "https://[::1]:8443"
-    )
+    assert canonicalize_vector_index_worker_audience("HTTPS://EXAMPLE.COM:443/") == "https://example.com"
+    assert canonicalize_vector_index_worker_audience("http://[2001:0DB8:0:0::1]:80/") == "http://[2001:db8::1]"
+    assert canonicalize_vector_index_worker_audience("https://[::1]:8443") == "https://[::1]:8443"
 
 
 def test_worker_handler_rejects_non_origin_audiences() -> None:
@@ -599,9 +570,7 @@ def test_worker_handler_rejects_non_origin_audiences() -> None:
         except ValueError as exc:
             assert str(exc) == "vector_index_task_audience_invalid"
         else:
-            raise AssertionError(
-                f"non-origin audience was accepted: {audience}"
-            )
+            raise AssertionError(f"non-origin audience was accepted: {audience}")
 
 
 def test_sqlite_replay_guard_survives_guard_recreation(tmp_path) -> None:
@@ -805,23 +774,13 @@ def test_replay_guard_rejects_non_sticky_writable_ancestor(
     shared_volume = tmp_path / "shared-volume"
     shared_volume.mkdir(mode=0o777)
     shared_volume.chmod(0o777)
-    ledger = (
-        shared_volume
-        / "vector-index-replay"
-        / "vector-index-task-replay.sqlite3"
-    )
+    ledger = shared_volume / "vector-index-replay" / "vector-index-task-replay.sqlite3"
 
     with pytest.raises(
         RuntimeError,
         match="vector_index_replay_ledger_unsafe",
     ):
-        build_vector_index_replay_guard(
-            {
-                "ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": (
-                    str(ledger)
-                )
-            }
-        )
+        build_vector_index_replay_guard({"ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": (str(ledger))})
 
 
 def test_replay_guard_creates_private_parent_under_sticky_root(
@@ -830,16 +789,9 @@ def test_replay_guard_creates_private_parent_under_sticky_root(
     shared_volume = tmp_path / "shared-volume"
     shared_volume.mkdir(mode=0o700)
     shared_volume.chmod(0o1777)
-    ledger = (
-        shared_volume
-        / "nested"
-        / "vector-index-replay"
-        / "vector-index-task-replay.sqlite3"
-    )
+    ledger = shared_volume / "nested" / "vector-index-replay" / "vector-index-task-replay.sqlite3"
 
-    guard = build_vector_index_replay_guard(
-        {"ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": str(ledger)}
-    )
+    guard = build_vector_index_replay_guard({"ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": str(ledger)})
 
     assert isinstance(guard, SqliteVectorIndexReplayGuard)
     assert (ledger.parent.stat().st_mode & 0o777) == 0o700
@@ -946,12 +898,7 @@ def test_replay_guard_rejects_unsafe_receipt_retention(
     ):
         build_vector_index_replay_guard(
             {
-                "ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": str(
-                    tmp_path / "replay.sqlite3"
-                ),
-                (
-                    "ANANTA_VECTOR_INDEX_TASK_REPLAY_"
-                    "RECEIPT_RETENTION_SECONDS"
-                ): retention,
+                "ANANTA_VECTOR_INDEX_TASK_REPLAY_LEDGER_FILE": str(tmp_path / "replay.sqlite3"),
+                ("ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS"): retention,
             }
         )

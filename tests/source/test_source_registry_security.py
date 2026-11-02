@@ -220,9 +220,7 @@ def test_registry_lock_is_released_after_process_crash(
     process.join(timeout=5)
     assert process.exitcode == 23
 
-    created = SourceRegistry(
-        root=tmp_path / "registry"
-    ).create_source(_descriptor())
+    created = SourceRegistry(root=tmp_path / "registry").create_source(_descriptor())
     assert created["source_id"] == "valid-source"
 
 

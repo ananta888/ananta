@@ -118,9 +118,7 @@ def _budget(
 
 
 def test_resource_admission_denies_ram_vram_and_audio_before_backend_start() -> None:
-    controller = ResourceAdmissionController(
-        _budget(ram_bytes=64, vram_bytes=0, audio_ms=500)
-    )
+    controller = ResourceAdmissionController(_budget(ram_bytes=64, vram_bytes=0, audio_ms=500))
     backend = _ControlledBackend(
         "too-large",
         requirement=BackendResourceRequirement(ram_bytes=65, vram_bytes=1),
@@ -170,9 +168,7 @@ def test_single_pipeline_also_applies_admission_before_backend_start() -> None:
 def test_per_backend_deadline_cancels_only_slow_candidate_and_keeps_success() -> None:
     fast = _ControlledBackend("fast", delay_seconds=0.005)
     slow = _ControlledBackend("slow", delay_seconds=0.2)
-    executor = ParallelCandidateExecutor(
-        admission_controller=ResourceAdmissionController(_budget())
-    )
+    executor = ParallelCandidateExecutor(admission_controller=ResourceAdmissionController(_budget()))
 
     started = time.monotonic()
     candidates = executor.execute(

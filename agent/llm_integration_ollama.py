@@ -1,7 +1,7 @@
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
 
-from agent.llm_integration_lmstudio import _model_identifier_matches, _model_identifier_tokens
+from agent.llm_integration_lmstudio import _model_identifier_matches
 from agent.utils import _http_get
 
 

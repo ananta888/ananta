@@ -189,8 +189,11 @@ def test_crash_after_gateway_event_reuses_immutable_selection(harness, monkeypat
     result = advance_bounded(harness.hub, request, first)
     assert result.status == "completed"
     assert harness.handler.calls == ["yes_task"]
-    selected = [event for event in harness.hub.stream(request)
-                if event.step_id == "choose" and event.event_type == 'workflow.step.completed']
+    selected = [
+        event
+        for event in harness.hub.stream(request)
+        if event.step_id == "choose" and event.event_type == "workflow.step.completed"
+    ]
     assert len(selected) == 1
     assert selected[0].payload["selected_edge"] == "yes"
 

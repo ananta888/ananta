@@ -47,9 +47,7 @@ def upgrade() -> None:
                 "ix_workflow_runtime_rollout_policies_tenant_id": ("tenant_id",),
                 "ix_workflow_runtime_rollout_policies_profile_id": ("profile_id",),
                 "ix_workflow_runtime_rollout_policies_workflow_id": ("workflow_id",),
-                "ix_workflow_runtime_rollout_policies_policy_version": (
-                    "policy_version",
-                ),
+                "ix_workflow_runtime_rollout_policies_policy_version": ("policy_version",),
                 "ix_workflow_runtime_rollout_policies_mode": ("mode",),
                 "ix_workflow_runtime_rollout_policies_created_at": ("created_at",),
                 "ix_workflow_runtime_rollout_policies_updated_at": ("updated_at",),
@@ -129,9 +127,7 @@ def upgrade() -> None:
                 "ix_workflow_authorization_grants_run_id": ("run_id",),
                 "ix_workflow_authorization_grants_step_id": ("step_id",),
                 "ix_workflow_authorization_grants_plan_hash": ("plan_hash",),
-                "ix_workflow_authorization_grants_policy_version": (
-                    "policy_version",
-                ),
+                "ix_workflow_authorization_grants_policy_version": ("policy_version",),
                 "ix_workflow_authorization_grants_status": ("status",),
                 "ix_workflow_authorization_grants_issued_at": ("issued_at",),
                 "ix_workflow_authorization_grants_expires_at": ("expires_at",),

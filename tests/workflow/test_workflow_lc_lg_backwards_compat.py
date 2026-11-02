@@ -14,6 +14,7 @@ back-compat surface explicitly. The pre-existing workflow tests
 part of the suite themselves; re-running them here as a subprocess only
 cost ~50 s per run.
 """
+
 from __future__ import annotations
 
 # ── Pre-LCG dataclass shape is preserved (positional + kwarg) ─────────
@@ -22,8 +23,8 @@ from __future__ import annotations
 def test_dry_run_result_can_be_built_with_kwarg_api():
     """DryRunResult shape is unchanged from the caller's perspective."""
     from worker.adapters.workflow_adapter_base import DryRunResult
-    r = DryRunResult(adapter_id="x", task_id="t", task_type="rag_query",
-                     risk_level="low")
+
+    r = DryRunResult(adapter_id="x", task_id="t", task_type="rag_query", risk_level="low")
     assert r.adapter_id == "x"
     assert r.task_id == "t"
     assert r.task_type == "rag_query"
@@ -37,8 +38,8 @@ def test_workflow_artifact_result_task_type_is_optional():
     """WorkflowArtifactResult.task_type is new and default '' so
     pre-LCG callers that did not pass it keep working."""
     from worker.adapters.workflow_adapter_base import WorkflowArtifactResult
-    r = WorkflowArtifactResult(adapter_id="x", task_id="t", status="success",
-                               summary="ok")
+
+    r = WorkflowArtifactResult(adapter_id="x", task_id="t", status="success", summary="ok")
     assert r.task_type == ""
     d = r.as_dict()
     assert d["task_type"] == ""
@@ -49,8 +50,8 @@ def test_workflow_artifact_result_as_dict_keys_stable():
     """The as_dict() schema is part of the contract. New fields are
     added (task_type) but the existing ones stay in the same order."""
     from worker.adapters.workflow_adapter_base import WorkflowArtifactResult
-    r = WorkflowArtifactResult(adapter_id="x", task_id="t", status="success",
-                               summary="ok", task_type="rag_query")
+
+    r = WorkflowArtifactResult(adapter_id="x", task_id="t", status="success", summary="ok", task_type="rag_query")
     d = r.as_dict()
     assert d["schema"] == "workflow_artifact_result.v1"
     assert d["adapter_id"] == "x"
@@ -59,9 +60,7 @@ def test_workflow_artifact_result_as_dict_keys_stable():
     assert d["status"] == "success"
     assert d["summary"] == "ok"
     # All the existing keys are still there.
-    for key in ("artifacts", "sources", "diagnostics",
-                "policy_decisions", "execution_trace",
-                "error", "reason_code"):
+    for key in ("artifacts", "sources", "diagnostics", "policy_decisions", "execution_trace", "error", "reason_code"):
         assert key in d, f"Missing key in as_dict(): {key}"
 
 
@@ -72,6 +71,7 @@ def test_provider_config_can_be_built_from_empty_dict():
     """A profile that pre-dates LCG can be deserialised into the
     provider config; defaults fill the new fields."""
     from agent.providers.lc_lg import LangChainProviderConfig
+
     cfg = LangChainProviderConfig.model_validate({})
     assert cfg.enabled is False
     assert cfg.mode == "dry_run"
@@ -80,11 +80,9 @@ def test_provider_config_can_be_built_from_empty_dict():
 
 def test_provider_config_round_trip_via_dict():
     from agent.providers.lc_lg import LangChainProviderConfig
-    original = LangChainProviderConfig(enabled=True, mode="local_live",
-                                       allowed_tools=["summarize_doc"])
-    roundtrip = LangChainProviderConfig.model_validate(
-        original.model_dump()
-    )
+
+    original = LangChainProviderConfig(enabled=True, mode="local_live", allowed_tools=["summarize_doc"])
+    roundtrip = LangChainProviderConfig.model_validate(original.model_dump())
     assert roundtrip.enabled == original.enabled
     assert roundtrip.mode == original.mode
     assert set(roundtrip.allowed_tools) == set(original.allowed_tools)
@@ -96,8 +94,10 @@ def test_provider_config_round_trip_via_dict():
 def test_registry_includes_n8n_provider():
     """The pre-LCG n8n provider must still register after LCG merges."""
     from worker.adapters.workflow_adapter_registry import (
-        get_registry, list_adapters_as_dicts,
+        get_registry,
+        list_adapters_as_dicts,
     )
+
     # Ensure defaults loaded.
     list_adapters_as_dicts()
     kinds = set(get_registry().keys())
@@ -111,8 +111,8 @@ def test_registry_includes_n8n_provider():
 def test_existing_descriptor_fields_unchanged():
     """The as_dict() schema for the adapter descriptor is preserved."""
     from worker.adapters.workflow_adapter_registry import list_adapters_as_dicts
+
     items = list_adapters_as_dicts()
     for item in items:
-        for key in ("adapter_id", "display_name", "kind", "status",
-                    "enabled", "reason", "capabilities", "version"):
+        for key in ("adapter_id", "display_name", "kind", "status", "enabled", "reason", "capabilities", "version"):
             assert key in item, f"Missing key in descriptor: {key}"

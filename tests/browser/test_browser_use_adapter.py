@@ -5,14 +5,16 @@ from agent.services.browser_use_adapter import BrowserUseExecutionAdapter
 
 
 def _contract():
-    return BrowserTaskContract.from_payload({
-        "allowed_domains": ["example.com"],
-        "max_actions": 3,
-        "timeout_seconds": 10,
-        "download_policy": "deny",
-        "auth_policy": "none",
-        "screenshot_policy": "none",
-    })
+    return BrowserTaskContract.from_payload(
+        {
+            "allowed_domains": ["example.com"],
+            "max_actions": 3,
+            "timeout_seconds": 10,
+            "download_policy": "deny",
+            "auth_policy": "none",
+            "screenshot_policy": "none",
+        }
+    )
 
 
 def test_adapter_blocks_disallowed_domain():

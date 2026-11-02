@@ -58,9 +58,7 @@ class SfuRuntimeCredentialRecord:
 
     def usable_at(self, now: float) -> bool:
         return self.status == "active" or (
-            self.status == "overlap"
-            and self.overlap_until is not None
-            and now <= self.overlap_until
+            self.status == "overlap" and self.overlap_until is not None and now <= self.overlap_until
         )
 
     def payload(self) -> dict[str, object]:
@@ -321,9 +319,7 @@ class SqlSfuRuntimeIdentityRepository:
         now = float(self._clock())
         try:
             with Session(self._engine) as db:
-                current = db.exec(
-                    select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)
-                ).first()
+                current = db.exec(select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)).first()
                 if current is None:
                     raise SfuRuntimeIdentityRepositoryError("sfu_identity_not_found")
                 if current.status == "revoked":
@@ -430,9 +426,7 @@ class SqlSfuRuntimeIdentityRepository:
         now = float(self._clock())
         try:
             with Session(self._engine) as db:
-                current = db.exec(
-                    select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)
-                ).first()
+                current = db.exec(select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)).first()
                 if current is None:
                     raise SfuRuntimeIdentityRepositoryError("sfu_identity_not_found")
                 if current.version != expected_version:
@@ -495,9 +489,7 @@ class SqlSfuRuntimeIdentityRepository:
     def get_by_node_id(self, node_id: str) -> SfuRuntimeIdentityRecord | None:
         try:
             with Session(self._engine) as db:
-                row = db.exec(
-                    select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)
-                ).first()
+                row = db.exec(select(SfuRuntimeIdentityDB).where(SfuRuntimeIdentityDB.node_id == node_id)).first()
                 return _record_for_identity(db, row) if row is not None else None
         except SQLAlchemyError as exc:
             raise SfuRuntimeIdentityRepositoryError("sfu_identity_store_unavailable") from exc
@@ -518,9 +510,7 @@ class SqlSfuRuntimeIdentityRepository:
                     return None
                 if receipt.request_digest != request_digest:
                     raise SfuRuntimeIdentityRepositoryError("sfu_identity_idempotency_conflict")
-                return SfuRuntimeIdentityMutationResult(
-                    "replayed", _record_from_payload(receipt.response_json)
-                )
+                return SfuRuntimeIdentityMutationResult("replayed", _record_from_payload(receipt.response_json))
         except SfuRuntimeIdentityRepositoryError:
             raise
         except SQLAlchemyError as exc:

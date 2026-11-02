@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from agent.services.deterministic_repair_handler import DeterministicRepairHandler
 
-
 _HANDLER = DeterministicRepairHandler()
 
 

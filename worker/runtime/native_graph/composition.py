@@ -282,7 +282,10 @@ class TaskScopedNativeWorkerExecutor:
         )
         if prepared is not None and prepared[1] and result.get("status") == "completed":
             artifacts = self._output_materializer.materialize(
-                command=prepared[0], files=prepared[1], task=task, workspace_dir=workspace.workspace_dir,
+                command=prepared[0],
+                files=prepared[1],
+                task=task,
+                workspace_dir=workspace.workspace_dir,
             )
             return {**result, "artifact_refs": artifacts}
         return result
@@ -481,12 +484,16 @@ def build_native_graph_worker_task_adapter(
     scope = NativeHubExecutionScope(client)
     runtime = NativeDelegatedNodeRuntime(
         handler=build_native_node_handlers(
-            default=build_result_maintenance_handlers(default=NativeTaskScopedNodeHandler(
-                agent_config=agent_config,
-                task_snapshots=scope,
-                executor=executor,
-                artifact_publication=artifact_publication,
-            ), scope=scope, native_config=native_cfg),
+            default=build_result_maintenance_handlers(
+                default=NativeTaskScopedNodeHandler(
+                    agent_config=agent_config,
+                    task_snapshots=scope,
+                    executor=executor,
+                    artifact_publication=artifact_publication,
+                ),
+                scope=scope,
+                native_config=native_cfg,
+            ),
             scope=scope,
             client=client,
             native_config=native_cfg,

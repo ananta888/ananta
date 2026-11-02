@@ -1,9 +1,10 @@
 """CaseFlow Deduplication — fingerprint and near-duplicate detection for DiscoveryResults."""
+
 from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from agent.caseflow.discovery import DiscoveryResult

@@ -3,14 +3,14 @@
 Entkoppelt vom TUI-Fast-Path: läuft async, blockiert nie die UI.
 LLMs dürfen nur DSL-Kandidaten erzeugen, keine direkten Snake-Koordinaten.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from dataclasses import dataclass
+from typing import Any
 
 _log = logging.getLogger(__name__)
 
@@ -107,6 +107,7 @@ class BackgroundHeuristicLab:
     def _parse_and_validate(self, raw: str, obs_pack: dict[str, Any]) -> dict[str, Any] | None:
         try:
             from agent.services.heuristic_runtime.llm_heuristic_parser import LlmHeuristicParser
+
             parser = LlmHeuristicParser()
             result = parser.parse(raw)
             if result is None:

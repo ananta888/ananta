@@ -7,11 +7,10 @@ from agent.tui_shell_runtime import (
     DEFAULT_SUSPEND_KEY,
     ShellModeTransitionError,
     TuiShellRuntime,
-    KeyDispatchResult,
 )
 
-
 # ── Initial state ─────────────────────────────────────────────────────────────
+
 
 def test_initial_state_is_dashboard_pane_without_session():
     rt = TuiShellRuntime()
@@ -22,6 +21,7 @@ def test_initial_state_is_dashboard_pane_without_session():
 
 
 # ── switch_to: valid transitions ─────────────────────────────────────────────
+
 
 def test_dashboard_to_embedded_editor():
     rt = TuiShellRuntime()
@@ -74,6 +74,7 @@ def test_readonly_context_set():
 
 # ── switch_to: invalid transitions ───────────────────────────────────────────
 
+
 def test_dashboard_cannot_transition_to_itself():
     rt = TuiShellRuntime()
     # DASHBOARD → DASHBOARD is invalid per _VALID_TRANSITIONS
@@ -82,6 +83,7 @@ def test_dashboard_cannot_transition_to_itself():
 
 
 # ── state_change callback ─────────────────────────────────────────────────────
+
 
 def test_on_state_change_called_on_transition():
     received = []
@@ -100,6 +102,7 @@ def test_on_state_change_not_called_on_failed_transition():
 
 
 # ── suspend ───────────────────────────────────────────────────────────────────
+
 
 def test_suspend_from_embedded_editor_returns_dashboard():
     rt = TuiShellRuntime()
@@ -123,6 +126,7 @@ def test_suspend_does_not_raise_from_any_mode():
 
 
 # ── dispatch_key: forwarding ──────────────────────────────────────────────────
+
 
 def test_keys_forwarded_in_embedded_editor():
     rt = TuiShellRuntime()
@@ -154,6 +158,7 @@ def test_keys_consumed_in_terminal_session():
 
 
 # ── dispatch_key: suspend chord ───────────────────────────────────────────────
+
 
 def test_suspend_chord_triggers_suspend_in_embedded_mode():
     rt = TuiShellRuntime()
@@ -189,6 +194,7 @@ def test_custom_suspend_key():
 
 # ── TuiPaneState helpers ──────────────────────────────────────────────────────
 
+
 def test_pane_state_is_embedded_true():
     state = TuiPaneState(mode=ShellMode.EMBEDDED_EDITOR)
     assert state.is_embedded() is True
@@ -209,6 +215,7 @@ def test_pane_state_to_dict():
 
 # ── reset ─────────────────────────────────────────────────────────────────────
 
+
 def test_reset_returns_to_dashboard():
     rt = TuiShellRuntime()
     rt.switch_to(ShellMode.EMBEDDED_EDITOR, {"session_id": "s1"})
@@ -218,13 +225,17 @@ def test_reset_returns_to_dashboard():
 
 # ── thread safety ─────────────────────────────────────────────────────────────
 
+
 def test_concurrent_state_reads_are_consistent():
     import threading
+
     rt = TuiShellRuntime()
     rt.switch_to(ShellMode.EMBEDDED_EDITOR, {"session_id": "s1"})
     results = []
+
     def read():
         results.append(rt.current_state().mode)
+
     threads = [threading.Thread(target=read) for _ in range(20)]
     for t in threads:
         t.start()

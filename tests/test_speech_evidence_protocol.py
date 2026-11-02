@@ -39,8 +39,7 @@ def _verify(verifier, raw):
 
 def test_canonical_utf8_fixture_matches_browser_contract() -> None:
     fixture_path = (
-        Path(__file__).parents[1]
-        / "frontend-angular/src/app/services/fixtures/speech-evidence-protocol.v1.json"
+        Path(__file__).parents[1] / "frontend-angular/src/app/services/fixtures/speech-evidence-protocol.v1.json"
     )
     golden = json.loads(fixture_path.read_text(encoding="utf-8"))["canonical_utf8"]
     assert canonical_json(golden["value"]).decode("utf-8") == golden["json"]

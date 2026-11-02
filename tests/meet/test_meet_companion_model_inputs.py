@@ -94,9 +94,12 @@ def test_mutated_registry_origin_cannot_supply_model_inputs(hub):
 
 def test_foreign_tenant_cannot_read_immutable_tool_content(hub):
     response = result(hub)
-    source = hub.registry.require_source_identity(tenant_id="tenant", project_id="project",
+    source = hub.registry.require_source_identity(
+        tenant_id="tenant",
+        project_id="project",
         source_id=response["sources"][0]["source_id"],
-        expected_binding_digest=response["sources"][0]["binding_digest"])
+        expected_binding_digest=response["sources"][0]["binding_digest"],
+    )
     with pytest.raises(MeetError, match="source_unavailable_or_mutated"):
         hub.store.read("foreign", "project", source.content_digest)
 
@@ -106,9 +109,14 @@ def test_registered_identity_from_other_domain_is_not_a_tool_source(hub):
     output = {key: response[key] for key in ("text", "truncated")}
     content = hub.store.admit("tenant", "project", canonical(output))
     unrelated = hub.registry.register_source(
-        tenant_id="tenant", project_id="project", origin_type="synthetic_other_domain",
-        origin_digest=digest({"fixture": "other-domain"}), content_digest=content,
-        policy_digest=digest({"fixture": "other-policy"}), evidence_scope="test", synthetic=True,
+        tenant_id="tenant",
+        project_id="project",
+        origin_type="synthetic_other_domain",
+        origin_digest=digest({"fixture": "other-domain"}),
+        content_digest=content,
+        policy_digest=digest({"fixture": "other-policy"}),
+        evidence_scope="test",
+        synthetic=True,
     )
     response["sources"] = [{"source_id": unrelated.source_id, "binding_digest": unrelated.binding_digest}]
     # Explicit privileged SQL corruption fixture: even a matching result

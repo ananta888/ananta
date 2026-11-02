@@ -24,7 +24,11 @@ def detect_diagram_blocks(source: str) -> tuple[DiagramBlock, ...]:
     stripped = text.strip()
     if not blocks and stripped.startswith("@startuml"):
         blocks.append(DiagramBlock(kind="plantuml", source=stripped))
-    if not blocks and stripped.splitlines()[:1] and stripped.splitlines()[0].strip().lower().startswith(("graph ", "flowchart ", "sequenceDiagram".lower())):
+    if (
+        not blocks
+        and stripped.splitlines()[:1]
+        and stripped.splitlines()[0].strip().lower().startswith(("graph ", "flowchart ", "sequenceDiagram".lower()))
+    ):
         blocks.append(DiagramBlock(kind="mermaid", source=stripped))
     return tuple(blocks)
 
@@ -41,11 +45,7 @@ def render_diagram_fallback(block: DiagramBlock, *, width: int = 80) -> list[str
 
 def _diagram_line(line: str, *, width: int) -> str:
     normalized = (
-        line.replace("-->", " -> ")
-        .replace("->", " -> ")
-        .replace("=>", " => ")
-        .replace("[", " ")
-        .replace("]", " ")
+        line.replace("-->", " -> ").replace("->", " -> ").replace("=>", " => ").replace("[", " ").replace("]", " ")
     )
     normalized = " ".join(normalized.split())
     return normalized if len(normalized) <= width else normalized[: max(0, width - 3)] + "..."

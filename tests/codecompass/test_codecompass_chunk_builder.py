@@ -55,8 +55,9 @@ def test_python_is_chunked_by_top_level_symbol_with_decorators_and_line_ranges()
 
 def test_a_large_class_is_split_by_method(monkeypatch):
     monkeypatch.setattr(chunking, "MAX_CLASS_LINES", 5)
-    chunks = chunk_file("big.py", "class Big:\n    x = 1\n\n    def a(self):\n        return 1\n\n    def b(self):\n"
-                                  "        return 2\n")
+    chunks = chunk_file(
+        "big.py", "class Big:\n    x = 1\n\n    def a(self):\n        return 1\n\n    def b(self):\n        return 2\n"
+    )
     symbols = [(chunk.symbol, chunk.kind) for chunk in chunks]
     assert ("Big.a", "method") in symbols and ("Big.b", "method") in symbols and ("Big", "class") in symbols
 
@@ -69,7 +70,9 @@ def test_invalid_python_and_unknown_files_fall_back_to_line_windows():
 def test_markdown_is_chunked_by_heading():
     chunks = chunk_file("doc.md", "intro\n# One\ntext\n## Two\nmore\n")
     assert [(chunk.symbol, chunk.start_line, chunk.end_line) for chunk in chunks] == [
-        ("", 1, 1), ("One", 2, 3), ("Two", 4, 5),
+        ("", 1, 1),
+        ("One", 2, 3),
+        ("Two", 4, 5),
     ]
 
 
@@ -139,16 +142,32 @@ def test_missing_content_for_a_changed_file_is_an_error():
 
 SNAPSHOTS = {
     "A": {"a.py": MODULE, "b.md": "# B\ntext\n", "c.txt": "keep\n", "d.py": "def d():\n    return 4\n"},
-    "B": {"a.py": MODULE.replace("return 1", "return 2"), "b.md": "# B\ntext\n## New\nx\n", "c.txt": "keep\n",
-          "moved.py": "def d():\n    return 4\n", "e.py": "E = 5\n"},
-    "C": {"a.py": MODULE.replace("return 1", "return 2"), "c.txt": "keep\n", "moved.py": "def d():\n    return 4\n",
-          "e.py": "E = 6\n" + "\n".join("row %d" % n for n in range(400))},
+    "B": {
+        "a.py": MODULE.replace("return 1", "return 2"),
+        "b.md": "# B\ntext\n## New\nx\n",
+        "c.txt": "keep\n",
+        "moved.py": "def d():\n    return 4\n",
+        "e.py": "E = 5\n",
+    },
+    "C": {
+        "a.py": MODULE.replace("return 1", "return 2"),
+        "c.txt": "keep\n",
+        "moved.py": "def d():\n    return 4\n",
+        "e.py": "E = 6\n" + "\n".join("row %d" % n for n in range(400)),
+    },
 }
 
 
 def manifest(name):
-    files = [{"path": path, "content_sha256": hashlib.sha256(text.encode()).hexdigest(),
-              "byte_size": len(text), "outcome": "indexed"} for path, text in SNAPSHOTS[name].items()]
+    files = [
+        {
+            "path": path,
+            "content_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "byte_size": len(text),
+            "outcome": "indexed",
+        }
+        for path, text in SNAPSHOTS[name].items()
+    ]
     return {"snapshot_revision": hashlib.sha256(name.encode()).hexdigest(), "files": files}
 
 
@@ -159,8 +178,14 @@ def build(builder, view, old, new, parent):
     for row in view:
         prior.setdefault(row["path"], []).append(row["id"])
     content = {path: text for path, text in SNAPSHOTS[new["name"]].items()}
-    return builder.build(changes=changes, content=content, prior_ids_by_path=prior, parent_layer_id=parent,
-                         snapshot_revision=new["snapshot_revision"], changeset_id=diff.changeset_id)
+    return builder.build(
+        changes=changes,
+        content=content,
+        prior_ids_by_path=prior,
+        parent_layer_id=parent,
+        snapshot_revision=new["snapshot_revision"],
+        changeset_id=diff.changeset_id,
+    )
 
 
 def named(name):

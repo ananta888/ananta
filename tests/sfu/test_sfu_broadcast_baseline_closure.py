@@ -14,10 +14,10 @@ from agent.services.sfu_broadcast_activation_boundary import (
     SfuBroadcastActivationBoundary,
 )
 from agent.services.sfu_broadcast_baseline_limits import (
-    BaselineLimitCatalog,
-    BaselineLimitError,
     REQUIRED_BUDGET_IDS,
     REQUIRED_PROFILE_IDS,
+    BaselineLimitCatalog,
+    BaselineLimitError,
     load_baseline_limit_catalog,
     qualify_baseline_run,
 )
@@ -28,14 +28,11 @@ from agent.services.sfu_broadcast_rollback_service import (
 )
 from agent.services.sfu_broadcast_source_grounding import SourceGroundingRegistry
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_limit_catalog_covers_every_activation_profile_and_budget() -> None:
-    catalog = load_baseline_limit_catalog(
-        ROOT / "config/sfu_broadcast_baseline_limits.v1.json"
-    )
+    catalog = load_baseline_limit_catalog(ROOT / "config/sfu_broadcast_baseline_limits.v1.json")
 
     assert REQUIRED_PROFILE_IDS.issubset(catalog.run_profiles)
     assert REQUIRED_BUDGET_IDS.issubset(catalog.budgets)
@@ -67,9 +64,7 @@ def test_limit_catalog_rejects_unsafe_numeric_values(unsafe_value: float) -> Non
 
 
 def test_incomplete_run_remains_no_go_without_grounded_evidence() -> None:
-    catalog = load_baseline_limit_catalog(
-        ROOT / "config/sfu_broadcast_baseline_limits.v1.json"
-    )
+    catalog = load_baseline_limit_catalog(ROOT / "config/sfu_broadcast_baseline_limits.v1.json")
 
     result = qualify_baseline_run(
         catalog,
@@ -89,9 +84,7 @@ def test_activation_preserves_parent_no_go_and_disables_every_feature() -> None:
     result = SfuBroadcastActivationBoundary().evaluate(
         now=now,
         request=ActivationRequest(0, 1, 1, {"semantic_media_broadcast": True}),
-        parent=ParentReadinessSnapshot(
-            "no_go", "observe_only", 0, None, None, None
-        ),
+        parent=ParentReadinessSnapshot("no_go", "observe_only", 0, None, None, None),
         runtime=RuntimeCapabilitySnapshot(
             "livekit_control_api",
             "unsupported",
@@ -101,9 +94,7 @@ def test_activation_preserves_parent_no_go_and_disables_every_feature() -> None:
             None,
             {},
         ),
-        feature_policy=FeaturePolicySnapshot(
-            1, True, False, {"semantic_media_broadcast": False}
-        ),
+        feature_policy=FeaturePolicySnapshot(1, True, False, {"semantic_media_broadcast": False}),
         limits=LimitsSnapshot("blocked", 1, 0),
         grounding=grounding,
     )
@@ -128,19 +119,13 @@ class _SuccessfulRollbackPort:
     def stop_new_admission(self, command: RollbackCommand) -> RollbackStepResult:
         return self._record("stop_new_admission")
 
-    def disable_optional_features(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult:
+    def disable_optional_features(self, command: RollbackCommand) -> RollbackStepResult:
         return self._record("disable_optional_features")
 
-    def project_parent_fallback(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult:
+    def project_parent_fallback(self, command: RollbackCommand) -> RollbackStepResult:
         return self._record("project_parent_fallback")
 
-    def request_graceful_drain(
-        self, command: RollbackCommand
-    ) -> RollbackStepResult:
+    def request_graceful_drain(self, command: RollbackCommand) -> RollbackStepResult:
         return self._record("request_graceful_drain")
 
     def verify_quiesced(self, command: RollbackCommand) -> RollbackStepResult:

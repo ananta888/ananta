@@ -5,12 +5,12 @@ from typing import Any
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.research_backend import resolve_research_backend_config
-from agent.routes.tasks.orchestration_policy import (
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.orchestration_policy import (
     derive_required_capabilities,
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
-from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.organization_research_delegation_policy_service import (
     OrganizationResearchDelegationPolicyError,
     OrganizationResearchDelegationPolicyService,
@@ -87,19 +87,13 @@ class TaskDelegationPlanner:
         policy_decision = None
         routing_hint = None
         authoritative_research_task = bool(
-            organization_bound
-            and str(parent_task.get("task_kind") or "").strip()
-            == "planning_research"
+            organization_bound and str(parent_task.get("task_kind") or "").strip() == "planning_research"
         )
         effective_task_kind = (
-            "planning_research"
-            if authoritative_research_task
-            else data.task_kind or parent_task.get("task_kind")
+            "planning_research" if authoritative_research_task else data.task_kind or parent_task.get("task_kind")
         )
         if authoritative_research_task:
-            effective_required_capabilities = list(
-                parent_task.get("required_capabilities") or []
-            )
+            effective_required_capabilities = list(parent_task.get("required_capabilities") or [])
         elif getattr(data, "required_capabilities", None) is not None:
             effective_required_capabilities = list(data.required_capabilities or [])
         else:
@@ -227,24 +221,19 @@ class TaskDelegationResultWriter:
         self,
         dependencies,
         *,
-        research_delegation_policy: (
-            OrganizationResearchDelegationPolicyService | None
-        ) = None,
+        research_delegation_policy: (OrganizationResearchDelegationPolicyService | None) = None,
         organization_binding_resolver=None,
     ) -> None:
         self.dependencies = dependencies
         self._research_delegation_policy = (
-            research_delegation_policy
-            or get_organization_research_delegation_policy_service()
+            research_delegation_policy or get_organization_research_delegation_policy_service()
         )
         if organization_binding_resolver is None:
             from agent.services.organization_dispatch_binding_service import (
                 OrganizationDispatchBindingResolver,
             )
 
-            organization_binding_resolver = (
-                OrganizationDispatchBindingResolver()
-            )
+            organization_binding_resolver = OrganizationDispatchBindingResolver()
         self._organization_bindings = organization_binding_resolver
 
     def forward_and_write(
@@ -335,9 +324,7 @@ class TaskDelegationResultWriter:
                 else vars(authoritative)
             )
             selected_runtime_target_id, selected_runtime_kind = (
-                WorkerExecutionContextFactory._runtime_selection_coordinates(
-                    plan
-                )
+                WorkerExecutionContextFactory._runtime_selection_coordinates(plan)
             )
             self._research_delegation_policy.verify_forward(
                 task=authoritative_task,
@@ -345,41 +332,26 @@ class TaskDelegationResultWriter:
                 selected_runtime_target_id=selected_runtime_target_id,
                 selected_runtime_kind=selected_runtime_kind,
                 preferred_provider=plan.preferred_backend,
-                expected_context_bundle_id=str(
-                    getattr(bundle.context_bundle, "id", "") or ""
-                ),
+                expected_context_bundle_id=str(getattr(bundle.context_bundle, "id", "") or ""),
                 expected_destination_binding=(
-                    bundle.context_policy.get(
-                        "research_destination_binding"
-                    )
+                    bundle.context_policy.get("research_destination_binding")
                     if isinstance(bundle.context_policy, Mapping)
                     else None
                 ),
                 expected_worker_job_id=str(bundle.worker_job.id),
                 expected_subtask_id=bundle.subtask_id,
             )
-            if str(
-                authoritative_task.get("organization_id") or ""
-            ).strip():
-                current_worker = self._organization_bindings.resolve(
-                    authoritative_task
-                )
+            if str(authoritative_task.get("organization_id") or "").strip():
+                current_worker = self._organization_bindings.resolve(authoritative_task)
                 if not current_worker:
-                    raise OrganizationResearchDelegationPolicyError(
-                        "organization_planning_dispatch_binding_required"
-                    )
+                    raise OrganizationResearchDelegationPolicyError("organization_planning_dispatch_binding_required")
                 if str(current_worker) != str(plan.agent_url):
                     raise OrganizationResearchDelegationPolicyError(
                         "organization_planning_dispatch_binding_changed_before_forward"
                     )
             endpoint = (
                 "/internal/tasks/organization-planning-research"
-                if str(
-                    bundle.delegation_payload.get(
-                        "hub_dispatch_capability"
-                    )
-                    or ""
-                )
+                if str(bundle.delegation_payload.get("hub_dispatch_capability") or "")
                 else "/tasks"
             )
             raw_response = self.dependencies.forward_task_to_worker(
@@ -390,11 +362,7 @@ class TaskDelegationResultWriter:
             )
             response = self._accepted_worker_response(
                 raw_response,
-                research_dispatch=bool(
-                    bundle.delegation_payload.get(
-                        "hub_dispatch_capability"
-                    )
-                ),
+                research_dispatch=bool(bundle.delegation_payload.get("hub_dispatch_capability")),
                 expected_task_id=bundle.subtask_id,
             )
             if response is None:
@@ -407,9 +375,7 @@ class TaskDelegationResultWriter:
                 return {
                     "error": "delegation_failed",
                     "code": 502,
-                    "data": {
-                        "reason_code": "worker_transport_failed"
-                    },
+                    "data": {"reason_code": "worker_transport_failed"},
                 }
         except OrganizationResearchDelegationPolicyError as exc:
             self._terminalize_dispatch(

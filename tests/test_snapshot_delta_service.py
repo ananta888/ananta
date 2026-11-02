@@ -1,5 +1,6 @@
 """Tests for SnapshotDeltaService — diffs compact DOM snapshots into
 human-readable change lines for the visual snake log."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,11 +8,10 @@ import pytest
 from agent.services.snapshot_delta import (
     SnapshotDelta,
     diff_snapshots,
-    extract_path,
-    extract_list_count,
     extract_focus,
+    extract_list_count,
+    extract_path,
 )
-
 
 # ── Pure functions ──────────────────────────────────────────────────────────
 
@@ -70,8 +70,8 @@ def test_diff_list_count_change():
 
 
 def test_diff_focus_change():
-    prev = "/teams | focus:input[Name]=\"\""
-    curr = "/teams | focus:input[Name]=\"My Team\""
+    prev = '/teams | focus:input[Name]=""'
+    curr = '/teams | focus:input[Name]="My Team"'
     d = diff_snapshots(prev, curr)
     assert any("focus" in l for l in d.lines)
     assert any("My Team" in l for l in d.lines)

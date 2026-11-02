@@ -1,46 +1,58 @@
 """E2E tests for model routing system — AMR-021."""
+
 import json
 import os
 import tempfile
-import pytest
 
+from agent.services.blueprint_model_policy_service import (
+    build_routing_context_kwargs_from_blueprint_policy,
+    extract_blueprint_model_policy,
+)
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
     ProviderHealthCache,
     RoutingContext,
-    RoutingRules,
-    SecurityPolicyChecker,
-)
-from agent.services.blueprint_model_policy_service import (
-    extract_blueprint_model_policy,
-    build_routing_context_kwargs_from_blueprint_policy,
 )
 from agent.services.template_model_policy_service import TemplateModelPolicyService
 
-
 # ── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _local(pid: str, role: str = "any", **kw) -> ModelProfile:
     return ModelProfile(
-        profile_id=pid, provider_id="ollama", model="qwen:7b",
-        model_role=role, local=True, cloud=False,
-        cloud_allowed=False, block_secret_context=False, **kw
+        profile_id=pid,
+        provider_id="ollama",
+        model="qwen:7b",
+        model_role=role,
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
+        **kw,
     )
 
 
 def _cloud(pid: str, **kw) -> ModelProfile:
     return ModelProfile(
-        profile_id=pid, provider_id="openai", model="gpt-4o",
-        model_role="planner", local=False, cloud=True,
-        cloud_allowed=True, block_secret_context=True, **kw
+        profile_id=pid,
+        provider_id="openai",
+        model="gpt-4o",
+        model_role="planner",
+        local=False,
+        cloud=True,
+        cloud_allowed=True,
+        block_secret_context=True,
+        **kw,
     )
 
 
 # ── AMR-011: TaskRoutingContract fields ─────────────────────────────────────
 
+
 def test_task_routing_contract_has_model_profile_fields():
     from agent.models import TaskRoutingContract
+
     c = TaskRoutingContract(
         model_profile_id="local-coder",
         model_role="coder",
@@ -57,6 +69,7 @@ def test_task_routing_contract_has_model_profile_fields():
 
 
 # ── AMR-012: Blueprint model policy ─────────────────────────────────────────
+
 
 def test_extract_blueprint_model_policy_with_preferred_profile():
     policy = extract_blueprint_model_policy(
@@ -96,10 +109,9 @@ def test_blueprint_policy_builds_routing_context_kwargs():
 
 # ── AMR-013: Template model policy ──────────────────────────────────────────
 
+
 def test_template_policy_from_legacy_overrides():
-    svc = TemplateModelPolicyService(agent_config={
-        "template_model_overrides": {"my-template": "local-coder"}
-    })
+    svc = TemplateModelPolicyService(agent_config={"template_model_overrides": {"my-template": "local-coder"}})
     policy = svc.resolve("my-template")
     assert policy is not None
     assert policy.preferred_profile_id == "local-coder"
@@ -107,11 +119,13 @@ def test_template_policy_from_legacy_overrides():
 
 
 def test_template_policy_from_new_style_policies():
-    svc = TemplateModelPolicyService(agent_config={
-        "template_model_policies": {
-            "my-template": {"preferred_profile_id": "cloud-reviewer", "model_role": "reviewer", "allow_cloud": True}
+    svc = TemplateModelPolicyService(
+        agent_config={
+            "template_model_policies": {
+                "my-template": {"preferred_profile_id": "cloud-reviewer", "model_role": "reviewer", "allow_cloud": True}
+            }
         }
-    })
+    )
     policy = svc.resolve("my-template")
     assert policy is not None
     assert policy.preferred_profile_id == "cloud-reviewer"
@@ -124,10 +138,12 @@ def test_template_policy_returns_none_for_unknown_template():
 
 
 def test_template_policy_all_policies_aggregates():
-    svc = TemplateModelPolicyService(agent_config={
-        "template_model_overrides": {"tmpl-a": "p1"},
-        "template_model_policies": {"tmpl-b": {"preferred_profile_id": "p2"}},
-    })
+    svc = TemplateModelPolicyService(
+        agent_config={
+            "template_model_overrides": {"tmpl-a": "p1"},
+            "template_model_policies": {"tmpl-b": {"preferred_profile_id": "p2"}},
+        }
+    )
     all_p = svc.all_policies()
     ids = [p.template_id for p in all_p]
     assert "tmpl-a" in ids
@@ -135,6 +151,7 @@ def test_template_policy_all_policies_aggregates():
 
 
 # ── AMR-017: Provider health + fallback ─────────────────────────────────────
+
 
 def test_provider_health_cache_marks_unavailable():
     cache = ProviderHealthCache()
@@ -158,10 +175,15 @@ def test_resolver_skips_unhealthy_provider_falls_to_next():
     cache = ProviderHealthCache()
     cache.mark_unavailable("ollama")
 
-    p1 = _local("p-ollama")           # provider ollama → skipped
+    p1 = _local("p-ollama")  # provider ollama → skipped
     p2 = ModelProfile(
-        profile_id="p-lmstudio", provider_id="lmstudio", model="m",
-        local=True, cloud=False, cloud_allowed=False, block_secret_context=False,
+        profile_id="p-lmstudio",
+        provider_id="lmstudio",
+        model="m",
+        local=True,
+        cloud=False,
+        cloud_allowed=False,
+        block_secret_context=False,
     )
     resolver = ModelProfileResolver(profiles=[p1, p2], health_cache=cache)
     result = resolver.resolve(RoutingContext())
@@ -188,10 +210,9 @@ def test_resolve_with_fallback_returns_empty_fallback_info_when_ok():
 
 # ── AMR-020: ModelProfileLoader from file ───────────────────────────────────
 
+
 def test_loader_reads_json_file():
-    data = {"version": "1.0", "profiles": [
-        {"profile_id": "test-p", "provider_id": "ollama", "model": "qwen:7b"}
-    ]}
+    data = {"version": "1.0", "profiles": [{"profile_id": "test-p", "provider_id": "ollama", "model": "qwen:7b"}]}
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(data, f)
         tmp_path = f.name
@@ -207,6 +228,7 @@ def test_override_normalization_from_env(monkeypatch):
     monkeypatch.setenv("DEFAULT_PROVIDER", "ollama")
     monkeypatch.setenv("DEFAULT_MODEL", "llama3:8b")
     from agent.services.model_override_normalization_service import ModelOverrideNormalizationService
+
     svc = ModelOverrideNormalizationService()
     result = svc.from_env()
     assert result is not None
@@ -218,5 +240,6 @@ def test_override_normalization_from_env_returns_none_when_not_set(monkeypatch):
     monkeypatch.delenv("DEFAULT_PROVIDER", raising=False)
     monkeypatch.delenv("DEFAULT_MODEL", raising=False)
     from agent.services.model_override_normalization_service import ModelOverrideNormalizationService
+
     svc = ModelOverrideNormalizationService()
     assert svc.from_env() is None

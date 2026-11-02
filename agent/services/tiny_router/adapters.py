@@ -1,4 +1,5 @@
 """Candidate-only adapters over existing runtimes and provider transports."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -31,16 +32,27 @@ class ModelInvocationTransport:
         return ModelInvocationService.default_instance()
 
     def invoke_with_tools(
-        self, prompt: str, tools: list[dict[str, Any]], *, model: str,
+        self,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        *,
+        model: str,
         timeout_seconds: float,
     ) -> Mapping[str, Any]:
         return self._invocation().invoke_with_tools(
-            prompt, tools, model=model, timeout=timeout_seconds,
+            prompt,
+            tools,
+            model=model,
+            timeout=timeout_seconds,
             retry_on_contract_error=True,
         )
 
     def invoke_text(
-        self, prompt: str, *, model: str, timeout_seconds: float,
+        self,
+        prompt: str,
+        *,
+        model: str,
+        timeout_seconds: float,
     ) -> str:
         return self._invocation().invoke(prompt, model=model, timeout=timeout_seconds)
 
@@ -49,7 +61,9 @@ class OpenAICompatibleActionAdapter:
     adapter_id = "openai_compatible"
 
     def __init__(
-        self, transport: ToolInvocationTransport | None = None, *,
+        self,
+        transport: ToolInvocationTransport | None = None,
+        *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._transport = transport or ModelInvocationTransport()
@@ -58,8 +72,7 @@ class OpenAICompatibleActionAdapter:
 
     def is_available(self, profile: TinyActionModelProfile) -> tuple[bool, str]:
         return (
-            (True, "transport_available") if profile.adapter == self.adapter_id
-            else (False, "adapter_profile_mismatch")
+            (True, "transport_available") if profile.adapter == self.adapter_id else (False, "adapter_profile_mismatch")
         )
 
     def propose(self, request: AdapterRequest) -> AdapterResult:
@@ -69,15 +82,19 @@ class OpenAICompatibleActionAdapter:
         if request.profile.dialect == "xlam":
             payload: Any = self._transport.invoke_text(
                 self._xlam_prompt(request.prompt, projection.tools),
-                model=request.profile.model_id, timeout_seconds=timeout_seconds,
+                model=request.profile.model_id,
+                timeout_seconds=timeout_seconds,
             )
         else:
             payload = self._transport.invoke_with_tools(
-                request.prompt, [dict(item) for item in projection.tools],
-                model=request.profile.model_id, timeout_seconds=timeout_seconds,
+                request.prompt,
+                [dict(item) for item in projection.tools],
+                model=request.profile.model_id,
+                timeout_seconds=timeout_seconds,
             )
         return AdapterResult(
-            "candidate", payload,
+            "candidate",
+            payload,
             "schema_projection_lossy" if projection.losses else "adapter_completed",
             (self._clock() - started) * 1000.0,
         )
@@ -89,7 +106,8 @@ class OpenAICompatibleActionAdapter:
                 "Select only from the supplied tools. Return one JSON object "
                 "with tool_calls, or an empty tool_calls array. Never execute."
             ),
-            "tools": list(tools), "query": prompt,
+            "tools": list(tools),
+            "query": prompt,
             "output": {"tool_calls": [{"name": "allowed_name", "arguments": {"key": "value"}}]},
         }
         return json.dumps(contract, sort_keys=True, separators=(",", ":"))
@@ -106,17 +124,21 @@ class CactusNeedleRuntime:
         )
 
     def complete(
-        self, *, prompt: str, tools: list[dict[str, Any]],
-        profile: TinyActionModelProfile, timeout_ms: int,
+        self,
+        *,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        profile: TinyActionModelProfile,
+        timeout_ms: int,
     ) -> Mapping[str, Any]:
         del timeout_ms
         import needle
+
         weights_env = str(profile.metadata.get("weights_env") or "").strip()
-        weights = str(
-            (os.environ.get(weights_env) if weights_env else None)
-            or profile.metadata.get("weights")
-            or ""
-        ).strip() or None
+        weights = (
+            str((os.environ.get(weights_env) if weights_env else None) or profile.metadata.get("weights") or "").strip()
+            or None
+        )
         agent = needle.Needle(tools=tools, weights=weights)
         return agent.complete(prompt)
 
@@ -144,8 +166,12 @@ class HttpNeedleRuntime:
         return True, "needle_sidecar_configured"
 
     def complete(
-        self, *, prompt: str, tools: list[dict[str, Any]],
-        profile: TinyActionModelProfile, timeout_ms: int,
+        self,
+        *,
+        prompt: str,
+        tools: list[dict[str, Any]],
+        profile: TinyActionModelProfile,
+        timeout_ms: int,
     ) -> Mapping[str, Any]:
         endpoint, token = self._settings(profile)
         body = json.dumps({"prompt": prompt, "tools": tools}).encode("utf-8")
@@ -172,7 +198,9 @@ class NeedleCandidateAdapter:
     adapter_id = "needle"
 
     def __init__(
-        self, runtime: CactusNeedleRuntime | HttpNeedleRuntime | Any | None = None, *,
+        self,
+        runtime: CactusNeedleRuntime | HttpNeedleRuntime | Any | None = None,
+        *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._runtime = runtime
@@ -192,11 +220,15 @@ class NeedleCandidateAdapter:
         projection = self._dialects.project(request.tools, dialect="needle")
         runtime = self._runtime or self._runtime_for(request.profile)
         payload = runtime.complete(
-            prompt=request.prompt, tools=[dict(item) for item in projection.tools],
-            profile=request.profile, timeout_ms=request.timeout_ms,
+            prompt=request.prompt,
+            tools=[dict(item) for item in projection.tools],
+            profile=request.profile,
+            timeout_ms=request.timeout_ms,
         )
         return AdapterResult(
-            "candidate", payload, "adapter_completed",
+            "candidate",
+            payload,
+            "adapter_completed",
             (self._clock() - started) * 1000.0,
         )
 

@@ -6,11 +6,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
-import sys
 import xml.etree.ElementTree as ET
-
+from pathlib import Path
 
 _SOURCE_ID = re.compile(r"^SRC_[A-Za-z0-9][A-Za-z0-9._:-]*$")
 _RUN_ID = re.compile(r"^RUN_[A-Za-z0-9][A-Za-z0-9._:-]*$")
@@ -49,22 +47,10 @@ def build_report(
 ) -> dict[str, object]:
     if profile not in {"core", "extended"}:
         raise ValueError("profile must be core or extended")
-    invalid_sources = sorted(
-        identifier
-        for identifier in source_ids
-        if _SOURCE_ID.fullmatch(identifier) is None
-    )
-    invalid_runs = sorted(
-        identifier
-        for identifier in run_ids
-        if _RUN_ID.fullmatch(identifier) is None
-    )
+    invalid_sources = sorted(identifier for identifier in source_ids if _SOURCE_ID.fullmatch(identifier) is None)
+    invalid_runs = sorted(identifier for identifier in run_ids if _RUN_ID.fullmatch(identifier) is None)
     counts = _junit_counts(junit_path)
-    tests_passed = (
-        counts["tests"] > 0
-        and counts["failures"] == 0
-        and counts["errors"] == 0
-    )
+    tests_passed = counts["tests"] > 0 and counts["failures"] == 0 and counts["errors"] == 0
     evidence_complete = bool(source_ids) and bool(run_ids)
     evidence_complete = evidence_complete and not invalid_sources and not invalid_runs
     if not tests_passed:

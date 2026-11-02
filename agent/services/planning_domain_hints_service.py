@@ -6,7 +6,9 @@ from agent.services.goal_planning_intent_service import get_goal_planning_intent
 
 
 class PlanningDomainHintsService:
-    def derive_hints(self, *, goal: str, mode: str, team_id: str | None, planning_policy: dict[str, Any] | None) -> list[str]:
+    def derive_hints(
+        self, *, goal: str, mode: str, team_id: str | None, planning_policy: dict[str, Any] | None
+    ) -> list[str]:
         intent = get_goal_planning_intent_service().classify(goal_text=goal, mode=mode)
         goal_type = str(intent.get("goal_type") or "generic")
         hints: list[str] = []

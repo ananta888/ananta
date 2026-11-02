@@ -1,4 +1,5 @@
 """TickRunner — drives one simulation tick (SIM-021)."""
+
 from __future__ import annotations
 
 import logging
@@ -53,7 +54,7 @@ class TickRunner:
         memory_store: MemoryStore | None = None,
         prompt_renderer: PromptRenderer | None = None,
         resource_regen: ResourceRegenSystem | None = None,
-        profile_loader: Any = None,   # AgentProfileLoader — optional
+        profile_loader: Any = None,  # AgentProfileLoader — optional
         on_event: Callable[[SimEvent], None] | None = None,
     ) -> None:
         self.strategy_resolver = strategy_resolver
@@ -77,8 +78,7 @@ class TickRunner:
             profile = None
             if self._profile_loader and agent.profile_id:
                 try:
-                    profile = self._profile_loader.load_dict({"id": agent.profile_id,
-                                                               "name": agent.name})
+                    profile = self._profile_loader.load_dict({"id": agent.profile_id, "name": agent.name})
                 except Exception:
                     pass
 
@@ -106,9 +106,9 @@ class TickRunner:
             }
 
             # Perceive own outcome
-            memory.perceive(state.tick, "outcome",
-                             f"I did {proposal.action_type}: {validation.decision}",
-                             importance=0.6)
+            memory.perceive(
+                state.tick, "outcome", f"I did {proposal.action_type}: {validation.decision}", importance=0.6
+            )
 
         # 3. Governance
         gov_events = self.governance.tick(state)
@@ -143,13 +143,12 @@ class TickRunner:
 
         return result
 
-    def _call_adapter(self, adapter: SimulationModelAdapter,
-                       prompt: RenderedPrompt, agent_id: str) -> AdapterResponse:
+    def _call_adapter(self, adapter: SimulationModelAdapter, prompt: RenderedPrompt, agent_id: str) -> AdapterResponse:
         try:
             return adapter.generate(prompt.as_messages(), agent_id=agent_id)
         except Exception as exc:
             logger.warning("adapter error for %s: %s", agent_id, exc)
             from simulation.adapters.base import AdapterResponse
+
             fallback = ActionProposal.invalid_fallback(agent_id, str(exc))
-            return AdapterResponse(raw_text="", proposal=fallback,
-                                    parse_error=str(exc), model_id=adapter.model_id)
+            return AdapterResponse(raw_text="", proposal=fallback, parse_error=str(exc), model_id=adapter.model_id)

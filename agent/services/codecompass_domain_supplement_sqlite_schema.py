@@ -81,9 +81,7 @@ def validate_domain_supplement_schema(connection: sqlite3.Connection) -> None:
     quick_check = connection.execute("PRAGMA quick_check(1)").fetchone()
     if quick_check is None or quick_check[0] != "ok":
         raise CodeCompassDomainSupplementError("domain_supplement_integrity_check_failed")
-    schema_rows = connection.execute(
-        "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name"
-    ).fetchall()
+    schema_rows = connection.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name").fetchall()
     tables = {str(row[1]) for row in schema_rows if str(row[0]) == "table"}
     if tables != _TABLES:
         raise CodeCompassDomainSupplementError("domain_supplement_schema_tables_invalid")
@@ -106,9 +104,7 @@ def validate_domain_supplement_schema(connection: sqlite3.Connection) -> None:
             ):
                 raise CodeCompassDomainSupplementError("domain_supplement_schema_object_invalid")
             continue
-        if not (
-            object_type == "index" and name.startswith("sqlite_autoindex_") and table in _TABLES and sql is None
-        ):
+        if not (object_type == "index" and name.startswith("sqlite_autoindex_") and table in _TABLES and sql is None):
             raise CodeCompassDomainSupplementError("domain_supplement_schema_object_invalid")
     expected_columns = {
         "supplement_meta": (
@@ -233,9 +229,7 @@ def validate_domain_supplement_metadata(
         or not source_scope
         or len(source_scope) > _MAX_IDENTIFIER_CHARACTERS
     ):
-        raise CodeCompassDomainSupplementError(
-            "domain_supplement_source_binding_mismatch"
-        )
+        raise CodeCompassDomainSupplementError("domain_supplement_source_binding_mismatch")
     for digest in (
         metadata["graph_revision"],
         metadata["logical_content_hash"],
@@ -319,5 +313,3 @@ def parse_domain_supplement_summary(row: sqlite3.Row) -> CodeCompassDomainSupple
         complete=True,
         **values,
     )
-
-

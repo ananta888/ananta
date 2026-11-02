@@ -132,11 +132,7 @@ def _augmentation_adapters() -> KnowledgeAugmentationAdapters:
 def _tenant_id() -> str:
     identity = dict(get_request_auth_context() or {})
     subject = str(identity.get("sub") or identity.get("username") or "").strip()
-    tenant_id = str(
-        identity.get("tenant_id")
-        or identity.get("tenant")
-        or subject
-    ).strip()
+    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
     if not subject or not tenant_id:
         raise ValueError("knowledge_expert_tenant_required")
     return tenant_id

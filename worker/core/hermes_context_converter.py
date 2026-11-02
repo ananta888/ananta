@@ -13,15 +13,35 @@ _SAN = OutputSanitizer()
 _SUSPICIOUS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Instruction override (HF-T010)
     ("prompt_injection_ignore_previous", re.compile(r"ignore\s+previous\s+instructions", re.IGNORECASE)),
-    ("prompt_injection_override_system", re.compile(r"disregard\s+(?:all\s+)?(?:prior|previous|above)\s+(?:instructions?|rules?|context)", re.IGNORECASE)),
+    (
+        "prompt_injection_override_system",
+        re.compile(
+            r"disregard\s+(?:all\s+)?(?:prior|previous|above)\s+(?:instructions?|rules?|context)", re.IGNORECASE
+        ),
+    ),
     # Hidden HTML comments with instruction text (HF-T010)
-    ("prompt_injection_html_comment", re.compile(r"<!--.*?(?:ignore|disregard|override|instructions?).*?-->", re.IGNORECASE | re.DOTALL)),
+    (
+        "prompt_injection_html_comment",
+        re.compile(r"<!--.*?(?:ignore|disregard|override|instructions?).*?-->", re.IGNORECASE | re.DOTALL),
+    ),
     # Credential/environment access (HF-T010)
-    ("prompt_injection_env_access", re.compile(r"(?:cat|read|open|print)\s+['\"]?\.env['\"]?|(?:os\.environ|process\.env)", re.IGNORECASE)),
-    ("prompt_injection_credentials", re.compile(r"(?:cat|read|print)\s+(?:credentials?|secrets?|key(?:file)?s?)\b", re.IGNORECASE)),
+    (
+        "prompt_injection_env_access",
+        re.compile(r"(?:cat|read|open|print)\s+['\"]?\.env['\"]?|(?:os\.environ|process\.env)", re.IGNORECASE),
+    ),
+    (
+        "prompt_injection_credentials",
+        re.compile(r"(?:cat|read|print)\s+(?:credentials?|secrets?|key(?:file)?s?)\b", re.IGNORECASE),
+    ),
     # Exfiltration commands (HF-T010)
     ("prompt_injection_exfiltrate", re.compile(r"exfiltrate\s+secrets?|leak\s+token", re.IGNORECASE)),
-    ("prompt_injection_curl_exfil", re.compile(r"(?:curl|wget)\s+.*?(?:\$(?:TOKEN|API_KEY|SECRET|PASSWORD|\{TOKEN\}|\{API_KEY\}|\{SECRET\}))", re.IGNORECASE)),
+    (
+        "prompt_injection_curl_exfil",
+        re.compile(
+            r"(?:curl|wget)\s+.*?(?:\$(?:TOKEN|API_KEY|SECRET|PASSWORD|\{TOKEN\}|\{API_KEY\}|\{SECRET\}))",
+            re.IGNORECASE,
+        ),
+    ),
     # Tool/shell override (HF-T010)
     ("prompt_injection_change_tools", re.compile(r"change\s+tools?|enable\s+shell", re.IGNORECASE)),
     ("prompt_injection_run_command", re.compile(r"\brun\s+(?:this\s+)?command\b|execute\s+command", re.IGNORECASE)),
@@ -76,21 +96,32 @@ def convert_context_blocks_to_prompt(
         if remaining <= 0:
             break
         quoted = quote_context_data(
-            sanitized_content, max_chars=remaining, source_type=block.source_type,
-            origin_id=block.origin_id, provenance=block.provenance,
+            sanitized_content,
+            max_chars=remaining,
+            source_type=block.source_type,
+            origin_id=block.origin_id,
+            provenance=block.provenance,
         )
         if quoted is None:
-            truncated.append({"origin_id": block.origin_id, "reason_code": "truncated_for_budget",
-                              "original_chars": len(sanitized_content), "included_chars": 0})
+            truncated.append(
+                {
+                    "origin_id": block.origin_id,
+                    "reason_code": "truncated_for_budget",
+                    "original_chars": len(sanitized_content),
+                    "included_chars": 0,
+                }
+            )
             continue
         entry = quoted.text
         if quoted.truncated:
-            truncated.append({
-                "origin_id": block.origin_id,
-                "reason_code": "truncated_for_budget",
-                "original_chars": len(sanitized_content),
-                "included_chars": len(entry),
-            })
+            truncated.append(
+                {
+                    "origin_id": block.origin_id,
+                    "reason_code": "truncated_for_budget",
+                    "original_chars": len(sanitized_content),
+                    "included_chars": len(entry),
+                }
+            )
         lines.append(entry)
         included.append({"origin_id": block.origin_id, "reason_code": "included"})
         total += len(entry) + separator_chars

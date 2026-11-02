@@ -7,7 +7,9 @@ from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 
 
-def _keycloak_descriptor(source_id: str = "keycloak-official-docs", *, enabled: bool = True, refresh_interval: str = "24h") -> dict:
+def _keycloak_descriptor(
+    source_id: str = "keycloak-official-docs", *, enabled: bool = True, refresh_interval: str = "24h"
+) -> dict:
     return {
         "schema": "source_descriptor.v1",
         "source_id": source_id,
@@ -46,14 +48,20 @@ class _Fetcher:
         snap = self.snapshots.build_snapshot(
             source_id=str(descriptor["source_id"]),
             descriptor_hash="a" * 64,
-            content_payload=[{"url": descriptor["fetch_source"]["url"], "raw_html": "<h1>hello</h1>", "extracted_text": "hello"}],
+            content_payload=[
+                {"url": descriptor["fetch_source"]["url"], "raw_html": "<h1>hello</h1>", "extracted_text": "hello"}
+            ],
             metadata_payload={"mock": True},
             status="indexed" if not dry_run else "validating",
             retrieved_at="2026-05-26T00:00:00Z",
         )
         if not dry_run:
             self.snapshots.save_snapshot(snap)
-        return {"source_id": descriptor["source_id"], "snapshot": snap, "pages": [{"raw_html": "hello", "extracted_text": "hello"}]}
+        return {
+            "source_id": descriptor["source_id"],
+            "snapshot": snap,
+            "pages": [{"raw_html": "hello", "extracted_text": "hello"}],
+        }
 
 
 def test_refresh_service_due_not_due_disabled_and_dry_run(tmp_path: Path) -> None:

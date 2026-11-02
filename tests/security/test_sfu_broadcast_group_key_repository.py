@@ -54,21 +54,15 @@ def test_delivery_ack_and_replay_survive_repository_restart_without_plaintext_st
     envelope = derive_sfu_hub_envelope("test-master-secret-with-at-least-32-bytes", key_id="test-v1")
     store = InMemorySfuBroadcastGroupKeyStore()
     first = InMemorySfuBroadcastGroupKeyRepository(envelope, store=store)
-    publisher_digest = envelope.blind(
-        purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="alice"
-    )
-    state = SfuGroupKeyEpochState(
-        _authorization(), "session-a", publisher_digest, fencing_token=4
-    )
+    publisher_digest = envelope.blind(purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="alice")
+    state = SfuGroupKeyEpochState(_authorization(), "session-a", publisher_digest, fencing_token=4)
     created = first.create_epoch(state, _receipt("prepare", "a" * 64, {"ok": True}), now_ms=1_000_000)
     assert created.committed
 
     opaque = b"client-wrapped-group-package" * 3
     package = SfuGroupKeyPackageWrite(
         recipient_id="bob",
-        recipient_digest=envelope.blind(
-            purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="bob"
-        ),
+        recipient_digest=envelope.blind(purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="bob"),
         package_ref="package-bob",
         opaque_package=opaque,
         package_digest=hashlib.sha256(opaque).hexdigest(),
@@ -88,20 +82,30 @@ def test_delivery_ack_and_replay_survive_repository_restart_without_plaintext_st
 
     restarted = InMemorySfuBroadcastGroupKeyRepository(envelope, store=store)
     page = restarted.read_for_recipient(
-        tenant_id="tenant-a", session_id="session-a",
-        recipient_digest=package.recipient_digest, membership_epoch=7,
-        cursor="", limit=2, now_ms=1_002_000,
+        tenant_id="tenant-a",
+        session_id="session-a",
+        recipient_digest=package.recipient_digest,
+        membership_epoch=7,
+        cursor="",
+        limit=2,
+        now_ms=1_002_000,
     )
     assert page.items[0].opaque_package == opaque
     acknowledged = restarted.acknowledge(
-        tenant_id="tenant-a", authorization_id="authorization-a",
-        package_ref="package-bob", recipient_digest=package.recipient_digest,
-        membership_epoch=7, now_ms=1_003_000,
+        tenant_id="tenant-a",
+        authorization_id="authorization-a",
+        package_ref="package-bob",
+        recipient_digest=package.recipient_digest,
+        membership_epoch=7,
+        now_ms=1_003_000,
     )
     replay = restarted.acknowledge(
-        tenant_id="tenant-a", authorization_id="authorization-a",
-        package_ref="package-bob", recipient_digest=package.recipient_digest,
-        membership_epoch=7, now_ms=1_004_000,
+        tenant_id="tenant-a",
+        authorization_id="authorization-a",
+        package_ref="package-bob",
+        recipient_digest=package.recipient_digest,
+        membership_epoch=7,
+        now_ms=1_004_000,
     )
     assert acknowledged.committed and replay.committed and replay.replayed
 
@@ -109,9 +113,7 @@ def test_delivery_ack_and_replay_survive_repository_restart_without_plaintext_st
 def test_new_epoch_atomically_revokes_previous_delivery_rights() -> None:
     envelope = derive_sfu_hub_envelope("test-master-secret-with-at-least-32-bytes", key_id="test-v1")
     repository = InMemorySfuBroadcastGroupKeyRepository(envelope)
-    publisher = envelope.blind(
-        purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="alice"
-    )
+    publisher = envelope.blind(purpose="sfu-group-key-subject", scope="tenant-a:session-a", value="alice")
     first = SfuGroupKeyEpochState(_authorization(), "session-a", publisher, fencing_token=4)
     assert repository.create_epoch(first, _receipt("prepare", "a" * 64, {"epoch": 4}), now_ms=1_000_000).committed
     next_authorization = _authorization()
@@ -125,7 +127,9 @@ def test_new_epoch_atomically_revokes_previous_delivery_rights() -> None:
     second = SfuGroupKeyEpochState(next_authorization, "session-a", publisher, fencing_token=5)
     assert repository.create_epoch(
         second,
-        SfuGroupKeyReceipt("tenant-a", "actor-digest", "prepare", "idempotency-next", "c" * 64, {"epoch": 5}, 1_120_000),
+        SfuGroupKeyReceipt(
+            "tenant-a", "actor-digest", "prepare", "idempotency-next", "c" * 64, {"epoch": 5}, 1_120_000
+        ),
         now_ms=1_005_000,
     ).committed
     assert repository.get(tenant_id="tenant-a", authorization_id="authorization-a").status == "revoked"

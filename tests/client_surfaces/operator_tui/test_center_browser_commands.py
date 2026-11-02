@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from client_surfaces.operator_tui.commands import execute_center_browser_command
 from client_surfaces.operator_tui.keybindings_config import area_keybinding_conflicts, key_for_action

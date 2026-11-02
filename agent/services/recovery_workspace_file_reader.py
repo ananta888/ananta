@@ -39,40 +39,24 @@ class RecoveryWorkspaceFileReader:
             WorkspacePathValidator,
         )
 
-        if (
-            isinstance(maximum_bytes, bool)
-            or not isinstance(maximum_bytes, int)
-            or maximum_bytes < 0
-        ):
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_file_size_limit_invalid"
-            )
+        if isinstance(maximum_bytes, bool) or not isinstance(maximum_bytes, int) or maximum_bytes < 0:
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_file_size_limit_invalid")
         try:
             root = workspace_root.resolve(strict=True)
         except OSError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_path_unreadable"
-            ) from exc
-        resolved = WorkspacePathValidator(str(root)).validate(
-            relative_path
-        )
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_path_unreadable") from exc
+        resolved = WorkspacePathValidator(str(root)).validate(relative_path)
         if not resolved.ok:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_path_invalid"
-            )
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_path_invalid")
         candidate = Path(resolved.resolved_path)
         current = root
         for part in Path(relative_path).parts:
             current = current / part
             try:
                 if current.is_symlink():
-                    raise RecoveryWorkspaceFileReadError(
-                        "recovery_artifact_symlink_denied"
-                    )
+                    raise RecoveryWorkspaceFileReadError("recovery_artifact_symlink_denied")
             except OSError as exc:
-                raise RecoveryWorkspaceFileReadError(
-                    "recovery_artifact_path_unreadable"
-                ) from exc
+                raise RecoveryWorkspaceFileReadError("recovery_artifact_path_unreadable") from exc
 
         flags = os.O_RDONLY
         flags |= getattr(os, "O_CLOEXEC", 0)
@@ -80,19 +64,11 @@ class RecoveryWorkspaceFileReader:
         try:
             descriptor = os.open(str(candidate), flags)
         except OSError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_path_unreadable"
-            ) from exc
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_path_unreadable") from exc
         try:
             before = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(before.st_mode)
-                or int(before.st_size) < 0
-                or int(before.st_size) > maximum_bytes
-            ):
-                raise RecoveryWorkspaceFileReadError(
-                    "recovery_artifact_file_type_or_size_invalid"
-                )
+            if not stat.S_ISREG(before.st_mode) or int(before.st_size) < 0 or int(before.st_size) > maximum_bytes:
+                raise RecoveryWorkspaceFileReadError("recovery_artifact_file_type_or_size_invalid")
             self._verify_open_file_within_root(
                 descriptor=descriptor,
                 workspace_root=root,
@@ -109,9 +85,7 @@ class RecoveryWorkspaceFileReader:
                     break
                 total += len(chunk)
                 if total > maximum_bytes:
-                    raise RecoveryWorkspaceFileReadError(
-                        "recovery_artifact_file_too_large"
-                    )
+                    raise RecoveryWorkspaceFileReadError("recovery_artifact_file_too_large")
                 chunks.append(chunk)
             after = os.fstat(descriptor)
             if (
@@ -121,18 +95,14 @@ class RecoveryWorkspaceFileReader:
                 or before.st_mtime_ns != after.st_mtime_ns
                 or total != int(after.st_size)
             ):
-                raise RecoveryWorkspaceFileReadError(
-                    "recovery_artifact_file_changed_during_read"
-                )
+                raise RecoveryWorkspaceFileReadError("recovery_artifact_file_changed_during_read")
             return RecoveryWorkspaceFileSnapshot(
                 content=b"".join(chunks),
                 resolved_path=candidate,
                 size_bytes=total,
             )
         except OSError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_path_unreadable"
-            ) from exc
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_path_unreadable") from exc
         finally:
             os.close(descriptor)
 
@@ -146,37 +116,21 @@ class RecoveryWorkspaceFileReader:
         try:
             opened_path = os.readlink(fd_path)
         except OSError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_open_file_identity_unavailable"
-            ) from exc
-        if (
-            not os.path.isabs(opened_path)
-            or opened_path.endswith(" (deleted)")
-        ):
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_open_file_identity_unavailable"
-            )
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_open_file_identity_unavailable") from exc
+        if not os.path.isabs(opened_path) or opened_path.endswith(" (deleted)"):
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_open_file_identity_unavailable")
         try:
             actual = Path(opened_path).resolve(strict=True)
             opened_stat = os.stat(actual)
             descriptor_stat = os.fstat(descriptor)
         except OSError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_open_file_identity_unavailable"
-            ) from exc
-        if (
-            opened_stat.st_dev != descriptor_stat.st_dev
-            or opened_stat.st_ino != descriptor_stat.st_ino
-        ):
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_open_file_identity_mismatch"
-            )
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_open_file_identity_unavailable") from exc
+        if opened_stat.st_dev != descriptor_stat.st_dev or opened_stat.st_ino != descriptor_stat.st_ino:
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_open_file_identity_mismatch")
         try:
             actual.relative_to(workspace_root)
         except ValueError as exc:
-            raise RecoveryWorkspaceFileReadError(
-                "recovery_artifact_path_escape"
-            ) from exc
+            raise RecoveryWorkspaceFileReadError("recovery_artifact_path_escape") from exc
 
 
 _READER = RecoveryWorkspaceFileReader()

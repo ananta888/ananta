@@ -164,7 +164,9 @@ def build_execution_cost_summary(
     routing = (proposal_meta or {}).get("routing") or {}
     inference_provider = str(routing.get("inference_provider") or "").strip() or None
     inference_model = str(routing.get("inference_model") or "").strip() or None
-    execution_backend = str(routing.get("execution_backend") or (proposal_meta or {}).get("backend") or "").strip() or "shell"
+    execution_backend = (
+        str(routing.get("execution_backend") or (proposal_meta or {}).get("backend") or "").strip() or "shell"
+    )
     bench_provider, bench_model = shared_resolve_benchmark_identity(
         proposal_meta,
         current_app.config.get("AGENT_CONFIG", {}) or {},
@@ -203,7 +205,11 @@ def record_benchmark_sample(
     quality_gate_passed: bool,
     proposal_meta: dict | None = None,
 ) -> None:
-    selection_meta = (proposal_meta or {}).get("model_selection") if isinstance((proposal_meta or {}).get("model_selection"), dict) else {}
+    selection_meta = (
+        (proposal_meta or {}).get("model_selection")
+        if isinstance((proposal_meta or {}).get("model_selection"), dict)
+        else {}
+    )
     context_tags = {
         "role_name": str(selection_meta.get("role_name") or "").strip(),
         "template_name": str(selection_meta.get("template_name") or "").strip(),
@@ -268,7 +274,9 @@ def build_control_layer_observability_snapshot(*, max_tasks: int = 80) -> dict:
                     stopped = True
                 if action:
                     _inc(loop_action_counts, action)
-            classification = str(loop_detection.get("classification") or entry.get("classification") or "").strip().lower()
+            classification = (
+                str(loop_detection.get("classification") or entry.get("classification") or "").strip().lower()
+            )
             if classification in {"warning", "near_loop", "risk"}:
                 warning = True
         if stopped:
@@ -340,7 +348,9 @@ def build_control_layer_observability_snapshot(*, max_tasks: int = 80) -> dict:
         },
         "context": {
             **context_counts,
-            "compaction_reason_counts": dict(sorted(compaction_reason_counts.items(), key=lambda item: (-item[1], item[0]))),
+            "compaction_reason_counts": dict(
+                sorted(compaction_reason_counts.items(), key=lambda item: (-item[1], item[0]))
+            ),
         },
         "updated_at": time.time(),
     }

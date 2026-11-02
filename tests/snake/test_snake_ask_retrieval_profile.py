@@ -1,10 +1,9 @@
 """CRPS-012/014/015: Regression tests for AI-Snake retrieval profile integration."""
+
 from __future__ import annotations
 
 import os
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 os.environ.setdefault("PYTEST_CURRENT_TEST", "1")
 
@@ -98,6 +97,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 INTENT_CODE_EXPLANATION,
                 RetrievalProfile,
             )
+
             mock_profile = RetrievalProfile(
                 profile_id="codecompass/implemented_code_explanation",
                 domain=DOMAIN_CODECOMPASS,
@@ -173,6 +173,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
                 INTENT_CODE_EXPLANATION,
                 RetrievalProfile,
             )
+
             mock_profile = RetrievalProfile(
                 profile_id="codecompass/implemented_code_explanation",
                 domain=DOMAIN_CODECOMPASS,
@@ -213,7 +214,7 @@ class TestBuildGroundedSnakePromptProfileIntegration:
         ):
             mock_rag.return_value = MagicMock()
 
-            from agent.routes.snakes import _build_grounded_snake_prompt, SnakeAskLimits
+            from agent.routes.snakes import SnakeAskLimits, _build_grounded_snake_prompt
 
             result = _build_grounded_snake_prompt(
                 "test prompt",
@@ -234,16 +235,12 @@ class TestCRPS014WorkerHandoffRegressionTest:
             classify_retrieval_intent,
         )
 
-        _, intent = classify_retrieval_intent(
-            "wie ist der mechanismus damit ananta dies an die worker weitergibt"
-        )
+        _, intent = classify_retrieval_intent("wie ist der mechanismus damit ananta dies an die worker weitergibt")
         assert intent == INTENT_CODE_EXPLANATION
 
     def test_worker_domain_code_explanation_profile_has_repo(self):
         """Worker domain + code explanation → repo must be in source_types."""
         from agent.services.retrieval_profile_service import (
-            DOMAIN_WORKER,
-            INTENT_CODE_EXPLANATION,
             resolve_profile,
         )
 
@@ -286,14 +283,30 @@ class TestCRPS014WorkerHandoffRegressionTest:
         )
 
         chunks = [
-            {"source": "agent/services/rag_service.py", "content": "...", "score": 0.9,
-             "metadata": {"source_type": "repo"}},
-            {"source": "agent/services/context_bundle_service.py", "content": "...", "score": 0.85,
-             "metadata": {"source_type": "repo"}},
-            {"source": "docs/book-of-ananta.md", "content": "...", "score": 0.95,
-             "metadata": {"source_type": "artifact", "source_id": "book-of-ananta"}},
-            {"source": "agent/worker_runtime_selection.py", "content": "...", "score": 0.7,
-             "metadata": {"source_type": "repo"}},
+            {
+                "source": "agent/services/rag_service.py",
+                "content": "...",
+                "score": 0.9,
+                "metadata": {"source_type": "repo"},
+            },
+            {
+                "source": "agent/services/context_bundle_service.py",
+                "content": "...",
+                "score": 0.85,
+                "metadata": {"source_type": "repo"},
+            },
+            {
+                "source": "docs/book-of-ananta.md",
+                "content": "...",
+                "score": 0.95,
+                "metadata": {"source_type": "artifact", "source_id": "book-of-ananta"},
+            },
+            {
+                "source": "agent/worker_runtime_selection.py",
+                "content": "...",
+                "score": 0.7,
+                "metadata": {"source_type": "repo"},
+            },
         ]
 
         filtered, meta = apply_profile_source_constraints(chunks, profile)

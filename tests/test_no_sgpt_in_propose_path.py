@@ -3,35 +3,23 @@
 The original failure involved sgpt/run_sgpt_command being invoked instead of a
 real LLM strategy. This test pins that down: if sgpt is called, the test fails.
 """
+
 from __future__ import annotations
 
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import (
-    ProposeContext,
-    ProposeStrategy,
-    ProposeStrategyOrchestrator,
-)
-from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
-    STATUS_DECLINED,
-    STATUS_EXECUTABLE,
-    STATUS_NEEDS_REVIEW,
-)
+import pytest
+
+from agent.services.model_invocation_service import LLMUnavailableError
 from agent.services.propose_policy import (
-    ProposePolicy,
     STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-    STRATEGY_DETERMINISTIC_HANDLER,
-    STRATEGY_ADVISORY_PROPOSAL,
-    STRATEGY_HUMAN_REVIEW,
-    LLM_MODE_PRIMARY_WITH_GUARDRAILS,
+    ProposePolicy,
 )
 from agent.services.propose_strategy_registry import build_strategy_registry
-from agent.services.model_invocation_service import LLMUnavailableError
+from worker.core.propose_orchestrator import (
+    ProposeContext,
+    ProposeStrategyOrchestrator,
+)
 
 
 def _context(task_kind: str = "new_software_project") -> ProposeContext:
@@ -54,19 +42,19 @@ class TestNoSgptInProposeRegistry:
             assert "sgpt" not in strategy_type.lower(), (
                 f"Strategy {sid!r} is of type {strategy_type!r} which looks like sgpt"
             )
-            assert "sgpt" not in sid.lower(), (
-                f"Strategy id {sid!r} contains 'sgpt'"
-            )
+            assert "sgpt" not in sid.lower(), f"Strategy id {sid!r} contains 'sgpt'"
 
     def test_no_legacy_sgpt_in_default_new_project_policy(self):
-        from agent.services.propose_policy import get_task_kind_preset, build_policy_from_dict, STRATEGY_LEGACY_SGPT
+        from agent.services.propose_policy import STRATEGY_LEGACY_SGPT, build_policy_from_dict, get_task_kind_preset
+
         preset = get_task_kind_preset("new_software_project")
         policy = build_policy_from_dict(preset)
         order = policy.effective_strategy_order()
         assert STRATEGY_LEGACY_SGPT not in order
 
     def test_allow_legacy_sgpt_is_false_in_new_project_policy(self):
-        from agent.services.propose_policy import get_task_kind_preset, build_policy_from_dict
+        from agent.services.propose_policy import build_policy_from_dict, get_task_kind_preset
+
         preset = get_task_kind_preset("new_software_project")
         policy = build_policy_from_dict(preset)
         assert policy.allow_legacy_sgpt is False
@@ -106,7 +94,8 @@ class TestSgptBlockedDuringPropose:
             Mock(side_effect=LLMUnavailableError("no server")),
         )
 
-        from agent.services.propose_policy import get_task_kind_preset, build_policy_from_dict
+        from agent.services.propose_policy import build_policy_from_dict, get_task_kind_preset
+
         preset = get_task_kind_preset("new_software_project")
         policy = build_policy_from_dict(preset)
 
@@ -131,6 +120,7 @@ class TestSgptBlockedDuringPropose:
         monkeypatch.setattr("agent.cli_backends.sgpt.run_sgpt_command", fake_sgpt, raising=False)
         try:
             from agent.cli_backends.sgpt import run_sgpt_command
+
             run_sgpt_command("test")
         except Exception:
             pass
@@ -142,6 +132,7 @@ class TestProposePolicyBlocksSgpt:
 
     def test_legacy_sgpt_in_order_without_allow_raises(self):
         from agent.services.propose_policy import STRATEGY_LEGACY_SGPT
+
         with pytest.raises(ValueError, match="legacy_sgpt_in_strategy_order_but_allow_legacy_sgpt_is_false"):
             ProposePolicy(
                 strategy_order=[STRATEGY_TOOL_CALLING_LLM, STRATEGY_LEGACY_SGPT],
@@ -150,6 +141,7 @@ class TestProposePolicyBlocksSgpt:
 
     def test_legacy_sgpt_allowed_with_explicit_flag(self):
         from agent.services.propose_policy import STRATEGY_LEGACY_SGPT
+
         policy = ProposePolicy(
             strategy_order=[STRATEGY_TOOL_CALLING_LLM, STRATEGY_LEGACY_SGPT],
             allow_legacy_sgpt=True,
@@ -159,6 +151,7 @@ class TestProposePolicyBlocksSgpt:
 
     def test_legacy_sgpt_filtered_from_effective_order_when_not_allowed(self):
         from agent.services.propose_policy import STRATEGY_LEGACY_SGPT
+
         policy = ProposePolicy(
             strategy_order=[STRATEGY_TOOL_CALLING_LLM],
             allow_legacy_sgpt=False,

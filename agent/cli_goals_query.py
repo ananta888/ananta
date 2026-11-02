@@ -99,7 +99,7 @@ def list_goals(limit: int = 20, *, deps: CliGoalsDependencies = DEFAULT_DEPENDEN
         goals = []
     print(f"Goals ({min(limit, len(goals))}/{len(goals)}):")
     print(f"  {'Status':12s} {'Tasks':5s}  {'Goal ID':36s}  {'Description'}")
-    print("  " + "-"*12 + " " + "-"*5 + "  " + "-"*36 + "  " + "-"*50)
+    print("  " + "-" * 12 + " " + "-" * 5 + "  " + "-" * 36 + "  " + "-" * 50)
     for goal in goals[:limit]:
         task_count = int(goal.get("task_count") or 0)
         print(
@@ -128,7 +128,7 @@ def list_goal_tasks(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPEND
         print("  (no tasks)")
         return
     print("  {:44s} {:12s} {:8s}  {}".format("ID", "Status", "Priority", "Title"))
-    print("  " + "-"*44 + " " + "-"*12 + " " + "-"*8 + "  " + "-"*60)
+    print("  " + "-" * 44 + " " + "-" * 12 + " " + "-" * 8 + "  " + "-" * 60)
     for task in tasks:
         print(
             "  {:44s} [{:10}] {:7s}  {}".format(
@@ -154,7 +154,9 @@ def show_goal_detail(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPEN
     print_terminal("  Status: {}", goal.get("status", "N/A"))
     print_terminal("  Team: {}", goal.get("team_id") or "-")
     print_terminal("  Trace: {}", trace.get("trace_id") or "-")
-    print(f"  Tasks: total={summary.get('task_count', 0)} completed={summary.get('completed_tasks', 0)} failed={summary.get('failed_tasks', 0)}")
+    print(
+        f"  Tasks: total={summary.get('task_count', 0)} completed={summary.get('completed_tasks', 0)} failed={summary.get('failed_tasks', 0)}"
+    )
     headline = artifacts.get("headline_artifact") or {}
     if headline.get("preview"):
         print_terminal("  Headline artifact: {}", str(headline.get("preview"))[:120])
@@ -175,8 +177,12 @@ def planning_stuck(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     cb = data.get("circuit_breaker") or {}
     print("=== Planning Health ===")
     print(f"  Slots: capacity={slots.get('capacity')} in_use={slots.get('in_use')} available={slots.get('available')}")
-    print(f"  Goals queued: {goals.get('queued')}  running: {goals.get('running')}  stale_expired_lease: {goals.get('stale_expired_lease')}")
-    print(f"  Circuit breaker [{cb.get('provider')}]: state={cb.get('state')} failures={cb.get('failures')}/{cb.get('threshold')}")
+    print(
+        f"  Goals queued: {goals.get('queued')}  running: {goals.get('running')}  stale_expired_lease: {goals.get('stale_expired_lease')}"
+    )
+    print(
+        f"  Circuit breaker [{cb.get('provider')}]: state={cb.get('state')} failures={cb.get('failures')}/{cb.get('threshold')}"
+    )
     stale = int(goals.get("stale_expired_lease") or 0)
     if stale:
         print(f"\n  WARNING: {stale} goal(s) have an expired planning lease — run --recover-stale to clean up.")

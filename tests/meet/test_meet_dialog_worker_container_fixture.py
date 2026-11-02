@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
 
 pytestmark = pytest.mark.timeout(45)
 NETWORK = "meet-test-tls-11111111-1111-1111-1111-111111111111-network"

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_avatar_renewal_observer import AvatarRenewalObserver
+from tests.meet.meet_avatar_renewal_observer import AvatarRenewalObserver
 
 
 def setup(monkeypatch):

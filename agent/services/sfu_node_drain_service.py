@@ -74,9 +74,7 @@ class SfuRoomDrainResult:
 
 class SfuNodeDrainRepositoryPort(Protocol):
     def get(self, tenant_id: str, cluster_id: str, node_id: str) -> SfuNodeDrainRecord | None: ...
-    def compare_and_swap(
-        self, record: SfuNodeDrainRecord, *, expected_version: int
-    ) -> SfuNodeDrainRecord: ...
+    def compare_and_swap(self, record: SfuNodeDrainRecord, *, expected_version: int) -> SfuNodeDrainRecord: ...
     def count_in_progress(self, tenant_id: str, cluster_id: str) -> int: ...
 
 
@@ -114,7 +112,9 @@ class SfuVersionCompatibilityMatrix:
             raise SfuNodeDrainError("sfu_drain_version_matrix_unknown")
         raw_policy = document["policy"]
         if not isinstance(raw_policy, dict) or set(raw_policy) != {
-            "deadline_seconds", "max_parallel", "cooldown_seconds"
+            "deadline_seconds",
+            "max_parallel",
+            "cooldown_seconds",
         }:
             raise SfuNodeDrainError("sfu_drain_policy_invalid")
         policy = SfuNodeDrainPolicy(
@@ -128,8 +128,11 @@ class SfuVersionCompatibilityMatrix:
         if not isinstance(rows, list) or not rows:
             raise SfuNodeDrainError("sfu_drain_version_matrix_empty")
         required = {
-            "contract_version", "adapter_name", "adapter_version",
-            "e2ee_version", "route_version",
+            "contract_version",
+            "adapter_name",
+            "adapter_version",
+            "e2ee_version",
+            "route_version",
         }
         parsed = []
         for row in rows:
@@ -154,9 +157,7 @@ class InMemorySfuNodeDrainRepository:
         with self._lock:
             return self._records.get((tenant_id, cluster_id, node_id))
 
-    def compare_and_swap(
-        self, record: SfuNodeDrainRecord, *, expected_version: int
-    ) -> SfuNodeDrainRecord:
+    def compare_and_swap(self, record: SfuNodeDrainRecord, *, expected_version: int) -> SfuNodeDrainRecord:
         key = (record.tenant_id, record.cluster_id, record.node_id)
         with self._lock:
             current = self._records.get(key)
@@ -254,9 +255,7 @@ class SfuNodeDrainService:
             return self._transition(current, SfuNodeDrainState.ADMISSION_STOPPED, now)
         if current.state in {SfuNodeDrainState.ADMISSION_STOPPED, SfuNodeDrainState.DRAINING}:
             if now >= current.deadline_at:
-                forced = self._rooms.apply(
-                    current, SfuExistingRoomPolicy.PARENT_FALLBACK, operation_id
-                )
+                forced = self._rooms.apply(current, SfuExistingRoomPolicy.PARENT_FALLBACK, operation_id)
                 if not self._safe_room_result(forced):
                     raise SfuNodeDrainError("sfu_drain_forced_fallback_failed")
                 return self._transition(
@@ -269,14 +268,8 @@ class SfuNodeDrainService:
             result = self._rooms.apply(current, current.room_policy, operation_id)
             if not self._safe_room_result(result):
                 raise SfuNodeDrainError("sfu_drain_room_path_unstable")
-            target = (
-                SfuNodeDrainState.DRAINED
-                if result.remaining_rooms == 0
-                else SfuNodeDrainState.DRAINING
-            )
-            return self._transition(
-                current, target, now, active_rooms=result.remaining_rooms
-            )
+            target = SfuNodeDrainState.DRAINED if result.remaining_rooms == 0 else SfuNodeDrainState.DRAINING
+            return self._transition(current, target, now, active_rooms=result.remaining_rooms)
         return current
 
     def cancel(self, record: SfuNodeDrainRecord, *, reason_code: str) -> SfuNodeDrainRecord:
@@ -316,9 +309,7 @@ class SfuNodeDrainService:
             state=state,
             active_rooms=current.active_rooms if active_rooms is None else active_rooms,
             reason_code=current.reason_code if reason_code is None else reason_code,
-            cooldown_until=(
-                current.cooldown_until if cooldown_until is None else cooldown_until
-            ),
+            cooldown_until=(current.cooldown_until if cooldown_until is None else cooldown_until),
             version=current.version + 1,
             fencing_token=current.fencing_token + 1,
         )

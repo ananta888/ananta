@@ -29,10 +29,7 @@ class PreparedPayloadArchive:
         max_member_bytes: int = 1024 * 1024,
     ) -> dict[str, bytes]:
         self.metadata_paths.append(encrypted)
-        return {
-            name: (self.payload / name).read_bytes()
-            for name in member_names
-        }
+        return {name: (self.payload / name).read_bytes() for name in member_names}
 
     def decrypt_to_directory(self, encrypted: Path, destination: Path) -> None:
         self.decrypt_count += 1
@@ -79,9 +76,7 @@ def _payload(tmp_path: Path, backup_name: str) -> Path:
     (payload / "bind" / "workflow-secrets").mkdir(parents=True)
     (payload / "bind" / "project-workspaces").mkdir()
     (payload / "configuration").mkdir()
-    (payload / "bind" / "workflow-secrets" / "key").write_text(
-        "secret", encoding="utf-8"
-    )
+    (payload / "bind" / "workflow-secrets" / "key").write_text("secret", encoding="utf-8")
     dump = payload / "postgres" / "ananta.dump"
     catalog = payload / "postgres" / "ananta.catalog.txt"
     dump.write_bytes(b"PGDMP-test")
@@ -138,20 +133,14 @@ def _payload(tmp_path: Path, backup_name: str) -> Path:
                     "format": "postgresql-custom",
                     "dump": "postgres/ananta.dump",
                     "catalog": "postgres/ananta.catalog.txt",
-                    "image": (
-                        "postgres:16.13@sha256:"
-                        + "a" * 64
-                    ),
+                    "image": ("postgres:16.13@sha256:" + "a" * 64),
                 },
                 "configuration": configuration,
                 "bind_trees": {
                     "project_workspaces": "bind/project-workspaces",
                     "workflow_secrets": "bind/workflow-secrets",
                 },
-                "volumes": {
-                    name: f"volumes/{name}.tar"
-                    for name in ("hub-data", "alpha-data", "beta-data")
-                },
+                "volumes": {name: f"volumes/{name}.tar" for name in ("hub-data", "alpha-data", "beta-data")},
                 "generated_integrity": generated,
             }
         ),
@@ -202,20 +191,14 @@ def test_restore_drill_extracts_and_verifies_without_docker_mutation(
     result = service.run(RestoreRequest(package=package, target=target))
 
     assert result.target == target
-    report = json.loads(
-        (target / "RESTORE_VERIFIED.json").read_text(encoding="utf-8")
-    )
+    report = json.loads((target / "RESTORE_VERIFIED.json").read_text(encoding="utf-8"))
     assert report["live_ananta_state_mutated"] is False
     assert report["ephemeral_postgres_container_created"] is True
     assert report["verification"]["worker_sqlite_integrity"] == "ok"
     assert report["verification"]["ephemeral_postgres_restore"] == "ok"
-    assert report["verification"]["workflow_credentials"] == (
-        "cryptographic_and_registration_binding_ok"
-    )
+    assert report["verification"]["workflow_credentials"] == ("cryptographic_and_registration_binding_ok")
     assert report["verification"]["ollama_models"] == "not_included"
-    assert report["verification"]["origin_authenticity"] == (
-        "not_verified_unsigned_openpgp_v1"
-    )
+    assert report["verification"]["origin_authenticity"] == ("not_verified_unsigned_openpgp_v1")
     assert len(postgres_drill.dumps) == 1
     assert set(bind_verifier.bind_trees) == {
         "project_workspaces",
@@ -332,9 +315,7 @@ def test_restore_rejects_checksum_mismatch_before_decryption(tmp_path: Path) -> 
     archive.write_bytes(b"tampered")
 
     with pytest.raises(BackupError, match="checksum or size"):
-        RestoreService().run(
-            RestoreRequest(package=package, target=tmp_path / "new-target")
-        )
+        RestoreService().run(RestoreRequest(package=package, target=tmp_path / "new-target"))
 
 
 def test_restore_policy_rejects_windows_interop_mount() -> None:
@@ -363,7 +344,4 @@ def test_restore_rejects_recorded_live_target_before_plaintext_extraction(
 
     assert archive.decrypt_count == 0
     assert not target.exists()
-    assert not any(
-        path.name.startswith(f".{target.name}.restore-")
-        for path in live_root.iterdir()
-    )
+    assert not any(path.name.startswith(f".{target.name}.restore-") for path in live_root.iterdir())

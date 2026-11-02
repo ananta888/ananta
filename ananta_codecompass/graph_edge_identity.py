@@ -69,9 +69,7 @@ def stable_edge_id(
     occurrences[identity_seed] = occurrence + 1
     if occurrence == 0:
         return identity_seed
-    return "edge:sha256:" + hashlib.sha256(
-        f"{identity_seed}\0{occurrence}".encode("utf-8")
-    ).hexdigest()
+    return "edge:sha256:" + hashlib.sha256(f"{identity_seed}\0{occurrence}".encode("utf-8")).hexdigest()
 
 
 def derived_edge_id(
@@ -81,17 +79,12 @@ def derived_edge_id(
 ) -> str:
     source_id = str(edge.get("source_id") or "").strip()
     target_id = str(edge.get("target_id") or "").strip()
-    raw_edge_type = str(
-        edge.get("raw_edge_type") or edge.get("edge_type") or "related"
-    ) or "related"
+    raw_edge_type = str(edge.get("raw_edge_type") or edge.get("edge_type") or "related") or "related"
     if not source_id or not target_id:
         return ""
     candidate = dict(edge)
     candidate.pop("edge_id", None)
-    if (
-        strategy == "legacy_confidence_default_omitted"
-        and candidate.get("confidence") == 1.0
-    ):
+    if strategy == "legacy_confidence_default_omitted" and candidate.get("confidence") == 1.0:
         candidate.pop("confidence", None)
     return stable_edge_id(
         candidate,

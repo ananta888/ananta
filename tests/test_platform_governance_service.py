@@ -152,20 +152,20 @@ def test_platform_governance_mode_defaults_override_legacy_base_exposure_default
             "instance_id": None,
             "max_hops": 3,
         },
-            "mcp": {
-                "enabled": False,
-                "allow_agent_auth": False,
-                "allow_user_auth": False,
-                "require_admin_for_user_auth": True,
-                "emit_audit_events": True,
-            },
-            "remote_hubs": {
-                "enabled": True,
-                "require_admin_for_user_auth": True,
-                "emit_audit_events": True,
-                "max_hops": 3,
-            },
-        }
+        "mcp": {
+            "enabled": False,
+            "allow_agent_auth": False,
+            "allow_user_auth": False,
+            "require_admin_for_user_auth": True,
+            "emit_audit_events": True,
+        },
+        "remote_hubs": {
+            "enabled": True,
+            "require_admin_for_user_auth": True,
+            "emit_audit_events": True,
+            "max_hops": 3,
+        },
+    }
 
     policy = service.build_policy_read_model(
         {

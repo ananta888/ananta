@@ -14,7 +14,6 @@ from agent.services.unsloth_evidence import (
 )
 from scripts.run_lora_training_smoke import _normalize_evidence_ids
 
-
 SOURCE_ID = "SRC_supplied-model"
 RUN_ID = "RUN_supplied-evaluation"
 
@@ -56,9 +55,7 @@ def test_evidence_registry_adds_membership_without_silent_deduplication() -> Non
         source_ids=[SOURCE_ID],
         run_ids=[RUN_ID],
     )
-    assert registry.resolve(source_ids=[SOURCE_ID], run_ids=[RUN_ID]).source_ids == (
-        SOURCE_ID,
-    )
+    assert registry.resolve(source_ids=[SOURCE_ID], run_ids=[RUN_ID]).source_ids == (SOURCE_ID,)
 
     with pytest.raises(EvidenceVerificationError) as unknown:
         registry.require_source("SRC_invented")

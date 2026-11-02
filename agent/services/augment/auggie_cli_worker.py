@@ -1,21 +1,31 @@
 from __future__ import annotations
-import os, re, shutil, subprocess, tempfile, time, uuid
-from dataclasses import dataclass, field
+
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import time
+import uuid
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from agent.services.augment.augment_config import AugmentConfig
 
 # ── AUG-300: Port definition ────────────────────────────────────────────────
 
+
 class WorkerMode(str, Enum):
     READ_ONLY = "read_only"
     WRITE_PROPOSAL = "write_proposal"
 
+
 @dataclass
 class CliRunResult:
     """AUG-300: RunResult — no Auggie-specific types leak to caller."""
+
     run_id: str
     mode: WorkerMode
     stdout: str
@@ -34,15 +44,21 @@ class CliRunResult:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "run_id": self.run_id, "mode": self.mode.value,
-            "exit_code": self.exit_code, "timed_out": self.timed_out,
-            "is_success": self.is_success(), "artifacts": self.artifacts,
-            "diff_summary": self.diff_summary, "warnings": self.warnings,
+            "run_id": self.run_id,
+            "mode": self.mode.value,
+            "exit_code": self.exit_code,
+            "timed_out": self.timed_out,
+            "is_success": self.is_success(),
+            "artifacts": self.artifacts,
+            "diff_summary": self.diff_summary,
+            "warnings": self.warnings,
         }
+
 
 @dataclass
 class ChangeProposal:
     """AUG-400: Write-proposal output for every file change."""
+
     proposal_id: str
     run_id: str
     worker: str
@@ -61,28 +77,57 @@ class ChangeProposal:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "proposal_id": self.proposal_id, "run_id": self.run_id,
-            "changed_files": self.changed_files, "new_files": self.new_files,
+            "proposal_id": self.proposal_id,
+            "run_id": self.run_id,
+            "changed_files": self.changed_files,
+            "new_files": self.new_files,
             "deleted_files": self.deleted_files,
             "binary_files_blocked": self.binary_files_blocked,
             "approval_required": self.approval_required,
         }
 
+
 # AUG-306: ENV allowlist
-ENV_ALLOWLIST = frozenset([
-    "HOME", "USER", "PATH", "LANG", "LC_ALL", "TERM",
-    "NODE_ENV", "AUGGIE_WORKSPACE",
-])
+ENV_ALLOWLIST = frozenset(
+    [
+        "HOME",
+        "USER",
+        "PATH",
+        "LANG",
+        "LC_ALL",
+        "TERM",
+        "NODE_ENV",
+        "AUGGIE_WORKSPACE",
+    ]
+)
 
 SECRET_ENV_PATTERNS = re.compile(r"(TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|AUTH)", re.IGNORECASE)
 
-BINARY_EXTENSIONS = frozenset([
-    ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".tar", ".gz",
-    ".exe", ".dll", ".so", ".dylib", ".wasm", ".ico", ".bin", ".lock"
-])
+BINARY_EXTENSIONS = frozenset(
+    [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".pdf",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".exe",
+        ".dll",
+        ".so",
+        ".dylib",
+        ".wasm",
+        ".ico",
+        ".bin",
+        ".lock",
+    ]
+)
+
 
 class WorkerConfigError(ValueError):
     pass
+
 
 class WorkerSecurityError(PermissionError):
     pass
@@ -91,8 +136,7 @@ class WorkerSecurityError(PermissionError):
 class TaskWorkspace:
     """AUG-303: Task-scoped copy of the workspace."""
 
-    def __init__(self, source_root: str, *, allowed_paths: list[str],
-                 denied_paths: list[str]) -> None:
+    def __init__(self, source_root: str, *, allowed_paths: list[str], denied_paths: list[str]) -> None:
         self._source = Path(source_root).resolve()
         self._allowed = allowed_paths
         self._denied = denied_paths
@@ -162,8 +206,7 @@ class AuggieCliWorker:
         return self._config.auggie_cli.enabled
 
     # AUG-302: Prompt contract
-    def build_prompt(self, task: str, *, allowed_paths: list[str],
-                     denied_paths: list[str], mode: WorkerMode) -> str:
+    def build_prompt(self, task: str, *, allowed_paths: list[str], denied_paths: list[str], mode: WorkerMode) -> str:
         denied_str = ", ".join(denied_paths) if denied_paths else "none"
         allowed_str = ", ".join(allowed_paths) if allowed_paths else "all allowed (within workspace)"
         write_note = (
@@ -195,9 +238,14 @@ class AuggieCliWorker:
         redacted = re.sub(r"(token|secret|key|password)\s*[:=]\s*\S+", r"\1=[REDACTED]", text, flags=re.IGNORECASE)
         return redacted
 
-    def run_read_only(self, task: str, *, allowed_paths: list[str] | None = None,
-                      denied_paths: list[str] | None = None,
-                      correlation_id: str | None = None) -> CliRunResult:
+    def run_read_only(
+        self,
+        task: str,
+        *,
+        allowed_paths: list[str] | None = None,
+        denied_paths: list[str] | None = None,
+        correlation_id: str | None = None,
+    ) -> CliRunResult:
         """AUG-301: Read-only worker run."""
         if not self.is_enabled():
             raise WorkerConfigError("AuggieCliWorker is not enabled")
@@ -209,8 +257,9 @@ class AuggieCliWorker:
 
         return self._execute(run_id, prompt, WorkerMode.READ_ONLY, workspace_path=None)
 
-    def run_write_proposal(self, task: str, *, allowed_paths: list[str] | None = None,
-                           denied_paths: list[str] | None = None) -> tuple[CliRunResult, ChangeProposal]:
+    def run_write_proposal(
+        self, task: str, *, allowed_paths: list[str] | None = None, denied_paths: list[str] | None = None
+    ) -> tuple[CliRunResult, ChangeProposal]:
         """AUG-400: Write-proposal mode. Always uses task-scoped copy."""
         if not self.is_enabled():
             raise WorkerConfigError("AuggieCliWorker is not enabled")
@@ -231,15 +280,22 @@ class AuggieCliWorker:
 
         return result, proposal
 
-    def _execute(self, run_id: str, prompt: str, mode: WorkerMode,
-                 workspace_path: str | None) -> CliRunResult:
+    def _execute(self, run_id: str, prompt: str, mode: WorkerMode, workspace_path: str | None) -> CliRunResult:
         binary = shutil.which("auggie")
         if binary is None:
             return CliRunResult(
-                run_id=run_id, mode=mode, stdout="", stderr="auggie not found",
-                exit_code=127, timed_out=False, output_truncated=False,
-                artifacts=[], diff_summary=None, warnings=["auggie not in PATH"],
-                duration_ms=0, workspace_path=workspace_path,
+                run_id=run_id,
+                mode=mode,
+                stdout="",
+                stderr="auggie not found",
+                exit_code=127,
+                timed_out=False,
+                output_truncated=False,
+                artifacts=[],
+                diff_summary=None,
+                warnings=["auggie not in PATH"],
+                duration_ms=0,
+                workspace_path=workspace_path,
             )
 
         env = self._build_env(workspace_path or self._source_root)
@@ -249,9 +305,11 @@ class AuggieCliWorker:
         try:
             proc = subprocess.run(
                 args,
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
                 timeout=self._config.auggie_cli.timeout_seconds,
-                env=env, shell=False,  # AUG-306: never shell=True
+                env=env,
+                shell=False,  # AUG-306: never shell=True
             )
             duration_ms = int((time.time() - start) * 1000)
             stdout = self._redact_output(proc.stdout)
@@ -263,30 +321,47 @@ class AuggieCliWorker:
                 stdout = stdout.encode()[:max_bytes].decode(errors="replace")
 
             return CliRunResult(
-                run_id=run_id, mode=mode, stdout=stdout, stderr=stderr,
-                exit_code=proc.returncode, timed_out=False,
-                output_truncated=truncated, artifacts=[],
-                diff_summary=None, warnings=[],
-                duration_ms=duration_ms, workspace_path=workspace_path,
+                run_id=run_id,
+                mode=mode,
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=proc.returncode,
+                timed_out=False,
+                output_truncated=truncated,
+                artifacts=[],
+                diff_summary=None,
+                warnings=[],
+                duration_ms=duration_ms,
+                workspace_path=workspace_path,
             )
         except subprocess.TimeoutExpired:
             return CliRunResult(
-                run_id=run_id, mode=mode, stdout="", stderr="",
-                exit_code=-1, timed_out=True, output_truncated=False,
-                artifacts=[], diff_summary=None, warnings=["timeout"],
+                run_id=run_id,
+                mode=mode,
+                stdout="",
+                stderr="",
+                exit_code=-1,
+                timed_out=True,
+                output_truncated=False,
+                artifacts=[],
+                diff_summary=None,
+                warnings=["timeout"],
                 duration_ms=self._config.auggie_cli.timeout_seconds * 1000,
                 workspace_path=workspace_path,
             )
 
-    def _build_proposal(self, run_id: str, result: CliRunResult,
-                        workspace: TaskWorkspace) -> ChangeProposal:
+    def _build_proposal(self, run_id: str, result: CliRunResult, workspace: TaskWorkspace) -> ChangeProposal:
         """AUG-304: Extract file changes from workspace diff."""
         return ChangeProposal(
-            proposal_id=str(uuid.uuid4()), run_id=run_id,
+            proposal_id=str(uuid.uuid4()),
+            run_id=run_id,
             worker=self.WORKER_ID,
-            changed_files=[], new_files=[], deleted_files=[],
+            changed_files=[],
+            new_files=[],
+            deleted_files=[],
             binary_files_blocked=[],
-            diff_lines=[], test_commands_suggested=[],
+            diff_lines=[],
+            test_commands_suggested=[],
             test_result_ref=None,
             approval_required=True,
             created_at=time.time(),
@@ -316,8 +391,8 @@ class TestRunnerIntegration:
                 safe.append(cmd)
         return safe
 
-    def attach_to_proposal(self, proposal: ChangeProposal, *,
-                           test_result: str | None = None,
-                           test_result_ref: str | None = None) -> ChangeProposal:
+    def attach_to_proposal(
+        self, proposal: ChangeProposal, *, test_result: str | None = None, test_result_ref: str | None = None
+    ) -> ChangeProposal:
         proposal.test_result_ref = test_result_ref
         return proposal

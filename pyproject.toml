@@ -22,10 +22,21 @@ dependencies = [
     "psycopg2-binary",
     "pyotp",
     "qrcode",
+    # CLN-020: Pillow/cryptography are intentionally unpinned here; the resolved
+    # versions live in requirements.lock (cryptography==46.0.7, pillow==12.2.0).
+    # Standalone images pin their own versions (sfu-runtime-agent: cryptography==43.0.3,
+    # turn-observer-agent: cryptography==44.0.3, docker/meet-media: Pillow==11.3.0).
+    # These are separate builds; align them consciously when those images are
+    # rebuilt next — old cryptography lines are security-relevant.
     "Pillow",
     "cryptography",
     "alembic",
     "typer",
+    # AMBIGUITY (CLN-021): sgpt is invoked via `python -m sgpt` (agent/cli_backends/sgpt.py).
+    # Two sources provide the `sgpt` namespace: this pip package and the vendored
+    # fork agent/sgpt/ (resolved via sys.path in dev). Consolidation to ONE source
+    # requires verifying which one Docker installs resolve at runtime. Do not
+    # remove blindly — it may provide the fork's transitive deps in Docker builds.
     "shell_gpt",
     "prompt_toolkit",
     "click",
@@ -37,8 +48,6 @@ dependencies = [
     "PyYAML",
     "tree_sitter_java",
     "tree_sitter_c_sharp",
-    "llama-index",
-    "mistralai",
     "gitpython",
     "flask-sock",
     "simple-websocket",
@@ -46,11 +55,14 @@ dependencies = [
     "python-docx",
     "openpyxl",
     "python-pptx",
-    "langdetect",
     "jsonschema>=4.21,<5",
 ]
 
 [project.optional-dependencies]
+# Optional llama-index embeddings for semantic search. The core install does
+# NOT pull the large llama-index tree in; opt in explicitly. The feature is
+# also gated at runtime by ANANTA_ENABLE_LLAMAINDEX_EMBEDDINGS.
+llamaindex = ["llama-index"]
 # Cross-repository browser tests connect to the same pinned Playwright version
 # as docker/meet-media/Dockerfile. No browser download in ordinary dev installs.
 meet-tests = ["playwright==1.58.0"]
@@ -60,7 +72,6 @@ dev = [
     "pytest-timeout",
     "pytest-xdist",
     "httpx",
-    "flake8",
     "mypy",
     "ruff"
 ]
@@ -244,13 +255,69 @@ hub = "src/hub"
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+# Non-source trees: vendored third-party code, generated/runtime output and
+# per-goal workspace copies are not linted — they are not ours to style-fix.
+exclude = [
+    "vendor",
+    "project-workspaces",
+    "rag-helper/out",
+    "autoimport-state",
+    "data",
+    "data_test",
+    "artifacts",
+    "ci-artifacts",
+    ".tmp",
+    "benchmarks/results",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I"]
-ignore = []
+# RATCHET (CLN-022, Stand 2026-11-01): Legacy-Residuum nach erstmaliger Aktivierung
+# des Lint-Gates. Diese Regeln waren nie erzwungen; das Gate ist ab jetzt aktiv und
+# verhindert NEUE Verletzungen in allen anderen Regeln. Die Einträge werden beim
+# Abarbeiten des Residuums wieder entfernt (siehe todos/todo.repo-hygiene-cleanup-remediation.json):
+#   E501 line-too-long: 402 Reste (vormals 4923; Formatter hat 4281 gewrappt)
+#   E402 import-not-at-top: 253 Reste (meist Zuweisungen zwischen Imports, Split-Shims)
+#   E741 ambiguous-name: 110 Reste (l/I/O-Renames brauchen Kontext)
+#   F811 redefinition: 38 Reste (pytest-Fixture-Overrides + Split-Duplikate)
+#   C901 complexity: 6 Grenzfälle (31-39 vs. 30; Refactor in CLN-043/057-Kontext)
+ignore = [
+    "E501",
+    "E402",
+    "E741",
+    "F811",
+    "C901",
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 30
+
+[tool.ruff.lint.per-file-ignores]
+# Public-API-/Fassaden-Module: deren Import-Oberflaeche IST die API. Konsumenten
+# und Tests importieren und monkeypatchen ueber exakt diese Pfade, z.B.
+# patch("agent.cli_backends.sgpt.shutil.which"). F401 ist hier per Design
+# ein Falsch-Positiv — die Importe duerfen nicht "aufgeraeumt" werden.
+"agent/cli_backends/sgpt.py" = ["F401"]
+"agent/services/autopilot/tick_engine.py" = ["F401"]
+"agent/services/task_scoped_execution_service.py" = ["F401"]
+"agent/services/lmstudio_request_registry.py" = ["F401"]
+"client_surfaces/operator_tui/chat_state.py" = ["F401"]
+"client_surfaces/operator_tui/animation3d/backends.py" = ["F401"]
+"agent/services/editor_tui_surface_state.py" = ["F401"]
+# Split-shim route modules: re-export surfaces are the API (CLN-040 follow-up).
+"agent/routes/tasks/goals.py" = ["F401"]
+# task_scoped patch seams: tests monkeypatch module-level service lookups.
+"agent/services/task_scoped/propose_orch.py" = ["F401"]
+"agent/services/task_scoped/runtime.py" = ["F401"]
+"agent/services/task_scoped/adapters.py" = ["F401"]
+"agent/services/task_scoped/domain_action.py" = ["F401"]
+# Engine-shim route modules: tests patch module attributes (time, log, ...).
+"agent/routes/tasks/autopilot.py" = ["F401"]
+"agent/routes/tasks/triggers.py" = ["F401"]
+# Tool registration aggregator: imports are registration side effects (CLN-040).
+"agent/tools.py" = ["F401"]
+# Route-state re-export shim (snakes demo state API).
+"agent/routes/snakes.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -273,6 +340,10 @@ ignore_missing_imports = true
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v"
+# Global bounded-runtime guard (AGENTS.md: tests must fail with bounded
+# diagnostics instead of hanging). Per-test @pytest.mark.timeout overrides
+# still apply (248 files use them); workflows may raise this via --timeout.
+timeout = 300
 markers = [
     "benchmark: marks deterministic benchmark-contract and performance tests",
     "slow: marks tests that take >= 10 s (migrations, real toolchains, drills); skipped by scripts/test-affected.sh unless INCLUDE_SLOW=1, always part of the full suite",

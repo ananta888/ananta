@@ -86,7 +86,10 @@ def test_review_consent_learning_export_and_complete_delete_flow(client, user_au
     assert client.get(f"/v1/voice/reviews/{review['id']}", headers=user_auth_header).status_code == 404
     export = client.get(f"/v1/voice/personalization/{profile_id}/export", headers=user_auth_header)
     assert export.get_json()["data"]["personalization"]["items"] == []
-    assert client.get(
-        f"/v1/voice/personalization/{profile_id}/snapshot",
-        headers=user_auth_header,
-    ).status_code == 403
+    assert (
+        client.get(
+            f"/v1/voice/personalization/{profile_id}/snapshot",
+            headers=user_auth_header,
+        ).status_code
+        == 403
+    )

@@ -6,7 +6,7 @@ from sqlmodel import Session
 from agent.db_models import OrganizationInstanceDB, TaskDB
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_lifecycle import organization_tuple
-from tests.meet_dialog_lifecycle_fixture import seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 
 pytestmark = pytest.mark.timeout(45)

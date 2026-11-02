@@ -35,12 +35,14 @@ def collect_skip_reason_counts(manifest_files: list[dict]) -> dict[str, int]:
 
 
 def collect_extension_stats(manifest_files: list[dict]) -> dict[str, dict[str, int]]:
-    stats: dict[str, dict[str, int]] = defaultdict(lambda: {
-        "file_count": 0,
-        "skipped_count": 0,
-        "error_count": 0,
-        "cache_hit_count": 0,
-    })
+    stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {
+            "file_count": 0,
+            "skipped_count": 0,
+            "error_count": 0,
+            "cache_hit_count": 0,
+        }
+    )
     for entry in manifest_files:
         ext = str(entry.get("ext") or "<unknown>")
         stats[ext]["file_count"] += 1

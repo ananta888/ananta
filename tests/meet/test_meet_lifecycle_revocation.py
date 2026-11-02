@@ -11,7 +11,7 @@ from sqlalchemy.pool import QueuePool
 from sqlmodel import Session
 
 from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
-from tests.meet_dialog_lifecycle_fixture import seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.meet_lifecycle_revocation import revoke_fixture_lifecycle
 from tests.meet.test_meet_dialog_cleanup import locked
 
@@ -121,11 +121,15 @@ def test_real_sqlite_revocation_retries_only_shared_cache_contention(tmp_path, d
     # shared-cache table lock. Never change the application's global engine.
     database = (
         "file:meet-revocation-" + uuid4().hex + "?mode=memory&cache=shared"
-        if database_mode == "shared-cache" else str(tmp_path / "revocation.db")
+        if database_mode == "shared-cache"
+        else str(tmp_path / "revocation.db")
     )
     engine = create_engine(
-        "sqlite://", creator=lambda: sqlite3.connect(database, uri=True, timeout=0.05),
-        poolclass=QueuePool, pool_size=2, max_overflow=0,
+        "sqlite://",
+        creator=lambda: sqlite3.connect(database, uri=True, timeout=0.05),
+        poolclass=QueuePool,
+        pool_size=2,
+        max_overflow=0,
     )
     try:
         with engine.begin() as connection:
@@ -156,9 +160,12 @@ def test_real_sqlite_revocation_retries_only_shared_cache_contention(tmp_path, d
             )
             assert pauses == ([0.05] if database_mode == "shared-cache" else [])
             with engine.connect() as connection:
-                assert connection.exec_driver_sql(
-                    "SELECT lifecycle FROM organization_role_slots WHERE id='meet-test-slot'"
-                ).scalar_one() == "draining"
+                assert (
+                    connection.exec_driver_sql(
+                        "SELECT lifecycle FROM organization_role_slots WHERE id='meet-test-slot'"
+                    ).scalar_one()
+                    == "draining"
+                )
         finally:
             reader.rollback()
             reader.close()

@@ -22,10 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     bind = op.get_bind()
     tables = set(inspect(bind).get_table_names())
-    columns = {
-        value["name"]
-        for value in inspect(bind).get_columns("workflow_control_bindings")
-    }
+    columns = {value["name"] for value in inspect(bind).get_columns("workflow_control_bindings")}
     additions = (
         ("execution_plan", sa.JSON(), "'{}'"),
         ("command_claim_expires_at", sa.Float(), "0"),
@@ -43,10 +40,7 @@ def upgrade() -> None:
                     server_default=sa.text(default),
                 ),
             )
-    indexes = {
-        value["name"]
-        for value in inspect(bind).get_indexes("workflow_control_bindings")
-    }
+    indexes = {value["name"] for value in inspect(bind).get_indexes("workflow_control_bindings")}
     for name, columns_value in (
         ("ix_workflow_control_bindings_command_claim_expires_at", ["command_claim_expires_at"]),
         ("ix_workflow_control_bindings_scheduler_owner", ["scheduler_owner"]),
@@ -113,10 +107,7 @@ def downgrade() -> None:
         op.drop_table("workflow_runtime_capacity_reservations")
     if "workflow_runtime_capacity_lock" in tables:
         op.drop_table("workflow_runtime_capacity_lock")
-    indexes = {
-        value["name"]
-        for value in inspect(bind).get_indexes("workflow_control_bindings")
-    }
+    indexes = {value["name"] for value in inspect(bind).get_indexes("workflow_control_bindings")}
     for name in (
         "ix_workflow_control_bindings_scheduler_lease_expires_at",
         "ix_workflow_control_bindings_scheduler_owner",
@@ -124,10 +115,7 @@ def downgrade() -> None:
     ):
         if name in indexes:
             op.drop_index(name, table_name="workflow_control_bindings")
-    columns = {
-        value["name"]
-        for value in inspect(bind).get_columns("workflow_control_bindings")
-    }
+    columns = {value["name"] for value in inspect(bind).get_columns("workflow_control_bindings")}
     for name in (
         "scheduler_lease_expires_at",
         "scheduler_owner",

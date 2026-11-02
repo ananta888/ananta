@@ -30,4 +30,3 @@ def test_registry_unknown_name_lists_options() -> None:
     with pytest.raises(KeyError) as exc:
         renderers.create("cpu_raster")
     assert "ansi_blocks" in str(exc.value)
-

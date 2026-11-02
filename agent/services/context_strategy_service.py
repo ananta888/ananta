@@ -77,8 +77,13 @@ class ContextStrategyDecision:
     parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"strategy": self.strategy, "reason": self.reason, "decided_by": self.decided_by,
-                "fit": self.fit.to_mapping(), "parameters": dict(self.parameters)}
+        return {
+            "strategy": self.strategy,
+            "reason": self.reason,
+            "decided_by": self.decided_by,
+            "fit": self.fit.to_mapping(),
+            "parameters": dict(self.parameters),
+        }
 
 
 def normalize_config(raw: Any) -> dict[str, Any]:
@@ -86,8 +91,11 @@ def normalize_config(raw: Any) -> dict[str, Any]:
     cfg["mode"] = str(cfg.get("mode") or "shadow").strip().lower()
     if cfg["mode"] not in MODES:
         cfg["mode"] = "shadow"
-    for key, low, high in (("compact_max_ratio", 1.0, 10.0), ("escalate_min_ratio", 2.0, 1000.0),
-                           ("chunk_fill", 0.2, 0.9)):
+    for key, low, high in (
+        ("compact_max_ratio", 1.0, 10.0),
+        ("escalate_min_ratio", 2.0, 1000.0),
+        ("chunk_fill", 0.2, 0.9),
+    ):
         try:
             cfg[key] = min(high, max(low, float(cfg[key])))
         except (TypeError, ValueError):
@@ -158,15 +166,21 @@ class ContextStrategyService:
         if strategy is None:
             return decision
         request = ContextStrategyRequest(fit=decision.fit)
-        return ContextStrategyDecision(strategy, f"{decision.strategy}_as_split:{decision.reason}", decision.decided_by,
-                                       decision.fit, _parameters(strategy, request, self._cfg))
+        return ContextStrategyDecision(
+            strategy,
+            f"{decision.strategy}_as_split:{decision.reason}",
+            decision.decided_by,
+            decision.fit,
+            _parameters(strategy, request, self._cfg),
+        )
 
     def decide(self, request: ContextStrategyRequest) -> ContextStrategyDecision:
         ruled = decide_by_rules(request, self._cfg)
         if ruled is not None:
             strategy, reason = ruled
-            decision = ContextStrategyDecision(strategy, reason, "rules", request.fit,
-                                               _parameters(strategy, request, self._cfg))
+            decision = ContextStrategyDecision(
+                strategy, reason, "rules", request.fit, _parameters(strategy, request, self._cfg)
+            )
         else:
             decision = self._grey_zone(request)
         self._record(decision, request)
@@ -178,11 +192,20 @@ class ContextStrategyService:
             chosen = self._ask_decision_provider(request)
             if chosen is not None:
                 strategy, confidence = chosen
-                return ContextStrategyDecision(strategy, f"decision_provider_confidence_{confidence:.2f}",
-                                               "decision_provider", request.fit,
-                                               _parameters(strategy, request, self._cfg))
-        return ContextStrategyDecision("sequential", "unknown_input_shape_default", "default", request.fit,
-                                       _parameters("sequential", request, self._cfg))
+                return ContextStrategyDecision(
+                    strategy,
+                    f"decision_provider_confidence_{confidence:.2f}",
+                    "decision_provider",
+                    request.fit,
+                    _parameters(strategy, request, self._cfg),
+                )
+        return ContextStrategyDecision(
+            "sequential",
+            "unknown_input_shape_default",
+            "default",
+            request.fit,
+            _parameters("sequential", request, self._cfg),
+        )
 
     def _ask_decision_provider(self, request: ContextStrategyRequest) -> tuple[str, float] | None:
         try:
@@ -195,12 +218,25 @@ class ContextStrategyService:
                 service = get_decision_service()
             if service.area_mode(AREA) == "off":
                 return None
-            state = (f"Task ({request.task_kind or 'unknown kind'}): {request.description.strip()[:3000]}\n"
-                     f"Material: about {request.fit.estimated_tokens} tokens, {request.fit.ratio:.1f}x the model "
-                     f"window; {request.parts or 'unknown number of'} parts.")
-            outcome = service.decide(AREA, DecisionRequest(state=state, purpose=AREA, questions=(
-                DecisionQuestion.choice("strategy", "How should the task handle material that does not fit the "
-                                        "model's context window?", STRATEGY_OPTIONS),)))
+            state = (
+                f"Task ({request.task_kind or 'unknown kind'}): {request.description.strip()[:3000]}\n"
+                f"Material: about {request.fit.estimated_tokens} tokens, {request.fit.ratio:.1f}x the model "
+                f"window; {request.parts or 'unknown number of'} parts."
+            )
+            outcome = service.decide(
+                AREA,
+                DecisionRequest(
+                    state=state,
+                    purpose=AREA,
+                    questions=(
+                        DecisionQuestion.choice(
+                            "strategy",
+                            "How should the task handle material that does not fit the model's context window?",
+                            STRATEGY_OPTIONS,
+                        ),
+                    ),
+                ),
+            )
             if outcome is None or not outcome.usable:
                 return None
             answer = outcome.outcome.result.answer("strategy")
@@ -216,10 +252,16 @@ class ContextStrategyService:
             from agent.metrics import CONTEXT_STRATEGY_DECISIONS_TOTAL
 
             CONTEXT_STRATEGY_DECISIONS_TOTAL.labels(strategy=decision.strategy, decided_by=decision.decided_by).inc()
-            _log.info("context strategy %s (%s, %s) for %s input, %s", decision.strategy, decision.reason,
-                      decision.decided_by, request.input_kind, decision.fit.to_mapping())
+            _log.info(
+                "context strategy %s (%s, %s) for %s input, %s",
+                decision.strategy,
+                decision.reason,
+                decision.decided_by,
+                request.input_kind,
+                decision.fit.to_mapping(),
+            )
         except Exception:  # noqa: BLE001 -- recording never changes a decision
-            pass
+            logging.getLogger(__name__).debug("_record: ignored Exception", exc_info=True)
 
 
 def get_context_strategy_service(config: Mapping[str, Any] | None = None) -> ContextStrategyService:
@@ -227,8 +269,11 @@ def get_context_strategy_service(config: Mapping[str, Any] | None = None) -> Con
         try:
             from flask import current_app, has_app_context
 
-            config = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("context_strategy") \
-                if has_app_context() else None
+            config = (
+                (current_app.config.get("AGENT_CONFIG", {}) or {}).get("context_strategy")
+                if has_app_context()
+                else None
+            )
         except Exception:  # noqa: BLE001
             config = None
     return ContextStrategyService(config=config)

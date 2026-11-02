@@ -35,37 +35,57 @@ def _answer(claim_type: str, refs: list[str]) -> dict:
     return {
         "schema": "grounded_answer.v1",
         "answer": "x",
-        "claims": [{"claim_id": "CLM_0001", "text": "x", "claim_type": claim_type, "citation_refs": refs, "confidence": "verified"}],
+        "claims": [
+            {
+                "claim_id": "CLM_0001",
+                "text": "x",
+                "claim_type": claim_type,
+                "citation_refs": refs,
+                "confidence": "verified",
+            }
+        ],
         "unsupported_notes": [],
     }
 
 
 def test_negative_invented_file_path_maps_to_unknown_source() -> None:
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_PATH_docs_fake_md"]), source_catalog=_catalog())
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_PATH_docs_fake_md"]), source_catalog=_catalog()
+    )
     assert res["status"] == "failed_unknown_source"
 
 
 def test_negative_invented_src_id_is_rejected() -> None:
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_9999"]), source_catalog=_catalog())
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_9999"]), source_catalog=_catalog()
+    )
     assert res["status"] == "failed_unknown_source"
 
 
 def test_negative_cross_task_source_is_rejected() -> None:
     catalog = _catalog(task_id="t-other")
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_0001"]), source_catalog=catalog)
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_0001"]), source_catalog=catalog
+    )
     assert res["status"] == "failed_cross_task_source"
 
 
 def test_negative_excluded_source_is_rejected() -> None:
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_0001"]), source_catalog=_catalog(allowed=False))
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("source_fact", ["SRC_0001"]), source_catalog=_catalog(allowed=False)
+    )
     assert res["status"] == "failed_policy_scope"
 
 
 def test_negative_tool_result_without_run_is_rejected() -> None:
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("tool_result", ["SRC_0001"]), source_catalog=_catalog())
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("tool_result", ["SRC_0001"]), source_catalog=_catalog()
+    )
     assert res["status"] in {"failed_source_type_mismatch", "failed_missing_tool_run"}
 
 
 def test_negative_hash_claim_with_readme_only_citation_is_rejected() -> None:
-    res = CitationVerificationService().verify(task_id="t-neg", answer_payload=_answer("tool_result", ["SRC_0001"]), source_catalog=_catalog())
+    res = CitationVerificationService().verify(
+        task_id="t-neg", answer_payload=_answer("tool_result", ["SRC_0001"]), source_catalog=_catalog()
+    )
     assert res["status"] == "failed_source_type_mismatch"

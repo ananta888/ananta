@@ -78,10 +78,7 @@ class _SubprocessGitCommandSession(AuthorizedGitCommandSessionPort):
         self._maximum_output_bytes = maximum_output_bytes
 
     def __repr__(self) -> str:
-        return (
-            "_SubprocessGitCommandSession("
-            "environment=<redacted>, ssh_identity_path=<redacted>)"
-        )
+        return "_SubprocessGitCommandSession(environment=<redacted>, ssh_identity_path=<redacted>)"
 
     def run(
         self,
@@ -95,11 +92,7 @@ class _SubprocessGitCommandSession(AuthorizedGitCommandSessionPort):
         if self._ssh_identity_path is not None:
             safe_arguments = self._with_ssh_identity(safe_arguments)
         try:
-            file_limit = (
-                max(1, int(maximum_file_bytes))
-                if maximum_file_bytes is not None
-                else None
-            )
+            file_limit = max(1, int(maximum_file_bytes)) if maximum_file_bytes is not None else None
 
             def apply_file_limit() -> None:
                 if file_limit is not None:
@@ -140,20 +133,12 @@ class _SubprocessGitCommandSession(AuthorizedGitCommandSessionPort):
         marker = "core.sshCommand="
         for index, value in enumerate(arguments):
             if value.startswith(marker):
-                arguments[index] = (
-                    value
-                    + " -o IdentitiesOnly=yes -i "
-                    + shlex.quote(str(self._ssh_identity_path))
-                )
+                arguments[index] = value + " -o IdentitiesOnly=yes -i " + shlex.quote(str(self._ssh_identity_path))
                 return arguments
-        raise HubGitCredentialError(
-            "git_transport_ssh_pinning_configuration_missing"
-        )
+        raise HubGitCredentialError("git_transport_ssh_pinning_configuration_missing")
 
 
-class SubprocessGitCredentialCommandResolver(
-    GitCredentialCommandResolverPort
-):
+class SubprocessGitCredentialCommandResolver(GitCredentialCommandResolverPort):
     """Resolve a reference only inside a short-lived command capability."""
 
     def __init__(
@@ -169,19 +154,12 @@ class SubprocessGitCredentialCommandResolver(
         self._base_environment = (
             dict(base_environment)
             if base_environment is not None
-            else {
-                key: value
-                for key, value in os.environ.items()
-                if key in {"HOME", "LANG", "LC_ALL", "PATH"}
-            }
+            else {key: value for key, value in os.environ.items() if key in {"HOME", "LANG", "LC_ALL", "PATH"}}
         )
         self._maximum_output_bytes = max(4096, int(maximum_output_bytes))
 
     def __repr__(self) -> str:
-        return (
-            "SubprocessGitCredentialCommandResolver("
-            "secret_resolver=<redacted>, credential_root=<redacted>)"
-        )
+        return "SubprocessGitCredentialCommandResolver(secret_resolver=<redacted>, credential_root=<redacted>)"
 
     @contextmanager
     def open_session(
@@ -193,9 +171,7 @@ class SubprocessGitCredentialCommandResolver(
     ) -> Iterator[AuthorizedGitCommandSessionPort]:
         normalized_scheme = str(scheme or "").strip().lower()
         if normalized_scheme not in {"https", "ssh"}:
-            raise HubGitCredentialError(
-                "git_credential_scheme_unsupported"
-            )
+            raise HubGitCredentialError("git_credential_scheme_unsupported")
         self._prepare_root()
         directory = Path(
             tempfile.mkdtemp(
@@ -211,20 +187,14 @@ class SubprocessGitCredentialCommandResolver(
                 try:
                     secret = self._secret_resolver.resolve(credential_ref)
                 except Exception:
-                    raise HubGitCredentialError(
-                        "git_credential_resolution_failed"
-                    ) from None
+                    raise HubGitCredentialError("git_credential_resolution_failed") from None
                 if not isinstance(secret, str) or not secret:
-                    raise HubGitCredentialError(
-                        "git_credential_resolution_failed"
-                    )
+                    raise HubGitCredentialError("git_credential_resolution_failed")
                 if normalized_scheme == "https":
                     askpass = self._write_askpass(directory)
                     environment.update(
                         {
-                            "ANANTA_GIT_USERNAME": str(
-                                credential_username or "x-access-token"
-                            ),
+                            "ANANTA_GIT_USERNAME": str(credential_username or "x-access-token"),
                             "ANANTA_GIT_SECRET": secret,
                             "GIT_ASKPASS": str(askpass),
                             "SSH_ASKPASS": str(askpass),
@@ -245,24 +215,17 @@ class SubprocessGitCredentialCommandResolver(
 
     def _prepare_root(self) -> None:
         if self._credential_root.is_symlink():
-            raise HubGitCredentialError(
-                "git_credential_root_invalid"
-            )
+            raise HubGitCredentialError("git_credential_root_invalid")
         self._credential_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if (
-            not self._credential_root.is_dir()
-            or self._credential_root.is_symlink()
-        ):
-            raise HubGitCredentialError(
-                "git_credential_root_invalid"
-            )
+        if not self._credential_root.is_dir() or self._credential_root.is_symlink():
+            raise HubGitCredentialError("git_credential_root_invalid")
 
     @staticmethod
     def _write_askpass(directory: Path) -> Path:
         target = directory / "askpass"
         target.write_text(
             "#!/bin/sh\n"
-            "case \"$1\" in\n"
+            'case "$1" in\n'
             "  *sername*) printf '%s\\n' \"$ANANTA_GIT_USERNAME\" ;;\n"
             "  *) printf '%s\\n' \"$ANANTA_GIT_SECRET\" ;;\n"
             "esac\n",
@@ -305,9 +268,7 @@ class SubprocessGitCredentialCommandResolver(
                     pass
         shutil.rmtree(directory, ignore_errors=True)
         if directory.exists():
-            raise HubGitCredentialError(
-                "git_credential_cleanup_failed"
-            )
+            raise HubGitCredentialError("git_credential_cleanup_failed")
 
 
 __all__ = [

@@ -13,12 +13,8 @@ from agent.models.hub_git_authorization import RegisteredGitAuthorization
 from agent.sources.git_source_connector_common import GitSourceScope
 
 _SCOPE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$")
-_GITHUB_OWNER = re.compile(
-    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
-)
-_REPOSITORY_SEGMENT = re.compile(
-    r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$"
-)
+_GITHUB_OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+_REPOSITORY_SEGMENT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$")
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -37,83 +33,54 @@ class SourceControlPublicRemoteContractError(ValueError):
 def _required_text(payload: Mapping[str, object], field: str) -> str:
     value = payload.get(field)
     if not isinstance(value, str) or not value.strip():
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_payload_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_payload_invalid")
     return value.strip()
 
 
 def _normalized_host(value: str) -> str:
     raw = value.strip().rstrip(".").lower()
     if not raw or ":" in raw or "/" in raw or "@" in raw:
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_host_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_host_invalid")
     try:
         ipaddress.ip_address(raw)
     except ValueError:
         pass
     else:
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_ip_literal_denied"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_ip_literal_denied")
     try:
         host = raw.encode("idna").decode("ascii")
     except UnicodeError as exc:
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_host_invalid"
-        ) from exc
-    if (
-        len(host) > 253
-        or any(
-            not label
-            or len(label) > 63
-            or label.startswith("-")
-            or label.endswith("-")
-            or re.fullmatch(r"[a-z0-9-]+", label) is None
-            for label in host.split(".")
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_host_invalid") from exc
+    if len(host) > 253 or any(
+        not label
+        or len(label) > 63
+        or label.startswith("-")
+        or label.endswith("-")
+        or re.fullmatch(r"[a-z0-9-]+", label) is None
+        for label in host.split(".")
     ):
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_host_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_host_invalid")
     return host
 
 
 def _repository_path(value: str, *, github: bool) -> str:
     if value.startswith("/") or value.endswith("/") or "//" in value:
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_repository_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_repository_invalid")
     segments = value.split("/")
     expected = 2 if github else None
     if (
         (expected is not None and len(segments) != expected)
         or not 1 <= len(segments) <= 16
         or len(value) > 512
-        or any(
-            segment in {".", ".."}
-            or _REPOSITORY_SEGMENT.fullmatch(segment) is None
-            for segment in segments
-        )
+        or any(segment in {".", ".."} or _REPOSITORY_SEGMENT.fullmatch(segment) is None for segment in segments)
     ):
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_repository_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_repository_invalid")
     return "/".join(segments)
 
 
 def _requested_ref(value: str) -> str:
-    if (
-        _REF.fullmatch(value) is None
-        or ".." in value
-        or "//" in value
-        or "@{" in value
-        or value.endswith(".lock")
-    ):
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_ref_invalid"
-        )
+    if _REF.fullmatch(value) is None or ".." in value or "//" in value or "@{" in value or value.endswith(".lock"):
+        raise SourceControlPublicRemoteContractError("public_remote_ref_invalid")
     return value
 
 
@@ -127,18 +94,14 @@ class PublicRemoteSelection:
     def __post_init__(self) -> None:
         provider = str(self.provider or "").strip()
         if provider not in _PROVIDERS:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_provider_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_provider_invalid")
         host = _normalized_host(str(self.host or ""))
         repository = _repository_path(
             str(self.repository_path or "").strip(),
             github=provider == "github_public",
         )
         if provider == "github_public" and host != "github.com":
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_github_host_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_github_host_invalid")
         object.__setattr__(self, "provider", provider)
         object.__setattr__(self, "host", host)
         object.__setattr__(self, "repository_path", repository)
@@ -161,15 +124,11 @@ class PublicRemoteSelection:
                 "repository",
                 "requested_ref",
             }:
-                raise SourceControlPublicRemoteContractError(
-                    "public_remote_payload_fields_invalid"
-                )
+                raise SourceControlPublicRemoteContractError("public_remote_payload_fields_invalid")
             owner = _required_text(payload, "owner")
             repository = _required_text(payload, "repository")
             if _GITHUB_OWNER.fullmatch(owner) is None:
-                raise SourceControlPublicRemoteContractError(
-                    "public_remote_repository_invalid"
-                )
+                raise SourceControlPublicRemoteContractError("public_remote_repository_invalid")
             return cls(
                 provider=provider,
                 host="github.com",
@@ -183,18 +142,14 @@ class PublicRemoteSelection:
                 "repository",
                 "requested_ref",
             }:
-                raise SourceControlPublicRemoteContractError(
-                    "public_remote_payload_fields_invalid"
-                )
+                raise SourceControlPublicRemoteContractError("public_remote_payload_fields_invalid")
             return cls(
                 provider=provider,
                 host=_required_text(payload, "host"),
                 repository_path=_required_text(payload, "repository"),
                 requested_ref=_required_text(payload, "requested_ref"),
             )
-        raise SourceControlPublicRemoteContractError(
-            "public_remote_provider_invalid"
-        )
+        raise SourceControlPublicRemoteContractError("public_remote_provider_invalid")
 
     @property
     def internal_remote_url(self) -> str:
@@ -206,19 +161,11 @@ class PublicRemoteSelection:
 
     @property
     def authorization_kind(self) -> str:
-        return (
-            "github_public"
-            if self.provider == "github_public"
-            else "generic_git"
-        )
+        return "github_public" if self.provider == "github_public" else "generic_git"
 
     @property
     def granted_scopes(self) -> frozenset[str]:
-        return frozenset(
-            {"contents:read"}
-            if self.provider == "github_public"
-            else {"repository:read"}
-        )
+        return frozenset({"contents:read"} if self.provider == "github_public" else {"repository:read"})
 
     def coordinates(self) -> Mapping[str, object]:
         return {
@@ -229,10 +176,7 @@ class PublicRemoteSelection:
         }
 
     def __repr__(self) -> str:
-        return (
-            "PublicRemoteSelection("
-            f"provider={self.provider!r}, endpoint=<redacted>)"
-        )
+        return f"PublicRemoteSelection(provider={self.provider!r}, endpoint=<redacted>)"
 
 
 @dataclass(frozen=True)
@@ -245,21 +189,15 @@ class PublicRemoteCreateSelection:
         payload: Mapping[str, object],
     ) -> "PublicRemoteCreateSelection":
         if set(payload) != {"validation_handle"}:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_create_fields_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_create_fields_invalid")
         handle = _required_text(payload, "validation_handle")
         if _HANDLE.fullmatch(handle) is None:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_validation_handle_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_validation_handle_invalid")
         return cls(validation_handle=handle)
 
     @property
     def handle_digest(self) -> str:
-        return hashlib.sha256(
-            self.validation_handle.encode("ascii")
-        ).hexdigest()
+        return hashlib.sha256(self.validation_handle.encode("ascii")).hexdigest()
 
 
 @dataclass(frozen=True, repr=False)
@@ -285,13 +223,9 @@ class PublicRemoteValidationBinding:
         commit = str(self.commit_sha or "").strip().lower()
         policy_digest = str(self.policy_digest or "").strip().lower()
         if _COMMIT.fullmatch(commit) is None:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_commit_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_commit_invalid")
         if _DIGEST.fullmatch(policy_digest) is None:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_policy_binding_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_policy_binding_invalid")
         object.__setattr__(self, "commit_sha", commit)
         object.__setattr__(self, "policy_digest", policy_digest)
 
@@ -326,9 +260,7 @@ class PublicRemoteRecord:
 
     def __post_init__(self) -> None:
         if _REMOTE_ID.fullmatch(str(self.remote_id or "")) is None:
-            raise SourceControlPublicRemoteContractError(
-                "public_remote_id_invalid"
-            )
+            raise SourceControlPublicRemoteContractError("public_remote_id_invalid")
 
     def registered_authorization(self) -> RegisteredGitAuthorization:
         selection = self.binding.selection
@@ -341,18 +273,11 @@ class PublicRemoteRecord:
             credential_username=None,
             authorization_state="active",
             granted_scopes=selection.granted_scopes,
-            repository=(
-                selection.repository_path
-                if selection.provider == "github_public"
-                else None
-            ),
+            repository=(selection.repository_path if selection.provider == "github_public" else None),
         )
 
     def __repr__(self) -> str:
-        return (
-            "PublicRemoteRecord("
-            f"remote_id={self.remote_id!r}, endpoint=<redacted>)"
-        )
+        return f"PublicRemoteRecord(remote_id={self.remote_id!r}, endpoint=<redacted>)"
 
 
 def audit_binding_digest(

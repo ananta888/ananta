@@ -13,21 +13,11 @@ from rag_helper.domain_discovery.graph_model import DomainGraph
 from rag_helper.domain_discovery.inputs import AnalysisInputs
 
 
-def _build_inputs(
-    *, nodes: list[dict], edges: list[dict] | None = None
-) -> AnalysisInputs:
+def _build_inputs(*, nodes: list[dict], edges: list[dict] | None = None) -> AnalysisInputs:
     inputs = AnalysisInputs(
         out_dir=None,
-        graph_nodes=[
-            n
-            for n in nodes
-            if n.get("id") and n.get("kind") is not None and n.get("file")
-        ],
-        graph_edges=[
-            e
-            for e in (edges or [])
-            if e.get("source") and e.get("target") and e.get("type")
-        ],
+        graph_nodes=[n for n in nodes if n.get("id") and n.get("kind") is not None and n.get("file")],
+        graph_edges=[e for e in (edges or []) if e.get("source") and e.get("target") and e.get("type")],
     )
     return inputs
 
@@ -40,10 +30,9 @@ def _record(rid: str, file: str, **extra) -> dict:
 
 class TestMutualCoupling(unittest.TestCase):
     def test_two_domains_with_bidirectional_edges_warn(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
+        ]
         edges = []
         for i in range(3):
             edges.append({"source": f"a{i}", "target": f"b{i}", "type": "field_type_uses"})
@@ -54,11 +43,7 @@ class TestMutualCoupling(unittest.TestCase):
 
         warning_types = {w["warning_type"] for w in result.boundary_warnings}
         self.assertIn(WARNING_MUTUAL_COUPLING, warning_types)
-        mutual = [
-            w
-            for w in result.boundary_warnings
-            if w["warning_type"] == WARNING_MUTUAL_COUPLING
-        ]
+        mutual = [w for w in result.boundary_warnings if w["warning_type"] == WARNING_MUTUAL_COUPLING]
         self.assertEqual(len(mutual), 1)
         domains = {mutual[0]["source_domain"], mutual[0]["target_domain"]}
         self.assertEqual(domains, {"alpha", "beta"})
@@ -66,10 +51,9 @@ class TestMutualCoupling(unittest.TestCase):
         self.assertEqual(mutual[0]["evidence"]["b_to_a_edges"], 3)
 
     def test_below_threshold_no_warning(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
+        ]
         edges = [
             {"source": "a0", "target": "b0", "type": "field_type_uses"},
             {"source": "a1", "target": "b1", "type": "field_type_uses"},
@@ -85,10 +69,9 @@ class TestMutualCoupling(unittest.TestCase):
 
 class TestExternalDomainRefs(unittest.TestCase):
     def test_external_domain_refs_attached_to_metrics(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
+        ]
         edges = [
             {"source": "a0", "target": "b0", "type": "field_type_uses"},
             {"source": "a0", "target": "b1", "type": "field_type_uses"},
@@ -110,19 +93,13 @@ class TestLayerSpansDomains(unittest.TestCase):
         records = []
         for d in ("alpha", "beta", "gamma"):
             for i in range(4):
-                rec = _record(
-                    f"{d}{i}", f"{d}/f{i}.py", role_labels=["controller"]
-                )
+                rec = _record(f"{d}{i}", f"{d}/f{i}.py", role_labels=["controller"])
                 nodes.append(rec)
                 records.append(rec)
         graph = DomainGraph.build(_build_inputs(nodes=nodes))
         clustering = cluster_domains(graph, records=records)
         result = compute_boundary_metrics(clustering, graph, layer_min_domains=3)
-        layer_warnings = [
-            w
-            for w in result.boundary_warnings
-            if w["warning_type"] == WARNING_LAYER_SPANS_DOMAINS
-        ]
+        layer_warnings = [w for w in result.boundary_warnings if w["warning_type"] == WARNING_LAYER_SPANS_DOMAINS]
         self.assertTrue(layer_warnings)
         layers = {w["source_domain"] for w in layer_warnings}
         self.assertIn("api", layers)
@@ -139,24 +116,17 @@ class TestHeterogeneousRoot(unittest.TestCase):
         nodes = [_record(f"x{i}", f"alpha/f{i}.py") for i in range(4)]
         graph = DomainGraph.build(_build_inputs(nodes=nodes))
         clustering = cluster_domains(graph)
-        result = compute_boundary_metrics(
-            clustering, graph, heterogeneous_min_records=3
-        )
-        heterogeneous = [
-            w
-            for w in result.boundary_warnings
-            if w["warning_type"] == WARNING_HETEROGENEOUS_ROOT
-        ]
+        result = compute_boundary_metrics(clustering, graph, heterogeneous_min_records=3)
+        heterogeneous = [w for w in result.boundary_warnings if w["warning_type"] == WARNING_HETEROGENEOUS_ROOT]
         self.assertEqual(len(heterogeneous), 1)
         self.assertEqual(heterogeneous[0]["source_domain"], "alpha")
 
 
 class TestStability(unittest.TestCase):
     def test_warning_output_is_byte_stable(self) -> None:
-        nodes = (
-            [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)]
-            + [_record(f"b{i}", f"beta/f{i}.py") for i in range(4)]
-        )
+        nodes = [_record(f"a{i}", f"alpha/f{i}.py") for i in range(4)] + [
+            _record(f"b{i}", f"beta/f{i}.py") for i in range(4)
+        ]
         edges = [
             {"source": "a0", "target": "b0", "type": "field_type_uses"},
             {"source": "b0", "target": "a0", "type": "field_type_uses"},

@@ -72,9 +72,7 @@ RUNTIME_KEYS = {
 
 def _effective_extension(path: Path) -> str:
     name = path.name.lower()
-    if name.startswith(("dockerfile", "containerfile")) or name.endswith(
-        (".dockerfile", ".containerfile")
-    ):
+    if name.startswith(("dockerfile", "containerfile")) or name.endswith((".dockerfile", ".containerfile")):
         return "dockerfile"
     if name in {"makefile", "gnumakefile"}:
         return "makefile"

@@ -20,9 +20,7 @@ class PythonModuleOutlineParser:
         fallback_parser: CodeOutlineFallbackParser | None = None,
     ) -> None:
         self.embedding_text_mode = embedding_text_mode
-        self.fallback_parser = fallback_parser or CodeOutlineFallbackParser(
-            embedding_text_mode=embedding_text_mode
-        )
+        self.fallback_parser = fallback_parser or CodeOutlineFallbackParser(embedding_text_mode=embedding_text_mode)
 
     def parse(self, rel_path: str, text: str):
         file_id = f"python_file:{safe_id(rel_path)}"
@@ -53,29 +51,33 @@ class PythonModuleOutlineParser:
                     import_name = alias.name
                     imports.append(import_name)
                     detail_id = f"python_import:{safe_id(rel_path)}:{node.lineno}:{safe_id(import_name)}"
-                    detail_records.append({
-                        "kind": "python_import",
-                        "file": rel_path,
-                        "id": detail_id,
-                        "parent_id": file_id,
-                        "module": import_name,
-                        "alias": alias.asname,
-                        "line": node.lineno,
-                    })
+                    detail_records.append(
+                        {
+                            "kind": "python_import",
+                            "file": rel_path,
+                            "id": detail_id,
+                            "parent_id": file_id,
+                            "module": import_name,
+                            "alias": alias.asname,
+                            "line": node.lineno,
+                        }
+                    )
                     relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
             elif isinstance(node, ast.ImportFrom):
                 module_name = "." * node.level + (node.module or "")
                 imports.append(module_name or ".")
                 detail_id = f"python_import:{safe_id(rel_path)}:{node.lineno}:{safe_id(module_name or '.')}"
-                detail_records.append({
-                    "kind": "python_import",
-                    "file": rel_path,
-                    "id": detail_id,
-                    "parent_id": file_id,
-                    "module": module_name or ".",
-                    "names": [alias.name for alias in node.names],
-                    "line": node.lineno,
-                })
+                detail_records.append(
+                    {
+                        "kind": "python_import",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        "module": module_name or ".",
+                        "names": [alias.name for alias in node.names],
+                        "line": node.lineno,
+                    }
+                )
                 relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 function_info = self._python_callable_info(node)
@@ -90,33 +92,33 @@ class PythonModuleOutlineParser:
                 detail_id = f"python_function:{safe_id(rel_path)}:{node.lineno}"
                 is_fixture = self._is_pytest_fixture(function_info["decorators"])
                 is_test_case = is_test_file and function_info["name"].startswith("test_")
-                detail_records.append({
-                    "kind": "python_function",
-                    "record_kind": (
-                        "fixture"
-                        if is_fixture
-                        else "test_case"
-                        if is_test_case
-                        else "python_function"
-                    ),
-                    "file": rel_path,
-                    "id": detail_id,
-                    "parent_id": file_id,
-                    **function_info,
-                })
+                detail_records.append(
+                    {
+                        "kind": "python_function",
+                        "record_kind": (
+                            "fixture" if is_fixture else "test_case" if is_test_case else "python_function"
+                        ),
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        **function_info,
+                    }
+                )
                 relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
             elif isinstance(node, ast.ClassDef):
                 class_info = self._python_class_info(node)
                 classes.append(class_info)
                 symbols.append({"kind": "class", "name": class_info["name"], "line": class_info["line"]})
                 class_id = f"python_class:{safe_id(rel_path)}:{node.lineno}"
-                detail_records.append({
-                    "kind": "python_class",
-                    "file": rel_path,
-                    "id": class_id,
-                    "parent_id": file_id,
-                    **class_info,
-                })
+                detail_records.append(
+                    {
+                        "kind": "python_class",
+                        "file": rel_path,
+                        "id": class_id,
+                        "parent_id": file_id,
+                        **class_info,
+                    }
+                )
                 relation_records.append({"from": file_id, "to": class_id, "type": "contains_symbol"})
                 for method in class_info["methods"]:
                     method_id = f"python_method:{safe_id(rel_path)}:{method['line']}:{safe_id(method['name'])}"
@@ -128,15 +130,17 @@ class PythonModuleOutlineParser:
                             or class_info["name"].endswith(("Test", "Tests", "TestCase"))
                         )
                     )
-                    detail_records.append({
-                        "kind": "python_method",
-                        "record_kind": "test_case" if is_test_case else "python_method",
-                        "file": rel_path,
-                        "id": method_id,
-                        "parent_id": class_id,
-                        **method,
-                        "class_name": class_info["name"],
-                    })
+                    detail_records.append(
+                        {
+                            "kind": "python_method",
+                            "record_kind": "test_case" if is_test_case else "python_method",
+                            "file": rel_path,
+                            "id": method_id,
+                            "parent_id": class_id,
+                            **method,
+                            "class_name": class_info["name"],
+                        }
+                    )
                     relation_records.append({"from": class_id, "to": method_id, "type": "contains_method"})
 
         test_records = [record for record in detail_records if record.get("record_kind") == "test_case"]
@@ -151,14 +155,8 @@ class PythonModuleOutlineParser:
                         "kind": "relation",
                         "record_kind": "fixture_relation",
                         "file": rel_path,
-                        "id": (
-                            f"fixture_relation:"
-                            f"{safe_id(rel_path, test_record['id'], fixture_name)}"
-                        ),
-                        "record_id": (
-                            f"fixture_relation:"
-                            f"{safe_id(rel_path, test_record['name'], fixture_name)}"
-                        ),
+                        "id": (f"fixture_relation:{safe_id(rel_path, test_record['id'], fixture_name)}"),
+                        "record_id": (f"fixture_relation:{safe_id(rel_path, test_record['name'], fixture_name)}"),
                         "from": test_record["id"],
                         "to": target_id or fixture_name,
                         "type": "uses_fixture",
@@ -211,17 +209,21 @@ class PythonModuleOutlineParser:
                 "parse_mode": "ast",
             },
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": "python",
-            "file": rel_path,
-            "import_count": len(imports),
-            "class_count": len(classes),
-            "function_count": len(functions),
-            "method_count": sum(len(item["methods"]) for item in classes),
-            "symbol_count": len(symbols),
-            "parse_mode": "ast",
-        }
-
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": "python",
+                "file": rel_path,
+                "import_count": len(imports),
+                "class_count": len(classes),
+                "function_count": len(functions),
+                "method_count": sum(len(item["methods"]) for item in classes),
+                "symbol_count": len(symbols),
+                "parse_mode": "ast",
+            },
+        )
 
     def _python_class_info(self, node: ast.ClassDef) -> dict:
         methods = [
@@ -245,8 +247,7 @@ class PythonModuleOutlineParser:
             "async": isinstance(node, ast.AsyncFunctionDef),
             "decorators": [self._ast_to_text(decorator) for decorator in node.decorator_list],
             "parameters": [
-                argument.arg
-                for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+                argument.arg for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
             ],
         }
 

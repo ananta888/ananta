@@ -14,9 +14,7 @@ from agent.services.dendritic_memory_job_service import DendriticMemoryDenied
 from agent.services.dendritic_memory_registry_service import DendriticMemoryRegistryConflict
 from agent.services.dendritic_memory_state_store import DendriticMemoryStateConflict
 
-dendritic_memory_bp = Blueprint(
-    "dendritic_memory", __name__, url_prefix="/api/ml-intern-training/dendritic-memory"
-)
+dendritic_memory_bp = Blueprint("dendritic_memory", __name__, url_prefix="/api/ml-intern-training/dendritic-memory")
 _WORKER_SCOPE = "ml-intern:dendritic-memory:worker"
 
 
@@ -102,9 +100,7 @@ def create_run():
     def operation():
         body = _payload()
         key = str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "")
-        return _public_job(
-            _extension("dendritic_memory_jobs").create(spec=_tenant_spec(body), idempotency_key=key)
-        )
+        return _public_job(_extension("dendritic_memory_jobs").create(spec=_tenant_spec(body), idempotency_key=key))
 
     return _invoke(operation)
 
@@ -143,9 +139,7 @@ def list_runs():
 @admin_required
 def get_run(run_id: str):
     return _invoke(
-        lambda: _public_job(
-            _extension("dendritic_memory_jobs").get(tenant_id=_principal().tenant_id, run_id=run_id)
-        )
+        lambda: _public_job(_extension("dendritic_memory_jobs").get(tenant_id=_principal().tenant_id, run_id=run_id))
     )
 
 
@@ -188,9 +182,7 @@ def resume_run(run_id: str):
 @dendritic_memory_bp.post("/runs/<run_id>/worker-transition")
 @check_registered_worker_auth(scope=_WORKER_SCOPE)
 def worker_transition(run_id: str):
-    return _invoke(
-        lambda: _public_job(_extension("dendritic_memory_jobs").transition(**_payload(), run_id=run_id))
-    )
+    return _invoke(lambda: _public_job(_extension("dendritic_memory_jobs").transition(**_payload(), run_id=run_id)))
 
 
 @dendritic_memory_bp.post("/runs/<run_id>/worker-assignment")
@@ -287,9 +279,7 @@ def compose_packs():
 @admin_required
 def get_pack(pack_digest: str):
     return _invoke(
-        lambda: _extension("dendritic_memory_registry").get(
-            tenant_id=_principal().tenant_id, pack_digest=pack_digest
-        )
+        lambda: _extension("dendritic_memory_registry").get(tenant_id=_principal().tenant_id, pack_digest=pack_digest)
     )
 
 

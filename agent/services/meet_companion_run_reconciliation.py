@@ -32,8 +32,9 @@ class MeetCompanionRunReconciliation:
                 context = (task.worker_execution_context or {}).get("meet_dialog", {})
                 if not all(isinstance(context.get(key), str) and context[key] for key in ("lease_id", "runtime_id")):
                     raise ValueError("meet_companion_cleanup_binding_invalid")
-                counts["settled"] += self.cleanup.terminal(task, lease_id=context["lease_id"],
-                                                          runtime_id=context["runtime_id"])
+                counts["settled"] += self.cleanup.terminal(
+                    task, lease_id=context["lease_id"], runtime_id=context["runtime_id"]
+                )
             except Exception:  # noqa: BLE001 -- bounded diagnostic; next cursor cycle retries
                 counts["failed"] += 1
             self.cursor = task.id

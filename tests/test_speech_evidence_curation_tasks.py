@@ -156,9 +156,7 @@ def test_stale_consent_and_deadline_each_block_publication() -> None:
         result_port=stale_publisher,
         consent=consent_service,
     )
-    stale_task, _ = stale_service.create(
-        principal(stale_prefix), admission_digest=admission.admission_digest
-    )
+    stale_task, _ = stale_service.create(principal(stale_prefix), admission_digest=admission.admission_digest)
     consent_service.revoke(
         principal(stale_prefix),
         consent.consent_id,
@@ -166,9 +164,7 @@ def test_stale_consent_and_deadline_each_block_publication() -> None:
         contributor_id=consent.speaker_id,
     )
     with pytest.raises(Exception, match="speech_curation_consent_stale"):
-        stale_service.authorize_result(
-            principal(stale_prefix), _result(stale_task, stale_prefix)
-        )
+        stale_service.authorize_result(principal(stale_prefix), _result(stale_task, stale_prefix))
     assert stale_publisher.calls == []
 
     late_prefix = "curation-deadline"
@@ -181,9 +177,7 @@ def test_stale_consent_and_deadline_each_block_publication() -> None:
         consent=late_consent_service,
         clock_ms=lambda: now[0],
     )
-    late_task, _ = late_service.create(
-        principal(late_prefix), admission_digest=late_admission.admission_digest
-    )
+    late_task, _ = late_service.create(principal(late_prefix), admission_digest=late_admission.admission_digest)
     now[0] = late_task.deadline_epoch_ms + 1
     with pytest.raises(Exception, match="speech_curation_result_late"):
         late_service.authorize_result(

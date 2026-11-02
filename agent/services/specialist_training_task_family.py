@@ -38,7 +38,11 @@ class SpecialistTrainingTaskFamilyStrategy:
 
     def instruction(self, example_input: Mapping[str, Any]) -> str:
         return json.dumps(
-            {"specialist": self.contract.contract_key, "decision": self.contract.decision, "input": dict(example_input)},
+            {
+                "specialist": self.contract.contract_key,
+                "decision": self.contract.decision,
+                "input": dict(example_input),
+            },
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
@@ -51,7 +55,10 @@ class SpecialistTrainingTaskFamilyStrategy:
         return json.dumps(decision, sort_keys=True, separators=(",", ":"))
 
     def training_record(self, example: TrainingExample) -> dict[str, Any]:
-        if example.specialist_id != self.contract.specialist_id or example.contract_version != self.contract.contract_version:
+        if (
+            example.specialist_id != self.contract.specialist_id
+            or example.contract_version != self.contract.contract_version
+        ):
             raise SpecialistContractError("specialist_example_contract_mismatch")
         return {
             "instruction": self.instruction(example.input),
@@ -91,7 +98,14 @@ class SpecialistTrainingTaskFamilyStrategy:
         try:
             parsed = self.parse_inference(output)
         except ValueError as exc:
-            return {"schema_valid": False, "label": None, "confidence": None, "correct": None, "total": 0.0, "reason_code": str(exc)}
+            return {
+                "schema_valid": False,
+                "label": None,
+                "confidence": None,
+                "correct": None,
+                "total": 0.0,
+                "reason_code": str(exc),
+            }
         correct = None if expected_label is None else parsed["label"] == expected_label
         return {
             "schema_valid": True,
@@ -110,7 +124,9 @@ class SpecialistTrainingTaskFamilyStrategy:
 
     @property
     def serializer_digest(self) -> str:
-        return canonical_digest({"family": self.family, "serializer": self.serializer_version, "contract": self.contract.digest})
+        return canonical_digest(
+            {"family": self.family, "serializer": self.serializer_version, "contract": self.contract.digest}
+        )
 
     def job_request(
         self,

@@ -4,6 +4,7 @@ Commit-History, Pull Requests, Issues und ADRs als Kontext-Signale.
 History ist ein ergänzendes Signal mit explizitem Freshness-Tracking,
 kein primärer Wahrheitsanker.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -16,7 +17,7 @@ from typing import Protocol, runtime_checkable
 HISTORY_STALE_DAYS_DEFAULT = 90
 
 # git log field / record separators (non-printable ASCII)
-_GIT_FS = "\x1f"        # unit separator  — between fields
+_GIT_FS = "\x1f"  # unit separator  — between fields
 _COMMIT_MARKER = "COMMIT_MARKER"
 
 _ADR_DIRS = ["docs/adr", "docs/decisions", "docs/ADR", "docs/Decisions"]
@@ -26,15 +27,16 @@ _KNOWN_STATUSES = {"accepted", "deprecated", "proposed", "rejected"}
 
 # ── Record dataclasses ────────────────────────────────────────────────────────
 
+
 @dataclass
 class CommitRecord:
     commit_id: str
     author: str
-    timestamp: float         # unix timestamp
+    timestamp: float  # unix timestamp
     message: str
     changed_paths: list[str]
     confidence: float = 1.0  # git history has 1.0, estimated has lower
-    stale: bool = False      # True if timestamp < now - stale_threshold
+    stale: bool = False  # True if timestamp < now - stale_threshold
 
 
 @dataclass
@@ -44,8 +46,8 @@ class PRRecord:
     author: str
     merged_at: float | None
     changed_paths: list[str]
-    state: str               # "open" | "merged" | "closed"
-    body_summary: str        # max 500 chars
+    state: str  # "open" | "merged" | "closed"
+    body_summary: str  # max 500 chars
     confidence: float = 1.0
     stale: bool = False
 
@@ -56,19 +58,19 @@ class IssueRecord:
     title: str
     author: str
     created_at: float
-    state: str               # "open" | "closed"
+    state: str  # "open" | "closed"
     labels: list[str]
-    body_summary: str        # max 500 chars
+    body_summary: str  # max 500 chars
 
 
 @dataclass
 class ADRRecord:
     adr_id: str
     title: str
-    status: str              # "accepted" | "deprecated" | "proposed" | "rejected"
+    status: str  # "accepted" | "deprecated" | "proposed" | "rejected"
     created_at: float | None
-    summary: str             # max 500 chars
-    source_path: str         # where the ADR file is
+    summary: str  # max 500 chars
+    source_path: str  # where the ADR file is
 
 
 @dataclass
@@ -82,6 +84,7 @@ class HistoryProviderCapabilities:
 
 # ── Protocol ──────────────────────────────────────────────────────────────────
 
+
 @runtime_checkable
 class HistoryProvider(Protocol):
     def get_commits(self, paths: list[str], limit: int = 20) -> list[CommitRecord]: ...
@@ -92,6 +95,7 @@ class HistoryProvider(Protocol):
 
 
 # ── NullHistoryProvider ───────────────────────────────────────────────────────
+
 
 class NullHistoryProvider:
     """Safe default: returns empty results for all queries. No I/O."""
@@ -110,12 +114,16 @@ class NullHistoryProvider:
 
     def capabilities(self) -> HistoryProviderCapabilities:
         return HistoryProviderCapabilities(
-            provider="null", supports_git=False, supports_prs=False,
-            supports_issues=False, supports_adrs=False,
+            provider="null",
+            supports_git=False,
+            supports_prs=False,
+            supports_issues=False,
+            supports_adrs=False,
         )
 
 
 # ── LocalGitHistoryProvider ───────────────────────────────────────────────────
+
 
 class LocalGitHistoryProvider:
     """Reads git log via subprocess. No network calls."""
@@ -137,7 +145,9 @@ class LocalGitHistoryProvider:
 
         fmt = f"{_COMMIT_MARKER}{_GIT_FS}%H{_GIT_FS}%an{_GIT_FS}%at{_GIT_FS}%s"
         cmd = [
-            "git", "log", f"-n{limit}",
+            "git",
+            "log",
+            f"-n{limit}",
             f"--format={fmt}",
             "--name-only",
         ]
@@ -186,17 +196,17 @@ class LocalGitHistoryProvider:
 
         if query:
             q = query.lower()
-            records = [
-                r for r in records
-                if q in r.title.lower() or q in r.summary.lower()
-            ]
+            records = [r for r in records if q in r.title.lower() or q in r.summary.lower()]
 
         return records
 
     def capabilities(self) -> HistoryProviderCapabilities:
         return HistoryProviderCapabilities(
-            provider="local_git", supports_git=True, supports_prs=False,
-            supports_issues=False, supports_adrs=True,
+            provider="local_git",
+            supports_git=True,
+            supports_prs=False,
+            supports_issues=False,
+            supports_adrs=True,
         )
 
     # ── internal helpers ──────────────────────────────────────────────────────
@@ -294,6 +304,7 @@ class LocalGitHistoryProvider:
 
 # ── ADR parsing helpers ───────────────────────────────────────────────────────
 
+
 def _parse_adr_yaml(text: str) -> tuple[str, str, float | None]:
     """Simple key:value parse for ADR YAML files (avoids yaml dependency)."""
     title = ""
@@ -379,6 +390,7 @@ def _try_parse_date(date_str: str) -> float | None:
 
 
 # ── mark_stale_records ────────────────────────────────────────────────────────
+
 
 def mark_stale_records(
     records: list[CommitRecord | PRRecord],

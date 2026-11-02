@@ -1,4 +1,5 @@
-from agent.common.redaction import redact, VisibilityLevel, SensitiveDataClass
+from agent.common.redaction import VisibilityLevel, redact
+
 
 def test_visibility_levels():
     data = {
@@ -6,7 +7,7 @@ def test_visibility_levels():
         "path": "/etc/shadow",
         "hub_url": "http://internal-hub:5000",
         "ip": "10.0.0.1",
-        "username": "normal_user"
+        "username": "normal_user",
     }
 
     # PUBLIC Level: Alles sensible sollte maskiert sein
@@ -22,7 +23,7 @@ def test_visibility_levels():
     assert "***REDACTED_SECRET***" in user_res["password"]
     assert "***REDACTED_PATH***" in user_res["path"]
     assert "***REDACTED_INTERNAL_URL***" in user_res["hub_url"]
-    assert user_res["ip"] == "10.0.0.1" # In meiner Impl: USER darf IP sehen
+    assert user_res["ip"] == "10.0.0.1"  # In meiner Impl: USER darf IP sehen
 
     # ADMIN Level: Pfade und URLs sichtbar, Secrets maskiert
     admin_res = redact(data, visibility=VisibilityLevel.ADMIN)

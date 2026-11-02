@@ -31,7 +31,10 @@ def upgrade() -> None:
             continue
         seen.add(name)
         if name != row["name"]:
-            bind.execute(sa.text("UPDATE templates SET name = :name WHERE id = :row_id"), {"name": name, "row_id": str(row["id"])})
+            bind.execute(
+                sa.text("UPDATE templates SET name = :name WHERE id = :row_id"),
+                {"name": name, "row_id": str(row["id"])},
+            )
 
     for row_id in duplicate_ids:
         bind.execute(sa.text("DELETE FROM templates WHERE id = :row_id"), {"row_id": row_id})

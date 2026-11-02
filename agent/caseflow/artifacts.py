@@ -1,4 +1,5 @@
 """CaseFlow Artifact System — generic artifact management for cases."""
+
 from __future__ import annotations
 
 import uuid

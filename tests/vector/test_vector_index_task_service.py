@@ -19,6 +19,7 @@ from agent.services.vector_store_rollout_service import (
     InMemoryVectorStoreRolloutStore,
     VectorStoreRolloutService,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 from tests.vector.vector_index_attestation_test_support import (
     TASK_SIGNER,
     TASK_VERIFIER,
@@ -26,7 +27,6 @@ from tests.vector.vector_index_attestation_test_support import (
 from worker.retrieval.vector_index_artifact_locator import (
     VectorIndexArtifactLocator,
 )
-from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 class _Repository:
@@ -134,11 +134,7 @@ def _fixture(*, preparation_policy=None):
     ):
         with repository.lock:
             row = repository.rows[task_id]
-            if (
-                str(row.status).strip().lower()
-                not in set(expected_statuses)
-                or not authoritative_predicate(row)
-            ):
+            if str(row.status).strip().lower() not in set(expected_statuses) or not authoritative_predicate(row):
                 return False
             update(task_id, status, **kwargs)
             return True
@@ -178,14 +174,8 @@ def _peer_service(
         task_repository=repository,
         rollout_service=service._rollout,
         status_updater=service._status_updater,
-        status_cas_updater=(
-            service._status_cas_updater
-            if status_cas_updater is None
-            else status_cas_updater
-        ),
-        audit=lambda event, payload: audits.append(
-            (event, payload)
-        ),
+        status_cas_updater=(service._status_cas_updater if status_cas_updater is None else status_cas_updater),
+        audit=lambda event, payload: audits.append((event, payload)),
         clock=lambda: 100.0,
         preparation_policy=service._preparation_policy,
         task_signer=TASK_SIGNER,
@@ -215,11 +205,7 @@ def _input_ref(
 
 
 def _payload():
-    return {
-        "points": [
-            {"point_id": "1", "vector": [1.0, 0.0], "payload": {"kind": "code"}}
-        ]
-    }
+    return {"points": [{"point_id": "1", "vector": [1.0, 0.0], "payload": {"kind": "code"}}]}
 
 
 def _compatibility() -> dict:
@@ -241,11 +227,7 @@ def _preparation(
     kind: str = "codecompass_documents",
     external: bool = False,
 ) -> dict:
-    profile = (
-        "wiki_embedding_text.v1"
-        if kind == "wiki_documents"
-        else "codecompass-symbol-path-summary-v1"
-    )
+    profile = "wiki_embedding_text.v1" if kind == "wiki_documents" else "codecompass-symbol-path-summary-v1"
     embedding = (
         {
             "provider": "openai_compatible",
@@ -258,9 +240,7 @@ def _preparation(
             "api_key_ref": "env://ANANTA_EMBEDDING_API_KEY",
             "timeout_seconds": 20,
             "external_calls_allowed": True,
-            "allowed_base_urls": [
-                "https://embeddings.example.test/v1"
-            ],
+            "allowed_base_urls": ["https://embeddings.example.test/v1"],
         }
         if external
         else {
@@ -301,21 +281,9 @@ def _preparation_compatibility(
 ) -> dict:
     return {
         **_compatibility(),
-        "provider": (
-            "openai_compatible"
-            if external
-            else "local_hash"
-        ),
-        "model": (
-            "text-embedding-3-small"
-            if external
-            else "hash-v1"
-        ),
-        "profile": (
-            "wiki_embedding_text.v1"
-            if kind == "wiki_documents"
-            else "codecompass-symbol-path-summary-v1"
-        ),
+        "provider": ("openai_compatible" if external else "local_hash"),
+        "model": ("text-embedding-3-small" if external else "hash-v1"),
+        "profile": ("wiki_embedding_text.v1" if kind == "wiki_documents" else "codecompass-symbol-path-summary-v1"),
     }
 
 
@@ -373,9 +341,7 @@ def _dispatch_and_admit(
     *,
     worker_url: str = "http://worker-a:5000",
 ) -> dict:
-    repository.rows[
-        task["job_id"]
-    ].assigned_agent_url = worker_url
+    repository.rows[task["job_id"]].assigned_agent_url = worker_url
     envelope = service.issue_dispatch_attempt(
         job_id=task["job_id"],
         worker_audience=worker_url,
@@ -411,9 +377,7 @@ def test_hub_owns_queue_envelope_and_idempotent_retry_key() -> None:
 
     assert first["job_id"] == second["job_id"]
     assert len(queue.calls) == 1
-    envelope = queue.calls[0]["extra_fields"]["worker_execution_context"][
-        "vector_index_task"
-    ]
+    envelope = queue.calls[0]["extra_fields"]["worker_execution_context"]["vector_index_task"]
     assert envelope["resolved_config"]["provider"] == "json"
     assert envelope["scope"]["workspace_id"] == "workspace-a"
     assert envelope["policy_decision"] == "worker_delegation_allowed"
@@ -432,17 +396,12 @@ def test_hub_owns_queue_envelope_and_idempotent_retry_key() -> None:
     ):
         TASK_VERIFIER.verify(forged)
     assert queue.calls[0]["extra_fields"]["task_kind"] == "vector_index_operation"
-    assert queue.calls[0]["extra_fields"][
-        "required_capabilities"
-    ] == [
+    assert queue.calls[0]["extra_fields"]["required_capabilities"] == [
         "retrieval",
         "index_write",
         "vector_index_operation",
     ]
-    assert (
-        queue.calls[0]["event_details"]["policy_decision"]
-        == "worker_delegation_allowed"
-    )
+    assert queue.calls[0]["event_details"]["policy_decision"] == "worker_delegation_allowed"
     queued_audit = dict(audits[-1][1])
     assert queued_audit["policy_decision"] == "worker_delegation_allowed"
     assert queued_audit["source_layers"] == ["global_json_default"]
@@ -559,9 +518,7 @@ def test_scope_fence_serializes_submit_across_service_instances(
         assert accepted[0]["job_id"] == accepted[1]["job_id"]
     else:
         assert len(accepted) == 1
-        assert [str(error) for error in errors] == [
-            expected_error
-        ]
+        assert [str(error) for error in errors] == [expected_error]
 
 
 def test_cancel_and_retry_reuse_same_hub_task_and_idempotency_key() -> None:
@@ -613,9 +570,7 @@ def test_scope_fence_serializes_retry_against_peer_submit() -> None:
         if kwargs.get("event_type") == "vector_index_task_retried":
             retry_waiting_at_cas.set()
             if not release_retry.wait(timeout=3):
-                raise RuntimeError(
-                    "test_scope_retry_release_timeout"
-                )
+                raise RuntimeError("test_scope_retry_release_timeout")
         return original_cas(task_id, status, **kwargs)
 
     service._status_cas_updater = blocked_retry_cas
@@ -658,12 +613,8 @@ def test_scope_fence_serializes_retry_against_peer_submit() -> None:
 
     assert not retry_thread.is_alive()
     assert not submit_thread.is_alive()
-    assert [result["status"] for result in retry_results] == [
-        "queued"
-    ]
-    assert [str(error) for error in submit_errors] == [
-        "vector_index_task_conflict"
-    ]
+    assert [result["status"] for result in retry_results] == ["queued"]
+    assert [str(error) for error in submit_errors] == ["vector_index_task_conflict"]
     assert len(queue.calls) == 1
 
 
@@ -676,9 +627,7 @@ def test_hub_issues_worker_bound_dispatch_and_fences_late_results() -> None:
         payload=_payload(),
         actor="admin-a",
     )
-    repository.rows[
-        created["job_id"]
-    ].assigned_agent_url = "http://worker-a:5000"
+    repository.rows[created["job_id"]].assigned_agent_url = "http://worker-a:5000"
 
     dispatched = service.issue_dispatch_attempt(
         job_id=created["job_id"],
@@ -734,9 +683,7 @@ def test_dispatch_is_bound_to_authoritative_worker_assignment() -> None:
         payload=_payload(),
         actor="admin-a",
     )
-    repository.rows[
-        created["job_id"]
-    ].assigned_agent_url = "http://worker-b:5000"
+    repository.rows[created["job_id"]].assigned_agent_url = "http://worker-b:5000"
 
     with pytest.raises(
         RuntimeError,
@@ -749,9 +696,7 @@ def test_dispatch_is_bound_to_authoritative_worker_assignment() -> None:
         )
 
     assert status_calls == []
-    assert created["attempt_id"] == service.get_task(
-        created["job_id"]
-    )["attempt_id"]
+    assert created["attempt_id"] == service.get_task(created["job_id"])["attempt_id"]
 
 
 def test_cancel_before_worker_admission_revokes_unconsumed_dispatch() -> None:
@@ -763,9 +708,7 @@ def test_cancel_before_worker_admission_revokes_unconsumed_dispatch() -> None:
         payload=_payload(),
         actor="admin-a",
     )
-    repository.rows[
-        created["job_id"]
-    ].assigned_agent_url = "http://worker-a:5000"
+    repository.rows[created["job_id"]].assigned_agent_url = "http://worker-a:5000"
     dispatched = service.issue_dispatch_attempt(
         job_id=created["job_id"],
         worker_audience="http://worker-a:5000",
@@ -856,14 +799,7 @@ def test_dispatch_admission_is_single_use_and_result_is_idempotent() -> None:
             job_id=created["job_id"],
             result=conflicting,
         )
-    assert (
-        repository.rows[
-            created["job_id"]
-        ].verification_status["vector_index_task_result"][
-            "result"
-        ]["upserted"]
-        == 1
-    )
+    assert repository.rows[created["job_id"]].verification_status["vector_index_task_result"]["result"]["upserted"] == 1
 
 
 def test_dispatch_reissue_cas_rejects_concurrent_admission() -> None:
@@ -875,9 +811,7 @@ def test_dispatch_reissue_cas_rejects_concurrent_admission() -> None:
         payload=_payload(),
         actor="admin-a",
     )
-    repository.rows[
-        created["job_id"]
-    ].assigned_agent_url = "http://worker-a:5000"
+    repository.rows[created["job_id"]].assigned_agent_url = "http://worker-a:5000"
     dispatched = service.issue_dispatch_attempt(
         job_id=created["job_id"],
         worker_audience="http://worker-a:5000",
@@ -895,15 +829,10 @@ def test_dispatch_reissue_cas_rejects_concurrent_admission() -> None:
     release_reissue = threading.Event()
 
     def blocked_reissue_cas(task_id, status, **kwargs):
-        if (
-            kwargs.get("event_type")
-            == "vector_index_task_dispatch_issued"
-        ):
+        if kwargs.get("event_type") == "vector_index_task_dispatch_issued":
             reissue_waiting_at_cas.set()
             if not release_reissue.wait(timeout=3):
-                raise RuntimeError(
-                    "test_dispatch_reissue_release_timeout"
-                )
+                raise RuntimeError("test_dispatch_reissue_release_timeout")
         return original_cas(task_id, status, **kwargs)
 
     service._status_cas_updater = blocked_reissue_cas
@@ -935,22 +864,11 @@ def test_dispatch_reissue_cas_rejects_concurrent_admission() -> None:
         thread.join(timeout=3)
 
     assert not thread.is_alive()
-    assert [str(error) for error in errors] == [
-        "vector_index_task_dispatch_conflict"
-    ]
-    persisted = service._envelope(
-        service._raw(
-            repository.get_by_id(created["job_id"])
-        )
-    )
-    verification = repository.rows[
-        created["job_id"]
-    ].verification_status
+    assert [str(error) for error in errors] == ["vector_index_task_dispatch_conflict"]
+    persisted = service._envelope(service._raw(repository.get_by_id(created["job_id"])))
+    verification = repository.rows[created["job_id"]].verification_status
     assert persisted["dispatch"] == dispatched["dispatch"]
-    assert (
-        verification["vector_index_dispatch_admission"]
-        == admission
-    )
+    assert verification["vector_index_dispatch_admission"] == admission
 
 
 def test_dispatch_admission_cas_rejects_concurrent_reissue() -> None:
@@ -962,9 +880,7 @@ def test_dispatch_admission_cas_rejects_concurrent_reissue() -> None:
         payload=_payload(),
         actor="admin-a",
     )
-    repository.rows[
-        created["job_id"]
-    ].assigned_agent_url = "http://worker-a:5000"
+    repository.rows[created["job_id"]].assigned_agent_url = "http://worker-a:5000"
     dispatched = service.issue_dispatch_attempt(
         job_id=created["job_id"],
         worker_audience="http://worker-a:5000",
@@ -975,15 +891,10 @@ def test_dispatch_admission_cas_rejects_concurrent_reissue() -> None:
     release_admission = threading.Event()
 
     def blocked_admission_cas(task_id, status, **kwargs):
-        if (
-            kwargs.get("event_type")
-            == "vector_index_task_dispatch_admitted"
-        ):
+        if kwargs.get("event_type") == "vector_index_task_dispatch_admitted":
             admission_waiting_at_cas.set()
             if not release_admission.wait(timeout=3):
-                raise RuntimeError(
-                    "test_dispatch_admission_release_timeout"
-                )
+                raise RuntimeError("test_dispatch_admission_release_timeout")
         return original_cas(task_id, status, **kwargs)
 
     peer = _peer_service(
@@ -999,9 +910,7 @@ def test_dispatch_admission_cas_rejects_concurrent_reissue() -> None:
         try:
             peer.admit_dispatch_attempt(
                 job_id=created["job_id"],
-                attempt_id=dispatched["dispatch"][
-                    "attempt_id"
-                ],
+                attempt_id=dispatched["dispatch"]["attempt_id"],
                 sequence=dispatched["dispatch"]["sequence"],
                 phase="execute",
                 worker_audience="http://worker-a:5000",
@@ -1023,19 +932,9 @@ def test_dispatch_admission_cas_rejects_concurrent_reissue() -> None:
         thread.join(timeout=3)
 
     assert not thread.is_alive()
-    assert [str(error) for error in errors] == [
-        "vector_index_dispatch_admission_conflict"
-    ]
-    assert (
-        reissued["dispatch"]["attempt_id"]
-        != dispatched["dispatch"]["attempt_id"]
-    )
-    assert (
-        "vector_index_dispatch_admission"
-        not in repository.rows[
-            created["job_id"]
-        ].verification_status
-    )
+    assert [str(error) for error in errors] == ["vector_index_dispatch_admission_conflict"]
+    assert reissued["dispatch"]["attempt_id"] != dispatched["dispatch"]["attempt_id"]
+    assert "vector_index_dispatch_admission" not in repository.rows[created["job_id"]].verification_status
 
 
 def test_result_cas_is_idempotent_across_service_instances() -> None:
@@ -1101,27 +1000,8 @@ def test_result_cas_is_idempotent_across_service_instances() -> None:
         "completed",
         "completed",
     ]
-    assert (
-        len(
-            [
-                call
-                for call in status_calls
-                if call[2].get("event_type")
-                == "vector_index_task_completed"
-            ]
-        )
-        == 1
-    )
-    assert (
-        len(
-            [
-                event
-                for event, _payload in audits
-                if event == "vector_index_task_completed"
-            ]
-        )
-        == 1
-    )
+    assert len([call for call in status_calls if call[2].get("event_type") == "vector_index_task_completed"]) == 1
+    assert len([event for event, _payload in audits if event == "vector_index_task_completed"]) == 1
 
 
 def test_search_and_plaintext_secrets_never_enter_mutation_queue() -> None:
@@ -1178,9 +1058,7 @@ def test_payload_limits_and_migration_contract_are_normalized() -> None:
         priority="critical",
     )
 
-    envelope = queue.calls[-1]["extra_fields"]["worker_execution_context"][
-        "vector_index_task"
-    ]
+    envelope = queue.calls[-1]["extra_fields"]["worker_execution_context"]["vector_index_task"]
     assert task["priority"] == "critical"
     assert envelope["payload"]["migration"] == {
         "dry_run": True,
@@ -1204,13 +1082,9 @@ def test_preparation_payload_is_normalized_into_hub_owned_task(
         actor="admin-a",
     )
 
-    envelope = queue.calls[0]["extra_fields"][
-        "worker_execution_context"
-    ]["vector_index_task"]
+    envelope = queue.calls[0]["extra_fields"]["worker_execution_context"]["vector_index_task"]
     normalized = envelope["payload"]
-    assert task["payload_summary"]["preparation_kind"] == (
-        "codecompass_documents"
-    )
+    assert task["payload_summary"]["preparation_kind"] == ("codecompass_documents")
     assert normalized["input_ref"] == _input_ref()
     assert normalized["preparation"] == {
         "schema": "ananta.vector_index_preparation.v1",
@@ -1224,18 +1098,14 @@ def test_preparation_payload_is_normalized_into_hub_owned_task(
             "external_calls_allowed": False,
             "allowed_base_urls": [],
         },
-        "embedding_text_profile": (
-            "codecompass-symbol-path-summary-v1"
-        ),
+        "embedding_text_profile": ("codecompass-symbol-path-summary-v1"),
         "retrieval_cache_state": "cache-state-v1",
     }
     assert "points" not in normalized
 
 
 def test_external_preparation_preserves_only_secret_reference() -> None:
-    service, _repository, queue, _audits, _status = _fixture(
-        preparation_policy=_external_policy()
-    )
+    service, _repository, queue, _audits, _status = _fixture(preparation_policy=_external_policy())
 
     service.submit(
         operation="refresh",
@@ -1245,16 +1115,14 @@ def test_external_preparation_preserves_only_secret_reference() -> None:
         actor="admin-a",
     )
 
-    preparation = queue.calls[0]["extra_fields"][
-        "worker_execution_context"
-    ]["vector_index_task"]["payload"]["preparation"]
+    preparation = queue.calls[0]["extra_fields"]["worker_execution_context"]["vector_index_task"]["payload"][
+        "preparation"
+    ]
     embedding = preparation["embedding"]
     assert embedding["provider"] == "openai_compatible"
     assert embedding["provider_id"] == "openai_compatible"
     assert embedding["policy_profile"] == "approved-external"
-    assert embedding["api_key_ref"] == (
-        "env://ANANTA_EMBEDDING_API_KEY"
-    )
+    assert embedding["api_key_ref"] == ("env://ANANTA_EMBEDDING_API_KEY")
     assert "api_key" not in embedding
 
 
@@ -1270,9 +1138,7 @@ def test_retry_revalidates_external_embedding_policy() -> None:
             return approved.authorize(**kwargs)
 
     policy = SwitchablePolicy()
-    service, repository, _queue, _audits, status_calls = _fixture(
-        preparation_policy=policy
-    )
+    service, repository, _queue, _audits, status_calls = _fixture(preparation_policy=policy)
     created = service.submit(
         operation="refresh",
         trusted_scope=_scope(),
@@ -1375,22 +1241,15 @@ def test_invalid_preparation_payload_fails_before_queueing(
     elif invalid_case == "local_external_policy":
         embedding["external_calls_allowed"] = True
     elif invalid_case == "allowed_urls_limit":
-        embedding["allowed_base_urls"] = [
-            f"https://{index}.example.test"
-            for index in range(17)
-        ]
+        embedding["allowed_base_urls"] = [f"https://{index}.example.test" for index in range(17)]
     elif invalid_case == "plaintext_secret":
         embedding["api_key"] = "must-not-enter-task"
     elif invalid_case == "external_secret_ref":
         payload = _preparation_task_payload(external=True)
-        payload["preparation"]["embedding"]["api_key_ref"] = (
-            "inline-secret"
-        )
+        payload["preparation"]["embedding"]["api_key_ref"] = "inline-secret"
     elif invalid_case == "external_url":
         payload = _preparation_task_payload(external=True)
-        payload["preparation"]["embedding"]["base_url"] = (
-            "https://[invalid"
-        )
+        payload["preparation"]["embedding"]["base_url"] = "https://[invalid"
     elif invalid_case == "missing_input_ref":
         payload.pop("input_ref")
     elif invalid_case == "inline_ambiguous":
@@ -1442,9 +1301,7 @@ def test_wiki_preparation_requires_and_accepts_wiki_scope() -> None:
     )
 
     assert task["scope"]["domain"] == "wiki"
-    assert task["payload_summary"]["preparation_kind"] == (
-        "wiki_documents"
-    )
+    assert task["payload_summary"]["preparation_kind"] == ("wiki_documents")
     assert len(queue.calls) == 1
 
 
@@ -1465,9 +1322,7 @@ def test_failed_migration_retry_carries_bound_checkpoint() -> None:
         actor="admin-a",
     )
     scope_fingerprint = _scope().fingerprint()
-    idempotency_hash = hashlib.sha256(
-        b"migration-request-1234"
-    ).hexdigest()
+    idempotency_hash = hashlib.sha256(b"migration-request-1234").hexdigest()
     dispatched = _dispatch_and_admit(
         service,
         repository,
@@ -1501,24 +1356,13 @@ def test_failed_migration_retry_carries_bound_checkpoint() -> None:
         job_id=created["job_id"],
         actor="admin-a",
     )
-    envelope = repository.rows[created["job_id"]].worker_execution_context[
-        "vector_index_task"
-    ]
+    envelope = repository.rows[created["job_id"]].worker_execution_context["vector_index_task"]
 
     assert retried["status"] == "queued"
-    assert envelope["payload"]["migration"]["checkpoint"][
-        "scope_fingerprint"
-    ] == scope_fingerprint
-    assert envelope["payload"]["migration"]["checkpoint"][
-        "idempotency_key_hash"
-    ] == idempotency_hash
+    assert envelope["payload"]["migration"]["checkpoint"]["scope_fingerprint"] == scope_fingerprint
+    assert envelope["payload"]["migration"]["checkpoint"]["idempotency_key_hash"] == idempotency_hash
     assert envelope["payload"]["input_ref"] == _input_ref()
-    assert (
-        "vector_index_dispatch_admission"
-        not in repository.rows[
-            created["job_id"]
-        ].verification_status
-    )
+    assert "vector_index_dispatch_admission" not in repository.rows[created["job_id"]].verification_status
     TASK_VERIFIER.verify(envelope)
 
 
@@ -1623,17 +1467,13 @@ def test_worker_result_rejects_each_bounded_payload_limit(
             nested = {"nested": nested}
         result["diagnostics"] = nested
     elif limit_case == "entries":
-        result["diagnostics"] = {
-            f"counter_{index}": index for index in range(260)
-        }
+        result["diagnostics"] = {f"counter_{index}": index for index in range(260)}
     elif limit_case == "list":
         result["diagnostics"] = {"counters": list(range(257))}
     elif limit_case == "string":
         result["diagnostics"] = {"reason": "€" * 683}
     else:
-        result["diagnostics"] = {
-            f"reason_{index}": "x" * 2000 for index in range(40)
-        }
+        result["diagnostics"] = {f"reason_{index}": "x" * 2000 for index in range(40)}
 
     with pytest.raises(ValueError) as raised:
         service.accept_worker_result(
@@ -1665,11 +1505,7 @@ def test_verification_status_rejects_document_text_and_secret_metadata() -> None
         service.accept_worker_result(
             job_id=created["job_id"],
             result=_completed_result(created["job_id"]),
-            status_values={
-                "verification_status": {
-                    "document_text": "private source document"
-                }
-            },
+            status_values={"verification_status": {"document_text": "private source document"}},
         )
     with pytest.raises(
         ValueError,
@@ -1678,11 +1514,7 @@ def test_verification_status_rejects_document_text_and_secret_metadata() -> None
         service.accept_worker_result(
             job_id=created["job_id"],
             result=_completed_result(created["job_id"]),
-            status_values={
-                "verification_status": {
-                    "authorization": "redacted"
-                }
-            },
+            status_values={"verification_status": {"authorization": "redacted"}},
         )
 
     row = repository.rows[created["job_id"]]
@@ -1720,14 +1552,10 @@ def test_worker_error_text_is_redacted_before_verification_persistence() -> None
         result=result,
     )
 
-    persisted = repository.rows[
-        created["job_id"]
-    ].verification_status["vector_index_task_result"]
+    persisted = repository.rows[created["job_id"]].verification_status["vector_index_task_result"]
     assert accepted["status"] == "failed"
     assert persisted["error"] == "vector index worker execution failed"
-    assert "private worker implementation detail" not in str(
-        repository.rows[created["job_id"]].verification_status
-    )
+    assert "private worker implementation detail" not in str(repository.rows[created["job_id"]].verification_status)
 
 
 def test_input_ref_requires_complete_binding_and_legacy_path_is_rejected() -> None:
@@ -1787,13 +1615,7 @@ def test_input_ref_requires_complete_binding_and_legacy_path_is_rejected() -> No
         (
             {
                 **_input_ref(),
-                "path": (
-                    "codecompass/"
-                    + "0" * 64
-                    + "/"
-                    + "a" * 64
-                    + ".json"
-                ),
+                "path": ("codecompass/" + "0" * 64 + "/" + "a" * 64 + ".json"),
             },
             "vector_index_input_ref_path_mismatch",
         ),
@@ -1824,17 +1646,13 @@ def test_hub_binds_input_ref_before_embedding_policy_or_queue() -> None:
     class Policy:
         def authorize(self, **kwargs):
             policy_calls.append(kwargs)
-            raise AssertionError(
-                "embedding policy must not inspect cross-scope input"
-            )
+            raise AssertionError("embedding policy must not inspect cross-scope input")
 
     service, _repository, queue, _audits, _status = _fixture(
         preparation_policy=Policy(),
     )
     payload = _preparation_task_payload(external=True)
-    payload["input_ref"] = _input_ref(
-        scope=_scope("workspace-b")
-    )
+    payload["input_ref"] = _input_ref(scope=_scope("workspace-b"))
 
     with pytest.raises(
         ValueError,
@@ -1974,9 +1792,7 @@ def test_cancel_and_result_acceptance_are_atomically_serialized(
                 job_id=created["job_id"],
                 result=_completed_result(
                     created["job_id"],
-                    attempt_id=dispatched["dispatch"][
-                        "attempt_id"
-                    ],
+                    attempt_id=dispatched["dispatch"]["attempt_id"],
                 ),
             )
         except Exception as exc:
@@ -2005,30 +1821,23 @@ def test_cancel_and_result_acceptance_are_atomically_serialized(
         assert results["cancel"]["status"] == "cancelled"
         assert isinstance(errors["accept"], RuntimeError)
         assert "result_after_cancel" in str(errors["accept"])
-        assert (
-            "vector_index_task_result"
-            not in repository.rows[
-                created["job_id"]
-            ].verification_status
-        )
+        assert "vector_index_task_result" not in repository.rows[created["job_id"]].verification_status
     else:
         assert results["accept"]["status"] == "completed"
         assert results["cancel"]["status"] == "completed"
         assert errors == {}
-        assert repository.rows[
-            created["job_id"]
-        ].verification_status["vector_index_task_result"][
-            "status"
-        ] == "completed"
+        assert (
+            repository.rows[created["job_id"]].verification_status["vector_index_task_result"]["status"] == "completed"
+        )
 
 
 def test_forwarding_uses_atomic_vector_result_acceptance(
     monkeypatch,
     forwarding_dependencies,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_result_verification_service, unsloth_worker_result_service
     from agent.services import vector_index_task_service as service_module
+    from agent.services.task_scoped import forwarding as forwarding
 
     accepted: list[dict] = []
 
@@ -2050,9 +1859,7 @@ def test_forwarding_uses_atomic_vector_result_acceptance(
     monkeypatch.setattr(
         recovery_result_verification_service,
         "get_recovery_result_verification_service",
-        lambda: SimpleNamespace(
-            verify_and_record=lambda **_kwargs: {"status": "passed"}
-        ),
+        lambda: SimpleNamespace(verify_and_record=lambda **_kwargs: {"status": "passed"}),
     )
     monkeypatch.setattr(
         unsloth_worker_result_service,
@@ -2099,8 +1906,8 @@ def test_authoritative_vector_task_rejects_non_vector_worker_results_without_sid
     forwarding_dependencies,
     response,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import unsloth_worker_result_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     side_effects: list[str] = []
     forwarding_dependencies(
@@ -2112,9 +1919,7 @@ def test_authoritative_vector_task_rejects_non_vector_worker_results_without_sid
     monkeypatch.setattr(
         unsloth_worker_result_service,
         "get_unsloth_worker_result_projector",
-        lambda: SimpleNamespace(
-            project=lambda **_kwargs: side_effects.append("unsloth")
-        ),
+        lambda: SimpleNamespace(project=lambda **_kwargs: side_effects.append("unsloth")),
     )
     task_id = "vector-index-" + "b" * 32
     task = {
@@ -2145,7 +1950,7 @@ def test_non_vector_task_rejects_vector_result_schema(
     monkeypatch,
     forwarding_dependencies,
 ) -> None:
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     updates: list[object] = []
     forwarding_dependencies(

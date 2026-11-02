@@ -255,7 +255,7 @@ def workflow_status(workflow_id: str):
     return backend_result(status)
 
 
-@vp_bp.get('/workflow/<workflow_id>/bpmn-definition')
+@vp_bp.get("/workflow/<workflow_id>/bpmn-definition")
 @check_strict_auth
 def workflow_bpmn_definition(workflow_id: str):
     from agent.services.bpmn_definition_snapshot import BpmnDefinitionSnapshotError
@@ -270,14 +270,15 @@ def workflow_bpmn_definition(workflow_id: str):
     try:
         return jsonify(backend.get_bpmn_definition(workflow_id))
     except PermissionError:
-        return dependencies.backend_error('workflow_run_not_found', code=404)
+        return dependencies.backend_error("workflow_run_not_found", code=404)
     except BpmnDefinitionSnapshotError as exc:
-        code = 404 if str(exc) == 'workflow_bpmn_definition_unavailable' else 409
+        code = 404 if str(exc) == "workflow_bpmn_definition_unavailable" else 409
         return dependencies.backend_error(str(exc), code=code)
     except Exception as exc:
-        log_audit('workflow_bpmn_definition_read_failed',
-                  {'workflow_id': workflow_id, 'exception_type': type(exc).__name__})
-        return dependencies.backend_error('workflow_backend_unavailable', code=503)
+        log_audit(
+            "workflow_bpmn_definition_read_failed", {"workflow_id": workflow_id, "exception_type": type(exc).__name__}
+        )
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
 
 
 @vp_bp.post("/workflow/<workflow_id>/cancel")

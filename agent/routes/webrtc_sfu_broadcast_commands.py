@@ -15,11 +15,8 @@ from agent.services.sfu_broadcast_command_service import (
     SfuBroadcastCommandService,
 )
 
-
 webrtc_sfu_broadcast_commands_bp = Blueprint("webrtc_sfu_broadcast_commands", __name__)
-_LEGACY_BODY_KEYS = frozenset(
-    {"room_ref", "command", "expected_version", "confirmed", "options"}
-)
+_LEGACY_BODY_KEYS = frozenset({"room_ref", "command", "expected_version", "confirmed", "options"})
 _V1_BODY_KEYS = _LEGACY_BODY_KEYS | {"schema", "reason"}
 _MAX_BODY_BYTES = 4096
 
@@ -42,9 +39,7 @@ def apply_broadcast_command():
             expected_version=body.get("expected_version"),
             confirmed=body.get("confirmed"),
             options=body.get("options"),
-            schema=body.get(
-                "schema", "ananta.webrtc.sfu-broadcast-user-intent.v1"
-            ),
+            schema=body.get("schema", "ananta.webrtc.sfu-broadcast-user-intent.v1"),
             reason=body.get("reason", "user_requested"),
         )
         result = _service().execute(

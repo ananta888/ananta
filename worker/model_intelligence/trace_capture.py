@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
-from pathlib import Path
 import re
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol, Sequence
 
 from worker.model_intelligence.common import ModelAnalysisError, canonical_digest
-
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
@@ -78,12 +77,15 @@ class TraceCapturePolicy:
     max_artifact_bytes: int = 2 * 1024 * 1024
 
     def __post_init__(self) -> None:
-        if min(
-            self.max_prompt_bytes,
-            self.max_tokens,
-            self.max_layers,
-            self.max_artifact_bytes,
-        ) <= 0:
+        if (
+            min(
+                self.max_prompt_bytes,
+                self.max_tokens,
+                self.max_layers,
+                self.max_artifact_bytes,
+            )
+            <= 0
+        ):
             raise ValueError("trace-capture limits must be positive")
         if self.max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
@@ -147,11 +149,7 @@ class TraceCaptureService:
                 "Dynamic trace capture is disabled by policy.",
             )
         if runtime_kind != "huggingface_local":
-            reason = (
-                "unsupported_remote_trace"
-                if runtime_kind.startswith("remote")
-                else "trace_runtime_unsupported"
-            )
+            reason = "unsupported_remote_trace" if runtime_kind.startswith("remote") else "trace_runtime_unsupported"
             raise ModelAnalysisError(
                 reason,
                 "The requested runtime cannot expose local hidden states.",
@@ -242,9 +240,7 @@ class HuggingFaceHiddenStateRuntime:
 
     def __init__(self, *, device: str = "cpu") -> None:
         if device != "cpu":
-            raise ValueError(
-                "the core trace runtime is CPU-only; GPU needs an extended profile"
-            )
+            raise ValueError("the core trace runtime is CPU-only; GPU needs an extended profile")
         self._device = device
 
     def capture(
@@ -319,9 +315,7 @@ class HuggingFaceHiddenStateRuntime:
                     "The local runtime did not return hidden states.",
                 )
             summaries: list[TraceLayerSummary] = []
-            for layer_index, hidden in enumerate(
-                hidden_states[:max_layers]
-            ):
+            for layer_index, hidden in enumerate(hidden_states[:max_layers]):
                 if cancellation.is_cancelled():
                     raise ModelAnalysisError(
                         "trace_capture_cancelled",
@@ -338,14 +332,10 @@ class HuggingFaceHiddenStateRuntime:
                         layer_index=layer_index,
                         shape=tuple(int(item) for item in values.shape),
                         mean=float(values.mean().item()),
-                        standard_deviation=float(
-                            values.std(unbiased=False).item()
-                        ),
+                        standard_deviation=float(values.std(unbiased=False).item()),
                         minimum=float(values.min().item()),
                         maximum=float(values.max().item()),
-                        l2_norm=float(
-                            torch.linalg.vector_norm(values).item()
-                        ),
+                        l2_norm=float(torch.linalg.vector_norm(values).item()),
                     )
                 )
             return RuntimeTrace(

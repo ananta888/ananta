@@ -73,9 +73,7 @@ class RuntimeEndpointRevision:
             "model_id": provider.get("model_id"),
             "artifact_id": artifact.get("artifact_id"),
             "artifact_sha256": artifact.get("artifact_sha256"),
-            "api_capabilities": dict(
-                self.manifest.get("api_capabilities") or {}
-            ),
+            "api_capabilities": dict(self.manifest.get("api_capabilities") or {}),
             "replayed": self.replayed,
         }
 
@@ -164,9 +162,7 @@ class SqliteRuntimeEndpointRegistry(RuntimeEndpointRegistryPort):
         manifest: Mapping[str, Any],
     ) -> RuntimeEndpointRevision:
         tenant, endpoint = _scope(tenant_id, endpoint_id)
-        if not isinstance(expected_revision, int) or isinstance(
-            expected_revision, bool
-        ) or expected_revision < 0:
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool) or expected_revision < 0:
             raise RuntimeEndpointRegistryError(
                 "runtime_endpoint_revision_invalid",
                 "expected_endpoint_revision must be a non-negative integer.",
@@ -186,9 +182,7 @@ class SqliteRuntimeEndpointRegistry(RuntimeEndpointRegistryPort):
         )
         encoded = _canonical_json(payload)
         request_digest = _sha256(encoded)
-        key_digest = _sha256(
-            f"runtime-endpoint-idempotency-v1\0{tenant}\0{endpoint}\0{normalized_key}"
-        )
+        key_digest = _sha256(f"runtime-endpoint-idempotency-v1\0{tenant}\0{endpoint}\0{normalized_key}")
         now = float(self._clock())
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -293,11 +287,7 @@ class SqliteRuntimeEndpointRegistry(RuntimeEndpointRegistryPort):
         actor_id: str,
     ) -> RuntimeEndpointRevision:
         tenant, endpoint = _scope(tenant_id, endpoint_id)
-        if (
-            not isinstance(expected_revision, int)
-            or isinstance(expected_revision, bool)
-            or expected_revision < 1
-        ):
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool) or expected_revision < 1:
             raise RuntimeEndpointRegistryError(
                 "runtime_endpoint_revision_invalid",
                 "Rollback requires a positive expected endpoint revision.",
@@ -505,12 +495,8 @@ class SqliteRuntimeEndpointRegistry(RuntimeEndpointRegistryPort):
             )
         return {
             **current.public_summary(),
-            "provider_descriptor": dict(
-                current.manifest.get("provider_descriptor") or {}
-            ),
-            "endpoint_descriptor": dict(
-                current.manifest.get("endpoint_descriptor") or {}
-            ),
+            "provider_descriptor": dict(current.manifest.get("provider_descriptor") or {}),
+            "endpoint_descriptor": dict(current.manifest.get("endpoint_descriptor") or {}),
             "limits": dict(current.manifest.get("limits") or {}),
             "required_capability": capability,
             "fallback": None,
@@ -630,11 +616,13 @@ def _reject_direct_targets(value: Any, *, key: str = "") -> None:
     if isinstance(value, Mapping):
         for raw_key, child in value.items():
             normalized_key = str(raw_key).strip().casefold().replace("-", "_")
-            if (
-                normalized_key.endswith("_url")
-                or normalized_key
-                in {"url", "base_url", "host", "hostname", "filesystem_path"}
-            ):
+            if normalized_key.endswith("_url") or normalized_key in {
+                "url",
+                "base_url",
+                "host",
+                "hostname",
+                "filesystem_path",
+            }:
                 raise RuntimeEndpointRegistryError(
                     "runtime_endpoint_direct_target_forbidden",
                     "Runtime descriptors must not contain direct targets.",
@@ -645,9 +633,7 @@ def _reject_direct_targets(value: Any, *, key: str = "") -> None:
         for child in value:
             _reject_direct_targets(child, key=key)
         return
-    if isinstance(value, str) and value.strip().casefold().startswith(
-        ("http://", "https://", "file://", "/")
-    ):
+    if isinstance(value, str) and value.strip().casefold().startswith(("http://", "https://", "file://", "/")):
         raise RuntimeEndpointRegistryError(
             "runtime_endpoint_direct_target_forbidden",
             "Runtime descriptors must contain only registry identities.",

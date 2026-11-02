@@ -15,8 +15,12 @@ def main():
         if not raw or len(raw) > HELPER_INPUT_LIMIT or not raw.endswith(b"\n"):
             return 2
         value = decode(raw)
-        if (not isinstance(value, dict) or set(value) != {"assignment", "endpoint", "key_hex", "action", "payload"}
-                or not isinstance(value["key_hex"], str) or len(value["key_hex"]) > 512):
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"assignment", "endpoint", "key_hex", "action", "payload"}
+            or not isinstance(value["key_hex"], str)
+            or len(value["key_hex"]) > 512
+        ):
             return 2
         grants = AssignedCompanionGrantClient(value["assignment"], value["endpoint"], bytes.fromhex(value["key_hex"]))
         result = AssignedCompanionModelClient(grants).call(value["action"], value["payload"])

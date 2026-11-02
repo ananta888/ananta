@@ -42,16 +42,22 @@ class CompletionTransport(Protocol):
 
 
 def build_prompt(request: DecisionRequest) -> str:
-    lines = ["Decide the following questions about the STATE. Answer with one JSON object only, no prose.",
-             'Format: {"<question key>": {"value": <answer>, "confidence": <0..1>}}', "", "QUESTIONS:"]
+    lines = [
+        "Decide the following questions about the STATE. Answer with one JSON object only, no prose.",
+        'Format: {"<question key>": {"value": <answer>, "confidence": <0..1>}}',
+        "",
+        "QUESTIONS:",
+    ]
     for question in request.questions:
         if question.dependency_mode != "independent" or question.depends_on:
-            lines.append(f"- Dependency for {question.key}: {question.dependency_mode}; "
-                         f"depends on {', '.join(question.depends_on) or 'not established'}. "
-                         "Resolve dependencies before answering this field.")
+            lines.append(
+                f"- Dependency for {question.key}: {question.dependency_mode}; "
+                f"depends on {', '.join(question.depends_on) or 'not established'}. "
+                "Resolve dependencies before answering this field."
+            )
         if question.kind == "choice":
             options = ", ".join(f'"{label}" ({description})' for label, description in question.options)
-            lines.append(f'- {question.key} (choose exactly one of: {options}): {question.instructions}')
+            lines.append(f"- {question.key} (choose exactly one of: {options}): {question.instructions}")
         elif question.kind == "score":
             levels = ", ".join(f"{index} = {label}" for index, label in enumerate(question.labels))
             lines.append(f"- {question.key} (integer level: {levels}): {question.instructions}")
@@ -77,8 +83,7 @@ def parse_answer(question: DecisionQuestion, raw: Any) -> DecisionAnswer:
             raise DecisionProviderError("response_invalid")
         others = (1.0 - confidence) / (len(question.labels) - 1)
         probabilities = {label: (confidence if label == value else others) for label in question.labels}
-        return DecisionAnswer(question.key, "choice", choice=value, probabilities=probabilities,
-                              confidence=confidence)
+        return DecisionAnswer(question.key, "choice", choice=value, probabilities=probabilities, confidence=confidence)
     if question.kind == "score":
         labels = question.labels
         if isinstance(value, str) and value in labels:
@@ -91,8 +96,13 @@ def parse_answer(question: DecisionQuestion, raw: Any) -> DecisionAnswer:
     if not isinstance(value, bool):
         raise DecisionProviderError("response_invalid")
     probability = 0.5 + (confidence / 2.0 if value else -confidence / 2.0)
-    return DecisionAnswer(question.key, "noul", probability=probability,
-                          probabilities={"true": probability, "false": 1.0 - probability}, confidence=confidence)
+    return DecisionAnswer(
+        question.key,
+        "noul",
+        probability=probability,
+        probabilities={"true": probability, "false": 1.0 - probability},
+        confidence=confidence,
+    )
 
 
 def parse_response(request: DecisionRequest, text: str) -> dict[str, DecisionAnswer]:
@@ -112,9 +122,16 @@ def parse_response(request: DecisionRequest, text: str) -> dict[str, DecisionAns
 class LLMDecisionProvider:
     provider_id = PROVIDER_ID
 
-    def __init__(self, transport: CompletionTransport, *, model: str = "", timeout_seconds: float = 60.0,
-                 price_input_per_million: float = 0.0, price_output_per_million: float = 0.0,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        transport: CompletionTransport,
+        *,
+        model: str = "",
+        timeout_seconds: float = 60.0,
+        price_input_per_million: float = 0.0,
+        price_output_per_million: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._transport = transport
         self._model = model
         self._timeout = float(timeout_seconds)
@@ -127,19 +144,31 @@ class LLMDecisionProvider:
     def decide(self, request: DecisionRequest, *, timeout_seconds: float | None = None) -> DecisionResult:
         started = self._clock()
         text, input_tokens, output_tokens = self._transport.complete(
-            build_prompt(request), timeout_seconds=float(timeout_seconds or self._timeout))
+            build_prompt(request), timeout_seconds=float(timeout_seconds or self._timeout)
+        )
         answers = parse_response(request, text)
         cost = (input_tokens * self._prices[0] + output_tokens * self._prices[1]) / 1e6
-        return DecisionResult(provider_id=self.provider_id, model=self._model, answers=answers,
-                              usage=DecisionUsage(input_tokens, output_tokens, round(cost, 9)),
-                              latency_ms=(self._clock() - started) * 1000.0)
+        return DecisionResult(
+            provider_id=self.provider_id,
+            model=self._model,
+            answers=answers,
+            usage=DecisionUsage(input_tokens, output_tokens, round(cost, 9)),
+            latency_ms=(self._clock() - started) * 1000.0,
+        )
 
 
 class OpenAICompatibleCompletion:
     """``POST {base_url}/chat/completions`` (local llama-server, LM Studio, ...), temperature 0."""
 
-    def __init__(self, *, base_url: str, model: str = "", api_key: str | None = None,
-                 opener: Callable[..., Any] = urllib.request.urlopen, max_tokens: int = 400) -> None:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        model: str = "",
+        api_key: str | None = None,
+        opener: Callable[..., Any] = urllib.request.urlopen,
+        max_tokens: int = 400,
+    ) -> None:
         self._url = str(base_url).rstrip("/") + "/chat/completions"
         self._model = model
         self._api_key = api_key
@@ -150,8 +179,12 @@ class OpenAICompatibleCompletion:
         headers = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
-        body = {"model": self._model, "temperature": 0, "max_tokens": self._max_tokens,
-                "messages": [{"role": "user", "content": prompt}]}
+        body = {
+            "model": self._model,
+            "temperature": 0,
+            "max_tokens": self._max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
         request = urllib.request.Request(self._url, data=json.dumps(body).encode(), method="POST", headers=headers)
         try:
             with self._opener(request, timeout=timeout_seconds) as response:

@@ -1,4 +1,5 @@
 """X86CC-019: Query model and engine for x86 CodeCompass extension."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -121,10 +122,7 @@ class X86QueryEngine:
                 node_ids = list(graph_index.by_basic_block.get(query.value, []))
         elif query.kind == "diagnostics":
             # Return all diagnostic nodes
-            node_ids = [
-                nid for nid, n in self._nodes_by_id.items()
-                if n.get("kind") == "x86_diagnostic"
-            ]
+            node_ids = [nid for nid, n in self._nodes_by_id.items() if n.get("kind") == "x86_diagnostic"]
 
         # Deduplicate, sort, bound
         seen: set[str] = set()

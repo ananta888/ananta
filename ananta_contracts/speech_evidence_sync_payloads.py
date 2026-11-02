@@ -6,18 +6,7 @@ import hashlib
 from typing import Any, Mapping
 
 from ananta_contracts.speech_evidence_sync_primitives import (
-    _b64,
-    canonical_sha256,
-    _closed,
-    _control,
-    _digest,
-    _finite,
     GROUP_PREVIEW_VERSION,
-    _identifier,
-    _identifiers,
-    _integer,
-    _integers,
-    _mapping,
     MAX_CANDIDATES,
     MAX_CHUNK_CIPHERTEXT_BYTES,
     MAX_CHUNK_PLAINTEXT_BYTES,
@@ -29,6 +18,17 @@ from ananta_contracts.speech_evidence_sync_primitives import (
     OFFER_PROTOCOL_VERSION,
     PROTOCOL_VERSION,
     SpeechEvidenceProtocolError,
+    _b64,
+    _closed,
+    _control,
+    _digest,
+    _finite,
+    _identifier,
+    _identifiers,
+    _integer,
+    _integers,
+    _mapping,
+    canonical_sha256,
 )
 
 
@@ -147,9 +147,7 @@ def _offer(payload: Mapping[str, Any]) -> None:
     if payload.get("trainer_class") not in {"none", "speech_adaptation"}:
         raise SpeechEvidenceProtocolError("speech_evidence_trainer_class_invalid")
     _integer(payload.get("retention_seconds"), 1, MAX_RETENTION_SECONDS, "speech_evidence_retention_invalid")
-    total_bytes = _integer(
-        payload.get("total_bytes"), 1, MAX_TOTAL_BYTES, "speech_evidence_total_bytes_invalid"
-    )
+    total_bytes = _integer(payload.get("total_bytes"), 1, MAX_TOTAL_BYTES, "speech_evidence_total_bytes_invalid")
     if sum(int(row["size_bytes"]) for row in previews) != total_bytes:
         raise SpeechEvidenceProtocolError("speech_evidence_offer_preview_size_mismatch")
     for name in (
@@ -191,9 +189,7 @@ def _group_previews(value: Any) -> tuple[Mapping[str, Any], ...]:
         if row.get("preview_version") != GROUP_PREVIEW_VERSION:
             raise SpeechEvidenceProtocolError("speech_evidence_offer_preview_version_invalid")
         group_id = _identifier(row.get("group_id"), "speech_evidence_group_id_invalid")
-        source_digest = _digest(
-            row.get("source_group_digest"), "speech_evidence_source_group_digest_invalid"
-        )
+        source_digest = _digest(row.get("source_group_digest"), "speech_evidence_source_group_digest_invalid")
         for name in (
             "speaker_scope_digest",
             "quality_digest",
@@ -202,9 +198,7 @@ def _group_previews(value: Any) -> tuple[Mapping[str, Any], ...]:
             _digest(row.get(name), f"speech_evidence_{name}_invalid")
         if row.get("quality_basis") not in {"decision", "policy"}:
             raise SpeechEvidenceProtocolError("speech_evidence_quality_basis_invalid")
-        revision = _integer(
-            row.get("revision"), 1, 2**31 - 1, "speech_evidence_preview_revision_invalid"
-        )
+        revision = _integer(row.get("revision"), 1, 2**31 - 1, "speech_evidence_preview_revision_invalid")
         _integer(row.get("size_bytes"), 1, MAX_TOTAL_BYTES, "speech_evidence_preview_size_invalid")
         raw_candidates = row.get("original_candidates")
         if not isinstance(raw_candidates, list) or not 1 <= len(raw_candidates) <= MAX_CANDIDATES:
@@ -244,19 +238,14 @@ def _group_previews(value: Any) -> tuple[Mapping[str, Any], ...]:
         raw_regions = row.get("unresolved_region_digests")
         if not isinstance(raw_regions, list) or len(raw_regions) > 1024:
             raise SpeechEvidenceProtocolError("speech_evidence_unresolved_regions_invalid")
-        regions = [
-            _digest(item, "speech_evidence_unresolved_regions_invalid") for item in raw_regions
-        ]
+        regions = [_digest(item, "speech_evidence_unresolved_regions_invalid") for item in raw_regions]
         if regions != sorted(set(regions)):
             raise SpeechEvidenceProtocolError("speech_evidence_unresolved_regions_invalid")
-        if (
-            (state == "resolved" and (selected not in candidate_digests or regions))
-            or (state == "unresolved" and (selected is not None or not regions))
+        if (state == "resolved" and (selected not in candidate_digests or regions)) or (
+            state == "unresolved" and (selected is not None or not regions)
         ):
             raise SpeechEvidenceProtocolError("speech_evidence_comparison_resolution_invalid")
-        comparison_digest = _digest(
-            row.get("comparison_digest"), "speech_evidence_comparison_digest_invalid"
-        )
+        comparison_digest = _digest(row.get("comparison_digest"), "speech_evidence_comparison_digest_invalid")
         if comparison_digest != group_preview_comparison_digest(
             source_group_digest=source_digest,
             revision=revision,
@@ -390,9 +379,7 @@ def _chunk_ack(payload: Mapping[str, Any]) -> None:
     indices = _integers(payload.get("acknowledged_indices"), MAX_GROUPS, 0, MAX_GROUPS - 1)
     if len(indices) != len(set(indices)) or indices != sorted(indices):
         raise SpeechEvidenceProtocolError("speech_evidence_ack_inconsistent")
-    first_missing = _integer(
-        payload.get("first_missing_index"), 0, MAX_GROUPS, "speech_evidence_ack_cursor_invalid"
-    )
+    first_missing = _integer(payload.get("first_missing_index"), 0, MAX_GROUPS, "speech_evidence_ack_cursor_invalid")
     if any(index >= first_missing for index in indices[:first_missing]) or set(range(first_missing)) - set(indices):
         raise SpeechEvidenceProtocolError("speech_evidence_ack_cursor_invalid")
     _integer(payload.get("received_bytes"), 0, MAX_TOTAL_BYTES, "speech_evidence_total_bytes_invalid")
@@ -421,9 +408,7 @@ def _resolution(payload: Mapping[str, Any]) -> None:
     _identifier(payload.get("resolution_id"), "speech_evidence_resolution_id_invalid")
     _identifier(payload.get("policy_version"), "speech_evidence_policy_version_invalid")
     candidate_ids = _identifiers(payload.get("candidate_ids"), MAX_CANDIDATES, "speech_evidence_candidates_invalid")
-    accepted = _identifiers(
-        payload.get("accepted_candidate_ids"), MAX_CANDIDATES, "speech_evidence_candidates_invalid"
-    )
+    accepted = _identifiers(payload.get("accepted_candidate_ids"), MAX_CANDIDATES, "speech_evidence_candidates_invalid")
     if not set(accepted) <= set(candidate_ids):
         raise SpeechEvidenceProtocolError("speech_evidence_resolution_inconsistent")
     _identifiers(payload.get("unresolved_region_ids"), 1024, "speech_evidence_regions_invalid")

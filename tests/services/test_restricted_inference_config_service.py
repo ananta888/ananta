@@ -19,29 +19,31 @@ def test_from_config_empty_returns_safe_mock_defaults() -> None:
 
 
 def test_valid_config_models_tasks_and_redacts_secrets() -> None:
-    cfg = RestrictedInferenceConfigService.from_config({
-        "restricted_inference": {
-            "default_engine": "pytorch",
-            "allowed_engines": ["pytorch", "mock"],
-            "models": [
-                {
-                    "id": "local",
-                    "engine": "pytorch",
-                    "model": "local",
-                    "local_path": "/does/not/exist",
-                    "tasks": ["candidate_rerank"],
-                    "api_token": "secret",
-                }
-            ],
-            "tasks": {
-                "candidate_rerank": {
-                    "enabled": True,
-                    "preferred_engine": "pytorch",
-                    "max_candidates": 8,
-                }
-            },
+    cfg = RestrictedInferenceConfigService.from_config(
+        {
+            "restricted_inference": {
+                "default_engine": "pytorch",
+                "allowed_engines": ["pytorch", "mock"],
+                "models": [
+                    {
+                        "id": "local",
+                        "engine": "pytorch",
+                        "model": "local",
+                        "local_path": "/does/not/exist",
+                        "tasks": ["candidate_rerank"],
+                        "api_token": "secret",
+                    }
+                ],
+                "tasks": {
+                    "candidate_rerank": {
+                        "enabled": True,
+                        "preferred_engine": "pytorch",
+                        "max_candidates": 8,
+                    }
+                },
+            }
         }
-    })
+    )
 
     payload = cfg.as_dict(redact_secrets=True)
     assert payload["models"][0]["api_token"] == "<redacted>"
@@ -49,15 +51,17 @@ def test_valid_config_models_tasks_and_redacts_secrets() -> None:
 
 
 def test_explicit_sentence_transformers_config_bridges_embedding_options() -> None:
-    cfg = RestrictedInferenceConfigService.from_config({
-        "embedding_model_id": "intfloat/multilingual-e5-small",
-        "embedding_lang_detect": True,
-        "embedding_lang_model_de": "deepset/gbert-base",
-        "embedding_lang_model_en": "all-MiniLM-L6-v2",
-        "restricted_inference": {
-            "default_engine": ENGINE_SENTENCE_TRANSFORMERS,
-        },
-    })
+    cfg = RestrictedInferenceConfigService.from_config(
+        {
+            "embedding_model_id": "intfloat/multilingual-e5-small",
+            "embedding_lang_detect": True,
+            "embedding_lang_model_de": "deepset/gbert-base",
+            "embedding_lang_model_en": "all-MiniLM-L6-v2",
+            "restricted_inference": {
+                "default_engine": ENGINE_SENTENCE_TRANSFORMERS,
+            },
+        }
+    )
 
     assert cfg.default_engine == ENGINE_SENTENCE_TRANSFORMERS
     assert cfg.default_model_id == "intfloat/multilingual-e5-small"
@@ -71,9 +75,7 @@ def test_explicit_sentence_transformers_config_bridges_embedding_options() -> No
 
 
 def test_legacy_embedding_fields_do_not_implicitly_enable_restricted_inference() -> None:
-    cfg = RestrictedInferenceConfigService.from_config(
-        {"embedding_model_id": "legacy/embedding-model"}
-    )
+    cfg = RestrictedInferenceConfigService.from_config({"embedding_model_id": "legacy/embedding-model"})
 
     assert cfg.default_engine == ENGINE_MOCK
     assert cfg.default_model_id == "mock-default"
@@ -105,15 +107,17 @@ def test_mixed_restricted_config_uses_new_values_and_fills_only_missing_legacy_a
 
 
 def test_diagnostics_report_unknown_engine_disabled_model_and_missing_dependency() -> None:
-    svc = RestrictedInferenceConfigService(global_config={
-        "restricted_inference": {
-            "allowed_engines": ["unknown"],
-            "models": [
-                {"id": "m1", "engine": "unknown", "enabled": False},
-                {"id": "m2", "engine": "pytorch", "local_path": "/missing"},
-            ],
+    svc = RestrictedInferenceConfigService(
+        global_config={
+            "restricted_inference": {
+                "allowed_engines": ["unknown"],
+                "models": [
+                    {"id": "m1", "engine": "unknown", "enabled": False},
+                    {"id": "m2", "engine": "pytorch", "local_path": "/missing"},
+                ],
+            }
         }
-    })
+    )
 
     codes = {diag.reason_code for diag in svc.diagnostics(dependency_status={"pytorch": "degraded"})}
     assert "unknown_engine" in codes

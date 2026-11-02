@@ -141,9 +141,7 @@ class VoiceLiveRunFinalizationStore:
             )
             if correction_in_flight:
                 session.rollback()
-                raise VoiceLiveRunRepositoryInProgress(
-                    "voice live run still has in-flight corrections"
-                )
+                raise VoiceLiveRunRepositoryInProgress("voice live run still has in-flight corrections")
             processing = list(
                 session.exec(
                     select(VoiceLiveRunSegmentDB).where(

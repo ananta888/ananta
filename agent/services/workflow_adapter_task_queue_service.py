@@ -93,9 +93,7 @@ class TaskRepositoryPort(Protocol):
 
 
 class TaskRuntimeMutationPort(Protocol):
-    def update_local_task_status(
-        self, task_id: str, status: str, **values: Any
-    ) -> None: ...
+    def update_local_task_status(self, task_id: str, status: str, **values: Any) -> None: ...
 
 
 class WorkflowAdapterTaskQueueService:
@@ -120,23 +118,14 @@ class WorkflowAdapterTaskQueueService:
         self._runtime = task_runtime
         self._ownership = ownership
         self._authorization_keys = authorization_keys
-        self._authorization_grants = (
-            authorization_grants
-            or InMemoryWorkflowAuthorizationGrantService(clock=clock)
-        )
+        self._authorization_grants = authorization_grants or InMemoryWorkflowAuthorizationGrantService(clock=clock)
         self._events = events
-        self._result_projector = (
-            WorkflowAdapterCanonicalEventProjector(events)
-            if events is not None
-            else None
-        )
+        self._result_projector = WorkflowAdapterCanonicalEventProjector(events) if events is not None else None
         self._owner_id = str(owner_id)
         self._lease_seconds = max(60.0, min(float(lease_seconds), 86_400.0))
         self._clock = clock
 
-    def submit(
-        self, submission: WorkflowAdapterTaskSubmission
-    ) -> WorkflowAdapterTaskReceipt:
+    def submit(self, submission: WorkflowAdapterTaskSubmission) -> WorkflowAdapterTaskReceipt:
         submission.validate()
         hub_task_id = _hub_task_id(submission)
         operation_id = _operation_id(submission)
@@ -154,9 +143,7 @@ class WorkflowAdapterTaskQueueService:
                 str(context.get("operation_id") or "") != operation_id
                 or str(context.get("request_digest") or "") != payload_digest
             ):
-                raise WorkflowAdapterQueueError(
-                    "workflow_adapter_idempotency_conflict", status_code=409
-                )
+                raise WorkflowAdapterQueueError("workflow_adapter_idempotency_conflict", status_code=409)
             return self._receipt(existing, duplicate=True)
 
         claim = self._ownership.claim(
@@ -165,16 +152,12 @@ class WorkflowAdapterTaskQueueService:
             run_id=submission.run_id,
             step_id=submission.step_id,
             owner_id=self._owner_id,
-            lease_seconds=min(
-                self._lease_seconds, submission.authorization_ttl_seconds
-            ),
+            lease_seconds=min(self._lease_seconds, submission.authorization_ttl_seconds),
             maximum_retries=submission.maximum_retries,
             now=float(self._clock()),
         )
         if not claim.acquired:
-            raise WorkflowAdapterQueueError(
-                f"workflow_adapter_ownership_denied:{claim.reason}", status_code=409
-            )
+            raise WorkflowAdapterQueueError(f"workflow_adapter_ownership_denied:{claim.reason}", status_code=409)
         ownership = claim.ownership
         authorization: RuntimeAuthorizationEnvelope | None = None
         try:
@@ -193,11 +176,7 @@ class WorkflowAdapterTaskQueueService:
                     for item in submission.provider_profile_bindings
                 )
                 or (
-                    (
-                        ProviderBindingAuthorization.from_binding(
-                            submission.provider_binding
-                        ),
-                    )
+                    (ProviderBindingAuthorization.from_binding(submission.provider_binding),)
                     if submission.provider_binding is not None
                     else ()
                 ),
@@ -206,11 +185,7 @@ class WorkflowAdapterTaskQueueService:
                     "retries": submission.maximum_retries,
                     "attempts": submission.maximum_retries + 1,
                     **(
-                        {
-                            "provider_attempts": (
-                                submission.provider_maximum_attempts
-                            )
-                        }
+                        {"provider_attempts": (submission.provider_maximum_attempts)}
                         if submission.provider_maximum_attempts
                         else {}
                     ),
@@ -237,23 +212,15 @@ class WorkflowAdapterTaskQueueService:
                 ownership,
                 failure_code="workflow_adapter_contract_creation_failed",
             )
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_contract_creation_failed", status_code=503
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_contract_creation_failed", status_code=503) from exc
         context = {
             **contract.__dict__,
             "authorization_envelope": contract.authorization_envelope.to_dict(),
             "provider_binding": (
-                contract.provider_binding.to_dict()
-                if contract.provider_binding is not None
-                else None
+                contract.provider_binding.to_dict() if contract.provider_binding is not None else None
             ),
-            "provider_profile_bindings": [
-                item.to_dict() for item in contract.provider_profile_bindings
-            ],
-            "provider_attempt_plan": [
-                item.to_dict() for item in contract.provider_attempt_plan
-            ],
+            "provider_profile_bindings": [item.to_dict() for item in contract.provider_profile_bindings],
+            "provider_attempt_plan": [item.to_dict() for item in contract.provider_attempt_plan],
             "subject_id": submission.subject_id,
             "operation_id": operation_id,
             "idempotency_key": submission.idempotency_key,
@@ -265,10 +232,7 @@ class WorkflowAdapterTaskQueueService:
             self._queue.ingest_task(
                 task_id=hub_task_id,
                 status="created",
-                title=(
-                    f"{submission.adapter_kind} {submission.command}: "
-                    f"{submission.task_type}"
-                )[:200],
+                title=(f"{submission.adapter_kind} {submission.command}: {submission.task_type}")[:200],
                 description=(
                     "Execute one Hub-authorized workflow adapter operation. "
                     f"workflow={submission.workflow_id} run={submission.run_id}"
@@ -287,9 +251,7 @@ class WorkflowAdapterTaskQueueService:
                     "adapter_kind": submission.adapter_kind,
                     "command": submission.command,
                     "provider_binding_id": (
-                        submission.provider_binding.binding_id
-                        if submission.provider_binding is not None
-                        else ""
+                        submission.provider_binding.binding_id if submission.provider_binding is not None else ""
                     ),
                 },
                 extra_fields={
@@ -316,9 +278,7 @@ class WorkflowAdapterTaskQueueService:
                 ownership,
                 failure_code="workflow_adapter_queue_persistence_failed",
             )
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_queue_persistence_failed", status_code=503
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_queue_persistence_failed", status_code=503) from exc
         created = self._repository.get_by_id(hub_task_id)
         if created is None:
             self._revoke_grant_safely(
@@ -329,9 +289,7 @@ class WorkflowAdapterTaskQueueService:
                 ownership,
                 failure_code="workflow_adapter_queue_persistence_failed",
             )
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_queue_persistence_failed", status_code=503
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_queue_persistence_failed", status_code=503)
         try:
             self._record_ownership(
                 ownership,
@@ -393,9 +351,7 @@ class WorkflowAdapterTaskQueueService:
                 envelope_id,
             )
 
-    def status(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> dict[str, Any]:
+    def status(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> dict[str, Any]:
         return self._status(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -403,9 +359,7 @@ class WorkflowAdapterTaskQueueService:
             acknowledge=True,
         )
 
-    def inspect(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> dict[str, Any]:
+    def inspect(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> dict[str, Any]:
         """Read a task projection without acknowledging results or appending events.
 
         Hub reconcilers deliberately use :meth:`status` to consume a terminal
@@ -442,9 +396,7 @@ class WorkflowAdapterTaskQueueService:
             except WorkflowAdapterTaskContractError as exc:
                 raise WorkflowAdapterQueueError(exc.reason_code, status_code=409) from exc
             if result["hub_task_id"] != hub_task_id:
-                raise WorkflowAdapterQueueError(
-                    "workflow_adapter_result_task_binding_mismatch", status_code=409
-                )
+                raise WorkflowAdapterQueueError("workflow_adapter_result_task_binding_mismatch", status_code=409)
         status = str(_task_value(task, "status") or "created").strip().lower()
         if status in _TERMINAL_STATUSES and result is None:
             result = {
@@ -487,9 +439,7 @@ class WorkflowAdapterTaskQueueService:
             "terminal": status in _TERMINAL_STATUSES,
             "reason_code": str(_task_value(task, "status_reason_code") or ""),
             "provider_binding": (
-                dict(context["provider_binding"])
-                if isinstance(context.get("provider_binding"), Mapping)
-                else None
+                dict(context["provider_binding"]) if isinstance(context.get("provider_binding"), Mapping) else None
             ),
             "result": result,
         }
@@ -540,9 +490,7 @@ class WorkflowAdapterTaskQueueService:
             hub_task_id=hub_task_id,
         )
 
-    def history(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> tuple[dict[str, Any], ...]:
+    def history(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> tuple[dict[str, Any], ...]:
         task, context = self._owned_task(
             tenant_id=tenant_id,
             subject_id=subject_id,
@@ -570,9 +518,7 @@ class WorkflowAdapterTaskQueueService:
                     "run_id": run_id,
                     "step_id": step_id,
                     "event_type": _history_event_type(str(item.get("event_type") or "")),
-                    "occurred_at": float(
-                        item.get("timestamp") or item.get("occurred_at") or self._clock()
-                    ),
+                    "occurred_at": float(item.get("timestamp") or item.get("occurred_at") or self._clock()),
                     "payload": {
                         **(dict(details) if isinstance(details, Mapping) else {}),
                         "hub_task_id": hub_task_id,
@@ -596,13 +542,10 @@ class WorkflowAdapterTaskQueueService:
         )
         if current is None or current.status != "active":
             return
-        if (
-            current.attempt_id != str(context.get("attempt_id") or "")
-            or current.fencing_token != int(context.get("fencing_token") or 0)
+        if current.attempt_id != str(context.get("attempt_id") or "") or current.fencing_token != int(
+            context.get("fencing_token") or 0
         ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_result_fencing_mismatch", status_code=409
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_result_fencing_mismatch", status_code=409)
         result_ack_key = hashlib.sha256(
             json.dumps(
                 dict(result),
@@ -632,14 +575,10 @@ class WorkflowAdapterTaskQueueService:
             )
             if latest is not None and latest.status == "completed":
                 return
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_result_acknowledgement_failed", status_code=409
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_result_acknowledgement_failed", status_code=409) from exc
         self._record_ownership(updated, correlation_id=current.run_id)
 
-    def _terminate_ownership(
-        self, *, context: Mapping[str, Any], failure_code: str
-    ) -> None:
+    def _terminate_ownership(self, *, context: Mapping[str, Any], failure_code: str) -> None:
         current = self._ownership.get(
             tenant_id=str(context.get("tenant_id") or ""),
             run_id=str(context.get("run_id") or ""),
@@ -647,13 +586,10 @@ class WorkflowAdapterTaskQueueService:
         )
         if current is None or current.status != "active":
             return
-        if (
-            current.attempt_id != str(context.get("attempt_id") or "")
-            or current.fencing_token != int(context.get("fencing_token") or 0)
+        if current.attempt_id != str(context.get("attempt_id") or "") or current.fencing_token != int(
+            context.get("fencing_token") or 0
         ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_cancel_fencing_mismatch", status_code=409
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_cancel_fencing_mismatch", status_code=409)
         try:
             updated = self._ownership.fail_attempt(
                 tenant_id=current.tenant_id,
@@ -674,24 +610,16 @@ class WorkflowAdapterTaskQueueService:
             )
             if latest is not None and latest.status != "active":
                 return
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_cancel_ownership_failed", status_code=409
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_cancel_ownership_failed", status_code=409) from exc
         self._record_ownership(updated, correlation_id=current.run_id)
 
-    def _owned_task(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> tuple[Any, dict[str, Any]]:
+    def _owned_task(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> tuple[Any, dict[str, Any]]:
         normalized = str(hub_task_id or "").strip()
         if not normalized or len(normalized) > 256:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_id_invalid", status_code=400
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_id_invalid", status_code=400)
         task = self._repository.get_by_id(normalized)
         if task is None:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
         context = _task_context(task)
         self._assert_context_owner(
             context,
@@ -702,29 +630,20 @@ class WorkflowAdapterTaskQueueService:
         return task, context
 
     @staticmethod
-    def _assert_context_owner(
-        context: Mapping[str, Any], *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> None:
+    def _assert_context_owner(context: Mapping[str, Any], *, tenant_id: str, subject_id: str, hub_task_id: str) -> None:
         if (
             str(context.get("schema") or "") != WORKFLOW_ADAPTER_TASK_SCHEMA
             or str(context.get("runtime_path") or "") != WORKFLOW_ADAPTER_RUNTIME_PATH
         ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
-        if (
-            str(context.get("tenant_id") or "") != str(tenant_id)
-            or str(context.get("subject_id") or "") != str(subject_id)
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
+        if str(context.get("tenant_id") or "") != str(tenant_id) or str(context.get("subject_id") or "") != str(
+            subject_id
         ):
             # Cross-tenant and cross-principal identifiers are deliberately
             # indistinguishable from missing tasks.
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
         if _hub_task_id_from_context(context) != hub_task_id:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_binding_mismatch", status_code=409
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_binding_mismatch", status_code=409)
 
     @staticmethod
     def _receipt(task: Any, *, duplicate: bool) -> WorkflowAdapterTaskReceipt:

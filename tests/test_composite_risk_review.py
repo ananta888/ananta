@@ -21,9 +21,9 @@ def test_feature_defaults_off_and_warning_cannot_be_weakened() -> None:
 
 def test_warning_contract_is_visible_in_docs_and_ui() -> None:
     root = Path(__file__).resolve().parents[1]
-    assert COMPOSITE_RISK_REVIEW_WARNING in (
-        root / "docs/security/composite-risk-review.md"
-    ).read_text(encoding="utf-8").replace("\n> ", " ").replace("> ", "")
+    assert COMPOSITE_RISK_REVIEW_WARNING in (root / "docs/security/composite-risk-review.md").read_text(
+        encoding="utf-8"
+    ).replace("\n> ", " ").replace("> ", "")
     assert COMPOSITE_RISK_REVIEW_WARNING in (
         root / "frontend-angular/src/app/services/composite-risk-review-api.service.ts"
     ).read_text(encoding="utf-8")

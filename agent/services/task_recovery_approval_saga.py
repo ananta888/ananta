@@ -68,16 +68,10 @@ class RecoveryApprovalSaga:
         goal = repos.goal_repo.get_by_id(goal_id)
         if goal is None:
             raise RuntimeError("recovery_goal_not_found")
-        materialization_inputs_digest = (
-            calculate_recovery_materialization_inputs_digest(
-                goal
-            )
-        )
+        materialization_inputs_digest = calculate_recovery_materialization_inputs_digest(goal)
         plan.rationale = {
             **_mapping(getattr(plan, "rationale", None)),
-            "materialization_inputs_digest": (
-                materialization_inputs_digest
-            ),
+            "materialization_inputs_digest": (materialization_inputs_digest),
         }
         plan.updated_at = time.time()
         plan = repos.plan_repo.save(plan)
@@ -85,14 +79,9 @@ class RecoveryApprovalSaga:
         approval = self._approval_service().create_pending_request(
             task_id=source_task_id,
             goal_id=goal_id,
-            tenant_id=str(getattr(goal, "tenant_id", "") or "").strip()
-            or None,
-            project_id=str(getattr(goal, "project_id", "") or "").strip()
-            or None,
-            organization_id=str(
-                getattr(goal, "organization_id", "") or ""
-            ).strip()
-            or None,
+            tenant_id=str(getattr(goal, "tenant_id", "") or "").strip() or None,
+            project_id=str(getattr(goal, "project_id", "") or "").strip() or None,
+            organization_id=str(getattr(goal, "organization_id", "") or "").strip() or None,
             trace_id=str(getattr(plan, "trace_id", "") or "") or None,
             tool_name=RECOVERY_MATERIALIZE_TOOL,
             arguments={
@@ -116,15 +105,9 @@ class RecoveryApprovalSaga:
                 "source_task_id": source_task_id,
                 "recovery_key": recovery_key,
                 "team_id": team_id,
-                "tenant_id": str(
-                    getattr(goal, "tenant_id", "") or ""
-                ).strip(),
-                "project_id": str(
-                    getattr(goal, "project_id", "") or ""
-                ).strip(),
-                "organization_id": str(
-                    getattr(goal, "organization_id", "") or ""
-                ).strip(),
+                "tenant_id": str(getattr(goal, "tenant_id", "") or "").strip(),
+                "project_id": str(getattr(goal, "project_id", "") or "").strip(),
+                "organization_id": str(getattr(goal, "organization_id", "") or "").strip(),
             },
         )
         plan.rationale = {
@@ -137,7 +120,6 @@ class RecoveryApprovalSaga:
         plan.updated_at = time.time()
         repos.plan_repo.save(plan)
         return approval, plan_digest
-
 
     def mark_source_waiting_for_approval(
         self,
@@ -172,24 +154,17 @@ class RecoveryApprovalSaga:
                 )
             ).get("model_recovery")
         )
-        current_approval_id = str(
-            current_state.get("approval_request_id") or ""
-        ).strip()
+        current_approval_id = str(current_state.get("approval_request_id") or "").strip()
         authority = contextlib.nullcontext()
-        if (
-            current_approval_id
-            and current_approval_id != approval_request_id
-        ):
+        if current_approval_id and current_approval_id != approval_request_id:
             from agent.common.recovery_source_approval_rebind_write_boundary import (
                 authorize_recovery_source_approval_rebind_write,
             )
 
-            authority = (
-                authorize_recovery_source_approval_rebind_write(
-                    task_id=task_id,
-                    current_state=current_state,
-                    proposed_state=state,
-                )
+            authority = authorize_recovery_source_approval_rebind_write(
+                task_id=task_id,
+                current_state=current_state,
+                proposed_state=state,
             )
         with authority:
             return self._conditional_update(
@@ -207,9 +182,7 @@ class RecoveryApprovalSaga:
                     ),
                     "model_recovery": state,
                 },
-                status_reason_code=(
-                    "model_recovery_plan_pending_approval"
-                ),
+                status_reason_code=("model_recovery_plan_pending_approval"),
                 status_reason_details={
                     **_mapping(
                         getattr(
@@ -220,18 +193,13 @@ class RecoveryApprovalSaga:
                     ),
                     "model_recovery": state,
                 },
-                event_type=(
-                    "task_recovery_plan_pending_approval"
-                ),
+                event_type=("task_recovery_plan_pending_approval"),
                 event_actor="hub_recovery_planner",
                 event_details={
                     "plan_id": plan_id,
-                    "approval_request_id": (
-                        approval_request_id
-                    ),
+                    "approval_request_id": (approval_request_id),
                 },
             )
-
 
     def complete_approval_refresh_saga(
         self,
@@ -250,9 +218,7 @@ class RecoveryApprovalSaga:
         """Finish source rebind, stale-grant consume, and saga completion."""
 
         with (
-            self._locks.distributed_source_lock(
-                source_task_id
-            ) as source_lock_acquired,
+            self._locks.distributed_source_lock(source_task_id) as source_lock_acquired,
             self._locks.source_mutation_lock(source_task_id),
         ):
             if not source_lock_acquired:
@@ -305,13 +271,10 @@ class RecoveryApprovalSaga:
                     )
                 ).get("model_recovery")
             )
-            current_approval_id = str(
-                source_recovery.get("approval_request_id") or ""
-            )
+            current_approval_id = str(source_recovery.get("approval_request_id") or "")
             source_owned = bool(
                 str(source_recovery.get("plan_id") or "") == plan_id
-                and str(source_recovery.get("recovery_key") or "")
-                == recovery_key
+                and str(source_recovery.get("recovery_key") or "") == recovery_key
                 and stored_team_binding_matches(
                     source_recovery,
                     team_id,
@@ -325,22 +288,12 @@ class RecoveryApprovalSaga:
                     "approval_request_id",
                 )
             )
-            if (
-                current_approval_id != refreshed_approval_id
-                and not (
-                    source_empty
-                    or (
-                        source_owned
-                        and current_approval_id
-                        == stale_approval_id
-                    )
-                )
+            if current_approval_id != refreshed_approval_id and not (
+                source_empty or (source_owned and current_approval_id == stale_approval_id)
             ):
                 return {
                     "status": "failed",
-                    "reason_code": (
-                        "recovery_refresh_source_binding_conflict"
-                    ),
+                    "reason_code": ("recovery_refresh_source_binding_conflict"),
                     "plan_id": plan_id,
                 }
             if current_approval_id != refreshed_approval_id:
@@ -355,15 +308,11 @@ class RecoveryApprovalSaga:
                 if not transitioned:
                     return {
                         "status": "failed",
-                        "reason_code": (
-                            "recovery_source_transition_conflict"
-                        ),
+                        "reason_code": ("recovery_source_transition_conflict"),
                         "plan_id": plan_id,
                     }
 
-            confirmed_source = repos.task_repo.get_by_id(
-                source_task_id
-            )
+            confirmed_source = repos.task_repo.get_by_id(source_task_id)
             confirmed_recovery = _mapping(
                 _mapping(
                     getattr(
@@ -375,21 +324,9 @@ class RecoveryApprovalSaga:
             )
             if not (
                 confirmed_source is not None
-                and str(
-                    confirmed_recovery.get("plan_id") or ""
-                )
-                == plan_id
-                and str(
-                    confirmed_recovery.get(
-                        "approval_request_id"
-                    )
-                    or ""
-                )
-                == refreshed_approval_id
-                and str(
-                    confirmed_recovery.get("recovery_key") or ""
-                )
-                == recovery_key
+                and str(confirmed_recovery.get("plan_id") or "") == plan_id
+                and str(confirmed_recovery.get("approval_request_id") or "") == refreshed_approval_id
+                and str(confirmed_recovery.get("recovery_key") or "") == recovery_key
                 and stored_team_binding_matches(
                     confirmed_recovery,
                     team_id,
@@ -397,9 +334,7 @@ class RecoveryApprovalSaga:
             ):
                 return {
                     "status": "failed",
-                    "reason_code": (
-                        "recovery_refresh_source_confirmation_failed"
-                    ),
+                    "reason_code": ("recovery_refresh_source_confirmation_failed"),
                     "plan_id": plan_id,
                 }
 
@@ -419,23 +354,13 @@ class RecoveryApprovalSaga:
             rationale = _mapping(getattr(plan, "rationale", None))
             saga = _mapping(rationale.get("approval_refresh"))
             if not (
-                str(saga.get("stale_approval_request_id") or "")
-                == stale_approval_id
-                and str(
-                    saga.get("refreshed_approval_request_id")
-                    or ""
-                )
-                == refreshed_approval_id
-                and str(
-                    rationale.get("approval_request_id") or ""
-                )
-                == refreshed_approval_id
+                str(saga.get("stale_approval_request_id") or "") == stale_approval_id
+                and str(saga.get("refreshed_approval_request_id") or "") == refreshed_approval_id
+                and str(rationale.get("approval_request_id") or "") == refreshed_approval_id
             ):
                 return {
                     "status": "failed",
-                    "reason_code": (
-                        "recovery_refresh_plan_binding_conflict"
-                    ),
+                    "reason_code": ("recovery_refresh_plan_binding_conflict"),
                     "plan_id": plan_id,
                 }
             plan.rationale = {
@@ -451,9 +376,7 @@ class RecoveryApprovalSaga:
             repos.plan_repo.save(plan)
 
         try:
-            consumed = self._approval_service().consume_request(
-                stale_approval_id
-            )
+            consumed = self._approval_service().consume_request(stale_approval_id)
         except Exception:
             log.exception(
                 "stale recovery approval consume failed for %s",
@@ -483,19 +406,12 @@ class RecoveryApprovalSaga:
             rationale = _mapping(getattr(plan, "rationale", None))
             saga = _mapping(rationale.get("approval_refresh"))
             if (
-                str(saga.get("stale_approval_request_id") or "")
-                != stale_approval_id
-                or str(
-                    saga.get("refreshed_approval_request_id")
-                    or ""
-                )
-                != refreshed_approval_id
+                str(saga.get("stale_approval_request_id") or "") != stale_approval_id
+                or str(saga.get("refreshed_approval_request_id") or "") != refreshed_approval_id
             ):
                 return {
                     "status": "failed",
-                    "reason_code": (
-                        "recovery_refresh_plan_binding_conflict"
-                    ),
+                    "reason_code": ("recovery_refresh_plan_binding_conflict"),
                     "plan_id": plan_id,
                 }
             plan.status = "pending_approval"
@@ -519,7 +435,6 @@ class RecoveryApprovalSaga:
             "plan_digest": refreshed_digest,
             "approval_status": "consumed",
         }
-
 
     def refresh_stale_plan_approval(
         self,
@@ -552,54 +467,29 @@ class RecoveryApprovalSaga:
             rationale = _mapping(getattr(plan, "rationale", None))
             current_digest = digest_recovery_plan(plan, nodes)
             saga = _mapping(rationale.get("approval_refresh"))
-            saga_matches = (
-                str(saga.get("stale_approval_request_id") or "")
-                == stale_approval_id
-                and stored_team_binding_matches(
-                    saga,
-                    team_id,
-                )
+            saga_matches = str(
+                saga.get("stale_approval_request_id") or ""
+            ) == stale_approval_id and stored_team_binding_matches(
+                saga,
+                team_id,
             )
-            refreshed_approval_id = (
-                str(
-                    saga.get("refreshed_approval_request_id")
-                    or ""
-                )
-                if saga_matches
-                else ""
-            )
-            refreshed_digest = (
-                str(saga.get("refreshed_plan_digest") or "")
-                if saga_matches
-                else ""
-            )
-            if (
-                saga_matches
-                and refreshed_digest
-                and refreshed_digest != current_digest
-            ):
+            refreshed_approval_id = str(saga.get("refreshed_approval_request_id") or "") if saga_matches else ""
+            refreshed_digest = str(saga.get("refreshed_plan_digest") or "") if saga_matches else ""
+            if saga_matches and refreshed_digest and refreshed_digest != current_digest:
                 return {
                     "status": "failed",
-                    "reason_code": (
-                        "recovery_refresh_plan_changed_again"
-                    ),
+                    "reason_code": ("recovery_refresh_plan_changed_again"),
                     "plan_id": plan_id,
                 }
             if saga_matches and not refreshed_approval_id:
-                candidate_id = str(
-                    rationale.get("approval_request_id") or ""
-                )
+                candidate_id = str(rationale.get("approval_request_id") or "")
                 if candidate_id != stale_approval_id:
                     get_request = getattr(
                         self._approval_service(),
                         "get_request",
                         None,
                     )
-                    candidate = (
-                        get_request(candidate_id)
-                        if callable(get_request)
-                        else None
-                    )
+                    candidate = get_request(candidate_id) if callable(get_request) else None
                     candidate_args = _mapping(
                         getattr(
                             candidate,
@@ -630,17 +520,11 @@ class RecoveryApprovalSaga:
                 plan.status = "pending_approval"
                 plan.rationale = {
                     **rationale,
-                    "approval_state": (
-                        "refreshing_stale_plan_digest"
-                    ),
+                    "approval_state": ("refreshing_stale_plan_digest"),
                     "approval_refresh": {
-                        "schema": (
-                            "ananta.recovery_approval_refresh.v1"
-                        ),
+                        "schema": ("ananta.recovery_approval_refresh.v1"),
                         "state": "creating",
-                        "stale_approval_request_id": (
-                            stale_approval_id
-                        ),
+                        "stale_approval_request_id": (stale_approval_id),
                         "refreshed_approval_request_id": "",
                         "refreshed_plan_digest": current_digest,
                         "team_id": team_id,
@@ -652,21 +536,17 @@ class RecoveryApprovalSaga:
                 refreshed_digest = current_digest
 
             if not refreshed_approval_id:
-                refreshed, refreshed_digest = (
-                    self.request_materialization_approval(
-                        repos=repos,
-                        plan=plan,
-                        nodes=nodes,
-                        goal_id=goal_id,
-                        source_task_id=source_task_id,
-                        recovery_key=recovery_key,
-                        policy_hash=policy_hash,
-                        team_id=team_id,
-                    )
+                refreshed, refreshed_digest = self.request_materialization_approval(
+                    repos=repos,
+                    plan=plan,
+                    nodes=nodes,
+                    goal_id=goal_id,
+                    source_task_id=source_task_id,
+                    recovery_key=recovery_key,
+                    policy_hash=policy_hash,
+                    team_id=team_id,
                 )
-                refreshed_approval_id = str(
-                    getattr(refreshed, "id", "") or ""
-                )
+                refreshed_approval_id = str(getattr(refreshed, "id", "") or "")
 
             plan = repos.plan_repo.get_by_id(plan_id)
             if plan is None:
@@ -684,16 +564,10 @@ class RecoveryApprovalSaga:
                 "approval_state": "refresh_approval_bound",
                 "approval_refresh": {
                     **saga,
-                    "schema": (
-                        "ananta.recovery_approval_refresh.v1"
-                    ),
+                    "schema": ("ananta.recovery_approval_refresh.v1"),
                     "state": "approval_bound",
-                    "stale_approval_request_id": (
-                        stale_approval_id
-                    ),
-                    "refreshed_approval_request_id": (
-                        refreshed_approval_id
-                    ),
+                    "stale_approval_request_id": (stale_approval_id),
+                    "refreshed_approval_request_id": (refreshed_approval_id),
                     "refreshed_plan_digest": refreshed_digest,
                     "team_id": team_id,
                     "updated_at": time.time(),

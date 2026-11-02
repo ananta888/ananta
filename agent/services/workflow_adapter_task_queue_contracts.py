@@ -78,50 +78,30 @@ class WorkflowAdapterTaskSubmission:
             self.idempotency_key,
         )
         if any(not value or len(value) > 256 or "\x00" in value for value in identifiers):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_submission_binding_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_submission_binding_invalid", status_code=422)
         if re.fullmatch(r"(?:sha256:)?[a-fA-F0-9]{64}", self.plan_hash) is None:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_plan_hash_invalid", status_code=422
-            )
-        if self.correlation_id and (
-            len(self.correlation_id) > 256 or "\x00" in self.correlation_id
-        ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_correlation_id_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_plan_hash_invalid", status_code=422)
+        if self.correlation_id and (len(self.correlation_id) > 256 or "\x00" in self.correlation_id):
+            raise WorkflowAdapterQueueError("workflow_adapter_correlation_id_invalid", status_code=422)
         for values, reason in (
             (self.allowed_tools, "workflow_adapter_allowed_tools_invalid"),
             (self.allowed_artifacts, "workflow_adapter_allowed_artifacts_invalid"),
         ):
-            if len(values) > 128 or any(
-                not value or len(value) > 256 or "\x00" in value for value in values
-            ):
+            if len(values) > 128 or any(not value or len(value) > 256 or "\x00" in value for value in values):
                 raise WorkflowAdapterQueueError(reason, status_code=422)
         if self.adapter_kind != "langgraph":
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_kind_unsupported", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_kind_unsupported", status_code=422)
         if self.command not in {"dry_run", "execute"}:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_command_unsupported", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_command_unsupported", status_code=422)
         if self.command == "execute" and self.provider_binding is None:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_provider_selection_required", status_code=503
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_provider_selection_required", status_code=503)
         if self.command == "dry_run" and self.provider_binding is not None:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_dry_run_provider_transport_denied", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_dry_run_provider_transport_denied", status_code=422)
         if self.provider_binding is not None:
             try:
                 self.provider_binding.validate()
             except ValueError as exc:
-                raise WorkflowAdapterQueueError(
-                    "workflow_adapter_provider_selection_invalid", status_code=422
-                ) from exc
+                raise WorkflowAdapterQueueError("workflow_adapter_provider_selection_invalid", status_code=422) from exc
         try:
             _validate_provider_profile_bindings(
                 command=self.command,
@@ -138,9 +118,7 @@ class WorkflowAdapterTaskSubmission:
             ) from exc
         if self.model_routing:
             try:
-                ModelRoutingConfig.assert_runtime_mapping(
-                    self.model_routing
-                )
+                ModelRoutingConfig.assert_runtime_mapping(self.model_routing)
             except (ModelRoutingContractError, ValueError) as exc:
                 raise WorkflowAdapterQueueError(
                     "workflow_adapter_model_routing_invalid",
@@ -151,25 +129,15 @@ class WorkflowAdapterTaskSubmission:
             or len(self.provider_decision_reason) > 256
             or "\x00" in self.provider_decision_reason
         ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_provider_decision_reason_required", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_provider_decision_reason_required", status_code=422)
         if self.maximum_retries < 0 or self.maximum_retries > 32:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_retry_budget_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_retry_budget_invalid", status_code=422)
         if not 0 <= self.max_total_tokens <= 10_000_000:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_token_budget_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_token_budget_invalid", status_code=422)
         if not 0 <= self.max_cost_micros <= 10_000_000_000:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_cost_budget_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_cost_budget_invalid", status_code=422)
         if not 60 <= self.authorization_ttl_seconds <= 86_400:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_authorization_ttl_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_authorization_ttl_invalid", status_code=422)
         try:
             rendered = json.dumps(
                 self.payload,
@@ -179,17 +147,11 @@ class WorkflowAdapterTaskSubmission:
                 allow_nan=False,
             ).encode("utf-8")
         except (TypeError, ValueError) as exc:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_payload_invalid", status_code=422
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_payload_invalid", status_code=422) from exc
         if len(rendered) > 262_144:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_payload_too_large", status_code=413
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_payload_too_large", status_code=413)
         if _contains_forbidden_secret_key(self.payload):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_embedded_secret_denied", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_embedded_secret_denied", status_code=422)
 
 
 @dataclass(frozen=True)
@@ -221,22 +183,16 @@ class WorkflowAdapterTaskReceipt:
             "duplicate": self.duplicate,
             "status": self.status,
             "reason_code": self.reason_code,
-            "provider_binding": (
-                self.provider_binding.to_dict() if self.provider_binding else None
-            ),
+            "provider_binding": (self.provider_binding.to_dict() if self.provider_binding else None),
         }
 
 
 class WorkflowAdapterTaskQueuePort(Protocol):
     def submit(self, submission: WorkflowAdapterTaskSubmission) -> WorkflowAdapterTaskReceipt: ...
 
-    def status(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> dict[str, Any]: ...
+    def status(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> dict[str, Any]: ...
 
-    def inspect(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> dict[str, Any]: ...
+    def inspect(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> dict[str, Any]: ...
 
     def cancel(
         self,
@@ -247,9 +203,7 @@ class WorkflowAdapterTaskQueuePort(Protocol):
         reason: str,
     ) -> dict[str, Any]: ...
 
-    def history(
-        self, *, tenant_id: str, subject_id: str, hub_task_id: str
-    ) -> tuple[dict[str, Any], ...]: ...
+    def history(self, *, tenant_id: str, subject_id: str, hub_task_id: str) -> tuple[dict[str, Any], ...]: ...
 
 
 def _validate_provider_profile_bindings(
@@ -262,72 +216,39 @@ def _validate_provider_profile_bindings(
     provider_maximum_attempts: int,
 ) -> None:
     if len(profile_bindings) > 8:
-        raise ProviderExecutionBindingError(
-            "provider_profile_binding_limit_exceeded"
-        )
+        raise ProviderExecutionBindingError("provider_profile_binding_limit_exceeded")
     if command == "dry_run":
-        if (
-            primary_profile_id
-            or profile_bindings
-            or provider_attempt_plan
-            or provider_maximum_attempts
-        ):
-            raise ProviderExecutionBindingError(
-                "workflow_adapter_dry_run_provider_transport_denied"
-            )
+        if primary_profile_id or profile_bindings or provider_attempt_plan or provider_maximum_attempts:
+            raise ProviderExecutionBindingError("workflow_adapter_dry_run_provider_transport_denied")
         return
     if not profile_bindings:
-        if (
-            primary_profile_id
-            or provider_attempt_plan
-            or provider_maximum_attempts
-        ):
-            raise ProviderExecutionBindingError(
-                "provider_primary_profile_binding_missing"
-            )
+        if primary_profile_id or provider_attempt_plan or provider_maximum_attempts:
+            raise ProviderExecutionBindingError("provider_primary_profile_binding_missing")
         return
     if provider_binding is None or not primary_profile_id:
-        raise ProviderExecutionBindingError(
-            "provider_primary_profile_binding_missing"
-        )
+        raise ProviderExecutionBindingError("provider_primary_profile_binding_missing")
     if (
         len(provider_attempt_plan) != len(profile_bindings)
-        or sum(item.maximum_attempts for item in provider_attempt_plan)
-        != provider_maximum_attempts
+        or sum(item.maximum_attempts for item in provider_attempt_plan) != provider_maximum_attempts
         or not len(profile_bindings) <= provider_maximum_attempts <= 33
     ):
-        raise ProviderExecutionBindingError(
-            "provider_profile_retry_budget_invalid"
-        )
+        raise ProviderExecutionBindingError("provider_profile_retry_budget_invalid")
     seen: set[str] = set()
     primary: ProviderExecutionBinding | None = None
     for item in profile_bindings:
         if not isinstance(item, ProviderProfileExecutionBinding):
-            raise ProviderExecutionBindingError(
-                "provider_profile_binding_invalid"
-            )
+            raise ProviderExecutionBindingError("provider_profile_binding_invalid")
         item.validate()
         if item.profile_id in seen:
-            raise ProviderExecutionBindingError(
-                "provider_profile_binding_duplicate"
-            )
+            raise ProviderExecutionBindingError("provider_profile_binding_duplicate")
         seen.add(item.profile_id)
         if item.profile_id == primary_profile_id:
             primary = item.binding
     if primary != provider_binding:
-        raise ProviderExecutionBindingError(
-            "provider_primary_profile_binding_mismatch"
-        )
-    expected = {
-        item.profile_id: item.binding
-        for item in profile_bindings
-    }
-    if tuple(item.profile_id for item in provider_attempt_plan) != tuple(
-        item.profile_id for item in profile_bindings
-    ):
-        raise ProviderExecutionBindingError(
-            "provider_attempt_plan_order_mismatch"
-        )
+        raise ProviderExecutionBindingError("provider_primary_profile_binding_mismatch")
+    expected = {item.profile_id: item.binding for item in profile_bindings}
+    if tuple(item.profile_id for item in provider_attempt_plan) != tuple(item.profile_id for item in profile_bindings):
+        raise ProviderExecutionBindingError("provider_attempt_plan_order_mismatch")
     for item in provider_attempt_plan:
         item.validate()
         binding = expected.get(item.profile_id)
@@ -337,9 +258,7 @@ def _validate_provider_profile_bindings(
             or item.provider_id != binding.provider_id
             or item.model_id != binding.model_id
         ):
-            raise ProviderExecutionBindingError(
-                "provider_attempt_plan_binding_mismatch"
-            )
+            raise ProviderExecutionBindingError("provider_attempt_plan_binding_mismatch")
 
 
 def _contains_forbidden_secret_key(value: Any) -> bool:

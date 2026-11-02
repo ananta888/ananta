@@ -134,10 +134,7 @@ class SideEffectGatewayReceipt:
 
     @classmethod
     def from_mapping(cls, raw: object) -> "SideEffectGatewayReceipt":
-        if (
-            not isinstance(raw, Mapping)
-            or str(raw.get("schema") or "") != SIDE_EFFECT_GATEWAY_RECEIPT_SCHEMA
-        ):
+        if not isinstance(raw, Mapping) or str(raw.get("schema") or "") != SIDE_EFFECT_GATEWAY_RECEIPT_SCHEMA:
             raise WorkflowWorkerContractError("side_effect_gateway_receipt_invalid")
         return cls(
             record=SideEffectGatewayRecord.from_mapping(raw.get("record")),
@@ -163,10 +160,7 @@ class ProviderBudgetReceipt:
 
     @classmethod
     def from_mapping(cls, raw: object) -> "ProviderBudgetReceipt":
-        if (
-            not isinstance(raw, Mapping)
-            or str(raw.get("schema") or "") != PROVIDER_BUDGET_RECEIPT_SCHEMA
-        ):
+        if not isinstance(raw, Mapping) or str(raw.get("schema") or "") != PROVIDER_BUDGET_RECEIPT_SCHEMA:
             raise WorkflowWorkerContractError("provider_budget_receipt_invalid")
         try:
             value = cls(

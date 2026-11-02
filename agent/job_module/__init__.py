@@ -3,20 +3,20 @@
 
 def setup() -> None:
     """Register job module status machine, skill profiles, and blueprints."""
+    from agent.caseflow.domain import register_case_type
+    from agent.caseflow.models import CaseTypeDefinition
     from agent.caseflow.status_machine import (
         CaseStatusDefinition,
         register_status_machine,
     )
+    from agent.job_module.agents import register_job_skill_profiles
+    from agent.job_module.blueprints import register_job_blueprints
     from agent.job_module.models import (
-        JOB_APPLICATION_STATUSES,
         JOB_APPLICATION_INITIAL,
+        JOB_APPLICATION_STATUSES,
         JOB_APPLICATION_TERMINAL,
         JOB_APPLICATION_TRANSITIONS,
     )
-    from agent.job_module.agents import register_job_skill_profiles
-    from agent.job_module.blueprints import register_job_blueprints
-    from agent.caseflow.domain import register_case_type
-    from agent.caseflow.models import CaseTypeDefinition
 
     # Register case type definition
     defn = CaseTypeDefinition(

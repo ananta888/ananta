@@ -198,9 +198,7 @@ def test_config_hash_excludes_secret_reference_values() -> None:
                 "rest_url": "https://localhost:6333",
                 "allowed_origins": ["https://localhost:6333"],
                 "api_key_ref": "env://ANANTA_QDRANT_API_KEY",
-                "tls_ca_cert_ref": (
-                    "secretfile:///run/secrets/qdrant-tls-ca-a.pem"
-                ),
+                "tls_ca_cert_ref": ("secretfile:///run/secrets/qdrant-tls-ca-a.pem"),
             },
         }
     )
@@ -211,9 +209,7 @@ def test_config_hash_excludes_secret_reference_values() -> None:
                 "rest_url": "https://localhost:6333",
                 "allowed_origins": ["https://localhost:6333"],
                 "api_key_ref": "env://ANANTA_QDRANT_API_KEY_ROTATED",
-                "tls_ca_cert_ref": (
-                    "secretfile:///run/secrets/qdrant-tls-ca-b.pem"
-                ),
+                "tls_ca_cert_ref": ("secretfile:///run/secrets/qdrant-tls-ca-b.pem"),
             },
         }
     )
@@ -236,19 +232,12 @@ def test_top_level_legacy_availability_fields_are_rejected(
                 "availability": {
                     "on_unavailable": "degraded_empty",
                 },
-                legacy_field: (
-                    "degraded_empty"
-                    if legacy_field == "fail_mode"
-                    else "json"
-                ),
+                legacy_field: ("degraded_empty" if legacy_field == "fail_mode" else "json"),
             }
         )
 
     assert exc.value.reason == "vector_store_invalid_availability_policy"
-    assert (
-        exc.value.cause_reason
-        == "legacy_availability_fields_not_supported"
-    )
+    assert exc.value.cause_reason == "legacy_availability_fields_not_supported"
 
 
 def test_remote_plaintext_transport_has_stable_tls_policy_code() -> None:
@@ -293,9 +282,7 @@ def test_exact_trusted_private_origin_allows_verified_internal_tls() -> None:
                 "url": "https://qdrant:6333",
                 "allowed_origins": ["https://qdrant:6333"],
                 "trusted_private_origins": ["https://qdrant:6333"],
-                "tls_ca_cert_ref": (
-                    "secretfile:///run/secrets/qdrant-tls-ca.pem"
-                ),
+                "tls_ca_cert_ref": ("secretfile:///run/secrets/qdrant-tls-ca.pem"),
                 "external_calls_allowed": False,
             },
         }
@@ -342,10 +329,7 @@ def test_trusted_private_origin_cannot_expand_the_allowlist() -> None:
         )
 
     assert exc.value.reason == "vector_store_invalid_origin"
-    assert (
-        exc.value.cause_reason
-        == "vector_store_trusted_private_origin_not_allowlisted"
-    )
+    assert exc.value.cause_reason == "vector_store_trusted_private_origin_not_allowlisted"
 
 
 @pytest.mark.parametrize(

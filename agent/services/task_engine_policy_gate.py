@@ -21,6 +21,7 @@ Usage::
     else:
         # proceed to LLM
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,37 +29,60 @@ from typing import Any
 
 from agent.services.task_class_resolver import TaskClassResolver
 
-
 # ── Known tool names (te-010) ─────────────────────────────────────────────────
 # Tools that have a registered deterministic handler or are known safe.
 # Tasks with tool_calls outside this set are flagged as "unknown_tool" in strict mode.
 
-KNOWN_TOOLS: frozenset[str] = frozenset({
-    "list_files", "list_directory", "ls",
-    "read_file", "cat_file", "view_file", "file_read",
-    "grep_search", "search_files", "grep", "ripgrep",
-    "git_status", "git_diff",
-    "json_validate", "validate_json",
-    "schema_validate", "validate_schema",
-    "run_tests", "pytest", "run_pytest",
-    "voice_transcribe", "audio_transcribe", "audio_transcribe_with_postprocess", "voice_command", "audio_command",
-    # LLM tools — always valid, just require LLM
-    "llm_generate", "code_review", "goal_plan", "goal_propose",
-    "write_file", "shell_exec", "database_write",
-})
+KNOWN_TOOLS: frozenset[str] = frozenset(
+    {
+        "list_files",
+        "list_directory",
+        "ls",
+        "read_file",
+        "cat_file",
+        "view_file",
+        "file_read",
+        "grep_search",
+        "search_files",
+        "grep",
+        "ripgrep",
+        "git_status",
+        "git_diff",
+        "json_validate",
+        "validate_json",
+        "schema_validate",
+        "validate_schema",
+        "run_tests",
+        "pytest",
+        "run_pytest",
+        "voice_transcribe",
+        "audio_transcribe",
+        "audio_transcribe_with_postprocess",
+        "voice_command",
+        "audio_command",
+        # LLM tools — always valid, just require LLM
+        "llm_generate",
+        "code_review",
+        "goal_plan",
+        "goal_propose",
+        "write_file",
+        "shell_exec",
+        "database_write",
+    }
+)
 
 
 @dataclass(frozen=True)
 class GateDecision:
     allow: bool
-    bypass_llm: bool            # True → run deterministic handler instead of LLM
-    handler_id: str | None      # handler to use when bypass_llm is True
-    task_class: str             # "deterministic" | "hybrid" | "llm_required"
+    bypass_llm: bool  # True → run deterministic handler instead of LLM
+    handler_id: str | None  # handler to use when bypass_llm is True
+    task_class: str  # "deterministic" | "hybrid" | "llm_required"
     intent: str
     llm_required: bool
     reason: str
-    unknown_tools: list[str]    # tools not in KNOWN_TOOLS (non-empty only in strict mode)
-    blocked: bool               # hard block — should not proceed at all
+    unknown_tools: list[str]  # tools not in KNOWN_TOOLS (non-empty only in strict mode)
+    blocked: bool  # hard block — should not proceed at all
 
 
 class TaskEnginePolicyGate:
@@ -78,6 +102,7 @@ class TaskEnginePolicyGate:
     def from_settings(cls) -> "TaskEnginePolicyGate":
         try:
             from agent.config import settings
+
             return cls(
                 enabled=settings.task_engine_enabled,
                 deterministic_bypass_enabled=settings.task_engine_deterministic_bypass_enabled,

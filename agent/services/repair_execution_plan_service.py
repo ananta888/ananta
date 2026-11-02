@@ -3,22 +3,22 @@
 DRR-T006: Produces a typed, machine-readable RepairProcedureExecutionPlan
 from matched signature outcome, environment facts, and policy decision.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import time
 import uuid
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from worker.core.execution_envelope import RepairStep, RepairProcedure
+from worker.core.execution_envelope import RepairProcedure, RepairStep
 from worker.core.runtime_target import WorkerSelectionPolicy
 
-
 # ── Typed plan models ─────────────────────────────────────────────────────────
+
 
 class RepairActionType(str, Enum):
     collect_evidence = "collect_evidence"
@@ -53,10 +53,18 @@ class RepairStepExecutionPlan(BaseModel):
     @classmethod
     def _validate_step_type(cls, v: str) -> str:
         known = {
-            "collect_evidence", "evaluate_signature_outcome", "branch",
-            "classify_case", "stop", "command_probe", "command_mutation",
-            "file_patch_propose", "file_patch_apply", "service_restart",
-            "verification_probe", "escalate",
+            "collect_evidence",
+            "evaluate_signature_outcome",
+            "branch",
+            "classify_case",
+            "stop",
+            "command_probe",
+            "command_mutation",
+            "file_patch_propose",
+            "file_patch_apply",
+            "service_restart",
+            "verification_probe",
+            "escalate",
         }
         if v not in known:
             raise ValueError(f"unknown step_type: {v!r}")
@@ -134,9 +142,7 @@ class RepairProcedureExecutionPlan(BaseModel):
     def _check_mutation_verification(self) -> "RepairProcedureExecutionPlan":
         for step in self.steps:
             if step.mutation_candidate and not step.verification_after_step:
-                raise ValueError(
-                    f"mutation step {step.step_id!r} must have verification_after_step=True"
-                )
+                raise ValueError(f"mutation step {step.step_id!r} must have verification_after_step=True")
         return self
 
     def to_repair_procedure(self) -> RepairProcedure:
@@ -163,6 +169,7 @@ class RepairProcedureExecutionPlan(BaseModel):
 
 
 # ── Plan generation ───────────────────────────────────────────────────────────
+
 
 def _compute_environment_facts_hash(environment_facts: dict[str, Any]) -> str:
     normalized = json.dumps(environment_facts, separators=(",", ":"), sort_keys=True)
@@ -299,17 +306,21 @@ def generate_repair_execution_plan(
         diagnosis_steps = list((diagnosis_run or {}).get("executed_steps") or [])
         if diagnosis_steps:
             for i, dstep in enumerate(diagnosis_steps):
-                steps.append(_build_inspect_step(
-                    step_id=str(dstep.get("step_id") or f"diag-{i:02d}"),
-                    title=str(dstep.get("title") or f"Diagnostic step {i+1}"),
-                    evidence_sources=list(dstep.get("expected_sources") or []),
-                ))
+                steps.append(
+                    _build_inspect_step(
+                        step_id=str(dstep.get("step_id") or f"diag-{i:02d}"),
+                        title=str(dstep.get("title") or f"Diagnostic step {i + 1}"),
+                        evidence_sources=list(dstep.get("expected_sources") or []),
+                    )
+                )
         else:
-            steps.append(_build_inspect_step(
-                step_id="collect-evidence",
-                title="Collect evidence for " + problem_class,
-                evidence_sources=["error_logs", "service_status"],
-            ))
+            steps.append(
+                _build_inspect_step(
+                    step_id="collect-evidence",
+                    title="Collect evidence for " + problem_class,
+                    evidence_sources=["error_logs", "service_status"],
+                )
+            )
 
         catalog_procedure = dict((selected_catalog_entry or {}).get("procedure") or {})
         catalog_steps = list(catalog_procedure.get("steps") or [])
@@ -321,42 +332,54 @@ def generate_repair_execution_plan(
                 elif safety_class == "high_risk":
                     action_safety_class = "high_risk"
                 requires_approval = action_safety_class in {"confirm_required", "high_risk"}
-                steps.append(_build_mutation_step(
-                    step_id=str(cstep.get("id") or f"mutate-{i:02d}"),
-                    title=str(cstep.get("title") or f"Mutation step {i+1}"),
-                    action_safety_class=action_safety_class,
-                    requires_approval=requires_approval,
-                ))
+                steps.append(
+                    _build_mutation_step(
+                        step_id=str(cstep.get("id") or f"mutate-{i:02d}"),
+                        title=str(cstep.get("title") or f"Mutation step {i + 1}"),
+                        action_safety_class=action_safety_class,
+                        requires_approval=requires_approval,
+                    )
+                )
             elif str(cstep.get("step_type") or "") == "verification_check":
-                steps.append(_build_verification_step(
-                    step_id=str(cstep.get("id") or f"verify-{i:02d}"),
-                    title=str(cstep.get("title") or f"Verification step {i+1}"),
-                ))
+                steps.append(
+                    _build_verification_step(
+                        step_id=str(cstep.get("id") or f"verify-{i:02d}"),
+                        title=str(cstep.get("title") or f"Verification step {i + 1}"),
+                    )
+                )
 
-        steps.append(_build_verification_step(
-            step_id="final-verify",
-            title="Final verification for " + problem_class,
-        ))
+        steps.append(
+            _build_verification_step(
+                step_id="final-verify",
+                title="Final verification for " + problem_class,
+            )
+        )
 
     elif outcome == "no_match":
-        steps.append(_build_inspect_step(
-            step_id="collect-evidence",
-            title="Collect additional evidence for unknown failure",
-            evidence_sources=["error_logs", "service_status", "runtime_state"],
-        ))
+        steps.append(
+            _build_inspect_step(
+                step_id="collect-evidence",
+                title="Collect additional evidence for unknown failure",
+                evidence_sources=["error_logs", "service_status", "runtime_state"],
+            )
+        )
         steps.append(_build_escalation_step())
 
     elif outcome in ("low_confidence", "ambiguous_high_confidence"):
-        steps.append(_build_inspect_step(
-            step_id="collect-corroboration",
-            title="Collect corroborating evidence for ambiguous outcome",
-            evidence_sources=["error_logs", "runtime_state", "container_state"],
-        ))
-        steps.append(_build_inspect_step(
-            step_id="evaluate",
-            title="Evaluate corroborated evidence",
-            evidence_sources=[],
-        ))
+        steps.append(
+            _build_inspect_step(
+                step_id="collect-corroboration",
+                title="Collect corroborating evidence for ambiguous outcome",
+                evidence_sources=["error_logs", "runtime_state", "container_state"],
+            )
+        )
+        steps.append(
+            _build_inspect_step(
+                step_id="evaluate",
+                title="Evaluate corroborated evidence",
+                evidence_sources=[],
+            )
+        )
         steps.append(_build_escalation_step())
     else:
         steps.append(_build_escalation_step())
@@ -365,11 +388,7 @@ def generate_repair_execution_plan(
     approval_requirement = _determine_approval_requirement(safety_class, mutation_count)
 
     plan_id = f"repair-plan-{uuid.uuid4().hex[:12]}"
-    procedure_id = str(
-        (selected_catalog_entry or {})
-        .get("procedure", {})
-        .get("id") or f"procedure-{problem_class}-v1"
-    )
+    procedure_id = str((selected_catalog_entry or {}).get("procedure", {}).get("id") or f"procedure-{problem_class}-v1")
 
     plan = RepairProcedureExecutionPlan(
         plan_id=plan_id,

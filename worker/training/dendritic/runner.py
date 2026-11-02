@@ -82,9 +82,7 @@ class DendriticMemoryJobRunner:
             return _terminal(assignment, "failed", reason)
         return result
 
-    def _training_result(
-        self, assignment: DendriticWorkerAssignmentV1, output: Mapping[str, Any]
-    ) -> dict[str, Any]:
+    def _training_result(self, assignment: DendriticWorkerAssignmentV1, output: Mapping[str, Any]) -> dict[str, Any]:
         manifest = DendriticMemoryPackManifestV1.from_mapping(output["manifest"])
         if manifest.tenant_id != assignment.spec.tenant_id:
             raise PermissionError("dendritic_worker_manifest_tenant_mismatch")

@@ -23,11 +23,12 @@ class JavaMethodTargetResolutionTests(unittest.TestCase):
             resolve_enabled=True,
         )
 
-        self.assertTrue(any(
-            target["target_resolved"] == "demo.UserRepository.save"
-            and target["heuristic"] == "field_type"
-            for target in targets
-        ))
+        self.assertTrue(
+            any(
+                target["target_resolved"] == "demo.UserRepository.save" and target["heuristic"] == "field_type"
+                for target in targets
+            )
+        )
 
     def test_resolve_call_targets_falls_back_to_same_class(self) -> None:
         targets = resolve_call_targets(

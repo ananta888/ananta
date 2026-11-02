@@ -162,10 +162,7 @@ class ImmutableModelImportExecutor:
     def execute(self, command: ModelImportCommand) -> ModelImportResult:
         self._validate(command)
         cache_key = hashlib.sha256(
-            (
-                f"{command.tenant_id}\0{command.project_id}\0"
-                f"{command.source_id}\0{command.expected_sha256}"
-            ).encode()
+            (f"{command.tenant_id}\0{command.project_id}\0{command.source_id}\0{command.expected_sha256}").encode()
         ).hexdigest()
         destination = self._cache_root / cache_key
         if destination.exists():
@@ -261,11 +258,7 @@ class ImmutableModelImportExecutor:
         ):
             if not self._is_allowed(metadata.path, command.allow_patterns):
                 continue
-            if (
-                metadata.size < 0
-                or Path(metadata.path).is_absolute()
-                or ".." in Path(metadata.path).parts
-            ):
+            if metadata.size < 0 or Path(metadata.path).is_absolute() or ".." in Path(metadata.path).parts:
                 raise ModelImportError(
                     "model_download_metadata_invalid",
                     "Remote file metadata contains an unsafe entry.",
@@ -324,17 +317,13 @@ class ImmutableModelImportExecutor:
             raise ModelImportError("model_import_format_invalid", "The model format is unsupported.")
         metadata_pattern = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$")
         if metadata_pattern.fullmatch(command.architecture) is None or (
-            command.quantization is not None
-            and metadata_pattern.fullmatch(command.quantization) is None
+            command.quantization is not None and metadata_pattern.fullmatch(command.quantization) is None
         ):
             raise ModelImportError("model_import_metadata_invalid", "Model metadata is invalid.")
         if (
             len(command.capability_facets) > 64
             or len(set(command.capability_facets)) != len(command.capability_facets)
-            or any(
-                re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,63}", facet) is None
-                for facet in command.capability_facets
-            )
+            or any(re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,63}", facet) is None for facet in command.capability_facets)
         ):
             raise ModelImportError(
                 "model_import_capability_facets_invalid",
@@ -375,11 +364,7 @@ class ImmutableModelImportExecutor:
                 "The requested model source kind is unsupported.",
             )
         for pattern in command.allow_patterns:
-            if (
-                not pattern
-                or Path(pattern).is_absolute()
-                or ".." in Path(pattern).parts
-            ):
+            if not pattern or Path(pattern).is_absolute() or ".." in Path(pattern).parts:
                 raise ModelImportError(
                     "model_import_pattern_invalid",
                     "Allow patterns must be safe relative paths.",

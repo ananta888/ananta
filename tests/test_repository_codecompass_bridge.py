@@ -692,3 +692,37 @@ def test_bridge_clamps_configured_record_budget_to_graph_artifact_envelope(
     assert result["semantic_budget"]["configuration_clamped"] is True
     assert (tmp_path / "semantic_nodes.jsonl").stat().st_size <= 4 * 1024 * 1024
     assert (tmp_path / "semantic_edges.jsonl").stat().st_size <= 4 * 1024 * 1024
+
+
+class _RecordingSemanticGraphStub:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def emit_graph_records(self, path: str, content: str) -> dict[str, Any]:
+        self.calls.append((path, content))
+        return {"nodes": [], "edges": [], "diagnostics": []}
+
+
+def test_bridge_parses_index_source_without_the_retrieval_header(tmp_path: Path) -> None:
+    graph = _RecordingSemanticGraphStub()
+    source = "package demo;\n\npublic class Example {}\n"
+
+    RepositoryCodeCompassBridge(graph).build_outputs(
+        source_id="repo",
+        records=[
+            {
+                "content": f"# src/example.java\n{source}",
+                "content_line_offset": 1,
+                "metadata": {"relative_path": "src/example.java"},
+            },
+            {
+                "content": "class Bare: pass",
+                "metadata": {"relative_path": "src/bare.py"},
+            },
+        ],
+        output_dir=tmp_path,
+    )
+
+    parsed = dict(graph.calls)
+    assert parsed["src/example.java"] == source
+    assert parsed["src/bare.py"] == "class Bare: pass"

@@ -1,4 +1,5 @@
 """SymbolLookupStrategy — chat_codecompass_symbol_lookup_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import CodeCompassReadPort, HeuristicStrategyBase
@@ -8,8 +9,17 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _SYMBOL_INDICATORS = [
-    "class", "method", "function", "interface", "enum", "def ", "->",
-    "import", "extends", "implements", "override",
+    "class",
+    "method",
+    "function",
+    "interface",
+    "enum",
+    "def ",
+    "->",
+    "import",
+    "extends",
+    "implements",
+    "override",
 ]
 _MIN_SCORE = 0.2
 

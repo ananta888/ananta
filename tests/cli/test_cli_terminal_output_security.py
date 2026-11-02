@@ -12,7 +12,9 @@ def _response(status_code=500, payload=None, text=""):
 
 
 def test_cli_error_output_strips_terminal_escape_sequences(capsys):
-    cli_goals._print_error(_response(payload={"message": "\x1b]8;;https://evil.example\x07click\x1b]8;;\x07\x1b[31mFAIL\x1b[0m"}))
+    cli_goals._print_error(
+        _response(payload={"message": "\x1b]8;;https://evil.example\x07click\x1b]8;;\x07\x1b[31mFAIL\x1b[0m"})
+    )
 
     output = capsys.readouterr().out
     assert "\x1b" not in output

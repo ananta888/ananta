@@ -1,4 +1,5 @@
 """``POST /v1/vision/decision`` (+ confirm, escalation resolve): images -> provider -> gate -> task policy."""
+
 from __future__ import annotations
 
 import base64
@@ -13,7 +14,11 @@ import pytest
 from agent.services import vision_decision_hub_service as hub_service
 from agent.services import vision_decision_provider as vdp
 from agent.services.audio_decision_command_executor import VoiceCommandConfirmationStore, VoiceCommandExecutor
-from agent.services.vision_decision_escalation_executor import ChatTargetConfig, VisionEscalationConfig, build_escalation_executor
+from agent.services.vision_decision_escalation_executor import (
+    ChatTargetConfig,
+    VisionEscalationConfig,
+    build_escalation_executor,
+)
 from agent.services.vision_decision_hub_service import VisionHubRuntime, default_vision_action_handlers
 from agent.services.vision_decision_provider import VisionDecisionProvider
 from tests.decision.test_vision_decision_provider import KEY, _config, _field, _png
@@ -57,7 +62,13 @@ def _decision(values: dict, overrides: dict | None = None, model: str = MODEL) -
             }
         ],
         "usage": {"prompt_tokens": 200, "cached_tokens": 116, "media_chunks": 1, "media_tokens": 64, "media_cached": 0},
-        "timings": {"prefill_ms": 900.0, "media_encode_ms": 400.0, "scoring_ms": 300.0, "total_ms": 1200.0, "rounds": 1},
+        "timings": {
+            "prefill_ms": 900.0,
+            "media_encode_ms": 400.0,
+            "scoring_ms": 300.0,
+            "total_ms": 1200.0,
+            "rounds": 1,
+        },
     }
 
 
@@ -66,14 +77,18 @@ class Transport:
 
     def __init__(self, status=200, payload=None, *, raw=None, exc=None, chat=None, chat_status=200):
         self.status, self.exc, self.chat, self.chat_status = status, exc, chat, chat_status
-        self.body = raw if raw is not None else json.dumps(payload if payload is not None else _decision(SHAPES)).encode()
+        self.body = (
+            raw if raw is not None else json.dumps(payload if payload is not None else _decision(SHAPES)).encode()
+        )
         self.calls: list[dict] = []
 
     def request(self, method, url, *, body, headers, timeout_s):
         self.calls.append({"url": url, "body": json.loads(body), "headers": dict(headers)})
         if url.endswith("/v1/chat/completions"):
             content = json.dumps(self.chat or {})
-            return self.chat_status, json.dumps({"model": MODEL, "choices": [{"message": {"content": content}}]}).encode()
+            return self.chat_status, json.dumps(
+                {"model": MODEL, "choices": [{"message": {"content": content}}]}
+            ).encode()
         if self.exc is not None:
             raise self.exc
         return self.status, self.body
@@ -122,14 +137,17 @@ def test_feature_off_answers_normal_path_without_config_or_contact(client, admin
     monkeypatch.setattr(http.client.HTTPConnection, "connect", forbidden)
     monkeypatch.setenv("VISION_DECISION_API_KEY_FILE", "/run/secrets/does-not-exist")  # never read while off
     monkeypatch.setenv("VISION_DECISION_URL", "not a url")
-    with patch("agent.routes.vision_decision.get_vision_hub_runtime", side_effect=AssertionError("read config")), patch(
-        "agent.routes.vision_decision.log_audit"
-    ) as audit:
+    with (
+        patch("agent.routes.vision_decision.get_vision_hub_runtime", side_effect=AssertionError("read config")),
+        patch("agent.routes.vision_decision.log_audit") as audit,
+    ):
         responses = [
             _decide(client, admin_auth_header),
             client.post(ROUTE, headers=admin_auth_header),
             _post(client, admin_auth_header, CONFIRM, confirmation_id="x", action_type="y", confirmed=True),
-            _post(client, admin_auth_header, RESOLVE, escalation_id="x", task="shapes-v1", field="shape", value="circle"),
+            _post(
+                client, admin_auth_header, RESOLVE, escalation_id="x", task="shapes-v1", field="shape", value="circle"
+            ),
         ]
     for res in responses:
         assert res.status_code == 200
@@ -176,7 +194,10 @@ def test_exposure_policy_runs_before_anything(client, admin_auth_header, enabled
         def resolve_exposure_policy(self, cfg):
             return {"vision_decision": {"enabled": False}}
 
-    with enabled(_runtime(transport)), patch.object(hub_service, "get_platform_governance_service", return_value=Governance()):
+    with (
+        enabled(_runtime(transport)),
+        patch.object(hub_service, "get_platform_governance_service", return_value=Governance()),
+    ):
         res = _decide(client, admin_auth_header)
     assert res.status_code == 403
     assert res.get_json()["data"]["error"]["code"] == "policy_denied"
@@ -261,8 +282,17 @@ def test_uncertain_fields_escalate_to_a_human_when_no_model_target_is_configured
         assert entry["escalation"]["status"] == "awaiting_human" and entry["escalation"]["handled_by"] == "human"
         assert entry["escalation"]["escalation_id"] and entry["escalation"]["single_use"] is True
         assert "candidate" not in entry["escalation"]
-    assert shape["escalation"]["reasons"] == ["server_abstain", "low_probability", "low_margin", "chat_completion_unavailable"]
-    assert (shape["escalation"]["probability"], shape["escalation"]["margin"], shape["escalation"]["entropy"]) == (0.41, 0.05, 1.2)
+    assert shape["escalation"]["reasons"] == [
+        "server_abstain",
+        "low_probability",
+        "low_margin",
+        "chat_completion_unavailable",
+    ]
+    assert (shape["escalation"]["probability"], shape["escalation"]["margin"], shape["escalation"]["entropy"]) == (
+        0.41,
+        0.05,
+        1.2,
+    )
     assert count["escalation"]["reasons"] == ["low_probability", "chat_completion_unavailable"]
     assert data["fields"]["color"]["hub_action"] == "act"
     assert len(transport.calls) == 1  # no chat call
@@ -299,22 +329,48 @@ def test_human_resolution_is_single_use_bound_and_policy_checked(client, admin_a
         fields = _decide(client, admin_auth_header).get_json()["data"]["fields"]
         shape_id = fields["shape"]["escalation"]["escalation_id"]
         count_id = fields["count"]["escalation"]["escalation_id"]
-        foreign = _post(client, user_auth_header, RESOLVE, escalation_id=shape_id, task="shapes-v1", field="shape", value="square")
-        replay = _post(client, admin_auth_header, RESOLVE, escalation_id=shape_id, task="shapes-v1", field="shape", value="square")
-        wrong_field = _post(client, admin_auth_header, RESOLVE, escalation_id=count_id, task="shapes-v1", field="shape", value="square")
+        foreign = _post(
+            client, user_auth_header, RESOLVE, escalation_id=shape_id, task="shapes-v1", field="shape", value="square"
+        )
+        replay = _post(
+            client, admin_auth_header, RESOLVE, escalation_id=shape_id, task="shapes-v1", field="shape", value="square"
+        )
+        wrong_field = _post(
+            client, admin_auth_header, RESOLVE, escalation_id=count_id, task="shapes-v1", field="shape", value="square"
+        )
         second = _decide(client, admin_auth_header).get_json()["data"]["fields"]
-        bad_value = _post(client, admin_auth_header, RESOLVE, escalation_id=second["shape"]["escalation"]["escalation_id"],
-                          task="shapes-v1", field="shape", value="hexagon")
-        ok = _post(client, admin_auth_header, RESOLVE, escalation_id=second["count"]["escalation"]["escalation_id"],
-                   task="shapes-v1", field="count", value=3)
+        bad_value = _post(
+            client,
+            admin_auth_header,
+            RESOLVE,
+            escalation_id=second["shape"]["escalation"]["escalation_id"],
+            task="shapes-v1",
+            field="shape",
+            value="hexagon",
+        )
+        ok = _post(
+            client,
+            admin_auth_header,
+            RESOLVE,
+            escalation_id=second["count"]["escalation"]["escalation_id"],
+            task="shapes-v1",
+            field="count",
+            value=3,
+        )
     assert foreign.status_code == 403 and foreign.get_json()["data"]["error"]["code"] == "escalation.foreign_binding"
     assert replay.status_code == 403 and replay.get_json()["data"]["error"]["code"] == "escalation.already_used"
-    assert wrong_field.status_code == 403 and wrong_field.get_json()["data"]["error"]["code"] == "escalation.action_mismatch"
+    assert (
+        wrong_field.status_code == 403
+        and wrong_field.get_json()["data"]["error"]["code"] == "escalation.action_mismatch"
+    )
     assert bad_value.status_code == 422 and bad_value.get_json()["data"]["rule"] == "V3_value_not_allowed"
     assert ok.status_code == 200
     resolved = ok.get_json()["data"]
     assert (resolved["hub_action"], resolved["rule"], resolved["value"], resolved["grants_permission"]) == (
-        "act", "V6_human_answer", 3, False,
+        "act",
+        "V6_human_answer",
+        3,
+        False,
     )
     resolutions = [c.args[1] for c in audit.call_args_list if c.args[0] == "vision_decision_escalation_resolved"]
     assert len(resolutions) == 5 and "hexagon" not in json.dumps(resolutions)
@@ -326,8 +382,15 @@ def test_expired_escalation_ticket_is_gone(client, admin_auth_header, enabled):
     with enabled(_runtime(Transport(payload=_abstained_shapes()), tickets=tickets)):
         fields = _decide(client, admin_auth_header).get_json()["data"]["fields"]
         now[0] += 601.0
-        res = _post(client, admin_auth_header, RESOLVE, escalation_id=fields["shape"]["escalation"]["escalation_id"],
-                    task="shapes-v1", field="shape", value="square")
+        res = _post(
+            client,
+            admin_auth_header,
+            RESOLVE,
+            escalation_id=fields["shape"]["escalation"]["escalation_id"],
+            task="shapes-v1",
+            field="shape",
+            value="square",
+        )
     assert res.status_code == 410 and res.get_json()["data"]["error"]["code"] == "escalation.expired"
 
 
@@ -335,7 +398,9 @@ def test_human_review_field_skips_the_model_target(client, admin_auth_header, en
     payload = _decision(DOCS, {"contains_personal_data": _field(True, probability=0.55, margin=0.1, abstain=True)})
     transport = Transport(payload=payload, chat={"contains_personal_data": False})
     with enabled(_runtime(transport, chat=True)):
-        entry = _decide(client, admin_auth_header, task="document-intake-v1").get_json()["data"]["fields"]["contains_personal_data"]
+        entry = _decide(client, admin_auth_header, task="document-intake-v1").get_json()["data"]["fields"][
+            "contains_personal_data"
+        ]
     assert entry["escalation"]["target"] == "human" and entry["escalation"]["status"] == "awaiting_human"
     assert len(transport.calls) == 1
 
@@ -343,35 +408,74 @@ def test_human_review_field_skips_the_model_target(client, admin_auth_header, en
 # --- actions and confirmations ----------------------------------------------------------------------------
 
 
-def test_document_actions_need_an_explicit_single_use_confirmation(client, admin_auth_header, user_auth_header, enabled):
+def test_document_actions_need_an_explicit_single_use_confirmation(
+    client, admin_auth_header, user_auth_header, enabled
+):
     runtime = _runtime(Transport(payload=_decision(DOCS)))
     with enabled(runtime), patch("agent.routes.vision_decision.log_audit") as audit:
         fields = _decide(client, admin_auth_header, task="document-intake-v1").get_json()["data"]["fields"]
         rotate = fields["page_orientation"]
         assert (rotate["hub_action"], rotate["rule"], rotate["execution"] if "execution" in rotate else None) == (
-            "confirm", "V9_confirm_only", None,
+            "confirm",
+            "V9_confirm_only",
+            None,
         )
         confirmation = rotate["confirmation"]
         assert confirmation["action_type"] == "vision.document.rotate.rotated_90" and confirmation["single_use"] is True
-        foreign = _post(client, user_auth_header, CONFIRM, confirmation_id=confirmation["confirmation_id"],
-                        action_type=confirmation["action_type"], confirmed=True)
+        foreign = _post(
+            client,
+            user_auth_header,
+            CONFIRM,
+            confirmation_id=confirmation["confirmation_id"],
+            action_type=confirmation["action_type"],
+            confirmed=True,
+        )
         route_conf = fields["document_kind"]["confirmation"]
-        mismatch = _post(client, admin_auth_header, CONFIRM, confirmation_id=route_conf["confirmation_id"],
-                         action_type="vision.document.rotate.upright", confirmed=True)
+        mismatch = _post(
+            client,
+            admin_auth_header,
+            CONFIRM,
+            confirmation_id=route_conf["confirmation_id"],
+            action_type="vision.document.rotate.upright",
+            confirmed=True,
+        )
         fields = _decide(client, admin_auth_header, task="document-intake-v1").get_json()["data"]["fields"]
         confirmation = fields["page_orientation"]["confirmation"]
-        not_bool = _post(client, admin_auth_header, CONFIRM, confirmation_id=confirmation["confirmation_id"],
-                         action_type=confirmation["action_type"], confirmed="yes")
-        ok = _post(client, admin_auth_header, CONFIRM, confirmation_id=confirmation["confirmation_id"],
-                   action_type=confirmation["action_type"], confirmed=True)
-        replay = _post(client, admin_auth_header, CONFIRM, confirmation_id=confirmation["confirmation_id"],
-                       action_type=confirmation["action_type"], confirmed=True)
+        not_bool = _post(
+            client,
+            admin_auth_header,
+            CONFIRM,
+            confirmation_id=confirmation["confirmation_id"],
+            action_type=confirmation["action_type"],
+            confirmed="yes",
+        )
+        ok = _post(
+            client,
+            admin_auth_header,
+            CONFIRM,
+            confirmation_id=confirmation["confirmation_id"],
+            action_type=confirmation["action_type"],
+            confirmed=True,
+        )
+        replay = _post(
+            client,
+            admin_auth_header,
+            CONFIRM,
+            confirmation_id=confirmation["confirmation_id"],
+            action_type=confirmation["action_type"],
+            confirmed=True,
+        )
     assert foreign.status_code == 403 and foreign.get_json()["data"]["error"]["code"] == "confirmation.foreign_binding"
-    assert mismatch.status_code == 403 and mismatch.get_json()["data"]["error"]["code"] == "confirmation.action_mismatch"
+    assert (
+        mismatch.status_code == 403 and mismatch.get_json()["data"]["error"]["code"] == "confirmation.action_mismatch"
+    )
     assert not_bool.status_code == 422
     assert ok.status_code == 200
     execution = ok.get_json()["data"]["execution"]
-    assert execution["status"] == "executed" and execution["effect"] == {"kind": "rotate_page", "orientation": "rotated_90"}
+    assert execution["status"] == "executed" and execution["effect"] == {
+        "kind": "rotate_page",
+        "orientation": "rotated_90",
+    }
     assert replay.status_code == 403 and replay.get_json()["data"]["error"]["code"] == "confirmation.already_used"
     dumped = json.dumps([c.args[1] for c in audit.call_args_list])
     assert "rotated_90" not in dumped and "invoice" not in dumped and confirmation["confirmation_id"] not in dumped
@@ -454,10 +558,16 @@ def test_non_json_body_and_bad_deadline(client, admin_auth_header, enabled):
     transport = Transport()
     with enabled(_runtime(transport)):
         not_json = client.post(ROUTE, headers=admin_auth_header, data="task=shapes-v1")
-        deadline = client.post(ROUTE, headers={**admin_auth_header, "X-Ananta-Deadline-Seconds": "soon"},
-                               json={"task": "shapes-v1", "images": [_uri()]})
+        deadline = client.post(
+            ROUTE,
+            headers={**admin_auth_header, "X-Ananta-Deadline-Seconds": "soon"},
+            json={"task": "shapes-v1", "images": [_uri()]},
+        )
     assert not_json.status_code == 400
-    assert deadline.status_code == 422 and deadline.get_json()["data"]["error"]["code"] == "vision_decision.invalid_deadline"
+    assert (
+        deadline.status_code == 422
+        and deadline.get_json()["data"]["error"]["code"] == "vision_decision.invalid_deadline"
+    )
     assert transport.calls == []
 
 
@@ -496,7 +606,9 @@ def test_oversized_body_is_a_413(client, admin_auth_header, enabled):
         (Transport(payload=_decision(SHAPES, model="other.gguf")), "model_not_allowed", 200),
     ],
 )
-def test_service_failures_are_normal_path_without_any_value(client, admin_auth_header, enabled, transport, code, status):
+def test_service_failures_are_normal_path_without_any_value(
+    client, admin_auth_header, enabled, transport, code, status
+):
     runtime = _runtime(transport, api_key=KEY, models=(MODEL,))
     with enabled(runtime), patch("agent.routes.vision_decision.log_audit") as audit:
         res = _decide(client, admin_auth_header)

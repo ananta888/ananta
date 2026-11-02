@@ -21,26 +21,47 @@ from tests.meet.test_meet_companion_task_tools import post
 @pytest.fixture
 def models(hub):
     hub.app.config["MEET_COMPANION_ASSIGNED_MODEL_PROFILE"] = {
-        "backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64, "auto_execute": True,
+        "backend": "openai",
+        "model": "synthetic-model",
+        "environment_digest": "e" * 64,
+        "auto_execute": True,
     }
     content = SqlCompanionToolSources(hub.database, maximum=128_000)
-    service = MeetCompanionModelRuns(hub.f.authority, HubCompanionModelPolicy(hub.app),
-        MeetCompanionModelInputs(hub.registry, hub.store, hub.policy), content, hub.registry,
-        attempts=hub.attempts, synthetic=True)
+    service = MeetCompanionModelRuns(
+        hub.f.authority,
+        HubCompanionModelPolicy(hub.app),
+        MeetCompanionModelInputs(hub.registry, hub.store, hub.policy),
+        content,
+        hub.registry,
+        attempts=hub.attempts,
+        synthetic=True,
+    )
     yield hub, service
 
 
 def value(responses=()):
-    return {"backend": "openai", "model": "synthetic-model", "request": {
-        "model": "synthetic-model", "stream": False, "max_tokens": 128,
-        "messages": [{"role": "user", "content": "synthetic question"},
-                     *({"role": "tool", "content": render_tool_result(item)} for item in responses)],
-    }, "tool_results": list(responses)}
+    return {
+        "backend": "openai",
+        "model": "synthetic-model",
+        "request": {
+            "model": "synthetic-model",
+            "stream": False,
+            "max_tokens": 128,
+            "messages": [
+                {"role": "user", "content": "synthetic question"},
+                *({"role": "tool", "content": render_tool_result(item)} for item in responses),
+            ],
+        },
+        "tool_results": list(responses),
+    }
 
 
 def generated():
-    return {"model": "synthetic-model", "choices": [{"message": {"role": "assistant", "content": "synthetic answer"}}],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 3}}
+    return {
+        "model": "synthetic-model",
+        "choices": [{"message": {"role": "assistant", "content": "synthetic answer"}}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 3},
+    }
 
 
 def reserve(models, request=None, nonce="b" * 32):
@@ -52,15 +73,23 @@ def reserve(models, request=None, nonce="b" * 32):
 def finish(models, reserved, result=None):
     f, service = models
     with f.app.app_context():
-        packet = {"run": reserved["run"], "input_source": reserved["input_source"],
-                  "result": generated() if result is None else result}
+        packet = {
+            "run": reserved["run"],
+            "input_source": reserved["input_source"],
+            "result": generated() if result is None else result,
+        }
         return service.finish(f.request["assignment"], packet)
 
 
 def state(f, run_id):
     with f.database.connect() as connection:
-        return connection.execute(select(HubRunEvidenceIdentityDB.__table__).where(
-            HubRunEvidenceIdentityDB.run_id == run_id)).mappings().one()
+        return (
+            connection.execute(
+                select(HubRunEvidenceIdentityDB.__table__).where(HubRunEvidenceIdentityDB.run_id == run_id)
+            )
+            .mappings()
+            .one()
+        )
 
 
 def test_separate_model_run_is_reserved_over_exact_request_and_tool_sources_before_execution(models):
@@ -77,14 +106,29 @@ def test_separate_model_run_is_reserved_over_exact_request_and_tool_sources_befo
     run = state(f, run_id)
     assert run["state"] == "succeeded" and run["result_digest"] == digest(generated())
     assert completed["run"] == reserved["run"] and completed["result_digest"] == digest(generated())
-    output = f.registry.require_source_identity(tenant_id="tenant", project_id="project",
+    output = f.registry.require_source_identity(
+        tenant_id="tenant",
+        project_id="project",
         source_id=completed["sources"][0]["source_id"],
-        expected_binding_digest=completed["sources"][0]["binding_digest"])
+        expected_binding_digest=completed["sources"][0]["binding_digest"],
+    )
     assert output.origin_type == "meet_companion_model" and output.synthetic and output.evidence_scope == "test"
 
 
-@pytest.mark.parametrize("bad", ["model", "backend", "no_auto_policy", "environment", "nonce", "request_model",
-                                 "stream", "budget", "unregistered_tool_message"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "model",
+        "backend",
+        "no_auto_policy",
+        "environment",
+        "nonce",
+        "request_model",
+        "stream",
+        "budget",
+        "unregistered_tool_message",
+    ],
+)
 def test_unapproved_or_unbound_request_never_reserves_run(models, bad):
     f, _service = models
     request, nonce = value(), "b" * 32
@@ -191,8 +235,13 @@ def test_ollama_model_request_and_result_have_their_own_protocol_validation(mode
     request["request"].pop("max_tokens")
     request["request"]["options"] = {"num_predict": 128}
     reserved = reserve(models, request)
-    result = {"model": "synthetic-model", "done": True, "message": {"role": "assistant", "content": "synthetic"},
-              "prompt_eval_count": 10, "eval_count": 3}
+    result = {
+        "model": "synthetic-model",
+        "done": True,
+        "message": {"role": "assistant", "content": "synthetic"},
+        "prompt_eval_count": 10,
+        "eval_count": 3,
+    }
     assert finish(models, reserved, result)["result_digest"] == digest(result)
 
 

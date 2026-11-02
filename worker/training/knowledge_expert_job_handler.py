@@ -33,10 +33,7 @@ class KnowledgeExpertJobHandler:
             current_attempt_id=current_attempt_id,
             now=now,
         )
-        if (
-            payload_digest != task.input_digest
-            or canonical_sha256(payload) != payload_digest
-        ):
+        if payload_digest != task.input_digest or canonical_sha256(payload) != payload_digest:
             raise ValueError("knowledge_expert_task_input_digest_mismatch")
         handler = self._handlers.get(task.task_type)
         if handler is None:

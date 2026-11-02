@@ -13,7 +13,6 @@ from agent.services.mail_provider_ports import (
     MailQueryPage,
 )
 
-
 _METADATA_PROPERTIES = (
     "id",
     "threadId",
@@ -227,9 +226,7 @@ class JmapMailReadProvider:
             keyword_conditions.append({"hasKeyword": "$seen"})
         flagged = filters.get("flagged")
         if flagged is not None:
-            keyword_conditions.append(
-                {"hasKeyword" if flagged else "notKeyword": "$flagged"}
-            )
+            keyword_conditions.append({"hasKeyword" if flagged else "notKeyword": "$flagged"})
         if not keyword_conditions:
             value = result
         elif len(keyword_conditions) == 1:

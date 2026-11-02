@@ -48,9 +48,7 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
         candidate_executor=ParallelCandidateExecutor(
             max_inflight_candidates=runtime_config.max_queue_depth,
             metrics=runtime_metrics,
-            admission_controller=ResourceAdmissionController(
-                resource_budget_from_config(runtime_config)
-            ),
+            admission_controller=ResourceAdmissionController(resource_budget_from_config(runtime_config)),
         ),
         backend_resolver=backend_resolver,
     )

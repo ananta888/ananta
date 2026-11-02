@@ -96,6 +96,7 @@ COMPANION_TOOLS = {
     ),
 }
 
+
 def enabled_tools(environ=None):
     """The hard allowlist, optionally narrowed by the operator (never widened)."""
     raw = (environ if environ is not None else os.environ).get("ANANTA_MEET_COMPANION_MCP_TOOLS")
@@ -171,9 +172,9 @@ def evidence(value, limit=6):
                         "line": line if type(line) is int and 0 < line < 10_000_000 else None,
                         "symbol": str(item.get("symbol") or "")[:256],
                         "revision": str(item.get("revision") or "")[:64],
-                        "excerpt": str(
-                            item.get("excerpt") or item.get("short_summary") or item.get("title") or ""
-                        )[:400],
+                        "excerpt": str(item.get("excerpt") or item.get("short_summary") or item.get("title") or "")[
+                            :400
+                        ],
                     }
                 )
                 continue
@@ -189,4 +190,3 @@ def _result_payload(result):
     if isinstance(content, list) and content and isinstance(content[0], dict) and "json" in content[0]:
         return content[0]["json"]
     return result
-

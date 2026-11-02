@@ -4,6 +4,7 @@ Detects Kitty graphics protocol and Sixel support separately from
 Mermaid renderer and raster renderer availability, so diagnostics
 can clearly distinguish which layer caused degraded output.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,6 +18,7 @@ from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisu
 @dataclass
 class MermaidRendererCapabilities:
     """Whether image-generating Mermaid backends are available."""
+
     mmdc_available: bool = False
     mmdc_path: str = ""
     playwright_available: bool = False
@@ -29,6 +31,7 @@ class MermaidRendererCapabilities:
 @dataclass
 class RasterRendererCapabilities:
     """Whether raster (PIL/cairosvg) rendering deps are available."""
+
     pillow_available: bool = False
     cairosvg_available: bool = False
 
@@ -39,6 +42,7 @@ class RasterRendererCapabilities:
 @dataclass
 class ImageOutputCapabilities:
     """Full image-output capability report (MIMG-012)."""
+
     # Mermaid renderer layer
     mermaid_renderer: MermaidRendererCapabilities = field(default_factory=MermaidRendererCapabilities)
     # Raster renderer layer
@@ -88,6 +92,7 @@ def detect_mermaid_renderer() -> MermaidRendererCapabilities:
     mmdc_ok = bool(mmdc_path)
     try:
         import importlib.util
+
         pw_ok = importlib.util.find_spec("playwright") is not None
     except Exception:
         pw_ok = False
@@ -102,11 +107,13 @@ def detect_mermaid_renderer() -> MermaidRendererCapabilities:
 def detect_raster_renderer() -> RasterRendererCapabilities:
     try:
         from PIL import Image  # type: ignore  # noqa: F401
+
         pil_ok = True
     except Exception:
         pil_ok = False
     try:
         import cairosvg  # type: ignore  # noqa: F401
+
         cairo_ok = True
     except Exception:
         cairo_ok = False
@@ -149,7 +156,8 @@ def detect_terminal_image_protocols() -> tuple[bool, bool]:
         sixel = (
             os.environ.get("SIXEL_SUPPORTED", "").lower() in {"1", "true", "yes"}
             or "mlterm" in term
-            or "xterm" in term and "256" not in term  # some xterm variants support Sixel
+            or "xterm" in term
+            and "256" not in term  # some xterm variants support Sixel
         )
 
     # Windows Terminal (WT_SESSION set) in WSL2: no reliable image protocol unless forced

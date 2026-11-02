@@ -8,6 +8,7 @@ Tests:
 - get_or_create returns existing profile by ID
 - cleanup_all_ephemeral removes all ephemeral profiles
 """
+
 from __future__ import annotations
 
 import tempfile

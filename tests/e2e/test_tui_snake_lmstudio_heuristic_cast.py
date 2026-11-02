@@ -11,6 +11,7 @@ Run with:
 To also test live LM Studio connectivity set ANANTA_TUI_LLM_API_BASE to the local
 LM Studio endpoint (default: http://127.0.0.1:1234/v1).
 """
+
 from __future__ import annotations
 
 import json
@@ -84,6 +85,7 @@ def _probe_lmstudio_chat(api_base: str) -> str:
 
 # ── rendered cast test (no live LM Studio required) ───────────────────────────
 
+
 def test_snake_lmstudio_heuristic_cast_rendered_markers(tmp_path: Path) -> None:
     """Rendered cast must contain heuristic, mouse-follow, and chat markers."""
     payload = record_tui_demo(
@@ -113,12 +115,8 @@ def test_snake_lmstudio_heuristic_cast_rendered_markers(tmp_path: Path) -> None:
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.", "", frame_text)
 
     # Heuristic selection markers
-    assert "heuristic:snake_tui_follow_distance_default" in plain, (
-        "Cast missing follow_distance heuristic marker"
-    )
-    assert "heuristic:snake_tui_artifact_intent_default" in plain, (
-        "Cast missing artifact_intent heuristic marker"
-    )
+    assert "heuristic:snake_tui_follow_distance_default" in plain, "Cast missing follow_distance heuristic marker"
+    assert "heuristic:snake_tui_artifact_intent_default" in plain, "Cast missing artifact_intent heuristic marker"
 
     # Mouse-follow markers
     assert "mouse-follow" in plain, "Cast missing [mouse-follow] marker"
@@ -127,12 +125,8 @@ def test_snake_lmstudio_heuristic_cast_rendered_markers(tmp_path: Path) -> None:
     assert "lmstudio-chat-active" in plain, "Cast missing [lmstudio-chat-active] marker"
 
     # Both snakes visible (local + AI tutor)
-    assert "local-snake" in plain or "s1" in plain or "mint" in plain, (
-        "Local snake (s1/mint) not found in cast"
-    )
-    assert "tutor-ai" in plain or "s-ai" in plain or "amber" in plain, (
-        "AI tutor snake (s-ai/amber) not found in cast"
-    )
+    assert "local-snake" in plain or "s1" in plain or "mint" in plain, "Local snake (s1/mint) not found in cast"
+    assert "tutor-ai" in plain or "s-ai" in plain or "amber" in plain, "AI tutor snake (s-ai/amber) not found in cast"
 
     # Navigation sections covered
     assert "goals" in plain.lower() or "GOALS" in plain, "Goals section not in cast"
@@ -140,6 +134,7 @@ def test_snake_lmstudio_heuristic_cast_rendered_markers(tmp_path: Path) -> None:
 
 
 # ── live LM Studio E2E test ───────────────────────────────────────────────────
+
 
 def test_snake_lmstudio_heuristic_cast_live_connectivity(tmp_path: Path) -> None:
     """With live LM Studio: probe chat, record cast, verify full marker set."""
@@ -178,6 +173,6 @@ def test_snake_lmstudio_heuristic_cast_live_connectivity(tmp_path: Path) -> None
     assert not missing, f"Live cast missing markers: {missing}\n(plain tail: {plain[-1500:]})"
 
     synced_targets = list(payload.get("synced_cast_targets") or [])
-    assert any(
-        "operator_tui_splash.cast" in p for p in synced_targets
-    ), f"Splash cast not synced. Synced targets: {synced_targets}"
+    assert any("operator_tui_splash.cast" in p for p in synced_targets), (
+        f"Splash cast not synced. Synced targets: {synced_targets}"
+    )

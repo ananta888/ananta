@@ -31,12 +31,19 @@ class _FakeRagService:
 
     def retrieve_context_bundle(self, query, **kwargs):
         self.calls.append({"query": query, **kwargs})
-        return {"query": query, "chunks": list(self._chunks), "explainability": {}, "llm_scope": kwargs.get("llm_scope")}
+        return {
+            "query": query,
+            "chunks": list(self._chunks),
+            "explainability": {},
+            "llm_scope": kwargs.get("llm_scope"),
+        }
 
 
 class _FakeRegistry:
     def __init__(self, sources=None):
-        self._sources = sources or {"open-notebook-abc123def456": {"source_id": "open-notebook-abc123def456", "enabled": True}}
+        self._sources = sources or {
+            "open-notebook-abc123def456": {"source_id": "open-notebook-abc123def456", "enabled": True}
+        }
 
     def get_source(self, source_id):
         return self._sources.get(source_id)
@@ -81,9 +88,7 @@ def test_insights_are_included_when_requested():
 def test_notes_are_included_only_when_enabled():
     chunks = [_chunk("primary_source", content="p"), _chunk("note", content="n")]
     service, _rag = _service(chunks)
-    with_notes = service.build_context(
-        prompt="q", source_ref="open-notebook-abc123def456", include_notes=True
-    )
+    with_notes = service.build_context(prompt="q", source_ref="open-notebook-abc123def456", include_notes=True)
     kinds = {item["record_kind"] for item in with_notes["selected_sources"]}
     assert kinds == {"primary_source", "note"}
 

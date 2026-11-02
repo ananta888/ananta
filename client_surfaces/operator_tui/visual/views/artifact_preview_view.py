@@ -69,4 +69,3 @@ class ArtifactPreviewView:
             nodes=nodes,
             metadata={"animated": False, "cache_hint": "static"},
         )
-

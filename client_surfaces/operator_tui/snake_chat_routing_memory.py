@@ -1,4 +1,5 @@
 """SCTR-006: adaptive routing memory for safe SnakeChat read intents."""
+
 from __future__ import annotations
 
 import re
@@ -10,7 +11,6 @@ from client_surfaces.operator_tui.snake_chat_security_policy import (
     SnakeChatSecurityPolicy,
     check_tool_dispatch_allowed,
 )
-
 
 _SAFE_AUTO_ROUTES = {"filesystem_read", "git_read", "todo_read"}
 

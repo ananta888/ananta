@@ -103,9 +103,7 @@ class ProductionOrganizationSourceCatalogQueryAdapter:
                 "organization_source_catalog_query_result_invalid",
                 public_status=502,
             )
-        knowledge_index_id = str(
-            artifact_status.get("knowledge_index_id") or ""
-        ).strip()
+        knowledge_index_id = str(artifact_status.get("knowledge_index_id") or "").strip()
         if not knowledge_index_id:
             raise OrganizationSourceCatalogQueryError(
                 "organization_source_catalog_query_lineage_missing",

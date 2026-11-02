@@ -11,7 +11,6 @@ from agent.auth import check_user_auth, get_request_auth_context
 from agent.common.audit import log_audit
 from agent.services.sfu_layer_projection_service import SfuLayerProjectionError, SfuLayerProjectionService
 
-
 webrtc_sfu_layer_projections_bp = Blueprint("webrtc_sfu_layer_projections", __name__)
 
 
@@ -41,7 +40,9 @@ def submit_projection_receipt(room_ref: str, projection_ref: str):
         scope = _scope(tenant, room_ref, actor, "receiver", projection_ref)
         actor_digest = hashlib.sha256(f"{tenant}\0{room_ref}\0{actor}".encode()).hexdigest()
         _service().record_receipt(
-            scope=scope, projection_ref=projection_ref, actor_digest=actor_digest,
+            scope=scope,
+            projection_ref=projection_ref,
+            actor_digest=actor_digest,
             raw_document=request.get_data(cache=False, as_text=False),
         )
     except SfuLayerProjectionError as exc:
@@ -62,7 +63,9 @@ def _read(room_ref: str, kind: str, subject_ref: str):
             time.sleep(max(0.0, deadline - time.monotonic()))
             projection = _service().read(scope=scope, projection_kind=kind, subject_ref=subject_ref, cursor=cursor)
         if projection is None:
-            response = jsonify({"ok": True, "status": "heartbeat", "cursor": cursor, "safe_outcome": "ordinary_fallback"})
+            response = jsonify(
+                {"ok": True, "status": "heartbeat", "cursor": cursor, "safe_outcome": "ordinary_fallback"}
+            )
             response.headers["Cache-Control"] = "no-store"
             return response, 200
     except SfuLayerProjectionError as exc:
@@ -70,15 +73,20 @@ def _read(room_ref: str, kind: str, subject_ref: str):
     etag = f'"{projection.payload_digest}"'
     if request.headers.get("If-None-Match") == etag:
         return "", 304, {"ETag": etag, "Cache-Control": "no-store"}
-    response = jsonify({
-        "ok": True, "status": "projection", "cursor": projection.projection_version,
-        "projection_digest": projection.payload_digest, "signature": projection.signature,
-        "signature_key_id": projection.signature_key_id,
-        "signature_algorithm": projection.signature_algorithm,
-        "signature_algorithm_version": projection.signature_algorithm_version,
-        "signature_key_version": projection.signature_key_version,
-        "document": projection.payload,
-    })
+    response = jsonify(
+        {
+            "ok": True,
+            "status": "projection",
+            "cursor": projection.projection_version,
+            "projection_digest": projection.payload_digest,
+            "signature": projection.signature,
+            "signature_key_id": projection.signature_key_id,
+            "signature_algorithm": projection.signature_algorithm,
+            "signature_algorithm_version": projection.signature_algorithm_version,
+            "signature_key_version": projection.signature_key_version,
+            "document": projection.payload,
+        }
+    )
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "no-store"
     return response, 200
@@ -89,8 +97,11 @@ def _scope(tenant: str, room: str, actor: str, kind: str, subject: str):
     if authorizer is None or not callable(getattr(authorizer, "authorize", None)):
         raise SfuLayerProjectionError("sfu_projection_scope_unavailable", 503)
     scope = authorizer.authorize(
-        tenant_id=tenant, room_id=room, actor_id=actor,
-        projection_kind=kind, subject_ref=subject,
+        tenant_id=tenant,
+        room_id=room,
+        actor_id=actor,
+        projection_kind=kind,
+        subject_ref=subject,
     )
     if scope is None:
         raise SfuLayerProjectionError("sfu_projection_scope_denied", 403)

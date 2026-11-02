@@ -24,14 +24,18 @@ _CONSTRAINT = "uq_voice_result_artifact_scope_request_kind"
 def upgrade() -> None:
     if "voice_result_artifacts" not in set(inspect(op.get_bind()).get_table_names()):
         return
-    duplicate = op.get_bind().execute(
-        sa.text(
-            "SELECT tenant_id, owner_subject, request_hash, artifact_kind "
-            "FROM voice_result_artifacts "
-            "GROUP BY tenant_id, owner_subject, request_hash, artifact_kind "
-            "HAVING COUNT(*) > 1 LIMIT 1"
+    duplicate = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT tenant_id, owner_subject, request_hash, artifact_kind "
+                "FROM voice_result_artifacts "
+                "GROUP BY tenant_id, owner_subject, request_hash, artifact_kind "
+                "HAVING COUNT(*) > 1 LIMIT 1"
+            )
         )
-    ).first()
+        .first()
+    )
     if duplicate is not None:
         raise RuntimeError(
             "voice_result_artifacts contains duplicate scoped request artifacts; "

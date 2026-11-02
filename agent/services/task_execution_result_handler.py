@@ -15,7 +15,6 @@ from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.segment_preflight_validator import SegmentPreflightValidator
 from agent.services.task_execution_context_builder import (
     LocalExecutionResult,
-    is_recoverable_missing_binary_failure,
     repair_command_transcription_noise,
     resolve_loop_trace_id,
 )
@@ -158,7 +157,9 @@ def _evaluate_doom_loop(
     if not decision.detected:
         return None
     payload = decision.as_dict()
-    payload["enforced"] = bool(payload.get("action") in {"pause", "abort"} and decision.policy.get("enforce_pause_abort"))
+    payload["enforced"] = bool(
+        payload.get("action") in {"pause", "abort"} and decision.policy.get("enforce_pause_abort")
+    )
     if tid:
         current_app.logger.warning(
             "Task %s doom-loop detected: class=%s severity=%s action=%s",
@@ -247,7 +248,9 @@ def _execute_single_shell_command_with_policy(
             output=latest_output,
             policy=execution_policy,
         )
-        delay = compute_execution_retry_delay(policy=execution_policy, attempt=retries_used + 1) if should_retry else 0.0
+        delay = (
+            compute_execution_retry_delay(policy=execution_policy, attempt=retries_used + 1) if should_retry else 0.0
+        )
         retry_history.append(
             {
                 "attempt": attempt,
@@ -322,7 +325,9 @@ def _execute_shell_command_with_policy(
         task_id=tid,
         actor_role="hub",
         details={
-            "reason_code": "mutation_gate_segment_preflight_ok" if preflight.allowed else "mutation_gate_segment_preflight_blocked",
+            "reason_code": "mutation_gate_segment_preflight_ok"
+            if preflight.allowed
+            else "mutation_gate_segment_preflight_blocked",
             "source": "task_execution_service.segment_preflight",
             "segment_count": len(chain_segments),
             "denied_segment_index": preflight.denied_segment_index,
@@ -368,12 +373,15 @@ def _execute_shell_command_with_policy(
         if index < len(chain_segments):
             operator_before = chain_segments[index].operator_before
         if operator_before == "&&" and last_exit_code != 0:
-            aggregate_history.append({"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "&&"})
+            aggregate_history.append(
+                {"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "&&"}
+            )
             continue
         if operator_before == "||" and last_exit_code == 0:
-            aggregate_history.append({"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "||"})
+            aggregate_history.append(
+                {"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "||"}
+            )
             continue
-        from agent.services.command_to_tool_mapper import CommandToToolMapper
 
         mapped = CommandToToolMapper().map(segment)
         if mapped.mapped_tool and mapped.mapped_tool in known_tool_set:

@@ -419,14 +419,13 @@ def process_project(
             manifest=manifest,
         )
         discovery_result = run_domain_discovery(
-            analysis_inputs, project_root=root,
+            analysis_inputs,
+            project_root=root,
             limits=limits,
             manifest=manifest,
         )
         checkpoint()
-        discovery_result = write_domain_artifacts(
-            discovery_result, out_dir, dry_run=dry_run
-        )
+        discovery_result = write_domain_artifacts(discovery_result, out_dir, dry_run=dry_run)
         discovery_result = write_descriptor_suggestions(
             discovery_result,
             out_dir,
@@ -436,29 +435,22 @@ def process_project(
         output_files_for_manifest: list[str] = []
         for path in discovery_result.output_files:
             try:
-                output_files_for_manifest.append(
-                    str(path.relative_to(out_dir))
-                )
+                output_files_for_manifest.append(str(path.relative_to(out_dir)))
             except ValueError:
                 output_files_for_manifest.append(str(path))
         domain_discovery_extras = {
             "domain_discovery": {
                 "mode": limits.domain_discovery_mode,
                 "domain_count": len(discovery_result.domain_candidates),
-                "unassigned_record_count": len(
-                    discovery_result.unassigned_records
-                ),
-                "boundary_warning_count": len(
-                    discovery_result.boundary_warnings
-                ),
+                "unassigned_record_count": len(discovery_result.unassigned_records),
+                "boundary_warning_count": len(discovery_result.boundary_warnings),
                 "output_files": output_files_for_manifest,
                 "warnings": list(discovery_result.warnings),
             }
         }
         if limits.domain_discovery_mode == "rich":
             domain_discovery_extras["domain_discovery"]["domains"] = [
-                candidate.to_dict(include_members=False)
-                for candidate in discovery_result.domain_candidates
+                candidate.to_dict(include_members=False) for candidate in discovery_result.domain_candidates
             ]
 
     if not dry_run:
@@ -508,9 +500,7 @@ def _compact_manifest(manifest: dict, mode: str) -> dict:
     compacted["files"] = []
     compacted["package_type_index_summary"] = {
         "package_count": len(manifest.get("package_type_index", {})),
-        "type_count": sum(
-            len(types) for types in manifest.get("package_type_index", {}).values()
-        ),
+        "type_count": sum(len(types) for types in manifest.get("package_type_index", {}).values()),
     }
     compacted["package_type_index"] = {}
     domain_discovery = compacted.get("domain_discovery")
@@ -518,12 +508,8 @@ def _compact_manifest(manifest: dict, mode: str) -> dict:
         compacted["domain_discovery"] = {
             "mode": domain_discovery.get("mode"),
             "domain_count": domain_discovery.get("domain_count", 0),
-            "unassigned_record_count": domain_discovery.get(
-                "unassigned_record_count", 0
-            ),
-            "boundary_warning_count": domain_discovery.get(
-                "boundary_warning_count", 0
-            ),
+            "unassigned_record_count": domain_discovery.get("unassigned_record_count", 0),
+            "boundary_warning_count": domain_discovery.get("boundary_warning_count", 0),
             "output_files": domain_discovery.get("output_files", []),
         }
     return compacted

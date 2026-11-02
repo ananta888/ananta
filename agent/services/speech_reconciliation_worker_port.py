@@ -179,8 +179,8 @@ class HttpSpeechReconciliationWorkerPort:
             if not isinstance(raw_result, Mapping):
                 raise self._invalid("speech_reconciliation_worker_result_missing")
             try:
-                result: SpeechReconciliationWorkerOutcome | None = (
-                    SpeechReconciliationWorkerOutcome.from_mapping(raw_result)
+                result: SpeechReconciliationWorkerOutcome | None = SpeechReconciliationWorkerOutcome.from_mapping(
+                    raw_result
                 )
                 assert_worker_outcome_matches_job(job, result)
             except SpeechReconciliationContractError as exc:

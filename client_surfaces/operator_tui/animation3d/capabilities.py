@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from client_surfaces.operator_tui.animation3d.models import AnimationCapability, REASON_CODES
+from client_surfaces.operator_tui.animation3d.models import AnimationCapability
 
 
 def detect_3d_capability(

@@ -12,7 +12,9 @@ def normalize_approvals(items: list[dict] | None) -> list[dict]:
         payload.setdefault("id", payload.get("approval_id") or "")
         payload.setdefault("state", approval_state(payload))
         payload.setdefault("risk", payload.get("risk") or "unknown")
-        payload.setdefault("action_text", payload.get("action_text") or payload.get("action_id") or "Review requested action")
+        payload.setdefault(
+            "action_text", payload.get("action_text") or payload.get("action_id") or "Review requested action"
+        )
         normalized.append(payload)
     return normalized
 

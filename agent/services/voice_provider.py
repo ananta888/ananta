@@ -603,13 +603,7 @@ class VoiceProviderService:
     @staticmethod
     def _url_origin(value: str) -> str:
         parsed = urlsplit(str(value).strip())
-        if (
-            parsed.scheme != "http"
-            or not parsed.hostname
-            or parsed.port is None
-            or parsed.username
-            or parsed.password
-        ):
+        if parsed.scheme != "http" or not parsed.hostname or parsed.port is None or parsed.username or parsed.password:
             raise VoiceProviderError(
                 code="voice.runtime_origin_invalid",
                 message="voice runtime URL has an invalid origin",

@@ -274,7 +274,9 @@ def collect_answers(
 
     return InitAnswers(
         runtime_mode=runtime_mode,
-        runtime_mode_source=mode_source if str(args.runtime_mode or "auto").strip().lower() == "auto" else "cli.argument",
+        runtime_mode_source=mode_source
+        if str(args.runtime_mode or "auto").strip().lower() == "auto"
+        else "cli.argument",
         hardware_profile=hardware_profile,
         llm_backend=llm_backend,
         endpoint_url=endpoint_url,

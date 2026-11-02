@@ -32,33 +32,20 @@ class MailMetadataSyncDeltaApplier:
         delta: MailSyncDelta,
         replace_scope: bool,
     ) -> MailProviderResult[None]:
-        if not all(
-            str(value or "").strip()
-            for value in (transaction_id, account_id, provider_account_id, scope)
-        ):
+        if not all(str(value or "").strip() for value in (transaction_id, account_id, provider_account_id, scope)):
             return MailProviderResult.failure("mail_sync_delta_context_invalid")
         if delta.cursor.account_id != account_id:
             return MailProviderResult.failure("mail_sync_delta_account_mismatch")
         try:
-            incoming = {
-                message.message_ref.mail_ref_id
-                for message in (*delta.created, *delta.updated)
-            }
+            incoming = {message.message_ref.mail_ref_id for message in (*delta.created, *delta.updated)}
             if replace_scope:
                 for row in self._metadata.list_messages(account_id=account_id):
                     raw_ref = row.get("message_ref")
                     if not isinstance(raw_ref, Mapping):
                         continue
                     locator = raw_ref.get("protocol_locator")
-                    provider_id = (
-                        str(locator.get("provider_account_id") or "")
-                        if isinstance(locator, Mapping)
-                        else ""
-                    )
-                    same_provider = (
-                        not provider_id
-                        or provider_id == str(provider_account_id)
-                    )
+                    provider_id = str(locator.get("provider_account_id") or "") if isinstance(locator, Mapping) else ""
+                    same_provider = not provider_id or provider_id == str(provider_account_id)
                     mail_ref_id = str(raw_ref.get("mail_ref_id") or "")
                     if same_provider and mail_ref_id and mail_ref_id not in incoming:
                         self._metadata.delete_message(mail_ref_id=mail_ref_id)
@@ -75,9 +62,7 @@ class MailMetadataSyncDeltaApplier:
                 "mail_sync_metadata_projection_failed",
                 retryable=True,
             )
-        return MailProviderResult.success(
-            reason_code="mail_sync_metadata_projected"
-        )
+        return MailProviderResult.success(reason_code="mail_sync_metadata_projected")
 
 
 class PersistentMailboxLocatorStore:
@@ -109,9 +94,7 @@ class PersistentMailboxLocatorStore:
         rows: dict[str, dict[str, str]] = {}
         for mailbox in mailboxes:
             locator = dict(mailbox.provider_locator)
-            provider_id = str(
-                locator.get("mailbox_id") or locator.get("mailbox") or ""
-            ).strip()
+            provider_id = str(locator.get("mailbox_id") or locator.get("mailbox") or "").strip()
             mailbox_ref_id = str(mailbox.mailbox_ref_id or "").strip()
             if not provider_id or not mailbox_ref_id:
                 return MailProviderResult.failure("mailbox_locator_invalid")
@@ -155,11 +138,7 @@ class PersistentMailboxLocatorStore:
             return MailProviderResult.failure("mailbox_role_required")
         try:
             with self._locked():
-                rows = dict(
-                    dict(self._load().get("accounts") or {}).get(
-                        str(account_id), {}
-                    )
-                )
+                rows = dict(dict(self._load().get("accounts") or {}).get(str(account_id), {}))
         except (OSError, ValueError, portalocker.exceptions.LockException):
             return MailProviderResult.failure(
                 "mailbox_locator_store_unavailable",

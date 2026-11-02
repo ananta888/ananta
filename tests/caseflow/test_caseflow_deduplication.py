@@ -1,9 +1,8 @@
 """Tests for CaseFlow Deduplication (DISCOVERY-003)."""
+
 from __future__ import annotations
 
-import pytest
 from agent.caseflow.deduplication import (
-    DuplicateCheckResult,
     check_duplicate,
     compute_fingerprint,
 )
@@ -11,7 +10,9 @@ from agent.caseflow.discovery import DiscoveryResult
 
 
 def _make_result(title: str, url: str | None = None, raw_text: str = "", run_id: str = "r1") -> DiscoveryResult:
-    r = DiscoveryResult(run_id=run_id, result_type="job_posting", title=title, source_name="test", source_url=url, raw_text=raw_text)
+    r = DiscoveryResult(
+        run_id=run_id, result_type="job_posting", title=title, source_name="test", source_url=url, raw_text=raw_text
+    )
     r.fingerprint = compute_fingerprint(r.result_type, r.title, r.source_url, r.normalized_payload)
     return r
 
@@ -46,10 +47,14 @@ class TestDeduplication:
         assert result.similarity >= 0.85
 
     def test_non_duplicate_different_content(self):
-        r1 = _make_result("Python Developer", url="https://company-a.com/jobs/1",
-                          raw_text="Python flask experience required")
-        r2 = _make_result("Java Developer", url="https://company-b.com/jobs/2",
-                          raw_text="Java Spring Boot enterprise application development")
+        r1 = _make_result(
+            "Python Developer", url="https://company-a.com/jobs/1", raw_text="Python flask experience required"
+        )
+        r2 = _make_result(
+            "Java Developer",
+            url="https://company-b.com/jobs/2",
+            raw_text="Java Spring Boot enterprise application development",
+        )
         result = check_duplicate(r2, [r1])
         assert result.is_duplicate is False
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_java as tsjava
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -17,15 +17,7 @@ from rag_helper.extractors.java_type_extractor import JavaTypeContext, extract_t
 
 class JavaJavadocHelperTests(unittest.TestCase):
     def test_extract_javadoc_normalizes_body_and_tags(self) -> None:
-        src = (
-            b"/**\n"
-            b" * Saves a user.\n"
-            b" *\n"
-            b" * @param id user id\n"
-            b" * @return saved user\n"
-            b" */\n"
-            b"void save() {}"
-        )
+        src = b"/**\n * Saves a user.\n *\n * @param id user id\n * @return saved user\n */\nvoid save() {}"
 
         node = SimpleNamespace(start_byte=src.index(b"void"))
         javadoc = extract_javadoc(node, src)
@@ -55,7 +47,9 @@ def _parse_first_type(code: str):
     return src, type_node
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class JavaJavadocIntegrationTests(unittest.TestCase):
     def test_extract_type_and_members_include_javadoc(self) -> None:
         src, type_node = _parse_first_type(

@@ -10,6 +10,7 @@ and grants: activation re-checks that the validated digest still
 matches the proposal digest and that the approval was granted for
 exactly this digest.
 """
+
 from __future__ import annotations
 
 import time
@@ -191,7 +192,15 @@ class CustomToolPromotionService:
         return proposal
 
     @staticmethod
-    def _audit(digest: str, proposal: dict[str, Any], status: str, *, actor: str | None = None, admin_override: bool = False, reason_code: str | None = None) -> None:
+    def _audit(
+        digest: str,
+        proposal: dict[str, Any],
+        status: str,
+        *,
+        actor: str | None = None,
+        admin_override: bool = False,
+        reason_code: str | None = None,
+    ) -> None:
         audit_hub_direct_event(
             AUDIT_CUSTOM_TOOL_PROMOTION,
             tool_name=str(proposal.get("name") or ""),

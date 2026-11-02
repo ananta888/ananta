@@ -9,7 +9,7 @@ from rag_helper.utils.text_normalization import normalize_ws
 
 
 def node_text(src: bytes, node) -> str:
-    return src[node.start_byte:node.end_byte].decode("utf-8", errors="ignore")
+    return src[node.start_byte : node.end_byte].decode("utf-8", errors="ignore")
 
 
 def first_child_of_type(node, typ: str):
@@ -64,7 +64,7 @@ def extract_javadoc(node, src: bytes) -> str | None:
     end = start_byte
     while end > 0 and chr(src[end - 1]).isspace():
         end -= 1
-    if end < 2 or src[end - 2:end] != b"*/":
+    if end < 2 or src[end - 2 : end] != b"*/":
         return None
 
     start = src.rfind(b"/**", 0, end - 2)
@@ -131,8 +131,14 @@ def extract_identifier(node, src: bytes) -> str | None:
 def extract_return_type(node, src: bytes) -> str | None:
     for c in node.children:
         if c.type in {
-            "type_identifier", "generic_type", "integral_type", "floating_point_type",
-            "boolean_type", "void_type", "array_type", "scoped_type_identifier",
+            "type_identifier",
+            "generic_type",
+            "integral_type",
+            "floating_point_type",
+            "boolean_type",
+            "void_type",
+            "array_type",
+            "scoped_type_identifier",
             "annotated_type",
         }:
             return node_text(src, c).strip()
@@ -147,10 +153,20 @@ def extract_field(node, src: bytes) -> dict[str, Any]:
     declarators = []
 
     for c in node.children:
-        if c.type in {
-            "type_identifier", "generic_type", "integral_type", "floating_point_type",
-            "boolean_type", "array_type", "scoped_type_identifier", "annotated_type",
-        } and typ is None:
+        if (
+            c.type
+            in {
+                "type_identifier",
+                "generic_type",
+                "integral_type",
+                "floating_point_type",
+                "boolean_type",
+                "array_type",
+                "scoped_type_identifier",
+                "annotated_type",
+            }
+            and typ is None
+        ):
             typ = node_text(src, c).strip()
         elif c.type == "variable_declarator":
             declarators.append(normalize_ws(node_text(src, c)))
@@ -194,8 +210,11 @@ def extract_type_refs(node, src: bytes) -> list[str]:
     while stack:
         cur = stack.pop()
         if cur.type in {
-            "type_identifier", "generic_type", "scoped_type_identifier",
-            "array_type", "annotated_type",
+            "type_identifier",
+            "generic_type",
+            "scoped_type_identifier",
+            "array_type",
+            "annotated_type",
         }:
             refs.append(normalize_ws(node_text(src, cur)))
         stack.extend(reversed(cur.children))

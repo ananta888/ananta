@@ -51,7 +51,11 @@ class ThreeWorkerComparisonRunner:
             "config": cfg,
             "planning": dict((cfg.get("planning") or {}).get("resolved") or {}),
             "provider_entries": provider_entries,
-            "tracks": [track for track in list(cfg.get("tracks") or []) if isinstance(track, dict) and bool(track.get("enabled", True))],
+            "tracks": [
+                track
+                for track in list(cfg.get("tracks") or [])
+                if isinstance(track, dict) and bool(track.get("enabled", True))
+            ],
         }
 
     def run(
@@ -69,25 +73,32 @@ class ThreeWorkerComparisonRunner:
         for index, track in enumerate(plan["tracks"]):
             track_started = time.time()
             try:
-                result = executor(track, {"prompt": prompt, "planning": plan["planning"], "run_id": plan["run_id"], "track_index": index})
+                result = executor(
+                    track,
+                    {"prompt": prompt, "planning": plan["planning"], "run_id": plan["run_id"], "track_index": index},
+                )
                 status = str(result.get("status") or "ok").strip().lower() or "ok"
-                results.append({
-                    "track_id": track.get("id"),
-                    "worker_type": track.get("worker_type"),
-                    "requested_backend": track.get("requested_backend"),
-                    "status": status,
-                    "duration_ms": int((time.time() - track_started) * 1000),
-                    "result": result,
-                })
+                results.append(
+                    {
+                        "track_id": track.get("id"),
+                        "worker_type": track.get("worker_type"),
+                        "requested_backend": track.get("requested_backend"),
+                        "status": status,
+                        "duration_ms": int((time.time() - track_started) * 1000),
+                        "result": result,
+                    }
+                )
             except Exception as exc:
-                results.append({
-                    "track_id": track.get("id"),
-                    "worker_type": track.get("worker_type"),
-                    "requested_backend": track.get("requested_backend"),
-                    "status": "failed",
-                    "duration_ms": int((time.time() - track_started) * 1000),
-                    "error": str(exc),
-                })
+                results.append(
+                    {
+                        "track_id": track.get("id"),
+                        "worker_type": track.get("worker_type"),
+                        "requested_backend": track.get("requested_backend"),
+                        "status": "failed",
+                        "duration_ms": int((time.time() - track_started) * 1000),
+                        "error": str(exc),
+                    }
+                )
         failed = [item for item in results if item.get("status") not in _SUCCESS_STATUSES]
         pending = [item for item in results if item.get("status") in {"handoff_required", "pending_integration"}]
         summary = {

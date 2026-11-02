@@ -121,8 +121,15 @@ class MeetTurnService:
             raise MeetError("meet_media_policy_denied", 403)
         if self.grant_issuer is None:
             raise MeetError("meet_machine_publication_disabled", 403)
-        caps = tuple(capabilities) if capabilities else (
-            "avatar.publish", "speech.publish", "chat.send", "chat.read",
+        caps = (
+            tuple(capabilities)
+            if capabilities
+            else (
+                "avatar.publish",
+                "speech.publish",
+                "chat.send",
+                "chat.read",
+            )
         )
         identity = identity or {}
         now = self.clock()
@@ -140,9 +147,7 @@ class MeetTurnService:
             turn["speech_profile"] = dict(self.speech_profile)
         runtime_id = identity.get("runtime_id") or "companion-runtime"
         session_id = identity.get("session_id") or ("companion-" + task_id[:24])
-        return self.grant_issuer.issue_companion(
-            turn, self.binding, principal, now, caps, runtime_id, session_id
-        )
+        return self.grant_issuer.issue_companion(turn, self.binding, principal, now, caps, runtime_id, session_id)
 
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.

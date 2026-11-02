@@ -8,7 +8,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Iterable
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -79,7 +78,9 @@ class MediaWikiXmlDumpParser:
                         yield position, self._parse_page(elem)
                         elem.clear()
                 except ET.ParseError as exc:
-                    logger.warning("Wiki multistream block has invalid XML (skipping block at offset %d): %s", offset, exc)
+                    logger.warning(
+                        "Wiki multistream block has invalid XML (skipping block at offset %d): %s", offset, exc
+                    )
 
     def _parse_page(self, elem) -> dict[str, Any]:
         redirect = elem.find(".//{*}redirect")
@@ -129,4 +130,3 @@ class MediaWikiXmlDumpParser:
                 elif local_name == "doc":
                     yield self._parse_doc(elem)
                     elem.clear()
-

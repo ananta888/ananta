@@ -129,7 +129,9 @@ def _list_rendezvous_titles(base_url: str, token: str) -> list[str]:
     return titles
 
 
-def _wait_for_rendezvous_title(base_url: str, token: str, expected_title: str, *, timeout_seconds: float = 12.0) -> list[str]:
+def _wait_for_rendezvous_title(
+    base_url: str, token: str, expected_title: str, *, timeout_seconds: float = 12.0
+) -> list[str]:
     deadline = time.monotonic() + max(1.0, timeout_seconds)
     last_titles: list[str] = []
     while time.monotonic() < deadline:
@@ -273,9 +275,9 @@ def test_share_session_live_e2e_scene_uses_pty_capture_backend(tmp_path: Path, m
         return (
             '{"version": 2, "width": 200, "height": 56, "title": "Ananta Operator TUI – Share Session Live E2E"}\n'
             '[0.0, "o", "\\u001b[2J\\u001b[Hready> :share create test\\n"]\n'
-            "[1.1, \"o\", \"Session 'test' erstellt. Invite: /share/share-test-001\\n\"]\n"
-            "[2.2, \"o\", \"ready> :share list\\n\"]\n"
-            "[3.3, \"o\", \"1 Session(s): 'test'[share-te] 1P\\n\"]\n"
+            '[1.1, "o", "Session \'test\' erstellt. Invite: /share/share-test-001\\n"]\n'
+            '[2.2, "o", "ready> :share list\\n"]\n'
+            '[3.3, "o", "1 Session(s): \'test\'[share-te] 1P\\n"]\n'
         )
 
     monkeypatch.setattr("scripts.e2e.record_tui_demo._share_session_live_e2e_cast", _fake_live_share_cast)
@@ -317,8 +319,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
         access_token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
         if not access_token:
             issuer = str(
-                os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-                or "https://keycloak.ananta.de/realms/ananta"
+                os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER") or "https://keycloak.ananta.de/realms/ananta"
             ).strip()
             username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
             password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
@@ -380,8 +381,7 @@ def test_share_session_live_e2e_records_real_pty_flow(tmp_path: Path, live_share
             os.environ["ANANTA_NETWORK_PROFILE"] = "public-ananta"
             os.environ["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = "true"
             os.environ["ANANTA_OIDC_ISSUER"] = str(
-                os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-                or "https://keycloak.ananta.de/realms/ananta"
+                os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER") or "https://keycloak.ananta.de/realms/ananta"
             )
             if os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID"):
                 os.environ["ANANTA_OIDC_CLIENT_ID"] = str(os.environ["ANANTA_TUI_E2E_OIDC_CLIENT_ID"])

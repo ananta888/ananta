@@ -3,6 +3,7 @@
 Mounted onto the shared ``auth_bp`` blueprint via :func:`register_routes`.
 Behavior preserved 1:1 from the original auth.py (lines 894-1010).
 """
+
 from __future__ import annotations
 
 import uuid
@@ -179,8 +180,7 @@ def register_routes(auth_bp) -> None:
                     status_code=422,
                 )
             candidate_ids = [
-                validate_identifier(item, field="candidate_id", max_length=192)
-                for item in raw_candidate_ids
+                validate_identifier(item, field="candidate_id", max_length=192) for item in raw_candidate_ids
             ]
             result = {
                 "schema_version": "2.0",

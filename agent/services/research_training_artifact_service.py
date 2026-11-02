@@ -91,9 +91,7 @@ class ResearchTrainingArtifactService:
         return self._projection(parsed, relative, replayed=False)
 
     @staticmethod
-    def _projection(
-        manifest: ResearchArtifactManifestV1, relative: Path, *, replayed: bool
-    ) -> dict[str, Any]:
+    def _projection(manifest: ResearchArtifactManifestV1, relative: Path, *, replayed: bool) -> dict[str, Any]:
         return {
             "schema": "ananta.research-training-artifact-receipt.v1",
             "artifact_digest": manifest.artifact_digest,

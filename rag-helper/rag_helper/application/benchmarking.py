@@ -5,35 +5,39 @@ def build_benchmark_report(manifest_files: list[dict], mode: str) -> dict | None
     if mode != "basic":
         return None
 
-    files_with_duration = [
-        entry for entry in manifest_files
-        if entry.get("duration_ms") is not None
-    ]
+    files_with_duration = [entry for entry in manifest_files if entry.get("duration_ms") is not None]
     by_extension: dict[str, dict] = {}
     largest_outputs: list[dict] = []
     slowest_files: list[dict] = []
 
     for entry in files_with_duration:
         ext = entry.get("ext", "")
-        stats = by_extension.setdefault(ext, {
-            "file_count": 0,
-            "total_duration_ms": 0.0,
-            "total_output_records": 0,
-        })
+        stats = by_extension.setdefault(
+            ext,
+            {
+                "file_count": 0,
+                "total_duration_ms": 0.0,
+                "total_output_records": 0,
+            },
+        )
         output_record_count = entry.get("output_record_count", 0)
         stats["file_count"] += 1
         stats["total_duration_ms"] += entry.get("duration_ms", 0.0)
         stats["total_output_records"] += output_record_count
-        largest_outputs.append({
-            "file": entry.get("file"),
-            "ext": ext,
-            "output_record_count": output_record_count,
-        })
-        slowest_files.append({
-            "file": entry.get("file"),
-            "ext": ext,
-            "duration_ms": entry.get("duration_ms", 0.0),
-        })
+        largest_outputs.append(
+            {
+                "file": entry.get("file"),
+                "ext": ext,
+                "output_record_count": output_record_count,
+            }
+        )
+        slowest_files.append(
+            {
+                "file": entry.get("file"),
+                "ext": ext,
+                "duration_ms": entry.get("duration_ms", 0.0),
+            }
+        )
 
     for ext, stats in by_extension.items():
         file_count = stats["file_count"] or 1

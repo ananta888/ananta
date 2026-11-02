@@ -3,31 +3,28 @@ against new MODEL_PROFILES_PATH profile-resolver config.
 
 Verifies backward-compat and correct precedence when both are set.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import tempfile
 
-import pytest
-
+from agent.services.model_override_normalization_service import (
+    ModelOverrideNormalizationService,
+)
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_profile_resolver import (
     ModelProfileResolver,
     RoutingContext,
     RoutingRules,
 )
-from agent.services.model_override_normalization_service import (
-    ModelOverrideNormalizationService,
-)
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _make_profile_file(profiles: list[dict]) -> str:
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    )
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
     json.dump({"profiles": profiles}, tmp)
     tmp.flush()
     return tmp.name
@@ -47,6 +44,7 @@ def _local_profile(pid: str, model: str = "qwen:7b", role: str = "any") -> Model
 
 
 # ── ModelOverrideNormalizationService ────────────────────────────────────────
+
 
 def test_legacy_dict_roundtrip():
     svc = ModelOverrideNormalizationService()
@@ -96,6 +94,7 @@ def test_legacy_env_returns_none_when_not_set(monkeypatch):
 
 # ── Profile resolver with no legacy config ───────────────────────────────────
 
+
 def test_resolver_uses_first_profile_via_capability_match():
     profiles = [
         _local_profile("profile-a"),
@@ -140,6 +139,7 @@ def test_resolver_role_rule_beats_global():
 
 # ── Profile resolver with legacy fallback ────────────────────────────────────
 
+
 def test_resolve_with_fallback_uses_profile_when_available():
     profiles = [_local_profile("profile-a")]
     resolver = ModelProfileResolver(profiles=profiles, routing_rules=RoutingRules())
@@ -165,9 +165,9 @@ def test_resolve_with_fallback_returns_legacy_when_no_profiles():
 
 # ── Profile loader from file ──────────────────────────────────────────────────
 
+
 def test_loader_reads_json_file():
-    data = [{"profile_id": "from-file", "provider_id": "ollama",
-             "model": "qwen:7b", "local": True, "cloud": False}]
+    data = [{"profile_id": "from-file", "provider_id": "ollama", "model": "qwen:7b", "local": True, "cloud": False}]
     path = _make_profile_file(data)
     try:
         loader = ModelProfileLoader()
@@ -180,8 +180,7 @@ def test_loader_reads_json_file():
 
 
 def test_loader_rejects_cloud_profile_missing_cloud_allowed():
-    data = [{"profile_id": "bad-cloud", "provider_id": "openai",
-             "model": "gpt-4o", "local": False, "cloud": True}]
+    data = [{"profile_id": "bad-cloud", "provider_id": "openai", "model": "gpt-4o", "local": False, "cloud": True}]
     path = _make_profile_file(data)
     try:
         loader = ModelProfileLoader()
@@ -192,15 +191,17 @@ def test_loader_rejects_cloud_profile_missing_cloud_allowed():
 
 
 def test_loader_accepts_valid_cloud_profile():
-    data = [{
-        "profile_id": "good-cloud",
-        "provider_id": "openai",
-        "model": "gpt-4o",
-        "local": False,
-        "cloud": True,
-        "cloud_allowed": True,
-        "block_secret_context": True,
-    }]
+    data = [
+        {
+            "profile_id": "good-cloud",
+            "provider_id": "openai",
+            "model": "gpt-4o",
+            "local": False,
+            "cloud": True,
+            "cloud_allowed": True,
+            "block_secret_context": True,
+        }
+    ]
     path = _make_profile_file(data)
     try:
         loader = ModelProfileLoader()
@@ -229,9 +230,11 @@ def test_loader_rejects_duplicate_profile_ids():
 
 # ── Deprecation when both configured ─────────────────────────────────────────
 
+
 def test_deprecation_warning_logged_when_both_set(caplog):
     """Profile resolver takes precedence; deprecation warning is logged."""
     import logging
+
     profiles = [_local_profile("new-profile")]
     resolver = ModelProfileResolver(profiles=profiles, routing_rules=RoutingRules())
 
@@ -249,6 +252,7 @@ def test_deprecation_warning_logged_when_both_set(caplog):
 
 
 # ── MPM-003: Read-model effective winner ──────────────────────────────────────
+
 
 def test_resolution_result_carries_source_rank():
     profiles = [
@@ -279,13 +283,13 @@ def test_resolution_result_carries_decisions():
 
 def test_resolution_result_carries_blocked_candidates():
     from agent.services.model_profile_resolver import ProviderHealthCache
+
     profiles = [
         _local_profile("unhealthy"),
         _local_profile("healthy"),
     ]
     cache = ProviderHealthCache()
     cache.mark_unavailable("lmstudio")  # both profiles use lmstudio
-    resolver = ModelProfileResolver(profiles=profiles, routing_rules=RoutingRules(),
-                                    health_cache=cache)
+    resolver = ModelProfileResolver(profiles=profiles, routing_rules=RoutingRules(), health_cache=cache)
     result = resolver.resolve(RoutingContext(requires_tools=False))
     assert isinstance(result.blocked_candidates, list)

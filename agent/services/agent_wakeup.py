@@ -31,11 +31,20 @@ class WakeupRequest:
     error: str | None = None
 
     def to_mapping(self) -> dict:
-        return {"request_id": self.request_id, "agent_id": self.agent_id, "source": self.source,
-                "status": self.status, "trigger_detail": self.trigger_detail, "reason": self.reason,
-                "idempotency_key": self.idempotency_key, "coalesced_count": self.coalesced_count,
-                "requested_at": self.requested_at, "claimed_at": self.claimed_at,
-                "finished_at": self.finished_at, "error": self.error}
+        return {
+            "request_id": self.request_id,
+            "agent_id": self.agent_id,
+            "source": self.source,
+            "status": self.status,
+            "trigger_detail": self.trigger_detail,
+            "reason": self.reason,
+            "idempotency_key": self.idempotency_key,
+            "coalesced_count": self.coalesced_count,
+            "requested_at": self.requested_at,
+            "claimed_at": self.claimed_at,
+            "finished_at": self.finished_at,
+            "error": self.error,
+        }
 
 
 @dataclass
@@ -46,8 +55,15 @@ class WakeupQueue:
     _requests: dict[str, WakeupRequest] = field(default_factory=dict)
     _by_idempotency: dict[str, str] = field(default_factory=dict)
 
-    def enqueue(self, agent_id: str, source: str, *, trigger_detail: str | None = None, reason: str | None = None,
-                idempotency_key: str | None = None) -> WakeupRequest:
+    def enqueue(
+        self,
+        agent_id: str,
+        source: str,
+        *,
+        trigger_detail: str | None = None,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> WakeupRequest:
         if not isinstance(agent_id, str) or not agent_id or len(agent_id) > 200:
             raise ValueError("wakeup_agent_id_invalid")
         if source not in _SOURCES:
@@ -65,9 +81,17 @@ class WakeupQueue:
                 self._by_idempotency[idempotency_key] = coalesced.request_id
             return coalesced
         now = self.clock()
-        request = WakeupRequest(request_id=uuid.uuid4().hex, agent_id=agent_id, source=source, status="queued",
-                                trigger_detail=trigger_detail, reason=reason, idempotency_key=idempotency_key,
-                                coalesced_count=0, requested_at=now)
+        request = WakeupRequest(
+            request_id=uuid.uuid4().hex,
+            agent_id=agent_id,
+            source=source,
+            status="queued",
+            trigger_detail=trigger_detail,
+            reason=reason,
+            idempotency_key=idempotency_key,
+            coalesced_count=0,
+            requested_at=now,
+        )
         self._requests[request.request_id] = request
         if idempotency_key is not None:
             self._by_idempotency[idempotency_key] = request.request_id
@@ -85,12 +109,14 @@ class WakeupQueue:
             raise ValueError("wakeup_request_unknown")
         if request.status not in {"claimed", "queued"}:
             raise ValueError("wakeup_request_not_open")
-        return self._replace(request, status="failed" if error else "finished", finished_at=self.clock(),
-                             error=error)
+        return self._replace(request, status="failed" if error else "finished", finished_at=self.clock(), error=error)
 
     def pending(self, *, agent_id: str | None = None) -> list[WakeupRequest]:
-        return [request for request in self._requests.values()
-                if request.status in {"queued", "claimed"} and (agent_id is None or request.agent_id == agent_id)]
+        return [
+            request
+            for request in self._requests.values()
+            if request.status in {"queued", "claimed"} and (agent_id is None or request.agent_id == agent_id)
+        ]
 
     def _find_pending(self, agent_id: str, source: str) -> WakeupRequest | None:
         for request in self._requests.values():

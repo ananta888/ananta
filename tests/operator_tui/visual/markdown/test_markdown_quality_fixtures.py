@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
 from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import render_markdown_ansi
-
+from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
 
 FIXTURE_ROOT = Path("tests/fixtures/scenarios/markdown_mermaid_quality")
 

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import sys
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Mapping, Protocol, Sequence
 from urllib import error, parse, request
-
 
 EXIT_SUCCESS = 0
 EXIT_AUTH = 3

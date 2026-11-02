@@ -37,10 +37,7 @@ def _index(**overrides) -> SourceIndexRecord:
 
 class _Repository:
     def __init__(self, indices=None) -> None:
-        self.indices = {
-            index.knowledge_index_id: index
-            for index in (indices or [_index()])
-        }
+        self.indices = {index.knowledge_index_id: index for index in (indices or [_index()])}
         self.active = ActiveIndexPointer(
             connection_id="connection-example",
             knowledge_index_id="current-index",
@@ -49,9 +46,7 @@ class _Repository:
         )
         self.blockers = ()
         self.purged = []
-        self.versions = {
-            index.knowledge_index_id: 1 for index in self.indices.values()
-        }
+        self.versions = {index.knowledge_index_id: 1 for index in self.indices.values()}
 
     def list_history(self, **kwargs):
         return SourceIndexHistoryPage(
@@ -81,9 +76,7 @@ class _Repository:
         return kwargs["expected_version"] + 1
 
     def tombstone_index(self, **kwargs):
-        if kwargs["expected_version"] != self.versions[
-            kwargs["knowledge_index_id"]
-        ]:
+        if kwargs["expected_version"] != self.versions[kwargs["knowledge_index_id"]]:
             raise SourceIndexLifecycleError("index_version_conflict")
         index = self.indices[kwargs["knowledge_index_id"]]
         self.indices[index.knowledge_index_id] = replace(index, tombstoned=True)
@@ -244,16 +237,22 @@ def test_disable_tombstone_and_purge_are_distinct() -> None:
     audit = _Audit()
     service = SourceIndexLifecycleService(repository=repository, audit=audit)
 
-    assert service.disable(
-        scope=_scope(),
-        connection_id="connection-example",
-        expected_version=1,
-    ) == 2
-    assert service.tombstone(
-        scope=_scope(),
-        knowledge_index_id="index-example",
-        expected_version=1,
-    ) == 2
+    assert (
+        service.disable(
+            scope=_scope(),
+            connection_id="connection-example",
+            expected_version=1,
+        )
+        == 2
+    )
+    assert (
+        service.tombstone(
+            scope=_scope(),
+            knowledge_index_id="index-example",
+            expected_version=1,
+        )
+        == 2
+    )
     assert repository.indices["index-example"].tombstoned is True
     assert repository.purged == []
 

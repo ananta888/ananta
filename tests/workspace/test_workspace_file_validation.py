@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import os
 import pytest
 
 from agent.services.workspace_path_validator import (
     REASON_INVALID_PATH,
+    REASON_OK,
     REASON_OUTSIDE_WORKSPACE,
     REASON_PATH_TRAVERSAL,
     REASON_SYMLINK_ESCAPE,
-    REASON_OK,
     WorkspacePathValidator,
 )
 
@@ -26,6 +25,7 @@ def validator(workspace):
 
 
 # ── Happy path ────────────────────────────────────────────────────────────────
+
 
 def test_absolute_path_inside_workspace(validator, workspace):
     target = workspace / "app.py"
@@ -59,6 +59,7 @@ def test_workspace_root_itself_passes(validator, workspace):
 
 # ── Path traversal ────────────────────────────────────────────────────────────
 
+
 def test_dotdot_traversal_rejected(validator, workspace):
     res = validator.validate(str(workspace / ".." / "evil.txt"))
     assert res.ok is False
@@ -88,6 +89,7 @@ def test_root_path_rejected(validator):
 
 # ── Empty / invalid ───────────────────────────────────────────────────────────
 
+
 def test_empty_path_rejected(validator):
     assert validator.validate("").ok is False
     assert validator.validate("").reason == REASON_INVALID_PATH
@@ -98,6 +100,7 @@ def test_whitespace_only_path_rejected(validator):
 
 
 # ── Symlinks ──────────────────────────────────────────────────────────────────
+
 
 def test_symlink_inside_workspace_passes(validator, workspace):
     real = workspace / "real.txt"
@@ -120,6 +123,7 @@ def test_symlink_escaping_workspace_rejected(validator, workspace, tmp_path):
 
 # ── Spaces and special characters ────────────────────────────────────────────
 
+
 def test_path_with_spaces_passes(validator, workspace):
     target = workspace / "my file with spaces.txt"
     target.write_text("x")
@@ -137,6 +141,7 @@ def test_path_with_unicode_passes(validator, workspace):
 
 # ── build_safe_argv ───────────────────────────────────────────────────────────
 
+
 def test_build_safe_argv_returns_list(validator, workspace):
     target = workspace / "app.py"
     target.write_text("x")
@@ -153,6 +158,7 @@ def test_build_safe_argv_raises_for_invalid(validator):
 
 # ── Constructor guard ─────────────────────────────────────────────────────────
 
+
 def test_empty_workspace_root_raises():
     with pytest.raises(ValueError):
         WorkspacePathValidator("")
@@ -164,6 +170,7 @@ def test_whitespace_workspace_root_raises():
 
 
 # ── Prefix collision safety ───────────────────────────────────────────────────
+
 
 def test_workspace_prefix_not_confused_with_sibling(tmp_path):
     ws = tmp_path / "workspace"

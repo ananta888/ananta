@@ -31,8 +31,11 @@ def effects(request, tmp_path):
     keys = HmacKeyRing({"synthetic": "k" * 32}, active_key_id="synthetic")
     assignment = linear_request()
     values = dict(
-        tenant_id=assignment.plan.tenant_id, workflow_id=assignment.plan.workflow_id,
-        run_id=assignment.run_id, step_id="work", declared_operation="write-output",
+        tenant_id=assignment.plan.tenant_id,
+        workflow_id=assignment.plan.workflow_id,
+        run_id=assignment.run_id,
+        step_id="work",
+        declared_operation="write-output",
         side_effect_class="idempotent_write",
     )
     leases = BpmnRunLeaseService(checkpoints=checkpoints, keys=keys, clock=lambda: now[0])
@@ -46,8 +49,11 @@ def effects(request, tmp_path):
 
 def authorize(s, record, lease):
     return s.ledger.authorize_fenced(
-        record.operation_id, lease=lease, expected_revision=record.revision,
-        fencing_token=1, authorization_envelope_id="synthetic-grant",
+        record.operation_id,
+        lease=lease,
+        expected_revision=record.revision,
+        fencing_token=1,
+        authorization_envelope_id="synthetic-grant",
     )
 
 
@@ -86,7 +92,9 @@ def test_expiry_inside_side_effect_recipient_prevents_mutation(effects, monkeypa
     else:
         # Deterministic correlation key only, never an Evidence Registry ID.
         operation_id = operation_id_for(
-            tenant_id=s.values["tenant_id"], run_id=s.values["run_id"], step_id=s.values["step_id"],
+            tenant_id=s.values["tenant_id"],
+            run_id=s.values["run_id"],
+            step_id=s.values["step_id"],
             declared_operation=s.values["declared_operation"],
         )
         assert s.ledger.get(tenant_id=s.values["tenant_id"], operation_id=operation_id) is None

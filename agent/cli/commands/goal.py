@@ -1,4 +1,5 @@
 """ananta goal — user-facing goal operations."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,9 +10,23 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
-SUBCOMMANDS = ["create", "list", "inspect", "status", "ask", "plan", "review",
-               "diagnose", "patch", "repair-admin", "new-project", "evolve-project",
-               "planning-stuck", "recover-stale", "cancel-tree"]
+SUBCOMMANDS = [
+    "create",
+    "list",
+    "inspect",
+    "status",
+    "ask",
+    "plan",
+    "review",
+    "diagnose",
+    "patch",
+    "repair-admin",
+    "new-project",
+    "evolve-project",
+    "planning-stuck",
+    "recover-stale",
+    "cancel-tree",
+]
 
 _DEFAULT_BASE_URL = "http://localhost:5000"
 _DEFAULT_USER = "admin"
@@ -31,12 +46,12 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  ananta goal list\n"
-            "  ananta goal create \"Build a Fibonacci API\"\n"
-            "  ananta goal create \"Build a Fibonacci API\" --profile opencode_preconfigured\n"
+            '  ananta goal create "Build a Fibonacci API"\n'
+            '  ananta goal create "Build a Fibonacci API" --profile opencode_preconfigured\n'
             "  ananta goal status <goal-id>\n"
             "  ananta goal inspect <goal-id>\n"
-            "  ananta goal ask \"What should I do next?\"\n"
-            "  ananta goal new-project \"Create a REST API for users\"\n"
+            '  ananta goal ask "What should I do next?"\n'
+            '  ananta goal new-project "Create a REST API for users"\n'
         ),
     )
     _configure_subparsers(p)
@@ -72,8 +87,13 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     cr_p.add_argument("goal_text", help="Goal description text.")
     cr_p.add_argument("--profile", default="opencode_preconfigured", help="Config profile name.")
     cr_p.add_argument("--mode", default="generic", help="Goal mode (generic, new_software_project).")
-    cr_p.add_argument("--no-wait", dest="wait", action="store_false", default=True,
-                      help="Return immediately without polling for completion.")
+    cr_p.add_argument(
+        "--no-wait",
+        dest="wait",
+        action="store_false",
+        default=True,
+        help="Return immediately without polling for completion.",
+    )
     cr_p.add_argument("--timeout", type=int, default=900, help="Max wait time in seconds.")
     cr_p.add_argument("--poll", type=float, default=10.0, help="Poll interval in seconds.")
     cr_p.add_argument("--json", action="store_true")
@@ -89,16 +109,14 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     li_p.add_argument("--password", default=_DEFAULT_PASSWORD)
 
     ins_p = sub.add_parser("inspect", help="Inspect one goal including its tasks.")
-    ins_p.add_argument("goal_id", nargs="?", default="",
-                       help="Goal ID or prefix. Omit for interactive selection.")
+    ins_p.add_argument("goal_id", nargs="?", default="", help="Goal ID or prefix. Omit for interactive selection.")
     ins_p.add_argument("--json", action="store_true")
     ins_p.add_argument("--base-url", default=None)
     ins_p.add_argument("--user", default=_DEFAULT_USER)
     ins_p.add_argument("--password", default=_DEFAULT_PASSWORD)
 
     st_p = sub.add_parser("status", help="Show current status of a goal.")
-    st_p.add_argument("goal_id", nargs="?", default="",
-                       help="Goal ID or prefix. Omit for interactive selection.")
+    st_p.add_argument("goal_id", nargs="?", default="", help="Goal ID or prefix. Omit for interactive selection.")
     st_p.add_argument("--json", action="store_true")
     st_p.add_argument("--base-url", default=None)
     st_p.add_argument("--user", default=_DEFAULT_USER)
@@ -147,8 +165,7 @@ def dispatch(argv: Sequence[str]) -> int:
         return _cmd_inspect(parsed)
     if cmd == "status":
         return _cmd_status(parsed)
-    if cmd in ("ask", "plan", "review", "diagnose", "patch", "repair-admin",
-               "new-project", "evolve-project"):
+    if cmd in ("ask", "plan", "review", "diagnose", "patch", "repair-admin", "new-project", "evolve-project"):
         mode = getattr(parsed, "_goal_mode", "generic")
         parsed.mode = mode
         return _cmd_create(parsed)
@@ -173,16 +190,14 @@ def register(subparsers: Any) -> None:
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def _base_url(parsed) -> str:
-    return (
-        getattr(parsed, "base_url", None)
-        or os.environ.get("ANANTA_BASE_URL", "")
-        or _DEFAULT_BASE_URL
-    )
+    return getattr(parsed, "base_url", None) or os.environ.get("ANANTA_BASE_URL", "") or _DEFAULT_BASE_URL
 
 
 def _login(base: str, user: str, password: str) -> str:
     import requests
+
     resp = requests.post(
         f"{base}/login",
         json={"username": user, "password": password},
@@ -201,8 +216,10 @@ def _auth(token: str) -> dict:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _cmd_create(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     goal_text = getattr(parsed, "goal_text", "")
     mode = getattr(parsed, "mode", "generic")
@@ -262,6 +279,7 @@ def _cmd_create(parsed) -> int:
 
 def _print_tasks(base: str, goal_id: str, token: str) -> None:
     import requests
+
     r = requests.get(f"{base}/tasks?goal_id={goal_id}&limit=20", headers=_auth(token), timeout=15)
     if r.ok:
         tasks = r.json().get("data") or []
@@ -273,6 +291,7 @@ def _print_tasks(base: str, goal_id: str, token: str) -> None:
 
 def _cmd_list(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     try:
         token = _login(base, parsed.user, parsed.password)
@@ -304,6 +323,7 @@ def _resolve_goal_id(parsed) -> str | None:
         return partial  # looks like a full UUID, skip fetch
 
     from agent.cli.utils.interactive import fetch_goals, resolve_id
+
     base = _base_url(parsed)
     try:
         token = _login(base, parsed.user, parsed.password)
@@ -324,6 +344,7 @@ def _resolve_goal_id(parsed) -> str | None:
 
 def _cmd_inspect(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     gid = _resolve_goal_id(parsed)
     if not gid:
@@ -342,16 +363,19 @@ def _cmd_inspect(parsed) -> int:
     if getattr(parsed, "json", False):
         print(json.dumps(g, indent=2))
     else:
-        print(json.dumps(
-            {k: g.get(k) for k in ["id", "status", "failure_reason", "created_at"]},
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {k: g.get(k) for k in ["id", "status", "failure_reason", "created_at"]},
+                indent=2,
+            )
+        )
         _print_tasks(base, gid, token)
     return 0
 
 
 def _cmd_status(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     gid = _resolve_goal_id(parsed)
     if not gid:
@@ -381,6 +405,7 @@ def _cmd_status(parsed) -> int:
 def _cmd_planning_stuck(parsed) -> int:
     """PRI-013: Show goals stuck in planning (expired lease or long-running)."""
     import requests
+
     base = _base_url(parsed)
     try:
         token = _login(base, parsed.user, parsed.password)
@@ -402,9 +427,15 @@ def _cmd_planning_stuck(parsed) -> int:
     slots = data.get("planning_slots") or {}
     cb = data.get("circuit_breaker") or {}
     print("=== Planning Health ===")
-    print(f"  Slots:   capacity={slots.get('capacity')}  in_use={slots.get('in_use')}  available={slots.get('available')}")
-    print(f"  Goals:   queued={goals.get('queued')}  running={goals.get('running')}  stale_expired_lease={goals.get('stale_expired_lease')}")
-    print(f"  Circuit: provider={cb.get('provider')}  state={cb.get('state')}  failures={cb.get('failures')}/{cb.get('threshold')}")
+    print(
+        f"  Slots:   capacity={slots.get('capacity')}  in_use={slots.get('in_use')}  available={slots.get('available')}"
+    )
+    print(
+        f"  Goals:   queued={goals.get('queued')}  running={goals.get('running')}  stale_expired_lease={goals.get('stale_expired_lease')}"
+    )
+    print(
+        f"  Circuit: provider={cb.get('provider')}  state={cb.get('state')}  failures={cb.get('failures')}/{cb.get('threshold')}"
+    )
     ages = data.get("running_ages_s")
     if ages:
         print(f"  Running ages (s): {ages}")
@@ -418,6 +449,7 @@ def _cmd_planning_stuck(parsed) -> int:
 def _cmd_recover_stale(parsed) -> int:
     """PRI-013: Cancel stale planning goals with expired lease."""
     import requests
+
     base = _base_url(parsed)
     dry_run = not getattr(parsed, "yes", False)
     try:
@@ -445,7 +477,7 @@ def _cmd_recover_stale(parsed) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 4
     if rec.status_code == 404:
-        print(f"Recover endpoint not available. Use: ananta goal cancel-tree <goal_id>", file=sys.stderr)
+        print("Recover endpoint not available. Use: ananta goal cancel-tree <goal_id>", file=sys.stderr)
         return 1
     if not rec.ok:
         print(f"Error: {rec.status_code} {rec.text[:200]}", file=sys.stderr)
@@ -462,6 +494,7 @@ def _cmd_recover_stale(parsed) -> int:
 def _cmd_cancel_tree(parsed) -> int:
     """PRI-013: Cancel all tasks for a goal and mark it failed."""
     import requests
+
     base = _base_url(parsed)
     if not getattr(parsed, "yes", False):
         print("Error: cancel-tree is destructive — add --yes to confirm.", file=sys.stderr)

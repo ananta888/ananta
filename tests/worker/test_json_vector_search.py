@@ -16,20 +16,10 @@ from worker.retrieval.json_vector_search import (
         ((0.0, 0.0), (3, 1, 2), 2),
     ],
 )
-def test_numpy_strategy_matches_dependency_free_reference(
-    query, candidates, top_k
-) -> None:
+def test_numpy_strategy_matches_dependency_free_reference(query, candidates, top_k) -> None:
     vectors = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, 0.0))
-    expected = PythonCosineSearchIndex(vectors).rank(
-        query, candidate_indices=candidates, top_k=top_k
-    )
-    actual = NumpyCosineSearchIndex(vectors).rank(
-        query, candidate_indices=candidates, top_k=top_k
-    )
+    expected = PythonCosineSearchIndex(vectors).rank(query, candidate_indices=candidates, top_k=top_k)
+    actual = NumpyCosineSearchIndex(vectors).rank(query, candidate_indices=candidates, top_k=top_k)
 
-    assert [index for index, _score in actual] == [
-        index for index, _score in expected
-    ]
-    assert [score for _index, score in actual] == pytest.approx(
-        [score for _index, score in expected], abs=1e-6
-    )
+    assert [index for index, _score in actual] == [index for index, _score in expected]
+    assert [score for _index, score in actual] == pytest.approx([score for _index, score in expected], abs=1e-6)

@@ -37,10 +37,19 @@ REQUEST = DecisionRequest(
 TYPESAFE_OK = {
     "model": "jev-1.13.0",
     "answers": {
-        "tool": {"type": "choice", "choice": "search", "confidence": 0.96,
-                 "probabilities": {"search": 0.98, "none": 0.02}},
-        "complexity": {"type": "score", "score": 0.35, "confidence": 0.48, "legend": {"0": "trivial"},
-                       "probabilities": {"0": 0.7, "1": 0.26, "2": 0.04}},
+        "tool": {
+            "type": "choice",
+            "choice": "search",
+            "confidence": 0.96,
+            "probabilities": {"search": 0.98, "none": 0.02},
+        },
+        "complexity": {
+            "type": "score",
+            "score": 0.35,
+            "confidence": 0.48,
+            "legend": {"0": "trivial"},
+            "probabilities": {"0": 0.7, "1": 0.26, "2": 0.04},
+        },
         "needs_code": {"type": "noul", "noul": 0.87},
     },
     "usage": {"input_tokens": 415, "output_tokens": 80},
@@ -74,8 +83,13 @@ def _http_error(code, body=b"{}", headers=None):
 
 def _provider(opener, **kwargs):
     sleeps = []
-    provider = ts.TypeSafeJevProvider(api_key=lambda: SECRET, opener=opener, sleep=sleeps.append,
-                                      retry=ts.RetryPolicy(max_retries=2, backoff_initial=0.01), **kwargs)
+    provider = ts.TypeSafeJevProvider(
+        api_key=lambda: SECRET,
+        opener=opener,
+        sleep=sleeps.append,
+        retry=ts.RetryPolicy(max_retries=2, backoff_initial=0.01),
+        **kwargs,
+    )
     provider.sleeps = sleeps
     return provider
 
@@ -111,8 +125,11 @@ def test_typesafe_request_and_response_mapping():
     request, _timeout = opener.requests[0]
     body = json.loads(request.data)
     assert request.full_url == "https://api.typesafe.ai/v1/systemone"
-    assert body["questions"]["tool"] == {"type": "choice", "instructions": "Which tool answers this?",
-                                         "criteria": {"search": "find code", "none": "no tool"}}
+    assert body["questions"]["tool"] == {
+        "type": "choice",
+        "instructions": "Which tool answers this?",
+        "criteria": {"search": "find code", "none": "no tool"},
+    }
     assert body["questions"]["complexity"]["criteria"] == ["trivial", "moderate", "hard"]
     assert body["questions"]["needs_code"] == {"type": "noul", "instructions": "Needs repository code."}
     assert request.get_header("Authorization") == f"Bearer {SECRET}" and request.get_header("Idempotency-key")
@@ -125,16 +142,19 @@ def test_typesafe_request_and_response_mapping():
     assert result.usage.input_tokens == 415 and result.usage.cost_usd == pytest.approx(415 * 0.042 / 1e6)
 
 
-@pytest.mark.parametrize("mutate", [
-    lambda p: p["answers"]["tool"].update(choice="delete_repo"),  # label outside the schema
-    lambda p: p["answers"]["tool"].update(type="score"),
-    lambda p: p["answers"].pop("needs_code"),
-    lambda p: p["answers"].update(extra={"type": "noul", "noul": 0.1}),
-    lambda p: p["answers"]["needs_code"].update(noul=1.7),
-    lambda p: p["answers"]["complexity"].update(score=float("nan")),
-    lambda p: p["answers"]["tool"]["probabilities"].update(other=0.1),
-    lambda p: p.pop("answers"),
-])
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p["answers"]["tool"].update(choice="delete_repo"),  # label outside the schema
+        lambda p: p["answers"]["tool"].update(type="score"),
+        lambda p: p["answers"].pop("needs_code"),
+        lambda p: p["answers"].update(extra={"type": "noul", "noul": 0.1}),
+        lambda p: p["answers"]["needs_code"].update(noul=1.7),
+        lambda p: p["answers"]["complexity"].update(score=float("nan")),
+        lambda p: p["answers"]["tool"]["probabilities"].update(other=0.1),
+        lambda p: p.pop("answers"),
+    ],
+)
 def test_typesafe_rejects_anything_outside_the_schema(mutate):
     payload = json.loads(json.dumps(TYPESAFE_OK))
     mutate(payload)
@@ -143,8 +163,7 @@ def test_typesafe_rejects_anything_outside_the_schema(mutate):
 
 
 def test_typesafe_retries_transient_failures_under_one_idempotency_key():
-    opener = _Opener(_http_error(429, headers={"retry-after-ms": "5"}), _http_error(529),
-                     _Response(TYPESAFE_OK))
+    opener = _Opener(_http_error(429, headers={"retry-after-ms": "5"}), _http_error(529), _Response(TYPESAFE_OK))
     provider = _provider(opener)
     result = provider.decide(REQUEST)
     keys = {request.get_header("Idempotency-key") for request, _ in opener.requests}
@@ -170,9 +189,13 @@ def test_typesafe_gives_up_after_the_retry_budget():
 def test_typesafe_respects_one_total_deadline():
     now = [0.0]
     opener = _Opener(_http_error(529), _Response(TYPESAFE_OK))
-    provider = ts.TypeSafeJevProvider(api_key=lambda: SECRET, opener=opener, clock=lambda: now[0],
-                                      sleep=lambda s: now.__setitem__(0, now[0] + s),
-                                      retry=ts.RetryPolicy(max_retries=5, backoff_initial=5.0, backoff_max=5.0))
+    provider = ts.TypeSafeJevProvider(
+        api_key=lambda: SECRET,
+        opener=opener,
+        clock=lambda: now[0],
+        sleep=lambda s: now.__setitem__(0, now[0] + s),
+        retry=ts.RetryPolicy(max_retries=5, backoff_initial=5.0, backoff_max=5.0),
+    )
     with pytest.raises(DecisionProviderError, match="upstream_busy"):
         provider.decide(REQUEST, timeout_seconds=1.0)  # the backoff would pass the deadline
     assert len(opener.requests) == 1
@@ -222,16 +245,33 @@ def test_the_key_only_travels_over_tls():
 
 def test_llamacpp_maps_kinds_onto_schema_fields_and_distributions():
     fields = {
-        "tool": {"value": "search", "probs": [{"value": "search", "probability": 0.9},
-                                              {"value": "none", "probability": 0.1}]},
-        "complexity": {"value": "trivial", "probs": [{"value": "trivial", "probability": 0.6},
-                                                     {"value": "moderate", "probability": 0.3},
-                                                     {"value": "hard", "probability": 0.1}]},
-        "needs_code": {"value": True, "probs": [{"value": True, "probability": 0.8},
-                                                {"value": False, "probability": 0.2}]},
+        "tool": {
+            "value": "search",
+            "probs": [{"value": "search", "probability": 0.9}, {"value": "none", "probability": 0.1}],
+        },
+        "complexity": {
+            "value": "trivial",
+            "probs": [
+                {"value": "trivial", "probability": 0.6},
+                {"value": "moderate", "probability": 0.3},
+                {"value": "hard", "probability": 0.1},
+            ],
+        },
+        "needs_code": {
+            "value": True,
+            "probs": [{"value": True, "probability": 0.8}, {"value": False, "probability": 0.2}],
+        },
     }
-    opener = _Opener(_Response({"object": "decision", "results": [{"fields": fields}], "model": "bonsai",
-                                "usage": {"prompt_tokens": 100, "context_tokens": 20}}))
+    opener = _Opener(
+        _Response(
+            {
+                "object": "decision",
+                "results": [{"fields": fields}],
+                "model": "bonsai",
+                "usage": {"prompt_tokens": 100, "context_tokens": 20},
+            }
+        )
+    )
     result = llamacpp.LlamaCppDecisionProvider(base_url="http://127.0.0.1:18150", opener=opener).decide(REQUEST)
     body = json.loads(opener.requests[0][0].data)
     assert body["schema"]["properties"]["tool"]["enum"] == ["search", "none"]
@@ -257,11 +297,17 @@ def _llamacpp(opener) -> llamacpp.LlamaCppDecisionProvider:
 
 
 def _llamacpp_fields():
-    return {"tool": {"probs": [{"value": "search", "probability": 1.0}, {"value": "none", "probability": 0.0}]},
-            "complexity": {"probs": [{"value": "trivial", "probability": 0.7},
-                                     {"value": "moderate", "probability": 0.2},
-                                     {"value": "hard", "probability": 0.1}]},
-            "needs_code": {"probs": [{"value": True, "probability": 0.9}, {"value": False, "probability": 0.1}]}}
+    return {
+        "tool": {"probs": [{"value": "search", "probability": 1.0}, {"value": "none", "probability": 0.0}]},
+        "complexity": {
+            "probs": [
+                {"value": "trivial", "probability": 0.7},
+                {"value": "moderate", "probability": 0.2},
+                {"value": "hard", "probability": 0.1},
+            ]
+        },
+        "needs_code": {"probs": [{"value": True, "probability": 0.9}, {"value": False, "probability": 0.1}]},
+    }
 
 
 def test_llamacpp_invalid_base_url_is_rejected():
@@ -269,14 +315,19 @@ def test_llamacpp_invalid_base_url_is_rejected():
         llamacpp.LlamaCppDecisionProvider(base_url="ftp://127.0.0.1")
 
 
-@pytest.mark.parametrize("mutate", [
-    lambda fields: fields.pop("count") if "count" in fields else fields.pop("complexity"),
-    lambda fields: {**fields, "extra": {"probs": [{"value": True, "probability": 1.0}]}},
-    lambda fields: {**fields, "tool": {"probs": [{"value": "search", "probability": "high"}]}},
-    lambda fields: {**fields, "tool": {"probs": [{"value": "search", "probability": 0.0},
-                                                 {"value": "none", "probability": 0.0}]}},
-    lambda fields: {**fields, "needs_code": {"probs": [{"value": "yes", "probability": 1.0}]}},
-])
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda fields: fields.pop("count") if "count" in fields else fields.pop("complexity"),
+        lambda fields: {**fields, "extra": {"probs": [{"value": True, "probability": 1.0}]}},
+        lambda fields: {**fields, "tool": {"probs": [{"value": "search", "probability": "high"}]}},
+        lambda fields: {
+            **fields,
+            "tool": {"probs": [{"value": "search", "probability": 0.0}, {"value": "none", "probability": 0.0}]},
+        },
+        lambda fields: {**fields, "needs_code": {"probs": [{"value": "yes", "probability": 1.0}]}},
+    ],
+)
 def test_llamacpp_schema_and_value_errors_are_response_invalid(mutate):
     fields = _llamacpp_fields()
     opener = _Opener(_Response({"object": "decision", "results": [{"fields": mutate(fields)}]}))
@@ -297,9 +348,14 @@ def test_llamacpp_response_too_large_is_rejected():
         _llamacpp(opener).decide(REQUEST)
 
 
-@pytest.mark.parametrize("exc,reason", [(TimeoutError(), "timeout"),
-                                        (urllib.error.URLError("refused"), "transport_error"),
-                                        (OSError("boom"), "transport_error")])
+@pytest.mark.parametrize(
+    "exc,reason",
+    [
+        (TimeoutError(), "timeout"),
+        (urllib.error.URLError("refused"), "transport_error"),
+        (OSError("boom"), "transport_error"),
+    ],
+)
 def test_llamacpp_transport_failures_are_retryable(exc, reason):
     with pytest.raises(DecisionProviderError) as info:
         _llamacpp(_Opener(exc)).decide(REQUEST)
@@ -340,8 +396,10 @@ class _Completion:
 
 
 def test_llm_answers_are_validated_like_every_provider():
-    text = ('Sure:\n{"tool": {"value": "search", "confidence": 0.9}, "complexity": {"value": "moderate"},'
-            ' "needs_code": {"value": "yes", "confidence": 0.6}}')
+    text = (
+        'Sure:\n{"tool": {"value": "search", "confidence": 0.9}, "complexity": {"value": "moderate"},'
+        ' "needs_code": {"value": "yes", "confidence": 0.6}}'
+    )
     result = llm.LLMDecisionProvider(_Completion(text)).decide(REQUEST)
     assert result.answer("tool").choice == "search" and result.answer("tool").confidence == 0.9
     assert result.answer("complexity").score == 1.0
@@ -357,8 +415,16 @@ def test_llm_answers_are_validated_like_every_provider():
 
 def _answers(tool_confidence):
     def answers(request):
-        return {"tool": DecisionAnswer("tool", "choice", choice="search",
-                                       probabilities={"search": 0.9, "none": 0.1}, confidence=tool_confidence)}
+        return {
+            "tool": DecisionAnswer(
+                "tool",
+                "choice",
+                choice="search",
+                probabilities={"search": 0.9, "none": 0.1},
+                confidence=tool_confidence,
+            )
+        }
+
     return answers
 
 
@@ -370,7 +436,8 @@ def test_the_cascade_accepts_the_first_confident_stage():
     jev = StaticDecisionProvider(_answers(0.95), provider_id="typesafe_jev")
     fallback = StaticDecisionProvider(_answers(1.0), provider_id="llm")
     outcome = DecisionCascade([CascadeStage(rules, 1.0), CascadeStage(jev, 0.9), CascadeStage(fallback, 0.5)]).decide(
-        ONE_QUESTION)
+        ONE_QUESTION
+    )
     assert outcome.decided_by == "typesafe_jev" and fallback.calls == []
     assert [stage.outcome for stage in outcome.trace] == ["error", "accepted"]
 
@@ -380,11 +447,16 @@ def test_the_cascade_falls_back_on_low_confidence_errors_and_missing_keys():
     unsure = StaticDecisionProvider(_answers(0.6), provider_id="llamacpp_decision")
     failing = StaticDecisionProvider(provider_id="broken", error=DecisionProviderError("timeout", retryable=True))
     fallback = StaticDecisionProvider(_answers(0.99), provider_id="llm")
-    outcome = DecisionCascade([CascadeStage(missing_key), CascadeStage(unsure, 0.9), CascadeStage(failing),
-                               CascadeStage(fallback, 0.9)]).decide(ONE_QUESTION)
+    outcome = DecisionCascade(
+        [CascadeStage(missing_key), CascadeStage(unsure, 0.9), CascadeStage(failing), CascadeStage(fallback, 0.9)]
+    ).decide(ONE_QUESTION)
     assert outcome.decided_by == "llm" and outcome.fell_back
     assert [(s.outcome, s.reason) for s in outcome.trace] == [
-        ("unavailable", "api_key_missing"), ("low_confidence", ""), ("error", "timeout"), ("accepted", "")]
+        ("unavailable", "api_key_missing"),
+        ("low_confidence", ""),
+        ("error", "timeout"),
+        ("accepted", ""),
+    ]
 
 
 def test_the_cascade_defers_instead_of_guessing():
@@ -404,18 +476,41 @@ def test_tool_questions_and_reading_match_the_shared_tool_contract():
     from agent.services.decision_providers.tool_choice import read_tool_choice, tool_questions
     from agent.services.decision_providers.types import DecisionResult
 
-    tools = [{"type": "function", "function": {"name": "search", "description": "Find code.", "parameters": {
-        "type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-             {"type": "function", "function": {"name": "heads", "description": "Index heads.", "parameters": {
-                 "type": "object", "properties": {"scope": {"enum": ["repo", "docs"]}}, "required": ["scope"]}}}]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Find code.",
+                "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "heads",
+                "description": "Index heads.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"scope": {"enum": ["repo", "docs"]}},
+                    "required": ["scope"],
+                },
+            },
+        },
+    ]
     schema, request, values = tool_questions(tools, "Wo ist X?")
     assert request.question("tool").labels == ("search", "heads", "none")
     assert list(values) == ["arg_0_scope"] and request.question("arg_0_scope").labels == ("repo", "docs")
 
     def result(tool, tool_conf, scope_conf):
-        return DecisionResult("p", "m", {
-            "tool": DecisionAnswer("tool", "choice", choice=tool, confidence=tool_conf),
-            "arg_0_scope": DecisionAnswer("arg_0_scope", "choice", choice="docs", confidence=scope_conf)})
+        return DecisionResult(
+            "p",
+            "m",
+            {
+                "tool": DecisionAnswer("tool", "choice", choice=tool, confidence=tool_conf),
+                "arg_0_scope": DecisionAnswer("arg_0_scope", "choice", choice="docs", confidence=scope_conf),
+            },
+        )
 
     call = read_tool_choice(schema, result("search", 0.95, 0.1), values, "Wo ist X?", min_confidence=0.9)
     assert (call.status, call.tool, dict(call.arguments)) == ("call", "search", {"query": "Wo ist X?"})
@@ -432,8 +527,12 @@ def test_tool_questions_and_reading_match_the_shared_tool_contract():
 def test_metrics_report_calibration_confident_mistakes_and_cascades():
     from agent.services.decision_providers.evaluation import Run, brier, macro_f1, provider_report, simulate_cascade
 
-    runs = [Run("a", "x", "x", 0.99, latency_ms=100, cost_usd=0.001), Run("b", "y", "x", 0.95, latency_ms=300),
-            Run("c", "y", "y", 0.60, latency_ms=200), Run("d", "x", None, 0.0, error="timeout")]
+    runs = [
+        Run("a", "x", "x", 0.99, latency_ms=100, cost_usd=0.001),
+        Run("b", "y", "x", 0.95, latency_ms=300),
+        Run("c", "y", "y", 0.60, latency_ms=200),
+        Run("d", "x", None, 0.0, error="timeout"),
+    ]
     report = provider_report(runs)
     assert report["accuracy"] == 0.5 and report["errors"] == 1 and report["error_reasons"] == ["timeout"]
     assert report["confident_mistakes"] == {"threshold": 0.9, "count": 1, "cases": ["b"]}
@@ -463,8 +562,12 @@ def test_prompt_spans_and_symbol_index_produce_candidates():
     assert split_identifier("agent/services/tool_loop.py") == ["agent", "services", "tool", "loop", "py"]
     spans = [c.value for c in PromptSpanCandidates().candidates('Zeig `build_schema` in agent/tools.py und "hac:x1"')]
     assert {"build_schema", "agent/tools.py", "hac:x1"} <= set(spans)
-    names = symbol_names([("agent/breaker.py", "class CircuitBreaker:\n    def allow(self):\n"),
-                          ("web/app.ts", "export function renderGraph() {}\n")])
+    names = symbol_names(
+        [
+            ("agent/breaker.py", "class CircuitBreaker:\n    def allow(self):\n"),
+            ("web/app.ts", "export function renderGraph() {}\n"),
+        ]
+    )
     assert names == ["agent/breaker.py", "CircuitBreaker", "allow", "web/app.ts", "renderGraph"]
     index = SymbolIndexCandidates(lambda: names)
     assert index.candidates("wo ist der cirkuit braker")[0].value == "CircuitBreaker"  # typo -> real name
@@ -496,8 +599,16 @@ def test_the_text_argument_is_a_candidate_choice_in_the_same_request():
         def candidates(self, prompt, *, tool="", argument=""):
             return [Candidate("CircuitBreaker", "symbol"), Candidate("agent/common/breaker.py", "path")]
 
-    tools = [{"type": "function", "function": {"name": "search", "description": "Find code.", "parameters": {
-        "type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Find code.",
+                "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+            },
+        }
+    ]
     prompt = "wo ist der cirkuit braker"
     schema, request, values = tool_questions(tools, prompt, candidates=Fixed())
     text_key = next(key for key in values if key.startswith("text_"))
@@ -505,20 +616,29 @@ def test_the_text_argument_is_a_candidate_choice_in_the_same_request():
     assert labels == ("CircuitBreaker", "v1", "whole_request", "none_fits")  # a path becomes an opaque label
 
     def result(choice):
-        return DecisionResult("p", "m", {
-            "tool": DecisionAnswer("tool", "choice", choice="search", confidence=0.97),
-            text_key: DecisionAnswer(text_key, "choice", choice=choice, confidence=0.4)})
+        return DecisionResult(
+            "p",
+            "m",
+            {
+                "tool": DecisionAnswer("tool", "choice", choice="search", confidence=0.97),
+                text_key: DecisionAnswer(text_key, "choice", choice=choice, confidence=0.4),
+            },
+        )
 
     # an unsure text choice never blocks the call: below text_min_confidence the request itself is used
     assert read_tool_choice(schema, result("CircuitBreaker"), values, prompt, min_confidence=0.9).arguments == {
-        "query": prompt}
-    assert read_tool_choice(schema, result("CircuitBreaker"), values, prompt, min_confidence=0.9,
-                            text_min_confidence=0.3).arguments == {"query": "CircuitBreaker"}
-    assert read_tool_choice(schema, result("v1"), values, prompt, min_confidence=0.9,
-                            text_min_confidence=0.0).arguments == {"query": "agent/common/breaker.py"}
+        "query": prompt
+    }
+    assert read_tool_choice(
+        schema, result("CircuitBreaker"), values, prompt, min_confidence=0.9, text_min_confidence=0.3
+    ).arguments == {"query": "CircuitBreaker"}
+    assert read_tool_choice(
+        schema, result("v1"), values, prompt, min_confidence=0.9, text_min_confidence=0.0
+    ).arguments == {"query": "agent/common/breaker.py"}
     for fallback in ("whole_request", "none_fits"):
         assert read_tool_choice(schema, result(fallback), values, prompt, min_confidence=0.9).arguments == {
-            "query": prompt}
+            "query": prompt
+        }
 
 
 def test_concurrent_first_use_of_the_symbol_index_is_safe():

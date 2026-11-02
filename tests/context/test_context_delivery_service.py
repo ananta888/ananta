@@ -7,7 +7,6 @@ import pytest
 
 from agent.services.context_delivery_service import (
     ContextDeliveryError,
-    ContextDeliveryResult,
     ContextDeliveryService,
 )
 from agent.services.workspace_context_policy import WorkspaceContextPolicy
@@ -16,7 +15,9 @@ from agent.services.workspace_context_policy import WorkspaceContextPolicy
 def _make_workspace_ctx(tmp_path: Path, scope_mode: str = "selective", git_context=None):
     ctx = MagicMock()
     ctx.workspace_dir = tmp_path
-    ctx.context_policy = WorkspaceContextPolicy(scope_mode=scope_mode, max_files=200, sensitivity_ceiling="confidential")
+    ctx.context_policy = WorkspaceContextPolicy(
+        scope_mode=scope_mode, max_files=200, sensitivity_ceiling="confidential"
+    )
     ctx.git_context = git_context
     return ctx
 
@@ -100,7 +101,7 @@ class TestContextDeliveryService:
                 with patch.object(svc, "_resolve_llm_scope", return_value="local_only"):
                     with patch("subprocess.run") as mock_run:
                         mock_run.return_value = MagicMock(returncode=0, stderr="")
-                        result = svc.deliver(task=task, workspace_ctx=ctx)
+                        svc.deliver(task=task, workspace_ctx=ctx)
 
         mock_run.assert_called_once()
         call_args = mock_run.call_args
@@ -169,7 +170,7 @@ def test_external_cloud_with_full_scope_is_blocked_when_disabled(tmp_path):
             "workspace_context_policy": {
                 "llm_scope": "external_cloud_allowed",
                 "allow_full_context_for_cloud": False,
-            }
+            },
         },
     }
 

@@ -29,8 +29,7 @@ def test_capability_projection_requires_auth_and_contains_all_runtimes(client):
 
 def test_capability_projection_evaluates_repeated_requirements(client):
     response = client.get(
-        "/api/workflow-runtime/capabilities"
-        "?required_capability=resume&required_capability=durability",
+        "/api/workflow-runtime/capabilities?required_capability=resume&required_capability=durability",
         headers=_headers(),
     )
 

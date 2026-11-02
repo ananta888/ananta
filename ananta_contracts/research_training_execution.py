@@ -145,9 +145,7 @@ class ResearchRuntimeManifestV1:
             cuda_version=_version(value.get("cuda_version"), "cuda_version"),
             backend_name=require_id(value.get("backend_name"), "backend_name"),
             backend_version=require_id(value.get("backend_version"), "backend_version"),
-            hardware_profile_digest=require_digest(
-                value.get("hardware_profile_digest"), "hardware_profile_digest"
-            ),
+            hardware_profile_digest=require_digest(value.get("hardware_profile_digest"), "hardware_profile_digest"),
             deterministic_algorithms=bool(value["deterministic_algorithms"]),
         )
 
@@ -275,9 +273,7 @@ class ResearchStageAssignmentV1:
             "dispatch_lease_id": require_id(value.get("dispatch_lease_id"), "dispatch_lease_id"),
             "attempt_id": require_id(value.get("attempt_id"), "attempt_id"),
             "worker_id": require_id(value.get("worker_id"), "worker_id"),
-            "quota_reservation_id": require_id(
-                value.get("quota_reservation_id"), "quota_reservation_id"
-            ),
+            "quota_reservation_id": require_id(value.get("quota_reservation_id"), "quota_reservation_id"),
             "run_id": require_id(value.get("run_id"), "run_id"),
         }
         if any(evidence[field] != bindings[field] for field in ("task_id", "assignment_id", "dispatch_lease_id")):

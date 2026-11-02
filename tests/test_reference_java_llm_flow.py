@@ -9,7 +9,6 @@ import pytest
 
 from agent.services.reference_profile_service import ReferenceProfileService
 
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "java_security_mini"
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"

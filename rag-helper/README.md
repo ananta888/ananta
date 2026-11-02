@@ -330,3 +330,12 @@ Das ist aktuell die breiteste Gemini-Variante fuer dein Szenario:
   IDs, Embedding-Text und Textnormalisierung
 - `tests/`
   Regressionstests für CLI, Limits, Exporte und Post-Processing
+
+## Status im Ananta-Repository (CLN-071)
+
+`rag-helper/` ist ein **integriertes Subpackage** des Haupt-Repositories:
+kein eigenes CI (die Root-Workflows bauen und testen es), kein eigenes
+Secret-Management (`secrets/` ist gitignored; Vault/Env via Hub), der
+Build-Tree `out/` ist Runtime und wird nicht committet. Änderungen laufen
+über die normalen Root-Gates (ruff, check_*, pytest).
+

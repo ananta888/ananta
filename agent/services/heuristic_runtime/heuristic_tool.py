@@ -3,8 +3,10 @@
 Tool execution is deterministic (via HeuristicRegistry) — no LLM free-text.
 Tool calls are logged to DecisionTrace.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -15,7 +17,6 @@ from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_trace import DecisionTrace
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
 from agent.services.heuristic_runtime.strategy import decide_for_context
-
 
 TOOL_NAME = "select_heuristic"
 TOOL_VERSION = "1.0.0"
@@ -66,6 +67,7 @@ class HeuristicToolResult:
 @dataclass
 class HeuristicToolDefinition:
     """Describes the tool to the worker so it knows what options are available."""
+
     name: str
     description: str
     available_heuristics: list[dict[str, Any]]
@@ -157,9 +159,10 @@ class HeuristicTool:
         try:
             self._trace_repo.save(trace)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("execute: ignored Exception", exc_info=True)
 
         from agent.repositories.heuristic_lease_repo import _DOMAIN_TTL_DEFAULTS
+
         ttl = _DOMAIN_TTL_DEFAULTS.get(call.domain, {}).get("default", 7.0)
 
         return HeuristicToolResult(

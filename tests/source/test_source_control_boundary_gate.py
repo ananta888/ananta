@@ -63,10 +63,7 @@ def test_boundary_gate_detects_connector_orchestration(
 
     violations = check_source_control_boundaries(tmp_path)
 
-    assert any(
-        item.code == "connector_orchestrates_or_depends_on_worker"
-        for item in violations
-    )
+    assert any(item.code == "connector_orchestrates_or_depends_on_worker" for item in violations)
 
 
 def test_boundary_gate_accepts_neutral_contracts_and_authenticated_routes(

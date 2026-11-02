@@ -96,4 +96,3 @@ class VisualViewportConfig:
         if parsed_chain is not None:
             kwargs["fallback_chain"] = parsed_chain
         return cls(**kwargs)
-

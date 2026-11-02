@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -28,21 +29,17 @@ class MailSyncUnitOfWork(Protocol):
         *,
         delta: MailSyncDelta,
         replace_scope: bool,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
     def stage_checkpoint(
         self,
         *,
         checkpoint: JmapSyncCheckpoint,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
-    def commit(self) -> MailProviderResult[None]:
-        ...
+    def commit(self) -> MailProviderResult[None]: ...
 
-    def rollback(self) -> None:
-        ...
+    def rollback(self) -> None: ...
 
 
 class MailSyncTransactionPort(Protocol):
@@ -53,8 +50,7 @@ class MailSyncTransactionPort(Protocol):
         provider_account_id: str,
         scope: str,
         query_fingerprint: str,
-    ) -> MailProviderResult[JmapSyncCheckpoint | None]:
-        ...
+    ) -> MailProviderResult[JmapSyncCheckpoint | None]: ...
 
     def begin(
         self,
@@ -135,7 +131,7 @@ class TransactionalMailSyncStateStore:
             try:
                 transaction.rollback()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("apply_and_commit: ignored Exception", exc_info=True)
             if isinstance(exc, MailSyncStateStoreError):
                 raise
             raise MailSyncStateStoreError("mail_sync_transaction_failed") from exc

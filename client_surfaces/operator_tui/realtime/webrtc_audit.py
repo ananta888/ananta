@@ -7,6 +7,7 @@ Security invariants:
 - JWT-like strings (starting with "eyJ") are NEVER logged.
 - In-memory ring buffer: max 200 entries.
 """
+
 from __future__ import annotations
 
 import collections
@@ -14,7 +15,6 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-
 
 _TOKEN_RE = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+")
 _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
@@ -108,9 +108,7 @@ class WebRtcAuditLog:
 
     def __init__(self, max_entries: int = _RING_MAX) -> None:
         self._max_entries = max_entries
-        self._buf: collections.deque[WebRtcAuditEvent] = collections.deque(
-            maxlen=max_entries
-        )
+        self._buf: collections.deque[WebRtcAuditEvent] = collections.deque(maxlen=max_entries)
         self._lock = threading.Lock()
 
     def emit(self, event: WebRtcAuditEvent) -> None:

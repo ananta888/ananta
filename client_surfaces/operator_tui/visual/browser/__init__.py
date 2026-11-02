@@ -9,9 +9,9 @@ from client_surfaces.operator_tui.visual.browser.browser_mode_controller import 
 from client_surfaces.operator_tui.visual.browser.browser_security_policy import BrowserSecurityPolicy
 from client_surfaces.operator_tui.visual.browser.carbonyl_runner import CarbonylNotAvailableError, CarbonylRunner
 from client_surfaces.operator_tui.visual.browser.center_content_snapshot import (
+    CONTENT_TYPES,
     BrowserSnapshotMixin,
     CenterContentSnapshot,
-    CONTENT_TYPES,
     unsupported_snapshot,
 )
 

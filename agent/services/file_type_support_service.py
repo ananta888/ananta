@@ -167,9 +167,7 @@ class FileTypeSupportService:
             {
                 declaration.producer
                 for dimension in CapabilityDimension
-                for declaration in [
-                    descriptor.support_for("semantic_translation").capability(dimension)
-                ]
+                for declaration in [descriptor.support_for("semantic_translation").capability(dimension)]
                 if declaration.configured and declaration.producer
             }
         )
@@ -188,10 +186,7 @@ class FileTypeSupportService:
             "parser_strategy": descriptor.parser_strategy,
             "parser": {
                 "configured": bool(parser_dimensions),
-                "effective": any(
-                    capabilities[dimension]["effective"]
-                    for dimension in parser_dimensions
-                ),
+                "effective": any(capabilities[dimension]["effective"] for dimension in parser_dimensions),
                 "dimensions": parser_dimensions,
                 "producers": parser_producers,
             },
@@ -231,21 +226,15 @@ class FileTypeSupportService:
         if query.pipelines and row["pipeline"] not in query.pipelines:
             return False
         capabilities = row["capabilities"]
-        if query.dimensions and not any(
-            capabilities[dimension]["configured"] for dimension in query.dimensions
-        ):
+        if query.dimensions and not any(capabilities[dimension]["configured"] for dimension in query.dimensions):
             return False
-        selected_dimensions = query.dimensions or tuple(
-            dimension.value for dimension in CapabilityDimension
-        )
+        selected_dimensions = query.dimensions or tuple(dimension.value for dimension in CapabilityDimension)
         parser_configured = any(
-            capabilities[dimension]["configured"]
-            and capabilities[dimension]["implementation"] == "parser"
+            capabilities[dimension]["configured"] and capabilities[dimension]["implementation"] == "parser"
             for dimension in selected_dimensions
         )
         runtime_missing = any(
-            capabilities[dimension]["runtime_requirements"]
-            and capabilities[dimension]["runtime_available"] is not True
+            capabilities[dimension]["runtime_requirements"] and capabilities[dimension]["runtime_available"] is not True
             for dimension in selected_dimensions
         )
         if query.missing_parser is not None and (not parser_configured) is not query.missing_parser:
@@ -315,21 +304,14 @@ def _normalized_values(
     *,
     transform,
 ) -> tuple[str, ...]:
-    normalized = {
-        transform(token.strip())
-        for raw in values
-        for token in str(raw).split(",")
-        if token.strip()
-    }
+    normalized = {transform(token.strip()) for raw in values for token in str(raw).split(",") if token.strip()}
     return tuple(sorted(normalized))
 
 
 def _reject_unknown(field_name: str, values: Iterable[str], allowed: set[str] | frozenset[str]) -> None:
     unknown = sorted(set(values) - set(allowed))
     if unknown:
-        raise FileTypeSupportFilterError(
-            f"invalid_{field_name}:{','.join(unknown)}"
-        )
+        raise FileTypeSupportFilterError(f"invalid_{field_name}:{','.join(unknown)}")
 
 
 def _support_level(
@@ -341,13 +323,16 @@ def _support_level(
     # Format-specific extraction remains domain parsing even when a safe
     # heuristic, rather than a full grammar, emits symbols or relationships.
     # ``semantic_graph`` is reserved for source-language semantics.
-    if descriptor.family != "code" and pipeline == "rag_helper" and (
-        capabilities[CapabilityDimension.SYMBOLS.value]["effective"]
-        or capabilities[CapabilityDimension.RELATIONSHIPS.value]["effective"]
-        or (
-            capabilities[CapabilityDimension.INDEXED.value]["effective"]
-            and capabilities[CapabilityDimension.INDEXED.value]["implementation"]
-            == "parser"
+    if (
+        descriptor.family != "code"
+        and pipeline == "rag_helper"
+        and (
+            capabilities[CapabilityDimension.SYMBOLS.value]["effective"]
+            or capabilities[CapabilityDimension.RELATIONSHIPS.value]["effective"]
+            or (
+                capabilities[CapabilityDimension.INDEXED.value]["effective"]
+                and capabilities[CapabilityDimension.INDEXED.value]["implementation"] == "parser"
+            )
         )
     ):
         return "domain_parser"

@@ -4,8 +4,8 @@ from client_surfaces.operator_tui.logo_renderer.detect import (
     detect_kitty_support,
     detect_sixel_support,
     detect_terminal_graphics_capabilities,
-    select_graphics_backend,
     resolve_renderer,
+    select_graphics_backend,
 )
 
 
@@ -18,9 +18,20 @@ def test_detect_kitty_support_from_env():
 
 
 def test_resolve_renderer_auto_prefers_kitty_then_sixel_then_ansi():
-    assert resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=True, kitty_available=True).selected == "kitty"
-    assert resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=True, kitty_available=False).selected == "sixel"
-    assert resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=False, kitty_available=False).selected == "ansi"
+    assert (
+        resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=True, kitty_available=True).selected
+        == "kitty"
+    )
+    assert (
+        resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=True, kitty_available=False).selected
+        == "sixel"
+    )
+    assert (
+        resolve_renderer(
+            env={"ANANTA_TUI_LOGO_RENDERER": "auto"}, sixel_available=False, kitty_available=False
+        ).selected
+        == "ansi"
+    )
 
 
 def test_resolve_renderer_manual_override_and_fallback_warning():
@@ -30,7 +41,9 @@ def test_resolve_renderer_manual_override_and_fallback_warning():
 
 
 def test_resolve_renderer_unknown_value_does_not_crash():
-    decision = resolve_renderer(env={"ANANTA_TUI_LOGO_RENDERER": "nonsense"}, sixel_available=False, kitty_available=False)
+    decision = resolve_renderer(
+        env={"ANANTA_TUI_LOGO_RENDERER": "nonsense"}, sixel_available=False, kitty_available=False
+    )
     assert decision.selected == "ansi"
 
 

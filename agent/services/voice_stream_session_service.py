@@ -117,9 +117,7 @@ class VoiceStreamSessionService:
                 status_code=422,
             )
         normalized_live_run_id = (
-            validate_identifier(live_run_id, field="live_run_id", max_length=200)
-            if live_run_id is not None
-            else None
+            validate_identifier(live_run_id, field="live_run_id", max_length=200) if live_run_id is not None else None
         )
         if live_run_segment_sequence is not None and (
             isinstance(live_run_segment_sequence, bool)
@@ -197,11 +195,7 @@ class VoiceStreamSessionService:
                     if configuration_session_id
                     else None
                 ),
-                language=(
-                    validate_identifier(language, field="language", max_length=32)
-                    if language
-                    else None
-                ),
+                language=(validate_identifier(language, field="language", max_length=32) if language else None),
                 effective_configuration_json=configuration_snapshot,
                 task_id=validate_identifier(task_id, field="task_id", max_length=200) if task_id else None,
                 request_id=validate_identifier(request_id, field="request_id", max_length=200),
@@ -264,11 +258,7 @@ class VoiceStreamSessionService:
         segment_sequence: int,
     ) -> None:
         normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
-        if (
-            isinstance(segment_sequence, bool)
-            or not isinstance(segment_sequence, int)
-            or segment_sequence < 0
-        ):
+        if isinstance(segment_sequence, bool) or not isinstance(segment_sequence, int) or segment_sequence < 0:
             raise VoiceGovernanceError(
                 code="voice_stream.invalid_live_run_segment_sequence",
                 message="live_run_segment_sequence must be a non-negative integer",
@@ -504,10 +494,7 @@ class VoiceStreamSessionService:
                 or session.owner_subject != principal.subject
             ):
                 return
-            if (
-                session.inflight_chunk_sequence == chunk_sequence
-                and session.inflight_chunk_digest == chunk_digest
-            ):
+            if session.inflight_chunk_sequence == chunk_sequence and session.inflight_chunk_digest == chunk_digest:
                 session.inflight_chunk_sequence = None
                 session.inflight_chunk_digest = None
                 session.inflight_chunk_bytes = None
@@ -678,9 +665,7 @@ class VoiceStreamSessionService:
 
         normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
         if segment_sequence is not None and (
-            isinstance(segment_sequence, bool)
-            or not isinstance(segment_sequence, int)
-            or segment_sequence < 0
+            isinstance(segment_sequence, bool) or not isinstance(segment_sequence, int) or segment_sequence < 0
         ):
             raise VoiceGovernanceError(
                 code="voice_stream.invalid_live_run_segment_sequence",
@@ -694,10 +679,7 @@ class VoiceStreamSessionService:
                 if session.tenant_id == principal.tenant_id
                 and session.owner_subject == principal.subject
                 and session.live_run_id == normalized_run_id
-                and (
-                    segment_sequence is None
-                    or session.live_run_segment_sequence == segment_sequence
-                )
+                and (segment_sequence is None or session.live_run_segment_sequence == segment_sequence)
             )
             if removed and before_remove is not None:
                 before_remove(removed)
@@ -723,9 +705,7 @@ class VoiceStreamSessionService:
 
         normalized_run_id = validate_identifier(run_id, field="live_run_id", max_length=200)
         if segment_sequence is not None and (
-            isinstance(segment_sequence, bool)
-            or not isinstance(segment_sequence, int)
-            or segment_sequence < 0
+            isinstance(segment_sequence, bool) or not isinstance(segment_sequence, int) or segment_sequence < 0
         ):
             raise VoiceGovernanceError(
                 code="voice_stream.invalid_live_run_segment_sequence",
@@ -739,10 +719,7 @@ class VoiceStreamSessionService:
                 if session.tenant_id == principal.tenant_id
                 and session.owner_subject == principal.subject
                 and session.live_run_id == normalized_run_id
-                and (
-                    segment_sequence is None
-                    or session.live_run_segment_sequence == segment_sequence
-                )
+                and (segment_sequence is None or session.live_run_segment_sequence == segment_sequence)
             )
             for session in failed:
                 session.state = "failed"

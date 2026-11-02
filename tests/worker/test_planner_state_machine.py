@@ -16,4 +16,3 @@ def test_planner_state_transitions_follow_contract() -> None:
 def test_invalid_transition_is_rejected() -> None:
     with pytest.raises(ValueError, match="planner_state_transition_invalid"):
         transition_state(current_state="draft", next_state="complete", trace_ref="trace:x")
-

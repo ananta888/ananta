@@ -264,4 +264,3 @@ def _validate_graph_declaration_evidence(
         raise ValueError("semantic_graph_declaration_evidence_mismatch")
     if sum(byte_count for _count, byte_count in actual.values()) != int(domain_admission["graph_declaration_bytes"]):
         raise ValueError("semantic_graph_declaration_byte_evidence_mismatch")
-

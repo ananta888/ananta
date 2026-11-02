@@ -7,10 +7,11 @@ Layout under ``store_dir`` (default: ``data/referenced_context_hints/``):
 Derived hints are stored separately from original code snippets and are
 never confused with authoritative source text.
 """
+
 from __future__ import annotations
 
 import json
-import os
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,6 @@ from agent.services.referenced_context_hint_schema import (
     ALL_KINDS,
     STALENESS_INVALID,
     STALENESS_STALE,
-    HintValidationError,
     ReferencedContextHint,
     compute_staleness,
     hash_file,
@@ -186,7 +186,7 @@ class ReferencedContextHintStore:
         return changed_ids
 
     def count(self, *, kind: str | None = None) -> int:
-        for k in (ALL_KINDS if not kind else {kind}):
+        for k in ALL_KINDS if not kind else {kind}:
             self._load_kind(k)
         if kind:
             return sum(1 for h in self._cache.values() if h.kind == kind)
@@ -237,7 +237,7 @@ class ReferencedContextHintStore:
                     h = ReferencedContextHint.from_dict(d)
                     tmp[h.id] = h
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_load_kind: ignored Exception", exc_info=True)
         except (OSError, PermissionError):
             pass
         self._cache.update(tmp)
@@ -287,9 +287,7 @@ class ReferencedContextHintStore:
     def _write_manifest(self, manifest: dict[str, Any]) -> None:
         self._ensure_dir()
         try:
-            self._manifest_path().write_text(
-                json.dumps(manifest, ensure_ascii=False, indent=2)
-            )
+            self._manifest_path().write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
         except (OSError, PermissionError):
             pass
 

@@ -12,6 +12,7 @@ gates) extend this module with a _reconcile_blueprint_workflow_steps
 and _insert_default_gates sub-function. Do not move those out — the
 reconciliation lifecycle is the right place for them.
 """
+
 from __future__ import annotations
 
 import time
@@ -62,7 +63,9 @@ def _reconcile_seed_blueprints_once(
 ) -> list[dict]:
     reconcile_reports: list[dict] = []
     for blueprint_name, blueprint_definition in seed_blueprints.items():
-        base_team_type_name = normalize_team_type_name(str(blueprint_definition.get("base_team_type_name") or blueprint_name))
+        base_team_type_name = normalize_team_type_name(
+            str(blueprint_definition.get("base_team_type_name") or blueprint_name)
+        )
         ensure_default_templates_callback(base_team_type_name)
         with Session(engine) as session:
             templates_by_name = {template.name: template for template in session.exec(select(TemplateDB)).all()}
@@ -101,10 +104,16 @@ def _reconcile_seed_blueprints_once(
                 BlueprintRoleDefinition(
                     name=role_definition["name"],
                     description=role_definition["description"],
-                    template_id=(templates_by_name.get(role_definition["template_name"]).id if templates_by_name.get(role_definition["template_name"]) else None),
+                    template_id=(
+                        templates_by_name.get(role_definition["template_name"]).id
+                        if templates_by_name.get(role_definition["template_name"])
+                        else None
+                    ),
                     sort_order=role_definition["sort_order"],
                     is_required=role_definition["is_required"],
-                    config=with_role_profile_defaults(base_team_type_name, role_definition["name"], role_definition["config"]),
+                    config=with_role_profile_defaults(
+                        base_team_type_name, role_definition["name"], role_definition["config"]
+                    ),
                 )
                 for role_definition in blueprint_definition["roles"]
             ]
@@ -118,7 +127,9 @@ def _reconcile_seed_blueprints_once(
                 )
                 for artifact_definition in blueprint_definition["artifacts"]
             ]
-            result = persist_blueprint_children_in_session(session, blueprint.id, role_definitions, artifact_definitions)
+            result = persist_blueprint_children_in_session(
+                session, blueprint.id, role_definitions, artifact_definitions
+            )
             # WFG-033: persist the optional workflow block.
             # The catalog normalizer (``SeedBlueprintCatalog.
             # _normalize_workflow``) is the source of truth for
@@ -127,9 +138,7 @@ def _reconcile_seed_blueprints_once(
             # planner and queue layers can query steps
             # without re-parsing the catalog JSON.
             workflow = blueprint_definition.get("workflow")
-            workflow_changed = _reconcile_blueprint_workflow_steps(
-                session, blueprint.id, workflow
-            )
+            workflow_changed = _reconcile_blueprint_workflow_steps(session, blueprint.id, workflow)
             if blueprint_field_changes or result.changed or workflow_changed:
                 blueprint.updated_at = time.time()
                 session.add(blueprint)
@@ -151,9 +160,7 @@ def _reconcile_seed_blueprints_once(
     return reconcile_reports
 
 
-def _reconcile_blueprint_workflow_steps(
-    session, blueprint_id: str, workflow: dict | None
-) -> int:
+def _reconcile_blueprint_workflow_steps(session, blueprint_id: str, workflow: dict | None) -> int:
     """Idempotently sync a blueprint's workflow steps.
 
     Returns the number of changed rows (created + updated +
@@ -182,9 +189,7 @@ def _reconcile_blueprint_workflow_steps(
     existing = {
         row.step_id: row
         for row in session.exec(
-            select(BlueprintWorkflowStepDB).where(
-                BlueprintWorkflowStepDB.blueprint_id == blueprint_id
-            )
+            select(BlueprintWorkflowStepDB).where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id)
         ).all()
     }
     catalog_step_ids: set[str] = set()
@@ -276,9 +281,7 @@ def _reconcile_seed_templates_once(catalog) -> list[dict]:
 
     reports: list[dict] = []
     with Session(engine) as session:
-        existing: dict[str, TemplateDB] = {
-            t.name: t for t in session.exec(select(TemplateDB)).all()
-        }
+        existing: dict[str, TemplateDB] = {t.name: t for t in session.exec(select(TemplateDB)).all()}
         for tpl in all_templates:
             name = tpl["name"]
             description = tpl["description"]
@@ -287,8 +290,10 @@ def _reconcile_seed_templates_once(catalog) -> list[dict]:
 
             if existing_tpl is None:
                 new_tpl = TemplateDB(
-                    name=name, description=description,
-                    prompt_template=prompt_template, is_seed=True,
+                    name=name,
+                    description=description,
+                    prompt_template=prompt_template,
+                    is_seed=True,
                 )
                 session.add(new_tpl)
                 reports.append({"name": name, "action": "created"})

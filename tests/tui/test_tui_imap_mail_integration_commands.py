@@ -159,7 +159,9 @@ def test_mail_attachment_download_register_export_and_snake_explain(monkeypatch,
     assert attachment_payload["artifact"]["artifact_kind"] == "attachment_ref"
 
     loaded = execute_command(":mail load-body", registered_attachment.state)
-    exported = execute_command(":mail export current --format json --include-body --confirm-body --goal goal-mail-export", loaded.state)
+    exported = execute_command(
+        ":mail export current --format json --include-body --confirm-body --goal goal-mail-export", loaded.state
+    )
     export_payload = json.loads(exported.message)
     assert export_payload["export"]["format"] == "json"
     assert export_payload["goal_output_artifact"]["goal_id"] == "goal-mail-export"

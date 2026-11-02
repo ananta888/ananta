@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from client_surfaces.operator_tui.chat_control_config import ChatControlConfig
-from client_surfaces.operator_tui.chat_control_parser import ParsedCommand, parse_chat_command
+from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
 from client_surfaces.operator_tui.chat_control_policy import evaluate
-
 
 _NARROW_ALLOWLIST = ChatControlConfig(
     mode="autonomous_e2e",

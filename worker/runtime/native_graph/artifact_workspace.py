@@ -22,18 +22,23 @@ class NativeInputWorkspaceMaterializer:
             return
         paths = command.node.metadata.get("native_input_files")
         if (
-            not isinstance(paths, dict) or set(paths) != set(command.node.input_artifacts)
+            not isinstance(paths, dict)
+            or set(paths) != set(command.node.input_artifacts)
             or len(paths) > MAX_ARTIFACT_COUNT
         ):
             raise ValueError("native_artifact_input_files_required")
         validate_native_artifact_files(
-            command.node.metadata, inputs=command.node.input_artifacts,
+            command.node.metadata,
+            inputs=command.node.input_artifacts,
             outputs=getattr(command.node, "output_artifacts", ()),
         )
         candidates, total = [], 0
         for name, path in paths.items():
             item = self._downloader.download(
-                command=command, hub_task_id=task["id"], project_id=task.get("project_id"), input_name=name,
+                command=command,
+                hub_task_id=task["id"],
+                project_id=task.get("project_id"),
+                input_name=name,
             )
             total += len(item.content)
             if total > MAX_TOTAL_BYTES:
@@ -62,8 +67,9 @@ def install_native_workspace_bytes(root, relative_path, content):
             os.close(directory)
             directory = next_directory
         temporary = f".native-input-{uuid.uuid4().hex}"
-        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-                             0o400, dir_fd=directory)
+        descriptor = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o400, dir_fd=directory
+        )
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(content)
             handle.flush()

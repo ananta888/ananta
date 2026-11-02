@@ -63,27 +63,45 @@ class InProcessArtifactTransport:
 
 @pytest.mark.parametrize("artifact_io", [False, True], ids=["plain-tasks", "artifact-handoff"])
 def test_compiled_bpmn_fenced_tasks_commit_real_worker_results_across_hub_restart(
-    harness, monkeypatch, tmp_path, artifact_io,
+    harness,
+    monkeypatch,
+    tmp_path,
+    artifact_io,
 ):
     monkeypatch.setattr("agent.repositories.tasks._engine", lambda: harness.grant_database)
-    repository = TaskRepository(completion_policy=NativeResultCompletionPolicy(
-        authority=SQLAlchemyNativeResultAuthority(key_ring=lambda: harness.keys), clock=lambda: harness.now,
-    ))
+    repository = TaskRepository(
+        completion_policy=NativeResultCompletionPolicy(
+            authority=SQLAlchemyNativeResultAuthority(key_ring=lambda: harness.keys),
+            clock=lambda: harness.now,
+        )
+    )
 
     def ingest(*, lease, **values):
-        ingest_native_task_fenced(repository=repository, source_resolver=lambda fields: None,
-                                  post_commit=lambda *args, **kwargs: None, lease=lease, **values)
+        ingest_native_task_fenced(
+            repository=repository,
+            source_resolver=lambda fields: None,
+            post_commit=lambda *args, **kwargs: None,
+            lease=lease,
+            **values,
+        )
 
     harness.queue = AnantaHubTaskQueueAdapter(
-        task_queue=SimpleNamespace(ingest_task_fenced=ingest), task_repository=repository, task_runtime=None,
+        task_queue=SimpleNamespace(ingest_task_fenced=ingest),
+        task_repository=repository,
+        task_runtime=None,
     )
     harness.restart()
     with Session(harness.grant_database) as session:
-        session.add(AgentInfoDB(
-            url="http://worker-1:5000", name="worker-1", role="worker", registration_validated=True,
-            registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
-            authorized_capabilities=["workflow.adapter.native"],
-        ))
+        session.add(
+            AgentInfoDB(
+                url="http://worker-1:5000",
+                name="worker-1",
+                role="worker",
+                registration_validated=True,
+                registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
+                authorized_capabilities=["workflow.adapter.native"],
+            )
+        )
         session.commit()
     assignments = SQLAlchemyWorkflowWorkerAssignmentStore(harness.grant_database)
     config = {"worker_runtime": {"native_worker_runtime": {"shell_policy": {"allowlist": [sys.executable]}}}}
@@ -91,9 +109,14 @@ def test_compiled_bpmn_fenced_tasks_commit_real_worker_results_across_hub_restar
     SQLModel.metadata.create_all(worker_engine)
     worker_storage = ArtifactStore(tmp_path / "worker-artifacts")
     hub_storage = ArtifactStore(tmp_path / "hub-artifacts")
-    transport = InProcessArtifactTransport(NativeArtifactRuntime(
-        engine=harness.grant_database, key_ring=lambda: harness.keys, storage=hub_storage, clock=lambda: harness.now,
-    ))
+    transport = InProcessArtifactTransport(
+        NativeArtifactRuntime(
+            engine=harness.grant_database,
+            key_ring=lambda: harness.keys,
+            storage=hub_storage,
+            clock=lambda: harness.now,
+        )
+    )
     rows = LocalArtifactRows(engine=worker_engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB)
 
     def workspace_context(*, task):
@@ -104,9 +127,14 @@ def test_compiled_bpmn_fenced_tasks_commit_real_worker_results_across_hub_restar
     executor = TaskScopedNativeWorkerExecutor(
         runtime=NativeWorkerRuntimeService(),
         workspaces=SimpleNamespace(resolve_workspace_context=workspace_context),
-        output_materializer=NativeOutputFileMaterializer(writer=LocalNativeArtifactWriter(
-            engine=worker_engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB, storage=worker_storage,
-        )),
+        output_materializer=NativeOutputFileMaterializer(
+            writer=LocalNativeArtifactWriter(
+                engine=worker_engine,
+                artifact_model=ArtifactDB,
+                version_model=ArtifactVersionDB,
+                storage=worker_storage,
+            )
+        ),
         input_materializer=NativeInputWorkspaceMaterializer(
             downloader=NativeArtifactInputDownloader(transport=transport),
         ),
@@ -118,28 +146,40 @@ def test_compiled_bpmn_fenced_tasks_commit_real_worker_results_across_hub_restar
         ),
         executor=executor,
         artifact_publication=NativeNodeArtifactPublication(
-            reader=LocalNativeArtifactReader(storage_root=worker_storage.base_dir, load_artifact=rows.load_artifact,
-                                            load_version=rows.load_version),
+            reader=LocalNativeArtifactReader(
+                storage_root=worker_storage.base_dir, load_artifact=rows.load_artifact, load_version=rows.load_version
+            ),
             publisher=NativeArtifactPublisher(transport=transport),
         ),
     )
-    worker = NativeGraphWorkerTaskAdapter(NativeDelegatedNodeRuntime(
-        handler=handler, authorization_verifier=AuthorizationVerifier(
-            harness.keys, InMemoryReplayNonceStore(clock=lambda: harness.now),
-        ), policy=AllowPolicy(), capabilities=frozenset({"tool_calling"}), ledger=harness.ledger,
-        hub_revalidator=harness.grants, clock=lambda: harness.now,
-    ))
+    worker = NativeGraphWorkerTaskAdapter(
+        NativeDelegatedNodeRuntime(
+            handler=handler,
+            authorization_verifier=AuthorizationVerifier(
+                harness.keys,
+                InMemoryReplayNonceStore(clock=lambda: harness.now),
+            ),
+            policy=AllowPolicy(),
+            capabilities=frozenset({"tool_calling"}),
+            ledger=harness.ledger,
+            hub_revalidator=harness.grants,
+            clock=lambda: harness.now,
+        )
+    )
     request = replace(linear_request(), input_data={"command": shlex.join([sys.executable, "-c", "print('verified')"])})
     if artifact_io:
         producer = (
-            "from pathlib import Path; Path('outputs').mkdir(); "
-            "Path('outputs/report.txt').write_bytes(b'handoff')"
+            "from pathlib import Path; Path('outputs').mkdir(); Path('outputs/report.txt').write_bytes(b'handoff')"
         )
         consumer = "assert __import__('pathlib').Path('inputs/report.txt').read_bytes() == b'handoff'"
         request = NativeGraphRequest(
-            execution_plan(compile_request(artifact_document())), "synthetic-artifact-run", "synthetic-control",
-            input_data={"producer": shlex.join([sys.executable, "-c", producer]),
-                        "consumer": shlex.join([sys.executable, "-c", consumer])},
+            execution_plan(compile_request(artifact_document())),
+            "synthetic-artifact-run",
+            "synthetic-control",
+            input_data={
+                "producer": shlex.join([sys.executable, "-c", producer]),
+                "consumer": shlex.join([sys.executable, "-c", consumer]),
+            },
         )
     result = harness.hub.start(request)
     executed = []
@@ -148,20 +188,30 @@ def test_compiled_bpmn_fenced_tasks_commit_real_worker_results_across_hub_restar
             if task.status != "created":
                 continue
             command = task.worker_execution_context["native_node_command"]
-            assignments.bind(WorkflowWorkerAssignment(
-                tenant_id=task.tenant_id, workflow_id=command["workflow_id"], run_id=command["run_id"],
-                step_id=command["node"]["node_id"], attempt_id=command["attempt_id"],
-                fencing_token=command["fencing_token"], hub_task_id=task.id, worker_id="worker-1",
-                worker_url="http://worker-1:5000", assigned_at=harness.now,
-            ))
+            assignments.bind(
+                WorkflowWorkerAssignment(
+                    tenant_id=task.tenant_id,
+                    workflow_id=command["workflow_id"],
+                    run_id=command["run_id"],
+                    step_id=command["node"]["node_id"],
+                    attempt_id=command["attempt_id"],
+                    fencing_token=command["fencing_token"],
+                    hub_task_id=task.id,
+                    worker_id="worker-1",
+                    worker_url="http://worker-1:5000",
+                    assigned_at=harness.now,
+                )
+            )
             task.status, task.assigned_agent_url = "in_progress", "http://worker-1:5000"
             repository.save(task)
             value = worker.execute_task(task.model_dump())
             assert value.status == "completed", value.reason_code
             outer = _native_task_result(value, verification=worker.verification_update(value))
             task.status, task.last_output, task.last_exit_code = "completed", outer.summary, 0
-            task.verification_status = {"workflow_adapter_task_result": outer.to_dict(),
-                                        "native_node_result": value.to_dict()}
+            task.verification_status = {
+                "workflow_adapter_task_result": outer.to_dict(),
+                "native_node_result": value.to_dict(),
+            }
             accepted = repository.save(task)
             assert accepted.verification_status["native_result_receipt"]["classification"] == "technical_observation"
             executed.append(value.node_id)

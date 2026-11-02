@@ -95,5 +95,8 @@ class WslgWebviewBackend:
             backend=self.backend_name,
             pid=self._pid,
             reason=self._reason,
-            details={"display": str(os.environ.get("DISPLAY") or ""), "wayland": str(os.environ.get("WAYLAND_DISPLAY") or "")},
+            details={
+                "display": str(os.environ.get("DISPLAY") or ""),
+                "wayland": str(os.environ.get("WAYLAND_DISPLAY") or ""),
+            },
         )

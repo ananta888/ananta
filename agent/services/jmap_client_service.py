@@ -27,7 +27,6 @@ from agent.services.jmap_request_scheduler import (
 )
 from agent.services.mail_provider_ports import MailProviderResult
 
-
 _MUTATING_SUFFIXES = ("/set", "/copy", "/import")
 
 
@@ -121,10 +120,7 @@ class JmapClient:
             return MailProviderResult(ok=False, reason_code="jmap_capability_missing")
         payload = {
             "using": sorted(using),
-            "methodCalls": [
-                [call.name, dict(call.arguments), call.call_id]
-                for call in normalized
-            ],
+            "methodCalls": [[call.name, dict(call.arguments), call.call_id] for call in normalized],
         }
         encoded_size = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
         if encoded_size > self._session.limits.maximum_request_bytes:
@@ -189,10 +185,7 @@ class JmapClient:
                     retry_after_ms=getattr(exc, "retry_after_ms", None),
                 )
             force_refresh = False
-            rate_limited = any(
-                response.is_error and response.error_type == "rateLimit"
-                for response in responses
-            )
+            rate_limited = any(response.is_error and response.error_type == "rateLimit" for response in responses)
             if not rate_limited:
                 return MailProviderResult(ok=True, reason_code="ok", value=responses)
             if not retry_safe or method_attempt >= self._maximum_method_retries:
@@ -201,9 +194,7 @@ class JmapClient:
                     reason_code="jmap_method_ratelimit",
                     retryable=retry_safe,
                 )
-            delay = 0.25 * (2**method_attempt) * (
-                0.8 + 0.4 * min(1.0, max(0.0, float(self._jitter())))
-            )
+            delay = 0.25 * (2**method_attempt) * (0.8 + 0.4 * min(1.0, max(0.0, float(self._jitter()))))
             if cancellation is not None:
                 if cancellation.wait(delay):
                     return MailProviderResult(ok=False, reason_code="jmap_request_cancelled")

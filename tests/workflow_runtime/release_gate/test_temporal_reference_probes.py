@@ -98,8 +98,7 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     required_artifacts = scenarios[scenario_id].invariants.required_artifacts
                     gateway.artifacts_by_step = {
                         "execute": tuple(
-                            {"artifact_id": artifact_id, "kind": "generated"}
-                            for artifact_id in required_artifacts
+                            {"artifact_id": artifact_id, "kind": "generated"} for artifact_id in required_artifacts
                         )
                     }
                     workflow_input = _input(
@@ -122,9 +121,9 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     )
                     assert result["status"] == "completed"
                     assert result["completed_step_ids"] == ["execute"]
-                    assert {
-                        item["artifact_id"] for item in gateway.artifacts_by_step["execute"]
-                    } == set(required_artifacts)
+                    assert {item["artifact_id"] for item in gateway.artifacts_by_step["execute"]} == set(
+                        required_artifacts
+                    )
                     emit_reference_run_evidence(
                         runtime_id="temporal",
                         scenario=scenarios[scenario_id],
@@ -152,8 +151,7 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                 required_artifacts = scenarios["approval"].invariants.required_artifacts
                 gateway.artifacts_by_step = {
                     "publish-approval": tuple(
-                        {"artifact_id": artifact_id, "kind": "generated"}
-                        for artifact_id in required_artifacts
+                        {"artifact_id": artifact_id, "kind": "generated"} for artifact_id in required_artifacts
                     )
                 }
                 workflow_input = _input(
@@ -263,9 +261,7 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                         "workflow.run.completed",
                     },
                     artifact_ids={"branch-a-result", "branch-b-result", "merged-result"},
-                    policy_decisions=(
-                        scenarios["bounded-parallel-merge"].invariants.required_policy_decisions
-                    ),
+                    policy_decisions=(scenarios["bounded-parallel-merge"].invariants.required_policy_decisions),
                     proofs={
                         "artifact": "passed",
                         "event": "passed",
@@ -282,8 +278,7 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                 required_artifacts = scenarios["long-running-resume"].invariants.required_artifacts
                 gateway.artifacts_by_step = {
                     "resume-gate": tuple(
-                        {"artifact_id": artifact_id, "kind": "generated"}
-                        for artifact_id in required_artifacts
+                        {"artifact_id": artifact_id, "kind": "generated"} for artifact_id in required_artifacts
                     )
                 }
                 workflow_input = _input(
@@ -353,9 +348,7 @@ def test_temporal_executes_every_durable_reference_scenario_ten_times() -> None:
                     },
                     artifact_ids=required_artifacts,
                     gate_ids={"resume-gate"},
-                    policy_decisions=(
-                        scenarios["long-running-resume"].invariants.required_policy_decisions
-                    ),
+                    policy_decisions=(scenarios["long-running-resume"].invariants.required_policy_decisions),
                     proofs={
                         "approval": "passed",
                         "artifact": "passed",

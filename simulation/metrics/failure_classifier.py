@@ -1,4 +1,5 @@
 """FailureModeClassifier (SIM-026)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,8 +11,8 @@ from simulation.metrics.core_metrics import MetricsCollector
 
 @dataclass
 class FailureModeReport:
-    category: str   # extinction | stagnation | budget | adapter | crime_spiral | healthy_end
-    severity: str   # low | medium | high | critical
+    category: str  # extinction | stagnation | budget | adapter | crime_spiral | healthy_end
+    severity: str  # low | medium | high | critical
     description: str
     indicators: dict[str, Any]
 
@@ -43,7 +44,8 @@ class FailureModeClassifier:
         # Extinction
         if living == 0:
             return FailureModeReport(
-                "extinction", "critical",
+                "extinction",
+                "critical",
                 "All agents died — population collapsed",
                 indicators,
             )
@@ -53,14 +55,14 @@ class FailureModeClassifier:
             if budget_violation.kind == "cost_usd":
                 return FailureModeReport("budget", "high", budget_violation.message, indicators)
             if budget_violation.kind == "failures":
-                return FailureModeReport("adapter", "high",
-                                          "Too many consecutive adapter failures", indicators)
+                return FailureModeReport("adapter", "high", "Too many consecutive adapter failures", indicators)
             return FailureModeReport("budget", "medium", budget_violation.message, indicators)
 
         # Crime spiral
         if crime_rate > 2.0:
             return FailureModeReport(
-                "crime_spiral", "high",
+                "crime_spiral",
+                "high",
                 f"High crime rate: {crime_rate:.1f} crimes/tick",
                 indicators,
             )
@@ -68,13 +70,15 @@ class FailureModeClassifier:
         # Low survival
         if survival_pct < 30:
             return FailureModeReport(
-                "stagnation", "medium",
+                "stagnation",
+                "medium",
                 f"Only {survival_pct:.0f}% agents survived",
                 indicators,
             )
 
         return FailureModeReport(
-            "healthy_end", "low",
+            "healthy_end",
+            "low",
             f"{living} agents alive, {survival_pct:.0f}% survival",
             indicators,
         )

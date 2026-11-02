@@ -1,4 +1,5 @@
 """CRPS-002/003/004/009: RetrievalProfileResolver — intent classification and profile resolution."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,6 +33,7 @@ _VALID_SOURCE_TYPES: frozenset[str] = frozenset({"repo", "artifact", "wiki", "ta
 # ──────────────────────────────────────────
 # CRPS-002: RetrievalProfile dataclass
 # ──────────────────────────────────────────
+
 
 @dataclass
 class RetrievalProfile:
@@ -130,7 +132,10 @@ def normalize_retrieval_profile(raw: dict[str, Any] | None) -> RetrievalProfile 
         warnings=warnings,
         selected_by=selected_by,
         reasons=reasons,
-        source_policy=dict(raw.get("source_policy") or _build_source_policy(source_types, source_type_weights, negative_source_patterns)),
+        source_policy=dict(
+            raw.get("source_policy")
+            or _build_source_policy(source_types, source_type_weights, negative_source_patterns)
+        ),
         chunk_policy=dict(raw.get("chunk_policy") or _default_chunk_policy()),
         expansion_policy=dict(raw.get("expansion_policy") or _default_expansion_policy()),
         explainability=dict(raw.get("explainability") or _default_explainability()),
@@ -254,14 +259,16 @@ def _is_full_scan_intent(query: str, intent: str, cfg: dict[str, Any]) -> bool:
     # domain name (a noun users mention freely) and was hijacking every
     # CodeCompass-related question into the expensive full_scan path.
     if intent == INTENT_MERMAID and any(
-        marker in q
-        for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur")
+        marker in q for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur")
     ):
         return True
     # Standalone full-scan keywords — explicit "give me the whole picture"
     # requests. These remain a valid trigger even outside the mermaid intent
     # because they are unambiguous.
-    if any(marker in q for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur", "vollanalyse", "full scan")):
+    if any(
+        marker in q
+        for marker in ("architekturdiagramm", "architecture diagram", "gesamtarchitektur", "vollanalyse", "full scan")
+    ):
         return True
     return False
 
@@ -307,74 +314,194 @@ def _build_source_policy(
 
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     DOMAIN_CODECOMPASS: (
-        "codecompass", "code compass", "snippet", "symbol", "line range",
-        "line_range", "codeindex", "code index",
+        "codecompass",
+        "code compass",
+        "snippet",
+        "symbol",
+        "line range",
+        "line_range",
+        "codeindex",
+        "code index",
     ),
     DOMAIN_AI_SNAKE: (
-        "ai-snake", "ai snake", "snakes.py", "snake_ask", "chatpanel",
+        "ai-snake",
+        "ai snake",
+        "snakes.py",
+        "snake_ask",
+        "chatpanel",
         "chat panel",
     ),
     DOMAIN_WORKER: (
-        "ananta-worker", "ananta worker", "worker", "sgpt", "iterative",
-        "task_kind", "batches", "worker context", "worker handoff",
+        "ananta-worker",
+        "ananta worker",
+        "worker",
+        "sgpt",
+        "iterative",
+        "task_kind",
+        "batches",
+        "worker context",
+        "worker handoff",
     ),
     DOMAIN_ANANTA_GAME: (
-        "ananta game", "game", "spielstand", "spieler", "multiplayer",
-        "tutorial mode", "tutorialmodus", "lore", "book of ananta",
+        "ananta game",
+        "game",
+        "spielstand",
+        "spieler",
+        "multiplayer",
+        "tutorial mode",
+        "tutorialmodus",
+        "lore",
+        "book of ananta",
         "book-of-ananta",
     ),
     DOMAIN_OPERATOR_TUI: (
-        "tui", "terminal ui", "operator", "drag selection", "clipboard",
-        "status line", "statuszeile",
+        "tui",
+        "terminal ui",
+        "operator",
+        "drag selection",
+        "clipboard",
+        "status line",
+        "statuszeile",
     ),
     DOMAIN_OPS: (
-        "deployment", "docker", "container", "ops", "prometheus", "metric",
-        "monitoring", "runbook", "neustart", "restart",
+        "deployment",
+        "docker",
+        "container",
+        "ops",
+        "prometheus",
+        "metric",
+        "monitoring",
+        "runbook",
+        "neustart",
+        "restart",
     ),
 }
 
 _INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     INTENT_ARCHITECTURE_FULL_SCAN: (
-        "architekturdiagramm", "architecture diagram", "gesamtarchitektur",
-        "full scan", "vollanalyse", "vollständige analyse", "vollstaendige analyse",
-        "alle relevanten komponenten", "all relevant components",
-        "mermaid diagramm zur architektur", "mermaid diagram for architecture",
-        "dependency map", "abhängigkeitsdiagramm", "abhaengigkeitsdiagramm",
+        "architekturdiagramm",
+        "architecture diagram",
+        "gesamtarchitektur",
+        "full scan",
+        "vollanalyse",
+        "vollständige analyse",
+        "vollstaendige analyse",
+        "alle relevanten komponenten",
+        "all relevant components",
+        "mermaid diagramm zur architektur",
+        "mermaid diagram for architecture",
+        "dependency map",
+        "abhängigkeitsdiagramm",
+        "abhaengigkeitsdiagramm",
     ),
     INTENT_CODE_EXPLANATION: (
-        "wie funktioniert", "how does", "explain", "erklär", "erkläre",
-        "was macht", "what does", "zeig mir", "show me", "implementiert",
-        "implemented", "code", "funktion", "function", "klasse", "class",
-        "methode", "method", "modul", "module", "mechanismus", "mechanism",
-        "datei", "file",
+        "wie funktioniert",
+        "how does",
+        "explain",
+        "erklär",
+        "erkläre",
+        "was macht",
+        "what does",
+        "zeig mir",
+        "show me",
+        "implementiert",
+        "implemented",
+        "code",
+        "funktion",
+        "function",
+        "klasse",
+        "class",
+        "methode",
+        "method",
+        "modul",
+        "module",
+        "mechanismus",
+        "mechanism",
+        "datei",
+        "file",
     ),
     INTENT_ARCHITECTURE: (
-        "architektur", "architecture", "aufbau", "structure", "overview",
-        "überblick", "ueberblick", "komponenten", "components", "design",
-        "how is", "wie ist", "zusammenhang", "dependencies", "abhängigkeiten",
-        "flow", "ablauf",
+        "architektur",
+        "architecture",
+        "aufbau",
+        "structure",
+        "overview",
+        "überblick",
+        "ueberblick",
+        "komponenten",
+        "components",
+        "design",
+        "how is",
+        "wie ist",
+        "zusammenhang",
+        "dependencies",
+        "abhängigkeiten",
+        "flow",
+        "ablauf",
     ),
     INTENT_DOCS: (
-        "docs", "documentation", "dokumentation", "readme", "guide",
-        "anleitung", "runbook", "adr", "concept", "konzept",
+        "docs",
+        "documentation",
+        "dokumentation",
+        "readme",
+        "guide",
+        "anleitung",
+        "runbook",
+        "adr",
+        "concept",
+        "konzept",
     ),
     INTENT_TUTORIAL: (
-        "tutorial", "lernen", "learn", "wie mache ich", "how do i",
-        "how to", "schritt", "step", "anfänger", "beginner", "beispiel",
+        "tutorial",
+        "lernen",
+        "learn",
+        "wie mache ich",
+        "how do i",
+        "how to",
+        "schritt",
+        "step",
+        "anfänger",
+        "beginner",
+        "beispiel",
         "example",
     ),
     INTENT_GAME_DESIGN: (
-        "spieldesign", "game design", "level", "spielmechanik", "mechanic",
-        "spielregel", "rule", "punkte", "score", "herausforderung",
+        "spieldesign",
+        "game design",
+        "level",
+        "spielmechanik",
+        "mechanic",
+        "spielregel",
+        "rule",
+        "punkte",
+        "score",
+        "herausforderung",
     ),
     INTENT_OPS_RUNBOOK: (
-        "restart", "neustart", "deploy", "deployment", "monitor", "alert",
-        "pager", "oncall", "on-call", "recover", "recovery",
-        "konfiguriere", "configure", "setup",
+        "restart",
+        "neustart",
+        "deploy",
+        "deployment",
+        "monitor",
+        "alert",
+        "pager",
+        "oncall",
+        "on-call",
+        "recover",
+        "recovery",
+        "konfiguriere",
+        "configure",
+        "setup",
     ),
     INTENT_MERMAID: (
-        "mermaid", "diagram", "diagramm", "flowchart", "sequence",
-        "sequenz", "classdiagram", "erdiagram",
+        "mermaid",
+        "diagram",
+        "diagramm",
+        "flowchart",
+        "sequence",
+        "sequenz",
+        "classdiagram",
+        "erdiagram",
     ),
 }
 
@@ -434,14 +561,23 @@ def classify_retrieval_intent(
             intent = INTENT_CODE_EXPLANATION
 
     # UI config signals: codecompass active + no domain hit → lean codecompass
-    if bool(cfg.get("chat_use_codecompass")) and domain == DOMAIN_GENERIC and best_domain_hits == 0 and _trigger_mode == "auto":
+    if (
+        bool(cfg.get("chat_use_codecompass"))
+        and domain == DOMAIN_GENERIC
+        and best_domain_hits == 0
+        and _trigger_mode == "auto"
+    ):
         domain = DOMAIN_CODECOMPASS
 
     # tutorial_mode active + generic intent → tutorial help
     if bool(cfg.get("tutorial_mode")) and intent == INTENT_GENERIC_CHAT:
         intent = INTENT_TUTORIAL
 
-    if domain != DOMAIN_GENERIC and intent == INTENT_GENERIC_CHAT and any(marker in q for marker in ("was ist", "what is")):
+    if (
+        domain != DOMAIN_GENERIC
+        and intent == INTENT_GENERIC_CHAT
+        and any(marker in q for marker in ("was ist", "what is"))
+    ):
         intent = INTENT_CODE_EXPLANATION
 
     return domain, intent
@@ -456,7 +592,13 @@ _PROFILE_TABLE: dict[tuple[str, str], dict[str, Any]] = {
         "source_types": ["repo", "artifact"],
         "source_type_weights": {"repo": 1.45, "artifact": 1.05, "wiki": 0.3, "task_memory": 0.95},
         "retrieval_intent": "code_explanation_with_codecompass",
-        "negative_source_patterns": ["book-of-ananta", "book_of_ananta", "snake_tutor", "terminal-header-logo-renderer", "markdown_mermaid"],
+        "negative_source_patterns": [
+            "book-of-ananta",
+            "book_of_ananta",
+            "snake_tutor",
+            "terminal-header-logo-renderer",
+            "markdown_mermaid",
+        ],
     },
     (DOMAIN_CODECOMPASS, INTENT_ARCHITECTURE): {
         "source_types": ["repo", "artifact", "wiki"],
@@ -474,7 +616,12 @@ _PROFILE_TABLE: dict[tuple[str, str], dict[str, Any]] = {
         "source_types": ["repo", "artifact"],
         "source_type_weights": {"repo": 1.35, "artifact": 1.1, "wiki": 0.55, "task_memory": 0.95},
         "retrieval_intent": "architecture_full_scan_codecompass",
-        "negative_source_patterns": ["book-of-ananta", "book_of_ananta", "snake_tutor", "terminal-header-logo-renderer"],
+        "negative_source_patterns": [
+            "book-of-ananta",
+            "book_of_ananta",
+            "snake_tutor",
+            "terminal-header-logo-renderer",
+        ],
     },
     (DOMAIN_WORKER, INTENT_CODE_EXPLANATION): {
         "source_types": ["repo", "artifact"],
@@ -672,8 +819,13 @@ def resolve_profile(
         # operator_tui/ops/generic) map 1:1 to backend constants. Unknown
         # values fall back to the classified domain — never raise.
         _known_domains = {
-            DOMAIN_CODECOMPASS, DOMAIN_AI_SNAKE, DOMAIN_WORKER,
-            DOMAIN_ANANTA_GAME, DOMAIN_OPERATOR_TUI, DOMAIN_OPS, DOMAIN_GENERIC,
+            DOMAIN_CODECOMPASS,
+            DOMAIN_AI_SNAKE,
+            DOMAIN_WORKER,
+            DOMAIN_ANANTA_GAME,
+            DOMAIN_OPERATOR_TUI,
+            DOMAIN_OPS,
+            DOMAIN_GENERIC,
         }
         _hint = str(domain_hint).strip()
         if _hint in _known_domains:
@@ -684,18 +836,14 @@ def resolve_profile(
             # not a profile domain. The hard scope is resolved separately by
             # agent.codecompass.domain_scope_resolver; the profile keeps the
             # classified domain.
-            reasons.append(f"domain_hint_runtime_scope:{_hint[len('domain:'):].strip().lower()}")
+            reasons.append(f"domain_hint_runtime_scope:{_hint[len('domain:') :].strip().lower()}")
         else:
             reasons.append(f"domain_hint_unknown:{_hint}:ignored")
     if intent_override and str(intent_override).strip():
         intent = str(intent_override).strip()
         reasons.append(f"intent_override:{intent}")
 
-    spec = dict(
-        _PROFILE_TABLE.get((domain, intent))
-        or _DOMAIN_FALLBACK.get(domain)
-        or _GENERIC_FALLBACK
-    )
+    spec = dict(_PROFILE_TABLE.get((domain, intent)) or _DOMAIN_FALLBACK.get(domain) or _GENERIC_FALLBACK)
 
     # Apply profile_mode weight patches
     mode_override = _PROFILE_MODE_OVERRIDES.get(effective_flag, {})
@@ -713,8 +861,7 @@ def resolve_profile(
     # profile_mode override so the user choice wins over chat_retrieval_profile.
     # force_repo_first: drop all source types except repo + task_memory.
     if _trigger_mode_resolved == "force_repo_first":
-        spec["source_types"] = [st for st in list(spec.get("source_types") or [])
-                                if st in {"repo", "task_memory"}]
+        spec["source_types"] = [st for st in list(spec.get("source_types") or []) if st in {"repo", "task_memory"}]
         # Boost repo weight so it dominates the fusion ranking.
         weights = dict(spec.get("source_type_weights") or {})
         weights["repo"] = max(float(weights.get("repo", 1.0)), 1.5)
@@ -797,6 +944,7 @@ def _apply_ui_source_constraints(source_types: list[str], cfg: dict[str, Any]) -
 # ──────────────────────────────────────────
 # CRPS-009: negative source pattern filter
 # ──────────────────────────────────────────
+
 
 def apply_profile_source_constraints(
     chunks: list[dict[str, Any]],

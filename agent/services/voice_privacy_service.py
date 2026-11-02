@@ -37,13 +37,10 @@ class VoicePrivacyService:
         self._reconciliation = reconciliation or VoiceDeletionReconciliationRepository()
         self._stream_sessions = stream_sessions or get_voice_stream_session_service()
         self._tombstones = tombstones or VoiceDeletionTombstoneRepository()
-        self._runtime_cleanup = (
-            runtime_cleanup
-            or (
-                VoiceRuntimeCleanupService(runtime_stream_delete=runtime_stream_delete)
-                if runtime_stream_delete is not None
-                else get_voice_runtime_cleanup_service()
-            )
+        self._runtime_cleanup = runtime_cleanup or (
+            VoiceRuntimeCleanupService(runtime_stream_delete=runtime_stream_delete)
+            if runtime_stream_delete is not None
+            else get_voice_runtime_cleanup_service()
         )
         self._audit = audit_sink
 
@@ -101,6 +98,7 @@ class VoicePrivacyService:
             profile_id=profile_id,
             operation="profile_delete",
         )
+
         def remove_hook(removed: HubVoiceStreamSession) -> None:
             self._stage_runtime_cleanup(
                 principal,
@@ -108,6 +106,7 @@ class VoicePrivacyService:
                 removed,
                 operation="profile_delete",
             )
+
         streams = (
             self._stream_sessions.delete_profile_before(
                 principal,
@@ -159,12 +158,10 @@ class VoicePrivacyService:
             "snapshots_revoked": True,
             "revoked_stream_count": len(streams),
             "runtime_cleanup_pending": (
-                runtime_cleanup.status.pending_count > 0
-                or recovered_cleanup.status.pending_count > 0
+                runtime_cleanup.status.pending_count > 0 or recovered_cleanup.status.pending_count > 0
             ),
             "runtime_cleanup_failed_count": (
-                runtime_cleanup.status.failed_count
-                + recovered_cleanup.status.failed_count
+                runtime_cleanup.status.failed_count + recovered_cleanup.status.failed_count
             ),
         }
 

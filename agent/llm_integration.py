@@ -119,8 +119,9 @@ def _runtime_context_limit(provider: str, model: str | None = None, requested: i
         requested_tokens = int(requested) if requested else None
     except (TypeError, ValueError):
         requested_tokens = None
-    return window_for_provider(str(provider or "").strip().lower() or None, model=model or None,
-                               requested=requested_tokens)
+    return window_for_provider(
+        str(provider or "").strip().lower() or None, model=model or None, requested=requested_tokens
+    )
 
 
 def _runtime_provider_urls() -> dict[str, str | None]:
@@ -133,6 +134,7 @@ def _runtime_provider_urls() -> dict[str, str | None]:
                 "openai": urls.get("openai"),
                 "codex": urls.get("codex") or urls.get("openai"),
                 "anthropic": urls.get("anthropic"),
+                "llamacpp": urls.get("llamacpp") or urls.get("openai"),
                 "mock": getattr(settings, "mock_url", None),
             }
     return {
@@ -141,6 +143,7 @@ def _runtime_provider_urls() -> dict[str, str | None]:
         "openai": settings.openai_url,
         "codex": settings.openai_url,
         "anthropic": settings.anthropic_url,
+        "llamacpp": settings.openai_url,
         "mock": settings.mock_url,
     }
 
@@ -210,9 +213,7 @@ def resolve_preferred_local_runtime(
 
     primary_url, primary_probe_fn = probes.get(provider_name, ("", None))
     primary_probe = (
-        primary_probe_fn(primary_url, timeout=timeout)
-        if primary_url and primary_probe_fn
-        else {"ok": False}
+        primary_probe_fn(primary_url, timeout=timeout) if primary_url and primary_probe_fn else {"ok": False}
     )
     if primary_probe.get("ok"):
         result = {
@@ -223,9 +224,7 @@ def resolve_preferred_local_runtime(
     else:
         fallback_url, fallback_probe_fn = probes.get(fallback_provider, ("", None))
         fallback_probe = (
-            fallback_probe_fn(fallback_url, timeout=timeout)
-            if fallback_url and fallback_probe_fn
-            else {"ok": False}
+            fallback_probe_fn(fallback_url, timeout=timeout) if fallback_url and fallback_probe_fn else {"ok": False}
         )
         if fallback_probe.get("ok"):
             result = {
@@ -305,13 +304,37 @@ def generate_text(
 
     if max_context_tokens:
         # LCTX-002: does the assembled request fit? (the strategy trims below; every trim is recorded)
-        record_expected_overflow("llm.generate_text", check_fit(
-            prompt=prompt, messages=history if isinstance(history, list) else None,
-            window_tokens=int(max_context_tokens), output_reserve_tokens=max_output_tokens))
+        record_expected_overflow(
+            "llm.generate_text",
+            check_fit(
+                prompt=prompt,
+                messages=history if isinstance(history, list) else None,
+                window_tokens=int(max_context_tokens),
+                output_reserve_tokens=max_output_tokens,
+            ),
+        )
     with truncation_scope() as truncations:
-        result = _call_generate(p, m, prompt, urls, key, actual_timeout, history, temperature, max_context_tokens,
-                                max_output_tokens, tools, tool_choice, trace_goal_id, trace_task_id,
-                                idempotency_key, provider_context, seed, max_retries, backoff_factor)
+        result = _call_generate(
+            p,
+            m,
+            prompt,
+            urls,
+            key,
+            actual_timeout,
+            history,
+            temperature,
+            max_context_tokens,
+            max_output_tokens,
+            tools,
+            tool_choice,
+            trace_goal_id,
+            trace_task_id,
+            idempotency_key,
+            provider_context,
+            seed,
+            max_retries,
+            backoff_factor,
+        )
     return _attach_context_truncation(result, truncations)
 
 
@@ -336,9 +359,27 @@ def _attach_context_truncation(result: Any, truncations: list) -> Any:
     return result
 
 
-def _call_generate(p, m, prompt, urls, key, actual_timeout, history, temperature, max_context_tokens,
-                   max_output_tokens, tools, tool_choice, trace_goal_id, trace_task_id, idempotency_key,
-                   provider_context, seed, max_retries, backoff_factor) -> Any:
+def _call_generate(
+    p,
+    m,
+    prompt,
+    urls,
+    key,
+    actual_timeout,
+    history,
+    temperature,
+    max_context_tokens,
+    max_output_tokens,
+    tools,
+    tool_choice,
+    trace_goal_id,
+    trace_task_id,
+    idempotency_key,
+    provider_context,
+    seed,
+    max_retries,
+    backoff_factor,
+) -> Any:
     return _call_llm(
         p,
         m,

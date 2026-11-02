@@ -52,10 +52,7 @@ class _Repository:
     ):
         assert task_id == self.task["id"]
         previous_status = self.task["status"]
-        if (
-            previous_status not in expected_statuses
-            or (predicate is not None and not predicate(self.task))
-        ):
+        if previous_status not in expected_statuses or (predicate is not None and not predicate(self.task)):
             return SimpleNamespace(
                 updated=False,
                 task=self.task,
@@ -77,12 +74,8 @@ class _Job:
     def __init__(self, envelope):
         self._envelope = dict(envelope)
         self.job_id = str(envelope["job_id"])
-        self.authority_binding = SimpleNamespace(
-            binding_digest="a" * 64
-        )
-        self.assignment = SimpleNamespace(
-            **dict(envelope["assignment"])
-        )
+        self.authority_binding = SimpleNamespace(binding_digest="a" * 64)
+        self.assignment = SimpleNamespace(**dict(envelope["assignment"]))
 
     def to_wire(self):
         return dict(self._envelope)
@@ -124,9 +117,7 @@ class _BindingService:
 
     def retry(self, *, job_id, assignment, **_options):
         self.retry_calls.append((job_id, assignment))
-        raise KnowledgeIndexExecutionBindingError(
-            "knowledge_index_retry_requires_fresh_grant"
-        )
+        raise KnowledgeIndexExecutionBindingError("knowledge_index_retry_requires_fresh_grant")
 
     def reconcile_expired_dispatch(
         self,
@@ -136,9 +127,7 @@ class _BindingService:
     ):
         self.reconcile_calls.append((job_id, expected_lock_version))
         if expected_lock_version != self.execution_lock_version:
-            raise KnowledgeIndexExecutionBindingError(
-                "knowledge_index_execution_reconcile_conflict"
-            )
+            raise KnowledgeIndexExecutionBindingError("knowledge_index_execution_reconcile_conflict")
         if self.reconciled_record is None:
             self.execution_lock_version += 1
             self.reconciled_record = SimpleNamespace(
@@ -191,9 +180,7 @@ def _task(envelope):
     return {
         "id": envelope["job_id"],
         "status": "todo",
-        "worker_execution_context": {
-            "knowledge_index_job": dict(envelope)
-        },
+        "worker_execution_context": {"knowledge_index_job": dict(envelope)},
     }
 
 
@@ -214,9 +201,7 @@ def test_dispatch_must_pass_binding_gate() -> None:
         authenticated_worker_id="worker-1",
     )
 
-    assert binding.dispatch_calls == [
-        (envelope["job_id"], "worker-1")
-    ]
+    assert binding.dispatch_calls == [(envelope["job_id"], "worker-1")]
     assert binding.claim_calls == [
         {
             "job_id": envelope["job_id"],
@@ -287,12 +272,8 @@ def test_expired_dispatch_reconciliation_projects_task_failure_once() -> None:
         (envelope["job_id"], 2),
     ]
     assert repository.task["status"] == "failed"
-    assert repository.task["status_reason_code"] == (
-        "knowledge_index_execution_dispatch_lease_expired"
-    )
-    marker = repository.task["status_reason_details"][
-        "knowledge_index_dispatch_reconciliation"
-    ]
+    assert repository.task["status_reason_code"] == ("knowledge_index_execution_dispatch_lease_expired")
+    marker = repository.task["status_reason_details"]["knowledge_index_dispatch_reconciliation"]
     assert marker["job_id"] == envelope["job_id"]
     assert marker["execution_lock_version"] == 2
     assert marker["assignment_id"] == "assignment-1"
@@ -318,9 +299,7 @@ def test_expired_dispatch_reconciliation_projects_proposing_task_failure() -> No
 
     assert result["status"] == "failed"
     assert repository.task["status"] == "failed"
-    assert repository.task["status_reason_code"] == (
-        "knowledge_index_execution_dispatch_lease_expired"
-    )
+    assert repository.task["status_reason_code"] == ("knowledge_index_execution_dispatch_lease_expired")
 
 
 def test_proposing_task_keeps_queue_status_and_exposes_running_execution() -> None:

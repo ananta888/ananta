@@ -136,8 +136,7 @@ class OrganizationSourceCatalogPublisherService:
         membership_service: OrganizationMembershipService | None = None,
         catalog_service: SourceCatalogService | None = None,
         binding_service: OrganizationSourceCatalogBindingService | None = None,
-        uow_factory: Callable[[], OrganizationSourceCatalogUnitOfWorkPort]
-        | None = None,
+        uow_factory: Callable[[], OrganizationSourceCatalogUnitOfWorkPort] | None = None,
         clock: Callable[[], float] = time.time,
         fault_injector: Callable[[str], None] | None = None,
     ) -> None:
@@ -172,9 +171,7 @@ class OrganizationSourceCatalogPublisherService:
     ) -> OrganizationSourceCatalogPublishResult:
         self._validate_principal(principal)
         normalized_key = str(idempotency_key or "").strip()
-        if not 8 <= len(normalized_key) <= 191 or any(
-            character.isspace() for character in normalized_key
-        ):
+        if not 8 <= len(normalized_key) <= 191 or any(character.isspace() for character in normalized_key):
             raise OrganizationSourceCatalogPublisherError(
                 "organization_source_catalog_idempotency_key_invalid",
                 public_status=400,
@@ -329,12 +326,8 @@ class OrganizationSourceCatalogPublisherService:
                             "principal_id": principal.subject_id,
                             "source_count": len(catalog["sources"]),
                             "query_count": len(command.queries),
-                            "query_digest": canonical_sha256(
-                                [value for value, _batch in batches]
-                            ),
-                            "publication_binding_digest": publication[
-                                "binding_digest"
-                            ],
+                            "query_digest": canonical_sha256([value for value, _batch in batches]),
+                            "publication_binding_digest": publication["binding_digest"],
                         },
                     )
                 )
@@ -513,18 +506,14 @@ class OrganizationSourceCatalogPublisherService:
                 public_status=500,
             )
         try:
-            result = OrganizationSourceCatalogPublishResult.model_validate(
-                dict(operation.result_json or {})
-            )
+            result = OrganizationSourceCatalogPublishResult.model_validate(dict(operation.result_json or {}))
         except ValueError as exc:
             raise OrganizationSourceCatalogPublisherError(
                 "organization_source_catalog_replay_corrupt",
                 public_status=500,
             ) from exc
         catalog = dict((task.verification_status or {}).get("source_catalog") or {})
-        raw_publication = (task.verification_status or {}).get(
-            "source_catalog_publication"
-        )
+        raw_publication = (task.verification_status or {}).get("source_catalog_publication")
         if not isinstance(raw_publication, Mapping):
             raise OrganizationSourceCatalogPublisherError(
                 "organization_source_catalog_replay_corrupt",
@@ -619,13 +608,16 @@ class OrganizationSourceCatalogPublisherService:
                 "records": record_bindings,
             }
         )
-        trace_id = "catalog-trace-" + canonical_sha256(
-            {
-                "task_id": task_id,
-                "context_hash": context_hash,
-                "manifest_hash": authority.index_manifest_digest,
-            }
-        )[:24]
+        trace_id = (
+            "catalog-trace-"
+            + canonical_sha256(
+                {
+                    "task_id": task_id,
+                    "context_hash": context_hash,
+                    "manifest_hash": authority.index_manifest_digest,
+                }
+            )[:24]
+        )
         catalog = self._catalogs.build_catalog(
             task_id=task_id,
             retrieval_payload={
@@ -673,14 +665,8 @@ class OrganizationSourceCatalogPublisherService:
                 metadata = dict(raw_metadata)
                 content = match.get("content")
                 record_file = str(metadata.get("record_file") or "").strip()
-                record_id = str(
-                    metadata.get("record_id") or match.get("id") or ""
-                ).strip() or None
-                path = str(
-                    metadata.get("repo_relative_path")
-                    or match.get("path")
-                    or ""
-                ).strip() or None
+                record_id = str(metadata.get("record_id") or match.get("id") or "").strip() or None
+                path = str(metadata.get("repo_relative_path") or match.get("path") or "").strip() or None
                 if (
                     not isinstance(content, str)
                     or not content
@@ -691,12 +677,8 @@ class OrganizationSourceCatalogPublisherService:
                         "organization_source_catalog_query_record_invalid",
                         public_status=502,
                     )
-                line_start = self._line(
-                    metadata.get("line_start", metadata.get("start_line"))
-                )
-                line_end = self._line(
-                    metadata.get("line_end", metadata.get("end_line"))
-                )
+                line_start = self._line(metadata.get("line_start", metadata.get("start_line")))
+                line_end = self._line(metadata.get("line_end", metadata.get("end_line")))
                 if line_start is not None and line_end is not None and line_end < line_start:
                     raise OrganizationSourceCatalogPublisherError(
                         "organization_source_catalog_query_record_invalid",
@@ -728,9 +710,7 @@ class OrganizationSourceCatalogPublisherService:
                 else:
                     records[key] = replace(
                         previous,
-                        query_digests=tuple(
-                            sorted(set(previous.query_digests) | {query_digest})
-                        ),
+                        query_digests=tuple(sorted(set(previous.query_digests) | {query_digest})),
                     )
         return sorted(records.values(), key=lambda item: item.canonical_key())
 
@@ -819,9 +799,7 @@ class OrganizationSourceCatalogPublisherService:
         )
 
     @staticmethod
-    def _source_kind(
-        *, authority: SourceCatalogPublishingAuthority, record_kind: str
-    ) -> str:
+    def _source_kind(*, authority: SourceCatalogPublishingAuthority, record_kind: str) -> str:
         if authority.connector_type in _REPOSITORY_CONNECTORS or authority.index_source_scope in {
             "repo",
             "repo_path",
@@ -886,8 +864,7 @@ class OrganizationSourceCatalogPublisherService:
             or not principal.tenant_id
             or not principal.project_id
             or principal.project_role not in _ALLOWED_PROJECT_ROLES
-            or str(principal.credential_type or "").lower()
-            not in _ALLOWED_CREDENTIAL_TYPES
+            or str(principal.credential_type or "").lower() not in _ALLOWED_CREDENTIAL_TYPES
         ):
             raise OrganizationSourceCatalogPublisherError(
                 "organization_source_catalog_credential_forbidden",

@@ -5,7 +5,6 @@ from typing import Any
 
 from agent.db_models import TaskDB
 
-
 _CCARI_AGENT_TEMPLATES = frozenset({"opencode", "ananta_worker", "ai_snake_chat"})
 
 

@@ -10,48 +10,48 @@ from agent.services.deterministic_repair_path_service import (
     REPAIR_ACTION_SAFETY_CLASSES,
     REPAIR_EXECUTION_SAFETY_POLICY,
     REPAIR_OUTCOME_MEMORY_MODEL,
-    REPAIR_PROCEDURE_MODEL,
     REPAIR_PATH_TARGET_MODEL,
     REPAIR_PROBLEM_CLASS_INVENTORY,
+    REPAIR_PROCEDURE_MODEL,
     REPAIR_STATE_MODEL,
     REPAIR_VERIFICATION_MODEL,
     ROLLOUT_PLAN_MODEL,
     STANDARD_OUTCOME_LABELS,
     build_bounded_escalation_prompt,
+    build_deterministic_repair_foundation_snapshot,
+    build_failure_signature,
+    build_initial_failure_signature_catalog,
+    build_initial_repair_procedure_catalog,
     build_negative_learning_model,
     build_operator_proposal_preview,
     build_operator_session_summary,
+    build_path_visibility,
+    build_recovery_hint_bundle,
     build_repair_audit_chain,
     build_repair_history_inspection_view,
+    build_repair_outcome_memory_entry,
+    build_repair_procedure_preview,
+    build_repair_procedure_template,
     build_rollout_plan,
+    build_signature_explanation,
     build_success_weighted_repair_recommendations,
     build_test_coverage_manifest,
-    build_path_visibility,
+    capture_command_result,
+    classify_signature_matching_outcome,
+    collect_environment_facts,
     compute_environment_similarity,
     convert_llm_proposal_to_reviewed_procedure,
     curate_escalation_feedback,
     decide_llm_escalation,
-    build_initial_repair_procedure_catalog,
-    build_deterministic_repair_foundation_snapshot,
-    build_initial_failure_signature_catalog,
-    build_recovery_hint_bundle,
-    build_repair_outcome_memory_entry,
-    build_repair_procedure_preview,
-    build_repair_procedure_template,
-    build_signature_explanation,
-    build_failure_signature,
-    capture_command_result,
-    classify_signature_matching_outcome,
-    collect_environment_facts,
     evaluate_repair_confidence,
+    evaluate_unsafe_action_guardrails,
     execute_repair_procedure,
     get_initial_diagnosis_playbooks,
     ingest_structured_logs,
     match_failure_signatures,
     normalize_evidence_bundle,
-    evaluate_unsafe_action_guardrails,
-    run_step_verification,
     run_diagnosis_playbook,
+    run_step_verification,
     select_repair_procedure_from_catalog,
     signature_to_dict,
     track_repair_outcomes,
@@ -180,7 +180,14 @@ def test_signature_matching_engine_ranks_matches_deterministically_without_llm()
         evidence_items=[
             {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "service failed to start"},
             {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "restart loop detected"},
-            {"type": "command_result", "source": "service_status", "severity": "error", "command": "systemctl status api", "stderr": "start request repeated too quickly", "exit_code": 3},
+            {
+                "type": "command_result",
+                "source": "service_status",
+                "severity": "error",
+                "command": "systemctl status api",
+                "stderr": "start request repeated too quickly",
+                "exit_code": 3,
+            },
         ],
         environment_facts={"platform_target": "ubuntu"},
     )
@@ -222,8 +229,18 @@ def test_signature_outcome_handles_ambiguity_and_low_confidence_paths():
 def test_signature_explanation_includes_key_evidence_and_constraints():
     normalized = normalize_evidence_bundle(
         evidence_items=[
-            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "Address already in use on port 5000"},
-            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "bind failed for service api"},
+            {
+                "type": "log_entry",
+                "source": "error_logs",
+                "severity": "error",
+                "message": "Address already in use on port 5000",
+            },
+            {
+                "type": "log_entry",
+                "source": "error_logs",
+                "severity": "error",
+                "message": "bind failed for service api",
+            },
         ],
         environment_facts={"platform_target": "ubuntu"},
     )
@@ -250,7 +267,12 @@ def test_diagnosis_model_playbooks_and_runner_support_branching_and_early_stop()
 
     normalized = normalize_evidence_bundle(
         evidence_items=[
-            {"type": "log_entry", "source": "service_status", "severity": "error", "message": "service failed to start"},
+            {
+                "type": "log_entry",
+                "source": "service_status",
+                "severity": "error",
+                "message": "service failed to start",
+            },
             {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "restart loop"},
         ],
         environment_facts={"platform_target": "ubuntu"},
@@ -359,8 +381,18 @@ def test_repair_executor_stops_on_contradictory_or_worsening_evidence():
     )
     contradictory_evidence = normalize_evidence_bundle(
         evidence_items=[
-            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "service healthy but failed to start"},
-            {"type": "log_entry", "source": "error_logs", "severity": "critical", "message": "panic and crash loop detected"},
+            {
+                "type": "log_entry",
+                "source": "error_logs",
+                "severity": "error",
+                "message": "service healthy but failed to start",
+            },
+            {
+                "type": "log_entry",
+                "source": "error_logs",
+                "severity": "critical",
+                "message": "panic and crash loop detected",
+            },
         ],
         environment_facts={"platform_target": "ubuntu"},
     )
@@ -416,7 +448,12 @@ def test_verification_and_outcome_memory_tracking_are_standardized():
     memory_entry = build_repair_outcome_memory_entry(
         signature_matching={"matches": [{"signature_id": "sig-service-restart-loop"}]},
         selected_catalog_entry=selected,
-        environment_facts={"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "healthy"},
+        environment_facts={
+            "platform_target": "ubuntu",
+            "os_family": "linux",
+            "package_manager": "apt_dpkg",
+            "service_state": "healthy",
+        },
         execution_result=execution,
         final_verification=final,
     )
@@ -472,26 +509,46 @@ def test_success_weighted_recommendation_respects_safety_and_negative_learning()
             "procedure_id": procedure_id,
             "problem_class": "service_start_failure",
             "outcome_label": "succeeded",
-            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "healthy"},
+            "environment_facts": {
+                "platform_target": "ubuntu",
+                "os_family": "linux",
+                "package_manager": "apt_dpkg",
+                "service_state": "healthy",
+            },
         },
         {
             "procedure_id": procedure_id,
             "problem_class": "service_start_failure",
             "outcome_label": "regressed",
-            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "degraded"},
+            "environment_facts": {
+                "platform_target": "ubuntu",
+                "os_family": "linux",
+                "package_manager": "apt_dpkg",
+                "service_state": "degraded",
+            },
         },
         {
             "procedure_id": procedure_id,
             "problem_class": "service_start_failure",
             "outcome_label": "failed",
-            "environment_facts": {"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "failed"},
+            "environment_facts": {
+                "platform_target": "ubuntu",
+                "os_family": "linux",
+                "package_manager": "apt_dpkg",
+                "service_state": "failed",
+            },
         },
     ]
     negative = build_negative_learning_model(memory_entries=memory_entries, min_negative_count=2)
     recommendations = build_success_weighted_repair_recommendations(
         repair_catalog=catalog,
         signature_matching={"matches": [{"problem_class": "service_start_failure", "score": 0.9}]},
-        current_environment_facts={"platform_target": "ubuntu", "os_family": "linux", "package_manager": "apt_dpkg", "service_state": "degraded"},
+        current_environment_facts={
+            "platform_target": "ubuntu",
+            "os_family": "linux",
+            "package_manager": "apt_dpkg",
+            "service_state": "degraded",
+        },
         memory_entries=memory_entries,
         negative_learning_model=negative,
     )
@@ -508,8 +565,18 @@ def test_success_weighted_recommendation_respects_safety_and_negative_learning()
 def test_llm_escalation_policy_and_prompt_are_bounded_and_auditable():
     normalized = normalize_evidence_bundle(
         evidence_items=[
-            {"type": "log_entry", "source": "error_logs", "severity": "error", "message": "unknown failure and contradictory states"},
-            {"type": "log_entry", "source": "service_status", "severity": "info", "message": "service healthy but failed"},
+            {
+                "type": "log_entry",
+                "source": "error_logs",
+                "severity": "error",
+                "message": "unknown failure and contradictory states",
+            },
+            {
+                "type": "log_entry",
+                "source": "service_status",
+                "severity": "info",
+                "message": "service healthy but failed",
+            },
         ],
         environment_facts={"platform_target": "ubuntu"},
     )
@@ -521,9 +588,15 @@ def test_llm_escalation_policy_and_prompt_are_bounded_and_auditable():
     prompt = build_bounded_escalation_prompt(
         escalation_decision=escalation,
         normalized_evidence=normalized,
-        signature_matching={"matches": [{"signature_id": "sig-x", "problem_class": "service_start_failure", "score": 0.55}]},
+        signature_matching={
+            "matches": [{"signature_id": "sig-x", "problem_class": "service_start_failure", "score": 0.55}]
+        },
         attempted_paths=["diag-service-start-failure-v1", "repair-procedure-service_start_failure-v1"],
-        confidence_model={"score": 0.41, "decision": "llm_escalation", "thresholds": {"deterministic_execute": 0.78, "review_required": 0.55}},
+        confidence_model={
+            "score": 0.41,
+            "decision": "llm_escalation",
+            "thresholds": {"deterministic_execute": 0.78, "review_required": 0.55},
+        },
     )
 
     assert LLM_ESCALATION_POLICY_MODEL["schema"] == "deterministic_llm_escalation_policy_v1"
@@ -583,8 +656,16 @@ def test_governance_safety_approval_and_audit_chain_are_traceable():
         matching_outcome={"outcome": "low_confidence"},
     )
     audit_chain = build_repair_audit_chain(
-        diagnosis_run={"playbook_id": "diag-package-install-failure-v1", "classification": "package_install_failure", "final_state": "classified"},
-        matching_outcome={"outcome": "low_confidence", "best_problem_class": "package_install_failure", "best_score": 0.49},
+        diagnosis_run={
+            "playbook_id": "diag-package-install-failure-v1",
+            "classification": "package_install_failure",
+            "final_state": "classified",
+        },
+        matching_outcome={
+            "outcome": "low_confidence",
+            "best_problem_class": "package_install_failure",
+            "best_score": 0.49,
+        },
         repair_execution_result=blocked,
         final_verification=verified,
         llm_escalation_decision={"should_escalate": True, "reasons": ["low_confidence"]},
@@ -616,7 +697,11 @@ def test_unsafe_action_guardrails_fail_closed_for_dangerous_actions():
 
 
 def test_operator_views_cover_summary_path_preview_and_history():
-    diagnosis_run = {"playbook_id": "diag-service-start-failure-v1", "classification": "service_start_failure", "final_state": "classified"}
+    diagnosis_run = {
+        "playbook_id": "diag-service-start-failure-v1",
+        "classification": "service_start_failure",
+        "final_state": "classified",
+    }
     matching_outcome = {"outcome": "single_high_confidence", "best_problem_class": "service_start_failure"}
     repair_execution = {"procedure_id": "repair-procedure-service_start_failure-v1", "status": "completed"}
     final_verification = {"outcome_label": "succeeded", "verification_summary": {"execution_status": "completed"}}
@@ -632,7 +717,10 @@ def test_operator_views_cover_summary_path_preview_and_history():
         matching_outcome=matching_outcome,
     )
     preview = build_operator_proposal_preview(
-        repair_preview={"procedure_id": "repair-procedure-service_start_failure-v1", "problem_class": "service_start_failure"},
+        repair_preview={
+            "procedure_id": "repair-procedure-service_start_failure-v1",
+            "problem_class": "service_start_failure",
+        },
         selected_catalog_entry={
             "procedure": {
                 "steps": [
@@ -644,8 +732,20 @@ def test_operator_views_cover_summary_path_preview_and_history():
     )
     history = build_repair_history_inspection_view(
         memory_entries=[
-            {"procedure_id": "p1", "problem_class": "service_start_failure", "signature_id": "sig1", "outcome_label": "succeeded", "environment_facts": {"platform_target": "ubuntu"}},
-            {"procedure_id": "p2", "problem_class": "package_install_failure", "signature_id": "sig2", "outcome_label": "failed", "environment_facts": {"platform_target": "windows11"}},
+            {
+                "procedure_id": "p1",
+                "problem_class": "service_start_failure",
+                "signature_id": "sig1",
+                "outcome_label": "succeeded",
+                "environment_facts": {"platform_target": "ubuntu"},
+            },
+            {
+                "procedure_id": "p2",
+                "problem_class": "package_install_failure",
+                "signature_id": "sig2",
+                "outcome_label": "failed",
+                "environment_facts": {"platform_target": "windows11"},
+            },
         ],
         filter_problem_class="service_start_failure",
         filter_platform_target="ubuntu",

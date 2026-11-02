@@ -99,7 +99,11 @@ def classification_metrics(contract: SpecialistDecisionContract, predictions: Se
         fp = sum(confusion[other][label] for other in labels if other != label)
         fn = sum(count for predicted, count in confusion[label].items() if predicted != label)
         precision, recall = _rate(tp, tp + fp), _rate(tp, tp + fn)
-        f1 = None if precision is None or recall is None or precision + recall == 0 else 2 * precision * recall / (precision + recall)
+        f1 = (
+            None
+            if precision is None or recall is None or precision + recall == 0
+            else 2 * precision * recall / (precision + recall)
+        )
         support = sum(confusion[label].values())
         per_class[label] = {"precision": precision, "recall": recall, "f1": f1, "support": support}
         if support:
@@ -140,7 +144,9 @@ def resource_metrics(predictions: Sequence[Prediction], usage: ResourceUsage) ->
     tokens = [p.input_tokens for p in predictions if p.input_tokens is not None]
     return {
         "latency_ms_p50": _finite(latencies[len(latencies) // 2]) if latencies else None,
-        "latency_ms_p95": _finite(latencies[min(len(latencies) - 1, int(len(latencies) * 0.95))]) if latencies else None,
+        "latency_ms_p95": _finite(latencies[min(len(latencies) - 1, int(len(latencies) * 0.95))])
+        if latencies
+        else None,
         "time_to_decision_ms_mean": _finite(sum(latencies) / len(latencies)) if latencies else None,
         "input_tokens_mean": _finite(sum(tokens) / len(tokens)) if tokens else None,
         **usage.to_mapping(),
@@ -227,10 +233,18 @@ def benchmark(
             "candidate_id": baseline.candidate_id,
             "accuracy_delta": result.classification["accuracy"] - baseline.classification["accuracy"],
             "macro_f1_delta": result.classification["macro_f1"] - baseline.classification["macro_f1"],
-            "false_allow_rate_delta": _delta(result.safety.get("false_allow_rate"), baseline.safety.get("false_allow_rate")),
-            "false_deny_rate_delta": _delta(result.safety.get("false_deny_rate"), baseline.safety.get("false_deny_rate")),
-            "latency_ms_p50_delta": _delta(result.resources.get("latency_ms_p50"), baseline.resources.get("latency_ms_p50")),
-            "adapter_bytes_delta": _delta(result.resources.get("adapter_bytes"), baseline.resources.get("adapter_bytes")),
+            "false_allow_rate_delta": _delta(
+                result.safety.get("false_allow_rate"), baseline.safety.get("false_allow_rate")
+            ),
+            "false_deny_rate_delta": _delta(
+                result.safety.get("false_deny_rate"), baseline.safety.get("false_deny_rate")
+            ),
+            "latency_ms_p50_delta": _delta(
+                result.resources.get("latency_ms_p50"), baseline.resources.get("latency_ms_p50")
+            ),
+            "adapter_bytes_delta": _delta(
+                result.resources.get("adapter_bytes"), baseline.resources.get("adapter_bytes")
+            ),
         }
     return BenchmarkResult(**{**result.__dict__, "baselines": deltas})
 

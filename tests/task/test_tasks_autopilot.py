@@ -9,13 +9,13 @@ from agent.db_models import AgentInfoDB, GoalDB, TaskDB, TeamDB
 from agent.repository import agent_repo, goal_repo, task_repo, team_repo
 from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot import autonomous_loop
-from agent.routes.tasks.autopilot_tick_engine import (
+from agent.routes.tasks.quality_gates import evaluate_quality_gates
+from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.tick_engine import (
     _effective_agent_cfg_for_task,
     _resolve_autonomous_repair_budget,
 )
-from agent.routes.tasks.quality_gates import evaluate_quality_gates
-from agent.routes.tasks.utils import _update_local_task_status
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 def _auth_headers(app):
@@ -464,8 +464,7 @@ def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch
     assert any((entry.get("event_type") == "hub_worker_fallback") for entry in (updated.history or []))
     assert any((entry.get("event_type") == "execution_scope_allocated") for entry in (updated.history or []))
     assert any(
-        entry.get("event_type") == "workspace_released"
-        and entry.get("cleanup_state") == "completed"
+        entry.get("event_type") == "workspace_released" and entry.get("cleanup_state") == "completed"
         for entry in (updated.history or [])
     )
     scope = dict(updated.verification_status or {}).get("execution_scope") or {}

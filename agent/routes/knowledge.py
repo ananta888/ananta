@@ -196,9 +196,7 @@ def _authorize_knowledge_surface():
             resource=_knowledge_job(job_id),
             object_id=job_id,
         )
-    knowledge_index_id = str(
-        view_args.get("knowledge_index_id") or ""
-    ).strip()
+    knowledge_index_id = str(view_args.get("knowledge_index_id") or "").strip()
     if knowledge_index_id:
         return authorize_route_request(
             action=action,
@@ -208,11 +206,7 @@ def _authorize_knowledge_surface():
         )
     if endpoint == "index_knowledge_source_records":
         body = request.get_json(silent=True) or {}
-        source_id = (
-            str(body.get("source_id") or "").strip()
-            if isinstance(body, dict)
-            else ""
-        )
+        source_id = str(body.get("source_id") or "").strip() if isinstance(body, dict) else ""
         if source_id:
             return authorize_route_request(
                 action=action,
@@ -336,16 +330,12 @@ def get_knowledge_index_job(job_id: str):
     lock_version = job.get("execution_lock_version")
     if isinstance(lock_version, int) and not isinstance(lock_version, bool):
         response.headers["ETag"] = f'"{lock_version}"'
-    projection_lock_version = job.get(
-        "completion_projection_lock_version"
-    )
+    projection_lock_version = job.get("completion_projection_lock_version")
     if isinstance(projection_lock_version, int) and not isinstance(
         projection_lock_version,
         bool,
     ):
-        response.headers["X-Knowledge-Index-Completion-ETag"] = (
-            f'"{projection_lock_version}"'
-        )
+        response.headers["X-Knowledge-Index-Completion-ETag"] = f'"{projection_lock_version}"'
     return response, status_code
 
 
@@ -380,9 +370,7 @@ def reconcile_knowledge_index_completion(job_id: str):
     try:
         result = job_service.reconcile_completion_projection(
             job_id=job_id,
-            expected_projection_lock_version=(
-                expected_projection_lock_version
-            ),
+            expected_projection_lock_version=(expected_projection_lock_version),
         )
     except KnowledgeIndexCompletionProjectionPending:
         pending_job = job_service.get_job(job_id) or {
@@ -394,40 +382,29 @@ def reconcile_knowledge_index_completion(job_id: str):
             {
                 "job_id": job_id,
                 "actor": _current_username(),
-                "completion_projection_state": pending_job.get(
-                    "completion_projection_state"
-                ),
+                "completion_projection_state": pending_job.get("completion_projection_state"),
             },
         )
         response, status_code = api_response(
             status="pending",
-            message=(
-                "Worker result accepted; Hub completion projection "
-                "pending"
-            ),
+            message=("Worker result accepted; Hub completion projection pending"),
             data={
                 "job": pending_job,
-                "reason_code": (
-                    "knowledge_index_source_projection_pending"
-                ),
+                "reason_code": ("knowledge_index_source_projection_pending"),
                 "worker_result_accepted": True,
                 "worker_dispatch_retry_allowed": False,
                 "reconciliation_required": True,
             },
             code=202,
         )
-        lock_version = pending_job.get(
-            "completion_projection_lock_version"
-        )
+        lock_version = pending_job.get("completion_projection_lock_version")
         if isinstance(lock_version, int) and not isinstance(
             lock_version,
             bool,
         ):
             completion_etag = f'"{lock_version}"'
             response.headers["ETag"] = completion_etag
-            response.headers[
-                "X-Knowledge-Index-Completion-ETag"
-            ] = completion_etag
+            response.headers["X-Knowledge-Index-Completion-ETag"] = completion_etag
         return response, status_code
     except KnowledgeIndexExecutionBindingError as exc:
         status_code = {
@@ -448,21 +425,15 @@ def reconcile_knowledge_index_completion(job_id: str):
         {
             "job_id": job_id,
             "actor": _current_username(),
-            "completion_projection_state": result.get(
-                "completion_projection_state"
-            ),
+            "completion_projection_state": result.get("completion_projection_state"),
         },
     )
     response, status_code = api_response(data={"job": result})
-    projection_lock_version = result.get(
-        "completion_projection_lock_version"
-    )
+    projection_lock_version = result.get("completion_projection_lock_version")
     if isinstance(projection_lock_version, int):
         completion_etag = f'"{projection_lock_version}"'
         response.headers["ETag"] = completion_etag
-        response.headers[
-            "X-Knowledge-Index-Completion-ETag"
-        ] = completion_etag
+        response.headers["X-Knowledge-Index-Completion-ETag"] = completion_etag
     return response, status_code
 
 
@@ -488,12 +459,9 @@ def reconcile_expired_knowledge_index_dispatch(job_id: str):
     expected_lock_version = strict_if_match_version(raw_if_match)
 
     try:
-        result = (
-            get_knowledge_index_job_service()
-            .reconcile_expired_bound_dispatch(
-                job_id=job_id,
-                expected_lock_version=expected_lock_version,
-            )
+        result = get_knowledge_index_job_service().reconcile_expired_bound_dispatch(
+            job_id=job_id,
+            expected_lock_version=expected_lock_version,
         )
     except KnowledgeIndexExecutionBindingError as exc:
         status_code = {
@@ -523,16 +491,12 @@ def reconcile_expired_knowledge_index_dispatch(job_id: str):
         {
             "job_id": job_id,
             "actor": _current_username(),
-            "execution_lock_version": result[
-                "execution_lock_version"
-            ],
+            "execution_lock_version": result["execution_lock_version"],
             "reason_code": result["reason_code"],
         },
     )
     response, status_code = api_response(data={"job": result})
-    response.headers["ETag"] = (
-        f'"{result["execution_lock_version"]}"'
-    )
+    response.headers["ETag"] = f'"{result["execution_lock_version"]}"'
     return response, status_code
 
 
@@ -542,9 +506,7 @@ def list_wiki_import_jobs():
     jobs = filter_visible_resources(
         get_wiki_import_job_service().list_jobs(),
         resource_kind="knowledge_job",
-        object_id=lambda item: str(
-            item.get("job_id") or item.get("id") or ""
-        ),
+        object_id=lambda item: str(item.get("job_id") or item.get("id") or ""),
     )
     return api_response(data={"jobs": jobs})
 
@@ -781,7 +743,9 @@ def search_knowledge_collection(collection_id: str):
     if not query:
         raise BadRequestError("query_required")
     top_k = max(1, int(payload.top_k or 5))
-    requested_source_types = [str(item).strip().lower() for item in list(payload.source_types or []) if str(item).strip()]
+    requested_source_types = [
+        str(item).strip().lower() for item in list(payload.source_types or []) if str(item).strip()
+    ]
     invalid_source_types = sorted({item for item in requested_source_types if item not in {"artifact", "wiki"}})
     if invalid_source_types:
         raise BadRequestError("invalid_source_types")
@@ -835,24 +799,25 @@ def search_wiki():
         raise BadRequestError("query_required")
     top_k = max(1, min(int(body.get("top_k") or 10), 50))
     from agent.services.retrieval_source_contract import source_scopes_for_types
+
     source_scopes = source_scopes_for_types({"wiki"})
-    chunks = get_knowledge_index_retrieval_service().search(
-        query, top_k=top_k, source_scopes=source_scopes
+    chunks = get_knowledge_index_retrieval_service().search(query, top_k=top_k, source_scopes=source_scopes)
+    return api_response(
+        data={
+            "query": query,
+            "top_k": top_k,
+            "chunks": [
+                {
+                    "engine": chunk.engine,
+                    "source": chunk.source,
+                    "content": chunk.content,
+                    "score": round(chunk.score, 3),
+                    "metadata": chunk.metadata,
+                }
+                for chunk in chunks
+            ],
+        }
     )
-    return api_response(data={
-        "query": query,
-        "top_k": top_k,
-        "chunks": [
-            {
-                "engine": chunk.engine,
-                "source": chunk.source,
-                "content": chunk.content,
-                "score": round(chunk.score, 3),
-                "metadata": chunk.metadata,
-            }
-            for chunk in chunks
-        ],
-    })
 
 
 @knowledge_bp.route("/knowledge/retrieval-preflight", methods=["GET"])
@@ -921,7 +886,9 @@ def batch_update_knowledge_index_security_metadata():
     updated_ids: list[str] = []
     if not dry_run:
         for row in candidates:
-            saved = _knowledge_index_repo().save(_apply_security_metadata_patch(knowledge_index=row, patch=patch, actor=actor))
+            saved = _knowledge_index_repo().save(
+                _apply_security_metadata_patch(knowledge_index=row, patch=patch, actor=actor)
+            )
             updated_ids.append(str(saved.id))
     else:
         updated_ids = [str(getattr(row, "id", "")) for row in candidates if str(getattr(row, "id", ""))]

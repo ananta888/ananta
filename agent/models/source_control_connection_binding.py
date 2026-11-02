@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Mapping
 
-
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,191}$")
 _CONNECTION_ID = re.compile(r"^conn_[0-9a-f]{64}$")
 _REPOSITORY = re.compile(
@@ -34,26 +33,16 @@ def implementation_connector_type(connector_type: str) -> str:
     try:
         return _IMPLEMENTATION_CONNECTORS[str(connector_type)]
     except KeyError:
-        raise SourceControlConnectionBindingError(
-            "connector_type_not_registered"
-        ) from None
+        raise SourceControlConnectionBindingError("connector_type_not_registered") from None
 
 
 def normalize_workspace_relative_path(value: object) -> str:
     raw = str(value if value is not None else ".").strip() or "."
     if "\x00" in raw or "\\" in raw or len(raw) > 512:
-        raise SourceControlConnectionBindingError(
-            "workspace_relative_path_invalid"
-        )
+        raise SourceControlConnectionBindingError("workspace_relative_path_invalid")
     path = PurePosixPath(raw)
-    if (
-        path.is_absolute()
-        or len(path.parts) > 32
-        or any(part in {"", ".."} for part in path.parts)
-    ):
-        raise SourceControlConnectionBindingError(
-            "workspace_relative_path_invalid"
-        )
+    if path.is_absolute() or len(path.parts) > 32 or any(part in {"", ".."} for part in path.parts):
+        raise SourceControlConnectionBindingError("workspace_relative_path_invalid")
     return "/".join(part for part in path.parts if part != ".") or "."
 
 
@@ -73,20 +62,11 @@ class SourceConnectionSelectorBinding:
     def __post_init__(self) -> None:
         if _CONNECTION_ID.fullmatch(self.connection_id) is None:
             raise SourceControlConnectionBindingError("connection_id_invalid")
-        if any(
-            _IDENTIFIER.fullmatch(value) is None
-            for value in (self.tenant_id, self.project_id, self.owner_id)
-        ):
-            raise SourceControlConnectionBindingError(
-                "source_connection_scope_invalid"
-            )
-        expected_implementation = implementation_connector_type(
-            self.public_connector_type
-        )
+        if any(_IDENTIFIER.fullmatch(value) is None for value in (self.tenant_id, self.project_id, self.owner_id)):
+            raise SourceControlConnectionBindingError("source_connection_scope_invalid")
+        expected_implementation = implementation_connector_type(self.public_connector_type)
         if self.implementation_connector_type != expected_implementation:
-            raise SourceControlConnectionBindingError(
-                "implementation_connector_type_mismatch"
-            )
+            raise SourceControlConnectionBindingError("implementation_connector_type_mismatch")
         if _IDENTIFIER.fullmatch(self.selector_id) is None:
             raise SourceControlConnectionBindingError("selector_id_invalid")
         if self.public_connector_type in {
@@ -94,37 +74,20 @@ class SourceConnectionSelectorBinding:
             "local_directory",
         }:
             if self.selector_kind != "workspace":
-                raise SourceControlConnectionBindingError(
-                    "selector_kind_mismatch"
-                )
-            normalized = normalize_workspace_relative_path(
-                self.relative_path
-            )
+                raise SourceControlConnectionBindingError("selector_kind_mismatch")
+            normalized = normalize_workspace_relative_path(self.relative_path)
             if normalized != self.relative_path:
-                raise SourceControlConnectionBindingError(
-                    "workspace_relative_path_invalid"
-                )
+                raise SourceControlConnectionBindingError("workspace_relative_path_invalid")
             if self.repository_identifier is not None:
-                raise SourceControlConnectionBindingError(
-                    "workspace_repository_forbidden"
-                )
+                raise SourceControlConnectionBindingError("workspace_repository_forbidden")
         else:
             if self.selector_kind != "remote" or self.relative_path is not None:
-                raise SourceControlConnectionBindingError(
-                    "selector_kind_mismatch"
-                )
+                raise SourceControlConnectionBindingError("selector_kind_mismatch")
             if self.public_connector_type == "github":
-                if (
-                    self.repository_identifier is None
-                    or _REPOSITORY.fullmatch(self.repository_identifier) is None
-                ):
-                    raise SourceControlConnectionBindingError(
-                        "github_repository_invalid"
-                    )
+                if self.repository_identifier is None or _REPOSITORY.fullmatch(self.repository_identifier) is None:
+                    raise SourceControlConnectionBindingError("github_repository_invalid")
             elif self.repository_identifier is not None:
-                raise SourceControlConnectionBindingError(
-                    "generic_git_repository_forbidden"
-                )
+                raise SourceControlConnectionBindingError("generic_git_repository_forbidden")
 
     @property
     def binding_digest(self) -> str:
@@ -137,9 +100,7 @@ class SourceConnectionSelectorBinding:
             "project_id": self.project_id,
             "owner_id": self.owner_id,
             "public_connector_type": self.public_connector_type,
-            "implementation_connector_type": (
-                self.implementation_connector_type
-            ),
+            "implementation_connector_type": (self.implementation_connector_type),
             "selector_kind": self.selector_kind,
             "selector_id": self.selector_id,
             "relative_path": self.relative_path,
@@ -158,9 +119,7 @@ class SourceConnectionSelectorBinding:
             "project_id": self.project_id,
             "owner_id": self.owner_id,
             "connector_type": self.public_connector_type,
-            "implementation_connector_type": (
-                self.implementation_connector_type
-            ),
+            "implementation_connector_type": (self.implementation_connector_type),
             "binding_digest": self.binding_digest,
         }
         descriptor: dict[str, object] = {
@@ -189,9 +148,7 @@ class SourceConnectionSelectorBinding:
                 }
             )
         else:
-            descriptor.update(
-                {"remote_id": self.selector_id, "ref": "HEAD"}
-            )
+            descriptor.update({"remote_id": self.selector_id, "ref": "HEAD"})
         return descriptor
 
 

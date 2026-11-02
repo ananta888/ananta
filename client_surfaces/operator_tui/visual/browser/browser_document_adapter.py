@@ -23,8 +23,7 @@ def _load_template() -> str:
         return _TEMPLATE_PATH.read_text(encoding="utf-8")
     # Minimal fallback if template file is missing
     return (
-        "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        "<title>{{TITLE}}</title></head><body>{{BODY}}</body></html>"
+        "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{{TITLE}}</title></head><body>{{BODY}}</body></html>"
     )
 
 
@@ -67,9 +66,11 @@ def _markdown_to_html(source: str, *, title: str = "") -> str:
 
     def _inline(text: str) -> str:
         """Apply inline Markdown formatting."""
+
         # Inline code — escape content
         def _code_sub(m: re.Match[str]) -> str:
             return f"<code>{html.escape(m.group(1))}</code>"
+
         text = re.sub(r"`([^`]+)`", _code_sub, text)
         # Bold+italic
         text = re.sub(r"\*\*\*(.+?)\*\*\*", r"<strong><em>\1</em></strong>", text)
@@ -77,6 +78,7 @@ def _markdown_to_html(source: str, *, title: str = "") -> str:
         text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
         # Italic
         text = re.sub(r"\*(.+?)\*", r"<em>\1</em>", text)
+
         # Links
         def _link_sub(m: re.Match[str]) -> str:
             label = html.escape(m.group(1))
@@ -84,6 +86,7 @@ def _markdown_to_html(source: str, *, title: str = "") -> str:
             if href.lower().startswith("javascript:"):
                 return label
             return f'<a href="{href}">{label}</a>'
+
         text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _link_sub, text)
         return text
 

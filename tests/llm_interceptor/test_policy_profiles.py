@@ -9,8 +9,14 @@ def _cfg() -> dict:
         "cloud_context_default": "redacted_minimal",
         "local_context_default": "allowed_by_context_gate",
         "profiles": {
-            "local_dev": {"cloud_context_default": "redacted_minimal", "local_context_default": "allowed_by_context_gate"},
-            "cloud_safe": {"cloud_context_default": "redacted_minimal", "local_context_default": "allowed_by_context_gate"},
+            "local_dev": {
+                "cloud_context_default": "redacted_minimal",
+                "local_context_default": "allowed_by_context_gate",
+            },
+            "cloud_safe": {
+                "cloud_context_default": "redacted_minimal",
+                "local_context_default": "allowed_by_context_gate",
+            },
             "high_risk": {"cloud_context_default": "none", "local_context_default": "minimal_local"},
         },
     }
@@ -33,4 +39,3 @@ def test_high_risk_profile_changes_context_mode():
         upstream_trust_level="cloud",
     )
     assert out.context_mode == "none"
-

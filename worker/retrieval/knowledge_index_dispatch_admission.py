@@ -34,13 +34,9 @@ class KnowledgeIndexWorkerDispatchResultPendingError(TransientError):
         super().__init__(
             KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON,
             details={
-                "reason_code": (
-                    KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-                ),
+                "reason_code": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON),
             },
-            status_code=(
-                KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS
-            ),
+            status_code=(KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS),
             retryable=True,
         )
 
@@ -176,9 +172,7 @@ class KnowledgeIndexWorkerDispatchAdmission:
                 )
             )
         except ValueError as exc:
-            if exc.args != (
-                KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON,
-            ):
+            if exc.args != (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON,):
                 raise
             raise KnowledgeIndexWorkerDispatchResultPendingError() from exc
         expected_receipt = {
@@ -189,9 +183,7 @@ class KnowledgeIndexWorkerDispatchAdmission:
             "assignment_id": binding["assignment_id"],
             "lease_id": binding["lease_id"],
             "marker_digest": prepared.marker.marker_digest,
-            "manifest_binding_digest": binding[
-                "manifest_binding_digest"
-            ],
+            "manifest_binding_digest": binding["manifest_binding_digest"],
         }
         replayed_result = self._validate_receipt(
             receipt,
@@ -219,20 +211,12 @@ class KnowledgeIndexWorkerDispatchAdmission:
         original_receipt = dict(claimed.receipt)
         completed_receipt = dict(
             self._receipt_ledger.complete(
-                worker_id=str(
-                    original_receipt.get("worker_id") or ""
-                ),
+                worker_id=str(original_receipt.get("worker_id") or ""),
                 job_id=str(original_receipt.get("job_id") or ""),
-                assignment_id=str(
-                    original_receipt.get("assignment_id") or ""
-                ),
+                assignment_id=str(original_receipt.get("assignment_id") or ""),
                 lease_id=str(original_receipt.get("lease_id") or ""),
-                marker_digest=str(
-                    original_receipt.get("marker_digest") or ""
-                ),
-                manifest_binding_digest=str(
-                    original_receipt.get("manifest_binding_digest") or ""
-                ),
+                marker_digest=str(original_receipt.get("marker_digest") or ""),
+                manifest_binding_digest=str(original_receipt.get("manifest_binding_digest") or ""),
                 result_payload=validated_result,
             )
         )
@@ -255,13 +239,9 @@ class KnowledgeIndexWorkerDispatchAdmission:
             executable_job=claimed.executable_job,
         )
         if replayed_result is None:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_completion_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_completion_invalid")
         if replayed_result != validated_result:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_conflict"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_result_conflict")
         return copy.deepcopy(replayed_result)
 
     def _execution_binding(
@@ -281,26 +261,16 @@ class KnowledgeIndexWorkerDispatchAdmission:
             manifest,
             Mapping,
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_binding_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_binding_invalid")
         binding = {
             "worker_id": str(assignment.get("worker_id") or "").strip(),
             "job_id": prepared.marker.job_id,
-            "assignment_id": str(
-                assignment.get("assignment_id") or ""
-            ).strip(),
+            "assignment_id": str(assignment.get("assignment_id") or "").strip(),
             "lease_id": str(assignment.get("lease_id") or "").strip(),
             "marker_digest": prepared.marker.marker_digest,
-            "manifest_binding_digest": str(
-                manifest.get("binding_digest") or ""
-            ).strip(),
-            "lease_expires_epoch_ms": assignment.get(
-                "lease_expires_epoch_ms"
-            ),
-            "grant_expires_at_epoch_ms": manifest.get(
-                "grant_expires_at_epoch_ms"
-            ),
+            "manifest_binding_digest": str(manifest.get("binding_digest") or "").strip(),
+            "lease_expires_epoch_ms": assignment.get("lease_expires_epoch_ms"),
+            "grant_expires_at_epoch_ms": manifest.get("grant_expires_at_epoch_ms"),
         }
         if (
             binding["worker_id"] != self._worker_id
@@ -312,9 +282,7 @@ class KnowledgeIndexWorkerDispatchAdmission:
             or isinstance(binding["grant_expires_at_epoch_ms"], bool)
             or not isinstance(binding["grant_expires_at_epoch_ms"], int)
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_binding_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_binding_invalid")
         return binding
 
     @classmethod
@@ -335,16 +303,13 @@ class KnowledgeIndexWorkerDispatchAdmission:
             "completed_at_epoch_ms",
         }
         if (
-            {key: receipt.get(key) for key in expected_receipt}
-            != dict(expected_receipt)
+            {key: receipt.get(key) for key in expected_receipt} != dict(expected_receipt)
             or isinstance(claimed_at, bool)
             or not isinstance(claimed_at, int)
             or claimed_at < 0
             or set(receipt) != expected_fields
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         state = str(receipt.get("state") or "")
         if state == "claimed":
             if (
@@ -353,9 +318,7 @@ class KnowledgeIndexWorkerDispatchAdmission:
                 and receipt.get("completed_at_epoch_ms") is None
             ):
                 return None
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         completed_at = receipt.get("completed_at_epoch_ms")
         if (
             state != "completed"
@@ -363,16 +326,10 @@ class KnowledgeIndexWorkerDispatchAdmission:
             or not isinstance(completed_at, int)
             or completed_at < claimed_at
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
-        replayed_result, digest = cls._canonical_result(
-            receipt.get("result_payload")
-        )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
+        replayed_result, digest = cls._canonical_result(receipt.get("result_payload"))
         if digest != str(receipt.get("result_digest") or ""):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         return cls._validate_result_binding(
             executable_job,
             replayed_result,
@@ -383,9 +340,7 @@ class KnowledgeIndexWorkerDispatchAdmission:
         payload: Any,
     ) -> tuple[dict[str, Any], str]:
         if not isinstance(payload, Mapping):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         try:
             encoded = json.dumps(
                 dict(payload),
@@ -395,18 +350,12 @@ class KnowledgeIndexWorkerDispatchAdmission:
                 allow_nan=False,
             ).encode("ascii")
         except (TypeError, ValueError, UnicodeError) as exc:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            ) from exc
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid") from exc
         if len(encoded) > MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         normalized = json.loads(encoded.decode("ascii"))
         if not isinstance(normalized, dict):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_claim_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_claim_invalid")
         return normalized, hashlib.sha256(encoded).hexdigest()
 
     @staticmethod
@@ -416,17 +365,11 @@ class KnowledgeIndexWorkerDispatchAdmission:
     ) -> dict[str, Any]:
         try:
             job = parse_execution_job(
-                {
-                    key: value
-                    for key, value in executable_job.items()
-                    if key != SOURCE_ACCESS_MANIFEST_FIELD
-                }
+                {key: value for key, value in executable_job.items() if key != SOURCE_ACCESS_MANIFEST_FIELD}
             )
             result = parse_execution_result(result_payload)
         except ValueError as exc:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_invalid"
-            ) from exc
+            raise ValueError("knowledge_index_worker_dispatch_result_invalid") from exc
         authority = job.authority_binding
         assignment = job.assignment
         expected = {
@@ -444,17 +387,13 @@ class KnowledgeIndexWorkerDispatchAdmission:
             "destination_id": authority.destination_id,
             "destination_digest": authority.destination_digest,
             "source_access_grant_id": authority.source_access_grant_id,
-            "source_access_grant_digest": (
-                authority.source_access_grant_digest
-            ),
+            "source_access_grant_digest": (authority.source_access_grant_digest),
             "authority_binding_digest": authority.binding_digest,
             "file_manifest_digest": job.file_manifest.manifest_digest,
         }
         wire = result.to_wire()
         if any(wire.get(key) != value for key, value in expected.items()):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_binding_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_result_binding_invalid")
         return wire
 
 

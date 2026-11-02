@@ -91,7 +91,9 @@ class ScientificSkillExecutionApprovalService:
         return ScientificSkillExecutionApproval(True, "scientific_skill_approval_granted", grant.id)
 
 
-def _audit_payload(intent: ScientificSkillExecutionIntent, request_id: str | None, status: str) -> dict[str, str | None]:
+def _audit_payload(
+    intent: ScientificSkillExecutionIntent, request_id: str | None, status: str
+) -> dict[str, str | None]:
     return {
         "task_id": intent.task_id,
         "catalog_digest": intent.catalog_digest,

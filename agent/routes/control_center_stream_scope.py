@@ -21,11 +21,7 @@ def session_stream_scope(session: AgentSessionDB) -> dict[str, Any]:
         persisted_scope = {}
     persisted_user_id = str(persisted_scope.get("user_id") or "").strip()
     persisted_tenant_id = str(persisted_scope.get("tenant_id") or "").strip()
-    tenant_id = (
-        persisted_tenant_id
-        if persisted_user_id == owner_user_id and persisted_tenant_id
-        else owner_user_id
-    )
+    tenant_id = persisted_tenant_id if persisted_user_id == owner_user_id and persisted_tenant_id else owner_user_id
     return {
         "tenant_id": tenant_id,
         "user_id": owner_user_id,
@@ -51,11 +47,7 @@ def event_visible_to_stream_identity(
         return False
     if project_id and str(scope.get("project_id") or "") != project_id:
         return False
-    session_ids = {
-        str(item).strip()
-        for item in scope.get("session_ids") or ()
-        if str(item).strip()
-    }
+    session_ids = {str(item).strip() for item in scope.get("session_ids") or () if str(item).strip()}
     return not session_id or session_id in session_ids
 
 

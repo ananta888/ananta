@@ -1,9 +1,11 @@
 """ARD-001: Tests for scenario file loading in the acceptance runner."""
+
 from __future__ import annotations
 
 import json
-import sys
 import pathlib
+import sys
+
 import pytest
 
 
@@ -12,6 +14,7 @@ def _import_runner():
     if mod_name in sys.modules:
         return sys.modules[mod_name]
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
         mod_name,
         pathlib.Path(__file__).parent.parent / "scripts" / "first_goal_acceptance_runner.py",
@@ -77,11 +80,16 @@ class TestLoadScenariosFromFile:
 
     def test_scenario_id_and_label_in_loaded_result(self, runner_mod, tmp_path):
         valid = tmp_path / "valid.json"
-        valid.write_text(json.dumps({
-            "scenarios": [
-                {"id": "test-scenario", "label": "Test Scenario", "config_profile": "ananta_ollama_local"}
-            ]
-        }), encoding="utf-8")
+        valid.write_text(
+            json.dumps(
+                {
+                    "scenarios": [
+                        {"id": "test-scenario", "label": "Test Scenario", "config_profile": "ananta_ollama_local"}
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
         scenarios = runner_mod.load_scenarios_from_file(str(valid))
         assert scenarios[0]["id"] == "test-scenario"
         assert scenarios[0]["label"] == "Test Scenario"
@@ -114,7 +122,9 @@ class TestCriterionStableIds:
 
 class TestReportJsonSchema:
     def test_schema_file_exists(self):
-        assert SCHEMA_PATH.exists(), "JSON schema fixture must exist at tests/fixtures/reports/first_goal_acceptance_report.schema.json"
+        assert SCHEMA_PATH.exists(), (
+            "JSON schema fixture must exist at tests/fixtures/reports/first_goal_acceptance_report.schema.json"
+        )
 
     def test_schema_is_valid_json(self):
         schema = json.loads(SCHEMA_PATH.read_text())
@@ -123,10 +133,7 @@ class TestReportJsonSchema:
 
     def test_schema_requires_criterion_id_field(self):
         schema = json.loads(SCHEMA_PATH.read_text())
-        criteria_schema = (
-            schema["properties"]["runs"]["items"]
-                  ["properties"]["criteria"]["items"]
-        )
+        criteria_schema = schema["properties"]["runs"]["items"]["properties"]["criteria"]["items"]
         assert "criterion_id" in criteria_schema.get("required", [])
 
     def test_fixtures_comply_with_schema_schema_field(self):

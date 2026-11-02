@@ -1,4 +1,5 @@
 """UTCR-010: Tests for AnantaToolRegistryService.describe_for_openai_tools()."""
+
 from __future__ import annotations
 
 import pytest
@@ -29,6 +30,7 @@ def _tool_by_name(tools: list, name: str) -> dict | None:
 # Basic structure
 # ---------------------------------------------------------------------------
 
+
 def test_codecompass_plan_context_present(svc):
     tools = _openai_tools(svc)
     entry = _tool_by_name(tools, "codecompass.plan_context")
@@ -48,6 +50,7 @@ def test_all_entries_have_type_function(svc):
 # BLOCKED tools never appear
 # ---------------------------------------------------------------------------
 
+
 def test_blocked_tools_never_appear(svc):
     blocked_names = {spec.name for spec in svc.list_tools() if spec.category == CATEGORY_BLOCKED}
     tools = _openai_tools(svc)
@@ -59,6 +62,7 @@ def test_blocked_tools_never_appear(svc):
 # ---------------------------------------------------------------------------
 # allowed_tools filter
 # ---------------------------------------------------------------------------
+
 
 def test_allowed_tools_filter(svc):
     tools = _openai_tools(svc, allowed=["codecompass.search"])
@@ -76,6 +80,7 @@ def test_empty_allowed_returns_all(svc):
 # No duplicates
 # ---------------------------------------------------------------------------
 
+
 def test_no_duplicates(svc):
     tools = _openai_tools(svc)
     names = [t["function"]["name"] for t in tools]
@@ -85,6 +90,7 @@ def test_no_duplicates(svc):
 # ---------------------------------------------------------------------------
 # Prompt description and native schema from same registry
 # ---------------------------------------------------------------------------
+
 
 def test_prompt_and_native_same_registry(svc):
     """Names in describe_for_prompt() and describe_for_openai_tools() must match."""
@@ -103,22 +109,51 @@ def test_prompt_and_native_same_registry(svc):
 
 _CODECOMPASS_TOOL_PROPERTIES: dict[str, set[str]] = {
     "codecompass.plan_context": {
-        "query", "intent", "detail_level", "registry_version", "node_kind",
-        "field_path", "backend_contract", "symbols", "graph_neighbors",
-        "max_ranges", "include_neighbors", "task_kind",
+        "query",
+        "intent",
+        "detail_level",
+        "registry_version",
+        "node_kind",
+        "field_path",
+        "backend_contract",
+        "symbols",
+        "graph_neighbors",
+        "max_ranges",
+        "include_neighbors",
+        "task_kind",
     },
     "codecompass.resolve_context": {
-        "query", "task_kind", "mode", "working_files", "domain_hint",
-        "domain_scope", "max_tokens", "max_files", "include_original_files",
-        "include_jsonl_records", "include_graph", "llm_scope",
+        "query",
+        "task_kind",
+        "mode",
+        "working_files",
+        "domain_hint",
+        "domain_scope",
+        "max_tokens",
+        "max_files",
+        "include_original_files",
+        "include_jsonl_records",
+        "include_graph",
+        "llm_scope",
     },
     "codecompass.search": {
-        "query", "limit", "mode", "requested_signals", "task_kind",
-        "revision", "allowed_paths", "max_chars",
+        "query",
+        "limit",
+        "mode",
+        "requested_signals",
+        "task_kind",
+        "revision",
+        "allowed_paths",
+        "max_chars",
     },
     "codecompass.retrieve": {
-        "query", "mode", "requested_signals", "task_kind", "scope",
-        "budget", "continuation_handle",
+        "query",
+        "mode",
+        "requested_signals",
+        "task_kind",
+        "scope",
+        "budget",
+        "continuation_handle",
     },
     "codecompass.architecture_overview": {"query", "profile", "revision"},
     "codecompass.architecture_expand": {"handle", "node", "query", "revision"},
@@ -131,8 +166,12 @@ _CODECOMPASS_TOOL_PROPERTIES: dict[str, set[str]] = {
     "codecompass.search_symbols": {"query", "record_kinds", "path_globs", "domain_hint", "limit"},
     "codecompass.expand_graph": {"node", "seeds", "depth", "max_depth", "limit", "max_nodes", "profile"},
     "codecompass.get_file_context": {
-        "paths", "line_ranges", "max_bytes_per_file", "max_total_bytes",
-        "redaction_mode", "reason",
+        "paths",
+        "line_ranges",
+        "max_bytes_per_file",
+        "max_total_bytes",
+        "redaction_mode",
+        "reason",
     },
     "codecompass.get_domain_map": {"domain_hint", "include_files", "include_edges", "max_entries"},
     "codecompass.architecture_query": {"question", "seed", "field", "direction", "depth"},

@@ -27,14 +27,20 @@ def register_routes(blueprint):
         key = current_app.extensions.get("meet_media_worker_key")
         if service is None or key is None:
             raise MeetError("meet_companion_task_tools_disabled", 404)
-        if (request.args or request.headers.get("Authorization") or request.headers.get("Transfer-Encoding")
-                or request.mimetype != "application/json" or request.content_length is None
-                or not 0 < request.content_length <= MAX_REQUEST_BYTES):
+        if (
+            request.args
+            or request.headers.get("Authorization")
+            or request.headers.get("Transfer-Encoding")
+            or request.mimetype != "application/json"
+            or request.content_length is None
+            or not 0 < request.content_length <= MAX_REQUEST_BYTES
+        ):
             raise MeetError("meet_companion_task_tool_request_invalid", 403)
         raw = request.get_data(cache=False)
         supplied = request.headers.get(SIGNATURE_HEADER, "")
-        if (not re.fullmatch(r"[a-f0-9]{64}", supplied)
-                or not hmac.compare_digest(request_signature(key, raw), supplied)):
+        if not re.fullmatch(r"[a-f0-9]{64}", supplied) or not hmac.compare_digest(
+            request_signature(key, raw), supplied
+        ):
             raise MeetError("meet_companion_task_tool_unauthorized", 401)
         try:
             value = validate_request(parse(raw, MAX_REQUEST_BYTES), time.time())

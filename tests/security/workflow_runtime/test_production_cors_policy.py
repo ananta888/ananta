@@ -16,11 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def _subprocess_environment(**overrides: str) -> dict[str, str]:
     environment = os.environ.copy()
     existing_pythonpath = environment.get("PYTHONPATH")
-    environment["PYTHONPATH"] = (
-        f"{ROOT}{os.pathsep}{existing_pythonpath}"
-        if existing_pythonpath
-        else str(ROOT)
-    )
+    environment["PYTHONPATH"] = f"{ROOT}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else str(ROOT)
     environment.update(overrides)
     return environment
 
@@ -58,13 +54,9 @@ def test_strict_workflow_runtime_rejects_malformed_cors_origins(
 
 
 def test_strict_workflow_runtime_accepts_explicit_http_origins() -> None:
-    settings = _strict_settings(
-        "https://console.example.test,http://localhost:4200"
-    )
+    settings = _strict_settings("https://console.example.test,http://localhost:4200")
 
-    assert settings.cors_origins == (
-        "https://console.example.test,http://localhost:4200"
-    )
+    assert settings.cors_origins == ("https://console.example.test,http://localhost:4200")
 
 
 def test_development_mode_retains_backwards_compatible_wildcard_default(

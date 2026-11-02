@@ -54,7 +54,6 @@ from agent.services.wiki_vector_runtime_service import (
 log = logging.getLogger(__name__)
 
 
-
 def rag_context_limits() -> tuple[int, int]:
     """(chars, tokens) of the hybrid RAG context: the "rag_context" share of the effective window (3000 tokens /
     12000 chars at 32k). ``RAG_MAX_CONTEXT_TOKENS`` / ``RAG_MAX_CONTEXT_CHARS`` set explicitly still apply,
@@ -63,10 +62,16 @@ def rag_context_limits() -> tuple[int, int]:
 
     budgets = context_budgets()
     explicit = getattr(settings, "model_fields_set", set())
-    tokens = (budgets.clamp_tokens(settings.rag_max_context_tokens) if "rag_max_context_tokens" in explicit
-              else budgets.tokens("rag_context"))
-    chars = (min(int(settings.rag_max_context_chars), budgets.available * CHARS_PER_TOKEN)
-             if "rag_max_context_chars" in explicit else tokens * CHARS_PER_TOKEN)
+    tokens = (
+        budgets.clamp_tokens(settings.rag_max_context_tokens)
+        if "rag_max_context_tokens" in explicit
+        else budgets.tokens("rag_context")
+    )
+    chars = (
+        min(int(settings.rag_max_context_chars), budgets.available * CHARS_PER_TOKEN)
+        if "rag_max_context_chars" in explicit
+        else tokens * CHARS_PER_TOKEN
+    )
     return max(256, chars), max(64, tokens)
 
 
@@ -281,9 +286,7 @@ class RetrievalService:
             runtime_resolver=runtime_resolver,
         )
         ready_to_close = (
-            self._wiki_vector_leases.retire(cached[1])
-            if cached is not None and cached[1] is not retrieval
-            else None
+            self._wiki_vector_leases.retire(cached[1]) if cached is not None and cached[1] is not retrieval else None
         )
         self._wiki_vector_cache[cache_key] = (
             signature,

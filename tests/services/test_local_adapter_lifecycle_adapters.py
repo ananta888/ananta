@@ -93,9 +93,7 @@ def test_runtime_adapter_binds_candidate_hash_to_admitted_restart_request() -> N
     assert adapter.restart(target="needle2", candidate_id="candidate-1", candidate_sha256="b" * 64) is True
     assert lifecycle.request["request_id"] == f"adapter-restart-needle2-{'b' * 64}"
     assert lifecycle.applied == [{"decision_id": "decision-1", "action": "restart"}]
-    assert activation.switches == [
-        {"target": "needle2", "candidate_id": "candidate-1", "candidate_sha256": "b" * 64}
-    ]
+    assert activation.switches == [{"target": "needle2", "candidate_id": "candidate-1", "candidate_sha256": "b" * 64}]
 
 
 def test_runtime_adapter_restores_projection_when_restart_fails() -> None:

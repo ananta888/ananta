@@ -83,15 +83,11 @@ class DendriticMemoryRegistryService:
             expected_revision=expected_revision,
             idempotency_key=idempotency_key,
             extra={
-                "evaluation_digest": require_digest(
-                    evaluation.get("evaluation_digest"), "evaluation_digest"
-                ),
+                "evaluation_digest": require_digest(evaluation.get("evaluation_digest"), "evaluation_digest"),
                 "approval": {
                     "policy_actor": "automatic-policy",
                     "scope": "experimental-runtime",
-                    "report_id": require_digest(
-                        evaluation.get("evaluation_digest"), "evaluation_digest"
-                    ),
+                    "report_id": require_digest(evaluation.get("evaluation_digest"), "evaluation_digest"),
                     "artifact_hash": current["pack_digest"],
                     "decided_at": _now(),
                 },
@@ -328,8 +324,7 @@ class DendriticMemoryRegistryService:
             raise ValueError("dendritic_audit_list_limit_invalid")
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT payload_json FROM dendritic_registry_audit WHERE tenant_id=? "
-                "ORDER BY sequence DESC LIMIT ?",
+                "SELECT payload_json FROM dendritic_registry_audit WHERE tenant_id=? ORDER BY sequence DESC LIMIT ?",
                 (tenant, limit),
             ).fetchall()
         return {"items": [json.loads(row[0]) for row in rows], "limit": limit}

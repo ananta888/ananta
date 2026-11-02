@@ -94,7 +94,16 @@ def test_run_e2e_dogfood_checks_uses_full_wslg_profile_targets(monkeypatch, tmp_
         if "generate_e2e_report.py" in joined:
             aggregate = {
                 "summary": {"total": 1, "passed": 1, "failed": 0, "skipped": 0, "advisory": 0, "blocking_failed": 0},
-                "flows": [{"flow_id": "core", "status": "passed", "blocking": True, "logs": ["x"], "snapshots": ["y"], "screenshots": []}],
+                "flows": [
+                    {
+                        "flow_id": "core",
+                        "status": "passed",
+                        "blocking": True,
+                        "logs": ["x"],
+                        "snapshots": ["y"],
+                        "screenshots": [],
+                    }
+                ],
             }
             out_path = tmp_path / "artifacts" / "e2e" / "aggregate_report.json"
             out_path.parent.mkdir(parents=True, exist_ok=True)

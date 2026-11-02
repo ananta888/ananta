@@ -1,9 +1,11 @@
 import json
 import os
-import pytest
 from pathlib import Path
 
+import pytest
+
 BASELINES_DIR = Path(__file__).parent / "baselines"
+
 
 def get_structure(data):
     """Rekursive Extraktion der Struktur (Keys und Typen) eines Dictionaries/Liste."""
@@ -39,6 +41,7 @@ def _is_structure_compatible(actual, expected):
         return any(_is_structure_compatible(item, expected_item) for item in actual)
     return actual == expected
 
+
 def assert_baseline(name, data):
     """Prüft, ob die Daten mit der Baseline des gegebenen Namens übereinstimmen."""
     os.makedirs(BASELINES_DIR, exist_ok=True)
@@ -58,17 +61,21 @@ def assert_baseline(name, data):
     with open(baseline_path, "r", encoding="utf-8") as f:
         expected_structure = json.load(f)
 
-    assert _is_structure_compatible(
-        structure, expected_structure
-    ), f"Structure mismatch for {name}. If this change is intentional, run with GENERATE_BASELINES=1 to update."
+    assert _is_structure_compatible(structure, expected_structure), (
+        f"Structure mismatch for {name}. If this change is intentional, run with GENERATE_BASELINES=1 to update."
+    )
 
-@pytest.mark.parametrize("endpoint, name", [
-    ("/assistant/read-model", "assistant_read_model"),
-    ("/dashboard/read-model", "dashboard_read_model"),
-    ("/governance/policy", "governance_policy"),
-    ("/tasks/orchestration/read-model", "orchestration_read_model"),
-    ("/stats", "system_stats"),
-])
+
+@pytest.mark.parametrize(
+    "endpoint, name",
+    [
+        ("/assistant/read-model", "assistant_read_model"),
+        ("/dashboard/read-model", "dashboard_read_model"),
+        ("/governance/policy", "governance_policy"),
+        ("/tasks/orchestration/read-model", "orchestration_read_model"),
+        ("/stats", "system_stats"),
+    ],
+)
 def test_read_model_baselines(client, admin_auth_header, endpoint, name):
     """
     Vergleicht die Struktur von zentralen Read-Models mit gespeicherten Baselines.

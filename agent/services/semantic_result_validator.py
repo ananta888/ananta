@@ -60,8 +60,14 @@ class SemanticResultValidator:
         ):
             return _rejected(report, "validator_lease_invalid")
         return SemanticReportAdmission(
-            True, report["verdict"], "validator_report_admitted", report["session_id"],
-            report["validator_id"], report["validator_lease_id"], report["sequence"], False,
+            True,
+            report["verdict"],
+            "validator_report_admitted",
+            report["session_id"],
+            report["validator_id"],
+            report["validator_lease_id"],
+            report["sequence"],
+            False,
         )
 
     def reconcile(self, admissions: list[SemanticReportAdmission]) -> str:
@@ -75,9 +81,23 @@ class SemanticResultValidator:
 
 def _validate_shape(raw: object, *, now_ms: int) -> Mapping[str, Any]:
     required = {
-        "schema", "report_id", "session_id", "contract_id", "validator_lease_id", "validator_id",
-        "validator_role", "audience", "epoch", "sequence", "input_digest", "output_digest",
-        "criteria", "verdict", "observed_at_ms", "expires_at_ms", "signature",
+        "schema",
+        "report_id",
+        "session_id",
+        "contract_id",
+        "validator_lease_id",
+        "validator_id",
+        "validator_role",
+        "audience",
+        "epoch",
+        "sequence",
+        "input_digest",
+        "output_digest",
+        "criteria",
+        "verdict",
+        "observed_at_ms",
+        "expires_at_ms",
+        "signature",
     }
     if not isinstance(raw, Mapping) or set(raw) != required:
         raise ValueError("validator_schema_invalid")
@@ -112,8 +132,11 @@ def _validate_shape(raw: object, *, now_ms: int) -> Mapping[str, Any]:
     if raw["verdict"] not in {"pass", "fail", "conflict"}:
         raise ValueError("validator_verdict_invalid")
     expected = (
-        criteria["schema_valid"] and criteria["binding_valid"] and criteria["deadline_met"]
-        and criteria["quality_score"] >= 0.75 and criteria["drift_score"] <= 0.15
+        criteria["schema_valid"]
+        and criteria["binding_valid"]
+        and criteria["deadline_met"]
+        and criteria["quality_score"] >= 0.75
+        and criteria["drift_score"] <= 0.15
     )
     if raw["verdict"] != "conflict" and (raw["verdict"] == "pass") is not expected:
         raise ValueError("validator_verdict_inconsistent")
@@ -127,6 +150,12 @@ def _validate_shape(raw: object, *, now_ms: int) -> Mapping[str, Any]:
 
 def _rejected(report: Mapping[str, Any], reason: str) -> SemanticReportAdmission:
     return SemanticReportAdmission(
-        False, "ignored", reason, report["session_id"], report["validator_id"],
-        report["validator_lease_id"], report["sequence"], False,
+        False,
+        "ignored",
+        reason,
+        report["session_id"],
+        report["validator_id"],
+        report["validator_lease_id"],
+        report["sequence"],
+        False,
     )

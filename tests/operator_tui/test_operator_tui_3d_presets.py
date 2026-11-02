@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import pytest
-
-from client_surfaces.operator_tui.animation3d.presets import AnimationPreset, builtin_presets
+from client_surfaces.operator_tui.animation3d.presets import builtin_presets
 
 
 class TestPresets:

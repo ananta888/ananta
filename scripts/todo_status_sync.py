@@ -13,6 +13,7 @@ Updates:
 - `execution_stage_summary.stages[*]` counters are rebuilt when present
 - `milestones[].status` is derived from contained task statuses (all done = done; any partial = partial; any in_progress = in_progress; else todo)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -96,10 +97,18 @@ def _by_type(tasks: list[dict]) -> dict:
     bucket: dict[str, dict] = {}
     for t in tasks:
         kind = t.get("type", "unknown")
-        b = bucket.setdefault(kind, {
-            "total": 0, "done": 0, "partial": 0, "blocked": 0,
-            "todo": 0, "in_progress": 0, "progress_percent": 0,
-        })
+        b = bucket.setdefault(
+            kind,
+            {
+                "total": 0,
+                "done": 0,
+                "partial": 0,
+                "blocked": 0,
+                "todo": 0,
+                "in_progress": 0,
+                "progress_percent": 0,
+            },
+        )
         b["total"] += 1
         st = t.get("status", "todo")
         if st in b:
@@ -109,8 +118,10 @@ def _by_type(tasks: list[dict]) -> dict:
     for b in bucket.values():
         b["progress_percent"] = round(b["progress_percent"] / max(1, b["total"]), 1)
         b["by_status"] = {
-            "todo": b["todo"], "in_progress": b["in_progress"],
-            "partial": b["partial"], "blocked": b["blocked"],
+            "todo": b["todo"],
+            "in_progress": b["in_progress"],
+            "partial": b["partial"],
+            "blocked": b["blocked"],
             "done": b["done"],
         }
     return bucket
@@ -125,7 +136,7 @@ def sync(path: Path) -> int:
 
     for t in tasks:
         prog = int(t.get("progress_percent", 0) or 0)
-        if t.get("status") not in {"blocked"}:   # respect explicit blocked
+        if t.get("status") not in {"blocked"}:  # respect explicit blocked
             t["status"] = _derive_status(prog)
 
     by_status: dict[str, int] = {s: 0 for s in STATUSES}
@@ -144,13 +155,20 @@ def sync(path: Path) -> int:
         "by_risk": _by_risk(tasks),
         "critical_path": {
             "total": len(data.get("critical_path_tasks") or []),
-            "done": sum(1 for tid in (data.get("critical_path_tasks") or [])
-                         if any(t["id"] == tid and t["status"] == "done" for t in tasks)),
+            "done": sum(
+                1
+                for tid in (data.get("critical_path_tasks") or [])
+                if any(t["id"] == tid and t["status"] == "done" for t in tasks)
+            ),
             "remaining": 0,
         },
         "milestones": {
             "total": len(data.get("milestones") or []),
-            "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0,
+            "todo": 0,
+            "in_progress": 0,
+            "partial": 0,
+            "blocked": 0,
+            "done": 0,
         },
     }
     crit_total = data["tasks_status_summary"]["critical_path"]["total"]
@@ -186,9 +204,11 @@ def sync(path: Path) -> int:
     _sync_execution_stage_counts(data, tasks)
 
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"  {path.name}: {done}/{total} done ({progress_percent_done}%), "
-          f"milestones {data['progress_summary']['milestones_done']}/"
-          f"{data['progress_summary']['milestones_total']}")
+    print(
+        f"  {path.name}: {done}/{total} done ({progress_percent_done}%), "
+        f"milestones {data['progress_summary']['milestones_done']}/"
+        f"{data['progress_summary']['milestones_total']}"
+    )
     return 0
 
 

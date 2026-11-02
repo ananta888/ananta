@@ -39,9 +39,7 @@ class WorkerJobService:
     ) -> ContextBundleDB:
         if self._rag_service is not None:
             vector_runtime_scope = (
-                self._retrieval_vector_scope_binder.bind_task_scope(
-                    parent_task_id
-                )
+                self._retrieval_vector_scope_binder.bind_task_scope(parent_task_id)
                 if str(parent_task_id or "").strip()
                 else None
             )
@@ -259,9 +257,7 @@ class WorkerJobService:
             },
         }
         persisted = worker_job_repo.save(job)
-        self._worker_pool_scheduler_service.release_for_job(
-            persisted.slot_lease_id
-        )
+        self._worker_pool_scheduler_service.release_for_job(persisted.slot_lease_id)
         return persisted
 
 

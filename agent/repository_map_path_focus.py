@@ -90,7 +90,7 @@ def _anchor_paths(roots: list[str], paths: list[str]) -> list[str]:
     for root in roots:
         root_prefix = f"{root.rstrip('/')}/"
         in_root = sorted(path for path in path_set if path.startswith(root_prefix))
-        direct = [path for path in in_root if "/" not in path[len(root_prefix):].strip("/")]
+        direct = [path for path in in_root if "/" not in path[len(root_prefix) :].strip("/")]
         prioritized = [
             path for path in direct if Path(path).name in entrypoint_names or Path(path).stem == Path(root).name
         ]

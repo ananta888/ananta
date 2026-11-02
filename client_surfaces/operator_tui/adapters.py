@@ -61,9 +61,8 @@ class SectionAdapterRegistry:
         if self._use_hub:
             try:
                 from client_surfaces.operator_tui.hub_loader import fetch_hub_section
-                result = fetch_hub_section(
-                    section_id, self._endpoint, self._token, timeout=section.timeout_seconds
-                )
+
+                result = fetch_hub_section(section_id, self._endpoint, self._token, timeout=section.timeout_seconds)
                 if result is not None:
                     return result
                 return SectionLoadResult(section.id, PanelState.EMPTY, {}, "")

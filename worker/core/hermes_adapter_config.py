@@ -11,7 +11,18 @@ class HermesModelSelectionPolicy(BaseModel):
     reject_mutation_tasks_for_hermes: bool = True
     allow_candidate_roles: bool = True
     allowed_task_kinds_for_hermes: list[str] = Field(default_factory=list)
-    mutation_task_kinds: list[str] = Field(default_factory=lambda: ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation", "workspace_mutation", "file_mutation"])
+    mutation_task_kinds: list[str] = Field(
+        default_factory=lambda: [
+            "patch_apply",
+            "command_execute",
+            "shell_execute",
+            "shell_execution",
+            "service_mutation",
+            "config_mutation",
+            "workspace_mutation",
+            "file_mutation",
+        ]
+    )
     blocked_task_kinds: list[str] = Field(default_factory=list)
 
 
@@ -22,7 +33,9 @@ class HermesAdapterConfig(BaseModel):
     default_model: str = ""
     timeout_seconds: float = 20.0
     max_retries: int = 1
-    allowed_task_kinds: list[str] = Field(default_factory=lambda: ["plan_only", "review", "summarize", "patch_propose", "research_limited"])
+    allowed_task_kinds: list[str] = Field(
+        default_factory=lambda: ["plan_only", "review", "summarize", "patch_propose", "research_limited"]
+    )
     blocked_task_kinds: list[str] = Field(default_factory=lambda: ["patch_apply", "command_execute"])
     cloud_allowed: bool = False
     max_context_chars: int = 12000
@@ -80,7 +93,9 @@ class HermesAdapterConfig(BaseModel):
 
     @field_validator("fallback_free_models")
     @classmethod
-    def _validate_fallback_free_models(cls, value: dict[str, list[str]] | list[str]) -> dict[str, list[str]] | list[str]:
+    def _validate_fallback_free_models(
+        cls, value: dict[str, list[str]] | list[str]
+    ) -> dict[str, list[str]] | list[str]:
         if isinstance(value, list):
             cleaned = [str(item or "").strip() for item in value if str(item or "").strip()]
             deduped = list(dict.fromkeys(cleaned))
@@ -139,6 +154,8 @@ class HermesAdapterConfig(BaseModel):
             "read_only_policy_summary": {
                 "allowed_task_kinds_for_hermes": list(self.model_selection_policy.allowed_task_kinds_for_hermes),
                 "mutation_task_kinds": list(self.model_selection_policy.mutation_task_kinds),
-                "blocked_task_kinds": list(dict.fromkeys(list(self.blocked_task_kinds) + list(self.model_selection_policy.blocked_task_kinds))),
+                "blocked_task_kinds": list(
+                    dict.fromkeys(list(self.blocked_task_kinds) + list(self.model_selection_policy.blocked_task_kinds))
+                ),
             },
         }

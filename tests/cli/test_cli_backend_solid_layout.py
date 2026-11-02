@@ -7,6 +7,7 @@ must go through ``default_context.<service>``.
 The backend context is the only boundary allowed to know how service
 handles are resolved.
 """
+
 from __future__ import annotations
 
 import re
@@ -18,8 +19,7 @@ ALLOWED_FILES_WITH_SERVICES_IMPORTS = {"context.py"}
 
 
 def _collect_agent_services_imports(file_path: Path) -> list[tuple[int, str]]:
-    """Return (line_no, line_content) for each ``agent.services.*`` import.
-    """
+    """Return (line_no, line_content) for each ``agent.services.*`` import."""
     text = file_path.read_text(encoding="utf-8")
     results: list[tuple[int, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):

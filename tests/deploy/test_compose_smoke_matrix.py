@@ -4,9 +4,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_docker_layout_keeps_active_and_legacy_sources_separate():
-    root_compose_files = {
-        path.name for path in ROOT.glob("docker-compose*.yml")
-    }
+    root_compose_files = {path.name for path in ROOT.glob("docker-compose*.yml")}
     legacy_compose_files = {path.name for path in (ROOT / "docker" / "old_way").glob("docker-compose*.yml")}
     # the root holds only the active feature overlays; the legacy stack lives in docker/old_way
     assert root_compose_files
@@ -14,9 +12,9 @@ def test_docker_layout_keeps_active_and_legacy_sources_separate():
     assert not (ROOT / "Dockerfile.quickstart-no-ollama").exists()
 
     active_base = (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8")
-    active_dockerfile = (
-        ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"
-    ).read_text(encoding="utf-8")
+    active_dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama").read_text(
+        encoding="utf-8"
+    )
     assert "docker/old_way/" not in active_base
     assert "docker/compose-next/Dockerfile.quickstart-no-ollama" in active_base
     assert " git " in active_dockerfile.replace("\\\n", " ")
@@ -100,7 +98,7 @@ def test_final_compose_file_chains_all_tests_without_extra_profiles():
     assert "Dockerfile.ollama-wsl-amd" in compose
     assert "Dockerfile.compose-test" in compose
     assert "--ignore-glob=tests/**/fixtures/**" in compose
-    assert "OLLAMA_BASE_URL: \"http://ollama:11434\"" in compose
+    assert 'OLLAMA_BASE_URL: "http://ollama:11434"' in compose
 
 
 def test_openai_final_compose_file_requires_openai_key_and_chains_all_tests():

@@ -15,13 +15,13 @@ Jeder Knoten hat das folgende Basis-Schema:
 ```python
 @dataclass
 class GraphNode:
-    node_id: str          # stabil, z. B. "repo:ananta/file:src/hub.py"
+    node_id: str  # stabil, z. B. "repo:ananta/file:src/hub.py"
     node_type: NodeType
-    path: str | None      # Dateipfad (für file, module, function, class, ...)
-    name: str             # lesbarer Name
-    metadata: dict        # typ-spezifische Felder
-    freshness: datetime   # letzter Scan-Timestamp
-    confidence: float     # 0.0–1.0
+    path: str | None  # Dateipfad (für file, module, function, class, ...)
+    name: str  # lesbarer Name
+    metadata: dict  # typ-spezifische Felder
+    freshness: datetime  # letzter Scan-Timestamp
+    confidence: float  # 0.0–1.0
 ```
 
 | node_type        | Beschreibung                                  | Wichtige metadata-Felder             |
@@ -54,8 +54,8 @@ class GraphEdge:
     target_id: str
     edge_type: EdgeType
     evidence: list[EvidenceSource]  # Herkunft: AST | heuristisch | manuell
-    confidence: float               # 0.0–1.0
-    freshness: datetime             # letzter Scan-Timestamp
+    confidence: float  # 0.0–1.0
+    freshness: datetime  # letzter Scan-Timestamp
 ```
 
 | edge_type            | Semantik                                                  |

@@ -6,7 +6,6 @@ from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.services.backend_observability_service import get_backend_observability_service
 
-
 backend_observability_bp = Blueprint("debug_backend_observability", __name__)
 
 
@@ -27,4 +26,3 @@ def backend_observability_summary():
         trace_limit=trace_limit,
     )
     return api_response(data=data, code=200)
-

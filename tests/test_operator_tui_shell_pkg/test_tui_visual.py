@@ -1,40 +1,12 @@
 from __future__ import annotations
 
-import json
-import os
 import re
-import sys
 import time
-from importlib import reload
-from argparse import Namespace
-from pathlib import Path
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
+from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
 
 
 def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> None:
@@ -63,7 +35,6 @@ def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> No
     assert plain2[2:5] == "CDE"
 
 
-
 def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 1.0)
     lines = [" " * 40] * 20
@@ -85,7 +56,6 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
 
     letters = "".join(ch for ch in plain if ch.isalpha())
     assert len(letters) >= 4
-
 
 
 def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None:
@@ -110,7 +80,6 @@ def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None
     assert "⏎" in plain
 
 
-
 def test_split_snake_playfield_uses_full_terminal_width() -> None:
     lines = [" " * 120 for _ in range(32)]
     game = {
@@ -126,7 +95,6 @@ def test_split_snake_playfield_uses_full_terminal_width() -> None:
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[4])
 
     assert plain[118] in {"●", "◉", "·"}
-
 
 
 def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
@@ -164,7 +132,6 @@ def test_split_snake_chat_panel_stays_in_right_detail_slice() -> None:
     assert active_row.index("ACTIVE: AI") >= split_col + 2
 
 
-
 def test_split_snake_chat_panel_does_not_blank_snake_under_empty_rows() -> None:
     lines = [" " * 120 for _ in range(32)]
     game = {
@@ -183,7 +150,6 @@ def test_split_snake_chat_panel_does_not_blank_snake_under_empty_rows() -> None:
     assert plain[60] == "●"
 
 
-
 def test_visual_command_toggles_and_requests_view() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
 
@@ -197,7 +163,6 @@ def test_visual_command_toggles_and_requests_view() -> None:
     assert bool(game_requested.get("visual_viewport_enabled")) is True
 
 
-
 def test_visual_command_rejects_unknown_view_with_known_view_list() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -209,7 +174,6 @@ def test_visual_command_rejects_unknown_view_with_known_view_list() -> None:
     assert result.handled is False
     assert "logo_animation" in str(result.state.status_message or "")
     assert "snake_debug_view" in str(result.state.status_message or "")
-
 
 
 def test_visual_viewport_content_lines_render_in_center_pane() -> None:
@@ -230,7 +194,6 @@ def test_visual_viewport_content_lines_render_in_center_pane() -> None:
     assert "[renderer_diagnostics]" in output
 
 
-
 def test_compact_artifact_chat_input_sends_ai_question() -> None:
     game = {
         "artifact_chat_state": {
@@ -249,13 +212,12 @@ def test_compact_artifact_chat_input_sends_ai_question() -> None:
     updated = tui.state.header_logo_game or {}
     assert updated.get("tutor_ask_question") == "Was macht das?"
     assert updated.get("tutorial_mode") is False
-    artifact_messages = ((updated.get("artifact_chat_state") or {}).get("messages") or [])
+    artifact_messages = (updated.get("artifact_chat_state") or {}).get("messages") or []
     assert artifact_messages[-1]["source"] == "user"
 
 
-
 def test_copy_chat_panel_snapshot_writes_clipboard(monkeypatch) -> None:
-    from client_surfaces.operator_tui.chat_state import default_chat_state, append_message, make_message
+    from client_surfaces.operator_tui.chat_state import append_message, default_chat_state, make_message
 
     chat = default_chat_state("s1")
     chat["active_channel"] = "ai:tutor"
@@ -283,7 +245,6 @@ def test_copy_chat_panel_snapshot_writes_clipboard(monkeypatch) -> None:
     assert "AI-snake" in copied
 
 
-
 def test_copy_ai_status_snapshot_writes_clipboard(monkeypatch) -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -307,7 +268,6 @@ def test_copy_ai_status_snapshot_writes_clipboard(monkeypatch) -> None:
     assert "events:" in copied
 
 
-
 def test_copy_tui_snapshot_writes_entire_rendered_view(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", status_message="snapshot-ready")
     tui = InteractiveOperatorTui(state)
@@ -324,10 +284,10 @@ def test_copy_tui_snapshot_writes_entire_rendered_view(monkeypatch) -> None:
     assert "System-Zwischenablage" in str(tui.state.status_message)
 
 
-
 def test_region_index_tab_click_returns_tab_kind() -> None:
     from client_surfaces.operator_tui.region_index import build_region_index
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
@@ -338,10 +298,10 @@ def test_region_index_tab_click_returns_tab_kind() -> None:
     assert target.kind in {"tab", "tab_close"}
 
 
-
 def test_region_index_body_shifts_with_two_tabs() -> None:
     from client_surfaces.operator_tui.region_index import build_region_index
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state_no_tabs = OperatorState(endpoint="http://localhost:5000")
     # 1 tab: no tab bar, body_start=9
     state_one_tab = open_or_activate_tab(state_no_tabs, section_id="dashboard", kind="section", label="Dashboard")
@@ -363,10 +323,10 @@ def test_region_index_body_shifts_with_two_tabs() -> None:
     assert t_nav is not None and t_nav.pane in {"nav", "header"}
 
 
-
 def test_region_index_tab_close_target() -> None:
     from client_surfaces.operator_tui.region_index import build_region_index
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_positions_for_render
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")

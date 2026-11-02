@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from agent.services.semantic_media_feature_flags import SEMANTIC_MEDIA_FEATURE_CATALOG
 from agent.services.sfu_broadcast_feature_policy import (
     SFB_BROADCAST_FEATURE_DEFINITIONS,
     resolve_sfu_broadcast_feature_flags,
 )
-from agent.services.semantic_media_feature_flags import SEMANTIC_MEDIA_FEATURE_CATALOG
 
 
 def test_broadcast_catalog_and_semantic_catalog_agree() -> None:

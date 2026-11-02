@@ -13,12 +13,14 @@ er verändert ausschließlich Ranking-Gewichte.
 ```python
 from typing import Protocol
 
+
 class WorkContext(Protocol):
     def get_open_files(self) -> list[str]: ...
     def get_active_file(self) -> str | None: ...
     def get_selection(self) -> FileRange | None: ...
     def get_active_branch(self) -> str | None: ...
     def get_dirty_files(self) -> list[str]: ...
+
 
 @dataclass
 class FileRange:
@@ -88,7 +90,7 @@ bevor sie als Kontext weitergegeben werden:
 SENSITIVE_PATTERNS = [
     r"(?i)(api_key|secret|password|token)\s*=\s*\S+",
     r"-----BEGIN (RSA |EC )?PRIVATE KEY-----",
-    r"AKIA[0-9A-Z]{16}",   # AWS Access Key
+    r"AKIA[0-9A-Z]{16}",  # AWS Access Key
 ]
 ```
 

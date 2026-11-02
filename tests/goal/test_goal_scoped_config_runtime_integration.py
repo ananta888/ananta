@@ -5,7 +5,7 @@ from tests.planning_collaborator_seam import install_repo_context_loader
 
 def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
     install_repo_context_loader(app, lambda goal: None)
@@ -36,7 +36,9 @@ def test_global_config_change_does_not_mutate_goal_snapshot(client, admin_auth_h
     before = client.get(f"/goals/{goal_id}/effective-config", headers=admin_auth_header).get_json()["data"]
     before_checksum = before.get("config_checksum")
 
-    patch = client.post("/config", headers=admin_auth_header, json={"default_provider": "lmstudio", "default_model": "qwen2.5-coder:7b"})
+    patch = client.post(
+        "/config", headers=admin_auth_header, json={"default_provider": "lmstudio", "default_model": "qwen2.5-coder:7b"}
+    )
     assert patch.status_code == 200
 
     after = client.get(f"/goals/{goal_id}/effective-config", headers=admin_auth_header).get_json()["data"]

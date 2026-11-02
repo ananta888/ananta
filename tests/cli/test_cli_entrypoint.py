@@ -1,4 +1,5 @@
 """Smoke tests for the ananta CLI entrypoint and domain dispatch."""
+
 from __future__ import annotations
 
 import io
@@ -26,6 +27,7 @@ def _run(argv: list[str]) -> tuple[int, str, str]:
 # Top-level help
 # ---------------------------------------------------------------------------
 
+
 def test_no_args_exits_0():
     rc, out, _ = _run([])
     assert rc == 0
@@ -46,10 +48,23 @@ def test_unknown_command_exits_nonzero():
 # Domain group dispatching
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("domain", [
-    "config", "runtime", "llm", "hub", "worker",
-    "goal", "task", "project", "rag", "repair", "dev",
-])
+
+@pytest.mark.parametrize(
+    "domain",
+    [
+        "config",
+        "runtime",
+        "llm",
+        "hub",
+        "worker",
+        "goal",
+        "task",
+        "project",
+        "rag",
+        "repair",
+        "dev",
+    ],
+)
 def test_domain_help_via_main(domain):
     """ananta <domain> --help dispatches correctly and exits 0."""
     rc, out, err = _run([domain, "--help"])
@@ -61,6 +76,7 @@ def test_domain_help_via_main(domain):
 # ---------------------------------------------------------------------------
 # Flat command backward-compat
 # ---------------------------------------------------------------------------
+
 
 def test_doctor_help():
     rc, out, err = _run(["doctor", "--help"])
@@ -94,6 +110,7 @@ def test_task_help_via_main():
 # Exit code contract
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_command_exits_2():
     rc, _, _ = _run(["completely-unknown-xyz"])
     assert rc == 2
@@ -101,8 +118,7 @@ def test_unknown_command_exits_2():
 
 def test_help_always_exits_0():
     """Verify that --help on each domain group returns 0, not 1."""
-    domains = ["config", "runtime", "llm", "hub", "worker", "goal", "task",
-               "project", "rag", "repair", "prompt", "dev"]
+    domains = ["config", "runtime", "llm", "hub", "worker", "goal", "task", "project", "rag", "repair", "prompt", "dev"]
     for domain in domains:
         rc, _, _ = _run([domain, "--help"])
         assert rc == 0, f"'ananta {domain} --help' returned {rc}, expected 0"
@@ -112,32 +128,36 @@ def test_help_always_exits_0():
 # Domain subcommand help via main
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("argv", [
-    ["config", "show", "--help"],
-    ["config", "setup-planning", "--help"],
-    ["config", "validate", "--help"],
-    ["goal", "create", "--help"],
-    ["goal", "list", "--help"],
-    ["goal", "inspect", "--help"],
-    ["goal", "status", "--help"],
-    ["goal", "ask", "--help"],
-    ["goal", "new-project", "--help"],
-    ["task", "inspect", "--help"],
-    ["task", "list", "--help"],
-    ["dev", "acceptance", "--help"],
-    ["dev", "check", "--help"],
-    ["dev", "audit", "--help"],
-    ["dev", "smoke", "--help"],
-    ["dev", "benchmark", "--help"],
-    ["hub", "status", "--help"],
-    ["worker", "list", "--help"],
-    ["llm", "list", "--help"],
-    ["llm", "log", "--help"],
-    ["runtime", "list", "--help"],
-    ["runtime", "inspect", "--help"],
-    ["prompt", "inspect", "--help"],
-    ["prompt", "goal-traces", "--help"],
-])
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["config", "show", "--help"],
+        ["config", "setup-planning", "--help"],
+        ["config", "validate", "--help"],
+        ["goal", "create", "--help"],
+        ["goal", "list", "--help"],
+        ["goal", "inspect", "--help"],
+        ["goal", "status", "--help"],
+        ["goal", "ask", "--help"],
+        ["goal", "new-project", "--help"],
+        ["task", "inspect", "--help"],
+        ["task", "list", "--help"],
+        ["dev", "acceptance", "--help"],
+        ["dev", "check", "--help"],
+        ["dev", "audit", "--help"],
+        ["dev", "smoke", "--help"],
+        ["dev", "benchmark", "--help"],
+        ["hub", "status", "--help"],
+        ["worker", "list", "--help"],
+        ["llm", "list", "--help"],
+        ["llm", "log", "--help"],
+        ["runtime", "list", "--help"],
+        ["runtime", "inspect", "--help"],
+        ["prompt", "inspect", "--help"],
+        ["prompt", "goal-traces", "--help"],
+    ],
+)
 def test_subcommand_help(argv):
     rc, out, err = _run(argv)
     combined = out + err

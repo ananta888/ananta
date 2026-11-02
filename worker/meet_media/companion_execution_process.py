@@ -19,10 +19,19 @@ class CompanionExecutionProcess:
         if self._model_profile is not None and set(ports or {}) != {"tool", "model"}:
             raise ValueError("meet_companion_assigned_model_ports_required")
         command = command or (sys.executable, "-m", "worker.meet_media.companion_execution_runtime")
-        self._transport = CompanionProcessTransport(command, environment=environment, timeout_seconds=timeout_seconds,
-                                                    ports=ports, input_limit=EXECUTION_REQUEST_LIMIT)
-        self._speech_options = dict(command=command, environment=environment, timeout_seconds=timeout_seconds,
-                                    input_limit=EXECUTION_REQUEST_LIMIT)
+        self._transport = CompanionProcessTransport(
+            command,
+            environment=environment,
+            timeout_seconds=timeout_seconds,
+            ports=ports,
+            input_limit=EXECUTION_REQUEST_LIMIT,
+        )
+        self._speech_options = dict(
+            command=command,
+            environment=environment,
+            timeout_seconds=timeout_seconds,
+            input_limit=EXECUTION_REQUEST_LIMIT,
+        )
         self._speech_transport = None
         self._closed = False
 
@@ -47,8 +56,12 @@ class CompanionExecutionProcess:
             if kind == "answer" and self._model_profile is not None:
                 request["model_execution"] = self._model_profile
             result = transport.exchange(request, cooperate=cooperate, allow_ports=kind == "answer")
-            if (not isinstance(result, dict) or set(result) != {"kind", "result"}
-                    or result["kind"] != kind or not isinstance(result["result"], str)):
+            if (
+                not isinstance(result, dict)
+                or set(result) != {"kind", "result"}
+                or result["kind"] != kind
+                or not isinstance(result["result"], str)
+            ):
                 raise CompanionExecutionError("meet_companion_execution_protocol_invalid")
             if kind == "answer":
                 if not 0 < len(result["result"]) <= 450:

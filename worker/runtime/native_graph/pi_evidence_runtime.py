@@ -8,6 +8,6 @@ from worker.runtime.workflow_hub_gateway import HttpWorkflowHubDecisionClient
 def consume_pi_evidence_task(task, evidence_assignment):
     client = HttpWorkflowHubDecisionClient.from_environment()
     if client is None:
-        raise ValueError('pi_worker_evidence_transport_unavailable')
+        raise ValueError("pi_worker_evidence_transport_unavailable")
     consumer = VerifiedPiEvidenceConsumer(reader=HubPiEvidenceReader(client), execute=consume_delegated_workflow_task)
     return consumer(task, evidence_assignment)

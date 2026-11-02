@@ -45,10 +45,18 @@ class HermesModelSelectionResult(BaseModel):
 
 
 class HermesModelSelectionService:
-    _MUTATION_TASK_KINDS = frozenset({
-        "patch_apply", "command_execute", "shell_execute", "shell_execution",
-        "service_mutation", "config_mutation", "workspace_mutation", "file_mutation",
-    })
+    _MUTATION_TASK_KINDS = frozenset(
+        {
+            "patch_apply",
+            "command_execute",
+            "shell_execute",
+            "shell_execution",
+            "service_mutation",
+            "config_mutation",
+            "workspace_mutation",
+            "file_mutation",
+        }
+    )
     _DEFAULT_CANDIDATE_PATH = Path("config/hermes_free_model_candidates.default.json")
 
     def select_model(
@@ -81,7 +89,11 @@ class HermesModelSelectionService:
                 read_only_enforced=True,
                 mutation_allowed=False,
             )
-        if task_kind and policy.allowed_task_kinds_for_hermes and task_kind not in set(policy.allowed_task_kinds_for_hermes):
+        if (
+            task_kind
+            and policy.allowed_task_kinds_for_hermes
+            and task_kind not in set(policy.allowed_task_kinds_for_hermes)
+        ):
             return HermesModelSelectionResult(
                 source="rejected",
                 reason_codes=["MODEL_REJECTED_MUTATION_TASK", "READ_ONLY_ENFORCED"],
@@ -161,7 +173,11 @@ class HermesModelSelectionService:
                 for candidate in role_candidates.get(role_name, []):
                     model_id = str(candidate.get("model_id") or "").strip()
                     if _is_valid_model(model_id):
-                        selected_response_profile = candidate.get("response_profile") if isinstance(candidate.get("response_profile"), dict) else None
+                        selected_response_profile = (
+                            candidate.get("response_profile")
+                            if isinstance(candidate.get("response_profile"), dict)
+                            else None
+                        )
                         reason_codes.append("CANDIDATE_ROLE_RESOLVED")
                         return _accept(model_id, "candidate_role", False)
             if task_model and _is_valid_model(task_model):
@@ -173,7 +189,9 @@ class HermesModelSelectionService:
 
         if policy.allow_fallback_on_unavailable:
             fallback_models = config.fallback_models_for_task_kind(task_kind)
-            default_fallback = config.fallback_models_for_task_kind("default") if isinstance(config.fallback_free_models, dict) else []
+            default_fallback = (
+                config.fallback_models_for_task_kind("default") if isinstance(config.fallback_free_models, dict) else []
+            )
             for fallback_model in list(fallback_models) + list(default_fallback):
                 if _is_valid_model(fallback_model):
                     return _accept(fallback_model, "fallback_free_models", True)

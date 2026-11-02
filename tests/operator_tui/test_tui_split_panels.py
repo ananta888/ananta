@@ -5,13 +5,12 @@ import time
 
 from client_surfaces.operator_tui.models import OperatorState
 from client_surfaces.operator_tui.renderer import (
-    _overlay_snake_ai_panel,
     _overlay_fullscreen_snake,
+    _overlay_snake_ai_panel,
     _overlay_snake_chat_panel,
     _snake_right_panel_width,
     _visible_char_at,
 )
-
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -113,7 +112,9 @@ def test_ai_panel_shows_toggle_configuration_and_keys() -> None:
         "llm_status": {"reachable": False},
         "ai_snake_mode": "lurking_follow",
         "ai_snake_runtime_status": "running",
-        "ai_snake_monitor_log": [{"event": "tutorial_toggled", "label": "Tutorial-AI umgeschaltet", "created_at": 1735682400.0}],
+        "ai_snake_monitor_log": [
+            {"event": "tutorial_toggled", "label": "Tutorial-AI umgeschaltet", "created_at": 1735682400.0}
+        ],
     }
     out = _overlay_snake_ai_panel(lines, game, split_col=78, panel_width=40, height=16, row_start=0, chat_enabled=False)
     rendered = "\n".join(_strip_ansi(line) for line in out)

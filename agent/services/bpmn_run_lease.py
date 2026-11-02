@@ -83,7 +83,7 @@ class BpmnRunLeaseService:
 
     @contextmanager
     def acquire(self, request, *, command=None):
-        if not is_bpmn_plan(request.plan) and request.plan.metadata.get('hub_control_lease_required') is not True:
+        if not is_bpmn_plan(request.plan) and request.plan.metadata.get("hub_control_lease_required") is not True:
             yield None
             return
         current = self._store.get_latest(tenant_id=request.plan.tenant_id, run_id=request.run_id, task_id=_TASK)

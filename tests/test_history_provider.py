@@ -1,17 +1,11 @@
 """Tests for agent/services/history_provider.py (COSMOS-011)."""
+
 from __future__ import annotations
 
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from agent.services.history_provider import (
-    ADRRecord,
     CommitRecord,
-    HistoryProviderCapabilities,
-    IssueRecord,
     LocalGitHistoryProvider,
     NullHistoryProvider,
     PRRecord,
@@ -21,8 +15,8 @@ from agent.services.history_provider import (
     mark_stale_records,
 )
 
-
 # ── NullHistoryProvider ───────────────────────────────────────────────────────
+
 
 class TestNullHistoryProvider:
     def setup_method(self):
@@ -50,6 +44,7 @@ class TestNullHistoryProvider:
 
 
 # ── LocalGitHistoryProvider ───────────────────────────────────────────────────
+
 
 class TestLocalGitHistoryProvider:
     def test_get_commits_no_git_returns_empty(self, tmp_path):
@@ -82,9 +77,7 @@ class TestLocalGitHistoryProvider:
     def test_get_adrs_scans_docs_adr(self, tmp_path):
         adr_dir = tmp_path / "docs" / "adr"
         adr_dir.mkdir(parents=True)
-        (adr_dir / "001-use-postgres.md").write_text(
-            "# Use PostgreSQL\n\nStatus: accepted\n\nWe chose postgres.\n"
-        )
+        (adr_dir / "001-use-postgres.md").write_text("# Use PostgreSQL\n\nStatus: accepted\n\nWe chose postgres.\n")
         provider = LocalGitHistoryProvider(repo_path=str(tmp_path))
         records = provider.get_adrs()
         assert len(records) == 1
@@ -109,11 +102,7 @@ class TestLocalGitHistoryProvider:
 
     def test_parse_git_log_with_mock(self, tmp_path):
         provider = LocalGitHistoryProvider(repo_path=str(tmp_path))
-        fake_output = (
-            "COMMIT_MARKER\x1fabc123\x1fAlice\x1f1700000000\x1fFix bug\n"
-            "src/main.py\n"
-            "src/utils.py\n"
-        )
+        fake_output = "COMMIT_MARKER\x1fabc123\x1fAlice\x1f1700000000\x1fFix bug\nsrc/main.py\nsrc/utils.py\n"
         records = provider._parse_git_log(fake_output)
         assert len(records) == 1
         assert records[0].commit_id == "abc123"
@@ -155,12 +144,17 @@ class TestLocalGitHistoryProvider:
 
 # ── mark_stale_records ────────────────────────────────────────────────────────
 
+
 class TestMarkStaleRecords:
     def test_old_commit_marked_stale(self):
         old_ts = time.time() - (100 * 86400)
         record = CommitRecord(
-            commit_id="abc", author="A", timestamp=old_ts,
-            message="old", changed_paths=[], stale=False,
+            commit_id="abc",
+            author="A",
+            timestamp=old_ts,
+            message="old",
+            changed_paths=[],
+            stale=False,
         )
         result = mark_stale_records([record], stale_days=90)
         assert result[0].stale is True
@@ -168,8 +162,12 @@ class TestMarkStaleRecords:
     def test_recent_commit_not_stale(self):
         recent_ts = time.time() - (10 * 86400)
         record = CommitRecord(
-            commit_id="abc", author="A", timestamp=recent_ts,
-            message="recent", changed_paths=[], stale=False,
+            commit_id="abc",
+            author="A",
+            timestamp=recent_ts,
+            message="recent",
+            changed_paths=[],
+            stale=False,
         )
         result = mark_stale_records([record], stale_days=90)
         assert result[0].stale is False
@@ -180,22 +178,35 @@ class TestMarkStaleRecords:
     def test_pr_with_merged_at_stale(self):
         old_ts = time.time() - (200 * 86400)
         pr = PRRecord(
-            pr_id="1", title="T", author="A", merged_at=old_ts,
-            changed_paths=[], state="merged", body_summary="", stale=False,
+            pr_id="1",
+            title="T",
+            author="A",
+            merged_at=old_ts,
+            changed_paths=[],
+            state="merged",
+            body_summary="",
+            stale=False,
         )
         result = mark_stale_records([pr], stale_days=90)
         assert result[0].stale is True
 
     def test_pr_with_none_merged_at_not_stale(self):
         pr = PRRecord(
-            pr_id="2", title="T", author="A", merged_at=None,
-            changed_paths=[], state="open", body_summary="", stale=False,
+            pr_id="2",
+            title="T",
+            author="A",
+            merged_at=None,
+            changed_paths=[],
+            state="open",
+            body_summary="",
+            stale=False,
         )
         result = mark_stale_records([pr], stale_days=90)
         assert result[0].stale is False
 
 
 # ── _try_parse_date ───────────────────────────────────────────────────────────
+
 
 class TestTryParseDate:
     def test_simple_date(self):
@@ -220,6 +231,7 @@ class TestTryParseDate:
 
 # ── _parse_adr_yaml ───────────────────────────────────────────────────────────
 
+
 class TestParseAdrYaml:
     def test_parses_title_and_status(self):
         text = "title: Use PostgreSQL\nstatus: accepted\ndate: 2023-01-01\n"
@@ -241,6 +253,7 @@ class TestParseAdrYaml:
 
 
 # ── _parse_adr_markdown ───────────────────────────────────────────────────────
+
 
 class TestParseAdrMarkdown:
     def test_parses_front_matter_title(self):

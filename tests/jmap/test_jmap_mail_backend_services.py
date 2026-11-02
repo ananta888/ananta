@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from agent.services.jmap_blob_service import JmapBlobService
 from agent.services.jmap_contract_service import (
     JMAP_CORE_CAPABILITY,
     JMAP_MAIL_CAPABILITY,
@@ -9,7 +10,6 @@ from agent.services.jmap_contract_service import (
     JmapMethodResponse,
     JmapSessionDocument,
 )
-from agent.services.jmap_blob_service import JmapBlobService
 from agent.services.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import JmapHttpResponse
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
@@ -17,13 +17,12 @@ from agent.services.jmap_mail_read_provider import JmapMailReadProvider
 from agent.services.jmap_sync_service import JmapSyncService
 from agent.services.mail_body_service import MailBodyService
 from agent.services.mail_contract_service import MailMessageRefV2, stable_mail_ref_id
-from agent.services.mail_domain_mapper import MailDomainMapper
 from agent.services.mail_mutation_policy import MailMutationPolicy
 from agent.services.mail_provider_ports import (
+    MailAttachment,
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailContentAccessVerifier,
-    MailAttachment,
     MailMoveRequest,
     MailProviderResult,
     MailProviderSession,
@@ -198,7 +197,7 @@ def test_body_service_requires_message_bound_access_and_sanitizes_html() -> None
             "htmlBody": [{"partId": "p2"}],
             "bodyValues": {
                 "p1": {"value": "hello", "isTruncated": False},
-                "p2": {"value": '<p>hello<script>bad()</script></p>', "isTruncated": False},
+                "p2": {"value": "<p>hello<script>bad()</script></p>", "isTruncated": False},
             },
         },
     )

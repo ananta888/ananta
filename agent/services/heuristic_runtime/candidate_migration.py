@@ -9,22 +9,19 @@ active use (default_policy.requires_simulation: true). This module:
 
 Also handles ASH-014 TTL expiry: expired candidates are quarantined.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
-import shutil
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 _log = logging.getLogger(__name__)
 
-_DEFAULT_BASE_PATH = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics")
-)
+_DEFAULT_BASE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics"))
 
 # Statuses that are safe for runtime use
 _ACTIVE_STATUSES = frozenset({"candidate", "auto_promoted"})

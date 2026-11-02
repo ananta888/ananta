@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 import time
 from collections.abc import Sequence
 
 from agent.cli.splash import SplashMachine
-
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry, merge_panel_state, merge_section_result
 from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.performance import PerformanceBudget, measure
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.performance import PerformanceBudget, measure
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint
 from client_surfaces.operator_tui.sections import normalize_section_id
@@ -21,6 +19,7 @@ from client_surfaces.operator_tui.terminal import get_tty_size
 
 def _load_env_file() -> dict[str, str]:
     from pathlib import Path
+
     env_file = Path(__file__).parent.parent.parent / ".env"
     result: dict[str, str] = {}
     if not env_file.exists():
@@ -47,10 +46,7 @@ def _get_hub_token() -> str:
     if not token:
         _env = _load_env_file()
         token = str(
-            _env.get("ANANTA_AUTH_TOKEN")
-            or _env.get("ANANTA_PASSWORD")
-            or _env.get("INITIAL_ADMIN_PASSWORD")
-            or ""
+            _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or _env.get("INITIAL_ADMIN_PASSWORD") or ""
         )
     return token
 
@@ -76,13 +72,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--splash-seconds", type=float, default=2.0, help="Duration of fullscreen splash")
     parser.add_argument("--no-3d", action="store_true", help="Disable 3D logo animation")
-    parser.add_argument("--3d-preset", default=os.environ.get("ANANTA_TUI_3D_PRESET", "rotate_in"),
-                        choices=["rotate_in", "snake_orbit", "depth_pulse"],
-                        help="3D animation preset")
+    parser.add_argument(
+        "--3d-preset",
+        default=os.environ.get("ANANTA_TUI_3D_PRESET", "rotate_in"),
+        choices=["rotate_in", "snake_orbit", "depth_pulse"],
+        help="3D animation preset",
+    )
     parser.add_argument("--3d-fps", type=int, default=24, help="3D animation frame rate")
     parser.add_argument("--3d-duration-ms", type=int, default=2000, help="3D animation duration in ms")
-    parser.add_argument("--splash-frame", default="",
-                        help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact, pixel:intro")
+    parser.add_argument(
+        "--splash-frame", default="", help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact, pixel:intro"
+    )
     parser.add_argument(
         "--graphics",
         choices=["auto", "kitty", "sixel", "iterm2", "halfblock", "ascii", "none"],
@@ -114,7 +114,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--logo-fps", type=int, default=None, help="Set persistent header logo animation FPS.")
     parser.add_argument("--no-logo", action="store_true", help="Disable persistent header logo.")
-    parser.add_argument("--enable-3d", action="store_true", help="Enable pixel-offscreen 3D header scene when possible.")
+    parser.add_argument(
+        "--enable-3d", action="store_true", help="Enable pixel-offscreen 3D header scene when possible."
+    )
     parser.add_argument("--scene", default=None, help="3D scene id (e.g. demo-cube).")
     parser.add_argument(
         "--3d-renderer",
@@ -200,7 +202,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
         from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
-        from client_surfaces.operator_tui.animation3d.models import AnimationCapability
 
         cap = detect_3d_capability(
             terminal_width=args.width,
@@ -320,7 +321,10 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
     if frame == "pixel:intro":
         from client_surfaces.operator_tui.logo_renderer.animated_header import render_header_logo
 
-        lines = render_header_logo(cols=max(20, width // 2), rows=8, color=not bool(os.environ.get("NO_COLOR")), t_now=0.0) or []
+        lines = (
+            render_header_logo(cols=max(20, width // 2), rows=8, color=not bool(os.environ.get("NO_COLOR")), t_now=0.0)
+            or []
+        )
         _maybe_write_splash_debug(
             {
                 "width": width,

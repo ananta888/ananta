@@ -66,7 +66,8 @@ class ToolDecider:
         try:
             schema = build_tool_decision_schema(list(definitions), open_field=self._open_field)
             response = self._client.exchange(
-                DECISION_PATH, request_body(schema, str(question or ""), model_id=self._model), self._budget)
+                DECISION_PATH, request_body(schema, str(question or ""), model_id=self._model), self._budget
+            )
             decision, error = read_tool_decision(response, schema, min_confidence=0.0), ""
         except ValueError as failure:  # contract errors and redacted transport failures are ValueErrors
             decision, error = None, str(failure)[:80]
@@ -105,8 +106,11 @@ def decider_from_env(environ=None):
         return None
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     argument = environ.get(ARGUMENT_ENV, environ.get(LEGACY_ARGUMENT_ENV, "1"))
-    return ToolDecider(BoundedJsonClient(base_url, opener=opener), model=str(environ.get("MEET_LLM_MODEL") or ""),
-                       open_field=str(argument).strip().lower() not in _FALSE)
+    return ToolDecider(
+        BoundedJsonClient(base_url, opener=opener),
+        model=str(environ.get("MEET_LLM_MODEL") or ""),
+        open_field=str(argument).strip().lower() not in _FALSE,
+    )
 
 
 def fast_choice_from_env(decider, environ=None):

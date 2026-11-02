@@ -28,9 +28,7 @@ class DatasetSplitCatalogPort(Protocol):
 
     def open_split_source(self, *, tenant_id: str, principal_id: str, dataset_id: str) -> Any: ...
 
-    def split_source_descriptor(
-        self, *, tenant_id: str, principal_id: str, dataset_id: str
-    ) -> dict[str, Any]: ...
+    def split_source_descriptor(self, *, tenant_id: str, principal_id: str, dataset_id: str) -> dict[str, Any]: ...
 
     def open_partition(
         self,
@@ -326,9 +324,7 @@ class MlInternDatasetSplitService:
                 )
                 overlap = _overlap_count(train_path, validation_path)
                 if overlap:
-                    pair_errors.append(
-                        f"train and validation datasets share {overlap} normalized record groups"
-                    )
+                    pair_errors.append(f"train and validation datasets share {overlap} normalized record groups")
                 if not train_report.ok or not validation_report.ok or pair_errors:
                     raise DatasetSplitError(
                         "external_validation_pair_invalid",
@@ -351,9 +347,7 @@ class MlInternDatasetSplitService:
                     )["sha256"],
                     "seed": None,
                     "validation_ratio": round(validation_count / (train_count + validation_count), 8),
-                    "actual_validation_ratio": round(
-                        validation_count / (train_count + validation_count), 8
-                    ),
+                    "actual_validation_ratio": round(validation_count / (train_count + validation_count), 8),
                     "source_record_count": train_count,
                     "train_record_count": train_count,
                     "validation_record_count": validation_count,

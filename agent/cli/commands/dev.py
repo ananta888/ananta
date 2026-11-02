@@ -1,4 +1,5 @@
 """ananta dev — developer and CI commands (not for end-users)."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,8 +10,16 @@ from pathlib import Path
 from typing import Any
 
 SUBCOMMANDS = [
-    "acceptance", "e2e", "release-gate", "latency-diagnostics",
-    "smoke", "benchmark", "audit", "check", "validate", "evidence",
+    "acceptance",
+    "e2e",
+    "release-gate",
+    "latency-diagnostics",
+    "smoke",
+    "benchmark",
+    "audit",
+    "check",
+    "validate",
+    "evidence",
     "command",
 ]
 
@@ -77,7 +86,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  ananta dev acceptance --scenario-file scenario_lmstudio.json --sla-seconds 900 --password test123\n"
+            "  ananta dev acceptance --scenario-file config/scenario_lmstudio.json --sla-seconds 900 --password test123\n"
             "  ananta dev check pipeline\n"
             "  ananta dev check cycles\n"
             "  ananta dev audit client-surface\n"
@@ -102,15 +111,17 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
         "acceptance",
         help="Run first-goal acceptance test (replaces scripts/first_goal_acceptance_runner.py).",
     )
-    acc_p.add_argument("--scenario-file", dest="scenario_file", default="scenario_lmstudio.json",
-                       help="Path to scenario JSON file.")
-    acc_p.add_argument("--sla-seconds", dest="sla_seconds", type=int, default=900,
-                       help="SLA timeout in seconds.")
+    acc_p.add_argument(
+        "--scenario-file",
+        dest="scenario_file",
+        default="config/scenario_lmstudio.json",
+        help="Path to scenario JSON file.",
+    )
+    acc_p.add_argument("--sla-seconds", dest="sla_seconds", type=int, default=900, help="SLA timeout in seconds.")
     acc_p.add_argument("--password", default="test123", help="Hub admin password.")
     acc_p.add_argument("--base-url", dest="base_url", default="", help="Hub base URL.")
     acc_p.add_argument("--user", default="admin", help="Hub admin user.")
-    acc_p.add_argument("--report-file", dest="report_file", default="",
-                       help="Path for JSON report output.")
+    acc_p.add_argument("--report-file", dest="report_file", default="", help="Path for JSON report output.")
 
     # e2e
     sub.add_parser("e2e", help="Run e2e dogfood checks (replaces scripts/run_e2e_dogfood_checks.py).")
@@ -268,6 +279,7 @@ def register(subparsers: Any) -> None:
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _cmd_command(parsed) -> int:
     action = getattr(parsed, "command_action", None) or ""

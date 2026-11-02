@@ -7,6 +7,7 @@ these names so that tests patching ``agent.routes.auth._log`` win
 the monkey-patch race even when consumers in other sub-modules
 look the symbols up at call time.
 """
+
 from __future__ import annotations
 
 from ipaddress import ip_address

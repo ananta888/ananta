@@ -38,10 +38,7 @@ class CandidateExecutionPolicy:
             raise ValueError("voice candidate execution policy is invalid")
         if self.audio_duration_ms < 0:
             raise ValueError("voice candidate audio duration is invalid")
-        deadlines = {
-            str(backend_id): float(value)
-            for backend_id, value in self.backend_deadline_seconds.items()
-        }
+        deadlines = {str(backend_id): float(value) for backend_id, value in self.backend_deadline_seconds.items()}
         if any(not backend_id or value <= 0 for backend_id, value in deadlines.items()):
             raise ValueError("voice backend deadline policy is invalid")
         object.__setattr__(self, "backend_deadline_seconds", MappingProxyType(deadlines))
@@ -225,9 +222,7 @@ class ParallelCandidateExecutor:
                     continue
 
                 now = time.monotonic()
-                nearest_deadline = min(
-                    execution.token.deadline_monotonic for execution in active.values()
-                )
+                nearest_deadline = min(execution.token.deadline_monotonic for execution in active.values())
                 done, _pending = wait(
                     tuple(active),
                     timeout=max(0.0, nearest_deadline - now),
@@ -266,9 +261,7 @@ class ParallelCandidateExecutor:
                     if future.cancel():
                         execution.lease.release()
                     else:
-                        future.add_done_callback(
-                            partial(_release_lease, lease=execution.lease)
-                        )
+                        future.add_done_callback(partial(_release_lease, lease=execution.lease))
                         # A non-cooperative backend still occupies its worker and
                         # resources. Do not enqueue more work behind it.
                         scheduling_blocked = True
@@ -445,11 +438,7 @@ class ParallelCandidateExecutor:
 
 def _candidate_id(backend_id: str, source_audio_id: str, variant_id: str) -> str:
     digest = hashlib.sha256(
-        backend_id.encode("utf-8")
-        + b"\0"
-        + variant_id.encode("utf-8")
-        + b"\0"
-        + source_audio_id.encode("utf-8")
+        backend_id.encode("utf-8") + b"\0" + variant_id.encode("utf-8") + b"\0" + source_audio_id.encode("utf-8")
     ).hexdigest()
     return f"candidate-{backend_id}-{digest[:16]}"
 
@@ -467,9 +456,7 @@ def _transcribe_backend(
     projected_context: dict[str, object] = {}
     if context is not None:
         capability_method = getattr(backend, "context_capabilities", None)
-        capabilities = (
-            frozenset(capability_method()) if callable(capability_method) else frozenset()
-        )
+        capabilities = frozenset(capability_method()) if callable(capability_method) else frozenset()
         projected_context = context.project(capabilities)
     controlled = getattr(backend, "transcribe_with_control", None)
     if callable(controlled):

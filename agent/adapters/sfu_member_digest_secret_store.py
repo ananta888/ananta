@@ -22,9 +22,7 @@ from agent.services.sfu_member_digest_key_provider import (
 class SfuMemberDigestSecretStoreAdapter:
     """Thread-safe lifecycle adapter with explicit, monotonic transitions."""
 
-    def __init__(
-        self, records: Iterable[SfuMemberDigestKeyRecord] = ()
-    ) -> None:
+    def __init__(self, records: Iterable[SfuMemberDigestKeyRecord] = ()) -> None:
         self._lock = RLock()
         self._records: dict[str, SfuMemberDigestKeyRecord] = {}
         for record in records:
@@ -57,9 +55,7 @@ class SfuMemberDigestSecretStoreAdapter:
                 secret=bytes(secret),
             )
 
-    def activate(
-        self, *, key_id: str, valid_from: datetime, valid_until: datetime
-    ) -> None:
+    def activate(self, *, key_id: str, valid_from: datetime, valid_until: datetime) -> None:
         """Move a staged generation into a bounded signing window."""
 
         self._bounded_transition(
@@ -70,9 +66,7 @@ class SfuMemberDigestSecretStoreAdapter:
             valid_until=valid_until,
         )
 
-    def begin_dual_read(
-        self, *, key_id: str, valid_from: datetime, valid_until: datetime
-    ) -> None:
+    def begin_dual_read(self, *, key_id: str, valid_from: datetime, valid_until: datetime) -> None:
         """Make the former active generation verify-only for a bounded overlap."""
 
         self._bounded_transition(
@@ -147,15 +141,11 @@ class SfuMemberDigestSecretStoreAdapter:
                 valid_until=valid_until,
             )
 
-    def _require_state(
-        self, key_id: str, expected: DigestKeyState
-    ) -> SfuMemberDigestKeyRecord:
+    def _require_state(self, key_id: str, expected: DigestKeyState) -> SfuMemberDigestKeyRecord:
         try:
             record = self._records[key_id]
         except KeyError as exc:
             raise KeyError(f"unknown digest key: {key_id}") from exc
         if record.state != expected:
-            raise ValueError(
-                f"digest key {key_id} is {record.state!s}, expected {expected.value}"
-            )
+            raise ValueError(f"digest key {key_id} is {record.state!s}, expected {expected.value}")
         return record

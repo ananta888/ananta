@@ -22,12 +22,17 @@ class CompanionExecutionError(RuntimeError):
 
 
 class CompanionProcessTransport:
-    def __init__(self, command, *, environment=None, timeout_seconds=120, input_limit=8192, output_limit=2_600_000,
-                 ports=None):
+    def __init__(
+        self, command, *, environment=None, timeout_seconds=120, input_limit=8192, output_limit=2_600_000, ports=None
+    ):
         if type(timeout_seconds) not in (int, float) or not 0 < timeout_seconds <= 120:
             raise ValueError("meet_companion_execution_timeout_invalid")
-        if (type(input_limit) is not int or not 1 <= input_limit <= 2_600_000
-                or type(output_limit) is not int or not 1 <= output_limit <= 10_100_000):
+        if (
+            type(input_limit) is not int
+            or not 1 <= input_limit <= 2_600_000
+            or type(output_limit) is not int
+            or not 1 <= output_limit <= 10_100_000
+        ):
             raise ValueError("meet_companion_execution_limits_invalid")
         self._command, self._environment, self._timeout = command, environment, timeout_seconds
         self._input_limit, self._output_limit = input_limit, output_limit
@@ -50,10 +55,19 @@ class CompanionProcessTransport:
         try:
             if self._process is None:
                 self._process = subprocess.Popen(
-                    [sys.executable, str(Path(__file__).with_name("owned_child_runtime.py")),
-                     str(os.getpid()), *self._command],
-                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                    env=self._environment, close_fds=True, start_new_session=True, bufsize=0,
+                    [
+                        sys.executable,
+                        str(Path(__file__).with_name("owned_child_runtime.py")),
+                        str(os.getpid()),
+                        *self._command,
+                    ],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    env=self._environment,
+                    close_fds=True,
+                    start_new_session=True,
+                    bufsize=0,
                 )
             process = self._process
             deadline = time.monotonic() + self._timeout
@@ -92,8 +106,9 @@ class CompanionProcessTransport:
                                     try:
                                         if len(line) + 1 > request_limit(result.get("port")):
                                             raise ValueError()
-                                        value = validate_request(result, expected_sequence=sequence,
-                                                                 ports=self._ports if allow_ports else {})
+                                        value = validate_request(
+                                            result, expected_sequence=sequence, ports=self._ports if allow_ports else {}
+                                        )
                                     except ValueError:
                                         raise CompanionExecutionError(
                                             "meet_companion_execution_protocol_invalid"

@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from agent.services.workflow_gate_engine import (
     GateDecision,
     GateDecisionStatus,
@@ -17,15 +15,11 @@ from agent.services.workflow_gate_engine import (
     register_gate_check,
     resolve_gate_failure_policy,
 )
-from agent.services.workflow_gate_engine import (
-    GateCheckResult as _GateCheckResult,  # re-export for type-hint checks
-)
 from agent.services.workflow_settings import (
     GateFailurePolicy,
     WorkflowMode,
     WorkflowSettings,
 )
-
 
 # ---------------------------------------------------------------------------
 # WFG-014: failure policy resolution
@@ -173,6 +167,7 @@ def test_evaluate_gate_checks_check_exception_is_caught() -> None:
         # Unregister to keep test isolation (mutating module-level
         # state).
         from agent.services.workflow_gate_engine import _BUILTIN_GATE_CHECKS
+
         _BUILTIN_GATE_CHECKS.pop("exploding_check", None)
     assert results[0].passed is False
     assert "check_raised" in results[0].reason
@@ -311,9 +306,7 @@ def test_apply_gate_decision_passes_maps_to_completed() -> None:
         failure_policy=GateFailurePolicy.BLOCK,
         policy_source="step",
     )
-    new_status, reason, gate_block = apply_gate_decision_to_task_status(
-        current_status="blocked", decision=decision
-    )
+    new_status, reason, gate_block = apply_gate_decision_to_task_status(current_status="blocked", decision=decision)
     assert new_status == "completed"
     assert reason == "gate_passed"
     assert gate_block == "passed"
@@ -326,9 +319,7 @@ def test_apply_gate_decision_failed_maps_to_failed_status() -> None:
         failure_policy=GateFailurePolicy.BLOCK,
         policy_source="step",
     )
-    new_status, reason, gate_block = apply_gate_decision_to_task_status(
-        current_status="blocked", decision=decision
-    )
+    new_status, reason, gate_block = apply_gate_decision_to_task_status(current_status="blocked", decision=decision)
     assert new_status == "failed"
     assert reason == "gate_failed"
     assert gate_block == "failed"
@@ -344,9 +335,7 @@ def test_apply_gate_decision_skipped_unblocks_downstream() -> None:
         failure_policy=GateFailurePolicy.SKIP,
         policy_source="step",
     )
-    new_status, reason, gate_block = apply_gate_decision_to_task_status(
-        current_status="blocked", decision=decision
-    )
+    new_status, reason, gate_block = apply_gate_decision_to_task_status(current_status="blocked", decision=decision)
     assert new_status == "completed"
     assert reason == "gate_skipped_by_policy"
     assert gate_block == "skipped"
@@ -416,9 +405,7 @@ def test_reconcile_gate_state_marks_stale_on_timeout() -> None:
         "status_reason_details": {"gate_pending_since": now - 100000},
     }
     settings = _settings(gate_timeout_seconds=60)
-    action = reconcile_gate_state(
-        task=task, step={"gate": True}, settings=settings, now_ts=now
-    )
+    action = reconcile_gate_state(task=task, step={"gate": True}, settings=settings, now_ts=now)
     assert action["action"] == "mark_stale"
     assert action["reason_code"] == "gate_timeout"
 
@@ -431,8 +418,6 @@ def test_reconcile_gate_state_keeps_pending_when_within_timeout() -> None:
         "status_reason_details": {"gate_pending_since": now - 5},
     }
     settings = _settings(gate_timeout_seconds=60)
-    action = reconcile_gate_state(
-        task=task, step={"gate": True}, settings=settings, now_ts=now
-    )
+    action = reconcile_gate_state(task=task, step={"gate": True}, settings=settings, now_ts=now)
     assert action["action"] == "keep_blocked"
     assert action["reason_code"] == "gate_pending"

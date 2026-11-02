@@ -1,4 +1,5 @@
 """Tests for TaskArtifactModel — COSMOS-004"""
+
 from __future__ import annotations
 
 import hashlib
@@ -13,8 +14,8 @@ from agent.services.task_artifact_model import (
     TaskArtifactService,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _svc() -> TaskArtifactService:
     return TaskArtifactService()
@@ -33,6 +34,7 @@ def _artifact(service: TaskArtifactService, **kwargs) -> TaskArtifact:
 
 
 # ── Factory / creation ────────────────────────────────────────────────────────
+
 
 def test_create_sets_content_hash():
     svc = _svc()
@@ -64,6 +66,7 @@ def test_create_string_content_hashed_as_utf8():
 
 
 # ── Access control ────────────────────────────────────────────────────────────
+
 
 def test_can_be_read_by_granted_worker():
     svc = _svc()
@@ -97,6 +100,7 @@ def test_creator_is_automatically_granted():
 
 # ── SECRET_REF ────────────────────────────────────────────────────────────────
 
+
 def test_secret_ref_has_no_content_hash():
     svc = _svc()
     artifact = _artifact(svc, policy_class=ArtifactPolicyClass.SECRET_REF, content=b"top secret")
@@ -119,6 +123,7 @@ def test_is_secret_ref():
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
+
 def test_archive_transitions_lifecycle():
     svc = _svc()
     artifact = _artifact(svc)
@@ -134,6 +139,7 @@ def test_archive_unknown_id_raises():
 
 
 # ── get_for_worker ────────────────────────────────────────────────────────────
+
 
 def test_get_for_worker_filters_correctly():
     svc = _svc()
@@ -162,6 +168,7 @@ def test_get_for_worker_unknown_artifact_id_skipped():
 
 
 # ── Summary ───────────────────────────────────────────────────────────────────
+
 
 def test_summary_counts():
     svc = _svc()
@@ -193,13 +200,24 @@ def test_summary_empty_run():
 
 # ── as_dict ───────────────────────────────────────────────────────────────────
 
+
 def test_as_dict_contains_expected_keys():
     svc = _svc()
     artifact = _artifact(svc)
     d = artifact.as_dict()
-    for key in ("artifact_id", "run_id", "artifact_type", "version",
-                "policy_class", "created_at", "created_by",
-                "content_hash", "storage_ref", "lifecycle", "metadata"):
+    for key in (
+        "artifact_id",
+        "run_id",
+        "artifact_type",
+        "version",
+        "policy_class",
+        "created_at",
+        "created_by",
+        "content_hash",
+        "storage_ref",
+        "lifecycle",
+        "metadata",
+    ):
         assert key in d, f"Missing key: {key}"
 
 

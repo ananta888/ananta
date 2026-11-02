@@ -160,9 +160,7 @@ class SourceControlRuntimeObservability:
     def delegate(self) -> object:
         return self._delegate
 
-    def _require_capability(
-        self, name: str, kwargs: Mapping[str, object]
-    ) -> None:
+    def _require_capability(self, name: str, kwargs: Mapping[str, object]) -> None:
         capability = None
         if name in {
             "create_connection",
@@ -181,11 +179,7 @@ class SourceControlRuntimeObservability:
         }:
             capability = "local_grants"
         elif name == "dispatch_operation":
-            capability = (
-                "workspace_indexing"
-                if str(kwargs.get("operation") or "") == "run"
-                else "persistent_sources"
-            )
+            capability = "workspace_indexing" if str(kwargs.get("operation") or "") == "run" else "persistent_sources"
         if capability is not None:
             self._rollout.require(capability)
 
@@ -308,9 +302,7 @@ class SourceControlRuntimeObservability:
                 "resource_kind": _opaque(resource_kind, "resource"),
                 "resource_id": _opaque(resource_id, "collection"),
                 "canonical_digest": canonical_digest,
-                "legacy_digest": str(
-                    legacy.get("projection_digest") or _digest(legacy)
-                ),
+                "legacy_digest": str(legacy.get("projection_digest") or _digest(legacy)),
                 "trace_id": _opaque(self._trace_id(), "trace"),
             }
             log_audit("source_control.shadow_difference", details)
@@ -319,9 +311,7 @@ class SourceControlRuntimeObservability:
             self._shadow_metric(operation, "unavailable", "failed")
             _LOG.error("source_control_shadow_comparison_failure", exc_info=True)
 
-    def _shadow_metric(
-        self, operation: str, decision: str, status: str
-    ) -> None:
+    def _shadow_metric(self, operation: str, decision: str, status: str) -> None:
         try:
             self._metrics.increment(
                 "source_control_shadow_differences_total",
@@ -355,7 +345,7 @@ def _request_trace_id() -> str:
                 "trace",
             )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_request_trace_id: ignored Exception", exc_info=True)
     return "trace-internal"
 
 
@@ -436,9 +426,7 @@ def _result_decision(
 
 
 def _reason_code(exc: Exception) -> str:
-    return _safe_reason(
-        str(getattr(exc, "reason_code", "") or "internal_error")
-    )
+    return _safe_reason(str(getattr(exc, "reason_code", "") or "internal_error"))
 
 
 def _safe_reason(value: str) -> str:
@@ -518,15 +506,9 @@ def _audit_event(
     reason_code: str,
     trace_id: str,
 ) -> SourceControlAuditEvent:
-    tenant_id, project_id, actor_id = _principal_scope(
-        kwargs.get("principal")
-    )
+    tenant_id, project_id, actor_id = _principal_scope(kwargs.get("principal"))
     resource_kind, resource_id = _resource(kwargs)
-    mapping = (
-        result[0]
-        if isinstance(result, tuple) and result
-        else result
-    )
+    mapping = result[0] if isinstance(result, tuple) and result else result
     values = mapping if isinstance(mapping, Mapping) else {}
 
     def digest_field(*names: str) -> str | None:
@@ -551,12 +533,8 @@ def _audit_event(
         decision=decision,
         reason_code=_safe_reason(reason_code),
         revision_digest=digest_field("revision_digest"),
-        manifest_digest=digest_field(
-            "manifest_digest", "content_manifest_digest"
-        ),
-        policy_digest=digest_field(
-            "policy_digest", "policy_snapshot_digest"
-        ),
+        manifest_digest=digest_field("manifest_digest", "content_manifest_digest"),
+        policy_digest=digest_field("policy_digest", "policy_snapshot_digest"),
     )
 
 

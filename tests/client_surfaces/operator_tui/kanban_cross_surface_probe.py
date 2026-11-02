@@ -102,9 +102,7 @@ async def _move(arguments: argparse.Namespace) -> dict[str, Any]:
 
 def main() -> int:
     arguments = _parser().parse_args()
-    result = asyncio.run(
-        _snapshot(arguments) if arguments.action == "snapshot" else _move(arguments)
-    )
+    result = asyncio.run(_snapshot(arguments) if arguments.action == "snapshot" else _move(arguments))
     print(json.dumps(result, sort_keys=True, ensure_ascii=True))
     return 0
 

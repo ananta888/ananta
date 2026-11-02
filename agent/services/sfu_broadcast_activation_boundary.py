@@ -10,7 +10,6 @@ from typing import Mapping
 
 from agent.services.sfu_broadcast_source_grounding import GroundingDecision
 
-
 _DIGEST = re.compile(r"^(?:sha256:)?[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^[0-9a-f]{7,64}$")
 _ACTIVE_PARENT_STAGES = frozenset({"canary", "active"})
@@ -125,17 +124,11 @@ class SfuBroadcastActivationBoundary:
             reasons.add("parent_decision_not_go")
         if parent.rollout_stage not in _ACTIVE_PARENT_STAGES:
             reasons.add("parent_rollout_stage_not_active")
-        if (
-            parent.manifest_version <= 0
-            or parent.manifest_version != request.expected_parent_manifest_version
-        ):
+        if parent.manifest_version <= 0 or parent.manifest_version != request.expected_parent_manifest_version:
             reasons.add("parent_manifest_version_mismatch")
         if parent.fresh_until is None:
             reasons.add("parent_readiness_freshness_missing")
-        elif (
-            parent.fresh_until.tzinfo is None
-            or parent.fresh_until.astimezone(UTC) <= now
-        ):
+        elif parent.fresh_until.tzinfo is None or parent.fresh_until.astimezone(UTC) <= now:
             reasons.add("parent_readiness_stale")
         if parent.source_commit is None or not _COMMIT.fullmatch(parent.source_commit):
             reasons.add("parent_source_commit_invalid")
@@ -165,9 +158,7 @@ class SfuBroadcastActivationBoundary:
             reasons.add("feature_policy_kill_switch_active")
         if feature_policy.policy_version != request.expected_feature_policy_version:
             reasons.add("feature_policy_version_mismatch")
-        effective_features: dict[str, bool] = {
-            name: False for name in feature_policy.flags
-        }
+        effective_features: dict[str, bool] = {name: False for name in feature_policy.flags}
         for feature, requested in request.requested_features.items():
             if not isinstance(requested, bool):
                 reasons.add("requested_feature_value_invalid")
@@ -178,9 +169,7 @@ class SfuBroadcastActivationBoundary:
             if requested and feature_policy.flags.get(feature) is not True:
                 reasons.add("requested_feature_not_persistently_enabled")
                 continue
-            effective_features[feature] = (
-                requested and feature_policy.flags.get(feature) is True
-            )
+            effective_features[feature] = requested and feature_policy.flags.get(feature) is True
         for feature, dependencies in _FEATURE_DEPENDENCIES.items():
             if effective_features.get(feature) and any(
                 not effective_features.get(item, False) for item in dependencies
@@ -201,13 +190,10 @@ class SfuBroadcastActivationBoundary:
                 status="no_go",
                 reason_codes=tuple(sorted(reasons)),
                 effective_mode="unsupported",
-                effective_features=MappingProxyType(
-                    {name: False for name in effective_features}
-                ),
+                effective_features=MappingProxyType({name: False for name in effective_features}),
                 participant_cap=0,
                 rollback_required=(
-                    any(value is True for value in feature_policy.flags.values())
-                    or limits.participant_cap > 0
+                    any(value is True for value in feature_policy.flags.values()) or limits.participant_cap > 0
                 ),
             )
         return ActivationDecision(

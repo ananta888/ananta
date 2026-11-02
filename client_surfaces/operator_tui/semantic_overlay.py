@@ -1,4 +1,5 @@
 """Semantic Overlay — extrahiert logische Panel-Bounding-Boxes und Entities aus OperatorState."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,12 +13,22 @@ _RIGHT_PANEL_MAX_WIDTH = 52
 class PanelBBox:
     section_id: str
     semantic_id: str
-    x: int; y: int; w: int; h: int
+    x: int
+    y: int
+    w: int
+    h: int
     is_active: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"section_id": self.section_id, "semantic_id": self.semantic_id,
-                "x": self.x, "y": self.y, "w": self.w, "h": self.h, "is_active": self.is_active}
+        return {
+            "section_id": self.section_id,
+            "semantic_id": self.semantic_id,
+            "x": self.x,
+            "y": self.y,
+            "w": self.w,
+            "h": self.h,
+            "is_active": self.is_active,
+        }
 
     def contains(self, px: int, py: int) -> bool:
         return self.x <= px < self.x + self.w and self.y <= py < self.y + self.h
@@ -27,12 +38,12 @@ class PanelBBox:
 class SemanticEntity:
     kind: str  # snake_head, snake_body, mouse, artifact
     semantic_id: str
-    x: int; y: int
+    x: int
+    y: int
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "semantic_id": self.semantic_id,
-                "x": self.x, "y": self.y, "metadata": self.metadata}
+        return {"kind": self.kind, "semantic_id": self.semantic_id, "x": self.x, "y": self.y, "metadata": self.metadata}
 
 
 @dataclass
@@ -48,12 +59,17 @@ class SemanticOverlay:
             self.semantic_hash = self._compute_hash()
 
     def _compute_hash(self) -> str:
-        import hashlib, json
-        canonical = json.dumps({
-            "panels": [p.to_dict() for p in self.panels],
-            "active_panel": self.active_panel,
-            "entities": [e.to_dict() for e in self.entities],
-        }, sort_keys=True)
+        import hashlib
+        import json
+
+        canonical = json.dumps(
+            {
+                "panels": [p.to_dict() for p in self.panels],
+                "active_panel": self.active_panel,
+                "entities": [e.to_dict() for e in self.entities],
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
     def panel_at(self, x: int, y: int) -> PanelBBox | None:
@@ -94,7 +110,13 @@ def build_from_operator_state(
     panels.append(PanelBBox("BODY", "body", 0, body_start, width, body_h, is_active=(active_panel == "BODY")))
 
     game = state.get("header_logo_game")
-    if isinstance(game, dict) and bool(game.get("active")) and bool(game.get("free_mode")) and width >= 100 and body_h > 0:
+    if (
+        isinstance(game, dict)
+        and bool(game.get("active"))
+        and bool(game.get("free_mode"))
+        and width >= 100
+        and body_h > 0
+    ):
         panel_w = _right_panel_width(width)
         split_col = max(0, width - panel_w - 2)
         chat_enabled = body_h >= 10
@@ -144,12 +166,15 @@ def build_from_operator_state(
             if not isinstance(seg, (list, tuple)) or len(seg) < 2:
                 continue
             kind = "snake_head" if seg_idx == 0 else "snake_body"
-            entities.append(SemanticEntity(
-                kind=kind,
-                semantic_id=f"snake_{snake_idx}_seg_{seg_idx}",
-                x=int(seg[0]), y=int(seg[1]),
-                metadata={"snake_idx": snake_idx, "seg_idx": seg_idx},
-            ))
+            entities.append(
+                SemanticEntity(
+                    kind=kind,
+                    semantic_id=f"snake_{snake_idx}_seg_{seg_idx}",
+                    x=int(seg[0]),
+                    y=int(seg[1]),
+                    metadata={"snake_idx": snake_idx, "seg_idx": seg_idx},
+                )
+            )
 
     # Mouse-State
     mx = state.get("mouse_x")

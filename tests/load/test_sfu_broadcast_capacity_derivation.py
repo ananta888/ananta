@@ -56,11 +56,14 @@ def test_first_failed_tier_stops_even_when_a_higher_tier_passes() -> None:
         _measurement("direct", 100),
     ]
 
-    assert contiguous_safe_tier(
-        measurements,
-        transport_mode="direct",
-        maximum_variance_percent=DEFAULT_MAXIMUM_VARIANCE_PERCENT,
-    ) == 25
+    assert (
+        contiguous_safe_tier(
+            measurements,
+            transport_mode="direct",
+            maximum_variance_percent=DEFAULT_MAXIMUM_VARIANCE_PERCENT,
+        )
+        == 25
+    )
 
 
 def test_missing_tier_stops_before_a_higher_passing_tier() -> None:
@@ -69,11 +72,14 @@ def test_missing_tier_stops_before_a_higher_passing_tier() -> None:
         _measurement("all_turn", 50),
     ]
 
-    assert contiguous_safe_tier(
-        measurements,
-        transport_mode="all_turn",
-        maximum_variance_percent=DEFAULT_MAXIMUM_VARIANCE_PERCENT,
-    ) == 10
+    assert (
+        contiguous_safe_tier(
+            measurements,
+            transport_mode="all_turn",
+            maximum_variance_percent=DEFAULT_MAXIMUM_VARIANCE_PERCENT,
+        )
+        == 10
+    )
 
 
 def test_excessive_variance_stops_the_tier_sequence() -> None:
@@ -83,19 +89,19 @@ def test_excessive_variance_stops_the_tier_sequence() -> None:
         _measurement("direct", 50),
     ]
 
-    assert contiguous_safe_tier(
-        measurements,
-        transport_mode="direct",
-        maximum_variance_percent=15.0,
-    ) == 10
+    assert (
+        contiguous_safe_tier(
+            measurements,
+            transport_mode="direct",
+            maximum_variance_percent=15.0,
+        )
+        == 10
+    )
 
 
 def test_reserve_is_monotone_and_never_rounds_up() -> None:
     for tier in (10, 25, 50, 100, 250):
-        capacities = [
-            apply_conservative_reserve(tier, reserve)
-            for reserve in (20.0, 25.0, 30.0, 40.0)
-        ]
+        capacities = [apply_conservative_reserve(tier, reserve) for reserve in (20.0, 25.0, 30.0, 40.0)]
         assert capacities == sorted(capacities, reverse=True)
         assert all(capacity <= tier for capacity in capacities)
 
@@ -116,9 +122,7 @@ def test_more_contiguous_safe_tiers_cannot_reduce_capacity() -> None:
         maximum_variance_percent=15.0,
     )
 
-    assert higher["limits"]["admitted_receivers"] >= lower["limits"][
-        "admitted_receivers"
-    ]
+    assert higher["limits"]["admitted_receivers"] >= lower["limits"]["admitted_receivers"]
 
 
 def test_direct_pair_is_required_but_never_drives_capacity() -> None:
@@ -190,14 +194,10 @@ def test_production_controls_cannot_remove_the_minimum_reserve() -> None:
 def test_checked_in_outputs_are_honestly_blocked() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     catalog = json.loads(
-        (repository_root / "config/generated/sfu_broadcast_capacity_profiles.json")
-        .read_text(encoding="utf-8")
+        (repository_root / "config/generated/sfu_broadcast_capacity_profiles.json").read_text(encoding="utf-8")
     )
     report = json.loads(
-        (
-            repository_root
-            / "artifacts/test-gates/sfu-broadcast-capacity-derivation.json"
-        ).read_text(encoding="utf-8")
+        (repository_root / "artifacts/test-gates/sfu-broadcast-capacity-derivation.json").read_text(encoding="utf-8")
     )
 
     assert catalog["status"] == "blocked"

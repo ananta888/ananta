@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_browser_fixture import DialogBrowserFixture
+from tests.meet.meet_dialog_browser_fixture import DialogBrowserFixture
 from tests.test_meet_dialog_cross_repository import close_bridge, process_usage
 
 NETWORK = "meet-test-tls-aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa-network"

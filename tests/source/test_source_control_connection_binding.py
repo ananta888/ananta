@@ -69,14 +69,9 @@ def test_connection_and_selector_are_atomic_idempotent_and_secret_free() -> None
     assert stored == binding
     descriptor = stored.descriptor(display_name="Repository", enabled=True)
     assert descriptor["source_type"] == "github_repository"
-    assert descriptor["github_authorization_ref"] == (
-        "github-installation:example"
-    )
+    assert descriptor["github_authorization_ref"] == ("github-installation:example")
     assert descriptor["repository"] == "example/repository"
-    assert not any(
-        key in str(descriptor).lower()
-        for key in ("remote_url", "credential_ref", "secret", "host_path")
-    )
+    assert not any(key in str(descriptor).lower() for key in ("remote_url", "credential_ref", "secret", "host_path"))
 
 
 def test_selector_scope_conflict_fails_closed() -> None:
@@ -97,9 +92,7 @@ def test_selector_scope_conflict_fails_closed() -> None:
         SourceControlPersistenceError,
         match="source_control_connection_selector_scope_mismatch",
     ):
-        SQLSourceControlRepository(_engine()).save_connection_with_selector(
-            connection, binding
-        )
+        SQLSourceControlRepository(_engine()).save_connection_with_selector(connection, binding)
 
 
 def test_workspace_descriptor_contains_only_registered_relative_selector() -> None:
@@ -119,7 +112,4 @@ def test_workspace_descriptor_contains_only_registered_relative_selector() -> No
     assert descriptor["workspace_id"] == "workspace-example"
     assert descriptor["relative_path"] == "src/agent"
     assert descriptor["source_type"] == "local_directory"
-    assert not any(
-        key in descriptor
-        for key in ("root", "host_path", "local_path", "absolute_path")
-    )
+    assert not any(key in descriptor for key in ("root", "host_path", "local_path", "absolute_path"))

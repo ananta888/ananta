@@ -5,11 +5,11 @@ Revises: c3d4e5f6a7b8
 Create Date: 2026-03-27 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
-
 
 # revision identifiers, used by Alembic.
 revision: str = "d4e5f6a7b8c9"
@@ -24,7 +24,9 @@ def upgrade() -> None:
     columns = {column["name"] for column in inspector.get_columns("agents")}
 
     if "registration_validated" not in columns:
-        op.add_column("agents", sa.Column("registration_validated", sa.Boolean(), nullable=False, server_default=sa.true()))
+        op.add_column(
+            "agents", sa.Column("registration_validated", sa.Boolean(), nullable=False, server_default=sa.true())
+        )
     if "validation_errors" not in columns:
         op.add_column("agents", sa.Column("validation_errors", sa.JSON(), nullable=True))
     if "validated_at" not in columns:

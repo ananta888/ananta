@@ -43,9 +43,7 @@ def test_generic_registry_is_adapted_without_new_global_registry() -> None:
         )
     )
 
-    rows = ProviderCapabilityService(
-        [GenericProviderRegistryCapabilitySource(registry)]
-    ).list_capabilities()
+    rows = ProviderCapabilityService([GenericProviderRegistryCapabilitySource(registry)]).list_capabilities()
 
     assert [(row.provider_id, row.status) for row in rows] == [("local-a", "declared")]
 
@@ -111,9 +109,7 @@ def test_selection_fails_closed_when_capability_is_missing() -> None:
         ]
     )
 
-    decision = service.select(
-        ProviderSelectionRequirement(required_capabilities=("tool_calling",))
-    )
+    decision = service.select(ProviderSelectionRequirement(required_capabilities=("tool_calling",)))
 
     assert decision.status == "incompatible"
     assert decision.selected is None
@@ -167,9 +163,7 @@ def test_worker_registry_adapter_exports_safe_hub_decision_fields() -> None:
 
 
 def test_restricted_inference_registry_is_adapted_through_same_port() -> None:
-    rows = ModelInferenceRegistryCapabilitySource(
-        ModelInferenceAdapterRegistry()
-    ).list_capabilities()
+    rows = ModelInferenceRegistryCapabilitySource(ModelInferenceAdapterRegistry()).list_capabilities()
 
     assert rows
     assert all(row.provider_family == "restricted_inference" for row in rows)

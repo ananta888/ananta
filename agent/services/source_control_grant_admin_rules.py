@@ -39,17 +39,13 @@ GRANT_STATES = frozenset({"draft", "active", "superseded", "revoked"})
 def validate_actor(actor: GrantAdminActor) -> None:
     for value in (actor.subject_id, actor.tenant_id, actor.project_id):
         if not OPAQUE_ID.fullmatch(str(value)) or len(str(value)) > 128:
-            raise SourceControlGrantAdminError(
-                "grant_actor_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_actor_invalid", status_code=400)
 
 
 def require_mutator(actor: GrantAdminActor) -> None:
     validate_actor(actor)
     if not (MUTATOR_ROLES & actor.roles):
-        raise SourceControlGrantAdminError(
-            "grant_admin_required", status_code=403
-        )
+        raise SourceControlGrantAdminError("grant_admin_required", status_code=403)
 
 
 def validate_create_request(request: GrantCreateRequest) -> None:
@@ -64,25 +60,14 @@ def validate_create_request(request: GrantCreateRequest) -> None:
         "grant_destination_invalid",
     )
     if not OPAQUE_ID.fullmatch(request.policy_id):
-        raise SourceControlGrantAdminError(
-            "grant_policy_id_invalid", status_code=400
-        )
+        raise SourceControlGrantAdminError("grant_policy_id_invalid", status_code=400)
     if not OPAQUE_ID.fullmatch(request.preset_id):
-        raise SourceControlGrantAdminError(
-            "grant_preset_id_invalid", status_code=400
-        )
-    if (
-        isinstance(request.duration_seconds, bool)
-        or not isinstance(request.duration_seconds, int)
-    ):
-        raise SourceControlGrantAdminError(
-            "grant_duration_invalid", status_code=400
-        )
+        raise SourceControlGrantAdminError("grant_preset_id_invalid", status_code=400)
+    if isinstance(request.duration_seconds, bool) or not isinstance(request.duration_seconds, int):
+        raise SourceControlGrantAdminError("grant_duration_invalid", status_code=400)
 
 
-def require_pattern(
-    value: str, pattern: re.Pattern[str], reason_code: str
-) -> None:
+def require_pattern(value: str, pattern: re.Pattern[str], reason_code: str) -> None:
     if not pattern.fullmatch(str(value)):
         raise SourceControlGrantAdminError(reason_code, status_code=400)
 
@@ -103,9 +88,7 @@ def normalize_etag(value: str) -> str:
     if len(normalized) >= 2 and normalized[0] == normalized[-1] == '"':
         normalized = normalized[1:-1]
     if not SHA256.fullmatch(normalized):
-        raise SourceControlGrantAdminError(
-            "grant_if_match_invalid", status_code=428
-        )
+        raise SourceControlGrantAdminError("grant_if_match_invalid", status_code=428)
     return normalized
 
 
@@ -128,12 +111,8 @@ def preview_allows_transformation(
 ) -> bool:
     compatible = {
         GrantTransformation.RAW: frozenset({"allow"}),
-        GrantTransformation.REDACTED: frozenset(
-            {"allow", "allow_redacted"}
-        ),
-        GrantTransformation.SUMMARY: frozenset(
-            {"allow", "allow_summary_only"}
-        ),
+        GrantTransformation.REDACTED: frozenset({"allow", "allow_redacted"}),
+        GrantTransformation.SUMMARY: frozenset({"allow", "allow_summary_only"}),
     }
     return str(decision) in compatible[transformation]
 
@@ -181,19 +160,11 @@ def digest(payload: Mapping[str, object]) -> str:
 
 
 def iso_timestamp(value: float) -> str:
-    return (
-        datetime.fromtimestamp(value, tz=timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def encode_cursor(grant_id: str) -> str:
-    return (
-        base64.urlsafe_b64encode(grant_id.encode("ascii"))
-        .decode("ascii")
-        .rstrip("=")
-    )
+    return base64.urlsafe_b64encode(grant_id.encode("ascii")).decode("ascii").rstrip("=")
 
 
 def decode_cursor(cursor: str | None) -> str | None:
@@ -204,11 +175,7 @@ def decode_cursor(cursor: str | None) -> str | None:
         raw += "=" * (-len(raw) % 4)
         grant_id = base64.urlsafe_b64decode(raw).decode("ascii")
     except (ValueError, UnicodeDecodeError) as exc:
-        raise SourceControlGrantAdminError(
-            "grant_cursor_invalid", status_code=400
-        ) from exc
+        raise SourceControlGrantAdminError("grant_cursor_invalid", status_code=400) from exc
     if not GRANT_ID.fullmatch(grant_id):
-        raise SourceControlGrantAdminError(
-            "grant_cursor_invalid", status_code=400
-        )
+        raise SourceControlGrantAdminError("grant_cursor_invalid", status_code=400)
     return grant_id

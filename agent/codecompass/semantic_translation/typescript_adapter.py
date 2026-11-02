@@ -80,15 +80,9 @@ class TypeScriptSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: (
-            SemanticSymbolIdentityPort
-            | LegacySemanticSymbolIdentityPort
-            | None
-        ) = None,
+        symbol_identity: (SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort | None) = None,
     ) -> None:
-        self._symbol_identity = (
-            symbol_identity or DeterministicSemanticSymbolIdentityFactory()
-        )
+        self._symbol_identity = symbol_identity or DeterministicSemanticSymbolIdentityFactory()
 
     def detect(self, path: str, content: str) -> bool:
         del content
@@ -148,10 +142,7 @@ class TypeScriptSemanticAdapter:
             }
             for match in _JSX_TAG_RE.finditer(masked)
         ]
-        dynamic_import_lines = [
-            _line(masked, match.start())
-            for match in re.finditer(r"\bimport\s*\(", masked)
-        ]
+        dynamic_import_lines = [_line(masked, match.start()) for match in re.finditer(r"\bimport\s*\(", masked)]
         diagnostics.extend(
             diagnostic(
                 "typescript_dynamic_import_unresolved",
@@ -217,14 +208,11 @@ class TypeScriptSemanticAdapter:
                 {
                     "symbol": item["name"],
                     "semantic_kind": semantic_kind,
-                    "selector": (
-                        selector["selector"] if selector is not None else None
-                    ),
+                    "selector": (selector["selector"] if selector is not None else None),
                 }
             )
         semantics.extend(
-            {"symbol": item["name"], "semantic_kind": "function_signature"}
-            for item in parsed.get("functions", [])
+            {"symbol": item["name"], "semantic_kind": "function_signature"} for item in parsed.get("functions", [])
         )
         return semantics
 
@@ -249,9 +237,7 @@ class TypeScriptSemanticAdapter:
                 item=item,
             )
             declaration_entries.append((item, node_id))
-            node_candidates_by_symbol.setdefault(
-                item["name"], set()
-            ).add(node_id)
+            node_candidates_by_symbol.setdefault(item["name"], set()).add(node_id)
             attributes = {
                 **item,
                 **semantic_identity_attributes(canonical_id),
@@ -283,9 +269,7 @@ class TypeScriptSemanticAdapter:
                         "module",
                         {
                             **item,
-                            **semantic_identity_attributes(
-                                canonical_module_id
-                            ),
+                            **semantic_identity_attributes(canonical_module_id),
                         },
                     )
                 )
@@ -315,9 +299,7 @@ class TypeScriptSemanticAdapter:
                         "module",
                         {
                             **item,
-                            **semantic_identity_attributes(
-                                canonical_module_id
-                            ),
+                            **semantic_identity_attributes(canonical_module_id),
                         },
                     )
                 )

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import json
+import logging
+import os
 import socket
 import ssl
 import urllib.error
@@ -49,9 +50,7 @@ class HttpHrmExperimentHubClient:
             raise HrmExperimentWorkerConfigurationError("hrm_worker_identity_missing")
         if not 32 <= len(bearer_token.encode("utf-8")) <= 16_384:
             raise HrmExperimentWorkerConfigurationError("hrm_worker_token_invalid")
-        self._hub_url = urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-        )
+        self._hub_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
         self._token = bearer_token
         self._worker_id = worker_id
         self._worker_url = worker_url.rstrip("/")
@@ -59,15 +58,10 @@ class HttpHrmExperimentHubClient:
         self._ssl_context = ssl_context
 
     @classmethod
-    def from_environment(
-        cls, env: Mapping[str, str] | None = None
-    ) -> "HttpHrmExperimentHubClient":
+    def from_environment(cls, env: Mapping[str, str] | None = None) -> "HttpHrmExperimentHubClient":
         source = os.environ if env is None else env
         hub_url = str(
-            source.get("ANANTA_HRM_HUB_URL")
-            or source.get("ANANTA_WORKFLOW_HUB_URL")
-            or source.get("HUB_URL")
-            or ""
+            source.get("ANANTA_HRM_HUB_URL") or source.get("ANANTA_WORKFLOW_HUB_URL") or source.get("HUB_URL") or ""
         ).strip()
         token_file = str(
             source.get("ANANTA_HRM_HUB_TOKEN_FILE")
@@ -78,13 +72,9 @@ class HttpHrmExperimentHubClient:
         if not hub_url or not token_file:
             raise HrmExperimentWorkerConfigurationError("hrm_hub_not_configured")
         try:
-            token = read_file_managed_token(
-                token_file, description="HRM experiment Hub token file"
-            )
+            token = read_file_managed_token(token_file, description="HRM experiment Hub token file")
         except Exception as exc:
-            raise HrmExperimentWorkerConfigurationError(
-                "hrm_worker_token_unavailable"
-            ) from exc
+            raise HrmExperimentWorkerConfigurationError("hrm_worker_token_unavailable") from exc
         return cls(
             hub_url=hub_url,
             bearer_token=token,
@@ -101,9 +91,7 @@ class HttpHrmExperimentHubClient:
         if response.get("accepted") is not True:
             raise HrmExperimentHubClientError("hrm_capability_rejected")
 
-    def authorize(
-        self, *, run_id: str, task_id: str, worker_job_id: str
-    ) -> dict[str, Any]:
+    def authorize(self, *, run_id: str, task_id: str, worker_job_id: str) -> dict[str, Any]:
         response = self._post(
             "authorize",
             {
@@ -119,15 +107,11 @@ class HttpHrmExperimentHubClient:
         return execution
 
     def submit_result(self, *, run_id: str, result: Mapping[str, Any]) -> None:
-        response = self._post(
-            "results", {"run_id": run_id, "result": dict(result)}, 65_536
-        )
+        response = self._post("results", {"run_id": run_id, "result": dict(result)}, 65_536)
         if response.get("accepted") is not True or response.get("run_id") != run_id:
             raise HrmExperimentHubClientError("hrm_result_rejected")
 
-    def _post(
-        self, operation: str, payload: Mapping[str, Any], response_limit: int
-    ) -> dict[str, Any]:
+    def _post(self, operation: str, payload: Mapping[str, Any], response_limit: int) -> dict[str, Any]:
         body = json.dumps(
             payload,
             ensure_ascii=True,
@@ -159,13 +143,9 @@ class HttpHrmExperimentHubClient:
             reason = "hrm_hub_rejected"
             try:
                 decoded = json.loads(exc.read(65_537).decode("utf-8"))
-                reason = str(
-                    decoded.get("reason_code")
-                    or ((decoded.get("error") or {}).get("code"))
-                    or reason
-                )
+                reason = str(decoded.get("reason_code") or ((decoded.get("error") or {}).get("code")) or reason)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_post: ignored Exception", exc_info=True)
             raise HrmExperimentHubClientError(reason) from exc
         except (OSError, TimeoutError, urllib.error.URLError) as exc:
             raise HrmExperimentHubClientError("hrm_hub_unavailable") from exc
@@ -185,9 +165,7 @@ class UnixHrmRunnerClient:
     def __init__(self, socket_path: str | Path, *, timeout_seconds: float = 5.0) -> None:
         path = Path(socket_path)
         if not path.is_absolute():
-            raise HrmExperimentWorkerConfigurationError(
-                "hrm_runner_socket_must_be_absolute"
-            )
+            raise HrmExperimentWorkerConfigurationError("hrm_runner_socket_must_be_absolute")
         self._socket_path = path
         self._timeout_seconds = max(0.1, min(float(timeout_seconds), 30.0))
 
@@ -297,14 +275,10 @@ def build_hrm_experiment_task_handler() -> RegisteredHrmExperimentTaskHandler:
         capability = runner.capability()
         hub.advertise_capability(capability)
     except Exception as exc:
-        raise HrmExperimentWorkerConfigurationError(
-            "hrm_runner_capability_unavailable"
-        ) from exc
+        raise HrmExperimentWorkerConfigurationError("hrm_runner_capability_unavailable") from exc
     heartbeat = HrmCapabilityHeartbeat(hub, capability)
     heartbeat.start()
-    return RegisteredHrmExperimentTaskHandler(
-        runner, hub, capability, heartbeat=heartbeat
-    )
+    return RegisteredHrmExperimentTaskHandler(runner, hub, capability, heartbeat=heartbeat)
 
 
 __all__ = [

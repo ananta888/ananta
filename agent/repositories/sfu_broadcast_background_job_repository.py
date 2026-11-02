@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import time
 
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from agent.database import engine as default_engine
 from agent.db_models.sfu_broadcast_background_jobs import SfuBroadcastBackgroundJobDB
@@ -144,7 +143,7 @@ class SqlSfuBroadcastBackgroundJobRepository:
                     next_attempt = 0
                 else:
                     exponent = min(max(current.attempt - 1, 0), 10)
-                    backoff = (current.backoff_ms / 1000.0) * (2 ** exponent)
+                    backoff = (current.backoff_ms / 1000.0) * (2**exponent)
                     jitter = (
                         int(hashlib.sha256(f"{lease.job_id}:{lease.fencing_token}".encode()).hexdigest()[:8], 16)
                         % (current.jitter_ms + 1)

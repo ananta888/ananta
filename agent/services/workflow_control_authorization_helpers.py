@@ -45,17 +45,14 @@ def register_bound_authorization_grants(
     by_step = request.metadata.get("authorization_envelopes")
     envelope_by_step = dict(by_step) if isinstance(by_step, dict) else {}
     for step in request.steps:
-        raw = step.metadata.get("authorization_envelope") or envelope_by_step.get(
-            step.step_id
-        )
+        raw = step.metadata.get("authorization_envelope") or envelope_by_step.get(step.step_id)
         if not isinstance(raw, dict):
             continue
         envelope = RuntimeAuthorizationEnvelope.from_mapping(raw)
         if (
             envelope.tenant_id != plan.tenant_id
             or envelope.workflow_id != plan.workflow_id
-            or envelope.run_id
-            != str(request.metadata.get("run_id") or request.workflow_id)
+            or envelope.run_id != str(request.metadata.get("run_id") or request.workflow_id)
             or envelope.step_id != step.step_id
             or envelope.plan_hash != plan.plan_hash
             or envelope.policy_version != plan.policy_version

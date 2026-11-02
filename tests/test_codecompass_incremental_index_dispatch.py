@@ -12,30 +12,49 @@ from agent.services.codecompass_layer_service import (
 
 
 class _QueryBackend:
-    def list_profiles(self): return ["default"]
-    def show_head(self, profile_id): return None
-    def diff(self, **kwargs): return dict(kwargs)
-    def plan_update(self, **kwargs): return dict(kwargs["plan"])
-    def apply_update(self, **kwargs): raise AssertionError("worker execution reached the hub")
+    def list_profiles(self):
+        return ["default"]
+
+    def show_head(self, profile_id):
+        return None
+
+    def diff(self, **kwargs):
+        return dict(kwargs)
+
+    def plan_update(self, **kwargs):
+        return dict(kwargs["plan"])
+
+    def apply_update(self, **kwargs):
+        raise AssertionError("worker execution reached the hub")
+
     def compact(self, **kwargs):
         return {"new_manifest": {"revision": "rev-2", "artifacts": {"symbols": {}}}}
 
 
 class _Queue:
-    def __init__(self): self.envelopes = []
+    def __init__(self):
+        self.envelopes = []
+
     def dispatch(self, *, envelope):
         self.envelopes.append(dict(envelope))
         return {"task_id": envelope["task_id"], "assignment_id": "assign-1", "dispatch_lease_id": "lease-1"}
 
 
 class _Repository:
-    def __init__(self): self.records = {}
-    def get(self, task_id): return self.records.get(task_id)
-    def save(self, record): self.records[str(record["task_id"])] = dict(record)
+    def __init__(self):
+        self.records = {}
+
+    def get(self, task_id):
+        return self.records.get(task_id)
+
+    def save(self, record):
+        self.records[str(record["task_id"])] = dict(record)
 
 
 class _Publisher:
-    def __init__(self): self.calls = []
+    def __init__(self):
+        self.calls = []
+
     def publish(self, *, dispatch, result):
         self.calls.append((dispatch, result))
         return {"status": "published", "generation": 2}

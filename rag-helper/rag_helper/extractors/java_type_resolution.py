@@ -2,15 +2,40 @@ from __future__ import annotations
 
 import re
 
-
 JAVA_LANG_TYPES = {
-    "String", "Integer", "Long", "Double", "Float", "Boolean", "Short", "Byte",
-    "Character", "Object", "Class", "Exception", "RuntimeException", "Throwable",
-    "Number", "Void", "System", "Math", "Thread", "StringBuilder", "StringBuffer",
+    "String",
+    "Integer",
+    "Long",
+    "Double",
+    "Float",
+    "Boolean",
+    "Short",
+    "Byte",
+    "Character",
+    "Object",
+    "Class",
+    "Exception",
+    "RuntimeException",
+    "Throwable",
+    "Number",
+    "Void",
+    "System",
+    "Math",
+    "Thread",
+    "StringBuilder",
+    "StringBuffer",
 }
 
 JAVA_PRIMITIVES = {
-    "byte", "short", "int", "long", "float", "double", "boolean", "char", "void",
+    "byte",
+    "short",
+    "int",
+    "long",
+    "float",
+    "double",
+    "boolean",
+    "char",
+    "void",
 }
 
 
@@ -81,10 +106,12 @@ def parse_wildcard_imports(imports: list[str]) -> list[str]:
 def find_resolution_conflicts(type_name: str, resolved_candidates: list[str]) -> list[dict[str, object]]:
     if not type_name or len(resolved_candidates) <= 1:
         return []
-    return [{
-        "type_name": type_name,
-        "candidates": resolved_candidates,
-    }]
+    return [
+        {
+            "type_name": type_name,
+            "candidates": resolved_candidates,
+        }
+    ]
 
 
 def uniq_conflicts(items: list[dict[str, object]]) -> list[dict[str, object]]:

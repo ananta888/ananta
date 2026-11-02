@@ -167,9 +167,7 @@ def test_gate_endpoint_requires_idempotency_and_replays_duplicate_safely(client)
     ]
     data, manager = _manager_for(session)
     signal = MagicMock(return_value={"status": "running"})
-    with CHAT_ROUTE_DEPENDENCIES.override(
-        client.application, get_manager=lambda: manager, signal_session_gate=signal
-    ):
+    with CHAT_ROUTE_DEPENDENCIES.override(client.application, get_manager=lambda: manager, signal_session_gate=signal):
         headers = _auth_headers()
         missing = client.post(
             "/api/chat/sessions/chat-gate/process/runs/wf-gate/gate",
@@ -235,9 +233,7 @@ def test_gate_idempotency_rejects_payload_reuse_without_second_signal(client):
     ]
     _, manager = _manager_for(session)
     signal = MagicMock(return_value={"status": "running"})
-    with CHAT_ROUTE_DEPENDENCIES.override(
-        client.application, get_manager=lambda: manager, signal_session_gate=signal
-    ):
+    with CHAT_ROUTE_DEPENDENCIES.override(client.application, get_manager=lambda: manager, signal_session_gate=signal):
         headers = _auth_headers()
         first = client.post(
             "/api/chat/sessions/chat-gate-reuse/process/runs/wf-gate/gate",
@@ -304,9 +300,7 @@ def test_gate_aborts_before_signal_when_reservation_is_not_durable(client):
     _, manager = _manager_for(session)
     manager.save.side_effect = lambda _values: False
     signal = MagicMock()
-    with CHAT_ROUTE_DEPENDENCIES.override(
-        client.application, get_manager=lambda: manager, signal_session_gate=signal
-    ):
+    with CHAT_ROUTE_DEPENDENCIES.override(client.application, get_manager=lambda: manager, signal_session_gate=signal):
         response = client.post(
             "/api/chat/sessions/chat-gate-save-failure/process/runs/wf-save-failure/gate",
             json={"step_id": "approval", "decision": "approve", "idempotency_key": "durable-key"},
@@ -343,9 +337,7 @@ def test_stale_pending_gate_requires_manual_reconciliation_without_resignal(clie
     session["process_gate_actions"] = [action]
     data, manager = _manager_for(session)
     signal = MagicMock()
-    with CHAT_ROUTE_DEPENDENCIES.override(
-        client.application, get_manager=lambda: manager, signal_session_gate=signal
-    ):
+    with CHAT_ROUTE_DEPENDENCIES.override(client.application, get_manager=lambda: manager, signal_session_gate=signal):
         response = client.post(
             "/api/chat/sessions/chat-gate-stale/process/runs/wf-stale/gate",
             json={"step_id": "approval", "decision": "approve", "idempotency_key": "stale-key"},

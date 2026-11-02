@@ -5,10 +5,7 @@ from pathlib import Path
 
 
 def test_security_hardening_revision_is_linear_and_contains_bounded_state_columns() -> None:
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "migrations/versions/a249d0e1f2a3_harden_sfu_control_security.py"
-    )
+    path = Path(__file__).resolve().parents[2] / "migrations/versions/a249d0e1f2a3_harden_sfu_control_security.py"
     spec = importlib.util.spec_from_file_location("a249_security", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

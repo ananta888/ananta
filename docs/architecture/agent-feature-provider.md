@@ -36,13 +36,13 @@ This is not a slogan — it is an architectural constraint enforced at every int
 ```python
 @dataclass(frozen=True)
 class AgentFeatureOutput:
-    feature_text: str                          # short structured summary, plain text
-    feature_vector: list[float] | None         # optional embedding of feature_text
-    confidence: float                          # 0.0–1.0, agent self-reported
-    evidence_refs: list[str]                   # file paths or record IDs supporting the output
-    provider_id: str                           # stable identifier for this provider instance
-    model_or_agent_version: str               # exact model name + version
-    policy_decision: str                       # "allowed" | "blocked:<reason>"
+    feature_text: str  # short structured summary, plain text
+    feature_vector: list[float] | None  # optional embedding of feature_text
+    confidence: float  # 0.0–1.0, agent self-reported
+    evidence_refs: list[str]  # file paths or record IDs supporting the output
+    provider_id: str  # stable identifier for this provider instance
+    model_or_agent_version: str  # exact model name + version
+    policy_decision: str  # "allowed" | "blocked:<reason>"
     diagnostics: dict[str, Any]
 ```
 
@@ -57,11 +57,11 @@ Every `AgentFeatureProvider` instance must accept and enforce:
 ```python
 @dataclass(frozen=True)
 class AgentFeaturePolicy:
-    policy_scope: str                          # e.g. "repo:ananta" or "path:/worker/**"
-    allowed_paths: frozenset[str]              # glob patterns; provider only sees these
-    max_input_chars: int                       # hard cap before dispatch
-    no_write_mode: bool = True                 # provider must not write, patch, or execute
-    external_calls_allowed: bool = False       # provider must not call external URLs
+    policy_scope: str  # e.g. "repo:ananta" or "path:/worker/**"
+    allowed_paths: frozenset[str]  # glob patterns; provider only sees these
+    max_input_chars: int  # hard cap before dispatch
+    no_write_mode: bool = True  # provider must not write, patch, or execute
+    external_calls_allowed: bool = False  # provider must not call external URLs
     allowed_provider_ids: frozenset[str] = frozenset()  # which adapters may be used
 ```
 
@@ -95,7 +95,7 @@ If a provider returns a conversational answer rather than the schema, the output
 ```python
 class OpenCodeFeatureAdapter(AgentFeatureProvider):
     mode = "analyze-only"
-    tool_access = ["read_file", "grep_search"]   # no write tools
+    tool_access = ["read_file", "grep_search"]  # no write tools
     output_validation = AgentFeatureOutput
 ```
 
@@ -139,11 +139,11 @@ class AgentFeatureTrace:
     trace_id: str
     provider_id: str
     model_or_agent_version: str
-    input_hash: str             # SHA-256 of ContextPackage content
-    output_hash: str            # SHA-256 of raw provider output before validation
+    input_hash: str  # SHA-256 of ContextPackage content
+    output_hash: str  # SHA-256 of raw provider output before validation
     elapsed_ms: float
-    policy_decision: str        # "allowed" | "blocked:<reason>"
-    validation_result: str      # "valid" | "malformed" | "schema_mismatch"
+    policy_decision: str  # "allowed" | "blocked:<reason>"
+    validation_result: str  # "valid" | "malformed" | "schema_mismatch"
     experimental: bool
 ```
 

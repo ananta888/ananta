@@ -21,20 +21,24 @@ def _fit(ratio):
 
 def _decide(ratio, **kwargs):
     return cs.ContextStrategyService(config={"ask_decision_provider": False}).decide(
-        cs.ContextStrategyRequest(fit=_fit(ratio), **kwargs))
+        cs.ContextStrategyRequest(fit=_fit(ratio), **kwargs)
+    )
 
 
-@pytest.mark.parametrize("ratio, kwargs, strategy", [
-    (0.8, {}, "fit"),
-    (1.3, {"input_kind": "ordered"}, "compact"),  # slightly over: condense, whatever the shape
-    (6.0, {"input_kind": "conversation"}, "compact"),
-    (6.0, {"input_kind": "corpus"}, "retrieve"),
-    (6.0, {"input_kind": "unknown", "question_like": True}, "retrieve"),
-    (6.0, {"input_kind": "parts", "parts": 40}, "map_reduce"),
-    (6.0, {"input_kind": "ordered"}, "sequential"),
-    (6.0, {"input_kind": "ordered", "question_like": True}, "sequential"),  # order wins over a question
-    (60.0, {"input_kind": "parts"}, "escalate"),
-])
+@pytest.mark.parametrize(
+    "ratio, kwargs, strategy",
+    [
+        (0.8, {}, "fit"),
+        (1.3, {"input_kind": "ordered"}, "compact"),  # slightly over: condense, whatever the shape
+        (6.0, {"input_kind": "conversation"}, "compact"),
+        (6.0, {"input_kind": "corpus"}, "retrieve"),
+        (6.0, {"input_kind": "unknown", "question_like": True}, "retrieve"),
+        (6.0, {"input_kind": "parts", "parts": 40}, "map_reduce"),
+        (6.0, {"input_kind": "ordered"}, "sequential"),
+        (6.0, {"input_kind": "ordered", "question_like": True}, "sequential"),  # order wins over a question
+        (60.0, {"input_kind": "parts"}, "escalate"),
+    ],
+)
 def test_rules_choose_the_strategy(ratio, kwargs, strategy):
     decision = _decide(ratio, **kwargs)
     assert decision.strategy == strategy and decision.decided_by == "rules"
@@ -86,18 +90,23 @@ def test_config_is_clamped_and_modes_are_closed():
 def test_post_config_rejects_unknown_modes(client, admin_auth_header):
     bad = client.post("/config", json={"context_strategy": {"mode": "sometimes"}}, headers=admin_auth_header)
     assert bad.status_code == 400 and b"invalid_context_strategy_mode" in bad.data
-    ok = client.post("/config", json={"context_strategy": {"mode": "active", "chunk_fill": 0.5}},
-                     headers=admin_auth_header)
+    ok = client.post(
+        "/config", json={"context_strategy": {"mode": "active", "chunk_fill": 0.5}}, headers=admin_auth_header
+    )
     assert ok.status_code == 200
 
 
 def test_propose_records_a_decision_only_when_the_context_does_not_fit(monkeypatch):
-    from agent.services import _task_scoped_propose_orch as orch
+    from agent.services.task_scoped import propose_orch as orch
 
     events = []
     monkeypatch.setattr(orch, "record_product_event", lambda name, **kwargs: events.append((name, kwargs)))
-    task = {"title": "Protokolle", "description": "Fasse die Protokolle zusammen", "context_input_kind": "parts",
-            "goal_id": "g1"}
+    task = {
+        "title": "Protokolle",
+        "description": "Fasse die Protokolle zusammen",
+        "context_input_kind": "parts",
+        "goal_id": "g1",
+    }
     orch._record_context_strategy(task, "t1", "analysis", "kurz", {"prompt_section": "klein"}, {})
     assert events == []
     big = {"prompt_section": "x" * (WINDOW * 4 * 3)}

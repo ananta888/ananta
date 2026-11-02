@@ -30,8 +30,7 @@ def test_mermaid_golden_diagrams_emit_nodes_edges_and_positions(
     assert stats["edge_count"] == expected_edges
     assert all(record.get("line", 1) >= 1 for record in details)
     assert all(
-        record["trust_level"] == "inferred"
-        and record["verification_status"] == "unverified"
+        record["trust_level"] == "inferred" and record["verification_status"] == "unverified"
         for record in details
         if record.get("kind") != "diagnostic"
     )
@@ -121,9 +120,7 @@ def test_drawio_decodes_bounded_compressed_pages_and_resolves_edges() -> None:
     assert edge["resolution_status"] == "resolved"
     assert edge["verification_status"] == "verified"
     assert all(
-        item["verification_status"] == "verified"
-        for item in details
-        if item["kind"] in {"drawio_page", "drawio_node"}
+        item["verification_status"] == "verified" for item in details if item["kind"] in {"drawio_page", "drawio_node"}
     )
 
 
@@ -145,29 +142,21 @@ def test_drawio_encrypted_and_decoded_budget_exceeded_have_stable_reason_codes()
     )
     assert encrypted_relations == []
     assert encrypted_stats["failed_page_count"] == 1
-    assert any(
-        item.get("code") == "drawio_encrypted_content_unsupported"
-        for item in encrypted_details
-    )
+    assert any(item.get("code") == "drawio_encrypted_content_unsupported" for item in encrypted_details)
 
     oversized_inner = (
-        "<mxGraphModel><root><mxCell id=\"0\"/>"
+        '<mxGraphModel><root><mxCell id="0"/>'
         f'<mxCell id="large" value="{"x" * 4_096}" vertex="1"/>'
         "</root></mxGraphModel>"
     )
     payload = _compressed_drawio_page(oversized_inner)
-    _, budget_details, budget_relations, budget_stats = DrawioExtractor(
-        max_decoded_page_size_kb=1
-    ).parse(
+    _, budget_details, budget_relations, budget_stats = DrawioExtractor(max_decoded_page_size_kb=1).parse(
         "architecture/oversized.drawio",
         f'<mxfile><diagram name="Oversized">{payload}</diagram></mxfile>',
     )
     assert budget_relations == []
     assert budget_stats["failed_page_count"] == 1
-    assert any(
-        item.get("code") == "drawio_decoded_page_budget_exceeded"
-        for item in budget_details
-    )
+    assert any(item.get("code") == "drawio_decoded_page_budget_exceeded" for item in budget_details)
 
 
 def test_diagram_hidden_unicode_is_rejected_before_structural_inference() -> None:
@@ -204,13 +193,7 @@ def test_malformed_text_diagrams_do_not_publish_guessed_graph_records(
 def test_plantuml_sequence_participants_and_message_are_deterministic() -> None:
     index, details, relations, stats = DiagramExtractor().parse(
         "architecture/login.puml",
-        (
-            "@startuml\n"
-            "participant Browser\n"
-            "participant API\n"
-            "Browser -> API : login\n"
-            "@enduml\n"
-        ),
+        ("@startuml\nparticipant Browser\nparticipant API\nBrowser -> API : login\n@enduml\n"),
     )
     assert index[0]["summary"]["node_count"] == 2
     assert {record["name"] for record in details if record["kind"] == "plantuml_node"} == {

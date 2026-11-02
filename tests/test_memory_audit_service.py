@@ -24,16 +24,26 @@ def audit(tmp_path):
     repository = SQLMemoryAuditRepository(engine)
     service = MemoryAuditService(repository=repository, retention_seconds=3600, clock=lambda: 100)
     policies = PolicyFixture(policy(trace_id="synthetic-trace"))
-    gate = MemoryPolicyGateway(policies=policies, audit=service,
-                               channels=MemoryChannelRegistry(frozenset({"run-scratchpad"})), clock=lambda: 100)
+    gate = MemoryPolicyGateway(
+        policies=policies,
+        audit=service,
+        channels=MemoryChannelRegistry(frozenset({"run-scratchpad"})),
+        clock=lambda: 100,
+    )
     yield engine, repository, service, gate, policies
     engine.dispose()
 
 
 def authorize(gate):
-    return gate.authorize_read(actor=ACTOR, run_id=NAMESPACE.run_id, target=MemoryTarget(
-        "run-scratchpad", NAMESPACE, MemorySecurityMetadata(scope=MemoryScope.run),
-    ))
+    return gate.authorize_read(
+        actor=ACTOR,
+        run_id=NAMESPACE.run_id,
+        target=MemoryTarget(
+            "run-scratchpad",
+            NAMESPACE,
+            MemorySecurityMetadata(scope=MemoryScope.run),
+        ),
+    )
 
 
 def test_positive_and_negative_decisions_persist_without_memory_content(audit):
@@ -49,18 +59,27 @@ def test_positive_and_negative_decisions_persist_without_memory_content(audit):
     assert rows[1]["previous_hash"] == rows[0]["event_hash"]
     assert all(row["retention_until"] == 3700 for row in rows)
     assert repository.verify(tenant_id=ACTOR.tenant_id) == {
-        "verified": True, "reason_code": "memory_audit_chain_verified", "checked": 2,
+        "verified": True,
+        "reason_code": "memory_audit_chain_verified",
+        "checked": 2,
         "production_release_evidence": False,
     }
     assert repository.list_events(tenant_id="another-tenant") == []
     assert repository.list_events(tenant_id=ACTOR.tenant_id, trace_id="another-trace") == []
 
 
-@pytest.mark.parametrize("field,value", [
-    ("event_hash", "a" * 64), ("previous_hash", "a" * 64), ("created_at", 200),
-    ("retention_until", 5000), ("task_id", "foreign-task"), ("trace_id", "foreign-trace"),
-    ("payload", {"allowed": True}),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("event_hash", "a" * 64),
+        ("previous_hash", "a" * 64),
+        ("created_at", 200),
+        ("retention_until", 5000),
+        ("task_id", "foreign-task"),
+        ("trace_id", "foreign-trace"),
+        ("payload", {"allowed": True}),
+    ],
+)
 def test_mutation_of_audit_or_query_bindings_is_detected(audit, field, value):
     engine, repository, _service, gate, _policies = audit
     authorize(gate)
@@ -119,8 +138,10 @@ def test_separate_sqlite_engines_serialize_through_database_transaction(audit):
     engine, repository, _service, gate, _policies = audit
     other_engine = create_engine(engine.url)
     decision = authorize(gate)
-    services = [MemoryAuditService(repository=SQLMemoryAuditRepository(bind), retention_seconds=3600, clock=lambda: 100)
-                for bind in (engine, other_engine)]
+    services = [
+        MemoryAuditService(repository=SQLMemoryAuditRepository(bind), retention_seconds=3600, clock=lambda: 100)
+        for bind in (engine, other_engine)
+    ]
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(services[index % 2].record, decision) for index in range(12)]
@@ -144,6 +165,7 @@ def test_failed_audit_transaction_rolls_back_head_and_prevents_store_access(audi
     engine, repository, _service, gate, _policies = audit
     authorize(gate)
     before = repository.list_events(tenant_id=ACTOR.tenant_id)
+
     def failure(_mapper, _connection, _target):
         raise RuntimeError("synthetic persistence failure")
 

@@ -230,9 +230,9 @@ class MlInternDatasetPreviewService:
         return {
             "schema": "mlintern_dataset_statistics.v1",
             "dataset_id": dataset_id,
-            "state": "empty" if int(summary.get("record_count") or 0) == 0 else (
-                "ready" if validation.get("status") == "passed" else "not_validated"
-            ),
+            "state": "empty"
+            if int(summary.get("record_count") or 0) == 0
+            else ("ready" if validation.get("status") == "passed" else "not_validated"),
             "record_count": int(summary.get("record_count") or 0),
             "input_record_count": int(summary.get("input_record_count") or 0),
             "rejected_record_count": int(summary.get("rejected_record_count") or 0),

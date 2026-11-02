@@ -5,6 +5,7 @@ Config directory: ~/.config/ananta/
   tutor_config.json   – tutor depth mode, visited sections, tutorial progress
   oidc_token.json     – cached OIDC access token (chmod 600)
 """
+
 from __future__ import annotations
 
 import json
@@ -164,6 +165,7 @@ def _decode_jwt_exp(token: str) -> float:
     """Liest exp-Claim aus JWT-Payload ohne Krypto-Dependency. 0.0 bei Fehler."""
     try:
         import base64
+
         parts = token.split(".")
         if len(parts) != 3:
             return 0.0
@@ -178,17 +180,13 @@ def _decode_jwt_username(token: str) -> str:
     """Liest preferred_username/email/sub aus JWT-Payload."""
     try:
         import base64
+
         parts = token.split(".")
         if len(parts) != 3:
             return ""
         pad = parts[1] + "=" * (-len(parts[1]) % 4)
         claims = json.loads(base64.urlsafe_b64decode(pad))
-        return str(
-            claims.get("preferred_username")
-            or claims.get("email")
-            or claims.get("sub")
-            or ""
-        )
+        return str(claims.get("preferred_username") or claims.get("email") or claims.get("sub") or "")
     except Exception:
         return ""
 

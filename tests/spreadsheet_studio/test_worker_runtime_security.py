@@ -142,9 +142,7 @@ def test_compose_worker_has_no_inbound_port_or_external_network() -> None:
     assert "ANANTA_SPREADSHEET_WORKER_URL" not in hub["environment"]
     assert "ANANTA_SPREADSHEET_ALLOWED_ENDPOINTS" not in hub["environment"]
     assert worker["environment"]["ANANTA_SPREADSHEET_NETWORK_ISOLATED"] == "true"
-    assert str(worker["environment"]["ANANTA_SPREADSHEET_HUB_ENDPOINT"]).endswith(
-        "/api/spreadsheet-studio/internal"
-    )
+    assert str(worker["environment"]["ANANTA_SPREADSHEET_HUB_ENDPOINT"]).endswith("/api/spreadsheet-studio/internal")
 
     dockerfile = (root / "docker/compose-next/Dockerfile.spreadsheet-worker").read_text()
     assert 'CMD ["python", "-m", "worker.runtime.spreadsheet_queue_worker"]' in dockerfile

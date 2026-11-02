@@ -44,6 +44,7 @@ Idempotency:
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -195,9 +196,7 @@ def apply_human_decision(
     if not operator or not str(operator).strip():
         raise HumanApprovalError("operator is required")
     if not _is_valid_outcome(outcome):
-        raise HumanApprovalError(
-            f"outcome must be one of {OPERATOR_DECISIONS}, got {outcome!r}"
-        )
+        raise HumanApprovalError(f"outcome must be one of {OPERATOR_DECISIONS}, got {outcome!r}")
     existing = current_decision(task) or {}
     if existing.get("status") == DECISION_PENDING and not existing.get("decision_id"):
         # Defensive: a pending decision MUST carry a
@@ -206,32 +205,26 @@ def apply_human_decision(
         existing = {}
     decision_id = str(existing.get("decision_id") or f"hdec-{uuid.uuid4().hex[:12]}")
     new_block: dict[str, Any] = dict(existing)
-    new_block.update({
-        "schema": "workflow_gate_decision.v1",
-        "decision_id": decision_id,
-        "status": str(outcome),
-        "resolved_by": str(operator).strip(),
-        "resolved_at": float(timestamp if timestamp is not None else time.time()),
-        "resolution_reason": str(reason or "").strip(),
-        "goal_id": str(
-            existing.get("goal_id")
-            or (
-                getattr(task, "goal_id", None)
-                if not isinstance(task, dict)
-                else task.get("goal_id")
-            )
-            or ""
-        ),
-        "gate_task_id": str(
-            existing.get("gate_task_id")
-            or (
-                getattr(task, "id", None)
-                if not isinstance(task, dict)
-                else task.get("id")
-            )
-            or ""
-        ),
-    })
+    new_block.update(
+        {
+            "schema": "workflow_gate_decision.v1",
+            "decision_id": decision_id,
+            "status": str(outcome),
+            "resolved_by": str(operator).strip(),
+            "resolved_at": float(timestamp if timestamp is not None else time.time()),
+            "resolution_reason": str(reason or "").strip(),
+            "goal_id": str(
+                existing.get("goal_id")
+                or (getattr(task, "goal_id", None) if not isinstance(task, dict) else task.get("goal_id"))
+                or ""
+            ),
+            "gate_task_id": str(
+                existing.get("gate_task_id")
+                or (getattr(task, "id", None) if not isinstance(task, dict) else task.get("id"))
+                or ""
+            ),
+        }
+    )
     # Persist back to the in-memory task
     if isinstance(task, dict):
         verification = dict(task.get("verification_status") or {})
@@ -290,9 +283,7 @@ def submit_human_decision_via_repo(
         raise HumanApprovalError(f"db error: {exc}") from exc
     if task is None:
         raise HumanApprovalError(f"gate task not found: {gate_task_id}")
-    if str(getattr(task, "goal_id", "") or "") != str(
-        goal_id or ""
-    ):
+    if str(getattr(task, "goal_id", "") or "") != str(goal_id or ""):
         raise HumanApprovalError("gate_task_goal_mismatch")
     vector_error = generic_vector_mutation_error(task)
     if vector_error is not None:
@@ -338,5 +329,5 @@ def submit_human_decision_via_repo(
     except Exception:  # noqa: BLE001
         # The audit log is best-effort; the decision is
         # already persisted.
-        pass
+        logging.getLogger(__name__).debug("submit_human_decision_via_repo: ignored Exception", exc_info=True)
     return block

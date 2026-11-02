@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from agent.codecompass.index_header import strip_index_header
 from agent.codecompass.semantic_translation.config import (
     load_semantic_translation_config,
 )
@@ -20,7 +21,11 @@ from agent.codecompass.semantic_translation.registry import (
     SemanticAdapterRegistry,
     SemanticGraphExecutionPort,
 )
-from ananta_contracts.codecompass_graph_limits import (
+
+# Compatibility re-exports: names that were importable from this module
+# before its collaborators were extracted.
+from ananta_contracts.codecompass_graph_limits import (  # noqa: F401,I001
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
     MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION,
     MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATE_BYTES,
     MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES,
@@ -28,14 +33,18 @@ from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_SEMANTIC_RECORDS_PER_PARTITION,
     MAX_CODECOMPASS_SEMANTIC_TOTAL_OUTPUT_BYTES,
 )
-from ananta_contracts.codecompass_semantic_partitions import (
+from ananta_contracts.codecompass_semantic_partitions import (  # noqa: F401
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
+    codecompass_semantic_domain_key,
+    codecompass_semantic_repository_root_domain_key,
 )
-from worker.retrieval.codecompass_domain_supplement import (
+from worker.retrieval.codecompass_domain_supplement import (  # noqa: F401
     DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
     CodeCompassDomainSupplementSourceWriter,
+    SemanticDomainIdentity,
 )
-from worker.retrieval.repository_codecompass_domain_admission import (
+from worker.retrieval.repository_codecompass_domain_admission import (  # noqa: F401
+    _DOMAIN_ADMISSION_STRATEGY,
     _AcceptedSemanticDomain,
     _DomainAdmissionEvidence,
     _SemanticDomainEvidence,
@@ -48,22 +57,6 @@ from worker.retrieval.repository_codecompass_semantic_budget import (
     _canonical_json,
 )
 
-# Compatibility re-exports: names that were importable from this module
-# before its collaborators were extracted.
-from ananta_contracts.codecompass_graph_limits import (  # noqa: F401,I001
-    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
-)
-from ananta_contracts.codecompass_semantic_partitions import (  # noqa: F401
-    codecompass_semantic_domain_key,
-    codecompass_semantic_repository_root_domain_key,
-)
-from worker.retrieval.codecompass_domain_supplement import (  # noqa: F401
-    SemanticDomainIdentity,
-)
-from worker.retrieval.repository_codecompass_domain_admission import (  # noqa: F401
-    _DOMAIN_ADMISSION_STRATEGY,
-)
-
 
 class RepositoryGraphExecutionDeadlinePort(Protocol):
     def checkpoint(self) -> None: ...
@@ -74,7 +67,6 @@ def _checkpoint(
 ) -> None:
     if execution_deadline is not None:
         execution_deadline.checkpoint()
-
 
 
 class RepositoryCodeCompassBridge:
@@ -222,13 +214,16 @@ class RepositoryCodeCompassBridge:
         aggregate_output_bytes = 0
 
         supplement_source_path = output_dir / DOMAIN_SUPPLEMENT_SOURCE_FILENAME
-        with CodeCompassDomainSupplementSourceWriter(
-            supplement_source_path,
-            execution_deadline=execution_deadline,
-        ) as supplement_writer, _BoundedSemanticEdgeSpool(
-            max_records=self._max_semantic_edge_candidates,
-            max_bytes=self._max_semantic_edge_candidate_bytes,
-        ) as deferred_edges:
+        with (
+            CodeCompassDomainSupplementSourceWriter(
+                supplement_source_path,
+                execution_deadline=execution_deadline,
+            ) as supplement_writer,
+            _BoundedSemanticEdgeSpool(
+                max_records=self._max_semantic_edge_candidates,
+                max_bytes=self._max_semantic_edge_candidate_bytes,
+            ) as deferred_edges,
+        ):
             for identity, domain_records in partitions.groups():
                 _checkpoint(execution_deadline)
                 domain_key = identity.domain_key
@@ -254,24 +249,23 @@ class RepositoryCodeCompassBridge:
                         content = record.get("content")
                         if not isinstance(content, str):
                             continue
+                        source, _header_lines = strip_index_header(content, path)
                         emitted = self._semantic_graph.emit_graph_records(
                             path,
-                            content,
+                            source,
                         )
                         _checkpoint(execution_deadline)
                         if not isinstance(emitted, Mapping):
-                            raise RuntimeError(
-                                "codecompass_domain_supplement_adapter_result_invalid"
-                            )
+                            raise RuntimeError("codecompass_domain_supplement_adapter_result_invalid")
                         raw_nodes = emitted.get("nodes") or []
                         raw_edges = emitted.get("edges") or []
                         raw_diagnostics = emitted.get("diagnostics") or []
-                        if not isinstance(raw_nodes, (list, tuple)) or not isinstance(
-                            raw_edges, (list, tuple)
-                        ) or not isinstance(raw_diagnostics, (list, tuple)):
-                            raise RuntimeError(
-                                "codecompass_domain_supplement_adapter_collections_invalid"
-                            )
+                        if (
+                            not isinstance(raw_nodes, (list, tuple))
+                            or not isinstance(raw_edges, (list, tuple))
+                            or not isinstance(raw_diagnostics, (list, tuple))
+                        ):
+                            raise RuntimeError("codecompass_domain_supplement_adapter_collections_invalid")
                         diagnostic_count += len(raw_diagnostics)
                         supplement_writer.observe_diagnostics(
                             domain_key=domain_key,
@@ -282,18 +276,14 @@ class RepositoryCodeCompassBridge:
                         complete_emitted_node_ids: list[str] = []
                         for raw_node in raw_nodes:
                             if not isinstance(raw_node, Mapping):
-                                raise RuntimeError(
-                                    "codecompass_domain_supplement_node_invalid"
-                                )
+                                raise RuntimeError("codecompass_domain_supplement_node_invalid")
                             node = {
                                 **self._stable_semantic_record(raw_node),
                                 CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD: domain_key,
                             }
                             node_id = str(node.get("id") or "").strip()
                             if not node_id:
-                                raise RuntimeError(
-                                    "codecompass_domain_supplement_node_invalid"
-                                )
+                                raise RuntimeError("codecompass_domain_supplement_node_invalid")
                             supplement_writer.add_node(
                                 domain_key=domain_key,
                                 record=node,
@@ -336,9 +326,7 @@ class RepositoryCodeCompassBridge:
                         additional_node_ids = graph_node_ids | global_semantic_node_ids
                         for raw_edge in raw_edges:
                             if not isinstance(raw_edge, Mapping):
-                                raise RuntimeError(
-                                    "codecompass_domain_supplement_edge_invalid"
-                                )
+                                raise RuntimeError("codecompass_domain_supplement_edge_invalid")
                             domain_had_candidates = True
                             edge = {
                                 **self._normalize_current_file_endpoint(
@@ -458,9 +446,7 @@ class RepositoryCodeCompassBridge:
                             }
                         )
 
-            accepted_by_domain = {
-                partition.identity.domain_key: partition for partition in accepted
-            }
+            accepted_by_domain = {partition.identity.domain_key: partition for partition in accepted}
             all_available_node_ids = graph_node_ids | global_semantic_node_ids
             for raw_deferred in deferred_edges.records():
                 _checkpoint(execution_deadline)

@@ -6,11 +6,7 @@ def test_build_proposal_snapshot_uses_top_level_metadata_llm_profile():
     data = {
         "reason": "ok",
         "command": "echo ok",
-        "metadata": {
-            "llm_call_profile": [
-                {"source": "model_invocation_service", "estimated": False, "success": True}
-            ]
-        },
+        "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True}]},
     }
 
     snap = svc.build_proposal_snapshot(data)
@@ -26,11 +22,7 @@ def test_build_proposal_snapshot_uses_wrapped_proposal_metadata_llm_profile():
         "proposal": {
             "command": "echo ok",
             "reason": "wrapped",
-            "metadata": {
-                "llm_call_profile": [
-                    {"source": "llm_integration", "estimated": False, "success": True}
-                ]
-            },
+            "metadata": {"llm_call_profile": [{"source": "llm_integration", "estimated": False, "success": True}]},
         }
     }
 
@@ -83,9 +75,7 @@ def test_build_proposal_snapshot_preserves_rejected_terminal_signal_flag():
                     "state": "exhausted",
                     "terminal": True,
                     "reason_code": "model_fallback_exhausted",
-                    "terminal_reason": (
-                        "provider_attempt_plan_sequence_denied"
-                    ),
+                    "terminal_reason": ("provider_attempt_plan_sequence_denied"),
                     "fallback_decisions": [],
                     "llm_calls": [],
                 }

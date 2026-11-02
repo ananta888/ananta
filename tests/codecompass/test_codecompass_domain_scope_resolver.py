@@ -4,27 +4,26 @@ Covers: empty scope, single/multiple domains, strict failure modes,
 path normalization, descriptor override, namespace separation and the
 write-scope decision contract — all without LlamaIndex/embeddings.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
-
 from agent.codecompass.domain_scope import (
     DECISION_ALLOW,
     DECISION_APPROVAL_REQUIRED,
     DECISION_BLOCKED,
-    DomainScope,
-    DomainScopeViolation,
     HINT_KIND_DOMAIN,
     HINT_KIND_INTERNAL,
     HINT_KIND_NONE,
     HINT_KIND_UNKNOWN,
-    ResolvedDomainScope,
     VIOLATION_EMPTY_SCOPE,
     VIOLATION_UNKNOWN_DOMAIN,
     VIOLATION_WRITE_OUT_OF_SCOPE,
+    DomainScope,
+    DomainScopeViolation,
+    ResolvedDomainScope,
     build_approval_requirement,
     decide_cross_domain_write,
     is_path_within,
@@ -122,10 +121,17 @@ def test_empty_scope_is_valid_and_inactive(tmp_path: Path) -> None:
 
 
 def test_resolved_paths_are_normalized_posix(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.9,
-         "root_paths": ["orders\\submodule", "./orders"]},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {
+                "domain_id": "orders",
+                "display_name": "Orders",
+                "confidence": 0.9,
+                "root_paths": ["orders\\submodule", "./orders"],
+            },
+        ],
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"]))
     assert resolved.allowed_read_paths == ["orders", "orders/submodule"]
 
@@ -134,12 +140,18 @@ def test_resolved_paths_are_normalized_posix(tmp_path: Path) -> None:
 
 
 def test_resolver_resolves_single_domain_from_detected(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "bestellmodul", "display_name": "Bestellmodul",
-         "confidence": 0.83, "root_paths": ["orders", "shared/order_models"]},
-        {"domain_id": "katalog", "display_name": "Artikelkatalog",
-         "confidence": 0.7, "root_paths": ["catalog"]},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {
+                "domain_id": "bestellmodul",
+                "display_name": "Bestellmodul",
+                "confidence": 0.83,
+                "root_paths": ["orders", "shared/order_models"],
+            },
+            {"domain_id": "katalog", "display_name": "Artikelkatalog", "confidence": 0.7, "root_paths": ["catalog"]},
+        ],
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["bestellmodul"]))
     assert resolved.active and resolved.ok
     assert resolved.allowed_read_paths == ["orders", "shared/order_models"]
@@ -149,10 +161,13 @@ def test_resolver_resolves_single_domain_from_detected(tmp_path: Path) -> None:
 
 
 def test_resolver_resolves_multiple_domains(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
-        {"domain_id": "billing", "display_name": "Billing", "confidence": 0.8, "root_paths": ["billing"]},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
+            {"domain_id": "billing", "display_name": "Billing", "confidence": 0.8, "root_paths": ["billing"]},
+        ],
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders", "billing"]))
     assert resolved.ok
     assert resolved.allowed_read_paths == ["billing", "orders"]
@@ -160,32 +175,32 @@ def test_resolver_resolves_multiple_domains(tmp_path: Path) -> None:
 
 
 def test_unknown_domain_strict_is_violation(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
-    ])
-    resolved = _resolver(tmp_path).resolve(
-        DomainScope(selected_domain_ids=["nope"], strict=True)
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
+        ],
     )
+    resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["nope"], strict=True))
     assert not resolved.ok
     assert resolved.violations[0].kind == VIOLATION_UNKNOWN_DOMAIN
 
 
 def test_unknown_domain_non_strict_warns_without_invented_paths(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
-    ])
-    resolved = _resolver(tmp_path).resolve(
-        DomainScope(selected_domain_ids=["nope"], strict=False)
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
+        ],
     )
+    resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["nope"], strict=False))
     assert resolved.ok
     assert resolved.allowed_read_paths == []
     assert any(w.startswith("unknown_domain_ignored:nope") for w in resolved.warnings)
 
 
 def test_missing_artifact_strict_fails_closed(tmp_path: Path) -> None:
-    resolved = _resolver(tmp_path).resolve(
-        DomainScope(selected_domain_ids=["orders"], strict=True)
-    )
+    resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"], strict=True))
     assert not resolved.ok
     assert any(w.startswith("domain_artifact_missing") for w in resolved.warnings)
 
@@ -209,10 +224,13 @@ def test_wrong_schema_is_rejected(tmp_path: Path) -> None:
 
 
 def test_duplicate_domain_ids_reported(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "A", "confidence": 0.5, "root_paths": ["a"]},
-        {"domain_id": "orders", "display_name": "B", "confidence": 0.5, "root_paths": ["b"]},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "A", "confidence": 0.5, "root_paths": ["a"]},
+            {"domain_id": "orders", "display_name": "B", "confidence": 0.5, "root_paths": ["b"]},
+        ],
+    )
     _, errors = _resolver(tmp_path).load_detected_domains()
     assert any(e.startswith("domain_artifact_duplicate_id:orders") for e in errors)
 
@@ -227,16 +245,27 @@ def _write_descriptor(tmp_path: Path, domain_id: str, payload: dict) -> None:
 
 
 def test_descriptor_source_paths_win_over_detected_with_warning(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8,
-         "root_paths": ["orders", "legacy_orders"]},
-    ])
-    _write_descriptor(tmp_path, "orders", {
-        "schema": "domain_descriptor.v1",
-        "domain_id": "orders",
-        "source_paths": {"code_paths": ["orders"], "docs_paths": []},
-        "rag_profiles": [{"allowed_paths": ["docs/orders"]}],
-    })
+    _write_detected(
+        tmp_path,
+        [
+            {
+                "domain_id": "orders",
+                "display_name": "Orders",
+                "confidence": 0.8,
+                "root_paths": ["orders", "legacy_orders"],
+            },
+        ],
+    )
+    _write_descriptor(
+        tmp_path,
+        "orders",
+        {
+            "schema": "domain_descriptor.v1",
+            "domain_id": "orders",
+            "source_paths": {"code_paths": ["orders"], "docs_paths": []},
+            "rag_profiles": [{"allowed_paths": ["docs/orders"]}],
+        },
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"]))
     assert resolved.ok
     assert resolved.allowed_read_paths == ["docs/orders", "orders"]
@@ -247,29 +276,43 @@ def test_descriptor_source_paths_win_over_detected_with_warning(tmp_path: Path) 
 def test_capability_descriptor_without_code_paths_is_ignored(tmp_path: Path) -> None:
     # domains/<id>/ today holds capability descriptors (blender, ...) that
     # carry no code paths — they must never become a path scope.
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
-    ])
-    _write_descriptor(tmp_path, "orders", {
-        "schema": "domain_descriptor.v1",
-        "domain_id": "orders",
-        "source_paths": {"code_paths": [], "docs_paths": ["docs/x.md"]},
-        "rag_profiles": [],
-    })
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
+        ],
+    )
+    _write_descriptor(
+        tmp_path,
+        "orders",
+        {
+            "schema": "domain_descriptor.v1",
+            "domain_id": "orders",
+            "source_paths": {"code_paths": [], "docs_paths": ["docs/x.md"]},
+            "rag_profiles": [],
+        },
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"]))
     # docs_paths are not code paths; descriptor yields nothing → detected wins.
     assert resolved.allowed_read_paths == ["orders"]
 
 
 def test_descriptor_paths_with_traversal_are_rejected(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
-    ])
-    _write_descriptor(tmp_path, "orders", {
-        "schema": "domain_descriptor.v1",
-        "domain_id": "orders",
-        "source_paths": {"code_paths": ["../outside", "orders"]},
-    })
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": ["orders"]},
+        ],
+    )
+    _write_descriptor(
+        tmp_path,
+        "orders",
+        {
+            "schema": "domain_descriptor.v1",
+            "domain_id": "orders",
+            "source_paths": {"code_paths": ["../outside", "orders"]},
+        },
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"]))
     assert resolved.allowed_read_paths == ["orders"]
     assert any(w.startswith("descriptor_path_rejected:orders") for w in resolved.warnings)
@@ -279,10 +322,13 @@ def test_descriptor_paths_with_traversal_are_rejected(tmp_path: Path) -> None:
 
 
 def test_list_domains_stable_sorted_without_host_paths(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "zeta", "display_name": "Z", "confidence": 0.6, "root_paths": ["z"]},
-        {"domain_id": "alpha", "display_name": "A", "confidence": 0.9, "root_paths": ["a"]},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "zeta", "display_name": "Z", "confidence": 0.6, "root_paths": ["z"]},
+            {"domain_id": "alpha", "display_name": "A", "confidence": 0.9, "root_paths": ["a"]},
+        ],
+    )
     listing = _resolver(tmp_path).list_domains()
     assert [d["domain_id"] for d in listing["domains"]] == ["alpha", "zeta"]
     assert not Path(listing["artifact_path"]).is_absolute()
@@ -346,9 +392,12 @@ def test_build_approval_requirement_binds_path_and_arguments() -> None:
 
 
 def test_strict_scope_with_zero_paths_is_violation(tmp_path: Path) -> None:
-    _write_detected(tmp_path, [
-        {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": []},
-    ])
+    _write_detected(
+        tmp_path,
+        [
+            {"domain_id": "orders", "display_name": "Orders", "confidence": 0.8, "root_paths": []},
+        ],
+    )
     resolved = _resolver(tmp_path).resolve(DomainScope(selected_domain_ids=["orders"], strict=True))
     assert not resolved.ok
     assert any(v.kind == VIOLATION_EMPTY_SCOPE for v in resolved.violations)

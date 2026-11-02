@@ -9,21 +9,14 @@ Ensures:
 - score_choices only returns scores for provided choices, not generated text.
 - Blocked attempts appear in audit log with reason_code.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from agent.services.restricted_model_inference_service import (
-    MockInferenceAdapter,
-    RestrictedModelInferenceService,
-    validate_no_generation,
-)
 from agent.services.model_inference_adapters import (
     ChoiceScore,
     ClassificationResult,
-    RerankResult,
-    RiskScoreResult,
-    FeatureVector,
 )
 from agent.services.path_ai_mode_policy_service import (
     AI_MODE_CODECOMPASS_ONLY,
@@ -34,24 +27,33 @@ from agent.services.path_ai_mode_policy_service import (
     PathAiModePolicyService,
     PathAiModeRule,
 )
+from agent.services.restricted_model_inference_service import (
+    MockInferenceAdapter,
+    RestrictedModelInferenceService,
+    validate_no_generation,
+)
 
 
 def _svc_with_security_policy() -> RestrictedModelInferenceService:
     """Security path: full_llm blocked, restricted_transformer_inference allowed."""
-    policy = PathAiModePolicyService(rules=[
-        PathAiModeRule.from_raw({
-            "path_glob": "src/security/**",
-            "allowed_ai_modes": [
-                AI_MODE_CODECOMPASS_ONLY,
-                AI_MODE_EMBEDDING_ONLY,
-                AI_MODE_RESTRICTED_TRANSFORMER,
-                AI_MODE_DETERMINISTIC_ONLY,
-            ],
-            "blocked_ai_modes": [AI_MODE_FULL_LLM],
-            "allow_free_text_generation": False,
-            "allow_tool_decision_from_model_text": False,
-        })
-    ])
+    policy = PathAiModePolicyService(
+        rules=[
+            PathAiModeRule.from_raw(
+                {
+                    "path_glob": "src/security/**",
+                    "allowed_ai_modes": [
+                        AI_MODE_CODECOMPASS_ONLY,
+                        AI_MODE_EMBEDDING_ONLY,
+                        AI_MODE_RESTRICTED_TRANSFORMER,
+                        AI_MODE_DETERMINISTIC_ONLY,
+                    ],
+                    "blocked_ai_modes": [AI_MODE_FULL_LLM],
+                    "allow_free_text_generation": False,
+                    "allow_tool_decision_from_model_text": False,
+                }
+            )
+        ]
+    )
     return RestrictedModelInferenceService(
         adapters=[MockInferenceAdapter()],
         policy_service=policy,
@@ -124,9 +126,7 @@ class TestGenerativeCallNeverInvoked:
         svc = _svc_with_security_policy()
         labels = ["security", "bugfix", "other"]
         result = svc.classify("auth token expired", labels)
-        assert result.label in labels, (
-            f"classify must return one of {labels}, got {result.label!r}"
-        )
+        assert result.label in labels, f"classify must return one of {labels}, got {result.label!r}"
 
     def test_rerank_score_is_not_text(self):
         svc = _svc_with_security_policy()
@@ -147,23 +147,32 @@ class TestSecurityPathPolicy:
 
     def test_full_llm_blocked_shows_in_policy_check(self):
         from agent.services.path_ai_mode_policy_service import PathAiModePolicyService
-        policy = PathAiModePolicyService(rules=[
-            PathAiModeRule.from_raw({
-                "path_glob": "src/security/**",
-                "blocked_ai_modes": [AI_MODE_FULL_LLM],
-            })
-        ])
+
+        policy = PathAiModePolicyService(
+            rules=[
+                PathAiModeRule.from_raw(
+                    {
+                        "path_glob": "src/security/**",
+                        "blocked_ai_modes": [AI_MODE_FULL_LLM],
+                    }
+                )
+            ]
+        )
         result = policy.resolve("src/security/auth.py")
         assert not result.is_mode_allowed(AI_MODE_FULL_LLM)
         assert result.is_mode_allowed(AI_MODE_RESTRICTED_TRANSFORMER)
 
     def test_blocked_restricted_inference_raises_and_audits(self):
-        policy = PathAiModePolicyService(rules=[
-            PathAiModeRule.from_raw({
-                "path_glob": "src/secrets/**",
-                "blocked_ai_modes": [AI_MODE_RESTRICTED_TRANSFORMER],
-            })
-        ])
+        policy = PathAiModePolicyService(
+            rules=[
+                PathAiModeRule.from_raw(
+                    {
+                        "path_glob": "src/secrets/**",
+                        "blocked_ai_modes": [AI_MODE_RESTRICTED_TRANSFORMER],
+                    }
+                )
+            ]
+        )
         svc = RestrictedModelInferenceService(
             adapters=[MockInferenceAdapter()],
             policy_service=policy,
@@ -178,12 +187,16 @@ class TestSecurityPathPolicy:
         assert blocked_events[0]["reason_code"] == "policy_blocked_restricted_transformer"
 
     def test_docs_path_allows_all_modes(self):
-        policy = PathAiModePolicyService(rules=[
-            PathAiModeRule.from_raw({
-                "path_glob": "src/security/**",
-                "blocked_ai_modes": [AI_MODE_FULL_LLM],
-            })
-        ])
+        policy = PathAiModePolicyService(
+            rules=[
+                PathAiModeRule.from_raw(
+                    {
+                        "path_glob": "src/security/**",
+                        "blocked_ai_modes": [AI_MODE_FULL_LLM],
+                    }
+                )
+            ]
+        )
         result = policy.resolve("docs/guide.md")
         assert result.is_mode_allowed(AI_MODE_FULL_LLM)
         assert result.is_mode_allowed(AI_MODE_RESTRICTED_TRANSFORMER)

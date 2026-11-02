@@ -163,11 +163,9 @@ class InMemoryTemporalProjectionRepository:
 
     def list_events(self, *, projection_id: str, after_event_id: int, limit: int) -> tuple[dict[str, Any], ...]:
         values = self._events.get(str(projection_id), {})
-        return tuple(
-            dict(values[event_id])
-            for event_id in sorted(values)
-            if event_id > int(after_event_id)
-        )[: max(1, min(int(limit), 10_000))]
+        return tuple(dict(values[event_id]) for event_id in sorted(values) if event_id > int(after_event_id))[
+            : max(1, min(int(limit), 10_000))
+        ]
 
     def reset(self, cursor: TemporalProjectionCursor) -> TemporalProjectionCursor:
         current = self._cursors.get((cursor.namespace, cursor.workflow_id))
@@ -290,9 +288,7 @@ class SQLTemporalProjectionRepository:
             if row is None or row.tenant_id != cursor.tenant_id:
                 raise TemporalHistoryProjectionError("projection_binding_conflict")
             events = session.exec(
-                select(TemporalProjectedEventDB).where(
-                    TemporalProjectedEventDB.projection_id == cursor.projection_id
-                )
+                select(TemporalProjectedEventDB).where(TemporalProjectedEventDB.projection_id == cursor.projection_id)
             ).all()
             for event in events:
                 session.delete(event)
@@ -440,9 +436,7 @@ class TemporalHistoryProjectionService:
             run_id=str(run_id),
             temporal_run_id=str(temporal_run_id),
             correlation_id=str(correlation_id),
-            raw_history_ref=(
-                f"temporal://{self._namespace}/{workflow_id}/runs/{temporal_run_id}/history"
-            ),
+            raw_history_ref=(f"temporal://{self._namespace}/{workflow_id}/runs/{temporal_run_id}/history"),
         )
         return self._repository.bind(cursor)
 

@@ -11,16 +11,13 @@ Alle Augment-Integrationen sind hinter Feature-Flags und nutzen Fake-Provider in
 # Augment-abhängige Tests markieren:
 import pytest
 
-@pytest.mark.auggie_live  # erfordert echte auggie-Installation
-def test_real_auggie_query():
-    ...
 
-@pytest.mark.skipif(
-    not shutil.which("auggie"),
-    reason="auggie not installed"
-)
-def test_auggie_version():
-    ...
+@pytest.mark.auggie_live  # erfordert echte auggie-Installation
+def test_real_auggie_query(): ...
+
+
+@pytest.mark.skipif(not shutil.which("auggie"), reason="auggie not installed")
+def test_auggie_version(): ...
 ```
 
 ## CI-Konfiguration

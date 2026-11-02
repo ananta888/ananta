@@ -35,21 +35,34 @@ class AssignedCompanionModelClient:
         deadline = min(self.deadline, started + 20)
         if started >= deadline:
             raise ValueError("meet_companion_assignment_expired")
-        value = validate_request({"schema": REQUEST_SCHEMA, "nonce": secrets.token_hex(16),
-            "sent_at": int(self.clock()), "assignment": deepcopy(self._assignment),
-            "action": action, "payload": deepcopy(payload)}, self.clock())
+        value = validate_request(
+            {
+                "schema": REQUEST_SCHEMA,
+                "nonce": secrets.token_hex(16),
+                "sent_at": int(self.clock()),
+                "assignment": deepcopy(self._assignment),
+                "action": action,
+                "payload": deepcopy(payload),
+            },
+            self.clock(),
+        )
         raw = encode(value)
         if len(raw) > MAX_REQUEST_BYTES:
             raise ValueError("meet_companion_model_request_oversize")
-        request = urllib.request.Request(self.endpoint, raw, headers={"Content-Type": "application/json",
-                                                                  SIGNATURE_HEADER: request_signature(self.key, raw)})
+        request = urllib.request.Request(
+            self.endpoint,
+            raw,
+            headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(self.key, raw)},
+        )
         try:
             with self.opener.open(request, timeout=deadline - started) as response:
                 body = read_bounded(response, maximum=MAX_RESPONSE_BYTES, deadline=deadline)
                 supplied = response.headers.get(SIGNATURE_HEADER, "")
-            if (not re.fullmatch(r"[a-f0-9]{64}", supplied)
-                    or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
-                    or self.monotonic() >= deadline):
+            if (
+                not re.fullmatch(r"[a-f0-9]{64}", supplied)
+                or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
+                or self.monotonic() >= deadline
+            ):
                 raise ValueError()
             return validate_response(parse(body), self._assignment, action, value["payload"])
         except (OSError, urllib.error.URLError, ValueError, TypeError, KeyError):

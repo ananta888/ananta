@@ -51,9 +51,11 @@ Integrierte Flask-Decorators ermöglichen eine einfache Absicherung der Endpunkt
 ```python
 from agent.auth import check_auth, admin_required, check_user_auth
 
+
 @app.route("/public")
 def public():
     return "Public content"
+
 
 @app.route("/secure")
 @check_auth
@@ -61,11 +63,13 @@ def secure():
     # Gültiger Token erforderlich (Agent oder User)
     return "Authorized"
 
+
 @app.route("/user-only")
 @check_user_auth
 def user_only():
     # Nur User-JWTs erlaubt
     return "User Authorized"
+
 
 @app.route("/admin")
 @admin_required

@@ -67,7 +67,10 @@ def render_block(release: dict[str, Any] | None) -> str:
     else:
         tag = release.get("tag_name") or "unknown"
         name = release.get("name") or tag
-        url = release.get("html_url") or f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', DEFAULT_REPO)}/releases/tag/{tag}"
+        url = (
+            release.get("html_url")
+            or f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', DEFAULT_REPO)}/releases/tag/{tag}"
+        )
         prerelease = " beta/pre-release" if release.get("prerelease") else ""
         latest_line = f"- **Latest release:** [{name}]({url}) (`{tag}`{prerelease})"
     return "\n".join(

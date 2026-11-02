@@ -1,5 +1,6 @@
 """Execute only current Hub avatar controls; no self-authorization or inference."""
 
+import logging
 import time
 
 from ananta_contracts.meet_avatar_source import (
@@ -108,7 +109,7 @@ class DialogAvatarPump:
         try:
             self._stop()
         except Exception:
-            pass  # The browser's independent 2.5-s pulse watchdog remains armed.
+            logging.getLogger(__name__).debug("_fail: ignored Exception", exc_info=True)
 
     def close(self):
         self.binding = None

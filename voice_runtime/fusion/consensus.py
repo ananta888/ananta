@@ -45,11 +45,7 @@ class DeterministicFusionService:
     def fuse(self, candidates: tuple[TranscriptionCandidate, ...]) -> FusionOutcome:
         successful = tuple(
             sorted(
-                (
-                    item
-                    for item in candidates
-                    if item.status == "succeeded" and item.text.strip()
-                ),
+                (item for item in candidates if item.status == "succeeded" and item.text.strip()),
                 key=lambda item: item.candidate_id,
             )
         )
@@ -63,13 +59,9 @@ class DeterministicFusionService:
             )
             return FusionOutcome(result=result, result_hash=_result_hash(result))
 
-        engine_identities = {
-            (item.backend, item.model_revision or "") for item in successful
-        }
+        engine_identities = {(item.backend, item.model_revision or "") for item in successful}
         allow_raw_confidence = len(engine_identities) == 1
-        all_calibrated = all(
-            self._scorer.confidence_is_comparable(candidate) for candidate in successful
-        )
+        all_calibrated = all(self._scorer.confidence_is_comparable(candidate) for candidate in successful)
         confidence_mode = (
             "calibrated"
             if all_calibrated
@@ -83,9 +75,7 @@ class DeterministicFusionService:
         for candidate in successful:
             score, trace = self._scorer.score(
                 candidate,
-                signals=CandidateScoringSignals(
-                    agreement=agreement_signals.get(candidate.candidate_id)
-                ),
+                signals=CandidateScoringSignals(agreement=agreement_signals.get(candidate.candidate_id)),
                 allow_uncalibrated_confidence=allow_raw_confidence,
                 allow_calibrated_signals=all_calibrated,
             )
@@ -118,15 +108,10 @@ class DeterministicFusionService:
                 score_trace[selected.candidate_id]["confidence"],
             ),
         )
-        comparable_confidences = [
-            word.confidence
-            for word in assembled_words
-            if word.confidence is not None
-        ]
+        comparable_confidences = [word.confidence for word in assembled_words if word.confidence is not None]
         result_confidence = (
             sum(comparable_confidences) / len(comparable_confidences)
-            if comparable_confidences
-            and confidence_mode in {"calibrated", "raw_same_engine"}
+            if comparable_confidences and confidence_mode in {"calibrated", "raw_same_engine"}
             else cast(float | None, score_trace[selected.candidate_id]["confidence"])
             if confidence_mode in {"calibrated", "raw_same_engine"}
             else None
@@ -168,10 +153,7 @@ class DeterministicFusionService:
                 "confidence_comparison_mode": confidence_mode,
                 "candidate_scores": score_trace,
                 "token_provenance": token_provenance,
-                "lineages": {
-                    item.candidate_id: item.lineage_id or item.candidate_id
-                    for item in successful
-                },
+                "lineages": {item.candidate_id: item.lineage_id or item.candidate_id for item in successful},
                 "alignment_versions": {
                     "time": "time_v1",
                     "text_fallback": "unicode_text_v1",
@@ -179,16 +161,12 @@ class DeterministicFusionService:
             },
             provenance={
                 "assembly": "candidate_tokens",
-                "source_candidate_ids": sorted(
-                    {str(item["candidate_id"]) for item in token_provenance}
-                ),
+                "source_candidate_ids": sorted({str(item["candidate_id"]) for item in token_provenance}),
                 "valid_candidate_ids": sorted(valid_candidate_ids),
                 "synthetic": any(item.synthetic for item in successful),
                 "execution_location": "voice-runtime",
                 "timing_policy": "source_only_no_interpolation",
-                "timed_token_count": sum(
-                    item["time_source"] != "unavailable" for item in token_provenance
-                ),
+                "timed_token_count": sum(item["time_source"] != "unavailable" for item in token_provenance),
                 "token_count": len(token_provenance),
             },
             provenance_valid=provenance_valid,
@@ -209,10 +187,7 @@ def _disagreement_regions(
         for index, difference in enumerate(differences(selected, candidate)):
             regions.append(
                 DisagreementRegion(
-                    region_id=(
-                        f"disagreement-{selected.candidate_id}-"
-                        f"{candidate.candidate_id}-{index}"
-                    ),
+                    region_id=(f"disagreement-{selected.candidate_id}-{candidate.candidate_id}-{index}"),
                     start_ms=difference.start_ms,
                     end_ms=difference.end_ms,
                     alternatives=(
@@ -319,11 +294,7 @@ def _agreement_signals(
     result: dict[str, VersionedSignal] = {}
     for candidate in candidates:
         own_lineage = candidate.lineage_id or candidate.candidate_id
-        peers = tuple(
-            representatives[lineage]
-            for lineage in sorted(representatives)
-            if lineage != own_lineage
-        )
+        peers = tuple(representatives[lineage] for lineage in sorted(representatives) if lineage != own_lineage)
         if not peers:
             continue
         normalized = tuple(normalize_token(item) for item in tokenize(candidate.text))
@@ -348,9 +319,7 @@ def _agreement_signals(
                         {
                             "candidate_id": peer.candidate_id,
                             "lineage_id": peer.lineage_id or peer.candidate_id,
-                            "tokens": [
-                                normalize_token(item) for item in tokenize(peer.text)
-                            ],
+                            "tokens": [normalize_token(item) for item in tokenize(peer.text)],
                         }
                         for peer in peers
                     ],
@@ -370,12 +339,9 @@ def _assemble_consensus_tokens(
 ) -> tuple[tuple[str, ...], tuple[dict[str, object], ...], tuple[TranscriptionWord, ...]]:
     anchor_tokens = tokenize(anchor.text)
     alignments = {
-        candidate.candidate_id: align_candidates(anchor, candidate).project_to_reference()
-        for candidate in candidates
+        candidate.candidate_id: align_candidates(anchor, candidate).project_to_reference() for candidate in candidates
     }
-    source_tokens = {
-        candidate.candidate_id: candidate_tokens(candidate) for candidate in candidates
-    }
+    source_tokens = {candidate.candidate_id: candidate_tokens(candidate) for candidate in candidates}
     by_id = {candidate.candidate_id: candidate for candidate in candidates}
     output: list[str] = []
     provenance: list[dict[str, object]] = []
@@ -439,9 +405,7 @@ def _assemble_consensus_tokens(
                 "candidate_id": candidate_id,
                 "source_token_index": candidate_index,
                 "lineage_id": source.lineage_id or source.candidate_id,
-                "operation": "copied"
-                if normalize_token(token) == normalize_token(anchor_token)
-                else "consensus",
+                "operation": "copied" if normalize_token(token) == normalize_token(anchor_token) else "consensus",
                 "source_backend": source.backend,
                 "source_model_revision": source.model_revision,
                 "source_audio_digest": source.source_audio_digest,
@@ -499,20 +463,14 @@ def _source_confidence(
     scorer: CandidateScorer,
     calibrate: bool,
 ) -> float | None:
-    words = candidate.words or tuple(
-        word for segment in candidate.segments for word in segment.words
-    )
+    words = candidate.words or tuple(word for segment in candidate.segments for word in segment.words)
     tokens = tokenize(candidate.text)
     if len(words) == len(tokens) and candidate_index < len(words):
         value = words[candidate_index].confidence
     else:
         value = candidate.confidence
     profile = scorer.calibration_profile(candidate)
-    return (
-        profile.calibrate(value)
-        if calibrate and profile and profile.comparable
-        else value
-    )
+    return profile.calibrate(value) if calibrate and profile and profile.comparable else value
 
 
 def _validate_token_provenance(
@@ -542,9 +500,7 @@ def _validate_token_provenance(
         if time_source == "unavailable" and (start_ms is not None or end_ms is not None):
             return False
         if time_source in {"word", "segment_bounds"} and not (
-            isinstance(start_ms, int)
-            and isinstance(end_ms, int)
-            and 0 <= start_ms <= end_ms
+            isinstance(start_ms, int) and isinstance(end_ms, int) and 0 <= start_ms <= end_ms
         ):
             return False
     return True

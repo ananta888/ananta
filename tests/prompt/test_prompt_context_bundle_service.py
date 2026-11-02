@@ -24,7 +24,9 @@ def test_prompt_context_bundle_includes_contract_and_instruction_metadata() -> N
                 "instruction_context": {"owner_username": "alice", "profile_id": "p1"},
             },
         },
-        research_context={"chunks": [{"source_id": "s1", "content": "hello world", "metadata": {"sensitivity": "public"}}]},
+        research_context={
+            "chunks": [{"source_id": "s1", "content": "hello world", "metadata": {"sensitivity": "public"}}]
+        },
         policy=SimpleNamespace(allow_shell_execution=False, requires_executable_step=True),
         instruction_stack={
             "checksum": "abc123",

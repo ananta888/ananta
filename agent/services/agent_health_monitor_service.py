@@ -4,8 +4,8 @@ import concurrent.futures
 import logging
 import time
 
-from agent.services.repository_registry import get_repository_registry
 from agent.services.autopilot_wake_service import request_autopilot_wake
+from agent.services.repository_registry import get_repository_registry
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.utils import read_json, write_json
 
@@ -47,12 +47,18 @@ class AgentHealthMonitorService:
                             else:
                                 failures = int(failure_state.get(agent_key, 0)) + 1
                                 failure_state[agent_key] = failures
-                                if failures < offline_failure_threshold and agent_obj.status in {"online", "busy", "degraded"}:
+                                if failures < offline_failure_threshold and agent_obj.status in {
+                                    "online",
+                                    "busy",
+                                    "degraded",
+                                }:
                                     effective_status = "degraded"
 
                         changed = False
                         if agent_obj.status != effective_status:
-                            logging.info(f"Agent {agent_obj.name} Statusaenderung: {agent_obj.status} -> {effective_status}")
+                            logging.info(
+                                f"Agent {agent_obj.name} Statusaenderung: {agent_obj.status} -> {effective_status}"
+                            )
                             agent_obj.status = effective_status
                             changed = True
                             try:
@@ -63,7 +69,9 @@ class AgentHealthMonitorService:
                                     status=effective_status,
                                 )
                             except Exception:
-                                pass
+                                logging.getLogger(__name__).debug(
+                                    "check_all_agents_health: ignored Exception", exc_info=True
+                                )
                         if effective_status == "online":
                             agent_obj.last_seen = now
                             changed = True
@@ -111,7 +119,9 @@ class AgentHealthMonitorService:
         # Primary: lightweight health check
         for path, health_timeout in (("/health?basic=1", timeout), ("/health", timeout * 2)):
             try:
-                resp = http.get(f"{base}{path}", headers=headers, timeout=health_timeout, return_response=True, silent=True)
+                resp = http.get(
+                    f"{base}{path}", headers=headers, timeout=health_timeout, return_response=True, silent=True
+                )
                 if resp and resp.status_code < 500:
                     status = "online"
                     try:
@@ -121,7 +131,7 @@ class AgentHealthMonitorService:
                         if status_candidate in {"online", "busy", "degraded", "offline"}:
                             status = status_candidate
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("_health_check_url: ignored Exception", exc_info=True)
                     return status, None
             except Exception:
                 continue
@@ -155,16 +165,19 @@ class AgentHealthMonitorService:
 
             http_client = get_default_client()
             stats_resp = http_client.get(
-                f"{url.rstrip('/')}/stats", headers=headers,
-                timeout=5.0, return_response=True, silent=True,
+                f"{url.rstrip('/')}/stats",
+                headers=headers,
+                timeout=5.0,
+                return_response=True,
+                silent=True,
             )
             if stats_resp and stats_resp.status_code == 200:
                 try:
                     resources = stats_resp.json().get("resources")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_check_agent: ignored Exception", exc_info=True)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_check_agent: ignored Exception", exc_info=True)
 
         return agent_obj, (status if status in {"online", "busy", "degraded"} else "online", resources)
 

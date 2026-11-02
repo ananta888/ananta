@@ -68,18 +68,24 @@ def run_container_golden_path(
     timeout_seconds: int = 120,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
-    checks.append({"check_id": "installed_eclipse_binary_present", "ok": eclipse_binary.exists(), "path": str(eclipse_binary)})
-    checks.append({
-        "check_id": "plugin_jar_contains_eclipse_metadata",
-        "ok": _jar_contains_plugin_metadata(plugin_jar),
-        "plugin_jar": _relative_or_absolute(plugin_jar, root),
-    })
+    checks.append(
+        {"check_id": "installed_eclipse_binary_present", "ok": eclipse_binary.exists(), "path": str(eclipse_binary)}
+    )
+    checks.append(
+        {
+            "check_id": "plugin_jar_contains_eclipse_metadata",
+            "ok": _jar_contains_plugin_metadata(plugin_jar),
+            "plugin_jar": _relative_or_absolute(plugin_jar, root),
+        }
+    )
     surfaces_ok, missing_surfaces = _jar_declares_golden_path_surfaces(plugin_jar)
-    checks.append({
-        "check_id": "plugin_declares_golden_path_surfaces",
-        "ok": surfaces_ok,
-        "missing": missing_surfaces,
-    })
+    checks.append(
+        {
+            "check_id": "plugin_declares_golden_path_surfaces",
+            "ok": surfaces_ok,
+            "missing": missing_surfaces,
+        }
+    )
 
     eclipse_home = eclipse_binary.parent
     _promote_eclipse_test_shims(eclipse_home)
@@ -98,11 +104,13 @@ def run_container_golden_path(
         dropins_plugins.mkdir(parents=True, exist_ok=True)
         installed_plugin = dropins_plugins / plugin_jar.name
         shutil.copy2(plugin_jar, installed_plugin)
-        checks.append({
-            "check_id": "plugin_dropins_install",
-            "ok": installed_plugin.exists(),
-            "installed_plugin": str(installed_plugin),
-        })
+        checks.append(
+            {
+                "check_id": "plugin_dropins_install",
+                "ok": installed_plugin.exists(),
+                "installed_plugin": str(installed_plugin),
+            }
+        )
 
     workspace.mkdir(parents=True, exist_ok=True)
     if eclipse_binary.exists():
@@ -153,12 +161,15 @@ def _promote_eclipse_test_shims(eclipse_home: Path) -> None:
             "Bundle-SymbolicName: javax.persistence\n"
             "Bundle-Name: Javax Persistence API\n"
             "Bundle-Version: 2.2.0\n"
-            "Export-Package: javax.persistence;version=\"2.2.0\";jpa=\"2.2\","
-            "javax.persistence.criteria;version=\"2.2.0\";jpa=\"2.2\","
-            "javax.persistence.metamodel;version=\"2.2.0\";jpa=\"2.2\","
-            "javax.persistence.spi;version=\"2.2.0\";jpa=\"2.2\"\n"
+            'Export-Package: javax.persistence;version="2.2.0";jpa="2.2",'
+            'javax.persistence.criteria;version="2.2.0";jpa="2.2",'
+            'javax.persistence.metamodel;version="2.2.0";jpa="2.2",'
+            'javax.persistence.spi;version="2.2.0";jpa="2.2"\n'
         )
-        with zipfile.ZipFile(dropins_persistence) as source, zipfile.ZipFile(plugins_persistence, "w", zipfile.ZIP_DEFLATED) as target:
+        with (
+            zipfile.ZipFile(dropins_persistence) as source,
+            zipfile.ZipFile(plugins_persistence, "w", zipfile.ZIP_DEFLATED) as target,
+        ):
             target.writestr("META-INF/MANIFEST.MF", manifest)
             for name in source.namelist():
                 if name.upper() != "META-INF/MANIFEST.MF":
@@ -176,11 +187,13 @@ def _detect_profile(eclipse_home: Path) -> str:
 
 def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_seconds: int) -> dict[str, Any]:
     profile = _detect_profile(eclipse_binary.parent)
-    repositories = ",".join([
-        update_site.as_uri(),
-        eclipse_binary.parent.as_uri(),
-        "https://download.eclipse.org/releases/2026-03",
-    ])
+    repositories = ",".join(
+        [
+            update_site.as_uri(),
+            eclipse_binary.parent.as_uri(),
+            "https://download.eclipse.org/releases/2026-03",
+        ]
+    )
     command = [
         str(eclipse_binary),
         "-nosplash",

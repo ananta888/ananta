@@ -17,12 +17,20 @@ def diff_graphs(
     old_nodes.discard("")
     new_nodes.discard("")
     old_edges = {
-        (str(item.get("source") or "").strip(), str(item.get("target") or "").strip(), str(item.get("relation") or item.get("type") or ""))
+        (
+            str(item.get("source") or "").strip(),
+            str(item.get("target") or "").strip(),
+            str(item.get("relation") or item.get("type") or ""),
+        )
         for item in list(old.get("edges") or [])
         if str(item.get("source") or "").strip() and str(item.get("target") or "").strip()
     }
     new_edges = {
-        (str(item.get("source") or "").strip(), str(item.get("target") or "").strip(), str(item.get("relation") or item.get("type") or ""))
+        (
+            str(item.get("source") or "").strip(),
+            str(item.get("target") or "").strip(),
+            str(item.get("relation") or item.get("type") or ""),
+        )
         for item in list(new.get("edges") or [])
         if str(item.get("source") or "").strip() and str(item.get("target") or "").strip()
     }

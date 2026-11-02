@@ -14,12 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from scripts.benchmark.semantic_media_program_measurements import (
-    _measured,
     MetricState,
     ProgramBenchmarkExecutionError,
+    _measured,
     _unavailable,
 )
-
 
 _NVIDIA_SMI = shutil.which("nvidia-smi")
 

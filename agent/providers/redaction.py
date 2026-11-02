@@ -37,11 +37,7 @@ def _normalize_markers(secret_keys: Iterable[str] | None) -> set[str]:
 
 
 def _normalize_refs(secret_refs: Iterable[str] | None) -> set[str]:
-    return {
-        str(item or "").strip().lower()
-        for item in list(secret_refs or [])
-        if str(item or "").strip()
-    }
+    return {str(item or "").strip().lower() for item in list(secret_refs or []) if str(item or "").strip()}
 
 
 def _is_sensitive_key(key: str, markers: set[str]) -> bool:
@@ -53,10 +49,7 @@ def _is_safe_protocol_token_field(key: str, value: Any) -> bool:
     """Token counts and limits (``max_context_tokens``, ``cached_tokens``, ...) are numbers, not secrets."""
     normalized = str(key or "").strip().lower()
     counted = normalized in SAFE_NUMERIC_TOKEN_KEYS or normalized.endswith("_tokens")
-    return counted and (
-        value is None
-        or (not isinstance(value, bool) and isinstance(value, (int, float)))
-    )
+    return counted and (value is None or (not isinstance(value, bool) and isinstance(value, (int, float))))
 
 
 def _redact_scalar(value: Any, *, secret_refs: set[str], replacement: str) -> Any:

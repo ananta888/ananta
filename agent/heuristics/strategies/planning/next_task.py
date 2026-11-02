@@ -1,4 +1,5 @@
 """NextTaskStrategy — planning_next_task_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, HeuristicStrategyBase, TodoReadPort
@@ -8,8 +9,17 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _NEXT_TASK_KEYWORDS = [
-    "next", "what should", "what to do", "priorit", "pick", "start",
-    "ready", "unblocked", "todo", "plan", "work on",
+    "next",
+    "what should",
+    "what to do",
+    "priorit",
+    "pick",
+    "start",
+    "ready",
+    "unblocked",
+    "todo",
+    "plan",
+    "work on",
 ]
 _MIN_SCORE = 0.1
 

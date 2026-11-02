@@ -1,8 +1,8 @@
 """Tests for agent/services/context_providers/context_provider_port.py (AUG-001)."""
+
 from __future__ import annotations
 
-import pytest
-
+from agent.services.context_providers.context_item_normalizer import FakeContextProvider
 from agent.services.context_providers.context_provider_port import (
     ContextItem,
     ContextProvider,
@@ -11,10 +11,9 @@ from agent.services.context_providers.context_provider_port import (
     ProviderCapabilities,
     ProviderHealth,
 )
-from agent.services.context_providers.context_item_normalizer import FakeContextProvider
-
 
 # ── ContextScope ──────────────────────────────────────────────────────────────
+
 
 class TestContextScope:
     def test_basic_construction(self):
@@ -42,6 +41,7 @@ class TestContextScope:
 
 
 # ── ContextItem ───────────────────────────────────────────────────────────────
+
 
 class TestContextItem:
     def _make_item(self, **kwargs) -> ContextItem:
@@ -88,6 +88,7 @@ class TestContextItem:
 
 # ── ContextProviderResult ─────────────────────────────────────────────────────
 
+
 class TestContextProviderResult:
     def test_basic_construction(self):
         result = ContextProviderResult(
@@ -118,6 +119,7 @@ class TestContextProviderResult:
 
 # ── ProviderHealth ────────────────────────────────────────────────────────────
 
+
 class TestProviderHealth:
     def test_basic_construction(self):
         health = ProviderHealth(
@@ -131,6 +133,7 @@ class TestProviderHealth:
 
 
 # ── ProviderCapabilities ──────────────────────────────────────────────────────
+
 
 class TestProviderCapabilities:
     def test_basic_construction(self):
@@ -148,6 +151,7 @@ class TestProviderCapabilities:
 
 
 # ── FakeContextProvider satisfies ContextProvider protocol ────────────────────
+
 
 class TestContextProviderProtocol:
     def test_fake_satisfies_protocol(self):
@@ -184,11 +188,21 @@ class TestContextProviderProtocol:
 
     def test_fake_returns_configured_items(self):
         from agent.services.context_providers.context_provider_port import ContextItem
+
         item = ContextItem(
-            item_id="x1", provider="fake", path="a.py", symbol=None,
-            line_start=1, line_end=5, snippet="code", score=0.9,
-            reason="", source_kind="keyword", redaction_state="clean",
-            warnings=[], correlation_id=None,
+            item_id="x1",
+            provider="fake",
+            path="a.py",
+            symbol=None,
+            line_start=1,
+            line_end=5,
+            snippet="code",
+            score=0.9,
+            reason="",
+            source_kind="keyword",
+            redaction_state="clean",
+            warnings=[],
+            correlation_id=None,
         )
         provider = FakeContextProvider(items=[item])
         scope = ContextScope(workspace_id="ws-1", allowed_paths=[], denied_paths=[])

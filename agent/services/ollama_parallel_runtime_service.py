@@ -112,7 +112,12 @@ class OllamaParallelRuntimeService:
     def get_status(self) -> dict[str, dict[str, int]]:
         with self._lock:
             payload: dict[str, dict[str, int]] = {}
-            keys = set(self._active.keys()) | set(self._queued.keys()) | set(self._rejected.keys()) | set(self._completed.keys())
+            keys = (
+                set(self._active.keys())
+                | set(self._queued.keys())
+                | set(self._rejected.keys())
+                | set(self._completed.keys())
+            )
             for key in keys:
                 bucket_key = f"{key[0]}::{key[1]}"
                 payload[bucket_key] = {

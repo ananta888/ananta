@@ -74,7 +74,7 @@ class WorkflowAdapterWorkerRuntime:
             "reason_codes": list(self.reason_codes),
         }
         if self.result_store_binding_id is not None:
-            metadata['execution_limits'] = {'native_result_store_binding_id': self.result_store_binding_id}
+            metadata["execution_limits"] = {"native_result_store_binding_id": self.result_store_binding_id}
         return metadata
 
 
@@ -92,14 +92,10 @@ def build_workflow_adapter_worker_runtime(
 
     reasons: list[str] = []
     try:
-        resolved_agent_config = configured_workflow_adapter_worker_config(
-            agent_config
-        )
+        resolved_agent_config = configured_workflow_adapter_worker_config(agent_config)
     except WorkflowAdapterWorkerProfileError as exc:
         return WorkflowAdapterWorkerRuntime(
-            consumer=WorkflowAdapterTaskConsumer(
-                authorization=_UnavailableHubAuthorization(exc.reason_code)
-            ),
+            consumer=WorkflowAdapterTaskConsumer(authorization=_UnavailableHubAuthorization(exc.reason_code)),
             reason_codes=(exc.reason_code,),
         )
     resolved_client = client
@@ -111,9 +107,7 @@ def build_workflow_adapter_worker_runtime(
     if resolved_client is None:
         reason = reasons[-1] if reasons else "workflow_hub_gateway_not_configured"
         return WorkflowAdapterWorkerRuntime(
-            consumer=WorkflowAdapterTaskConsumer(
-                authorization=_UnavailableHubAuthorization(reason)
-            ),
+            consumer=WorkflowAdapterTaskConsumer(authorization=_UnavailableHubAuthorization(reason)),
             reason_codes=tuple(reasons or [reason]),
         )
 
@@ -158,9 +152,7 @@ def build_workflow_adapter_worker_runtime(
                 tool_dependencies["registry"] = tool_registry
             if tool_invoker is not None:
                 tool_dependencies["invoker"] = tool_invoker
-            tool_pipeline = build_workflow_tool_pipeline(
-                resolved_client, **tool_dependencies
-            )
+            tool_pipeline = build_workflow_tool_pipeline(resolved_client, **tool_dependencies)
             candidate = LangGraphAdapter(
                 langgraph_config,
                 tool_pipeline=tool_pipeline,
@@ -183,9 +175,7 @@ def build_workflow_adapter_worker_runtime(
                     }
                 )
             else:
-                reasons.append(
-                    str(descriptor.reason or "langgraph_worker_adapter_unavailable")
-                )
+                reasons.append(str(descriptor.reason or "langgraph_worker_adapter_unavailable"))
 
     return WorkflowAdapterWorkerRuntime(
         consumer=WorkflowAdapterTaskConsumer(
@@ -197,8 +187,11 @@ def build_workflow_adapter_worker_runtime(
         runtime_targets=tuple(targets),
         reason_codes=tuple(dict.fromkeys(reasons)),
         result_store_binding_id=(
-            ((resolved_agent_config.get('worker_runtime') or {}).get('native_graph') or {})
-            .get('result_store_binding_id') if native_adapter is not None else None
+            ((resolved_agent_config.get("worker_runtime") or {}).get("native_graph") or {}).get(
+                "result_store_binding_id"
+            )
+            if native_adapter is not None
+            else None
         ),
         native_admission=NativeExecutionAdmission(authorization=authorization) if native_adapter is not None else None,
     )
@@ -242,9 +235,7 @@ def workflow_adapter_registration_metadata(app: Flask) -> dict[str, Any]:
     return dict(raw) if isinstance(raw, Mapping) else {}
 
 
-def _langgraph_config(
-    agent_config: Mapping[str, Any], reasons: list[str]
-) -> LangGraphProviderConfig | None:
+def _langgraph_config(agent_config: Mapping[str, Any], reasons: list[str]) -> LangGraphProviderConfig | None:
     providers = agent_config.get("providers")
     providers = providers if isinstance(providers, Mapping) else {}
     raw = providers.get("langgraph")
@@ -272,15 +263,13 @@ def _native_worker_capabilities(
     raw = native.get("capabilities") or ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
         raise ValueError("native_graph_worker_capabilities_invalid")
-    values = tuple(
-        sorted({str(value).strip() for value in raw if str(value).strip()})
-    )
+    values = tuple(sorted({str(value).strip() for value in raw if str(value).strip()}))
     pi = native.get("pi")
     if not isinstance(pi, Mapping) or pi.get("enabled") is not True:
         values = tuple(value for value in values if value != PI_NATIVE_CAPABILITY)
     if native.get("result_maintenance") is not True:
         values = tuple(value for value in values if value != MAINTENANCE_CAPABILITY)
-    if native.get('result_retirement') is not True:
+    if native.get("result_retirement") is not True:
         values = tuple(value for value in values if value != RETIREMENT_CAPABILITY)
     if len(values) > 128 or any(len(value) > 128 or "\x00" in value for value in values):
         raise ValueError("native_graph_worker_capabilities_invalid")

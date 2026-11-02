@@ -12,14 +12,18 @@ def test_central_planning_assignment_overrides_legacy_model_choice(app, monkeypa
         "default_model": "legacy-cloud",
         "hub_copilot": {"enabled": True, "strategy_mode": "planning_only"},
     }
-    monkeypatch.setattr(service, "_resolve_central_planning_model", lambda **_: SimpleNamespace(
-        provider_id="lmstudio",
-        model_id="kat-coder",
-        base_url="http://mini-pc:1234/v1",
-        assignment_source="project:ananta",
-        configuration_revision=9,
-        profile_id="local-kat-coder",
-    ))
+    monkeypatch.setattr(
+        service,
+        "_resolve_central_planning_model",
+        lambda **_: SimpleNamespace(
+            provider_id="lmstudio",
+            model_id="kat-coder",
+            base_url="http://mini-pc:1234/v1",
+            assignment_source="project:ananta",
+            configuration_revision=9,
+            profile_id="local-kat-coder",
+        ),
+    )
 
     with app.app_context():
         resolved = service.resolve_copilot_config(task_kind="coding")

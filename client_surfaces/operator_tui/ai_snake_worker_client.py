@@ -98,7 +98,9 @@ class AiSnakeWorkerClient:
 
     def submit(self, payload: dict[str, Any], *, signature: str = "") -> WorkerTask | None:
         mode = str(payload.get("mode") or "")
-        timeout_seconds = max(self._timeout_seconds, float(payload.get("budget", {}).get("max_latency_ms", 2000)) / 1000.0)
+        timeout_seconds = max(
+            self._timeout_seconds, float(payload.get("budget", {}).get("max_latency_ms", 2000)) / 1000.0
+        )
         task = WorkerTask(
             request_id=str(payload.get("request_id") or f"ai-snake-{uuid.uuid4()}"),
             mode=mode,
@@ -233,7 +235,9 @@ def _parse_json_payload(raw_text: str, *, allow_fenced: bool) -> dict[str, Any] 
 def _default_dispatch(payload: dict[str, Any]) -> dict[str, Any]:
     now = time.time()
     quick = payload.get("quick_prediction") if isinstance(payload.get("quick_prediction"), dict) else {}
-    provider_selection = payload.get("provider_selection") if isinstance(payload.get("provider_selection"), dict) else {}
+    provider_selection = (
+        payload.get("provider_selection") if isinstance(payload.get("provider_selection"), dict) else {}
+    )
     provider_ref = str(provider_selection.get("provider_preference") or "lmstudio")
     if bool(provider_selection.get("simulate_unavailable")):
         raise RuntimeError("connection refused")

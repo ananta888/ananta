@@ -103,20 +103,14 @@ def test_candidate_service_filters_by_type_sensitivity_and_source(tmp_path: Path
 def test_candidate_service_hides_resolved_system_artifacts_but_keeps_legacy_refs(
     tmp_path: Path,
 ) -> None:
-    public = artifact_repo.save(
-        ArtifactDB(id="candidate-public", artifact_metadata={})
-    )
+    public = artifact_repo.save(ArtifactDB(id="candidate-public", artifact_metadata={}))
     hidden = artifact_repo.save(
         ArtifactDB(
             id="candidate-hidden",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_worker_output"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_worker_output"},
         )
     )
-    goal_service = GoalArtifactService(
-        repository=GoalArtifactRepository(root=tmp_path)
-    )
+    goal_service = GoalArtifactService(repository=GoalArtifactRepository(root=tmp_path))
     for output_id, artifact_ref in (
         ("out-public", public.id),
         ("out-hidden", hidden.id),
@@ -143,10 +137,7 @@ def test_candidate_service_hides_resolved_system_artifacts_but_keeps_legacy_refs
         goal_artifact_service=goal_service,
     )
 
-    refs = {
-        row["artifact_ref"]
-        for row in service.list_candidates(goal_id="goal-visibility")
-    }
+    refs = {row["artifact_ref"] for row in service.list_candidates(goal_id="goal-visibility")}
 
     assert public.id in refs
     assert f"artifact:{public.id}" in refs

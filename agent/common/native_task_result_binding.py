@@ -14,10 +14,10 @@ def is_native_task(task):
     verification = task_value(task, "verification_status") or {}
     return (
         task_value(task, "derivation_reason") == "native_graph_hub_delegation"
-        or isinstance(context, Mapping) and (
-            context.get("runtime_path") == "native_graph_node" or "native_node_command" in context
-        )
-        or isinstance(verification, Mapping) and NATIVE_RESULT_RECEIPT in verification
+        or isinstance(context, Mapping)
+        and (context.get("runtime_path") == "native_graph_node" or "native_node_command" in context)
+        or isinstance(verification, Mapping)
+        and NATIVE_RESULT_RECEIPT in verification
     )
 
 
@@ -27,8 +27,7 @@ def require_native_completion_policy(authoritative, candidate):
     verification = task_value(candidate, "verification_status") or {}
     if (
         task_value(candidate, "status") in {"completed", "failed", "cancelled"}
-        or isinstance(verification, Mapping) and (
-            "native_node_result" in verification or "workflow_adapter_task_result" in verification
-        )
+        or isinstance(verification, Mapping)
+        and ("native_node_result" in verification or "workflow_adapter_task_result" in verification)
     ):
         raise RuntimeError("native_result_completion_policy_unavailable")

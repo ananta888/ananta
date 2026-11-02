@@ -218,9 +218,7 @@ class ScientificSkillManifestImporter:
     @staticmethod
     def _plugin_path(files: Mapping[str, bytes]) -> str:
         candidates = tuple(
-            path
-            for path in ("plugin.json", ".codex-plugin/plugin.json", ".claude-plugin/plugin.json")
-            if path in files
+            path for path in ("plugin.json", ".codex-plugin/plugin.json", ".claude-plugin/plugin.json") if path in files
         )
         if len(candidates) != 1:
             raise ScientificSkillManifestError("scientific_skill_plugin_missing_or_ambiguous")
@@ -412,8 +410,7 @@ def _dependency_list(value: object) -> tuple[str, ...]:
     if (
         not isinstance(value, list | tuple)
         or any(
-            not isinstance(item, str)
-            or not re.fullmatch(r"[A-Za-z0-9@][A-Za-z0-9@_./:-]{0,127}", item)
+            not isinstance(item, str) or not re.fullmatch(r"[A-Za-z0-9@][A-Za-z0-9@_./:-]{0,127}", item)
             for item in value
         )
         or len(set(value)) != len(value)
@@ -443,10 +440,7 @@ def _file_set_digest(files: Mapping[str, bytes]) -> str:
 
 
 def _file_metadata_digest(files: list[ScientificSkillFileMetadata]) -> str:
-    projection = [
-        {"path": item.relative_path, "sha256": item.sha256, "size_bytes": item.size_bytes}
-        for item in files
-    ]
+    projection = [{"path": item.relative_path, "sha256": item.sha256, "size_bytes": item.size_bytes} for item in files]
     return hashlib.sha256(
         json.dumps(projection, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
     ).hexdigest()

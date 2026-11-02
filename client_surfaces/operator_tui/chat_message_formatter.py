@@ -3,6 +3,7 @@
 Mixin extracted from chat_mixin.py (SPLIT-024). Contains all AI response
 formatting, streaming, local knowledge fallback, and tutorial event methods.
 """
+
 from __future__ import annotations
 
 import json as _json_mod
@@ -121,9 +122,7 @@ class ChatMessageFormatterMixin:
             except ValueError:
                 pass
         raw = str(
-            os.environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT")
-            or os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT")
-            or "45"
+            os.environ.get("ANANTA_TUI_CHAT_ASK_TIMEOUT") or os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT") or "45"
         ).strip()
         try:
             value = float(raw)
@@ -152,15 +151,21 @@ class ChatMessageFormatterMixin:
             game.pop("llm_last_error_at", None)
         try:
             from client_surfaces.operator_tui.chat_state import (
-                get_chat_state, set_chat_state, append_message, make_message,
+                append_message,
+                get_chat_state,
+                make_message,
+                set_chat_state,
             )
+
             chat = get_chat_state(game)
             chat["ai_typing"] = False
             ai_msg = make_message(
-                channel_id=channel_id, channel_type="ai",
+                channel_id=channel_id,
+                channel_type="ai",
                 sender_id="system" if is_error else "s-ai",
                 sender_kind="system" if is_error else "ai",
-                text=answer, visibility="ai_context" if not is_error else "system",
+                text=answer,
+                visibility="ai_context" if not is_error else "system",
                 delivery_state="received",
             )
             append_message(chat, ai_msg)
@@ -201,7 +206,9 @@ class ChatMessageFormatterMixin:
         if not isinstance(game.get("tutor_ask_timeout_s"), (int, float)):
             game["tutor_ask_timeout_s"] = timeout_s
         ask_started_at = float(game.get("tutor_ask_at") or time.monotonic())
-        deadline = float(game.get("tutor_ask_deadline_at") or (ask_started_at + float(game.get("tutor_ask_timeout_s") or timeout_s)))
+        deadline = float(
+            game.get("tutor_ask_deadline_at") or (ask_started_at + float(game.get("tutor_ask_timeout_s") or timeout_s))
+        )
         if self._tutor_ask_future is not None and not self._tutor_ask_future.done() and time.monotonic() >= deadline:
             try:
                 self._tutor_ask_future.cancel()
@@ -221,14 +228,16 @@ class ChatMessageFormatterMixin:
                 depth = self._tutor_depth_mode
                 hints = self._load_codecompass_hints(now=time.monotonic())
                 rag_context = self._load_rag_helper_context(now=time.monotonic())
-                question_tokens = [
-                    t for t in re.findall(r"[a-z0-9_./-]+", question.lower()) if len(t) >= 2
-                ][:32]
+                question_tokens = [t for t in re.findall(r"[a-z0-9_./-]+", question.lower()) if len(t) >= 2][:32]
                 memory = self._build_chat_memory(game, current_question=question)
                 self._tutor_ask_future = self._tutor_ask_executor.submit(
-                    self._resolve_ask_question, question,
-                    depth=depth, hints=hints, rag_context=rag_context,
-                    question_tokens=question_tokens, memory=memory,
+                    self._resolve_ask_question,
+                    question,
+                    depth=depth,
+                    hints=hints,
+                    rag_context=rag_context,
+                    question_tokens=question_tokens,
+                    memory=memory,
                 )
         if self._tutor_ask_future is not None and self._tutor_ask_future.done():
             try:
@@ -364,7 +373,9 @@ class ChatMessageFormatterMixin:
         if pass_memory:
             try:
                 data = _post_snake_ask(
-                    endpoint_norm, build_snake_ask_v2_payload(build_result.worker_v2_payload, game), hub_headers,
+                    endpoint_norm,
+                    build_snake_ask_v2_payload(build_result.worker_v2_payload, game),
+                    hub_headers,
                     ask_timeout,
                 )
                 answer = str(data.get("answer") or data.get("text") or "")
@@ -436,7 +447,12 @@ class ChatMessageFormatterMixin:
             return ""
         timeout_seconds = max(0.8, min(14.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "3.0"))))
         game = dict(self.state.header_logo_game or {})
-        model = str(game.get("chat_backend_model") or os.environ.get("ANANTA_TUI_CHAT_MODEL") or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "").strip()
+        model = str(
+            game.get("chat_backend_model")
+            or os.environ.get("ANANTA_TUI_CHAT_MODEL")
+            or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
+            or ""
+        ).strip()
         prior_section = ""
         if prior_messages:
             parts = []
@@ -496,12 +512,20 @@ class ChatMessageFormatterMixin:
         context_chars_raw = game.get("chat_context_chars")
         max_tokens_raw = game.get("chat_max_tokens")
         try:
-            context_chars = int(context_chars_raw) if context_chars_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000"))
+            context_chars = (
+                int(context_chars_raw)
+                if context_chars_raw is not None
+                else int(os.environ.get("ANANTA_TUI_CHAT_CONTEXT_CHARS", "3000"))
+            )
         except (TypeError, ValueError):
             context_chars = 3000
         context_chars = max(500, min(20000, context_chars))
         try:
-            max_tokens = int(max_tokens_raw) if max_tokens_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400"))
+            max_tokens = (
+                int(max_tokens_raw)
+                if max_tokens_raw is not None
+                else int(os.environ.get("ANANTA_TUI_CHAT_MAX_TOKENS", "400"))
+            )
         except (TypeError, ValueError):
             max_tokens = 400
         max_tokens = max(100, min(8000, max_tokens))
@@ -524,15 +548,20 @@ class ChatMessageFormatterMixin:
             try:
                 game = dict(self.state.header_logo_game or {})
                 game["chat_prompt_warning"] = "ANANTA_TUI_CHAT_SYSTEM_PROMPT ohne {context}; nutze Default"
-                self.state = self.state.with_updates(header_logo_game=game, status_message="chat prompt fallback: {context} fehlt")
+                self.state = self.state.with_updates(
+                    header_logo_game=game, status_message="chat prompt fallback: {context} fehlt"
+                )
             except Exception:
                 pass
-        system_content = system_template.replace("{context}", context_text[:context_chars]).replace(
-            "{depth_instruction}", depth_instruction
-        ).replace("{project_name}", project_name)
+        system_content = (
+            system_template.replace("{context}", context_text[:context_chars])
+            .replace("{depth_instruction}", depth_instruction)
+            .replace("{project_name}", project_name)
+        )
 
         try:
             from agent.services.agent_profile_service import get_agent_profile_service
+
             _snake_profile = get_agent_profile_service().resolve_by_profile_id("ai_snake_chat")
             if _snake_profile.profile_agents_content:
                 _profile_header = _snake_profile.profile_agents_content.strip()
@@ -559,18 +588,25 @@ class ChatMessageFormatterMixin:
 
         _game_streaming = game.get("chat_streaming")
         if _game_streaming is None:
-            stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {"0", "false", "no", "off"}
+            stream_enabled = str(os.environ.get("ANANTA_TUI_CHAT_STREAMING", "1")).strip().lower() not in {
+                "0",
+                "false",
+                "no",
+                "off",
+            }
         else:
             stream_enabled = bool(_game_streaming)
         timeout = self._chat_ask_timeout_seconds() if not stream_enabled else timeout
         try:
-            body = _json_mod.dumps({
-                "model": model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": 0.4,
-                **({"stream": True} if stream_enabled else {}),
-            }).encode()
+            body = _json_mod.dumps(
+                {
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": 0.4,
+                    **({"stream": True} if stream_enabled else {}),
+                }
+            ).encode()
             headers: dict[str, str] = {"Content-Type": "application/json"}
             if api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
@@ -686,6 +722,7 @@ class ChatMessageFormatterMixin:
 
     def _local_knowledge_answer(self, question: str) -> str:
         from client_surfaces.operator_tui.tutorial_ai_mixin import _score_rag_record
+
         tokens = [t for t in re.findall(r"[a-z0-9_]+", question.lower()) if len(t) > 3]
         scored = sorted(
             ((f, _score_rag_record(f.lower(), tokens)) for f in _TUTORIAL_AI_KNOWLEDGE),
@@ -696,10 +733,14 @@ class ChatMessageFormatterMixin:
         if best:
             combined = " \u2014 ".join(best)
             return combined[:300]
-        return scored[0][0] if scored else (
-            f"TUI: [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] Focus, [:] Command, "
-            f"[{display_for_action('toggle_snake_mode', 'Ctrl+S')}] Snake, "
-            f"[{display_for_action('help', 'Ctrl+Y')}] Hilfe."
+        return (
+            scored[0][0]
+            if scored
+            else (
+                f"TUI: [{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}] Focus, [:] Command, "
+                f"[{display_for_action('toggle_snake_mode', 'Ctrl+S')}] Snake, "
+                f"[{display_for_action('help', 'Ctrl+Y')}] Hilfe."
+            )
         )
 
     # ── E04.T04: tutorial event processing ───────────────────────────────────
@@ -721,7 +762,9 @@ class ChatMessageFormatterMixin:
 
     def _append_ai_monitor_log(self, game: dict[str, object], *, event: str, label: str) -> None:
         rows_raw = game.get("ai_snake_monitor_log")
-        rows: list[dict[str, object]] = [dict(item) for item in rows_raw if isinstance(item, dict)] if isinstance(rows_raw, list) else []
+        rows: list[dict[str, object]] = (
+            [dict(item) for item in rows_raw if isinstance(item, dict)] if isinstance(rows_raw, list) else []
+        )
         now = time.time()
         normalized = str(label or event or "").strip()
         if rows:
@@ -740,8 +783,14 @@ class ChatMessageFormatterMixin:
         if not isinstance(ts_raw, dict) or not ts_raw.get("active"):
             return
         try:
-            from client_surfaces.operator_tui.snake_tutorial import get_current_step, advance_step, check_step_completion, make_step_artifact
             from client_surfaces.operator_tui.snake_persistence import save_tutorial_progress
+            from client_surfaces.operator_tui.snake_tutorial import (
+                advance_step,
+                check_step_completion,
+                get_current_step,
+                make_step_artifact,
+            )
+
             step = get_current_step(ts_raw)
             if step is None:
                 return
@@ -759,6 +808,7 @@ class ChatMessageFormatterMixin:
                 if not ts_new.get("active"):
                     try:
                         from client_surfaces.operator_tui.snake_tutorial import make_completion_artifact
+
                         comp_art = make_completion_artifact(ts_new)
                         self._post_artifact_async(comp_art)
                     except Exception:
@@ -770,6 +820,7 @@ class ChatMessageFormatterMixin:
         try:
             endpoint = str(self.state.endpoint or "http://localhost:5000")
             import json as _json
+
             body = _json.dumps(artifact).encode()
             req = urllib.request.Request(
                 f"{endpoint}/artifacts",
@@ -777,9 +828,7 @@ class ChatMessageFormatterMixin:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            self._tutorial_async_tip_executor.submit(
-                lambda: urllib.request.urlopen(req, timeout=2.0)
-            )
+            self._tutorial_async_tip_executor.submit(lambda: urllib.request.urlopen(req, timeout=2.0))
         except Exception:
             pass
 

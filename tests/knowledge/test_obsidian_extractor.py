@@ -1,11 +1,10 @@
 """Tests for ObsidianExtractor (OBS-004, OBS-007, OBS-008)."""
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
@@ -18,7 +17,6 @@ from rag_helper.extractors.obsidian import (
     extract_wikilinks,
     heading_to_anchor,
     parse_frontmatter,
-    resolve_link,
 )
 
 VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
@@ -29,6 +27,7 @@ BETA_MD = (VAULT_DIR / "projects" / "Beta.md").read_text(encoding="utf-8")
 
 
 # ── parse_frontmatter ─────────────────────────────────────────────────────────
+
 
 def test_parse_frontmatter_basic():
     text = "---\ntitle: Hello\ntags: [a, b]\n---\n# Body"
@@ -60,6 +59,7 @@ def test_parse_frontmatter_alpha():
 
 # ── extract_headings ──────────────────────────────────────────────────────────
 
+
 def test_extract_headings_basic():
     body = "# H1\n## H2\n### H3\nsome text"
     headings = extract_headings(body)
@@ -90,6 +90,7 @@ def test_extract_headings_alpha():
 
 # ── heading_to_anchor ─────────────────────────────────────────────────────────
 
+
 def test_heading_to_anchor_basic():
     assert heading_to_anchor("Hello World") == "hello-world"
 
@@ -101,6 +102,7 @@ def test_heading_to_anchor_special_chars():
 
 
 # ── extract_wikilinks ─────────────────────────────────────────────────────────
+
 
 def test_extract_wikilinks_simple():
     body = "See [[Note A]] and [[Note B]]."
@@ -151,6 +153,7 @@ def test_extract_wikilinks_skips_code_blocks():
 
 # ── extract_tags ──────────────────────────────────────────────────────────────
 
+
 def test_extract_tags_from_frontmatter():
     fm = {"tags": ["project", "important"]}
     tags = extract_tags(fm, "")
@@ -182,6 +185,7 @@ def test_extract_tags_alpha():
 
 # ── extract_codeblocks ────────────────────────────────────────────────────────
 
+
 def test_extract_codeblocks_basic():
     body = "text\n```python\ncode here\n```\nmore text"
     blocks = extract_codeblocks(body)
@@ -204,6 +208,7 @@ def test_extract_codeblocks_multiple():
 
 
 # ── chunk_by_headings ─────────────────────────────────────────────────────────
+
 
 def test_chunk_by_headings_basic():
     body = "intro\n## Section A\ncontent A\n## Section B\ncontent B"
@@ -242,6 +247,7 @@ def test_chunk_by_headings_respects_min_size():
 
 # ── pre_scan_types ────────────────────────────────────────────────────────────
 
+
 def test_pre_scan_types_title_from_frontmatter():
     extractor = ObsidianExtractor(vault_name="test")
     result = extractor.pre_scan_types("projects/Alpha.md", ALPHA_MD)
@@ -263,6 +269,7 @@ def test_pre_scan_types_aliases():
 
 
 # ── parse ─────────────────────────────────────────────────────────────────────
+
 
 def test_parse_returns_4_tuple():
     extractor = ObsidianExtractor(vault_name="test")

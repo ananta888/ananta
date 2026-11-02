@@ -9,16 +9,35 @@ from typing import Any
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand, NativeNodeResult
 from ananta_contracts.pi_result_artifact import pi_answer_artifact
 
-_FIELDS = frozenset({
-    "schema", "result_id", "command_id", "hub_task_id", "tenant_id", "workflow_id", "run_id", "node_id",
-    "attempt_id", "fencing_token", "status", "output_data", "artifact_refs", "budget_usage", "reason_code",
-    "side_effect_status",
-})
+_FIELDS = frozenset(
+    {
+        "schema",
+        "result_id",
+        "command_id",
+        "hub_task_id",
+        "tenant_id",
+        "workflow_id",
+        "run_id",
+        "node_id",
+        "attempt_id",
+        "fencing_token",
+        "status",
+        "output_data",
+        "artifact_refs",
+        "budget_usage",
+        "reason_code",
+        "side_effect_status",
+    }
+)
 _IDENTIFIERS = ("result_id", "command_id", "hub_task_id", "tenant_id", "workflow_id", "run_id", "node_id", "attempt_id")
 
 
 def validate_pi_native_result(
-    raw: Mapping[str, Any], *, command: NativeNodeCommand, hub_task_id: str, task_status: str | None = None,
+    raw: Mapping[str, Any],
+    *,
+    command: NativeNodeCommand,
+    hub_task_id: str,
+    task_status: str | None = None,
 ) -> NativeNodeResult:
     """Validate without coercing wire values or interpreting correlations as evidence.
 
@@ -31,9 +50,14 @@ def validate_pi_native_result(
     if not isinstance(raw, Mapping) or set(raw) != _FIELDS:
         raise ValueError("pi_native_result_contract_invalid")
     expected = {
-        "command_id": command.command_id, "hub_task_id": hub_task_id, "tenant_id": command.tenant_id,
-        "workflow_id": command.workflow_id, "run_id": command.run_id, "node_id": command.node.node_id,
-        "attempt_id": command.attempt_id, "fencing_token": command.fencing_token,
+        "command_id": command.command_id,
+        "hub_task_id": hub_task_id,
+        "tenant_id": command.tenant_id,
+        "workflow_id": command.workflow_id,
+        "run_id": command.run_id,
+        "node_id": command.node.node_id,
+        "attempt_id": command.attempt_id,
+        "fencing_token": command.fencing_token,
     }
     if type(raw["fencing_token"]) is not int or any(raw[key] != value for key, value in expected.items()):
         raise ValueError("pi_native_result_binding_mismatch")
@@ -42,9 +66,12 @@ def validate_pi_native_result(
     if (
         raw["schema"] != "ananta.native_node_result.v1"
         or any(not _identifier(raw[key]) for key in _IDENTIFIERS)
-        or not isinstance(raw["reason_code"], str) or not isinstance(raw["status"], str)
+        or not isinstance(raw["reason_code"], str)
+        or not isinstance(raw["status"], str)
         or raw["status"] not in {"completed", "failed", "cancelled"}
-        or not _valid_artifacts(raw, command) or raw["budget_usage"] != {} or raw["side_effect_status"] != ""
+        or not _valid_artifacts(raw, command)
+        or raw["budget_usage"] != {}
+        or raw["side_effect_status"] != ""
         or not _valid_output(raw, command.provider_binding.model_id)
     ):
         raise ValueError("pi_native_result_contract_invalid")
@@ -60,13 +87,15 @@ def _identifier(value: object) -> bool:
 
 def _valid_artifacts(raw, command):
     declaration = pi_answer_artifact(command)
-    references = raw['artifact_refs']
-    if declaration is None or raw['status'] != 'completed':
+    references = raw["artifact_refs"]
+    if declaration is None or raw["status"] != "completed":
         return references == {}
-    return (isinstance(references, dict) and set(references) == {declaration.output_name}
-            and isinstance(references[declaration.output_name], str)
-            and re.fullmatch(r'artifact://native-artifact-[0-9a-f]{64}',
-                             references[declaration.output_name]) is not None)
+    return (
+        isinstance(references, dict)
+        and set(references) == {declaration.output_name}
+        and isinstance(references[declaration.output_name], str)
+        and re.fullmatch(r"artifact://native-artifact-[0-9a-f]{64}", references[declaration.output_name]) is not None
+    )
 
 
 def _valid_output(raw: Mapping[str, Any], model_id: str) -> bool:
@@ -78,10 +107,12 @@ def _valid_output(raw: Mapping[str, Any], model_id: str) -> bool:
     if set(output) != {"provider_id", "model_id", "output", "exit_code"}:
         return False
     return (
-        output["provider_id"] == "pi" and output["model_id"] == model_id
+        output["provider_id"] == "pi"
+        and output["model_id"] == model_id
         and _bounded_text(output["output"])
         and (completed or output["output"] == "")
-        and type(output["exit_code"]) is int and -255 <= output["exit_code"] <= 255
+        and type(output["exit_code"]) is int
+        and -255 <= output["exit_code"] <= 255
         and (not completed or output["exit_code"] == 0)
     )
 

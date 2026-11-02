@@ -15,9 +15,7 @@ def _conditional_payload() -> dict[str, object]:
     return {
         "extensions": {},
         "schema": CAPABILITY_DESCRIPTOR_SCHEMA,
-        "model_id": (
-            "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7"
-        ),
+        "model_id": ("model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7"),
         "capability_id": "analysis.static.tensor-statistics",
         "state": "conditional",
         "evidence": "declared",
@@ -34,10 +32,7 @@ def test_conditional_capability_preserves_canonical_state_and_reason() -> None:
     )
 
     assert parsed.state is CapabilityState.CONDITIONAL
-    assert (
-        parsed.reason_code
-        is CapabilityReasonCode.REQUIRES_COMPATIBLE_MODEL_TASK
-    )
+    assert parsed.reason_code is CapabilityReasonCode.REQUIRES_COMPATIBLE_MODEL_TASK
 
 
 def test_conditional_capability_requires_reason_code() -> None:

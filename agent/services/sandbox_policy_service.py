@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _CLASS_ORDER = {
     "low-risk-readonly": 0,
     "bounded-mutable": 1,
@@ -36,10 +35,24 @@ class SandboxPolicyService:
         terminal = dict(payload.get("terminal_access") or {})
         test_rollout = dict(payload.get("test_rollout") or {})
 
-        workspace_roots = [str(item or "").strip() for item in list(filesystem.get("allowed_workspace_roots") or ["/workspace", "/project-workspaces"]) if str(item or "").strip()]
-        blocked_path_fragments = [str(item or "").strip() for item in list(filesystem.get("blocked_path_fragments") or ["/.ssh", "/etc/", "/proc/", "/sys/"]) if str(item or "").strip()]
-        allowed_domains = [str(item or "").strip().lower() for item in list(network.get("allowed_domains") or []) if str(item or "").strip()]
-        allowed_cidrs = [str(item or "").strip() for item in list(network.get("allowed_cidrs") or []) if str(item or "").strip()]
+        workspace_roots = [
+            str(item or "").strip()
+            for item in list(filesystem.get("allowed_workspace_roots") or ["/workspace", "/project-workspaces"])
+            if str(item or "").strip()
+        ]
+        blocked_path_fragments = [
+            str(item or "").strip()
+            for item in list(filesystem.get("blocked_path_fragments") or ["/.ssh", "/etc/", "/proc/", "/sys/"])
+            if str(item or "").strip()
+        ]
+        allowed_domains = [
+            str(item or "").strip().lower()
+            for item in list(network.get("allowed_domains") or [])
+            if str(item or "").strip()
+        ]
+        allowed_cidrs = [
+            str(item or "").strip() for item in list(network.get("allowed_cidrs") or []) if str(item or "").strip()
+        ]
         blocked_target_types = [
             str(item or "").strip().lower()
             for item in list(terminal.get("blocked_target_types") or ["hub_as_worker"])
@@ -61,12 +74,26 @@ class SandboxPolicyService:
             },
             "command_wrappers": {
                 "enabled": bool(wrappers.get("enabled", True)),
-                "default_isolation_class": self._normalize_class(wrappers.get("default_isolation_class"), "bounded-mutable"),
+                "default_isolation_class": self._normalize_class(
+                    wrappers.get("default_isolation_class"), "bounded-mutable"
+                ),
                 "high_risk_patterns": [
                     str(item or "").strip().lower()
                     for item in list(
                         wrappers.get("high_risk_patterns")
-                        or ["sudo ", "docker ", "podman ", "rm -rf", "chmod ", "chown ", "apt ", "yum ", "dnf ", "curl ", "wget "]
+                        or [
+                            "sudo ",
+                            "docker ",
+                            "podman ",
+                            "rm -rf",
+                            "chmod ",
+                            "chown ",
+                            "apt ",
+                            "yum ",
+                            "dnf ",
+                            "curl ",
+                            "wget ",
+                        ]
                     )
                     if str(item or "").strip()
                 ],
@@ -82,7 +109,8 @@ class SandboxPolicyService:
             },
             "test_rollout": {
                 "enabled": bool(test_rollout.get("enabled", True)),
-                "default_environment": str(test_rollout.get("default_environment") or "sandboxed").strip().lower() or "sandboxed",
+                "default_environment": str(test_rollout.get("default_environment") or "sandboxed").strip().lower()
+                or "sandboxed",
                 "phases": [
                     str(item or "").strip().lower()
                     for item in list(test_rollout.get("phases") or ["dry_run", "canary", "full"])
@@ -103,7 +131,9 @@ class SandboxPolicyService:
         high_risk_patterns = list(((policy.get("command_wrappers") or {}).get("high_risk_patterns") or []))
         if any(pattern in text for pattern in high_risk_patterns):
             return "hardened-high-risk"
-        if text.startswith(("ls", "cat ", "git status", "git diff", "echo ", "pytest", "python ", "npm test", "go test")):
+        if text.startswith(
+            ("ls", "cat ", "git status", "git diff", "echo ", "pytest", "python ", "npm test", "go test")
+        ):
             return "bounded-mutable"
         if text.startswith(("cp ", "mv ", "rm ", "sed ", "tee ", "git commit", "git push")):
             return "bounded-mutable"

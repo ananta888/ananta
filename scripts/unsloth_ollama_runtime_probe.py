@@ -184,10 +184,7 @@ def _unload_model(base_url: str, model_name: str) -> None:
     while time.monotonic() < deadline:
         current = requests.get(f"{base_url}/api/ps", timeout=5)
         current.raise_for_status()
-        if not any(
-            item.get("model") == f"{model_name}:latest"
-            for item in current.json().get("models") or []
-        ):
+        if not any(item.get("model") == f"{model_name}:latest" for item in current.json().get("models") or []):
             return
         time.sleep(0.25)
     raise OllamaRuntimeProbeError("ollama_probe_gpu_release_timeout")

@@ -1,13 +1,18 @@
 from __future__ import annotations
-import os, re, shutil, subprocess, sys, time, threading, uuid
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable
 
+import logging
+import os
+import re
+import subprocess
+import time
+import uuid
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
+
+from agent.services.augment.auggie_cli_worker import ENV_ALLOWLIST, SECRET_ENV_PATTERNS, ChangeProposal
 from agent.services.augment.augment_config import AugmentConfig
-from agent.services.augment.auggie_cli_worker import (
-    ChangeProposal, ENV_ALLOWLIST, SECRET_ENV_PATTERNS
-)
+
 
 class SessionStatus(str, Enum):
     INITIALIZING = "initializing"
@@ -17,16 +22,16 @@ class SessionStatus(str, Enum):
     FAILED = "failed"
     KILLED = "killed"
 
+
 class TurnKind(str, Enum):
     USER_INPUT = "user_input"
     AUGGIE_OUTPUT = "auggie_output"
     SYSTEM_EVENT = "system_event"
     APPROVAL_GATE = "approval_gate"
 
-SECRET_REDACT_PATTERN = re.compile(
-    r"(token|secret|key|password|bearer|authorization)\s*[:=]\s*\S+",
-    re.IGNORECASE
-)
+
+SECRET_REDACT_PATTERN = re.compile(r"(token|secret|key|password|bearer|authorization)\s*[:=]\s*\S+", re.IGNORECASE)
+
 
 @dataclass
 class SessionScope:
@@ -38,14 +43,16 @@ class SessionScope:
     max_session_seconds: int = 1800
     idle_timeout_seconds: int = 120
 
+
 @dataclass
 class SessionTurn:
     turn_id: str
     kind: TurnKind
-    content_redacted: str   # redacted content only — no raw secrets
+    content_redacted: str  # redacted content only — no raw secrets
     timestamp: float
     approval_required: bool = False
     approval_ref: str | None = None
+
 
 @dataclass
 class SessionRecord:
@@ -96,11 +103,14 @@ class SessionRecord:
             "change_proposal_ref": self.change_proposal_ref,
         }
 
+
 class SessionConfigError(ValueError):
     pass
 
+
 class SessionSecurityError(PermissionError):
     pass
+
 
 # AUG-501: PTY abstraction — isolated in this module
 class _PtyProcess:
@@ -123,8 +133,11 @@ class _PtyProcess:
     def start(self) -> None:
         self._proc = subprocess.Popen(
             self._args,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env=self._env, cwd=self._cwd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self._env,
+            cwd=self._cwd,
             shell=False,  # NEVER shell=True
         )
         self._last_activity = time.time()
@@ -161,7 +174,7 @@ class _PtyProcess:
                 try:
                     self._proc.kill()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("terminate: ignored Exception", exc_info=True)
 
 
 class AuggieInteractiveBridge:
@@ -269,8 +282,7 @@ class AuggieInteractiveBridge:
         if record is None:
             return None
         return [
-            {"turn_id": t.turn_id, "kind": t.kind.value,
-             "content": t.content_redacted, "timestamp": t.timestamp}
+            {"turn_id": t.turn_id, "kind": t.kind.value, "content": t.content_redacted, "timestamp": t.timestamp}
             for t in record.turns
         ]
 
@@ -289,7 +301,9 @@ class AuggieInteractiveBridge:
             proposal_id=str(uuid.uuid4()),
             run_id=record.session_id,
             worker=self.WORKER_ID,
-            changed_files=[], new_files=[], deleted_files=[],
+            changed_files=[],
+            new_files=[],
+            deleted_files=[],
             binary_files_blocked=[],
             diff_lines=[],
             test_commands_suggested=[],

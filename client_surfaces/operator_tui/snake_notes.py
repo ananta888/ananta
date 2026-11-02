@@ -3,6 +3,7 @@
 Speicherpfad: ~/.config/ananta/snake_notes.jsonl
 Invariante: Notes werden NIE an Hub, andere Snakes oder AI gesendet.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,6 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
-
 
 _NOTES_FILE = "snake_notes.jsonl"
 _MAX_LOAD = 500

@@ -1,12 +1,14 @@
 """Tests for Job Application Flow — status machine, agents, blueprints (JOBCORE-002/JOBAGENT-001/JOBFLOW-001)."""
+
 from __future__ import annotations
 
 import pytest
-from agent.job_module import setup as job_setup
+
 from agent.caseflow.status_machine import get_status_machine
+from agent.job_module import setup as job_setup
+from agent.job_module.blueprints import JOB_APPLICATION_BLUEPRINTS
 from agent.visual_process.skill_profiles import get_skill_profile_registry
 from agent.visual_process.validator import VisualProcessValidator
-from agent.job_module.blueprints import JOB_APPLICATION_BLUEPRINTS, register_job_blueprints
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +20,6 @@ class TestJobStatusMachine:
     def test_job_status_machine_registered(self):
         m = get_status_machine("job_application")
         assert m is not None
-
 
     def test_preparing_to_applied_logs_applied_at(self):
         m = get_status_machine("job_application")
@@ -47,8 +48,10 @@ class TestJobSkillProfiles:
         registry = get_skill_profile_registry()
         profile_ids = [p.id for p in registry.all()]
         expected = [
-            "job_discovery_agent", "job_posting_parser_agent",
-            "cover_letter_agent", "fit_evaluator_agent",
+            "job_discovery_agent",
+            "job_posting_parser_agent",
+            "cover_letter_agent",
+            "fit_evaluator_agent",
             "application_audit_agent",
         ]
         for pid in expected:

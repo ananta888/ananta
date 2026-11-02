@@ -2,18 +2,19 @@
 
 Extracted from config_graph_builder_service.py (VACGE-001/002, FSR-M09).
 """
+
 from __future__ import annotations
 
 from agent.services.config_graph_models import (
-    PATH_CHARACTER_TEST,
+    _ROLE_CHARACTER_RULES,
     PATH_CHARACTER_ANALYSIS,
-    PATH_CHARACTER_OPS,
-    PATH_CHARACTER_MAINTENANCE,
     PATH_CHARACTER_CREATIVE,
     PATH_CHARACTER_EXPLAIN,
-    PATH_CHARACTER_UNKNOWN,
-    _ROLE_CHARACTER_RULES,
     PATH_CHARACTER_LABELS,
+    PATH_CHARACTER_MAINTENANCE,
+    PATH_CHARACTER_OPS,
+    PATH_CHARACTER_TEST,
+    PATH_CHARACTER_UNKNOWN,
 )
 
 
@@ -114,8 +115,7 @@ _CONTEXT_AUTHORITY: dict[str, dict] = {
     "explain_navigate": {
         "label": "Erklär-/Navigations-Kontext",
         "description": (
-            "Navigation und Erklärung im bestehenden Code. "
-            "Keine Modifikationsabsicht — reiner Lesezugriff."
+            "Navigation und Erklärung im bestehenden Code. Keine Modifikationsabsicht — reiner Lesezugriff."
         ),
         "primary_sources": ["source_code", "codecompass"],
         "codecompass": "primary",

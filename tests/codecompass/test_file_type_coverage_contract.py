@@ -59,9 +59,7 @@ def test_coverage_report_records_every_outcome_and_aggregates_deterministically(
     assert payload["aggregate"]["symbol_count"] == 2
     assert payload["aggregate"]["edge_count"] == 1
     assert payload["aggregate"]["by_fallback"]["parser_fallback"]["count"] == 1
-    python_snapshot = next(
-        item for item in report.metrics_snapshot() if item["format_id"] == "python"
-    )
+    python_snapshot = next(item for item in report.metrics_snapshot() if item["format_id"] == "python")
     assert python_snapshot == {
         "format_id": "python",
         "file_count": 1,

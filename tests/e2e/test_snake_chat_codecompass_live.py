@@ -18,6 +18,7 @@ Dieser Test:
   5. Prüft dass "[Kontext: 0 Treffer]" NICHT vorkommt
   6. Prüft dass mindestens ein Kontext-Treffer erwähnt wird
 """
+
 from __future__ import annotations
 
 import json
@@ -86,7 +87,13 @@ def _login() -> str:
             key, _, value = raw.partition("=")
             dotenv[key.strip()] = value.strip().strip('"').strip("'")
     user_candidates = [ADMIN_USER, dotenv.get("INITIAL_ADMIN_USER"), "admin"]
-    password_candidates = [ADMIN_PASSWORD, os.environ.get("ANANTA_PASSWORD"), dotenv.get("INITIAL_ADMIN_PASSWORD"), "test123", "admin"]
+    password_candidates = [
+        ADMIN_PASSWORD,
+        os.environ.get("ANANTA_PASSWORD"),
+        dotenv.get("INITIAL_ADMIN_PASSWORD"),
+        "test123",
+        "admin",
+    ]
     seen: set[tuple[str, str]] = set()
     for user in [str(u or "").strip() for u in user_candidates if str(u or "").strip()]:
         for password in [str(p or "").strip() for p in password_candidates if str(p or "").strip()]:
@@ -118,14 +125,19 @@ def _index_probe_files(token: str) -> str:
     assert records, f"None of the probe files found under {ROOT}"
 
     source_id = "ananta-e2e-probe"
-    result = _api("/knowledge/sources/index-records", "POST", {
-        "source_scope": "repo_path",
-        "source_id": source_id,
-        "records": records,
-        "async": False,
-        "profile_name": "deep_code",
-        "source_metadata": {"context": "e2e_snake_chat_test"},
-    }, token=token)
+    result = _api(
+        "/knowledge/sources/index-records",
+        "POST",
+        {
+            "source_scope": "repo_path",
+            "source_id": source_id,
+            "records": records,
+            "async": False,
+            "profile_name": "deep_code",
+            "source_metadata": {"context": "e2e_snake_chat_test"},
+        },
+        token=token,
+    )
 
     assert result.get("status") == "success", f"Indexing failed: {result}"
     return source_id
@@ -204,8 +216,9 @@ def test_hub_is_reachable() -> None:
     """Smoke: Hub antwortet auf /health."""
     _require_live()
     result = _api("/health")
-    assert result.get("status") in {"ok", "success", "healthy"} or result.get("ok"), \
+    assert result.get("status") in {"ok", "success", "healthy"} or result.get("ok"), (
         f"Hub /health returned unexpected: {result}"
+    )
 
 
 def test_knowledge_index_is_populated_after_setup(tmp_path: Path) -> None:
@@ -217,9 +230,7 @@ def test_knowledge_index_is_populated_after_setup(tmp_path: Path) -> None:
     result = _api("/knowledge/indexes", token=token)
     items = (result.get("data") or {}).get("items") or result.get("items") or []
 
-    assert len(items) >= 1, (
-        "No knowledge indexes found. Run: python scripts/setup_codecompass_index.py"
-    )
+    assert len(items) >= 1, "No knowledge indexes found. Run: python scripts/setup_codecompass_index.py"
 
 
 def test_snake_chat_codecompass_returns_project_context() -> None:
@@ -233,21 +244,16 @@ def test_snake_chat_codecompass_returns_project_context() -> None:
     try:
         # Ask something directly about indexed code
         _send_chat_message(
-            snake_id, snake_token, token,
-            "Was macht die Funktion _build_grounded_snake_prompt in snakes.py?"
+            snake_id, snake_token, token, "Was macht die Funktion _build_grounded_snake_prompt in snakes.py?"
         )
         response = _wait_for_ai_response(snake_id, token)
 
         assert response, "AI-Snake returned empty response"
-        assert "[Kontext: 0 Treffer]" not in response, (
-            f"CodeCompass lieferte keine Treffer. Antwort:\n{response[:500]}"
-        )
+        assert "[Kontext: 0 Treffer]" not in response, f"CodeCompass lieferte keine Treffer. Antwort:\n{response[:500]}"
         # Should mention some actual code context
         context_markers = ["Kontext:", "Treffer", "snakes", "snake", "grounded", "prompt", "rag"]
         has_context = any(m.lower() in response.lower() for m in context_markers)
-        assert has_context, (
-            f"Response doesn't mention any project-relevant terms.\nResponse: {response[:500]}"
-        )
+        assert has_context, f"Response doesn't mention any project-relevant terms.\nResponse: {response[:500]}"
     finally:
         _delete_snake(snake_id, token)
 
@@ -262,21 +268,16 @@ def test_snake_chat_codecompass_ananta_folder_structure() -> None:
     snake_id, snake_token = _register_snake(token)
     try:
         _send_chat_message(
-            snake_id, snake_token, token,
-            "Welche Routes gibt es im agent/routes Ordner? Nenne konkrete Dateinamen."
+            snake_id, snake_token, token, "Welche Routes gibt es im agent/routes Ordner? Nenne konkrete Dateinamen."
         )
         response = _wait_for_ai_response(snake_id, token)
 
         assert response, "AI-Snake returned empty response"
-        assert "[Kontext: 0 Treffer]" not in response, (
-            f"CodeCompass lieferte keine Treffer. Antwort:\n{response[:500]}"
-        )
+        assert "[Kontext: 0 Treffer]" not in response, f"CodeCompass lieferte keine Treffer. Antwort:\n{response[:500]}"
         # Should mention at least one actual route file
         known_routes = ["snakes", "share_sessions", "pair_groups", "knowledge", "auth"]
         mentioned = [r for r in known_routes if r in response.lower()]
-        assert mentioned, (
-            f"Response doesn't mention any known routes. Response: {response[:500]}"
-        )
+        assert mentioned, f"Response doesn't mention any known routes. Response: {response[:500]}"
     finally:
         _delete_snake(snake_id, token)
 
@@ -287,10 +288,7 @@ def test_snake_chat_codecompass_no_context_fallback() -> None:
     token = _login()
     snake_id, snake_token = _register_snake(token)
     try:
-        _send_chat_message(
-            snake_id, snake_token, token,
-            "Was ist die Hauptstadt von Island?"
-        )
+        _send_chat_message(snake_id, snake_token, token, "Was ist die Hauptstadt von Island?")
         response = _wait_for_ai_response(snake_id, token)
         # Should still respond (even with 0 context), just not crash
         assert response, "AI-Snake returned empty response for off-topic question"

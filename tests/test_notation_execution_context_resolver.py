@@ -13,7 +13,6 @@ Validates that the resolver:
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -34,21 +33,23 @@ def resolver() -> PatternExecutionContextResolver:
 
 
 def test_resolver_accepts_mermaid_class_in_dry_run(resolver):
-    ctx = resolver.resolve(raw_proposal={
-        "pattern_id": "mermaid.class",
-        "language": "mermaid",
-        "task_kind": "diagram_mermaid",
-        "parameters_provided": {
-            "direction": "LR",
-            "classes": [
-                {"name": "A"},
-                {"name": "B"},
-            ],
-            "relationships": [
-                {"type": "inheritance", "from": "B", "to": "A"},
-            ],
-        },
-    })
+    ctx = resolver.resolve(
+        raw_proposal={
+            "pattern_id": "mermaid.class",
+            "language": "mermaid",
+            "task_kind": "diagram_mermaid",
+            "parameters_provided": {
+                "direction": "LR",
+                "classes": [
+                    {"name": "A"},
+                    {"name": "B"},
+                ],
+                "relationships": [
+                    {"type": "inheritance", "from": "B", "to": "A"},
+                ],
+            },
+        }
+    )
     assert ctx.accepted
     assert ctx.notation_artifact is None
     assert ctx.render_manifest is None
@@ -61,26 +62,30 @@ def test_resolver_accepts_mermaid_class_in_dry_run(resolver):
 
 
 def test_resolver_rejects_notation_proposal_under_wrong_task_kind(resolver):
-    ctx = resolver.resolve(raw_proposal={
-        "pattern_id": "mermaid.class",
-        "language": "mermaid",
-        "task_kind": "coding",  # not in the diagram_mermaid allow-list
-        "parameters_provided": {
-            "classes": [{"name": "A"}],
-        },
-    })
+    ctx = resolver.resolve(
+        raw_proposal={
+            "pattern_id": "mermaid.class",
+            "language": "mermaid",
+            "task_kind": "coding",  # not in the diagram_mermaid allow-list
+            "parameters_provided": {
+                "classes": [{"name": "A"}],
+            },
+        }
+    )
     assert not ctx.accepted
     assert ctx.blocked_reason is not None
     assert "not in the default allow-list" in ctx.blocked_reason
 
 
 def test_resolver_rejects_unknown_notation_id(resolver):
-    ctx = resolver.resolve(raw_proposal={
-        "pattern_id": "mermaid.totally_made_up",
-        "language": "mermaid",
-        "task_kind": "diagram_mermaid",
-        "parameters_provided": {},
-    })
+    ctx = resolver.resolve(
+        raw_proposal={
+            "pattern_id": "mermaid.totally_made_up",
+            "language": "mermaid",
+            "task_kind": "diagram_mermaid",
+            "parameters_provided": {},
+        }
+    )
     assert not ctx.accepted
     assert ctx.blocked_reason is not None
 
@@ -105,8 +110,7 @@ def test_resolver_renders_mermaid_class_to_disk(resolver, tmp_path: Path):
             "task_kind": "diagram_mermaid",
             "parameters_provided": {
                 "classes": [
-                    {"name": "A", "stereotype": "interface",
-                     "methods": ["foo(): int"]},
+                    {"name": "A", "stereotype": "interface", "methods": ["foo(): int"]},
                     {"name": "B", "methods": ["foo(): int"]},
                 ],
                 "relationships": [
@@ -222,12 +226,11 @@ def test_resolver_blocks_when_renderer_raises(resolver, tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_resolver_routes_code_pattern_through_template_renderer(
-    resolver, tmp_path: Path
-):
+def test_resolver_routes_code_pattern_through_template_renderer(resolver, tmp_path: Path):
     """Sanity: a code-pattern proposal must NOT route to NotationRenderer
     even when notation patterns exist in the catalogue."""
     from agent.services.pattern_template_renderer import TemplateFile
+
     ctx = resolver.resolve(
         raw_proposal={
             "pattern_id": "python.strategy",

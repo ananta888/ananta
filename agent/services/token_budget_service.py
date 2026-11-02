@@ -3,10 +3,11 @@
 Konservative Token-Schätzung und Budget-Gates vor LLM-/Worker-Aufrufen.
 Keine LLM-Calls, kein I/O. Pure service.
 """
+
 from __future__ import annotations
 
-import math
 import logging
+import math
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ def _try_tiktoken_encode(text: str, encoding_name: str = "cl100k_base") -> int |
         return None
     try:
         import tiktoken  # type: ignore[import]
+
         enc = tiktoken.get_encoding(encoding_name)
         _TIKTOKEN_AVAILABLE = True
         return len(enc.encode(text))

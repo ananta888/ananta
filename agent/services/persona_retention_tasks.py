@@ -63,8 +63,9 @@ class HubPersonaRetentionTasks:
             record["task_id"],
             state,
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda task: self._matches(task, record)
-            and (state != "completed" or self.clock() * 1000 < record["lease_until_ms"]),
+            authoritative_predicate=lambda task: (
+                self._matches(task, record) and (state != "completed" or self.clock() * 1000 < record["lease_until_ms"])
+            ),
             event_type="persona_retention_" + state,
             event_actor="hub",
             event_details={"lease_id": record["lease_id"]},

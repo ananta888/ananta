@@ -6,11 +6,10 @@ import json
 import os
 import shutil
 from pathlib import Path
-
-from tests_support import admin_login_token as _login_admin
 from typing import Any
 
 from tests.e2e.mock_llm import MockLLM
+from tests.support import admin_login_token as _login_admin
 from worker.core.verification import build_verification_artifact
 from worker.shell.command_executor import execute_command_plan
 from worker.shell.command_planner import build_command_plan_artifact
@@ -85,6 +84,8 @@ def _apply_patch_with_approval(
         "changed_files": ["calc.py"],
         "artifact_refs": [f"patch:{expected_hash}"],
     }
+
+
 def test_tdd_tiny_repo_flow_records_red_patch_green_evidence(client, tmp_path: Path) -> None:
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

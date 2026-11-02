@@ -1,4 +1,5 @@
 """SQLModel DB tables for CaseFlow Platform and Job Module (CASECORE / DISCOVERY)."""
+
 from __future__ import annotations
 
 from datetime import datetime

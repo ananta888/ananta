@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import email.policy
 import imaplib
+import logging
 import re
 import socket
 import ssl
@@ -96,7 +97,7 @@ class SecureImapClient:
             try:
                 connection.logout()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("connect: ignored Exception", exc_info=True)
             raise ValueError("imap_login_failed")
         self._connection = connection
 
@@ -126,8 +127,7 @@ class SecureImapClient:
             status, fetched = connection.uid(
                 "fetch",
                 raw_uid,
-                "(UID RFC822.SIZE BODY.PEEK[HEADER.FIELDS "
-                "(MESSAGE-ID DATE FROM TO SUBJECT)])",
+                "(UID RFC822.SIZE BODY.PEEK[HEADER.FIELDS (MESSAGE-ID DATE FROM TO SUBJECT)])",
             )
             if str(status).upper() != "OK":
                 raise ConnectionError("imap_fetch_headers_failed")

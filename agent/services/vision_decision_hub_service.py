@@ -15,6 +15,7 @@
 ``grants_permission`` is ``False`` everywhere. Audit projections carry field names, actions, rules,
 scores, error codes, usage and timings only: no image, prompt, value, action type or id.
 """
+
 from __future__ import annotations
 
 import base64
@@ -58,7 +59,12 @@ from agent.services.vision_decision_provider import (
     VisionImage,
     get_vision_decision_provider,
 )
-from agent.services.vision_decision_task_policy import VisionTask, VisionTaskAction, VisionTaskPolicy, VisionTaskPolicyDecision
+from agent.services.vision_decision_task_policy import (
+    VisionTask,
+    VisionTaskAction,
+    VisionTaskPolicy,
+    VisionTaskPolicyDecision,
+)
 from agent.services.voice_governance_domain import VoicePrincipal
 
 DECISION_ROUTE = "/v1/vision/decision"
@@ -153,7 +159,9 @@ def decode_data_uri_images(items: Any, *, max_media: int, max_image_bytes: int) 
     for item in items:
         match = _DATA_URI.match(item) if isinstance(item, str) else None
         if match is None:
-            raise VisionRequestError("vision_decision.invalid_image", "images must be data:image/png|jpeg|webp;base64 URIs")
+            raise VisionRequestError(
+                "vision_decision.invalid_image", "images must be data:image/png|jpeg|webp;base64 URIs"
+            )
         encoded = item[match.end() :]
         if len(encoded) > max_encoded:
             raise VisionRequestError("vision_decision.image_too_large", "image exceeds VISION_DECISION_MAX_IMAGE_BYTES")
@@ -273,14 +281,23 @@ class _FieldDispatcher:
             return {"hub_action": VisionHubAction.ACT.value, "value": value}, {"hub_action": "act"}
         execution = self.runtime.executor.execute(
             VoiceCommandInvocation(
-                action_type=action.action_type, command=value, profile=self.task.task_id, field=name, principal=self.principal
+                action_type=action.action_type,
+                command=value,
+                profile=self.task.task_id,
+                field=name,
+                principal=self.principal,
             ),
             authorize=self.authorize,
         )
         if not execution.executed:
             return self._denied(execution)
         return (
-            {"hub_action": VisionHubAction.ACT.value, "value": value, "action_type": action.action_type, "execution": execution.as_response()},
+            {
+                "hub_action": VisionHubAction.ACT.value,
+                "value": value,
+                "action_type": action.action_type,
+                "execution": execution.as_response(),
+            },
             {"hub_action": "act", "execution": _execution_audit(execution)},
         )
 
@@ -321,7 +338,11 @@ class _FieldDispatcher:
     @staticmethod
     def _denied(execution: VoiceCommandExecution) -> tuple[dict[str, Any], dict[str, Any]]:
         return (
-            {"hub_action": VisionHubAction.DENY.value, "error_code": execution.error_code, "execution": execution.as_response()},
+            {
+                "hub_action": VisionHubAction.DENY.value,
+                "error_code": execution.error_code,
+                "execution": execution.as_response(),
+            },
             {"hub_action": "deny", "error_code": execution.error_code, "execution": _execution_audit(execution)},
         )
 
@@ -390,7 +411,13 @@ def run_vision_decision(
     if hub.kind is VisionDecisionKind.NO_DECISION:
         audit.update({"hub_action": "normal_path", "error_code": hub.error_code})
         return VisionHubResult(
-            response={**base, "hub_action": "normal_path", "error_code": hub.error_code, "http_status": hub.http_status, "fields": {}},
+            response={
+                **base,
+                "hub_action": "normal_path",
+                "error_code": hub.error_code,
+                "http_status": hub.http_status,
+                "fields": {},
+            },
             audit=audit,
         )
 
@@ -445,7 +472,11 @@ def run_vision_decision(
                     source="chat",
                 )
                 # An unscored answer is at most a confirmation, whatever the policy says.
-                verdict = VisionPolicyVerdict.DENY if suggestion.verdict is VisionPolicyVerdict.DENY else VisionPolicyVerdict.CONFIRM
+                verdict = (
+                    VisionPolicyVerdict.DENY
+                    if suggestion.verdict is VisionPolicyVerdict.DENY
+                    else VisionPolicyVerdict.CONFIRM
+                )
                 out, out_audit = dispatcher.dispatch(name, result.suggestion, verdict, suggestion.action)
                 entry["suggestion"] = {"rule": suggestion.rule, "grants_permission": False, **out}
                 entry_audit["suggestion"] = {"rule": suggestion.rule, **out_audit}
@@ -454,7 +485,9 @@ def run_vision_decision(
 
     hub_action = "escalate" if escalations else "decided"
     audit.update({"hub_action": hub_action, "fields": field_audit})
-    return VisionHubResult(response={**base, "hub_action": hub_action, "error_code": None, "fields": fields}, audit=audit)
+    return VisionHubResult(
+        response={**base, "hub_action": hub_action, "error_code": None, "fields": fields}, audit=audit
+    )
 
 
 def confirm_vision_action(
@@ -508,7 +541,12 @@ def resolve_escalation(
     if decision.verdict is not VisionPolicyVerdict.ALLOW or task is None:
         audit["hub_action"] = "deny"
         return VisionHubResult(
-            response={"hub_action": "deny", "rule": decision.rule, "error_code": "escalation.value_denied", "grants_permission": False},
+            response={
+                "hub_action": "deny",
+                "rule": decision.rule,
+                "error_code": "escalation.value_denied",
+                "grants_permission": False,
+            },
             audit=audit,
             status_code=422,
         )

@@ -11,6 +11,7 @@ composition point and tests keep their collaborator seam.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -220,7 +221,7 @@ class LLMPlanningRepairRunner:
             if hub_text.strip():
                 attempt.raw_response = hub_text
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_try_hub_copilot: ignored Exception", exc_info=True)
         return False
 
     def _try_llm_config(

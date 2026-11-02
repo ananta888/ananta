@@ -86,9 +86,7 @@ def test_safe_extractor_rejects_oversized_tar_metadata_before_body(
     metadata = tarfile.TarInfo("metadata")
     metadata.type = entry_type
     metadata.size = 1024 * 1024 + 1
-    archive_path.write_bytes(
-        metadata.tobuf(format=tarfile.PAX_FORMAT) + b"\0" * 1024
-    )
+    archive_path.write_bytes(metadata.tobuf(format=tarfile.PAX_FORMAT) + b"\0" * 1024)
     destination = tmp_path / "destination"
     destination.mkdir()
 
@@ -114,9 +112,7 @@ def test_safe_extractor_rejects_recursive_tar_extension_chains(
     archive_path = tmp_path / f"{extension_chain}-chain.tar"
     content = bytearray()
     for index in range(40):
-        if extension_chain == "pax" or (
-            extension_chain == "mixed" and index % 2 == 0
-        ):
+        if extension_chain == "pax" or (extension_chain == "mixed" and index % 2 == 0):
             entry_type = tarfile.XHDTYPE
             body = _pax_record("comment", str(index))
         else:
@@ -179,9 +175,7 @@ def test_bounded_tarinfo_allows_sparse_text_in_a_pax_value() -> None:
         format=tarfile.PAX_FORMAT,
     ) as archive:
         entry = tarfile.TarInfo("payload.txt")
-        entry.pax_headers = {
-            "comment": "literal GNU.sparse.map text is not a sparse key"
-        }
+        entry.pax_headers = {"comment": "literal GNU.sparse.map text is not a sparse key"}
         body = b"bounded"
         entry.size = len(body)
         archive.addfile(entry, io.BytesIO(body))
@@ -238,9 +232,7 @@ def test_tar_stream_validator_applies_limits_to_unselected_members() -> None:
     shutil.which("gpg") is None or shutil.which("zstd") is None,
     reason="GPG and zstd are required for the streaming integration test",
 )
-def test_openpgp_archive_round_trip_uses_public_recipient(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_openpgp_archive_round_trip_uses_public_recipient(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     gpg_home = tmp_path / "gnupg"
     gpg_home.mkdir(mode=0o700)
     monkeypatch.setenv("GNUPGHOME", str(gpg_home))
@@ -270,11 +262,7 @@ def test_openpgp_archive_round_trip_uses_public_recipient(
         stderr=subprocess.PIPE,
         text=True,
     ).stdout
-    fingerprint = next(
-        fields[9]
-        for line in listing.splitlines()
-        if (fields := line.split(":"))[0] == "fpr"
-    )
+    fingerprint = next(fields[9] for line in listing.splitlines() if (fields := line.split(":"))[0] == "fpr")
 
     source = tmp_path / "source"
     source.mkdir()
@@ -293,9 +281,7 @@ def test_openpgp_archive_round_trip_uses_public_recipient(
     restored.mkdir()
     archive.decrypt_to_directory(encrypted, restored)
 
-    assert (restored / "payload" / "payload.txt").read_text(
-        encoding="utf-8"
-    ) == "encrypted payload"
+    assert (restored / "payload" / "payload.txt").read_text(encoding="utf-8") == "encrypted payload"
     subprocess.run(
         ["gpgconf", "--kill", "all"],
         check=False,

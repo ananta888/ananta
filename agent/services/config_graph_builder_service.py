@@ -1,53 +1,123 @@
 """Build the runtime-active Ananta configuration graph."""
+
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
+from agent.services.config_graph_classifiers import (  # noqa: F401
+    _CONTEXT_AUTHORITY,
+    _EXECUTE_CONTRACT,
+    _SCOPE_MUST_NOT,
+    _build_behavior_dimensions,
+    _classify_profile_character,
+    _classify_rule_character,
+)
+
 # ── Re-exports from sub-modules (backward-compatible public API) ───────────────
 from agent.services.config_graph_models import (  # noqa: F401
-    GRAPH_SCHEMA, ALL_EDGE_TYPES, ALL_NODE_TYPES,
-    EDGE_ACTIVATES, EDGE_APPLIES_TO_PATH, EDGE_APPLIES_TO_PATH_BUNDLE,
-    EDGE_ASSIGNED_TO, EDGE_BLOCKED_BY_POLICY, EDGE_CLONED_FROM,
-    EDGE_CONTAINS, EDGE_CONTROLS_WORKER, EDGE_CREATES_SUBTASK,
-    EDGE_DEPENDS_ON, EDGE_EFFECTIVE_AFTER_MERGE, EDGE_EMITS_TRACE,
-    EDGE_EXECUTES_STEP, EDGE_FALLS_BACK_TO, EDGE_HANDS_OFF_ARTIFACT_TO,
-    EDGE_HANDS_OFF_TO, EDGE_INHERITS_FROM, EDGE_MAY_CALL_TOOL,
-    EDGE_OVERRIDES, EDGE_OVERRIDES_HUB_DEFAULT, EDGE_READS_PATH,
-    EDGE_REQUIRES_APPROVAL, EDGE_ROUTES_TASK_TO_WORKER, EDGE_ROUTES_TO_BACKEND,
-    EDGE_USES_CONTEXT_SOURCE, EDGE_USES_EMBEDDING_MODEL, EDGE_USES_HUB_DEFAULT,
-    EDGE_USES_MODEL, EDGE_USES_PROFILE, EDGE_USES_RESTRICTED_INFERENCE,
-    EDGE_USES_TEMPLATE, EDGE_USES_TEMPLATE_VARIANT, EDGE_VERIFIES_WITH,
+    _ROLE_CHARACTER_RULES,
+    ALL_EDGE_TYPES,
+    ALL_NODE_TYPES,
+    EDGE_ACTIVATES,
+    EDGE_APPLIES_TO_PATH,
+    EDGE_APPLIES_TO_PATH_BUNDLE,
+    EDGE_ASSIGNED_TO,
+    EDGE_BLOCKED_BY_POLICY,
+    EDGE_CLONED_FROM,
+    EDGE_CONTAINS,
+    EDGE_CONTROLS_WORKER,
+    EDGE_CREATES_SUBTASK,
+    EDGE_DEPENDS_ON,
+    EDGE_EFFECTIVE_AFTER_MERGE,
+    EDGE_EMITS_TRACE,
+    EDGE_EXECUTES_STEP,
+    EDGE_FALLS_BACK_TO,
+    EDGE_HANDS_OFF_ARTIFACT_TO,
+    EDGE_HANDS_OFF_TO,
+    EDGE_INHERITS_FROM,
+    EDGE_MAY_CALL_TOOL,
+    EDGE_OVERRIDES,
+    EDGE_OVERRIDES_HUB_DEFAULT,
+    EDGE_READS_PATH,
+    EDGE_REQUIRES_APPROVAL,
+    EDGE_ROUTES_TASK_TO_WORKER,
+    EDGE_ROUTES_TO_BACKEND,
+    EDGE_USES_CONTEXT_SOURCE,
+    EDGE_USES_EMBEDDING_MODEL,
+    EDGE_USES_HUB_DEFAULT,
+    EDGE_USES_MODEL,
+    EDGE_USES_PROFILE,
+    EDGE_USES_RESTRICTED_INFERENCE,
+    EDGE_USES_TEMPLATE,
+    EDGE_USES_TEMPLATE_VARIANT,
+    EDGE_VERIFIES_WITH,
     EDGE_WRITES_PATH,
-    NODE_AGENT_INSTANCE, NODE_AGENT_PROFILE, NODE_ARTIFACT_RULE,
-    NODE_CLONE_SOURCE, NODE_CODECOMPASS_PROFILE, NODE_CODECOMPASS_RANKING,
-    NODE_CONTEXT_SOURCE, NODE_EMBEDDING_MODEL, NODE_FALLBACK_CHAIN,
-    NODE_GOAL_TEMPLATE, NODE_HANDOFF_RULE, NODE_HUB,
-    NODE_INSTRUCTION_LAYER, NODE_MODEL_PROFILE, NODE_MODEL_PROVIDER,
-    NODE_PATH_CONFIG_BUNDLE, NODE_PATH_RULE, NODE_POLICY,
-    NODE_RAG_PROFILE, NODE_RESTRICTED_INFERENCE_MODEL, NODE_RESTRICTED_INFERENCE_ROOT,
-    NODE_RESTRICTED_INFERENCE_TASK, NODE_ROLE, NODE_ROUTING_RULE,
-    NODE_RUNTIME_OVERRIDE, NODE_SUBTASK_STEP, NODE_SURFACE,
-    NODE_TASK_KIND, NODE_TASKFLOW, NODE_TASKFLOW_STEP,
-    NODE_TEMPLATE_VARIANT, NODE_TOOL, NODE_TOOL_GROUP,
-    NODE_TRACE_EVENT, NODE_VERIFICATION_RULE, NODE_WORKER_ADAPTER,
-    NODE_WORKER_BACKEND, NODE_WORKER_INSTANCE, NODE_WRITE_RULE,
-    PATH_CHARACTER_ANALYSIS, PATH_CHARACTER_CREATIVE, PATH_CHARACTER_EXPLAIN,
-    PATH_CHARACTER_LABELS, PATH_CHARACTER_MAINTENANCE, PATH_CHARACTER_OPS,
-    PATH_CHARACTER_TEST, PATH_CHARACTER_UNKNOWN, _ROLE_CHARACTER_RULES,
-    VIEW_AGENT_RUNTIME, VIEW_CONFIGURATION_OVERVIEW, VIEW_CONTEXT_PIPELINE,
-    VIEW_EFFECTIVE_CONFIG, VIEW_IDS, VIEW_PLANNING_FLOW,
-    VIEW_POLICY_PATH, VIEW_PROFILE_ACTIVATION,
-    ConfigGraph, ConfigGraphEdge, ConfigGraphNode,
+    GRAPH_SCHEMA,
+    NODE_AGENT_INSTANCE,
+    NODE_AGENT_PROFILE,
+    NODE_ARTIFACT_RULE,
+    NODE_CLONE_SOURCE,
+    NODE_CODECOMPASS_PROFILE,
+    NODE_CODECOMPASS_RANKING,
+    NODE_CONTEXT_SOURCE,
+    NODE_EMBEDDING_MODEL,
+    NODE_FALLBACK_CHAIN,
+    NODE_GOAL_TEMPLATE,
+    NODE_HANDOFF_RULE,
+    NODE_HUB,
+    NODE_INSTRUCTION_LAYER,
+    NODE_MODEL_PROFILE,
+    NODE_MODEL_PROVIDER,
+    NODE_PATH_CONFIG_BUNDLE,
+    NODE_PATH_RULE,
+    NODE_POLICY,
+    NODE_RAG_PROFILE,
+    NODE_RESTRICTED_INFERENCE_MODEL,
+    NODE_RESTRICTED_INFERENCE_ROOT,
+    NODE_RESTRICTED_INFERENCE_TASK,
+    NODE_ROLE,
+    NODE_ROUTING_RULE,
+    NODE_RUNTIME_OVERRIDE,
+    NODE_SUBTASK_STEP,
+    NODE_SURFACE,
+    NODE_TASK_KIND,
+    NODE_TASKFLOW,
+    NODE_TASKFLOW_STEP,
+    NODE_TEMPLATE_VARIANT,
+    NODE_TOOL,
+    NODE_TOOL_GROUP,
+    NODE_TRACE_EVENT,
+    NODE_VERIFICATION_RULE,
+    NODE_WORKER_ADAPTER,
+    NODE_WORKER_BACKEND,
+    NODE_WORKER_INSTANCE,
+    NODE_WRITE_RULE,
+    PATH_CHARACTER_ANALYSIS,
+    PATH_CHARACTER_CREATIVE,
+    PATH_CHARACTER_EXPLAIN,
+    PATH_CHARACTER_LABELS,
+    PATH_CHARACTER_MAINTENANCE,
+    PATH_CHARACTER_OPS,
+    PATH_CHARACTER_TEST,
+    PATH_CHARACTER_UNKNOWN,
+    VIEW_AGENT_RUNTIME,
+    VIEW_CONFIGURATION_OVERVIEW,
+    VIEW_CONTEXT_PIPELINE,
+    VIEW_EFFECTIVE_CONFIG,
+    VIEW_IDS,
+    VIEW_PLANNING_FLOW,
+    VIEW_POLICY_PATH,
+    VIEW_PROFILE_ACTIVATION,
+    ConfigGraph,
+    ConfigGraphEdge,
+    ConfigGraphNode,
 )
-from agent.services.config_graph_classifiers import (  # noqa: F401
-    _CONTEXT_AUTHORITY, _EXECUTE_CONTRACT, _SCOPE_MUST_NOT,
-    _build_behavior_dimensions, _classify_profile_character, _classify_rule_character,
-)
-
 
 # ── Builder ───────────────────────────────────────────────────────────────────
+
 
 class ConfigGraphBuilderService:
     """Assembles a ConfigGraph from all available config sources.
@@ -167,14 +237,21 @@ class ConfigGraphBuilderService:
                     data={"profile_id": profile_id, "overridable": True},
                 )
                 graph.add_node(layer)
-                graph.add_edge(ConfigGraphEdge(
-                    source=node_id, target=layer_id,
-                    edge_type=EDGE_CONTAINS, source_ref=agents_file,
-                ))
-                graph.add_edge(ConfigGraphEdge(
-                    source=layer_id, target="instruction_layer::root",
-                    edge_type=EDGE_INHERITS_FROM,
-                ))
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=node_id,
+                        target=layer_id,
+                        edge_type=EDGE_CONTAINS,
+                        source_ref=agents_file,
+                    )
+                )
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=layer_id,
+                        target="instruction_layer::root",
+                        edge_type=EDGE_INHERITS_FROM,
+                    )
+                )
                 graph.add_to_view(VIEW_PROFILE_ACTIVATION, layer_id)
 
             # Role node
@@ -182,16 +259,22 @@ class ConfigGraphBuilderService:
             if role:
                 role_id = f"role::{role}"
                 if role_id not in graph.nodes:
-                    graph.add_node(ConfigGraphNode(
-                        id=role_id,
-                        node_type=NODE_ROLE,
-                        label=role,
-                        runtime_active=True,
-                        data={"role_id": role},
-                    ))
-                graph.add_edge(ConfigGraphEdge(
-                    source=node_id, target=role_id, edge_type=EDGE_ASSIGNED_TO,
-                ))
+                    graph.add_node(
+                        ConfigGraphNode(
+                            id=role_id,
+                            node_type=NODE_ROLE,
+                            label=role,
+                            runtime_active=True,
+                            data={"role_id": role},
+                        )
+                    )
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=node_id,
+                        target=role_id,
+                        edge_type=EDGE_ASSIGNED_TO,
+                    )
+                )
 
     # ── Surfaces ──────────────────────────────────────────────────────────────
 
@@ -204,20 +287,26 @@ class ConfigGraphBuilderService:
         ]
         for sid, label, ref in surfaces:
             node_id = f"surface::{sid}"
-            graph.add_node(ConfigGraphNode(
-                id=node_id,
-                node_type=NODE_SURFACE,
-                label=label,
-                source_file=ref or None,
-                runtime_active=bool(ref),
-                data={"surface_id": sid},
-            ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=node_id,
+                    node_type=NODE_SURFACE,
+                    label=label,
+                    source_file=ref or None,
+                    runtime_active=bool(ref),
+                    data={"surface_id": sid},
+                )
+            )
             # Edge to matching agent profile if exists
             profile_id = f"agent_profile::{sid}"
             if profile_id in graph.nodes:
-                graph.add_edge(ConfigGraphEdge(
-                    source=node_id, target=profile_id, edge_type=EDGE_USES_PROFILE,
-                ))
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=node_id,
+                        target=profile_id,
+                        edge_type=EDGE_USES_PROFILE,
+                    )
+                )
             graph.add_to_view(VIEW_PROFILE_ACTIVATION, node_id)
             graph.add_to_view(VIEW_AGENT_RUNTIME, node_id)
 
@@ -226,6 +315,7 @@ class ConfigGraphBuilderService:
     def _add_tools(self, graph: ConfigGraph) -> None:
         try:
             from agent.services.ananta_tool_registry_service import AnantaToolRegistryService
+
             registry = AnantaToolRegistryService()
             specs = registry.list_tools()
         except Exception as exc:
@@ -245,52 +335,66 @@ class ConfigGraphBuilderService:
             # Group node
             group_id = f"tool_group::{group}"
             if group_id not in graph.nodes:
-                graph.add_node(ConfigGraphNode(
-                    id=group_id,
-                    node_type=NODE_TOOL_GROUP,
-                    label=f"Tool-Gruppe: {group}",
-                    runtime_active=True,
-                    data={"group": group},
-                ))
+                graph.add_node(
+                    ConfigGraphNode(
+                        id=group_id,
+                        node_type=NODE_TOOL_GROUP,
+                        label=f"Tool-Gruppe: {group}",
+                        runtime_active=True,
+                        data={"group": group},
+                    )
+                )
                 groups[group] = group_id
 
             desc = getattr(spec, "description", "") or ""
             risk_class = str(getattr(spec, "risk_class", "") or "")
             requires_approval = bool(getattr(spec, "requires_approval", False))
 
-            graph.add_node(ConfigGraphNode(
-                id=tool_id,
-                node_type=NODE_TOOL,
-                label=name,
-                runtime_source="AnantaToolRegistryService",
-                runtime_active=True,
-                data={
-                    "name": name,
-                    "description": str(desc)[:200],
-                    "risk_class": risk_class,
-                    "requires_approval": requires_approval,
-                    "group": group,
-                },
-            ))
-            graph.add_edge(ConfigGraphEdge(
-                source=group_id, target=tool_id, edge_type=EDGE_CONTAINS,
-            ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=tool_id,
+                    node_type=NODE_TOOL,
+                    label=name,
+                    runtime_source="AnantaToolRegistryService",
+                    runtime_active=True,
+                    data={
+                        "name": name,
+                        "description": str(desc)[:200],
+                        "risk_class": risk_class,
+                        "requires_approval": requires_approval,
+                        "group": group,
+                    },
+                )
+            )
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=group_id,
+                    target=tool_id,
+                    edge_type=EDGE_CONTAINS,
+                )
+            )
             graph.add_to_view(VIEW_AGENT_RUNTIME, tool_id)
 
             # Approval policy node
             if requires_approval:
                 policy_id = f"policy::approval::{name}"
                 if policy_id not in graph.nodes:
-                    graph.add_node(ConfigGraphNode(
-                        id=policy_id,
-                        node_type=NODE_POLICY,
-                        label=f"Approval: {name}",
-                        runtime_active=True,
-                        data={"policy_type": "approval", "tool": name},
-                    ))
-                graph.add_edge(ConfigGraphEdge(
-                    source=tool_id, target=policy_id, edge_type=EDGE_REQUIRES_APPROVAL,
-                ))
+                    graph.add_node(
+                        ConfigGraphNode(
+                            id=policy_id,
+                            node_type=NODE_POLICY,
+                            label=f"Approval: {name}",
+                            runtime_active=True,
+                            data={"policy_type": "approval", "tool": name},
+                        )
+                    )
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=tool_id,
+                        target=policy_id,
+                        edge_type=EDGE_REQUIRES_APPROVAL,
+                    )
+                )
 
     # ── Path rules ────────────────────────────────────────────────────────────
 
@@ -348,31 +452,42 @@ class ConfigGraphBuilderService:
             for mode in blocked:
                 policy_id = f"policy::block_mode::{mode}"
                 if policy_id not in graph.nodes:
-                    graph.add_node(ConfigGraphNode(
-                        id=policy_id,
-                        node_type=NODE_POLICY,
-                        label=f"Block: {mode}",
-                        runtime_active=True,
-                        data={"policy_type": "block_ai_mode", "mode": mode},
-                    ))
-                graph.add_edge(ConfigGraphEdge(
-                    source=rule_id, target=policy_id,
-                    edge_type=EDGE_BLOCKED_BY_POLICY,
-                    policy_effect=f"block_{mode}",
-                ))
+                    graph.add_node(
+                        ConfigGraphNode(
+                            id=policy_id,
+                            node_type=NODE_POLICY,
+                            label=f"Block: {mode}",
+                            runtime_active=True,
+                            data={"policy_type": "block_ai_mode", "mode": mode},
+                        )
+                    )
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=rule_id,
+                        target=policy_id,
+                        edge_type=EDGE_BLOCKED_BY_POLICY,
+                        policy_effect=f"block_{mode}",
+                    )
+                )
 
     # ── Context sources ───────────────────────────────────────────────────────
 
     def _add_context_sources(self, graph: ConfigGraph) -> None:
         sources = [
-            ("codecompass", "CodeCompass", NODE_CODECOMPASS_PROFILE,
-             "agent/services/codecompass_context_service.py"),
-            ("rag_helper", "RAG Helper Index", NODE_RAG_PROFILE,
-             "agent/services/rag_helper_index_service.py"),
-            ("pre_model_context", "Pre-Model Context Orchestrator", NODE_CONTEXT_SOURCE,
-             "agent/services/pre_model_context_orchestrator.py"),
-            ("restricted_inference", "Restricted Transformer Inference", NODE_CONTEXT_SOURCE,
-             "agent/services/restricted_model_inference_service.py"),
+            ("codecompass", "CodeCompass", NODE_CODECOMPASS_PROFILE, "agent/services/codecompass_context_service.py"),
+            ("rag_helper", "RAG Helper Index", NODE_RAG_PROFILE, "agent/services/rag_helper_index_service.py"),
+            (
+                "pre_model_context",
+                "Pre-Model Context Orchestrator",
+                NODE_CONTEXT_SOURCE,
+                "agent/services/pre_model_context_orchestrator.py",
+            ),
+            (
+                "restricted_inference",
+                "Restricted Transformer Inference",
+                NODE_CONTEXT_SOURCE,
+                "agent/services/restricted_model_inference_service.py",
+            ),
         ]
         for sid, label, ntype, ref in sources:
             src_path = self._root / ref
@@ -395,81 +510,95 @@ class ConfigGraphBuilderService:
         emb_cfg = self._config.get("embedding_provider") or {}
         emb_provider = str(emb_cfg.get("provider") or "local_hash")
         emb_id = "embedding_model::default"
-        graph.add_node(ConfigGraphNode(
-            id=emb_id,
-            node_type=NODE_EMBEDDING_MODEL,
-            label=f"Embedding: {emb_provider}",
-            source_file="user.json",
-            source_kind="user_config",
-            source_pointer="/embedding_provider",
-            writable=True,
-            runtime_active=True,
-            declared_value=dict(emb_cfg),
-            effective_value=dict(emb_cfg),
-            data={
-                "provider": emb_provider,
-                "model": emb_cfg.get("model") or "",
-                "external_calls_allowed": bool(emb_cfg.get("external_calls_allowed", False)),
-            },
-        ))
+        graph.add_node(
+            ConfigGraphNode(
+                id=emb_id,
+                node_type=NODE_EMBEDDING_MODEL,
+                label=f"Embedding: {emb_provider}",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer="/embedding_provider",
+                writable=True,
+                runtime_active=True,
+                declared_value=dict(emb_cfg),
+                effective_value=dict(emb_cfg),
+                data={
+                    "provider": emb_provider,
+                    "model": emb_cfg.get("model") or "",
+                    "external_calls_allowed": bool(emb_cfg.get("external_calls_allowed", False)),
+                },
+            )
+        )
         graph.add_to_view(VIEW_CONTEXT_PIPELINE, emb_id)
         graph.add_to_view(VIEW_AGENT_RUNTIME, emb_id)
         self._add_restricted_inference(graph)
         self._add_codecompass_ranking(graph)
 
         # Backend model provider
-        backend = str(self._config.get("chat_backend") or
-                      self._config.get("backend") or "lmstudio")
+        backend = str(self._config.get("chat_backend") or self._config.get("backend") or "lmstudio")
         provider_id = f"model_provider::{backend}"
         if provider_id not in graph.nodes:
-            graph.add_node(ConfigGraphNode(
-                id=provider_id,
-                node_type=NODE_MODEL_PROVIDER,
-                label=f"Provider: {backend}",
-                source_file="user.json",
-                source_kind="user_config",
-                source_pointer="/chat_backend",
-                writable=True,
-                runtime_active=True,
-                data={"backend": backend},
-            ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=provider_id,
+                    node_type=NODE_MODEL_PROVIDER,
+                    label=f"Provider: {backend}",
+                    source_file="user.json",
+                    source_kind="user_config",
+                    source_pointer="/chat_backend",
+                    writable=True,
+                    runtime_active=True,
+                    data={"backend": backend},
+                )
+            )
         graph.add_to_view(VIEW_AGENT_RUNTIME, provider_id)
 
     def _add_restricted_inference(self, graph: ConfigGraph) -> None:
         raw = dict(self._config.get("restricted_inference") or {})
         root_id = "restricted_inference::root"
-        graph.add_node(ConfigGraphNode(
-            id=root_id,
-            node_type=NODE_RESTRICTED_INFERENCE_ROOT,
-            label="Restricted Inference",
-            source_file="user.json",
-            source_kind="user_config",
-            source_pointer="/restricted_inference",
-            writable=True,
-            runtime_active=bool(raw.get("enabled", True)),
-            declared_value=dict(raw),
-            effective_value=dict(raw),
-            data={
-                "enabled": bool(raw.get("enabled", True)),
-                "default_engine": str(raw.get("default_engine") or "mock"),
-                "default_model_id": str(raw.get("default_model_id") or "mock-default"),
-                "device": str(raw.get("device") or "cpu"),
-                "allow_mock_fallback": bool(raw.get("allow_mock_fallback", True)),
-                "allowed_engines": list(raw.get("allowed_engines") or [
-                    "mock", "sentence-transformers", "huggingface-transformers", "onnxruntime", "pytorch",
-                ]),
-            },
-        ))
+        graph.add_node(
+            ConfigGraphNode(
+                id=root_id,
+                node_type=NODE_RESTRICTED_INFERENCE_ROOT,
+                label="Restricted Inference",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer="/restricted_inference",
+                writable=True,
+                runtime_active=bool(raw.get("enabled", True)),
+                declared_value=dict(raw),
+                effective_value=dict(raw),
+                data={
+                    "enabled": bool(raw.get("enabled", True)),
+                    "default_engine": str(raw.get("default_engine") or "mock"),
+                    "default_model_id": str(raw.get("default_model_id") or "mock-default"),
+                    "device": str(raw.get("device") or "cpu"),
+                    "allow_mock_fallback": bool(raw.get("allow_mock_fallback", True)),
+                    "allowed_engines": list(
+                        raw.get("allowed_engines")
+                        or [
+                            "mock",
+                            "sentence-transformers",
+                            "huggingface-transformers",
+                            "onnxruntime",
+                            "pytorch",
+                        ]
+                    ),
+                },
+            )
+        )
         graph.add_to_view(VIEW_CONTEXT_PIPELINE, root_id)
         graph.add_to_view(VIEW_EFFECTIVE_CONFIG, root_id)
 
         context_id = "context_source::restricted_inference"
         if context_id in graph.nodes:
-            graph.add_edge(ConfigGraphEdge(
-                source=context_id,
-                target=root_id,
-                edge_type=EDGE_USES_RESTRICTED_INFERENCE,
-            ))
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=context_id,
+                    target=root_id,
+                    edge_type=EDGE_USES_RESTRICTED_INFERENCE,
+                )
+            )
 
         models = list(raw.get("models") or [])
         for index, model_raw in enumerate(models):
@@ -477,28 +606,30 @@ class ConfigGraphBuilderService:
                 continue
             mid = str(model_raw.get("id") or model_raw.get("model") or f"model_{index}")
             node_id = f"restricted_inference_model::{mid}"
-            graph.add_node(ConfigGraphNode(
-                id=node_id,
-                node_type=NODE_RESTRICTED_INFERENCE_MODEL,
-                label=f"Restricted Model: {mid}",
-                source_file="user.json",
-                source_kind="user_config",
-                source_pointer=f"/restricted_inference/models/{index}",
-                writable=True,
-                runtime_active=bool(model_raw.get("enabled", True)),
-                declared_value=dict(model_raw),
-                effective_value=dict(model_raw),
-                data={
-                    "id": mid,
-                    "engine": str(model_raw.get("engine") or "mock"),
-                    "model": str(model_raw.get("model") or ""),
-                    "revision": str(model_raw.get("revision") or ""),
-                    "local_path": str(model_raw.get("local_path") or ""),
-                    "device": str(model_raw.get("device") or raw.get("device") or "cpu"),
-                    "enabled": bool(model_raw.get("enabled", True)),
-                    "tasks": list(model_raw.get("tasks") or []),
-                },
-            ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=node_id,
+                    node_type=NODE_RESTRICTED_INFERENCE_MODEL,
+                    label=f"Restricted Model: {mid}",
+                    source_file="user.json",
+                    source_kind="user_config",
+                    source_pointer=f"/restricted_inference/models/{index}",
+                    writable=True,
+                    runtime_active=bool(model_raw.get("enabled", True)),
+                    declared_value=dict(model_raw),
+                    effective_value=dict(model_raw),
+                    data={
+                        "id": mid,
+                        "engine": str(model_raw.get("engine") or "mock"),
+                        "model": str(model_raw.get("model") or ""),
+                        "revision": str(model_raw.get("revision") or ""),
+                        "local_path": str(model_raw.get("local_path") or ""),
+                        "device": str(model_raw.get("device") or raw.get("device") or "cpu"),
+                        "enabled": bool(model_raw.get("enabled", True)),
+                        "tasks": list(model_raw.get("tasks") or []),
+                    },
+                )
+            )
             graph.add_edge(ConfigGraphEdge(source=root_id, target=node_id, edge_type=EDGE_USES_MODEL))
             graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
             graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
@@ -508,19 +639,21 @@ class ConfigGraphBuilderService:
             if not isinstance(task_raw, dict):
                 continue
             node_id = f"restricted_inference_task::{task_id}"
-            graph.add_node(ConfigGraphNode(
-                id=node_id,
-                node_type=NODE_RESTRICTED_INFERENCE_TASK,
-                label=f"Restricted Task: {task_id}",
-                source_file="user.json",
-                source_kind="user_config",
-                source_pointer=f"/restricted_inference/tasks/{task_id}",
-                writable=True,
-                runtime_active=bool(task_raw.get("enabled", True)),
-                declared_value=dict(task_raw),
-                effective_value=dict(task_raw),
-                data={"id": task_id, **dict(task_raw)},
-            ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=node_id,
+                    node_type=NODE_RESTRICTED_INFERENCE_TASK,
+                    label=f"Restricted Task: {task_id}",
+                    source_file="user.json",
+                    source_kind="user_config",
+                    source_pointer=f"/restricted_inference/tasks/{task_id}",
+                    writable=True,
+                    runtime_active=bool(task_raw.get("enabled", True)),
+                    declared_value=dict(task_raw),
+                    effective_value=dict(task_raw),
+                    data={"id": task_id, **dict(task_raw)},
+                )
+            )
             graph.add_edge(ConfigGraphEdge(source=root_id, target=node_id, edge_type=EDGE_CONTAINS))
             graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
             graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
@@ -528,44 +661,51 @@ class ConfigGraphBuilderService:
     def _add_codecompass_ranking(self, graph: ConfigGraph) -> None:
         raw = dict(self._config.get("codecompass_ranking") or {})
         node_id = "codecompass_ranking::default"
-        graph.add_node(ConfigGraphNode(
-            id=node_id,
-            node_type=NODE_CODECOMPASS_RANKING,
-            label="CodeCompass Ranking",
-            source_file="user.json",
-            source_kind="user_config",
-            source_pointer="/codecompass_ranking",
-            writable=True,
-            runtime_active=True,
-            declared_value=dict(raw),
-            effective_value=dict(raw),
-            data={
-                "restricted_inference_rerank_enabled": bool(raw.get("restricted_inference_rerank_enabled", False)),
-                "score_weights": dict(raw.get("score_weights") or {}),
-                "trace_scores": bool(raw.get("trace_scores", False)),
-                "fallback_without_model": bool(raw.get("fallback_without_model", True)),
-            },
-        ))
+        graph.add_node(
+            ConfigGraphNode(
+                id=node_id,
+                node_type=NODE_CODECOMPASS_RANKING,
+                label="CodeCompass Ranking",
+                source_file="user.json",
+                source_kind="user_config",
+                source_pointer="/codecompass_ranking",
+                writable=True,
+                runtime_active=True,
+                declared_value=dict(raw),
+                effective_value=dict(raw),
+                data={
+                    "restricted_inference_rerank_enabled": bool(raw.get("restricted_inference_rerank_enabled", False)),
+                    "score_weights": dict(raw.get("score_weights") or {}),
+                    "trace_scores": bool(raw.get("trace_scores", False)),
+                    "fallback_without_model": bool(raw.get("fallback_without_model", True)),
+                },
+            )
+        )
         graph.add_to_view(VIEW_CONTEXT_PIPELINE, node_id)
         graph.add_to_view(VIEW_EFFECTIVE_CONFIG, node_id)
         if "context_source::codecompass" in graph.nodes:
-            graph.add_edge(ConfigGraphEdge(
-                source="context_source::codecompass",
-                target=node_id,
-                edge_type=EDGE_USES_CONTEXT_SOURCE,
-            ))
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source="context_source::codecompass",
+                    target=node_id,
+                    edge_type=EDGE_USES_CONTEXT_SOURCE,
+                )
+            )
         if "restricted_inference::root" in graph.nodes:
-            graph.add_edge(ConfigGraphEdge(
-                source=node_id,
-                target="restricted_inference::root",
-                edge_type=EDGE_USES_RESTRICTED_INFERENCE,
-            ))
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=node_id,
+                    target="restricted_inference::root",
+                    edge_type=EDGE_USES_RESTRICTED_INFERENCE,
+                )
+            )
 
     # ── Planning templates ────────────────────────────────────────────────────
 
     def _add_planning_templates(self, graph: ConfigGraph) -> None:
         try:
             from agent.services.planning_template_catalog import get_planning_template_catalog
+
             catalog = get_planning_template_catalog()
             templates = catalog.list_templates() if hasattr(catalog, "list_templates") else []
         except Exception:
@@ -580,7 +720,7 @@ class ConfigGraphBuilderService:
                 for pid, pdata in (pm.get("profiles") or {}).items():
                     known_kinds.extend(pdata.get("allowed_task_kinds") or [pid])
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_add_planning_templates: ignored Exception", exc_info=True)
 
         processed: set[str] = set()
 
@@ -596,9 +736,7 @@ class ConfigGraphBuilderService:
                 processed.add(kind)
                 self._add_template_node(graph, kind, {}, source="profile_map")
 
-    def _add_template_node(
-        self, graph: ConfigGraph, tid: str, data: dict[str, Any], source: str
-    ) -> None:
+    def _add_template_node(self, graph: ConfigGraph, tid: str, data: dict[str, Any], source: str) -> None:
         tmpl_id = f"goal_template::{tid}"
         node = ConfigGraphNode(
             id=tmpl_id,
@@ -620,46 +758,69 @@ class ConfigGraphBuilderService:
         # task_kind node
         kind_id = f"task_kind::{tid}"
         if kind_id not in graph.nodes:
-            graph.add_node(ConfigGraphNode(
-                id=kind_id, node_type=NODE_TASK_KIND, label=tid,
-                runtime_active=True, data={"task_kind": tid},
-            ))
-        graph.add_edge(ConfigGraphEdge(
-            source=kind_id, target=tmpl_id, edge_type=EDGE_USES_TEMPLATE,
-        ))
+            graph.add_node(
+                ConfigGraphNode(
+                    id=kind_id,
+                    node_type=NODE_TASK_KIND,
+                    label=tid,
+                    runtime_active=True,
+                    data={"task_kind": tid},
+                )
+            )
+        graph.add_edge(
+            ConfigGraphEdge(
+                source=kind_id,
+                target=tmpl_id,
+                edge_type=EDGE_USES_TEMPLATE,
+            )
+        )
         graph.add_to_view(VIEW_PLANNING_FLOW, kind_id)
 
         # Link to agent profile
         profile_id = f"agent_profile::{tid}"
         if profile_id in graph.nodes:
-            graph.add_edge(ConfigGraphEdge(
-                source=tmpl_id, target=profile_id, edge_type=EDGE_ACTIVATES,
-            ))
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=tmpl_id,
+                    target=profile_id,
+                    edge_type=EDGE_ACTIVATES,
+                )
+            )
 
         # Subtask steps from template data
         for i, step in enumerate(data.get("steps") or data.get("subtasks") or []):
-            step_label = str(step.get("title") or step.get("name") or f"step_{i+1}")
-            step_id = f"subtask_step::{tid}::step_{i+1}"
-            graph.add_node(ConfigGraphNode(
-                id=step_id,
-                node_type=NODE_SUBTASK_STEP,
-                label=step_label,
-                runtime_active=True,
-                data={
-                    "index": i + 1,
-                    "role": str(step.get("role") or step.get("assigned_role") or ""),
-                    "description": str(step.get("description") or "")[:200],
-                },
-            ))
-            graph.add_edge(ConfigGraphEdge(
-                source=tmpl_id, target=step_id, edge_type=EDGE_CREATES_SUBTASK,
-                priority=i,
-            ))
+            step_label = str(step.get("title") or step.get("name") or f"step_{i + 1}")
+            step_id = f"subtask_step::{tid}::step_{i + 1}"
+            graph.add_node(
+                ConfigGraphNode(
+                    id=step_id,
+                    node_type=NODE_SUBTASK_STEP,
+                    label=step_label,
+                    runtime_active=True,
+                    data={
+                        "index": i + 1,
+                        "role": str(step.get("role") or step.get("assigned_role") or ""),
+                        "description": str(step.get("description") or "")[:200],
+                    },
+                )
+            )
+            graph.add_edge(
+                ConfigGraphEdge(
+                    source=tmpl_id,
+                    target=step_id,
+                    edge_type=EDGE_CREATES_SUBTASK,
+                    priority=i,
+                )
+            )
             if i > 0:
                 prev_id = f"subtask_step::{tid}::step_{i}"
-                graph.add_edge(ConfigGraphEdge(
-                    source=step_id, target=prev_id, edge_type=EDGE_DEPENDS_ON,
-                ))
+                graph.add_edge(
+                    ConfigGraphEdge(
+                        source=step_id,
+                        target=prev_id,
+                        edge_type=EDGE_DEPENDS_ON,
+                    )
+                )
             graph.add_to_view(VIEW_PLANNING_FLOW, step_id)
 
     # ── Views ─────────────────────────────────────────────────────────────────
@@ -668,8 +829,12 @@ class ConfigGraphBuilderService:
         # Make sure all views exist
         for view_id in (
             VIEW_CONFIGURATION_OVERVIEW,
-            VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
-            VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
+            VIEW_PROFILE_ACTIVATION,
+            VIEW_PLANNING_FLOW,
+            VIEW_AGENT_RUNTIME,
+            VIEW_POLICY_PATH,
+            VIEW_CONTEXT_PIPELINE,
+            VIEW_EFFECTIVE_CONFIG,
         ):
             graph.views.setdefault(view_id, [])
 
@@ -681,10 +846,16 @@ class ConfigGraphBuilderService:
         for nid in list(graph.nodes):
             node = graph.nodes[nid]
             if node.runtime_active and node.node_type in (
-                NODE_AGENT_PROFILE, NODE_INSTRUCTION_LAYER, NODE_TOOL_GROUP,
-                NODE_PATH_RULE, NODE_CONTEXT_SOURCE, NODE_EMBEDDING_MODEL,
-                NODE_MODEL_PROVIDER, NODE_RESTRICTED_INFERENCE_ROOT,
-                NODE_RESTRICTED_INFERENCE_MODEL, NODE_RESTRICTED_INFERENCE_TASK,
+                NODE_AGENT_PROFILE,
+                NODE_INSTRUCTION_LAYER,
+                NODE_TOOL_GROUP,
+                NODE_PATH_RULE,
+                NODE_CONTEXT_SOURCE,
+                NODE_EMBEDDING_MODEL,
+                NODE_MODEL_PROVIDER,
+                NODE_RESTRICTED_INFERENCE_ROOT,
+                NODE_RESTRICTED_INFERENCE_MODEL,
+                NODE_RESTRICTED_INFERENCE_TASK,
                 NODE_CODECOMPASS_RANKING,
             ):
                 graph.add_to_view(VIEW_EFFECTIVE_CONFIG, nid)

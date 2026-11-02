@@ -101,8 +101,13 @@ def _more_efficient(candidate: BenchmarkResult, previous: BenchmarkResult) -> li
     wins = []
     for name in ("adapter_bytes", "parameter_count", "latency_ms_p50", "train_seconds"):
         now, before = candidate.resources.get(name), previous.resources.get(name)
-        if (type(now) in (int, float) and type(before) in (int, float)
-                and 0 < now < before <= 2**63 - 1 and math.isfinite(now) and math.isfinite(before)):
+        if (
+            type(now) in (int, float)
+            and type(before) in (int, float)
+            and 0 < now < before <= 2**63 - 1
+            and math.isfinite(now)
+            and math.isfinite(before)
+        ):
             wins.append(name)
     return wins
 
@@ -133,11 +138,17 @@ def decide_promotion(
 
     # 3. Calibration: a well-scoring but badly calibrated model is not promoted on confidence alone.
     calibration = candidate.calibration or {}
-    has_confidence = any(v is not None for v in (calibration.get("expected_calibration_error"), calibration.get("brier_score")))
+    has_confidence = any(
+        v is not None for v in (calibration.get("expected_calibration_error"), calibration.get("brier_score"))
+    )
     if policy.require_calibration_when_confident and candidate.safety.get("deferral_rate") and not has_confidence:
         reasons.append("calibration_missing")
     ece, brier = calibration.get("expected_calibration_error"), calibration.get("brier_score")
-    if policy.max_expected_calibration_error is not None and isinstance(ece, (int, float)) and ece > policy.max_expected_calibration_error:
+    if (
+        policy.max_expected_calibration_error is not None
+        and isinstance(ece, (int, float))
+        and ece > policy.max_expected_calibration_error
+    ):
         reasons.append("expected_calibration_error_above_maximum")
     if policy.max_brier_score is not None and isinstance(brier, (int, float)) and brier > policy.max_brier_score:
         reasons.append("brier_score_above_maximum")
@@ -146,7 +157,10 @@ def decide_promotion(
     improvement = "none"
     reference = previous if previous is not None else baseline
     if reference is not None:
-        if reference.holdout_digest != candidate.holdout_digest or reference.benchmark_version != candidate.benchmark_version:
+        if (
+            reference.holdout_digest != candidate.holdout_digest
+            or reference.benchmark_version != candidate.benchmark_version
+        ):
             reasons.append("reference_benchmark_mismatch")
         else:
             regressions = _safety_regressions(candidate, reference, policy.safety_regression_tolerance)

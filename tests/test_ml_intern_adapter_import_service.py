@@ -108,9 +108,10 @@ def test_valid_minimal_archive_and_individual_files_are_pending_evaluation(tmp_p
         "adapter_model.safetensors",
     }
     assert "path" not in json.dumps(imported).lower()
-    assert service.get_import(
-        tenant_id="tenant", principal_id="admin", adapter_id="todo-json", version="1.0.0"
-    ) == imported
+    assert (
+        service.get_import(tenant_id="tenant", principal_id="admin", adapter_id="todo-json", version="1.0.0")
+        == imported
+    )
 
     second = service.import_files(
         tenant_id="tenant",
@@ -369,9 +370,7 @@ def test_compensation_refuses_to_delete_hash_changed_artifact(tmp_path: Path) ->
         adapter_id="todo-json",
         version="1.0.0",
     )
-    (artifact_path / "adapter_model.safetensors").write_bytes(
-        _safetensors_bytes(b"\x04\x00\x00\x00")
-    )
+    (artifact_path / "adapter_model.safetensors").write_bytes(_safetensors_bytes(b"\x04\x00\x00\x00"))
 
     with pytest.raises(AdapterImportError) as exc:
         service.compensate_import(created.compensation_token)
@@ -415,10 +414,13 @@ def test_compensation_registry_failure_restores_exact_artifact_and_entry(
 
     assert exc.value.reason_code == "adapter_import_compensation_failed"
     assert artifact_path.exists()
-    assert service.get_import(
-        tenant_id="tenant",
-        principal_id="admin",
-        adapter_id="todo-json",
-        version="1.0.0",
-    ) == created.summary
+    assert (
+        service.get_import(
+            tenant_id="tenant",
+            principal_id="admin",
+            adapter_id="todo-json",
+            version="1.0.0",
+        )
+        == created.summary
+    )
     assert not list((tmp_path / "imports").rglob("adapter-compensation/*"))

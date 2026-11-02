@@ -40,9 +40,7 @@ def test_knowledge_index_dispatch_requires_hub_service_auth_before_task_service(
         "_services",
         lambda: SimpleNamespace(task_scoped_execution_service=scoped),
     )
-    service_headers = {
-        "Authorization": f"Bearer {app.config['AGENT_TOKEN']}"
-    }
+    service_headers = {"Authorization": f"Bearer {app.config['AGENT_TOKEN']}"}
 
     for phase in ("propose", "execute"):
         task_id = f"knowledge-index-auth-{phase}"
@@ -62,9 +60,7 @@ def test_knowledge_index_dispatch_requires_hub_service_auth_before_task_service(
         )
 
         assert denied.status_code == 403
-        assert denied.get_json()["data"]["reason_code"] == (
-            "knowledge_index_dispatch_service_auth_required"
-        )
+        assert denied.get_json()["data"]["reason_code"] == ("knowledge_index_dispatch_service_auth_required")
         assert scoped.calls == before
 
         accepted = client.post(

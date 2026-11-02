@@ -27,9 +27,7 @@ def _load_architecture_graph_diagnostics(
         _resolve_graph_store_diagnostics,
     )
 
-    store, _index_id, diagnostics = _resolve_graph_store_diagnostics(
-        arguments or {}
-    )
+    store, _index_id, diagnostics = _resolve_graph_store_diagnostics(arguments or {})
     if store is None:
         return [], [], diagnostics
     payload = store.load() if hasattr(store, "load") else {}
@@ -49,15 +47,13 @@ def _slice_result(
     include_diagram: bool = False,
 ) -> dict[str, Any]:
     from agent.services.codecompass_architecture_slice_service import (
-        get_codecompass_architecture_slice_service,
         decode_handle,
+        get_codecompass_architecture_slice_service,
     )
 
     records, edges = _load_architecture_graph(arguments)
     if not records:
-        _records, _edges, resolution_diagnostics = (
-            _load_architecture_graph_diagnostics(arguments)
-        )
+        _records, _edges, resolution_diagnostics = _load_architecture_graph_diagnostics(arguments)
         return build_tool_result(
             tool_name=tool_name,
             tool_call_id=tool_call_id,
@@ -123,7 +119,9 @@ def _slice_result(
     )
 
 
-def codecompass_architecture_overview(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_overview(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     query = str((arguments or {}).get("query") or "").strip()
     if not query:
         return build_tool_result(
@@ -141,7 +139,9 @@ def codecompass_architecture_overview(*, workspace_dir: str, arguments: dict[str
     )
 
 
-def codecompass_architecture_expand(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_expand(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     handle = str((arguments or {}).get("handle") or (arguments or {}).get("node") or "").strip()
     if not handle:
         return build_tool_result(
@@ -160,13 +160,15 @@ def codecompass_architecture_expand(*, workspace_dir: str, arguments: dict[str, 
     )
 
 
-def codecompass_component_context(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    return codecompass_architecture_expand(
-        workspace_dir=workspace_dir, arguments=arguments, tool_call_id=tool_call_id
-    )
+def codecompass_component_context(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
+    return codecompass_architecture_expand(workspace_dir=workspace_dir, arguments=arguments, tool_call_id=tool_call_id)
 
 
-def codecompass_architecture_dependencies(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_dependencies(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     handle = str((arguments or {}).get("handle") or "").strip()
     if not handle:
         return build_tool_result(
@@ -208,9 +210,7 @@ def codecompass_symbol_context(*, workspace_dir: str, arguments: dict[str, Any],
         }
         for index, item in enumerate(provided_sources)
         if isinstance(item, dict)
-        and str(item.get("source") or item.get("path") or "").endswith(
-            (".py", ".ts", ".tsx", ".js", ".java")
-        )
+        and str(item.get("source") or item.get("path") or "").endswith((".py", ".ts", ".tsx", ".js", ".java"))
     ][:20]
     if not ranked_sources:
         ranked_sources = [
@@ -219,9 +219,7 @@ def codecompass_symbol_context(*, workspace_dir: str, arguments: dict[str, Any],
                 "score": float(node.get("score") or (100 - index)),
             }
             for index, node in enumerate(records)
-            if str(node.get("path") or "").endswith(
-                (".py", ".ts", ".tsx", ".js", ".java")
-            )
+            if str(node.get("path") or "").endswith((".py", ".ts", ".tsx", ".js", ".java"))
         ][:20]
     snippets = build_codecompass_symbol_context(
         repo_root=Path(workspace_dir),
@@ -256,7 +254,9 @@ def codecompass_symbol_context(*, workspace_dir: str, arguments: dict[str, Any],
     )
 
 
-def codecompass_architecture_evidence(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_evidence(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     return _slice_result(
         tool_name="codecompass.architecture_evidence",
         tool_call_id=tool_call_id,
@@ -266,7 +266,9 @@ def codecompass_architecture_evidence(*, workspace_dir: str, arguments: dict[str
     )
 
 
-def codecompass_architecture_diagram(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_architecture_diagram(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str
+) -> dict[str, Any]:
     query = str((arguments or {}).get("query") or "architecture").strip()
     return _slice_result(
         tool_name="codecompass.architecture_diagram",

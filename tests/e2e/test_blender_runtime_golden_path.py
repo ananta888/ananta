@@ -4,7 +4,9 @@ from client_surfaces.blender.addon.context import capture_bounded_scene_context
 
 
 def test_blender_runtime_golden_path(client, admin_auth_header) -> None:
-    context = capture_bounded_scene_context("Scene", [{"name": "Cube", "type": "MESH", "selected": True}], max_objects=8)
+    context = capture_bounded_scene_context(
+        "Scene", [{"name": "Cube", "type": "MESH", "selected": True}], max_objects=8
+    )
     health = client.get("/api/client-surfaces/blender/health", headers=admin_auth_header)
     capabilities = client.get("/api/client-surfaces/blender/capabilities", headers=admin_auth_header)
     goal = client.post(

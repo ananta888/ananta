@@ -26,7 +26,9 @@ def test_smoke_script_reports_failure_for_missing_runtime_command(monkeypatch) -
     monkeypatch.setattr(smoke_nvim_runtime.shutil, "which", lambda _name: "/usr/bin/nvim")
 
     def fake_run(*args, **kwargs):  # noqa: ANN001
-        return subprocess.CompletedProcess(args=["nvim"], returncode=2, stdout="", stderr="missing_command:AnantaReview")
+        return subprocess.CompletedProcess(
+            args=["nvim"], returncode=2, stdout="", stderr="missing_command:AnantaReview"
+        )
 
     monkeypatch.setattr(smoke_nvim_runtime.subprocess, "run", fake_run)
     ok, output = smoke_nvim_runtime.run_smoke_once()

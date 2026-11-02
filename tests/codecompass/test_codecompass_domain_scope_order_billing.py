@@ -6,6 +6,7 @@ retrieval into Artikelkatalog or other areas — only the explicit domain
 scope decides. The fixture project has ``orders/``, ``catalog/`` and
 ``billing/`` plus a realistic ``domains.detected.json``.
 """
+
 from __future__ import annotations
 
 import shutil

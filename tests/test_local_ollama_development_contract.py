@@ -10,13 +10,8 @@ from agent.services.model_profile_loader import ModelProfileLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_PATH = ROOT / "docker/compose-next/compose.dev.ollama.yml"
-CPU_OVERLAY_PATH = (
-    ROOT / "docker/compose-next/compose.dev.ollama-cpu.yml"
-)
-PROFILE_PATH = (
-    ROOT
-    / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-)
+CPU_OVERLAY_PATH = ROOT / "docker/compose-next/compose.dev.ollama-cpu.yml"
+PROFILE_PATH = ROOT / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
 
 
 def _compose() -> dict[str, Any]:
@@ -62,28 +57,16 @@ def test_ollama_uses_backupable_wsl_bind_mount_and_single_model_gpu_limits():
     }
     assert expected_model_mount in ollama["volumes"]
     assert not any(
-        (
-            isinstance(value, dict)
-            and value.get("target") == "/root/.ollama"
-        )
-        or (
-            isinstance(value, str)
-            and value.endswith(":/root/.ollama")
-        )
+        (isinstance(value, dict) and value.get("target") == "/root/.ollama")
+        or (isinstance(value, str) and value.endswith(":/root/.ollama"))
         for value in bootstrap["volumes"]
     )
     assert "ollama-data" not in compose.get("volumes", {})
 
     assert ollama["gpus"] == "all"
     assert ollama["environment"]["NVIDIA_VISIBLE_DEVICES"] == "all"
-    assert (
-        ollama["environment"]["OLLAMA_NUM_PARALLEL"]
-        == "${OLLAMA_NUM_PARALLEL:-1}"
-    )
-    assert (
-        ollama["environment"]["OLLAMA_MAX_LOADED_MODELS"]
-        == "${OLLAMA_MAX_LOADED_MODELS:-1}"
-    )
+    assert ollama["environment"]["OLLAMA_NUM_PARALLEL"] == "${OLLAMA_NUM_PARALLEL:-1}"
+    assert ollama["environment"]["OLLAMA_MAX_LOADED_MODELS"] == "${OLLAMA_MAX_LOADED_MODELS:-1}"
 
 
 def test_cpu_overlay_removes_only_the_nvidia_device_request():
@@ -109,11 +92,7 @@ def test_python_and_angular_services_mount_only_live_sources():
         assert "../../worker:/app/worker:ro" in volumes
         assert "../../ananta_codecompass:/app/ananta_codecompass:ro" in volumes
         assert "../../config:/app/config:ro" in volumes
-        assert not any(
-            isinstance(value, str)
-            and value.split(":", 1)[0] == "../.."
-            for value in volumes
-        )
+        assert not any(isinstance(value, str) and value.split(":", 1)[0] == "../.." for value in volumes)
 
     angular_volumes = services["angular-frontend"]["volumes"]
     assert "../../:/app:rw" not in angular_volumes
@@ -141,10 +120,7 @@ def test_strict_hub_auth_uses_an_explicit_local_cors_allowlist():
     hub_environment = _compose()["services"]["ai-agent-hub"]["environment"]
     configured = hub_environment["CORS_ORIGINS"]
 
-    assert configured == (
-        "${CORS_ORIGINS:-"
-        "http://localhost:4200,http://127.0.0.1:4200}"
-    )
+    assert configured == ("${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}")
     settings = Settings(
         _env_file=None,
         workflow_require_registered_worker_auth=True,

@@ -1,4 +1,5 @@
 """ananta prompt — prompt trace inspection commands (moved from main.py)."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,11 +7,24 @@ from collections.abc import Sequence
 from typing import Any
 
 SUBCOMMANDS = [
-    "inspect", "render", "goal-traces", "goal-report", "delegation-report",
-    "task-report", "task-traces", "task-inspect", "task-why",
-    "learning-report", "learning-status", "planner-profiles",
-    "goal-flows", "goal-stuck", "goal-execmap",
-    "artifact-provenance", "goal-artifact-matrix", "goal-worker-traces",
+    "inspect",
+    "render",
+    "goal-traces",
+    "goal-report",
+    "delegation-report",
+    "task-report",
+    "task-traces",
+    "task-inspect",
+    "task-why",
+    "learning-report",
+    "learning-status",
+    "planner-profiles",
+    "goal-flows",
+    "goal-stuck",
+    "goal-execmap",
+    "artifact-provenance",
+    "goal-artifact-matrix",
+    "goal-worker-traces",
 ]
 
 
@@ -22,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  ananta prompt inspect --trace-id <id>\n"
-            "  ananta prompt render --mode generic --goal \"Build a CLI\"\n"
+            '  ananta prompt render --mode generic --goal "Build a CLI"\n'
             "  ananta prompt goal-traces --goal-id <id>\n"
             "  ananta prompt goal-report --goal-id <id>\n"
             "  ananta prompt task-report --task-id <id>\n"
@@ -138,6 +152,7 @@ def dispatch(argv: Sequence[str]) -> int:
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 2
     from agent.cli.prompt_inspect import run_prompt_command
+
     return run_prompt_command(parsed)
 
 

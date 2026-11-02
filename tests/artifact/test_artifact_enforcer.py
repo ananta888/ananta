@@ -1,10 +1,9 @@
 """Tests for artifact_enforcer.py (EW-T051)."""
-import pytest
+
 from worker.core.artifact_enforcer import (
-    ArtifactEnforcer,
-    ArtifactEnforcementResult,
     CAPABILITY_ARTIFACT_MAP,
     KNOWN_ARTIFACT_KINDS,
+    ArtifactEnforcer,
 )
 
 
@@ -19,46 +18,32 @@ class TestArtifactEnforcerCheck:
     # ── Compliant cases ──────────────────────────────────────────────────────
 
     def test_planning_with_plan_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["planning"], [_art("plan_artifact")], summary="Plan a1"
-        )
+        result = self.enforcer.check(["planning"], [_art("plan_artifact")], summary="Plan a1")
         assert result.compliant is True
         assert result.violations == []
 
     def test_patch_propose_with_patch_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["patch_propose"], [_art("patch_artifact")], summary="Patch a1"
-        )
+        result = self.enforcer.check(["patch_propose"], [_art("patch_artifact")], summary="Patch a1")
         assert result.compliant is True
 
     def test_patch_propose_with_patch_candidate_compliant(self):
-        result = self.enforcer.check(
-            ["patch_propose"], [_art("patch_candidate")], summary="Patch a1"
-        )
+        result = self.enforcer.check(["patch_propose"], [_art("patch_candidate")], summary="Patch a1")
         assert result.compliant is True
 
     def test_shell_plan_with_command_plan_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["shell_plan"], [_art("command_plan_artifact")], summary="a1"
-        )
+        result = self.enforcer.check(["shell_plan"], [_art("command_plan_artifact")], summary="a1")
         assert result.compliant is True
 
     def test_shell_execute_with_command_result_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["shell_execute"], [_art("command_result_artifact")], summary="a1"
-        )
+        result = self.enforcer.check(["shell_execute"], [_art("command_result_artifact")], summary="a1")
         assert result.compliant is True
 
     def test_test_run_with_test_result_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["test_run"], [_art("test_result_artifact")], summary="a1"
-        )
+        result = self.enforcer.check(["test_run"], [_art("test_result_artifact")], summary="a1")
         assert result.compliant is True
 
     def test_verify_with_verification_artifact_compliant(self):
-        result = self.enforcer.check(
-            ["verify"], [_art("verification_artifact")], summary="a1"
-        )
+        result = self.enforcer.check(["verify"], [_art("verification_artifact")], summary="a1")
         assert result.compliant is True
 
     def test_no_capabilities_no_artifacts_compliant(self):
@@ -99,9 +84,7 @@ class TestArtifactEnforcerCheck:
     # ── Violation: unknown artifact kind ────────────────────────────────────
 
     def test_unknown_artifact_kind_violates(self):
-        result = self.enforcer.check(
-            [], [_art("magic_result_artifact")], summary=""
-        )
+        result = self.enforcer.check([], [_art("magic_result_artifact")], summary="")
         assert result.compliant is False
         assert any("magic_result_artifact" in v for v in result.violations)
 
@@ -139,16 +122,12 @@ class TestArtifactEnforcerCheck:
     # ── Free-text-only rejection ─────────────────────────────────────────────
 
     def test_free_text_only_with_required_capability_rejected(self):
-        result = self.enforcer.check(
-            ["planning", "patch_propose"], [], summary="I fixed it, trust me"
-        )
+        result = self.enforcer.check(["planning", "patch_propose"], [], summary="I fixed it, trust me")
         assert result.compliant is False
         assert any("free-text" in v for v in result.violations)
 
     def test_multiple_violations_all_recorded(self):
-        result = self.enforcer.check(
-            ["planning", "shell_execute"], [], summary=""
-        )
+        result = self.enforcer.check(["planning", "shell_execute"], [], summary="")
         assert result.compliant is False
         assert len(result.violations) >= 2
 
@@ -161,6 +140,7 @@ class TestArtifactEnforcerCheck:
 
     def test_capability_artifact_map_keys_are_capabilities(self):
         from worker.core.execution_envelope import KNOWN_CAPABILITY_CLASSES
+
         for cap in CAPABILITY_ARTIFACT_MAP:
             assert cap in KNOWN_CAPABILITY_CLASSES, f"{cap!r} not in vocabulary"
 
@@ -179,25 +159,17 @@ class TestBuildSummaryWithRefs:
         assert summary == "Completed task"
 
     def test_artifact_id_appended(self):
-        summary = self.enforcer.build_summary_with_refs(
-            "Completed task", [{"artifact_id": "plan-001"}]
-        )
+        summary = self.enforcer.build_summary_with_refs("Completed task", [{"artifact_id": "plan-001"}])
         assert "plan-001" in summary
 
     def test_multiple_artifact_ids_all_appended(self):
-        summary = self.enforcer.build_summary_with_refs(
-            "Done", [{"artifact_id": "a1"}, {"artifact_id": "a2"}]
-        )
+        summary = self.enforcer.build_summary_with_refs("Done", [{"artifact_id": "a1"}, {"artifact_id": "a2"}])
         assert "a1" in summary and "a2" in summary
 
     def test_artifacts_without_ids_not_appended(self):
-        summary = self.enforcer.build_summary_with_refs(
-            "Done", [{"kind": "plan_artifact"}]
-        )
+        summary = self.enforcer.build_summary_with_refs("Done", [{"kind": "plan_artifact"}])
         assert summary == "Done"
 
     def test_uses_id_field_as_fallback(self):
-        summary = self.enforcer.build_summary_with_refs(
-            "Done", [{"id": "fallback-id"}]
-        )
+        summary = self.enforcer.build_summary_with_refs("Done", [{"id": "fallback-id"}])
         assert "fallback-id" in summary

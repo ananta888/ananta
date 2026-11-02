@@ -7,4 +7,3 @@ def test_extract_wiki_sections_splits_by_headings():
     assert sections[0]["section_title"] == "Overview"
     assert sections[1]["section_title"] == "A"
     assert sections[2]["section_title"] == "B"
-

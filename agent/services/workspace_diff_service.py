@@ -1,10 +1,9 @@
 """WorkspaceDiffService — workspace snapshot + diff + synthesized manifest bridge."""
+
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -74,18 +73,20 @@ class WorkspaceDiffService:
             content = abs_path.read_bytes()
             content_hash = hashlib.sha256(content).hexdigest()
             operation = "created" if entry.before_hash is None else "modified"
-            artifacts.append({
-                "artifact_id": f"art-{uuid.uuid4().hex[:12]}",
-                "kind": "generated_file" if operation == "created" else "modified_file",
-                "relative_path": rel_path,
-                "content_hash": content_hash,
-                "size_bytes": len(content),
-                "classification": "internal",
-                "operation": operation,
-                "required": False,
-                "verification_status": "pending",
-                "metadata": {"synthesized": True},
-            })
+            artifacts.append(
+                {
+                    "artifact_id": f"art-{uuid.uuid4().hex[:12]}",
+                    "kind": "generated_file" if operation == "created" else "modified_file",
+                    "relative_path": rel_path,
+                    "content_hash": content_hash,
+                    "size_bytes": len(content),
+                    "classification": "internal",
+                    "operation": operation,
+                    "required": False,
+                    "verification_status": "pending",
+                    "metadata": {"synthesized": True},
+                }
+            )
 
         manifest = build_artifact_manifest(
             goal_id=goal_id,
@@ -100,7 +101,8 @@ class WorkspaceDiffService:
         )
         log.info(
             "WorkspaceDiffService: synthesized manifest for task %s with %d artifacts",
-            task_id, len(artifacts),
+            task_id,
+            len(artifacts),
         )
         return manifest
 

@@ -33,15 +33,31 @@ def main(argv=None):
         if args.rollback:
             result = repository.rollback(args.batch_id)
         else:
-            result = repository.migrate(limit=args.limit, after_id=args.after_id, dry_run=not args.apply,
-                                        batch_id=args.batch_id, admit_namespaces=True)
-        print(json.dumps({"status": "ok", "classification": "technical_operator_observation",
-                          "production_release_evidence": False, "result": result}, sort_keys=True))
+            result = repository.migrate(
+                limit=args.limit,
+                after_id=args.after_id,
+                dry_run=not args.apply,
+                batch_id=args.batch_id,
+                admit_namespaces=True,
+            )
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "classification": "technical_operator_observation",
+                    "production_release_evidence": False,
+                    "result": result,
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     except Exception as exc:
         # Database URLs and provider diagnostics may contain credentials.
-        reason = str(exc) if isinstance(exc, ValueError) and str(exc).startswith("memory_") else (
-            "memory_migration_unavailable"
+        reason = (
+            str(exc)
+            if isinstance(exc, ValueError) and str(exc).startswith("memory_")
+            else ("memory_migration_unavailable")
         )
         print(json.dumps({"status": "blocked", "reason_code": reason}))
         return 2

@@ -43,8 +43,8 @@ class _FakeTerminalSession:
 
 
 def test_ensure_session_for_cli_applies_workdir(app):
-    from agent.services.live_terminal_session_service import LiveTerminalSessionService
     from agent.config import settings
+    from agent.services.live_terminal_session_service import LiveTerminalSessionService
 
     service = LiveTerminalSessionService()
     fake_session = _FakeTerminalSession()
@@ -76,7 +76,9 @@ def test_run_opencode_turn_uses_run_mode_by_default_for_interactive_terminal(app
 
     with (
         patch("agent.services.live_terminal_session_service.shutil.which", return_value="/usr/bin/opencode"),
-        patch("agent.services.live_terminal_session_service.LiveTerminalSessionService.ensure_session_for_cli") as ensure_for_cli,
+        patch(
+            "agent.services.live_terminal_session_service.LiveTerminalSessionService.ensure_session_for_cli"
+        ) as ensure_for_cli,
         patch.object(service, "ensure_session", return_value=fake_session),
     ):
         ensure_for_cli.return_value = {
@@ -114,7 +116,9 @@ def test_run_opencode_turn_uses_tui_launch_when_configured(app):
 
     with (
         patch("agent.services.live_terminal_session_service.shutil.which", return_value="/usr/bin/opencode"),
-        patch("agent.services.live_terminal_session_service.LiveTerminalSessionService.ensure_session_for_cli") as ensure_for_cli,
+        patch(
+            "agent.services.live_terminal_session_service.LiveTerminalSessionService.ensure_session_for_cli"
+        ) as ensure_for_cli,
         patch.object(service, "ensure_session", return_value=fake_session),
     ):
         ensure_for_cli.return_value = {

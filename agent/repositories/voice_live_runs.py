@@ -50,9 +50,7 @@ class VoiceLiveRunRepository:
         self._session_factory = session_factory or _default_session
         self._segments = segments or VoiceLiveSegmentStore(session_factory=self._session_factory)
         self._corrections = corrections or VoiceLiveCorrectionStore(session_factory=self._session_factory)
-        self._finalization = finalization or VoiceLiveRunFinalizationStore(
-            session_factory=self._session_factory
-        )
+        self._finalization = finalization or VoiceLiveRunFinalizationStore(session_factory=self._session_factory)
         self._expiry = expiry or VoiceLiveRunExpiryStore(session_factory=self._session_factory)
 
     def create(self, run: VoiceLiveRunDB) -> tuple[VoiceLiveRunDB, bool]:

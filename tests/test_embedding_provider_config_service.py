@@ -1,4 +1,5 @@
 """Tests for EmbeddingProviderConfigService — EPC-014, EPC-015, EPC-016, EPC-017."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,15 +10,15 @@ from agent.services.embedding_provider_config_service import (
     build_embedding_provider_from_config,
 )
 from worker.retrieval.embedding_provider import (
-    HashEmbeddingProvider,
     FakeEmbeddingProvider,
+    HashEmbeddingProvider,
     build_embedding_provider,
 )
-
 
 # ---------------------------------------------------------------------------
 # EPC-002: EmbeddingProviderConfig model
 # ---------------------------------------------------------------------------
+
 
 def test_config_defaults_are_safe() -> None:
     cfg = EmbeddingProviderConfig()
@@ -52,24 +53,29 @@ def test_config_as_dict_no_redact_reveals_key() -> None:
 # EPC-003: Default-Deny for external calls
 # ---------------------------------------------------------------------------
 
+
 def test_build_embedding_provider_blocks_openai_without_flag() -> None:
     """EPC-003 / EPC-006: openai_compatible without external_calls_allowed must raise."""
     with pytest.raises(ValueError, match="external_calls_not_allowed"):
-        build_embedding_provider({
-            "provider": "openai_compatible",
-            "base_url": "https://api.openai.com/v1",
-            "api_key": "sk-test",
-            # external_calls_allowed intentionally omitted → defaults to False
-        })
+        build_embedding_provider(
+            {
+                "provider": "openai_compatible",
+                "base_url": "https://api.openai.com/v1",
+                "api_key": "sk-test",
+                # external_calls_allowed intentionally omitted → defaults to False
+            }
+        )
 
 
 def test_build_embedding_provider_blocks_openai_with_flag_false() -> None:
     with pytest.raises(ValueError, match="external_calls_not_allowed"):
-        build_embedding_provider({
-            "provider": "openai_compatible",
-            "base_url": "https://api.openai.com/v1",
-            "external_calls_allowed": False,
-        })
+        build_embedding_provider(
+            {
+                "provider": "openai_compatible",
+                "base_url": "https://api.openai.com/v1",
+                "external_calls_allowed": False,
+            }
+        )
 
 
 def test_build_embedding_provider_allows_local_hash_without_flag() -> None:
@@ -80,40 +86,47 @@ def test_build_embedding_provider_allows_local_hash_without_flag() -> None:
 def test_build_embedding_provider_blocks_url_not_in_allowlist() -> None:
     """EPC-006: base_url not in allowed_base_urls must be blocked even with flag."""
     with pytest.raises(ValueError, match="base_url_not_allowed|external_calls_not_allowed"):
-        build_embedding_provider({
-            "provider": "openai_compatible",
-            "base_url": "https://evil.example.com/v1",
-            "external_calls_allowed": True,
-            "allowed_base_urls": ["http://localhost:11434"],
-        })
+        build_embedding_provider(
+            {
+                "provider": "openai_compatible",
+                "base_url": "https://evil.example.com/v1",
+                "external_calls_allowed": True,
+                "allowed_base_urls": ["http://localhost:11434"],
+            }
+        )
 
 
 def test_build_embedding_provider_blocks_hostname_prefix_allowlist_bypass() -> None:
     with pytest.raises(ValueError, match="base_url_not_allowed"):
-        build_embedding_provider({
-            "provider": "openai_compatible",
-            "base_url": "https://api.example.com.evil/v1",
-            "external_calls_allowed": True,
-            "allowed_base_urls": ["https://api.example.com"],
-        })
+        build_embedding_provider(
+            {
+                "provider": "openai_compatible",
+                "base_url": "https://api.example.com.evil/v1",
+                "external_calls_allowed": True,
+                "allowed_base_urls": ["https://api.example.com"],
+            }
+        )
 
 
 def test_build_embedding_provider_allows_localhost_with_flag() -> None:
     """Localhost with explicit allow should not raise at build time (no actual network call)."""
-    provider = build_embedding_provider({
-        "provider": "openai_compatible",
-        "base_url": "http://localhost:11434/v1",
-        "api_key": "dummy",
-        "external_calls_allowed": True,
-        "allowed_base_urls": ["http://localhost:11434"],
-        "dimensions": 768,
-    })
+    provider = build_embedding_provider(
+        {
+            "provider": "openai_compatible",
+            "base_url": "http://localhost:11434/v1",
+            "api_key": "dummy",
+            "external_calls_allowed": True,
+            "allowed_base_urls": ["http://localhost:11434"],
+            "dimensions": 768,
+        }
+    )
     assert provider.provider_id == "openai_compatible"
 
 
 # ---------------------------------------------------------------------------
 # EPC-015: Secrets must not appear in diagnostics or error messages
 # ---------------------------------------------------------------------------
+
 
 def test_diagnostic_does_not_leak_api_key() -> None:
     svc = EmbeddingProviderConfigService(
@@ -148,6 +161,7 @@ def test_config_hash_stable_without_secrets() -> None:
 # ---------------------------------------------------------------------------
 # EPC-004: EmbeddingProviderConfigService resolve & merge
 # ---------------------------------------------------------------------------
+
 
 def test_service_default_resolves_local_hash() -> None:
     svc = EmbeddingProviderConfigService()
@@ -226,6 +240,7 @@ def test_resolve_for_build_returns_flat_dict() -> None:
 # EPC-017: build_embedding_provider_from_config blocks external without allow
 # ---------------------------------------------------------------------------
 
+
 def test_build_from_config_blocks_external_without_flag() -> None:
     cfg = EmbeddingProviderConfig(
         provider="openai_compatible",
@@ -249,8 +264,10 @@ def test_build_from_config_local_hash_works() -> None:
 # EPC-016: Index builder uses config service
 # ---------------------------------------------------------------------------
 
+
 def test_index_builder_uses_hash_provider_by_default() -> None:
     from worker.retrieval.index_builder import build_incremental_index
+
     result = build_incremental_index(
         files={"main.py": "def main(): pass"},
         embedding_scope="worker_retrieval",
@@ -263,6 +280,7 @@ def test_index_builder_uses_hash_provider_by_default() -> None:
 
 def test_index_builder_respects_injected_provider() -> None:
     from worker.retrieval.index_builder import build_incremental_index
+
     provider = FakeEmbeddingProvider(dimensions=4)
     result = build_incremental_index(
         files={"a.py": "x = 1", "b.py": "y = 2"},
@@ -274,6 +292,7 @@ def test_index_builder_respects_injected_provider() -> None:
 def test_index_builder_rebuild_detected_on_provider_change() -> None:
     """EPC-017: different provider → different config_hash in state."""
     from worker.retrieval.index_builder import build_incremental_index
+
     files = {"main.py": "def main(): pass"}
     r1 = build_incremental_index(files=files, embedding_provider=HashEmbeddingProvider(dimensions=8))
     r2 = build_incremental_index(files=files, embedding_provider=HashEmbeddingProvider(dimensions=16))

@@ -29,6 +29,7 @@ _VISUAL_THROTTLE_S: float = 25.0
 
 # ── Bridge callables — patched by tests; delegated to snakes_execution_routes ─
 
+
 def _background_threads_disabled() -> bool:
     return _route_bridge.background_threads_disabled()
 
@@ -75,13 +76,11 @@ def _get_visual_state(snake_id: str) -> dict:
     test code that replaces the module attribute is picked up correctly.
     """
     import agent.services.visual_guide.service as _self_mod
+
     vs: dict[str, dict] = _self_mod._visual_state
     now = time.time()
     # TTL eviction
-    expired = [
-        sid for sid, s in list(vs.items())
-        if now - float(s.get("updated_at", 0)) > _VISUAL_STATE_TTL_S
-    ]
+    expired = [sid for sid, s in list(vs.items()) if now - float(s.get("updated_at", 0)) > _VISUAL_STATE_TTL_S]
     for sid in expired:
         vs.pop(sid, None)
 
@@ -169,7 +168,9 @@ class VisualGuideService:
             if route_tip:
                 self._trace_svc.emit(trace_id, "action_generated", {"strategy": "rule", "tip": route_tip})
                 _self_mod._append_room_ai_message(
-                    text=route_tip, session_id=_self_mod._VISUAL_SESSION_ID, visibility="room",
+                    text=route_tip,
+                    session_id=_self_mod._VISUAL_SESSION_ID,
+                    visibility="room",
                     owner_principal=owner_principal,
                 )
                 action = VisualGuideAction(
@@ -193,7 +194,9 @@ class VisualGuideService:
             answer = self._call_llm_for_ui_tick(snapshot, n_candidates, pug)
             if answer:
                 _self_mod._append_room_ai_message(
-                    text=answer, session_id=_self_mod._VISUAL_SESSION_ID, visibility="room",
+                    text=answer,
+                    session_id=_self_mod._VISUAL_SESSION_ID,
+                    visibility="room",
                     owner_principal=owner_principal,
                 )
                 _log.info("ananta-visual: reply appended (%d chars)", len(answer))
@@ -202,14 +205,16 @@ class VisualGuideService:
                 candidates = self._parse_candidates(answer) if n_candidates > 1 else []
                 if candidates:
                     _self_mod._broadcast_snake_event(
-                        snake_id, "candidates",
+                        snake_id,
+                        "candidates",
                         {"request_id": request.request_id, "candidates": candidates},
                     )
                 else:
                     guide_steps = self._extract_guide_steps(answer)
                     if guide_steps:
                         _self_mod._broadcast_snake_event(
-                            snake_id, "guide",
+                            snake_id,
+                            "guide",
                             {"request_id": request.request_id, "trigger_type": "ui_tick", "steps": guide_steps},
                         )
 
@@ -268,7 +273,9 @@ class VisualGuideService:
             if guide_steps:
                 guide_json = json.dumps({"steps": guide_steps})
                 _n = len(guide_steps)
-                _summary = f"Guide gestartet: {_n} {'Schritt' if _n == 1 else 'Schritte'} auf {route or '(unbekannt)'} (Regel)"
+                _summary = (
+                    f"Guide gestartet: {_n} {'Schritt' if _n == 1 else 'Schritte'} auf {route or '(unbekannt)'} (Regel)"
+                )
                 _self_mod._append_room_ai_message(
                     text=f"{_summary}\n\n__GUIDE__:{guide_json}",
                     session_id=_self_mod._VISUAL_SESSION_ID,
@@ -276,7 +283,8 @@ class VisualGuideService:
                     owner_principal=owner_principal,
                 )
                 _self_mod._broadcast_snake_event(
-                    snake_id, "guide",
+                    snake_id,
+                    "guide",
                     {"request_id": request.request_id, "trigger_type": "region_explain", "steps": guide_steps},
                 )
                 action = VisualGuideAction(
@@ -312,7 +320,8 @@ class VisualGuideService:
                 owner_principal=owner_principal,
             )
             _self_mod._broadcast_snake_event(
-                snake_id, "guide",
+                snake_id,
+                "guide",
                 {"request_id": request.request_id, "trigger_type": "region_explain", "steps": guide_steps},
             )
             _log.info("region-explain: guide reply with %d steps appended", len(guide_steps))
@@ -403,6 +412,7 @@ class VisualGuideService:
         # VG-011: use ModelInvocationService
         try:
             from agent.services.model_invocation_service import ModelInvocationService
+
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
@@ -428,6 +438,7 @@ class VisualGuideService:
     def _call_openai_fallback_ui_tick(self, snapshot: str, n_candidates: int, cfg: dict) -> str:
         """Direct openai fallback for ui_tick when ModelInvocationService is unavailable."""
         import openai as _oai
+
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
         api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
@@ -436,7 +447,7 @@ class VisualGuideService:
             system_prompt = (
                 "Du bist die orangene Guide-Snake in der Ananta App.\n"
                 "Reagiere in 1-2 kurzen deutschen Sätzen auf den UI-Zustand.\n"
-                'Füge wenn sinnvoll __GUIDE__: Steps an.\n'
+                "Füge wenn sinnvoll __GUIDE__: Steps an.\n"
                 "Wenn trivial/unklar: leerer Text."
             )
         else:
@@ -470,7 +481,7 @@ class VisualGuideService:
         if not labels:
             return []
 
-        elements_list = "\n".join(f"{i+1}. {lbl}" for i, lbl in enumerate(labels))
+        elements_list = "\n".join(f"{i + 1}. {lbl}" for i, lbl in enumerate(labels))
         system_prompt = (
             "Du bist die orangene Guide-Snake in der Ananta App.\n"
             "Der User hat eine Region auf der Seite markiert und möchte kurze Erklärungen.\n"
@@ -484,6 +495,7 @@ class VisualGuideService:
         # VG-011: use ModelInvocationService
         try:
             from agent.services.model_invocation_service import ModelInvocationService
+
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
@@ -504,7 +516,7 @@ class VisualGuideService:
             raw = self._call_openai_fallback_region_explain(system_prompt, user_msg, _cfg)
 
         # Parse JSON array from response
-        json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
         if not json_match:
             _log.warning("region-explain: LLM returned no JSON array: %r", raw[:120])
             return []
@@ -516,6 +528,7 @@ class VisualGuideService:
     def _call_openai_fallback_region_explain(self, system_prompt: str, user_msg: str, cfg: dict) -> str:
         """Direct openai fallback for region_explain when ModelInvocationService is unavailable."""
         import openai as _oai
+
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
         api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
@@ -550,13 +563,15 @@ class VisualGuideService:
                     continue
             except (TypeError, ValueError):
                 continue
-            guide_steps.append({
-                "waypoint": str(step.get("waypoint") or "__region__"),
-                "bubble": bubble[:120],
-                "delay_ms": 3500,
-                "x": x,
-                "y": y,
-            })
+            guide_steps.append(
+                {
+                    "waypoint": str(step.get("waypoint") or "__region__"),
+                    "bubble": bubble[:120],
+                    "delay_ms": 3500,
+                    "x": x,
+                    "y": y,
+                }
+            )
         return guide_steps
 
     @staticmethod
@@ -566,7 +581,7 @@ class VisualGuideService:
         idx = text.find(marker)
         if idx < 0:
             return []
-        raw = text[idx + len(marker):].strip()
+        raw = text[idx + len(marker) :].strip()
         # Stop at first newline after the JSON object so trailing text is ignored
         nl = raw.find("\n")
         if nl > 0:
@@ -627,7 +642,8 @@ class VisualGuideService:
                 guide_steps = self._extract_guide_steps(answer)
                 if guide_steps:
                     _self_mod._broadcast_snake_event(
-                        snake_id, "guide",
+                        snake_id,
+                        "guide",
                         {"request_id": request.request_id, "trigger_type": "manual", "steps": guide_steps},
                     )
                 action = VisualGuideAction(
@@ -636,7 +652,9 @@ class VisualGuideService:
                     priority=5,
                     guide_steps=guide_steps if guide_steps else [],
                 )
-                self._trace_svc.emit(trace_id, "action_generated", {"chars": len(answer), "guide_steps": len(guide_steps)})
+                self._trace_svc.emit(
+                    trace_id, "action_generated", {"chars": len(answer), "guide_steps": len(guide_steps)}
+                )
                 self._trace_svc.finish_trace(trace_id, success=True, action=action)
             else:
                 self._trace_svc.finish_trace(trace_id, success=False)
@@ -667,6 +685,7 @@ class VisualGuideService:
 
         try:
             from agent.services.model_invocation_service import ModelInvocationService
+
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
@@ -683,6 +702,7 @@ class VisualGuideService:
     def _call_openai_fallback_manual_guide(self, system_prompt: str, user_msg: str, cfg: dict) -> str:
         """Direct openai fallback for manual guide when ModelInvocationService is unavailable."""
         import openai as _oai
+
         model = str(cfg.get("chat_model") or "gpt-4o-mini")
         api_base = str(cfg.get("chat_api_base") or "")
         api_key = str(cfg.get("chat_api_key") or os.environ.get("OPENAI_API_KEY") or "")
@@ -713,7 +733,7 @@ class VisualGuideService:
         idx = text.find(marker)
         if idx < 0:
             return []
-        raw = text[idx + len(marker):].strip()
+        raw = text[idx + len(marker) :].strip()
         nl = raw.find("\n")
         if nl > 0:
             raw = raw[:nl]

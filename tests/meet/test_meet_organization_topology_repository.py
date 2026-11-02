@@ -11,7 +11,7 @@ from agent.models.meet_organization_topology import MeetTopologyScope, MeetTopol
 from agent.repositories.meet_organization_topology import SqlMeetOrganizationTopology
 from agent.services.meet_contract import MeetError
 from agent.services.meet_organization_topology import active_topology
-from tests.meet_dialog_lifecycle_fixture import seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 
 pytestmark = pytest.mark.timeout(45)

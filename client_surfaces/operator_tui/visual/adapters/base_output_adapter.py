@@ -23,6 +23,4 @@ class DrawResult:
 class OutputAdapter(Protocol):
     adapter_id: str
 
-    def draw(self, frame: RenderFrame, *, region: ViewportRegion, stream: Any, context: DrawContext) -> DrawResult:
-        ...
-
+    def draw(self, frame: RenderFrame, *, region: ViewportRegion, stream: Any, context: DrawContext) -> DrawResult: ...

@@ -13,7 +13,6 @@ Covers:
 from __future__ import annotations
 
 import hashlib
-import os
 import textwrap
 from pathlib import Path
 
@@ -24,7 +23,6 @@ from agent.services.pattern_template_renderer import (
     RenderError,
     TemplateFile,
 )
-
 
 # --- helpers ---------------------------------------------------------
 
@@ -112,9 +110,11 @@ def test_renderer_writes_files_under_target_root(tmp_path: Path) -> None:
 
 def test_missing_parameter_raises_render_error() -> None:
     r = PatternTemplateRenderer()
-    plan = {"pattern_id": "python.strategy", "language": "python", "parameters": [
-        {"name": "context_class", "type": "string", "required": True, "description": "x"}
-    ]}
+    plan = {
+        "pattern_id": "python.strategy",
+        "language": "python",
+        "parameters": [{"name": "context_class", "type": "string", "required": True, "description": "x"}],
+    }
     with pytest.raises(RenderError) as ei:
         r.render(pattern_plan=plan, templates=SIMPLE_TEMPLATES)
     assert "context_class" in str(ei.value)
@@ -125,11 +125,9 @@ def test_undeclared_parameter_emits_warning() -> None:
     plan = {
         "pattern_id": "python.strategy",
         "language": "python",
-        "parameters": [
-            {"name": "context_class", "type": "string", "required": True, "description": "x"}
-        ],
+        "parameters": [{"name": "context_class", "type": "string", "required": True, "description": "x"}],
     }
-    full_plan = dict(plan, parameters_provided={"context_class": "Order", "extra": "Y"})
+    dict(plan, parameters_provided={"context_class": "Order", "extra": "Y"})
     # Bypass type: ignore via object.__setattr__ on the dict is not possible,
     # so build a plain dict that the renderer accepts.
     plan_with_extra = {
@@ -240,8 +238,6 @@ def _plan_with_params() -> dict:
     return {
         "pattern_id": "python.strategy",
         "language": "python",
-        "parameters": [
-            {"name": "context_class", "type": "string", "required": True, "description": "x"}
-        ],
+        "parameters": [{"name": "context_class", "type": "string", "required": True, "description": "x"}],
         "parameters_provided": {"context_class": "Order"},
     }

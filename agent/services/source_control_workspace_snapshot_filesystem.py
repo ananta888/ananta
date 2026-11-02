@@ -10,17 +10,16 @@ only sequences them.
 from __future__ import annotations
 
 import errno
+import fcntl
 import hashlib
 import os
+import secrets
 import shutil
 import stat
-import secrets
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 from typing import BinaryIO, Iterator
-
-import fcntl
 
 from agent.services.source_control_workspace_snapshot_contracts import (
     BrowserSnapshotRelativePath,
@@ -32,24 +31,10 @@ from agent.services.source_control_workspace_snapshot_errors import (
 from agent.sources.git_source_connector_common import GitSourceScope
 
 _DIRECTORY_FLAGS = (
-    os.O_RDONLY
-    | getattr(os, "O_DIRECTORY", 0)
-    | getattr(os, "O_CLOEXEC", 0)
-    | getattr(os, "O_NOFOLLOW", 0)
+    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
 )
-_FILE_CREATE_FLAGS = (
-    os.O_WRONLY
-    | os.O_CREAT
-    | os.O_EXCL
-    | getattr(os, "O_CLOEXEC", 0)
-    | getattr(os, "O_NOFOLLOW", 0)
-)
-_LOCK_FLAGS = (
-    os.O_RDWR
-    | os.O_CREAT
-    | getattr(os, "O_CLOEXEC", 0)
-    | getattr(os, "O_NOFOLLOW", 0)
-)
+_FILE_CREATE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+_LOCK_FLAGS = os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
 _STAGING_PREFIX = ".ananta-snapshot-"
 LOCK_NAME = ".ananta-workspace-snapshot.lock"
 _CHUNK_BYTES = 128 * 1024
@@ -61,9 +46,7 @@ class WorkspaceSnapshotFilesystem:
     def __init__(
         self,
         *,
-        token_factory: Callable[[], str] = (
-            lambda: secrets.token_urlsafe(32)
-        ),
+        token_factory: Callable[[], str] = (lambda: secrets.token_urlsafe(32)),
     ) -> None:
         self._token_factory = token_factory
 
@@ -81,12 +64,8 @@ class WorkspaceSnapshotFilesystem:
         lock_fd: int | None = None
         try:
             base_fd = os.open(base, _DIRECTORY_FLAGS)
-            tenant_name = hashlib.sha256(
-                scope.tenant_id.encode("utf-8")
-            ).hexdigest()
-            project_name = hashlib.sha256(
-                scope.project_id.encode("utf-8")
-            ).hexdigest()
+            tenant_name = hashlib.sha256(scope.tenant_id.encode("utf-8")).hexdigest()
+            project_name = hashlib.sha256(scope.project_id.encode("utf-8")).hexdigest()
             tenant_fd = self.ensure_directory(base_fd, tenant_name)
             project_fd = self.ensure_directory(tenant_fd, project_name)
             lock_fd = os.open(
@@ -176,9 +155,7 @@ class WorkspaceSnapshotFilesystem:
 
     def create_staging(self, project_fd: int) -> tuple[str, int]:
         for attempt in range(4):
-            token = hashlib.sha256(
-                f"{self._token_factory()}\0{attempt}".encode("utf-8")
-            ).hexdigest()
+            token = hashlib.sha256(f"{self._token_factory()}\0{attempt}".encode("utf-8")).hexdigest()
             name = f"{_STAGING_PREFIX}{token}.partial"
             try:
                 os.mkdir(name, 0o700, dir_fd=project_fd)
@@ -236,9 +213,7 @@ class WorkspaceSnapshotFilesystem:
                 if chunk in (b"", None):
                     break
                 if not isinstance(chunk, bytes):
-                    raise WorkspaceSnapshotUploadError(
-                        "workspace_snapshot_file_stream_invalid"
-                    )
+                    raise WorkspaceSnapshotUploadError("workspace_snapshot_file_stream_invalid")
                 byte_size += len(chunk)
                 if byte_size > limits.max_file_bytes:
                     raise WorkspaceSnapshotUploadError(
@@ -253,15 +228,9 @@ class WorkspaceSnapshotFilesystem:
                 digest.update(chunk)
                 self.write_all(file_fd, chunk)
             if byte_size == 0:
-                raise WorkspaceSnapshotUploadError(
-                    "workspace_snapshot_empty_file_denied"
-                )
+                raise WorkspaceSnapshotUploadError("workspace_snapshot_empty_file_denied")
             metadata = os.fstat(file_fd)
-            if (
-                not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_nlink != 1
-                or metadata.st_size != byte_size
-            ):
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1 or metadata.st_size != byte_size:
                 raise WorkspaceSnapshotUploadError(
                     "workspace_snapshot_special_file_denied",
                     status_code=409,
@@ -350,9 +319,7 @@ class WorkspaceSnapshotFilesystem:
         except OSError:
             return
         try:
-            if stat.S_ISDIR(metadata.st_mode) and not stat.S_ISLNK(
-                metadata.st_mode
-            ):
+            if stat.S_ISDIR(metadata.st_mode) and not stat.S_ISLNK(metadata.st_mode):
                 shutil.rmtree(path)
             else:
                 path.unlink(missing_ok=True)

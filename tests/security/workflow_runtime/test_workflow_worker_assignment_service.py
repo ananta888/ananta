@@ -79,17 +79,18 @@ def test_native_hub_dispatch_binds_placeholder_lease_to_registered_worker() -> N
     assert first is not None
     assert first.worker_id == "ananta-worker-1"
     assert first.attempt_id == ownership.attempt_id
-    assert assignments.get(
-        tenant_id="tenant-1",
-        run_id="run-1",
-        step_id="step-1",
-    ) == first
+    assert (
+        assignments.get(
+            tenant_id="tenant-1",
+            run_id="run-1",
+            step_id="step-1",
+        )
+        == first
+    )
 
 
 def test_langgraph_dispatch_binds_queue_lease_and_rejects_worker_handoff() -> None:
-    service, _assignments, ownership = _service(
-        "workflow-adapter-task-queue"
-    )
+    service, _assignments, ownership = _service("workflow-adapter-task-queue")
     task = SimpleNamespace(
         id="adapter-task-1",
         worker_execution_context={
@@ -120,9 +121,7 @@ def test_langgraph_dispatch_binds_queue_lease_and_rejects_worker_handoff() -> No
 
     with pytest.raises(WorkflowWorkerAssignmentError) as raised:
         service.bind_dispatched_task(task=task, worker=foreign_worker)
-    assert raised.value.reason_code == (
-        "workflow_worker_assignment_identity_conflict"
-    )
+    assert raised.value.reason_code == ("workflow_worker_assignment_identity_conflict")
 
 
 def test_assignment_rejects_unproven_worker_and_tampered_hub_owner() -> None:
@@ -150,9 +149,7 @@ def test_assignment_rejects_unproven_worker_and_tampered_hub_owner() -> None:
 
     with pytest.raises(WorkflowWorkerAssignmentError) as identity_denied:
         service.bind_dispatched_task(task=task, worker=unproven)
-    assert identity_denied.value.reason_code == (
-        "workflow_worker_assignment_registry_identity_denied"
-    )
+    assert identity_denied.value.reason_code == ("workflow_worker_assignment_registry_identity_denied")
 
     trusted = _worker(
         worker_id="ananta-worker-1",
@@ -161,9 +158,7 @@ def test_assignment_rejects_unproven_worker_and_tampered_hub_owner() -> None:
     )
     with pytest.raises(WorkflowWorkerAssignmentError) as lease_denied:
         service.bind_dispatched_task(task=task, worker=trusted)
-    assert lease_denied.value.reason_code == (
-        "workflow_worker_assignment_lease_mismatch"
-    )
+    assert lease_denied.value.reason_code == ("workflow_worker_assignment_lease_mismatch")
 
 
 def test_sql_assignment_binding_is_persistent_and_idempotent() -> None:
@@ -185,11 +180,14 @@ def test_sql_assignment_binding_is_persistent_and_idempotent() -> None:
 
     assert store.bind(assignment) == assignment
     assert store.bind(assignment) == assignment
-    assert store.get(
-        tenant_id="tenant-1",
-        run_id="run-1",
-        step_id="step-1",
-    ) == assignment
+    assert (
+        store.get(
+            tenant_id="tenant-1",
+            run_id="run-1",
+            step_id="step-1",
+        )
+        == assignment
+    )
 
 
 def test_sql_assignment_binding_retries_a_concurrent_first_insert(
@@ -249,9 +247,7 @@ def test_strict_runtime_reloads_hub_selected_worker_from_registry(
     monkeypatch.setattr(
         repository_registry,
         "get_repository_registry",
-        lambda: SimpleNamespace(
-            agent_repo=SimpleNamespace(get_by_url=lambda _url: registered)
-        ),
+        lambda: SimpleNamespace(agent_repo=SimpleNamespace(get_by_url=lambda _url: registered)),
     )
     monkeypatch.setattr(
         runtime,
@@ -279,9 +275,7 @@ def test_strict_runtime_rejects_worker_missing_from_hub_registry(
     monkeypatch.setattr(
         repository_registry,
         "get_repository_registry",
-        lambda: SimpleNamespace(
-            agent_repo=SimpleNamespace(get_by_url=lambda _url: None)
-        ),
+        lambda: SimpleNamespace(agent_repo=SimpleNamespace(get_by_url=lambda _url: None)),
     )
 
     with pytest.raises(WorkflowWorkerAssignmentError) as raised:
@@ -293,6 +287,4 @@ def test_strict_runtime_rejects_worker_missing_from_hub_registry(
             ),
             config={"ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH": True},
         )
-    assert raised.value.reason_code == (
-        "workflow_worker_assignment_registry_identity_denied"
-    )
+    assert raised.value.reason_code == ("workflow_worker_assignment_registry_identity_denied")

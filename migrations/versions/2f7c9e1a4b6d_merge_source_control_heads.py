@@ -6,7 +6,6 @@ Revises: 1e6a8c0d2f4b, 1e6f8a0c2d4b
 
 from collections.abc import Sequence
 
-
 revision: str = "2f7c9e1a4b6d"
 down_revision: str | Sequence[str] | None = (
     "1e6a8c0d2f4b",

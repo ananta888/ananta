@@ -10,6 +10,7 @@ is in ``commands_mail_account`` and the content-releasing subcommands are in
 ``commands_mail_content``. Shared parsing and projection helpers are in
 ``_mail_command_support``.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Mapping

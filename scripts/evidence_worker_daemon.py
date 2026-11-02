@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -124,12 +122,8 @@ def _extract_context_text(task_payload: dict[str, Any]) -> str:
     worker_execution_context = task_payload.get("worker_execution_context")
     if isinstance(worker_execution_context, dict):
         return (
-            str(
-                ((worker_execution_context.get("context") or {}).get("context_text") or "")
-            ).strip()
-            or str(
-                ((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")
-            ).strip()
+            str(((worker_execution_context.get("context") or {}).get("context_text") or "")).strip()
+            or str(((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")).strip()
         )
     return ""
 
@@ -171,8 +165,7 @@ def main() -> None:
     prompt = (
         f"Daemon worker engine: {args.engine}\n"
         f"Task ID: {task_id}\n"
-        "Use the supplied RAG context and create a safe result. Do not mutate source files.\n\n"
-        + str(context)[:8000]
+        "Use the supplied RAG context and create a safe result. Do not mutate source files.\n\n" + str(context)[:8000]
     )
     (workspace / "worker-prompt.txt").write_text(prompt, encoding="utf-8")
 

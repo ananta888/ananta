@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterator
 
 import pytest
 
-from agent.services._task_scoped_forwarding_dependencies import (
+from agent.services.task_scoped.forwarding_dependencies import (
     TaskScopedForwardingDependencies,
     install_task_scoped_forwarding_dependencies,
 )

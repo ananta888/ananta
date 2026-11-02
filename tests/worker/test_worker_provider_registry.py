@@ -1,5 +1,4 @@
 """Tests for worker/core/provider_registry.py (EW-T020 through EW-T025)."""
-import pytest
 
 from worker.core.provider_registry import (
     AiSnakeProviderConfig,
@@ -11,20 +10,22 @@ from worker.core.provider_registry import (
     ProviderKind,
     ProviderStatus,
     WorkerProviderRegistry,
-    build_default_provider_registry,
     _is_provider_key_var,
+    build_default_provider_registry,
 )
 
-
 # ── EW-T020: WorkerProviderRegistry ──────────────────────────────────────────
+
 
 class TestWorkerProviderRegistry:
     def setup_method(self):
         self.registry = WorkerProviderRegistry()
-        self.registry.register(ProviderEntry(id="ollama", kind=ProviderKind.local,
-            base_url="http://localhost:11434", priority=10))
-        self.registry.register(ProviderEntry(id="openai", kind=ProviderKind.cloud,
-            base_url="https://api.openai.com/v1"))
+        self.registry.register(
+            ProviderEntry(id="ollama", kind=ProviderKind.local, base_url="http://localhost:11434", priority=10)
+        )
+        self.registry.register(
+            ProviderEntry(id="openai", kind=ProviderKind.cloud, base_url="https://api.openai.com/v1")
+        )
 
     def test_register_and_resolve_local(self):
         entry, reason = self.registry.resolve_provider("ollama", cloud_allowed=False)
@@ -47,6 +48,7 @@ class TestWorkerProviderRegistry:
 
 # ── EW-T021: Hub-driven provider selection ────────────────────────────────────
 
+
 class TestProviderSelectionPolicy:
     def setup_method(self):
         self.registry = build_default_provider_registry()
@@ -61,17 +63,18 @@ class TestProviderSelectionPolicy:
         assert entry is not None and reason == "allow"
 
     def test_allowlist_restricts(self):
-        entry, reason = self.registry.resolve_provider(
-            "lmstudio", cloud_allowed=False, allowed_providers=["ollama"])
+        entry, reason = self.registry.resolve_provider("lmstudio", cloud_allowed=False, allowed_providers=["ollama"])
         assert entry is None and reason == "provider_blocked"
 
     def test_allowlist_permits_listed(self):
         entry, _ = self.registry.resolve_provider(
-            "ollama", cloud_allowed=False, allowed_providers=["ollama", "lmstudio"])
+            "ollama", cloud_allowed=False, allowed_providers=["ollama", "lmstudio"]
+        )
         assert entry is not None
 
 
 # ── EW-T022: Local-first routing ─────────────────────────────────────────────
+
 
 class TestLocalFirstRouting:
     def setup_method(self):
@@ -92,13 +95,11 @@ class TestLocalFirstRouting:
         assert fallback is not None and fallback.id == "lmstudio"
 
     def test_fallback_with_allowlist(self):
-        fallback = self.registry.select_local_fallback(
-            preferred=None, allowed_providers=["lmstudio"])
+        fallback = self.registry.select_local_fallback(preferred=None, allowed_providers=["lmstudio"])
         assert fallback is not None and fallback.id == "lmstudio"
 
     def test_fallback_none_when_allowlist_excludes_all(self):
-        fallback = self.registry.select_local_fallback(
-            preferred=None, allowed_providers=["openai"])
+        fallback = self.registry.select_local_fallback(preferred=None, allowed_providers=["openai"])
         assert fallback is None
 
     def test_ai_snake_selection_prefers_local_provider(self):
@@ -132,6 +133,7 @@ class TestLocalFirstRouting:
 
 # ── EW-T023: Credential isolation ────────────────────────────────────────────
 
+
 class TestCredentialIsolation:
     def setup_method(self):
         self.store = CredentialStore()
@@ -162,14 +164,14 @@ class TestCredentialIsolation:
 
     def test_registry_subprocess_env(self):
         registry = WorkerProviderRegistry()
-        registry.register(ProviderEntry(
-            id="openai", kind=ProviderKind.cloud, base_url="https://api.openai.com/v1"))
+        registry.register(ProviderEntry(id="openai", kind=ProviderKind.cloud, base_url="https://api.openai.com/v1"))
         registry.register_credential("openai", "https://api.openai.com/v1", "sk-testkey")
         env = registry.subprocess_env("openai")
         assert env.get("OPENAI_API_KEY") == "sk-testkey"
 
 
 # ── EW-T024: Auxiliary model policy ──────────────────────────────────────────
+
 
 class TestAuxiliaryPolicy:
     def setup_method(self):
@@ -188,8 +190,7 @@ class TestAuxiliaryPolicy:
 
     def test_cloud_with_sensitive_context_blocked(self):
         policy = AuxiliaryPolicy(cloud_allowed_for_auxiliary=True)
-        ok, reason = policy.is_allowed(
-            "openai", AuxiliaryTaskKind.summarization, context_is_sensitive=True)
+        ok, reason = policy.is_allowed("openai", AuxiliaryTaskKind.summarization, context_is_sensitive=True)
         assert ok is False and reason == "context_sensitivity_blocked"
 
     def test_not_in_allowlist_blocked(self):
@@ -210,31 +211,33 @@ class TestAuxiliaryPolicy:
 
 # ── EW-T025: Provider diagnostics ────────────────────────────────────────────
 
+
 class TestProviderDiagnostics:
     def setup_method(self):
         self.registry = WorkerProviderRegistry()
-        self.registry.register(ProviderEntry(
-            id="ollama", kind=ProviderKind.local, base_url="http://localhost:11434"))
+        self.registry.register(ProviderEntry(id="ollama", kind=ProviderKind.local, base_url="http://localhost:11434"))
 
     def test_diagnostics_no_secrets(self):
-        self.registry.record_diagnostic(ProviderDiagnostic(
-            provider_id="ollama", status=ProviderStatus.available,
-            kind=ProviderKind.local, model_count=5))
+        self.registry.record_diagnostic(
+            ProviderDiagnostic(
+                provider_id="ollama", status=ProviderStatus.available, kind=ProviderKind.local, model_count=5
+            )
+        )
         for entry in self.registry.diagnostics():
             assert "api_key" not in str(entry).lower()
 
     def test_all_status_values_representable(self):
         for status in ProviderStatus:
-            d = ProviderDiagnostic(
-                provider_id=f"p-{status.value}", status=status, kind=ProviderKind.local
-            ).as_dict()
+            d = ProviderDiagnostic(provider_id=f"p-{status.value}", status=status, kind=ProviderKind.local).as_dict()
             assert d["status"] == status.value
 
     def test_distinguish_unavailable_vs_unauthorized(self):
-        self.registry.record_diagnostic(ProviderDiagnostic(
-            provider_id="openai", status=ProviderStatus.unauthorized, kind=ProviderKind.cloud))
-        self.registry.record_diagnostic(ProviderDiagnostic(
-            provider_id="groq", status=ProviderStatus.unavailable, kind=ProviderKind.cloud))
+        self.registry.record_diagnostic(
+            ProviderDiagnostic(provider_id="openai", status=ProviderStatus.unauthorized, kind=ProviderKind.cloud)
+        )
+        self.registry.record_diagnostic(
+            ProviderDiagnostic(provider_id="groq", status=ProviderStatus.unavailable, kind=ProviderKind.cloud)
+        )
         diags = {d["provider_id"]: d["status"] for d in self.registry.diagnostics()}
         assert diags["openai"] == "unauthorized" and diags["groq"] == "unavailable"
 

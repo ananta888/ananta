@@ -56,31 +56,23 @@ class SQLAlchemyWorkflowRolloutPolicyStore(SQLAlchemyStoreSupport):
                     parent = session.execute(
                         self._for_update(
                             sa.select(WorkflowRuntimeRolloutPolicyDB).where(
-                                WorkflowRuntimeRolloutPolicyDB.id
-                                == parent_scope.scope_key
+                                WorkflowRuntimeRolloutPolicyDB.id == parent_scope.scope_key
                             )
                         )
                     ).scalar_one_or_none()
-                    if parent is None or int(parent.revision) != int(
-                        parent_revision or 0
-                    ):
-                        raise WorkflowRolloutPersistenceError(
-                            "workflow_rollout_parent_revision_conflict"
-                        )
+                    if parent is None or int(parent.revision) != int(parent_revision or 0):
+                        raise WorkflowRolloutPersistenceError("workflow_rollout_parent_revision_conflict")
 
                 current = session.execute(
                     self._for_update(
                         sa.select(WorkflowRuntimeRolloutPolicyDB).where(
-                            WorkflowRuntimeRolloutPolicyDB.id
-                            == policy.scope.scope_key
+                            WorkflowRuntimeRolloutPolicyDB.id == policy.scope.scope_key
                         )
                     )
                 ).scalar_one_or_none()
                 actual = int(current.revision) if current is not None else 0
                 if actual != int(expected_revision):
-                    raise WorkflowRolloutPersistenceError(
-                        "workflow_rollout_policy_cas_conflict"
-                    )
+                    raise WorkflowRolloutPersistenceError("workflow_rollout_policy_cas_conflict")
                 next_revision = actual + 1
                 if current is None:
                     current = _policy_row(
@@ -104,9 +96,7 @@ class SQLAlchemyWorkflowRolloutPolicyStore(SQLAlchemyStoreSupport):
                     updated_at=audit.occurred_at,
                 )
         except IntegrityError as exc:
-            raise WorkflowRolloutPersistenceError(
-                "workflow_rollout_change_conflict"
-            ) from exc
+            raise WorkflowRolloutPersistenceError("workflow_rollout_change_conflict") from exc
 
     def append_audit(self, event: WorkflowRolloutAuditEvent) -> None:
         event.assert_valid()
@@ -115,13 +105,9 @@ class SQLAlchemyWorkflowRolloutPolicyStore(SQLAlchemyStoreSupport):
                 session.add(_audit_row(event))
                 session.flush()
         except IntegrityError as exc:
-            raise WorkflowRolloutPersistenceError(
-                "workflow_rollout_audit_event_duplicate"
-            ) from exc
+            raise WorkflowRolloutPersistenceError("workflow_rollout_audit_event_duplicate") from exc
 
-    def list_audit(
-        self, scope: WorkflowRolloutScope
-    ) -> tuple[WorkflowRolloutAuditEvent, ...]:
+    def list_audit(self, scope: WorkflowRolloutScope) -> tuple[WorkflowRolloutAuditEvent, ...]:
         scope.assert_valid()
         statement = (
             sa.select(WorkflowRuntimeRolloutAuditDB)

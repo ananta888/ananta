@@ -15,12 +15,12 @@ from typing import Any, Protocol
 
 from flask import current_app, has_app_context
 
+from agent.services.ml_intern_provenance_contract import normalize_source_ids
 from ananta_contracts.model_catalog import ImportedModelVersion
 from ananta_contracts.unsloth_task import (
     canonical_unsloth_json,
     unsloth_payload_sha256,
 )
-from agent.services.ml_intern_provenance_contract import normalize_source_ids
 
 
 class UnslothModelCatalogError(RuntimeError):
@@ -147,9 +147,7 @@ class SqliteUnslothModelCatalogRegistry:
                     by_alias=True,
                 ),
             }
-            projection_json = canonical_unsloth_json(
-                projection
-            )
+            projection_json = canonical_unsloth_json(projection)
             existing = connection.execute(
                 """
                 SELECT outbox_id, task_id, catalog_revision,
@@ -163,27 +161,21 @@ class SqliteUnslothModelCatalogRegistry:
             if existing is not None:
                 entry = self._outbox_entry(existing)
                 if (
-                    entry.catalog_revision
-                    != record.catalog_revision
-                    or entry.response_sha256
-                    != response_sha256
-                    or canonical_unsloth_json(
-                        entry.projection
-                    )
-                    != projection_json
+                    entry.catalog_revision != record.catalog_revision
+                    or entry.response_sha256 != response_sha256
+                    or canonical_unsloth_json(entry.projection) != projection_json
                 ):
                     raise UnslothModelCatalogError(
                         "model_import_completion_replay_conflict",
                         "A different completion is already bound to this task.",
                     )
                 return record, entry
-            outbox_id = "umio-" + hashlib.sha256(
-                (
-                    f"{normalized_task_id}\0"
-                    f"{record.catalog_revision}\0"
-                    f"{response_sha256}"
-                ).encode("utf-8")
-            ).hexdigest()[:32]
+            outbox_id = (
+                "umio-"
+                + hashlib.sha256(
+                    (f"{normalized_task_id}\0{record.catalog_revision}\0{response_sha256}").encode("utf-8")
+                ).hexdigest()[:32]
+            )
             connection.execute(
                 """
                 INSERT INTO unsloth_model_import_completion_outbox (
@@ -235,9 +227,7 @@ class SqliteUnslothModelCatalogRegistry:
         ).fetchone()
         if existing is not None:
             return (
-                ImportedModelVersion.model_validate(
-                    json.loads(existing[0])
-                ),
+                ImportedModelVersion.model_validate(json.loads(existing[0])),
                 False,
             )
         row = connection.execute(
@@ -259,14 +249,14 @@ class SqliteUnslothModelCatalogRegistry:
             """
         ).fetchone()
         catalog_revision = int(revision_row[0] or 0) + 1
-        version_id = "imv-" + hashlib.sha256(
-            (
-                f"{normalized['tenant_id']}\0"
-                f"{normalized['model_id']}\0"
-                f"{version}\0"
-                f"{normalized['content_sha256']}"
-            ).encode("utf-8")
-        ).hexdigest()[:32]
+        version_id = (
+            "imv-"
+            + hashlib.sha256(
+                (
+                    f"{normalized['tenant_id']}\0{normalized['model_id']}\0{version}\0{normalized['content_sha256']}"
+                ).encode("utf-8")
+            ).hexdigest()[:32]
+        )
         record = ImportedModelVersion.model_validate(
             {
                 "version_id": version_id,
@@ -275,9 +265,7 @@ class SqliteUnslothModelCatalogRegistry:
                 **dict(normalized),
             }
         )
-        encoded = canonical_unsloth_json(
-            record.model_dump(mode="json", by_alias=True)
-        )
+        encoded = canonical_unsloth_json(record.model_dump(mode="json", by_alias=True))
         connection.execute(
             """
             INSERT INTO unsloth_imported_model_versions (
@@ -333,11 +321,7 @@ class SqliteUnslothModelCatalogRegistry:
                 """,
                 (str(task_id or ""),),
             ).fetchone()
-        return (
-            self._outbox_entry(row)
-            if row is not None
-            else None
-        )
+        return self._outbox_entry(row) if row is not None else None
 
     def list_pending_completion_outbox(
         self,
@@ -358,10 +342,7 @@ class SqliteUnslothModelCatalogRegistry:
                 """,
                 (bounded_limit,),
             ).fetchall()
-        return tuple(
-            self._outbox_entry(row)
-            for row in rows
-        )
+        return tuple(self._outbox_entry(row) for row in rows)
 
     def mark_completion_outbox_terminalized(
         self,
@@ -429,11 +410,7 @@ class SqliteUnslothModelCatalogRegistry:
             state=str(row[5]),
             publishes_catalog=bool(row[6]),
             attempts=int(row[7]),
-            last_error=(
-                str(row[8])
-                if row[8] is not None
-                else None
-            ),
+            last_error=(str(row[8]) if row[8] is not None else None),
         )
 
     def _connect(self) -> sqlite3.Connection:
@@ -511,9 +488,7 @@ class UnslothModelImportResultHandler:
             raise UnslothModelCatalogError("model_import_task_invalid", "Import task schema is invalid.")
         content_sha256 = str(worker_result.get("content_sha256") or "")
         cache_key = str(worker_result.get("cache_key") or "")
-        relative_path = str(
-            worker_result.get("relative_path") or ""
-        )
+        relative_path = str(worker_result.get("relative_path") or "")
         if content_sha256 != task_payload.get("expected_sha256"):
             raise UnslothModelCatalogError(
                 "model_import_result_hash_mismatch",
@@ -521,18 +496,12 @@ class UnslothModelImportResultHandler:
             )
         if (
             len(cache_key) != 64
-            or any(
-                character not in "0123456789abcdef"
-                for character in cache_key
-            )
+            or any(character not in "0123456789abcdef" for character in cache_key)
             or relative_path != cache_key
         ):
             raise UnslothModelCatalogError(
                 "model_import_result_reference_invalid",
-                (
-                    "Worker cache references are not immutable "
-                    "root-relative identifiers."
-                ),
+                ("Worker cache references are not immutable root-relative identifiers."),
             )
         total_bytes = worker_result.get("total_bytes")
         file_count = worker_result.get("file_count")
@@ -551,24 +520,23 @@ class UnslothModelImportResultHandler:
         source_id = normalize_source_ids([task_payload.get("source_id")])[0]
         model_id = str(task_payload.get("model_id") or task_payload.get("artifact_id") or "")
         immutable_revision = str(
-            task_payload.get("revision")
-            or f"artifact:{task_payload.get('artifact_id')}:{content_sha256}"
+            task_payload.get("revision") or f"artifact:{task_payload.get('artifact_id')}:{content_sha256}"
         )
         return {
-                "tenant_id": task_payload.get("tenant_id"),
-                "model_id": model_id,
-                "display_name": model_id,
-                "source_id": source_id,
-                "immutable_revision": immutable_revision,
-                "snapshot_sha256": str(task_payload.get("expected_sha256") or ""),
-                "content_sha256": content_sha256,
-                "license_status": task_payload.get("license_status"),
-                "format": task_payload.get("format"),
-                "size_bytes": total_bytes,
-                "architecture": task_payload.get("architecture"),
-                "quantization": task_payload.get("quantization"),
-                "capability_facets": list(task_payload.get("capability_facets") or ()),
-                "import_task_id": task_id,
+            "tenant_id": task_payload.get("tenant_id"),
+            "model_id": model_id,
+            "display_name": model_id,
+            "source_id": source_id,
+            "immutable_revision": immutable_revision,
+            "snapshot_sha256": str(task_payload.get("expected_sha256") or ""),
+            "content_sha256": content_sha256,
+            "license_status": task_payload.get("license_status"),
+            "format": task_payload.get("format"),
+            "size_bytes": total_bytes,
+            "architecture": task_payload.get("architecture"),
+            "quantization": task_payload.get("quantization"),
+            "capability_facets": list(task_payload.get("capability_facets") or ()),
+            "import_task_id": task_id,
         }
 
 
@@ -579,46 +547,22 @@ def get_unsloth_model_catalog_registry(
     """Return the process-local Hub registry, never a Worker cache."""
 
     if not has_app_context():
-        raise RuntimeError(
-            "unsloth_model_catalog_app_context_required"
-        )
-    configured = current_app.extensions.get(
-        "unsloth_model_catalog_registry"
-    )
+        raise RuntimeError("unsloth_model_catalog_app_context_required")
+    configured = current_app.extensions.get("unsloth_model_catalog_registry")
     if isinstance(
         configured,
         SqliteUnslothModelCatalogRegistry,
     ):
         return configured
-    explicit = str(
-        os.environ.get(
-            "ANANTA_UNSLOTH_MODEL_CATALOG_PATH"
-        )
-        or ""
-    ).strip()
+    explicit = str(os.environ.get("ANANTA_UNSLOTH_MODEL_CATALOG_PATH") or "").strip()
     if explicit:
         path = Path(explicit)
     elif artifact_root is not None:
-        path = (
-            Path(artifact_root)
-            / ".control"
-            / "unsloth-model-catalog.sqlite3"
-        )
+        path = Path(artifact_root) / ".control" / "unsloth-model-catalog.sqlite3"
     else:
-        path = (
-            Path(
-                str(
-                    current_app.config.get("DATA_DIR")
-                    or "data"
-                )
-            )
-            / "unsloth-control"
-            / "model-catalog.sqlite3"
-        )
+        path = Path(str(current_app.config.get("DATA_DIR") or "data")) / "unsloth-control" / "model-catalog.sqlite3"
     registry = SqliteUnslothModelCatalogRegistry(path)
-    current_app.extensions[
-        "unsloth_model_catalog_registry"
-    ] = registry
+    current_app.extensions["unsloth_model_catalog_registry"] = registry
     return registry
 
 
@@ -656,10 +600,7 @@ def _normalize_metadata(value: Mapping[str, Any]) -> dict[str, Any]:
     normalized = {
         **dict(value),
         "source_id": normalize_source_ids([value.get("source_id")])[0],
-        "capability_facets": [
-            {"id": facet, "available": True, "reason_code": None}
-            for facet in sorted(facet_values)
-        ],
+        "capability_facets": [{"id": facet, "available": True, "reason_code": None} for facet in sorted(facet_values)],
     }
     if normalized["license_status"] != "approved":
         raise UnslothModelCatalogError(

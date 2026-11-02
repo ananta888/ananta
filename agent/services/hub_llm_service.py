@@ -5,7 +5,8 @@ from typing import Any
 from flask import current_app, has_app_context
 
 from agent.hub_benchmark import HubBenchmarkDataError
-from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
+from agent.llm_integration import extract_llm_text_and_usage
+from agent.llm_integration import generate_text as _generate_text
 from ananta_contracts.model_selection import ModelRoutingDryRunCommand
 
 
@@ -20,6 +21,7 @@ class HubLLMService:
     def generate_text_and_usage(self, **kwargs) -> tuple[str, dict[str, int], Any]:
         result = self.generate_text(**kwargs)
         import logging
+
         logging.getLogger(__name__).debug(f"HubLLMService: Raw LLM API response (result): {result!r}")
         text, usage = extract_llm_text_and_usage(result)
         logging.getLogger(__name__).debug(f"HubLLMService: Extracted LLM text: {text!r}")
@@ -65,12 +67,14 @@ class HubLLMService:
             resolve_explicit_hub_model,
         )
 
-        return resolve_explicit_hub_model(ModelRoutingDryRunCommand(
-            consumer_id="planning.autoplanner",
-            task_kind=task_kind,
-            requires_json=True,
-            allow_cloud=allow_cloud,
-        ))
+        return resolve_explicit_hub_model(
+            ModelRoutingDryRunCommand(
+                consumer_id="planning.autoplanner",
+                task_kind=task_kind,
+                requires_json=True,
+                allow_cloud=allow_cloud,
+            )
+        )
 
     def resolve_copilot_config(
         self, overrides: dict[str, Any] | None = None, task_kind: str | None = None
@@ -144,8 +148,7 @@ class HubLLMService:
         provider_source = (
             "model_routing:" + central_selection.assignment_source
             if central_selection is not None
-            else
-            "hub_copilot.provider"
+            else "hub_copilot.provider"
             if requested_provider
             else "agent_config.llm_config.provider"
             if llm_cfg.get("provider")
@@ -156,8 +159,7 @@ class HubLLMService:
         model_source = (
             "model_routing:" + central_selection.assignment_source
             if central_selection is not None
-            else
-            "hub_copilot.model"
+            else "hub_copilot.model"
             if requested_model
             else "agent_config.llm_config.model"
             if llm_cfg.get("model")
@@ -168,8 +170,7 @@ class HubLLMService:
         base_url_source = (
             "model_profile:" + central_selection.profile_id
             if central_selection is not None
-            else
-            "hub_copilot.base_url"
+            else "hub_copilot.base_url"
             if requested_base_url
             else ("agent_config.llm_config.base_url" if llm_cfg.get("base_url") else None)
         )
@@ -242,9 +243,7 @@ class HubLLMService:
             model=config["effective"]["model"],
             base_url=config["effective"]["base_url"],
             temperature=(
-                config["effective"]["temperature"]
-                if temperature is None
-                else max(0.0, min(2.0, float(temperature)))
+                config["effective"]["temperature"] if temperature is None else max(0.0, min(2.0, float(temperature)))
             ),
             timeout=timeout,
         )

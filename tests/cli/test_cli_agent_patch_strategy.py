@@ -1,6 +1,6 @@
 from worker.core.cli_agent_patch_strategy import CliAgentPatchStrategy
+from worker.core.propose import STATUS_ADVISORY, STATUS_DECLINED, STATUS_EXECUTABLE
 from worker.core.propose_orchestrator import ProposeContext
-from worker.core.propose import STATUS_DECLINED, STATUS_ADVISORY, STATUS_EXECUTABLE
 
 
 def test_cli_patch_declines_without_diff():
@@ -11,7 +11,7 @@ def test_cli_patch_declines_without_diff():
 
 def test_cli_patch_returns_advisory_for_diff():
     diff = "--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
-    
+
     ctx = ProposeContext(goal_id="g", task_id="t", task={}, base_prompt="x", research_context={"raw_output": diff})
     result = CliAgentPatchStrategy().run(ctx)
     assert result.status in {STATUS_ADVISORY, STATUS_EXECUTABLE}

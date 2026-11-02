@@ -4,7 +4,12 @@ from typing import Any
 from flask import Flask
 
 from agent.config import settings
-from agent.config_defaults import apply_env_config_overrides, build_default_agent_config, merge_db_config_overrides, sync_runtime_state
+from agent.config_defaults import (
+    apply_env_config_overrides,
+    build_default_agent_config,
+    merge_db_config_overrides,
+    sync_runtime_state,
+)
 from agent.routes.system import _load_history
 
 
@@ -50,9 +55,11 @@ def initialize_runtime_state(app: Flask) -> dict[str, Any]:
 
     try:
         from agent.services.action_pack_service import get_action_pack_service
+
         get_action_pack_service().initialize_action_packs()
 
         from agent.services.playbook_service import get_playbook_service
+
         get_playbook_service().initialize_standard_playbooks()
     except Exception as e:
         app.logger.warning(f"Failed to initialize action packs or playbooks: {e}")

@@ -41,8 +41,7 @@ Datei: `agent/config.py:253–254`
 
 ```python
 codex_path: str = Field(default="codex", validation_alias="CODEX_PATH")
-codex_default_model: Optional[str] = Field(default="gpt-5-codex",
-                                          validation_alias="CODEX_DEFAULT_MODEL")
+codex_default_model: Optional[str] = Field(default="gpt-5-codex", validation_alias="CODEX_DEFAULT_MODEL")
 ```
 
 Diese Settings existieren und sind nutzbar. `codex_auth_mode` und
@@ -105,23 +104,18 @@ Drei dateien definieren `{"ananta_worker", "opencode", "openai_codex_cli", "cust
 Datei: `agent/backend_provider_contracts.py:55–64`
 
 ```python
-{
-    "provider": "codex_cli",
-    "provider_type": "cli_backend",
-    "location": "local",
-    "transport": {"protocol": "process", "api_shape": "task_scoped_cli"},
-    "capabilities": {"chat": True, "tools": True,
-                     "dynamic_models": False,
-                     "file_access": "workspace_scoped"},
-    "routing": {"eligible_for_inference": False,
-                "eligible_for_execution": True,
-                "remote_hops": 0},
-    "governance": {"trust_level": "local_workspace",
-                   "requires_remote_hub_policy": False,
-                   "audit_required": True},
-    "health": {"preflight": "cli_backend_preflight",
-               "failure_mode": "execution_backend_unavailable"},
-},
+(
+    {
+        "provider": "codex_cli",
+        "provider_type": "cli_backend",
+        "location": "local",
+        "transport": {"protocol": "process", "api_shape": "task_scoped_cli"},
+        "capabilities": {"chat": True, "tools": True, "dynamic_models": False, "file_access": "workspace_scoped"},
+        "routing": {"eligible_for_inference": False, "eligible_for_execution": True, "remote_hops": 0},
+        "governance": {"trust_level": "local_workspace", "requires_remote_hub_policy": False, "audit_required": True},
+        "health": {"preflight": "cli_backend_preflight", "failure_mode": "execution_backend_unavailable"},
+    },
+)
 ```
 
 `codex_cli` ist als CLI-Backend klassifiziert (`provider_type`,

@@ -46,9 +46,7 @@ def build_caseflow_edge_catalog(edges: Sequence[Any]) -> dict[str, Any]:
             raise ValueError("caseflow_edge_catalog_duplicate_edge_id")
         seen_ids.add(edge.edge_id)
         canonical.append(edge)
-    canonical.sort(
-        key=lambda item: (item.source_step_id, item.target_step_id, item.edge_id)
-    )
+    canonical.sort(key=lambda item: (item.source_step_id, item.target_step_id, item.edge_id))
     return {
         "schema": CASEFLOW_EDGE_CATALOG_SCHEMA,
         "complete": True,
@@ -107,11 +105,7 @@ def _edge_kind(raw: Any, explicit: Any) -> Literal["dependency", "back_edge"]:
             raise ValueError("caseflow_edge_kind_invalid")
         return explicit
     condition = raw.get("condition") if isinstance(raw, Mapping) else getattr(raw, "condition", None)
-    condition_kind = (
-        condition.get("kind")
-        if isinstance(condition, Mapping)
-        else getattr(condition, "kind", None)
-    )
+    condition_kind = condition.get("kind") if isinstance(condition, Mapping) else getattr(condition, "kind", None)
     return "back_edge" if condition_kind == "back_edge" else "dependency"
 
 

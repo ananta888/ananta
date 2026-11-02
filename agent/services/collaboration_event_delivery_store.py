@@ -520,6 +520,7 @@ class CollaborationEventDeliveryStoreMixin:
                     (tenant, workspace, projection, checkpoint, result["state_digest"], canonical_json(result)),
                 )
         return result
+
     def projection_checkpoint(self, tenant_id: str, workspace_id: str, projection_name: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(

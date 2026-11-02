@@ -38,9 +38,9 @@ def test_exact_replay_deadline_is_capped_by_remaining_grant(
         max_runtime_seconds=900,
         include_manifest=True,
     )
-    task["worker_execution_context"]["knowledge_index_job"][
-        "source_access_enforcement_manifest"
-    ]["grant_expires_at_epoch_ms"] = 150_000
+    task["worker_execution_context"]["knowledge_index_job"]["source_access_enforcement_manifest"][
+        "grant_expires_at_epoch_ms"
+    ] = 150_000
     monkeypatch.setattr(
         "agent.services.knowledge_index_forward_timeout.time.time",
         lambda: 100.0,
@@ -60,9 +60,7 @@ def test_exact_replay_deadline_is_capped_by_remaining_grant(
 def test_v2_budget_tampering_fails_full_contract_parsing() -> None:
     task = build_execution_task(max_runtime_seconds=900)
     tampered = copy.deepcopy(task)
-    tampered["worker_execution_context"]["knowledge_index_job"][
-        "resources"
-    ]["max_runtime_seconds"] = 86_400
+    tampered["worker_execution_context"]["knowledge_index_job"]["resources"]["max_runtime_seconds"] = 86_400
 
     with pytest.raises(
         ValueError,
@@ -114,11 +112,7 @@ def test_public_v1_job_does_not_enter_governed_deadline_path() -> None:
     "worker_context",
     [
         {},
-        {
-            "knowledge_index_job": {
-                "schema": "ananta.knowledge_index_job.unknown"
-            }
-        },
+        {"knowledge_index_job": {"schema": "ananta.knowledge_index_job.unknown"}},
     ],
 )
 def test_execute_rejects_missing_or_unknown_binding_schema(

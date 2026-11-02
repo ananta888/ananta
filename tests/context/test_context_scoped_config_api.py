@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from agent.services.agent_template_registry import AgentTemplateRegistry
 from agent.services.workspace_context_policy import WorkspaceContextPolicy, WorkspaceContextPolicyResolver
 
@@ -42,33 +40,39 @@ class TestAdminApiContextPolicyValidation:
     """Tests for CSD-011: Admin API validation via _validate_context_policy."""
 
     def test_valid_scope_mode_selective(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"scope_mode": "selective"})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"scope_mode": "selective"})
         assert errors == []
 
     def test_invalid_scope_mode(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"scope_mode": "invalid"})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"scope_mode": "invalid"})
         assert any("scope_mode" in e for e in errors)
 
     def test_invalid_sensitivity_ceiling(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"sensitivity_ceiling": "topsecret"})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"sensitivity_ceiling": "topsecret"})
         assert any("sensitivity_ceiling" in e for e in errors)
 
     def test_valid_sensitivity_ceiling(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"sensitivity_ceiling": "confidential"})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"sensitivity_ceiling": "confidential"})
         assert errors == []
 
     def test_invalid_max_files_zero(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"max_files": 0})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"max_files": 0})
         assert any("max_files" in e for e in errors)
 
     def test_invalid_max_files_string(self):
-        from agent.routes.admin.agent_templates import _validate_context_policy
-        errors = _validate_context_policy({"max_files": "not_a_number"})
+        from agent.services.agent_template_registry import validate_context_policy
+
+        errors = validate_context_policy({"max_files": "not_a_number"})
         assert any("max_files" in e for e in errors)
 
 

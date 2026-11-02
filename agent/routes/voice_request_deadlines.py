@@ -51,9 +51,7 @@ def _stream_request_context(
         )
     profile_id = body.get("profile_id") if "profile_id" in body else binding.profile_id
     configuration_session_id = (
-        body.get("configuration_session_id")
-        if "configuration_session_id" in body
-        else binding.configuration_session_id
+        body.get("configuration_session_id") if "configuration_session_id" in body else binding.configuration_session_id
     )
     language = body.get("language") if "language" in body else binding.language
     return (

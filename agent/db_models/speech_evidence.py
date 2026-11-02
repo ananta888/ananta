@@ -171,9 +171,7 @@ class SpeechPeerEvidenceCurationDB(SQLModel, table=True):
     __tablename__ = "speech_peer_evidence_curations"
     __table_args__ = (
         sa.UniqueConstraint("tenant_id", "owner_subject", "offer_id", name="uq_speech_peer_curation_offer"),
-        sa.UniqueConstraint(
-            "tenant_id", "owner_subject", "admission_digest", name="uq_speech_peer_curation_admission"
-        ),
+        sa.UniqueConstraint("tenant_id", "owner_subject", "admission_digest", name="uq_speech_peer_curation_admission"),
     )
 
     id: str = Field(primary_key=True)

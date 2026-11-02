@@ -15,6 +15,7 @@ Blueprint role config example:
     }
   }
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,11 +61,7 @@ def extract_blueprint_model_policy(
         allow_cloud = bool(allow_cloud)
 
     raw_caps = list(raw.get("required_capabilities") or [])
-    required_capabilities = [
-        str(cap).strip()
-        for cap in raw_caps
-        if str(cap).strip() in _ALLOWED_REQUIRED_CAPABILITIES
-    ]
+    required_capabilities = [str(cap).strip() for cap in raw_caps if str(cap).strip() in _ALLOWED_REQUIRED_CAPABILITIES]
     unknown_caps = [str(c).strip() for c in raw_caps if str(c).strip() not in _ALLOWED_REQUIRED_CAPABILITIES]
     if unknown_caps:
         logger.warning(
@@ -73,11 +70,7 @@ def extract_blueprint_model_policy(
             blueprint_role_id,
         )
 
-    fallback_profile_ids = [
-        str(pid).strip()
-        for pid in list(raw.get("fallback_profile_ids") or [])
-        if str(pid).strip()
-    ]
+    fallback_profile_ids = [str(pid).strip() for pid in list(raw.get("fallback_profile_ids") or []) if str(pid).strip()]
 
     return BlueprintModelPolicy(
         blueprint_role_id=blueprint_role_id,
@@ -120,11 +113,13 @@ def apply_blueprint_policy_to_routing_rules(
     if not policy.preferred_profile_id:
         return routing_rules_dict
     rules = list(routing_rules_dict.get("routing_rules") or [])
-    rules.append({
-        "rule_id": f"blueprint_role:{policy.blueprint_role_id}",
-        "profile_id": policy.preferred_profile_id,
-        "blueprint_id": policy.blueprint_role_id,
-        "enabled": True,
-        "reason": f"blueprint_role_model_policy for {policy.blueprint_role_id}",
-    })
+    rules.append(
+        {
+            "rule_id": f"blueprint_role:{policy.blueprint_role_id}",
+            "profile_id": policy.preferred_profile_id,
+            "blueprint_id": policy.blueprint_role_id,
+            "enabled": True,
+            "reason": f"blueprint_role_model_policy for {policy.blueprint_role_id}",
+        }
+    )
     return {**routing_rules_dict, "routing_rules": rules}

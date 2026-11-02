@@ -9,11 +9,13 @@ ORIGINAL = "start\nERROR: disk full at line 12\nnote: retry scheduled\nend\n"
 
 def test_verbatim_selection_reduces_and_verifies_spans():
     reducer = EvidencePreservingReducer()
-    reduction = reducer.reduce(ORIGINAL, select=EvidencePreservingReducer.select_by_markers(
-        ["ERROR: disk full at line 12", "note: retry scheduled"]))
+    reduction = reducer.reduce(
+        ORIGINAL,
+        select=EvidencePreservingReducer.select_by_markers(["ERROR: disk full at line 12", "note: retry scheduled"]),
+    )
     assert reduction.fallback is False and reduction.reason is None
     assert reduction.reduced_text == "ERROR: disk full at line 12\nnote: retry scheduled"
-    assert all(ORIGINAL[span.source_start:span.source_end] == span.text for span in reduction.spans)
+    assert all(ORIGINAL[span.source_start : span.source_end] == span.text for span in reduction.spans)
     assert reduction.saved_tokens > 0
 
 
@@ -53,9 +55,10 @@ def test_adversarial_near_identical_markers_are_verified_exactly():
     # The marker "value=100" appears as a prefix of "value=1000"; the selector
     # must return the exact occurrence, not a fuzzy match.
     reduction = EvidencePreservingReducer().reduce(
-        text, select=EvidencePreservingReducer.select_by_markers(["value=100"]))
+        text, select=EvidencePreservingReducer.select_by_markers(["value=100"])
+    )
     assert reduction.spans[0].source_start == 0 and reduction.spans[0].source_end == 9
-    assert text[reduction.spans[0].source_start:reduction.spans[0].source_end] == "value=100"
+    assert text[reduction.spans[0].source_start : reduction.spans[0].source_end] == "value=100"
 
 
 def test_contradictory_claim_is_not_accepted():

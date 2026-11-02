@@ -398,13 +398,11 @@ def _sync_profile_summaries(*, patterns: list[dict[str, Any]]) -> None:
     if intent_counts:
         top_intent = sorted(intent_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
     mode = "paused" if paused else ("on" if enabled else "off")
-    profile["pattern_refs"] = [str(item.get("pattern_id") or "") for item in patterns if str(item.get("pattern_id") or "")]
-    profile["human_summary"] = (
-        f"{len(patterns)} Pattern(s), {len(active)} aktiv, Top-Intent: {top_intent}."
-    )
-    profile["ai_summary"] = (
-        f"learning={mode}; patterns={len(patterns)}; active={len(active)}; top={top_intent}"
-    )
+    profile["pattern_refs"] = [
+        str(item.get("pattern_id") or "") for item in patterns if str(item.get("pattern_id") or "")
+    ]
+    profile["human_summary"] = f"{len(patterns)} Pattern(s), {len(active)} aktiv, Top-Intent: {top_intent}."
+    profile["ai_summary"] = f"learning={mode}; patterns={len(patterns)}; active={len(active)}; top={top_intent}"
     save_active_profile(profile, backup=False)
 
 

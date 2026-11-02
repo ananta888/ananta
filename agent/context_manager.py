@@ -21,12 +21,34 @@ class ContextManager:
 
     def route(self, query: str) -> dict[str, int]:
         q = query.lower()
-        code_like = any(k in q for k in (
-            "class", "function", "funktion", "bug", "stacktrace", "repo",
-            "module", "modul", "python", ".py", "engine", "service", "tick",
-            "agent", "autopilot", "methode", "klasse", "route", "controller",
-            "implementier", "implement", "wie funktioniert", "wie arbeitet",
-        ))
+        code_like = any(
+            k in q
+            for k in (
+                "class",
+                "function",
+                "funktion",
+                "bug",
+                "stacktrace",
+                "repo",
+                "module",
+                "modul",
+                "python",
+                ".py",
+                "engine",
+                "service",
+                "tick",
+                "agent",
+                "autopilot",
+                "methode",
+                "klasse",
+                "route",
+                "controller",
+                "implementier",
+                "implement",
+                "wie funktioniert",
+                "wie arbeitet",
+            )
+        )
         docs_like = any(k in q for k in ("pdf", "doku", "documentation", "log", "readme", "spec"))
         fs_like = any(k in q for k in ("find", "suche", "where", "ls", "grep", "datei", "folder"))
 
@@ -144,7 +166,12 @@ class ContextManager:
                 **dict(existing.metadata or {}),
                 "cross_engine_signals": ",".join(sorted(existing_signals)),
             }
-            existing.score = max(float(existing.score), float(chunk.score)) + min(float(existing.score), float(chunk.score)) * 0.15
-            if len(str(chunk.content or "")) > len(str(existing.content or "")) and float(chunk.score) >= float(existing.score) * 0.8:
+            existing.score = (
+                max(float(existing.score), float(chunk.score)) + min(float(existing.score), float(chunk.score)) * 0.15
+            )
+            if (
+                len(str(chunk.content or "")) > len(str(existing.content or ""))
+                and float(chunk.score) >= float(existing.score) * 0.8
+            ):
                 existing.content = chunk.content
         return list(by_source.values())

@@ -53,14 +53,8 @@ class AdocExtractorTests(unittest.TestCase):
         self.assertEqual(code_blocks[0]["parent_id"], flow["id"])
         self.assertIn("orderService.process();", code_blocks[0]["content"])
 
-        self.assertTrue(any(
-            record["relation"] == "child_of_section"
-            for record in relation_records
-        ))
-        self.assertTrue(any(
-            record["relation"] == "child_of_file"
-            for record in relation_records
-        ))
+        self.assertTrue(any(record["relation"] == "child_of_section" for record in relation_records))
+        self.assertTrue(any(record["relation"] == "child_of_file" for record in relation_records))
         self.assertEqual(stats["section_count"], 2)
         self.assertEqual(stats["code_block_count"], 1)
 

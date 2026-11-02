@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import (
-    ExtractedMermaidBlock,
-    extract_mermaid_blocks,
-)
 from client_surfaces.operator_tui.visual.markdown.markdown_parser import (
     HeadingBlock,
     MermaidBlock,
     ParagraphBlock,
     parse_markdown,
+)
+from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import (
+    extract_mermaid_blocks,
 )
 
 

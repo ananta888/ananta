@@ -14,20 +14,20 @@ ein auditiertes, opt-in-Werkzeug für Debugging, Compliance und Qualitätssicher
 ```python
 @dataclass
 class ReplayRecord:
-    replay_id: str              # uuid, unveränderlich
-    run_id: str                 # Referenz auf den originalen Run
+    replay_id: str  # uuid, unveränderlich
+    run_id: str  # Referenz auf den originalen Run
 
     expert_id: str
-    expert_version: str         # exakte Version, nicht "latest"
-    config_hash: str            # sha256 der aktiven Konfiguration zum Run-Zeitpunkt
-    policy_snapshot_ref: str    # artifact_id des PolicySnapshot-Artefakts
+    expert_version: str  # exakte Version, nicht "latest"
+    config_hash: str  # sha256 der aktiven Konfiguration zum Run-Zeitpunkt
+    policy_snapshot_ref: str  # artifact_id des PolicySnapshot-Artefakts
 
-    context_bundle_refs: list[str]   # artifact_ids aller Context-Bundles des Runs
-    tool_call_log_ref: str           # artifact_id des vollständigen Tool-Call-Logs
+    context_bundle_refs: list[str]  # artifact_ids aller Context-Bundles des Runs
+    tool_call_log_ref: str  # artifact_id des vollständigen Tool-Call-Logs
     non_deterministic_refs: list[str]  # artifact_ids externer Antwort-Snapshots
 
     created_at: float
-    replay_feasibility: str     # "full" | "partial" | "analyse_only" | "not_possible"
+    replay_feasibility: str  # "full" | "partial" | "analyse_only" | "not_possible"
     missing_snapshots: list[str]  # Gründe, falls nicht vollständig replay-fähig
 ```
 

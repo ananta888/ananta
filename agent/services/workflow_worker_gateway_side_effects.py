@@ -175,9 +175,7 @@ class WorkflowWorkerSideEffectCommands:
                 raw.get("reason_code") or "native_node_execution_failed",
                 "side_effect_failure_code_invalid",
             )
-            transition = (
-                self._ledger.mark_uncertain if command == "native_side_effect_uncertain" else self._ledger.fail
-            )
+            transition = self._ledger.mark_uncertain if command == "native_side_effect_uncertain" else self._ledger.fail
             updated = transition(
                 operation_id,
                 expected_revision=expected_revision,

@@ -51,4 +51,3 @@ def test_worker_context_bundle_schema_accepts_codecompass_provenance_payload():
     assert errors == []
     assert payload["context_text"] == "bounded context text only"
     assert payload["chunks"][1]["metadata"]["expanded_from"] == "method:PaymentService.retryTimeout"
-

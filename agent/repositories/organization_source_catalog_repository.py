@@ -50,9 +50,7 @@ class OrganizationSourceCatalogPersistenceError(RuntimeError):
         super().__init__(self.reason_code)
 
 
-class OrganizationSourceCatalogUniqueRaceError(
-    OrganizationSourceCatalogPersistenceError
-):
+class OrganizationSourceCatalogUniqueRaceError(OrganizationSourceCatalogPersistenceError):
     """A database uniqueness race that must be resolved by scoped replay."""
 
     def __init__(self) -> None:
@@ -142,9 +140,7 @@ class SqlOrganizationSourceCatalogRepository:
         # Injected by the composing Hub service; only bound-record
         # verification needs it, and it fails closed when absent.
         self._records = record_reader
-        self._manifest_projector = (
-            manifest_projector or CodeCompassArtifactManifestProjector()
-        )
+        self._manifest_projector = manifest_projector or CodeCompassArtifactManifestProjector()
 
     def resolve_publishing_authority(
         self,
@@ -178,9 +174,7 @@ class SqlOrganizationSourceCatalogRepository:
         )
         if active is None:
             raise self._invalid("organization_source_catalog_active_index_required")
-        if str(active.knowledge_index_id or "") != str(
-            expected_knowledge_index_id or ""
-        ):
+        if str(active.knowledge_index_id or "") != str(expected_knowledge_index_id or ""):
             raise self._invalid("organization_source_catalog_active_index_changed")
 
         revision = self._one(
@@ -197,8 +191,7 @@ class SqlOrganizationSourceCatalogRepository:
             .where(
                 SourceAdmissionReceiptDB.tenant_id == tenant_id,
                 SourceAdmissionReceiptDB.project_id == project_id,
-                SourceAdmissionReceiptDB.source_revision_id
-                == active.source_revision_id,
+                SourceAdmissionReceiptDB.source_revision_id == active.source_revision_id,
                 SourceAdmissionReceiptDB.decision_state == "admitted",
             )
             .order_by(SourceAdmissionReceiptDB.evaluated_at_epoch.desc())
@@ -209,8 +202,7 @@ class SqlOrganizationSourceCatalogRepository:
                 KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                 KnowledgeIndexSourceBindingDB.project_id == project_id,
                 KnowledgeIndexSourceBindingDB.connection_id == connection_id,
-                KnowledgeIndexSourceBindingDB.knowledge_index_id
-                == active.knowledge_index_id,
+                KnowledgeIndexSourceBindingDB.knowledge_index_id == active.knowledge_index_id,
             ),
             for_update=for_update,
         )
@@ -224,8 +216,7 @@ class SqlOrganizationSourceCatalogRepository:
             raise self._invalid("organization_source_catalog_lineage_incomplete")
         run_binding = self._one(
             select(KnowledgeIndexRunSourceBindingDB).where(
-                KnowledgeIndexRunSourceBindingDB.index_run_id
-                == str(index.latest_run_id or ""),
+                KnowledgeIndexRunSourceBindingDB.index_run_id == str(index.latest_run_id or ""),
             ),
             for_update=for_update,
         )
@@ -336,9 +327,7 @@ class SqlOrganizationSourceCatalogRepository:
             for_update=True,
         )
         if index is None:
-            raise self._invalid(
-                "organization_source_catalog_output_snapshot_unavailable"
-            )
+            raise self._invalid("organization_source_catalog_output_snapshot_unavailable")
         bindings = [dict(item) for item in record_bindings]
         try:
             hydrated = self._records.load_bound_records(
@@ -346,24 +335,16 @@ class SqlOrganizationSourceCatalogRepository:
                 bindings=bindings,
             )
         except ValueError as exc:
-            raise self._invalid(
-                "organization_source_catalog_output_record_mismatch"
-            ) from exc
+            raise self._invalid("organization_source_catalog_output_record_mismatch") from exc
         if [str(row.get("source_id") or "") for row in hydrated] != [
             str(row.get("source_id") or "") for row in bindings
         ]:
-            raise self._invalid(
-                "organization_source_catalog_output_record_mismatch"
-            )
+            raise self._invalid("organization_source_catalog_output_record_mismatch")
         artifacts = self._verified_public_artifacts(index=index)
-        for filename in sorted(
-            {str(binding.get("record_file") or "") for binding in bindings}
-        ):
+        for filename in sorted({str(binding.get("record_file") or "") for binding in bindings}):
             reference = artifacts.get(filename)
             if reference is None:
-                raise self._invalid(
-                    "organization_source_catalog_output_manifest_mismatch"
-                )
+                raise self._invalid("organization_source_catalog_output_manifest_mismatch")
             self._verify_output_file(
                 index=index,
                 filename=filename,
@@ -378,9 +359,7 @@ class SqlOrganizationSourceCatalogRepository:
     ) -> dict[str, dict[str, Any]]:
         raw = (index.index_metadata or {}).get("artifact_manifest")
         if not isinstance(raw, Mapping):
-            raise self._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            )
+            raise self._invalid("organization_source_catalog_output_manifest_mismatch")
         payload = dict(raw)
         raw_coverage = payload.get("coverage")
         raw_artifacts = payload.get("artifacts")
@@ -392,9 +371,7 @@ class SqlOrganizationSourceCatalogRepository:
             or not isinstance(raw_exclusions, list)
             or any(not isinstance(item, Mapping) for item in raw_exclusions)
         ):
-            raise self._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            )
+            raise self._invalid("organization_source_catalog_output_manifest_mismatch")
         coverage = {
             field: raw_coverage.get(field)
             for field in (
@@ -417,13 +394,9 @@ class SqlOrganizationSourceCatalogRepository:
                 status=str(payload.get("status") or ""),
             ).to_dict()
         except (CodeCompassArtifactManifestError, TypeError, ValueError) as exc:
-            raise self._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            ) from exc
+            raise self._invalid("organization_source_catalog_output_manifest_mismatch") from exc
         if projected != payload:
-            raise self._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            )
+            raise self._invalid("organization_source_catalog_output_manifest_mismatch")
         artifacts: dict[str, dict[str, Any]] = {}
         expected_roles = {
             "index.jsonl": "index",
@@ -434,12 +407,9 @@ class SqlOrganizationSourceCatalogRepository:
             reference = dict(raw_reference)
             filename = str(reference.get("filename") or "")
             if filename in artifacts or (
-                filename in expected_roles
-                and str(reference.get("role") or "") != expected_roles[filename]
+                filename in expected_roles and str(reference.get("role") or "") != expected_roles[filename]
             ):
-                raise self._invalid(
-                    "organization_source_catalog_output_manifest_mismatch"
-                )
+                raise self._invalid("organization_source_catalog_output_manifest_mismatch")
             artifacts[filename] = reference
         return artifacts
 
@@ -466,14 +436,10 @@ class SqlOrganizationSourceCatalogRepository:
             ):
                 raise ValueError
         except (OSError, ValueError) as exc:
-            raise cls._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            ) from exc
+            raise cls._invalid("organization_source_catalog_output_manifest_mismatch") from exc
         actual = cls._file_sha256(resolved_candidate)
         if actual != expected_digest:
-            raise cls._invalid(
-                "organization_source_catalog_output_manifest_mismatch"
-            )
+            raise cls._invalid("organization_source_catalog_output_manifest_mismatch")
 
     @staticmethod
     def _file_sha256(path: Path) -> str:
@@ -494,10 +460,7 @@ class SqlOrganizationSourceCatalogRepository:
         return self._session.exec(statement).first()
 
     def _supports_row_lock(self) -> bool:
-        return (
-            str(getattr(getattr(self._session.get_bind(), "dialect", None), "name", ""))
-            == "postgresql"
-        )
+        return str(getattr(getattr(self._session.get_bind(), "dialect", None), "name", "")) == "postgresql"
 
     @classmethod
     def _validate_lineage(
@@ -521,19 +484,16 @@ class SqlOrganizationSourceCatalogRepository:
             (active.tenant_id, active.project_id, active.owner_id) != expected_scope
             or active.source_revision_id != revision.source_revision_id
             or active.policy_snapshot_digest != binding.policy_snapshot_digest
-            or (revision.tenant_id, revision.project_id, revision.owner_id)
-            != expected_scope
+            or (revision.tenant_id, revision.project_id, revision.owner_id) != expected_scope
             or revision.connection_id != connection.connection_id
             or revision.connector_type != connection.connector_type
             or revision.sensitivity != connection.sensitivity
             or revision.admission_state != "admitted"
-            or (receipt.tenant_id, receipt.project_id)
-            != (connection.tenant_id, connection.project_id)
+            or (receipt.tenant_id, receipt.project_id) != (connection.tenant_id, connection.project_id)
             or receipt.source_revision_id != revision.source_revision_id
             or receipt.revision_digest != revision.revision_digest
             or receipt.manifest_digest != revision.content_manifest_digest
-            or (binding.tenant_id, binding.project_id, binding.owner_id)
-            != expected_scope
+            or (binding.tenant_id, binding.project_id, binding.owner_id) != expected_scope
             or binding.source_revision_id != revision.source_revision_id
             or binding.knowledge_index_id != active.knowledge_index_id
             or binding.status != "completed"
@@ -554,8 +514,7 @@ class SqlOrganizationSourceCatalogRepository:
             or run_binding.policy_snapshot_digest != binding.policy_snapshot_digest
             or run_binding.status != "completed"
             or run_binding.artifacts_verified is not True
-            or run_binding.artifact_manifest_digest
-            != binding.artifact_manifest_digest
+            or run_binding.artifact_manifest_digest != binding.artifact_manifest_digest
             or run.id != index.latest_run_id
             or run.knowledge_index_id != index.id
             or run.status != "completed"
@@ -564,30 +523,18 @@ class SqlOrganizationSourceCatalogRepository:
 
         raw_index_manifest = (index.index_metadata or {}).get("artifact_manifest")
         raw_run_manifest = (run.run_metadata or {}).get("artifact_manifest")
-        index_manifest = (
-            dict(raw_index_manifest)
-            if isinstance(raw_index_manifest, Mapping)
-            else {}
-        )
-        run_manifest = (
-            dict(raw_run_manifest)
-            if isinstance(raw_run_manifest, Mapping)
-            else {}
-        )
+        index_manifest = dict(raw_index_manifest) if isinstance(raw_index_manifest, Mapping) else {}
+        run_manifest = dict(raw_run_manifest) if isinstance(raw_run_manifest, Mapping) else {}
         if (
             not index_manifest
             or index_manifest != run_manifest
-            or str(index_manifest.get("schema") or "")
-            != "ananta.codecompass.artifact-manifest.v1"
+            or str(index_manifest.get("schema") or "") != "ananta.codecompass.artifact-manifest.v1"
             or str(index_manifest.get("knowledge_index_id") or "") != index.id
             or str(index_manifest.get("run_id") or "") != run.id
-            or str(index_manifest.get("source_revision_id") or "")
-            != revision.source_revision_id
+            or str(index_manifest.get("source_revision_id") or "") != revision.source_revision_id
             or str(index_manifest.get("status") or "") != "completed"
         ):
-            raise cls._invalid(
-                "organization_source_catalog_public_manifest_invalid"
-            )
+            raise cls._invalid("organization_source_catalog_public_manifest_invalid")
         cls._sha256(
             index_manifest.get("manifest_digest"),
             "organization_source_catalog_public_manifest_invalid",
@@ -607,37 +554,26 @@ class SqlOrganizationSourceCatalogRepository:
         output = Path(str(index.output_dir or ""))
         manifest = Path(str(index.manifest_path or ""))
         try:
-            if (
-                output.is_symlink()
-                or manifest.is_symlink()
-                or not output.is_dir()
-                or not manifest.is_file()
-            ):
+            if output.is_symlink() or manifest.is_symlink() or not output.is_dir() or not manifest.is_file():
                 raise ValueError
             resolved_output = output.resolve(strict=True)
             resolved_manifest = manifest.resolve(strict=True)
             resolved_manifest.relative_to(resolved_output)
         except (OSError, ValueError) as exc:
-            raise cls._invalid(
-                "organization_source_catalog_index_artifact_unavailable"
-            ) from exc
+            raise cls._invalid("organization_source_catalog_index_artifact_unavailable") from exc
         hasher = hashlib.sha256()
         with resolved_manifest.open("rb") as handle:
             for chunk in iter(lambda: handle.read(_READ_CHUNK_BYTES), b""):
                 hasher.update(chunk)
         actual = hasher.hexdigest()
         if actual != expected:
-            raise cls._invalid(
-                "organization_source_catalog_index_manifest_mismatch"
-            )
+            raise cls._invalid("organization_source_catalog_index_manifest_mismatch")
         return actual
 
     @staticmethod
     def _sha256(value: object, reason_code: str) -> str:
         normalized = str(value or "").strip().lower()
-        if len(normalized) != 64 or any(
-            character not in "0123456789abcdef" for character in normalized
-        ):
+        if len(normalized) != 64 or any(character not in "0123456789abcdef" for character in normalized):
             raise SqlOrganizationSourceCatalogRepository._invalid(reason_code)
         return normalized
 
@@ -686,11 +622,7 @@ class OrganizationSourceCatalogUnitOfWork:
         self.audit_outbox = SqlOrganizationAuditOutboxRepository(self.session)
         self.catalogs = SqlOrganizationSourceCatalogRepository(
             self.session,
-            record_reader=(
-                self._record_reader_factory()
-                if self._record_reader_factory is not None
-                else None
-            ),
+            record_reader=(self._record_reader_factory() if self._record_reader_factory is not None else None),
         )
         return self
 
@@ -738,11 +670,7 @@ class OrganizationSourceCatalogUnitOfWork:
     @staticmethod
     def _is_unique_violation(exc: IntegrityError) -> bool:
         original = getattr(exc, "orig", None)
-        sqlstate = str(
-            getattr(original, "sqlstate", None)
-            or getattr(original, "pgcode", None)
-            or ""
-        )
+        sqlstate = str(getattr(original, "sqlstate", None) or getattr(original, "pgcode", None) or "")
         if sqlstate == "23505":
             return True
         if getattr(original, "sqlite_errorcode", None) in {1555, 2067}:

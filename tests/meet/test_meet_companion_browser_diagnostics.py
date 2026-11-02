@@ -19,12 +19,18 @@ def test_renewal_status_rejects_non_http_values(status):
 
 def callbacks():
     source = Path(__file__).resolve().parents[2] / "worker/meet_media/companion.py"
-    functions = [node for node in ast.walk(ast.parse(source.read_text()))
-                 if isinstance(node, ast.FunctionDef) and node.name in {"_on_response", "_on_console"}]
+    functions = [
+        node
+        for node in ast.walk(ast.parse(source.read_text()))
+        if isinstance(node, ast.FunctionDef) and node.name in {"_on_response", "_on_console"}
+    ]
     assert len(functions) == 2
     logs = []
-    namespace = {"log": logs.append, "renewal_status_diagnostic": renewal_status_diagnostic,
-                 "browser_console_diagnostic": browser_console_diagnostic}
+    namespace = {
+        "log": logs.append,
+        "renewal_status_diagnostic": renewal_status_diagnostic,
+        "browser_console_diagnostic": browser_console_diagnostic,
+    }
     exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
     return namespace, logs
 
@@ -45,11 +51,18 @@ def test_actual_renewal_callback_never_reads_or_retains_the_response_body():
 
 def test_actual_console_callback_projects_only_fixed_markers():
     functions, logs = callbacks()
-    for kind, text in [("error", "private-token"), ("warning", "private-room"),
-                       ("log", "[e2eedbg] private-peer"), ("log", "private-chat")]:
+    for kind, text in [
+        ("error", "private-token"),
+        ("warning", "private-room"),
+        ("log", "[e2eedbg] private-peer"),
+        ("log", "private-chat"),
+    ]:
         functions["_on_console"](SimpleNamespace(type=kind, text=text))
-    assert logs == ["CONSOLE level=error event=browser", "CONSOLE level=warning event=browser",
-                    "CONSOLE level=log event=e2ee"]
+    assert logs == [
+        "CONSOLE level=error event=browser",
+        "CONSOLE level=warning event=browser",
+        "CONSOLE level=log event=e2ee",
+    ]
 
 
 def test_observation_failure_never_logs_the_exception_or_blocks_the_callback():

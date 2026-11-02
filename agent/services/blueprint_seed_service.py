@@ -136,14 +136,8 @@ def ensure_default_templates(team_type_name: str):
     if not raw_templates:
         return
 
-    template_specs = [
-        TemplateBootstrapSpec(t["name"], t["description"], t["prompt_template"])
-        for t in raw_templates
-    ]
-    role_specs = [
-        RoleLinkSpec(r["name"], r["description"], r["template_name"])
-        for r in raw_roles
-    ]
+    template_specs = [TemplateBootstrapSpec(t["name"], t["description"], t["prompt_template"]) for t in raw_templates]
+    role_specs = [RoleLinkSpec(r["name"], r["description"], r["template_name"]) for r in raw_roles]
     ensure_default_templates_service(
         team_type_name,
         team_type_description=f"Standard {team_type_name} Team",
@@ -156,9 +150,15 @@ def ensure_seed_blueprints() -> None:
     # 1. Reconcile system prompts (internal infra prompts, no blueprint deps)
     for report in reconcile_system_prompts_service(get_system_prompt_catalog()):
         if report.get("action") in {"created", "updated"}:
-            log_audit("seed_system_prompt_reconciled",
-                      {"name": report["name"], "action": report["action"],
-                       "fields": report.get("fields"), "source": "seed_sync"})
+            log_audit(
+                "seed_system_prompt_reconciled",
+                {
+                    "name": report["name"],
+                    "action": report["action"],
+                    "fields": report.get("fields"),
+                    "source": "seed_sync",
+                },
+            )
 
     # 2. Reconcile role-prompt templates (must run before blueprint role-linking)
     tpl_reports = reconcile_seed_templates_service(get_seed_template_catalog())
@@ -166,8 +166,12 @@ def ensure_seed_blueprints() -> None:
         if report.get("action") in {"created", "updated"}:
             log_audit(
                 "seed_template_reconciled",
-                {"name": report["name"], "action": report["action"],
-                 "fields": report.get("fields"), "source": "seed_sync"},
+                {
+                    "name": report["name"],
+                    "action": report["action"],
+                    "fields": report.get("fields"),
+                    "source": "seed_sync",
+                },
             )
 
     # 3. Reconcile reusable Team Blueprints after their role templates.
@@ -208,8 +212,5 @@ def load_organization_seed_fallback() -> list[dict[str, object]]:
             "storage": "file_fallback",
             "action": "available",
         }
-        for definition in (
-            snapshot.organization_blueprints[key]
-            for key in sorted(snapshot.organization_blueprints)
-        )
+        for definition in (snapshot.organization_blueprints[key] for key in sorted(snapshot.organization_blueprints))
     ]

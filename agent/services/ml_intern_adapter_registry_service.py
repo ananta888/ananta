@@ -775,7 +775,8 @@ class MlInternAdapterRegistryService:
         candidates = [
             record
             for record in self.list_adapters(status="approved", tenant_id=scope[0], owner_subject=scope[1])
-            if record.adapter_id != adapter_id and record.base_model == selected.base_model
+            if record.adapter_id != adapter_id
+            and record.base_model == selected.base_model
             and (task_kind is None or task_kind in record.task_kinds)
         ]
         target = (

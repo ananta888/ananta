@@ -20,15 +20,12 @@ from agent.services.task_read_access_service import (
 
 
 def task_read_access_context() -> TaskReadAccessContext:
-    membership = current_app.extensions.get(
-        "organization_membership_service"
-    ) or OrganizationMembershipService()
+    membership = current_app.extensions.get("organization_membership_service") or OrganizationMembershipService()
     return TaskReadAccessContext(
         principal=get_authenticated_source_control_principal(),
         project_access=current_app.extensions.get("project_access_authority"),
         organization_membership=membership,
-        service=current_app.extensions.get("task_read_access_service")
-        or get_task_read_access_service(),
+        service=current_app.extensions.get("task_read_access_service") or get_task_read_access_service(),
     )
 
 
@@ -38,11 +35,7 @@ def require_task_read(
     access: TaskReadAccessContext | None = None,
 ):
     payload = (
-        dict(task)
-        if isinstance(task, Mapping)
-        else dict(task.model_dump())
-        if hasattr(task, "model_dump")
-        else {}
+        dict(task) if isinstance(task, Mapping) else dict(task.model_dump()) if hasattr(task, "model_dump") else {}
     )
     try:
         (access or task_read_access_context()).require(payload)

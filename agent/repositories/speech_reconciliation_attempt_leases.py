@@ -33,7 +33,6 @@ class SpeechReconciliationAttemptLeases:
         self._states = states
         self._audit = audit
 
-
     def claim_attempt(
         self,
         *,

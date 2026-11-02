@@ -109,9 +109,7 @@ def test_compiler_rejects_string_boolean_metadata() -> None:
     )
 
     assert result["units"] == []
-    assert result["rejected"][0]["reason_codes"] == [
-        "parametric_knowledge_unit_boolean_invalid"
-    ]
+    assert result["rejected"][0]["reason_codes"] == ["parametric_knowledge_unit_boolean_invalid"]
 
 
 def test_dataset_builder_removes_both_sides_of_a_contradiction():

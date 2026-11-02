@@ -11,6 +11,7 @@ how it produced them.
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import tempfile
@@ -60,9 +61,7 @@ from worker.meet_media.snake_avatar_state import IDLE, THINKING
 
 ORIGIN = os.environ.get("MEET_ORIGIN", "https://webrtc.ananta.de")
 PROJECT = os.environ.get("MEET_COMPANION_PROJECT", "ca1388ef-6be0-4d97-9f07-d7a7d877a89e")
-HUB = os.environ.get(
-    "MEET_HUB_COMPANION_URL", "http://meet-authorizing-hub:5000/api/meet/v1/internal/companion"
-)
+HUB = os.environ.get("MEET_HUB_COMPANION_URL", "http://meet-authorizing-hub:5000/api/meet/v1/internal/companion")
 CAPABILITIES = ["avatar.publish", "speech.publish", "chat.send", "chat.read"]
 DISPLAY_NAME = "ai-snake"
 RENEW_INTERVAL = float(os.environ.get("MEET_COMPANION_RENEW", "40"))
@@ -150,10 +149,18 @@ def ensure_public_room():
             code = (json.loads(error.read(4096) or b"{}").get("error") or {}).get("code")
         except (ValueError, AttributeError, OSError):
             code = None
-        marker = code if code in (
-            "meet_public_room_disabled", "meet_media_disabled", "meet_public_room_token_unavailable",
-            "meet_public_room_directory_unavailable", "meet_public_room_unauthorized",
-        ) else "unavailable"
+        marker = (
+            code
+            if code
+            in (
+                "meet_public_room_disabled",
+                "meet_media_disabled",
+                "meet_public_room_token_unavailable",
+                "meet_public_room_directory_unavailable",
+                "meet_public_room_unauthorized",
+            )
+            else "unavailable"
+        )
         status = error.code if type(error.code) is int and 100 <= error.code <= 599 else "invalid"
         log("public_room_err status=%s code=%s" % (status, marker))
         if code in ("meet_public_room_disabled", "meet_media_disabled"):
@@ -230,8 +237,10 @@ def log_lipsync_service():
         return
     try:
         report = health_report(service_url()) or {}
-        log("lipsync service=%s ready=%s last_face_method=%s" % (
-            service_url(), report.get("ready") is True, (report.get("last_inference") or {}).get("face_method")))
+        log(
+            "lipsync service=%s ready=%s last_face_method=%s"
+            % (service_url(), report.get("ready") is True, (report.get("last_inference") or {}).get("face_method"))
+        )
     except Exception as error:  # noqa: BLE001
         log("lipsync service_err %r" % (error,))
 
@@ -345,12 +354,23 @@ def generate_reply(text):
                     ", fehlgeschlagen" if call["failed"] else "",
                 )
             )
-            log("TOOL %s query=%r snippets=%s total=%s failed=%s code=%s forced=%s"
-                % (name, call["query"][:80], call["snippets"], call.get("total"), call["failed"],
-                   call.get("code", ""), bool(call.get("forced"))))
+            log(
+                "TOOL %s query=%r snippets=%s total=%s failed=%s code=%s forced=%s"
+                % (
+                    name,
+                    call["query"][:80],
+                    call["snippets"],
+                    call.get("total"),
+                    call["failed"],
+                    call.get("code", ""),
+                    bool(call.get("forced")),
+                )
+            )
         trace.add_sources(toolbox.sources)
-    log("TRACE route=%s tools=%s sources=%s" % (
-        trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))
+    log(
+        "TRACE route=%s tools=%s sources=%s"
+        % (trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4])
+    )
     if shadow is not None and toolbox is not None:
         if fast is not None and fast.last is not None:
             # The fast path already decided this question: record that decision, no second call.
@@ -431,7 +451,7 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None, cooperate
         for offset in range(0, total, FRAME_SAMPLES):
             if cooperate is not None:
                 cooperate()
-            chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
+            chunk = pcm[offset * 2 : (offset + FRAME_SAMPLES) * 2]
             page.evaluate(
                 "(a) => window.anantaMachine.speech.push(a[0], a[1], a[2])",
                 [generation, offset, base64.b64encode(chunk).decode()],
@@ -441,8 +461,9 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None, cooperate
             if delay > 0:
                 (ports.sleep if ports is not None else time.sleep)(delay)
         return avatar_generation
-    publisher = SpeechAvatarPublisher(ports, log=log, clip_preparer=clip_preparer,
-                                     lipsync=None if clip_preparer is not None else lipsync_client())
+    publisher = SpeechAvatarPublisher(
+        ports, log=log, clip_preparer=clip_preparer, lipsync=None if clip_preparer is not None else lipsync_client()
+    )
     try:
         generation, report = publisher.speak(pcm, current_generation=avatar_generation)
         log("SYNC max_drift_us=%s segments=%s" % (report["max_drift_us"], len(report["segments"])))
@@ -515,8 +536,10 @@ def run():
             speech_source = "speech:" + identity["session_id"]
             ports = avatar_ports(page, avatar_source, speech_source)
             avatar_on = avatar_enabled()
-            log("flags avatar=%s codecompass=%s tools=%s rag_prefix=%s" % (
-                avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled()))
+            log(
+                "flags avatar=%s codecompass=%s tools=%s rag_prefix=%s"
+                % (avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled())
+            )
             log_lipsync_service()
             log("grant event=received")
             room_id = grant["room_id"]
@@ -552,12 +575,16 @@ def run():
                 page.evaluate("(g) => window.anantaMachine.renew(g)", fresh["grant"])
 
             pump = CompanionChatPump(
-                inbox, status=lambda: page.evaluate("() => window.anantaMachine.status()"),
+                inbox,
+                status=lambda: page.evaluate("() => window.anantaMachine.status()"),
                 open_chat=lambda: page.evaluate("() => window.anantaMachine.chat.open()"),
                 poll=lambda cursor: page.evaluate("(c) => window.anantaMachine.chat.poll(c)", cursor),
                 redeliver=lambda ids: page.evaluate("(ids) => window.anantaMachine.chat.redeliver(ids)", ids),
                 reply_pending=lambda identity: identity not in ledger.answered,
-                renew=renew_chat_session, stopped=STOP_FILE.exists, log=log, renew_interval=RENEW_INTERVAL,
+                renew=renew_chat_session,
+                stopped=STOP_FILE.exists,
+                log=log,
+                renew_interval=RENEW_INTERVAL,
             )
 
             def cooperative_sleep(seconds):
@@ -576,6 +603,7 @@ def run():
 
             def prepare_speaking(pcm):
                 return media_preparation.speaking(pcm, cooperate=pump.step)
+
             last_public_check = time.time()
             outcome = None
             avatar_generation = None
@@ -607,33 +635,42 @@ def run():
                         break
                     avatar_opened = now
                 if inbox.batch()["events"]:
+
                     def answer(event, deliver):
                         nonlocal avatar_generation, avatar_opened
                         text = str(event.get("text", "") or "")
                         log(chat_event_diagnostic("RECV", event))
-                        avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on,
-                                                       idle_payload=prepare_idle)
+                        avatar_generation = show_state(
+                            ports, avatar_generation, THINKING, avatar_on, idle_payload=prepare_idle
+                        )
                         reply = execution.call("answer", text, cooperate=pump.step)
                         log(chat_event_diagnostic("REPLY", event))
                         deliver(reply)
                         pcm = execution.call("speech", reply, cooperate=pump.step)
                         avatar_generation = speak(
-                            page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation,
+                            page,
+                            speech_source,
+                            pcm,
+                            ports=ports,
+                            avatar_generation=avatar_generation,
                             cooperate=pump.step,
                             clip_preparer=prepare_speaking,
                         )
                         avatar_opened = time.time()
-                        avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on,
-                                                       idle_payload=prepare_idle)
+                        avatar_generation = show_state(
+                            ports, avatar_generation, IDLE, avatar_on, idle_payload=prepare_idle
+                        )
 
                     try:
                         serve_inbox(
-                            inbox, ledger,
+                            inbox,
+                            ledger,
                             send=lambda message_id, reply: page.evaluate(
                                 "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [message_id, reply]
                             ),
                             ack=lambda cursor: page.evaluate("(c) => window.anantaMachine.chat.ack(c)", cursor),
-                            answer=answer, log=log,
+                            answer=answer,
+                            log=log,
                         )
                     except CompanionSessionEnded:
                         break
@@ -651,7 +688,7 @@ def run():
             try:
                 page.evaluate("() => window.anantaMachine.leave()")
             except Exception:  # noqa: BLE001
-                pass
+                logging.getLogger(__name__).debug("run: ignored Exception", exc_info=True)
             return outcome
         finally:
             try:

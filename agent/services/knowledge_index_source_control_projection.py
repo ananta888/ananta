@@ -13,7 +13,6 @@ from agent.services.source_control_persistence import (
 )
 from ananta_contracts.knowledge_index_execution import parse_execution_job
 
-
 _BOUND_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
 _PUBLIC_MANIFEST_SCHEMA = "ananta.codecompass.artifact-manifest.v1"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -40,25 +39,15 @@ class KnowledgeIndexSourceControlCompletionProjector:
         artifact_references: Sequence[Mapping[str, Any]],
     ) -> tuple[KnowledgeIndexBindingRecord, KnowledgeIndexRunBindingRecord]:
         if str(envelope.get("schema") or "") != _BOUND_JOB_SCHEMA:
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_job_schema_invalid"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_job_schema_invalid")
         try:
             job = parse_execution_job(
-                {
-                    key: value
-                    for key, value in envelope.items()
-                    if key != "source_access_enforcement_manifest"
-                }
+                {key: value for key, value in envelope.items() if key != "source_access_enforcement_manifest"}
             )
         except Exception as exc:
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_job_invalid"
-            ) from exc
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_job_invalid") from exc
         if str(result.get("status") or "") != "completed":
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_result_incomplete"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_result_incomplete")
         index = self._mapping(result.get("knowledge_index"))
         run = self._mapping(result.get("run"))
         index_id = str(index.get("id") or "").strip()
@@ -70,27 +59,19 @@ class KnowledgeIndexSourceControlCompletionProjector:
             or str(run.get("status") or "") != "completed"
             or str(run.get("knowledge_index_id") or "") != index_id
         ):
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_result_binding_invalid"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_result_binding_invalid")
 
         public_manifest = self._public_manifest(index=index, run=run)
         authority = job.authority_binding
         if (
             public_manifest.get("schema") != _PUBLIC_MANIFEST_SCHEMA
-            or str(public_manifest.get("knowledge_index_id") or "")
-            != index_id
+            or str(public_manifest.get("knowledge_index_id") or "") != index_id
             or str(public_manifest.get("run_id") or "") != run_id
-            or str(public_manifest.get("source_revision_id") or "")
-            != authority.source_revision_id
+            or str(public_manifest.get("source_revision_id") or "") != authority.source_revision_id
             or str(public_manifest.get("status") or "") != "completed"
-            or not _SHA256.fullmatch(
-                str(public_manifest.get("manifest_digest") or "")
-            )
+            or not _SHA256.fullmatch(str(public_manifest.get("manifest_digest") or ""))
         ):
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_manifest_invalid"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_manifest_invalid")
         manifest_reference = self._manifest_reference(
             artifact_references,
             knowledge_index_id=index_id,
@@ -103,18 +84,14 @@ class KnowledgeIndexSourceControlCompletionProjector:
             source_revision_id=authority.source_revision_id,
         )
         if revision_record is None:
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_revision_not_found"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_revision_not_found")
         revision = revision_record.contract
         if (
             revision.tenant_id != authority.tenant_id
             or revision.project_id != authority.project_id
             or revision.source_revision_id != authority.source_revision_id
         ):
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_revision_mismatch"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_revision_mismatch")
 
         now = float(self._clock())
         index_created = self._epoch(index.get("created_at"), fallback=now)
@@ -164,21 +141,11 @@ class KnowledgeIndexSourceControlCompletionProjector:
         return dict(value) if isinstance(value, Mapping) else {}
 
     @classmethod
-    def _public_manifest(
-        cls, *, index: Mapping[str, Any], run: Mapping[str, Any]
-    ) -> dict[str, Any]:
-        index_manifest = cls._mapping(
-            cls._mapping(index.get("index_metadata")).get(
-                "artifact_manifest"
-            )
-        )
-        run_manifest = cls._mapping(
-            cls._mapping(run.get("run_metadata")).get("artifact_manifest")
-        )
+    def _public_manifest(cls, *, index: Mapping[str, Any], run: Mapping[str, Any]) -> dict[str, Any]:
+        index_manifest = cls._mapping(cls._mapping(index.get("index_metadata")).get("artifact_manifest"))
+        run_manifest = cls._mapping(cls._mapping(run.get("run_metadata")).get("artifact_manifest"))
         if not index_manifest or index_manifest != run_manifest:
-            raise KnowledgeIndexSourceControlProjectionError(
-                "knowledge_index_source_projection_manifest_missing"
-            )
+            raise KnowledgeIndexSourceControlProjectionError("knowledge_index_source_projection_manifest_missing")
         return index_manifest
 
     @staticmethod
@@ -192,14 +159,10 @@ class KnowledgeIndexSourceControlCompletionProjector:
             dict(reference)
             for reference in references
             if str(reference.get("role") or "") == "manifest"
-            and str(reference.get("knowledge_index_id") or "")
-            == knowledge_index_id
+            and str(reference.get("knowledge_index_id") or "") == knowledge_index_id
             and str(reference.get("run_id") or "") == run_id
         ]
-        if (
-            len(matches) != 1
-            or not _SHA256.fullmatch(str(matches[0].get("sha256") or ""))
-        ):
+        if len(matches) != 1 or not _SHA256.fullmatch(str(matches[0].get("sha256") or "")):
             raise KnowledgeIndexSourceControlProjectionError(
                 "knowledge_index_source_projection_artifact_manifest_invalid"
             )

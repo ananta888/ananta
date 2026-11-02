@@ -10,6 +10,7 @@ werden — kein Breaking Change.
 
 Schema: schemas/heuristic/decision_result.v1.json
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -110,7 +111,6 @@ class DecisionResult:
             reason_codes=[f"fallback:{reason}"],
         )
 
-
     @staticmethod
     def from_dsl_action(action: dict, *, strategy_id: str | None = None) -> "DecisionResult":
         """Erzeugt DecisionResult aus DSL v2 action dict."""
@@ -130,15 +130,22 @@ class DecisionResult:
                     cy = int(target_bbox.get("y", 0)) + int(target_bbox.get("h", 0)) // 2
                     motion = SuggestedMotion(dx=cx, dy=cy)
             return DecisionResult(
-                action_kind="follow", confidence=confidence, source="heuristic",
-                suggested_motion=motion, reason_codes=reason_codes, strategy_id=strategy_id,
+                action_kind="follow",
+                confidence=confidence,
+                source="heuristic",
+                suggested_motion=motion,
+                reason_codes=reason_codes,
+                strategy_id=strategy_id,
             )
         if kind == "lurk_near":
             return DecisionResult.heuristic_lurk(strategy_id=strategy_id)
         if kind == "explain_target":
             return DecisionResult(
-                action_kind="follow", confidence=confidence, source="heuristic",
-                reason_codes=["explain_target"] + reason_codes, strategy_id=strategy_id,
+                action_kind="follow",
+                confidence=confidence,
+                source="heuristic",
+                reason_codes=["explain_target"] + reason_codes,
+                strategy_id=strategy_id,
             )
         # no_action
         return DecisionResult.no_good_match()

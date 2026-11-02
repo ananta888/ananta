@@ -4,6 +4,7 @@ This module runs in the worker/indexing boundary.  It intentionally exposes a
 small store port and produces a versioned artifact; Hub request handlers only
 read and project that artifact and never import these algorithms.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,17 +18,19 @@ VISUAL_METRICS_ALGORITHM_VERSION = "codecompass_graph_visual_metrics.v1"
 ADVANCED_METRICS_NODE_CAP = 250
 BLAST_RADIUS_SEED_CAP = 25
 
-_PARENT_TO_CHILD_RELATIONS = frozenset({
-    "contains_entry",
-    "contains_method",
-    "contains_section",
-    "contains_symbol",
-    "contains_type",
-    "declares_bean",
-    "declares_constructor",
-    "declares_method",
-    "parent_child",
-})
+_PARENT_TO_CHILD_RELATIONS = frozenset(
+    {
+        "contains_entry",
+        "contains_method",
+        "contains_section",
+        "contains_symbol",
+        "contains_type",
+        "declares_bean",
+        "declares_constructor",
+        "declares_method",
+        "parent_child",
+    }
+)
 _CHILD_TO_PARENT_RELATIONS = frozenset({"child_of_file", "child_of_type"})
 
 
@@ -128,33 +131,34 @@ def graph_revision_from_payload(payload: Mapping[str, Any]) -> str:
     for item in [*(payload.get("nodes") or []), *(payload.get("semantic_nodes") or [])]:
         if not isinstance(item, Mapping):
             continue
-        nodes.append({
-            "node_id": str(item.get("id") or item.get("node_id") or ""),
-            "raw_node_type": str(
-                item.get("raw_node_type")
-                or item.get("kind")
-                or item.get("node_type")
-                or "unknown"
-            ),
-            "visual_attributes": _revision_node_attributes(item),
-        })
+        nodes.append(
+            {
+                "node_id": str(item.get("id") or item.get("node_id") or ""),
+                "raw_node_type": str(
+                    item.get("raw_node_type") or item.get("kind") or item.get("node_type") or "unknown"
+                ),
+                "visual_attributes": _revision_node_attributes(item),
+            }
+        )
     edges = []
     for item in [*(payload.get("edges") or []), *(payload.get("semantic_edges") or [])]:
         if not isinstance(item, Mapping):
             continue
-        edges.append({
-            "edge_id": str(item.get("edge_id") or ""),
-            "source_id": str(item.get("source_id") or item.get("source") or ""),
-            "target_id": str(item.get("target_id") or item.get("target") or ""),
-            "raw_edge_type": str(
-                item.get("raw_edge_type")
-                or item.get("edge_type")
-                or item.get("relation")
-                or item.get("type")
-                or "related"
-            ),
-            "visual_attributes": _revision_edge_attributes(item),
-        })
+        edges.append(
+            {
+                "edge_id": str(item.get("edge_id") or ""),
+                "source_id": str(item.get("source_id") or item.get("source") or ""),
+                "target_id": str(item.get("target_id") or item.get("target") or ""),
+                "raw_edge_type": str(
+                    item.get("raw_edge_type")
+                    or item.get("edge_type")
+                    or item.get("relation")
+                    or item.get("type")
+                    or "related"
+                ),
+                "visual_attributes": _revision_edge_attributes(item),
+            }
+        )
     revision_input = {
         "nodes": sorted(
             nodes,
@@ -251,12 +255,7 @@ def _base_metric_rows(payload: Mapping[str, Any]) -> tuple[list[dict[str, Any]],
             continue
         source_id = str(edge.get("source_id") or edge.get("source") or "").strip()
         target_id = str(edge.get("target_id") or edge.get("target") or "").strip()
-        relation = str(
-            edge.get("edge_type")
-            or edge.get("relation")
-            or edge.get("type")
-            or "related"
-        ).strip().lower()
+        relation = str(edge.get("edge_type") or edge.get("relation") or edge.get("type") or "related").strip().lower()
         if source_id in values_by_id:
             values_by_id[source_id]["out_degree"] += 1
             values_by_id[source_id]["total_degree"] += 1
@@ -336,8 +335,7 @@ def _base_metric_rows(payload: Mapping[str, Any]) -> tuple[list[dict[str, Any]],
         ),
     }
     return [
-        {"node_id": node_id, "values": dict(sorted(values_by_id[node_id].items()))}
-        for node_id in sorted(values_by_id)
+        {"node_id": node_id, "values": dict(sorted(values_by_id[node_id].items()))} for node_id in sorted(values_by_id)
     ], capabilities
 
 

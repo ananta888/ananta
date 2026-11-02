@@ -4,11 +4,12 @@ Deny-by-default: unknown groups and unmapped roles produce no principals.
 Worker principals are separate from hub principals.
 Broad principals are rejected in production (SSH_BROAD_PRINCIPALS_ALLOWED=false).
 """
+
 from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.config import settings
@@ -102,7 +103,9 @@ class SshPrincipalMapper:
 
         if target_type == "worker":
             has_worker_group = bool(set(ctx.groups) & _WORKER_GROUPS)
-            has_permission = f"terminal.ssh.worker.create" in terminal_permissions or f"terminal.worker.create" in terminal_permissions
+            has_permission = (
+                "terminal.ssh.worker.create" in terminal_permissions or "terminal.worker.create" in terminal_permissions
+            )
             if not (has_worker_group or has_permission):
                 return PrincipalMapping(
                     principals=(),
@@ -130,7 +133,9 @@ class SshPrincipalMapper:
 
         if target_type == "hub":
             has_hub_group = bool(set(ctx.groups) & _HUB_GROUPS)
-            has_permission = "terminal.ssh.hub.create" in terminal_permissions or "terminal.hub.create" in terminal_permissions
+            has_permission = (
+                "terminal.ssh.hub.create" in terminal_permissions or "terminal.hub.create" in terminal_permissions
+            )
             if not (has_hub_group and has_permission):
                 return PrincipalMapping(
                     principals=(),

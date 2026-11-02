@@ -77,12 +77,8 @@ def _command(action="start", expected_version=0, options=None):
 
 
 def test_policy_enforces_room_scope_feature_and_kill_switch() -> None:
-    principal = SfuBroadcastCommandPrincipal(
-        subject="actor-1", tenant_ref="tenant-1", role="user", room_scopes=()
-    )
-    evaluator = SfuBroadcastCommandPolicyEvaluator(
-        feature_policy=_Policy(), room_authority=_Authority()
-    )
+    principal = SfuBroadcastCommandPrincipal(subject="actor-1", tenant_ref="tenant-1", role="user", room_scopes=())
+    evaluator = SfuBroadcastCommandPolicyEvaluator(feature_policy=_Policy(), room_authority=_Authority())
     assert evaluator.evaluate(principal, _command()).allowed is False
 
     scoped = SfuBroadcastCommandPrincipal(
@@ -93,22 +89,16 @@ def test_policy_enforces_room_scope_feature_and_kill_switch() -> None:
     )
     assert evaluator.evaluate(scoped, _command()).allowed is True
     killed = SfuBroadcastCommandPolicyEvaluator(
-        feature_policy=_Policy(
-            _Projection(reason_codes=("immediate_security_fence",))
-        ),
+        feature_policy=_Policy(_Projection(reason_codes=("immediate_security_fence",))),
         room_authority=_Authority(),
     )
-    assert killed.evaluate(scoped, _command()).execution_reason == (
-        "sfu_broadcast_kill_switch_active"
-    )
+    assert killed.evaluate(scoped, _command()).execution_reason == ("sfu_broadcast_kill_switch_active")
     assert killed.evaluate(scoped, _command("stop")).allowed is True
 
 
 class _AllowCommands:
     def authorize(self, principal, command):
-        return SfuBroadcastCommandAuthorization(
-            allowed=True, reason_code="sfu_broadcast_command_authorized"
-        )
+        return SfuBroadcastCommandAuthorization(allowed=True, reason_code="sfu_broadcast_command_authorized")
 
 
 class _CaptureOperations:
@@ -217,14 +207,10 @@ def test_sql_repository_replay_restart_cas_cross_tenant_and_content_free_audit()
     assert replay.replayed is True
     assert replay.effective_version == 1
 
-    stale = restarted_repository.execute(
-        _mutation(operation="sfcop1.operation-0000000000000002", expected=0)
-    )
+    stale = restarted_repository.execute(_mutation(operation="sfcop1.operation-0000000000000002", expected=0))
     assert stale.reason_code == "sfu_broadcast_version_conflict"
     other_tenant = restarted_repository.execute(
-        _mutation(
-            operation="sfcop1.operation-0000000000000003", tenant="tenant-2"
-        )
+        _mutation(operation="sfcop1.operation-0000000000000003", tenant="tenant-2")
     )
     assert other_tenant.effective_version == 1
 

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import re
 
+from agent.cli.main import _run_tui
 from client_surfaces.operator_tui.logo_renderer import animated_header
 from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
-from agent.cli.main import _run_tui
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -151,7 +151,9 @@ def test_render_header_logo_3d_stream_mode_uses_offscreen_frame(monkeypatch):
             {
                 "name": "test3d",
                 "render_scene": staticmethod(
-                    lambda **kwargs: PixelFrame(width_px=12, height_px=12, rgba=b"\x00" * (12 * 12 * 4), metadata={"renderer": "test3d"})
+                    lambda **kwargs: PixelFrame(
+                        width_px=12, height_px=12, rgba=b"\x00" * (12 * 12 * 4), metadata={"renderer": "test3d"}
+                    )
                 ),
             },
         )(),

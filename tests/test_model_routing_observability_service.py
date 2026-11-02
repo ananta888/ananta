@@ -48,28 +48,40 @@ def test_usage_projection_is_aggregated_and_content_free():
 def test_diagnostics_exposes_orphans_source_failures_and_non_executable_routes():
     configuration = ModelRoutingConfiguration(
         revision=1,
-        assignments=(ModelAssignment(
-            consumer_id="chat.ai_snake", scope="global", mode="profile",
-            profile_id="missing-profile",
-        ),),
-        fallback_groups=(ModelFallbackGroup(
-            group_id="fallbacks",
-            candidates=(ModelFallbackCandidate(profile_id="missing-fallback"),),
-        ),),
+        assignments=(
+            ModelAssignment(
+                consumer_id="chat.ai_snake",
+                scope="global",
+                mode="profile",
+                profile_id="missing-profile",
+            ),
+        ),
+        fallback_groups=(
+            ModelFallbackGroup(
+                group_id="fallbacks",
+                candidates=(ModelFallbackCandidate(profile_id="missing-fallback"),),
+            ),
+        ),
     )
     catalog = ModelCatalogV2(
         catalog_revision=3,
-        models=(ModelInventoryDescriptor(
-            provider_id="lmstudio", model_id="lfm", executor_id="api:lmstudio",
-            display_name="LFM",
-        ),),
-        sources=(ModelInventorySourceStatus(
-            source_id="providers.catalog",
-            source_kind=ModelSourceKind.DISCOVERED,
-            status="stale",
-            stale=True,
-            reason_code="provider_timeout",
-        ),),
+        models=(
+            ModelInventoryDescriptor(
+                provider_id="lmstudio",
+                model_id="lfm",
+                executor_id="api:lmstudio",
+                display_name="LFM",
+            ),
+        ),
+        sources=(
+            ModelInventorySourceStatus(
+                source_id="providers.catalog",
+                source_kind=ModelSourceKind.DISCOVERED,
+                status="stale",
+                stale=True,
+                reason_code="provider_timeout",
+            ),
+        ),
         partial=True,
     )
 
@@ -86,7 +98,9 @@ def test_diagnostics_exposes_orphans_source_failures_and_non_executable_routes()
     assert result.unresolved_assignment_count == 2
     assert result.non_executable_route_count == 1
     assert {
-        "profile_unresolved", "fallback_profile_unresolved",
-        "inventory_source_stale", "effective_route_not_executable",
+        "profile_unresolved",
+        "fallback_profile_unresolved",
+        "inventory_source_stale",
+        "effective_route_not_executable",
     } <= reasons
     assert result.contains_secrets is False

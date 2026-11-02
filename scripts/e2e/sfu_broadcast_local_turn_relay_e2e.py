@@ -9,37 +9,28 @@ approval, or production-capacity claims.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import fcntl
+import ipaddress
 import json
 import os
-import ipaddress
 import re
 import secrets
 import socket
 import subprocess
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
-
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "docker-compose.semantic-media.yml"
 SPIKE = ROOT / "scripts/spikes/semantic_sfu_three_peer.mjs"
 DEFAULT_OUTPUT = Path("/tmp/ananta-sfu-broadcast-local-turn-relay.json")
-LIVEKIT_REPO_DIGEST = (
-    "livekit/livekit-server@"
-    "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
-)
-TURN_REPO_DIGEST = (
-    "coturn/coturn@"
-    "sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
-)
+LIVEKIT_REPO_DIGEST = "livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
+TURN_REPO_DIGEST = "coturn/coturn@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
 EXPECTED_ENGINES = ("chromium", "firefox")
-OWNED_TURN_CONTAINER_PATTERN = re.compile(
-    r"ananta-sfu-relay-[a-f0-9]{12}-turn-host"
-)
+OWNED_TURN_CONTAINER_PATTERN = re.compile(r"ananta-sfu-relay-[a-f0-9]{12}-turn-host")
 TURN_PORT_LOCK = Path("/tmp/ananta-sfu-broadcast-turn-ports.lock")
 
 
@@ -161,10 +152,7 @@ def local_non_loopback_ipv4() -> str:
         except ValueError:
             continue
         if isinstance(address, ipaddress.IPv4Address) and not (
-            address.is_loopback
-            or address.is_unspecified
-            or address.is_multicast
-            or address.is_link_local
+            address.is_loopback or address.is_unspecified or address.is_multicast or address.is_link_local
         ):
             return str(address)
     raise LocalTurnRelayError("local_turn_relay_non_loopback_address_unavailable")
@@ -381,9 +369,7 @@ def validate_relay_report(
         rows = []
         reasons.add("local_turn_relay_engine_inventory_invalid")
     by_engine = {
-        str(row.get("engine")): row
-        for row in rows
-        if isinstance(row, Mapping) and isinstance(row.get("engine"), str)
+        str(row.get("engine")): row for row in rows if isinstance(row, Mapping) and isinstance(row.get("engine"), str)
     }
     if set(by_engine) != set(expected_engines) or len(rows) != len(expected_engines):
         reasons.add("local_turn_relay_engine_inventory_invalid")
@@ -414,8 +400,7 @@ def validate_relay_report(
                 not isinstance(candidate_types, list)
                 or not candidate_types
                 or not all(
-                    isinstance(candidate, str) and candidate.startswith("relay:")
-                    for candidate in candidate_types
+                    isinstance(candidate, str) and candidate.startswith("relay:") for candidate in candidate_types
                 )
             ):
                 reasons.add(f"local_turn_relay_{engine}_candidate_invalid")
@@ -500,9 +485,7 @@ def execute(output: Path, *, receiver_count: int) -> Mapping[str, Any]:
             "ANANTA_SEMANTIC_MEDIA_SFU_HTTP_PORT": str(http_port),
             "ANANTA_SEMANTIC_MEDIA_SFU_TCP_PORT": str(rtc_tcp_port),
             "ANANTA_SEMANTIC_MEDIA_SFU_UDP_PORT": str(rtc_udp_port),
-            "ANANTA_SEMANTIC_MEDIA_SFU_TURN_UDP_PORT": str(
-                reserve_port(socket_type=socket.SOCK_DGRAM)
-            ),
+            "ANANTA_SEMANTIC_MEDIA_SFU_TURN_UDP_PORT": str(reserve_port(socket_type=socket.SOCK_DGRAM)),
             "ANANTA_SEMANTIC_MEDIA_SFU_PUBLIC_WS_URL": f"ws://127.0.0.1:{http_port}",
             "ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP": turn_host,
             "ANANTA_SEMANTIC_MEDIA_TURN_GATE_EXTERNAL_IP": turn_host,
@@ -536,9 +519,7 @@ def execute(output: Path, *, receiver_count: int) -> Mapping[str, Any]:
             env.update(
                 {
                     "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PORT": str(turn_udp_port),
-                    "ANANTA_SEMANTIC_MEDIA_TURN_GATE_URL": (
-                        f"turn:{turn_host}:{turn_udp_port}?transport=udp"
-                    ),
+                    "ANANTA_SEMANTIC_MEDIA_TURN_GATE_URL": (f"turn:{turn_host}:{turn_udp_port}?transport=udp"),
                 }
             )
             turn_start = run_command(
@@ -568,16 +549,10 @@ def execute(output: Path, *, receiver_count: int) -> Mapping[str, Any]:
             env=env,
             timeout=180,
         )
-        livekit_container = service_container_id(
-            compose, "semantic-media-sfu", env=env
-        )
+        livekit_container = service_container_id(compose, "semantic-media-sfu", env=env)
         image_ids = {
-            "livekit": verify_container_image(
-                livekit_container, LIVEKIT_REPO_DIGEST, env=env
-            ),
-            "coturn": verify_container_image(
-                turn_container_name, TURN_REPO_DIGEST, env=env
-            ),
+            "livekit": verify_container_image(livekit_container, LIVEKIT_REPO_DIGEST, env=env),
+            "coturn": verify_container_image(turn_container_name, TURN_REPO_DIGEST, env=env),
         }
         with tempfile.TemporaryDirectory(prefix="ananta-sfu-turn-relay-") as temporary:
             spike_output = Path(temporary) / "relay.json"
@@ -591,9 +566,7 @@ def execute(output: Path, *, receiver_count: int) -> Mapping[str, Any]:
             try:
                 loaded = json.loads(spike_output.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
-                raise LocalTurnRelayError(
-                    "local_turn_relay_report_unavailable"
-                ) from exc
+                raise LocalTurnRelayError("local_turn_relay_report_unavailable") from exc
             if not isinstance(loaded, Mapping):
                 raise LocalTurnRelayError("local_turn_relay_report_invalid")
             report = loaded
@@ -650,9 +623,7 @@ def execute(output: Path, *, receiver_count: int) -> Mapping[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run local real-browser SFU media through a real coturn relay."
-    )
+    parser = argparse.ArgumentParser(description="Run local real-browser SFU media through a real coturn relay.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--receiver-count", type=int, default=3)
     args = parser.parse_args()

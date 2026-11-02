@@ -270,18 +270,14 @@ def running_stack() -> Iterator[RunningHardwareStack]:
         pytest.fail("VOICE_WHISPER_CPP_PROMPT_MAX_CHARS must be between 1 and 8000")
 
     choice_manifest_id = _required_environment("ANANTA_RESTRICTED_INFERENCE_MANIFEST_SCORE_CHOICES")
-    admission_manifest_id = _required_environment(
-        "ANANTA_RESTRICTED_INFERENCE_ADMISSION_DENIED_MANIFEST_ID"
-    )
+    admission_manifest_id = _required_environment("ANANTA_RESTRICTED_INFERENCE_ADMISSION_DENIED_MANIFEST_ID")
     if not MANIFEST_ID_RE.fullmatch(choice_manifest_id) or not MANIFEST_ID_RE.fullmatch(admission_manifest_id):
         pytest.fail("hardware restricted-inference manifest IDs are invalid")
     if choice_manifest_id == admission_manifest_id:
         pytest.fail("choice and admission-denied evidence must use distinct pinned manifests")
     admission_reason = _required_environment("ANANTA_RESTRICTED_INFERENCE_ADMISSION_REASON")
     if admission_reason not in CONTROLLED_ADMISSION_REASONS:
-        pytest.fail(
-            "ANANTA_RESTRICTED_INFERENCE_ADMISSION_REASON must select a deterministic RAM/VRAM budget denial"
-        )
+        pytest.fail("ANANTA_RESTRICTED_INFERENCE_ADMISSION_REASON must select a deterministic RAM/VRAM budget denial")
     max_ram_bytes = _required_non_negative_integer("ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES")
     max_vram_bytes = _required_non_negative_integer("ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES")
     _validate_controlled_admission_input(
@@ -306,10 +302,13 @@ def running_stack() -> Iterator[RunningHardwareStack]:
     }
     if len(service_secrets) != 3:
         pytest.fail("Voice, restricted-inference and personalization secrets must be distinct")
-    if min(
-        len(secrets["VOICE_INTERNAL_SERVICE_TOKEN"]),
-        len(secrets["RESTRICTED_INFERENCE_INTERNAL_TOKEN"]),
-    ) < 24:
+    if (
+        min(
+            len(secrets["VOICE_INTERNAL_SERVICE_TOKEN"]),
+            len(secrets["RESTRICTED_INFERENCE_INTERNAL_TOKEN"]),
+        )
+        < 24
+    ):
         pytest.fail("internal runtime service tokens must contain at least 24 characters")
     try:
         from cryptography.fernet import Fernet
@@ -386,9 +385,7 @@ def running_stack() -> Iterator[RunningHardwareStack]:
         fixture_yielded = True
         yield stack
     finally:
-        keep_completed_stack = (
-            fixture_yielded and str(os.getenv("ANANTA_VOICE_RESTRICTED_KEEP_STACK", "0")) == "1"
-        )
+        keep_completed_stack = fixture_yielded and str(os.getenv("ANANTA_VOICE_RESTRICTED_KEEP_STACK", "0")) == "1"
         if not keep_completed_stack:
             subprocess.run(
                 _compose_command(project, compose_profile, "down", "--remove-orphans", "--volumes"),
@@ -573,14 +570,14 @@ def _assert_restricted_choice_task(
     assert task.get("parent_task_id") == parent_task_id
     assert task.get("status") == "completed"
     assert task.get("required_capabilities") == ["restricted_inference", "score_choices"]
-    restricted = ((task.get("worker_execution_context") or {}).get("restricted_inference") or {})
+    restricted = (task.get("worker_execution_context") or {}).get("restricted_inference") or {}
     assert restricted.get("operation") == "score_choices"
     assert restricted.get("no_generation") is True
     assert restricted.get("request_id") == request_id
     assert restricted.get("run_id") == run_id
     assert restricted.get("manifest_id") == stack.choice_manifest_id
     assert SHA256_RE.fullmatch(str(restricted.get("request_digest") or ""))
-    verification = ((task.get("verification_status") or {}).get("restricted_inference") or {})
+    verification = (task.get("verification_status") or {}).get("restricted_inference") or {}
     assert verification == {
         "status": "succeeded",
         "no_generation": True,
@@ -606,7 +603,7 @@ def _assert_failed_restricted_choice_task(
     assert task.get("status") == "failed"
     assert task.get("status_reason_code") == "restricted_inference_failed"
     assert task.get("required_capabilities") == ["restricted_inference", "score_choices"]
-    restricted = ((task.get("worker_execution_context") or {}).get("restricted_inference") or {})
+    restricted = (task.get("worker_execution_context") or {}).get("restricted_inference") or {}
     assert restricted.get("operation") == "score_choices"
     assert restricted.get("no_generation") is True
     assert restricted.get("request_id") == request_id
@@ -634,12 +631,12 @@ def _assert_voice_task(
     assert task.get("id") == task_id
     assert task.get("task_kind") == "voice_transcription"
     assert task.get("status") == "completed"
-    context = ((task.get("worker_execution_context") or {}).get("voice_transcription") or {})
+    context = (task.get("worker_execution_context") or {}).get("voice_transcription") or {}
     assert context.get("request_id") == voice_payload.get("audit_id")
     assert context.get("request_digest") == stack.audio_digest
     assert context.get("profile_id") == profile_id
     assert SHA256_RE.fullmatch(str(context.get("configuration_digest") or ""))
-    verification = ((task.get("verification_status") or {}).get("voice_transcription") or {})
+    verification = (task.get("verification_status") or {}).get("voice_transcription") or {}
     assert verification.get("status") == "verified"
     assert verification.get("result_ref") == voice_payload.get("result_ref")
     return task

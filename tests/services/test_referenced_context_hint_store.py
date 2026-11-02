@@ -1,19 +1,16 @@
 """RCHCS-008: Tests for ReferencedContextHintStore."""
+
 from __future__ import annotations
 
 import json
 import tempfile
-from pathlib import Path
 
 import pytest
 
 from agent.services.referenced_context_hint_schema import (
     GEN_DETERMINISTIC,
-    GEN_MANUAL,
     KIND_FILE_SUMMARY,
     KIND_SYMBOL_HINT,
-    KIND_TEST_HINT,
-    STALENESS_FRESH,
     STALENESS_INVALID,
     STALENESS_STALE,
     GeneratorMetadata,
@@ -52,6 +49,7 @@ def make_hint(
 
 
 # ── Put / get ─────────────────────────────────────────────────────────────────
+
 
 def test_put_and_get_roundtrip():
     store = tmp_store()
@@ -108,11 +106,11 @@ def test_non_strict_mode_stores_without_raise():
 
 # ── Search ────────────────────────────────────────────────────────────────────
 
+
 def test_search_by_path():
     store = tmp_store()
     h1 = make_hint(path="agent/foo.py")
-    h2 = make_hint(path="agent/bar.py", kind=KIND_SYMBOL_HINT,
-                   summary="Bar is a helper.")
+    h2 = make_hint(path="agent/bar.py", kind=KIND_SYMBOL_HINT, summary="Bar is a helper.")
     store.put(h1)
     store.put(h2)
     results = store.search(path="foo.py")
@@ -175,6 +173,7 @@ def test_search_limit():
 
 # ── search_by_paths ───────────────────────────────────────────────────────────
 
+
 def test_search_by_paths_returns_matching():
     store = tmp_store()
     h1 = make_hint(path="agent/foo.py", summary="Foo.")
@@ -196,6 +195,7 @@ def test_search_by_paths_excludes_stale():
 
 
 # ── Invalidation ──────────────────────────────────────────────────────────────
+
 
 def test_invalidate_marks_hint_invalid():
     store = tmp_store()
@@ -240,6 +240,7 @@ def test_invalidate_stale_no_effect_for_other_paths():
 
 # ── Persistence ───────────────────────────────────────────────────────────────
 
+
 def test_reload_from_disk():
     d = tempfile.mkdtemp()
     store1 = ReferencedContextHintStore(d)
@@ -264,6 +265,7 @@ def test_manifest_written_on_put():
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
+
 
 def test_stats_empty():
     store = tmp_store()
@@ -290,6 +292,7 @@ def test_count_by_kind():
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
+
 
 def test_singleton_reset():
     reset_referenced_context_hint_store(None)

@@ -48,8 +48,7 @@ def _evaluate(*, inventory=None, scan=None, budgets=None):
         policy_digest="c" * 64,
         inventory=inventory or _inventory(),
         scan=scan or _scan(),
-        budgets=budgets
-        or SourceAdmissionBudgets(allowed_file_types=frozenset({"python"})),
+        budgets=budgets or SourceAdmissionBudgets(allowed_file_types=frozenset({"python"})),
     )
 
 
@@ -63,36 +62,26 @@ def test_matching_clean_evidence_is_admitted_by_hub() -> None:
 
 
 def test_source_file_admission_boundary_is_shared_and_fail_closed() -> None:
-    budgets = SourceAdmissionBudgets(
-        allowed_file_types=frozenset({"python"})
-    )
+    budgets = SourceAdmissionBudgets(allowed_file_types=frozenset({"python"}))
     exact = _inventory(
         file_count=MAX_SOURCE_ADMISSION_FILES,
         total_bytes=MAX_SOURCE_ADMISSION_FILES,
         largest_file_bytes=1,
-        file_type_counts={
-            "python": MAX_SOURCE_ADMISSION_FILES
-        },
+        file_type_counts={"python": MAX_SOURCE_ADMISSION_FILES},
     )
     overflow = _inventory(
         file_count=MAX_SOURCE_ADMISSION_FILES + 1,
         total_bytes=MAX_SOURCE_ADMISSION_FILES + 1,
         largest_file_bytes=1,
-        file_type_counts={
-            "python": MAX_SOURCE_ADMISSION_FILES + 1
-        },
+        file_type_counts={"python": MAX_SOURCE_ADMISSION_FILES + 1},
     )
 
-    assert _evaluate(inventory=exact, budgets=budgets).state is (
-        SourceAdmissionState.admitted
-    )
+    assert _evaluate(inventory=exact, budgets=budgets).state is (SourceAdmissionState.admitted)
     rejected = _evaluate(inventory=overflow, budgets=budgets)
     assert rejected.state is SourceAdmissionState.blocked
     assert "file_count_budget_exceeded" in rejected.reason_codes
     with pytest.raises(SourceAdmissionError, match="admission_budgets_invalid"):
-        SourceAdmissionBudgets(
-            max_files=MAX_SOURCE_ADMISSION_FILES + 1
-        )
+        SourceAdmissionBudgets(max_files=MAX_SOURCE_ADMISSION_FILES + 1)
 
 
 @pytest.mark.parametrize(

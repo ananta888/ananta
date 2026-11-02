@@ -1,12 +1,12 @@
 """Tests for CaseFlow Status Machine (CASECORE-002)."""
+
 from __future__ import annotations
 
 import pytest
+
 from agent.caseflow.status_machine import (
     CaseStatusDefinition,
-    TransitionResult,
     get_status_machine,
-    register_status_machine,
 )
 from agent.job_module import setup as job_setup
 

@@ -23,7 +23,7 @@ from tests.pi.test_pi_run_evidence_reservation import reservation as reservation
 
 def hub():
     app = Flask(__name__)
-    app.config['ROLE'] = 'hub'
+    app.config["ROLE"] = "hub"
     return app
 
 
@@ -33,12 +33,12 @@ def test_composition_is_per_app_and_cannot_be_installed_on_worker(reservation):
     install_pi_dispatch_service(first, service=service)
     assert get_pi_dispatch_service(first) is service
     assert get_pi_dispatch_service(second) is None
-    with pytest.raises(ValueError, match='already_installed'):
+    with pytest.raises(ValueError, match="already_installed"):
         install_pi_dispatch_service(first, service=service)
-    second.config['ROLE'] = 'worker'
-    with pytest.raises(ValueError, match='hub_required'):
+    second.config["ROLE"] = "worker"
+    with pytest.raises(ValueError, match="hub_required"):
         install_pi_dispatch_service(second, service=service)
-    with pytest.raises(ValueError, match='composition_invalid'):
+    with pytest.raises(ValueError, match="composition_invalid"):
         install_pi_dispatch_service(hub(), service=SimpleNamespace())
 
 
@@ -54,22 +54,28 @@ def test_production_recovery_factory_uses_installed_durable_service(reservation,
         app = hub()
         reopened = preparation(reservation, engine=engine)
         install_pi_dispatch_service(app, service=reopened)
-        monkeypatch.setattr(repository_registry, 'get_repository_registry',
-            lambda: SimpleNamespace(task_repo=reservation.admission.repository, agent_repo=Mock()))
-        monkeypatch.setattr(native_dispatch_journal, 'production_native_dispatch_journal',
-            lambda: SQLAlchemyNativeDispatchJournal(engine))
-        monkeypatch.setattr(workflow_worker_assignment_runtime, 'get_workflow_worker_assignment_store', lambda: Mock())
+        monkeypatch.setattr(
+            repository_registry,
+            "get_repository_registry",
+            lambda: SimpleNamespace(task_repo=reservation.admission.repository, agent_repo=Mock()),
+        )
+        monkeypatch.setattr(
+            native_dispatch_journal,
+            "production_native_dispatch_journal",
+            lambda: SQLAlchemyNativeDispatchJournal(engine),
+        )
+        monkeypatch.setattr(workflow_worker_assignment_runtime, "get_workflow_worker_assignment_store", lambda: Mock())
         with app.app_context():
             ports = production_native_result_recovery_ports()
             assert ports.pi_assignment == reopened.reserved_assignment
             assert ports.complete_pi == reopened.complete_reserved
-            transport = Mock(side_effect=AssertionError('must not send or fetch terminal recovery'))
-            monkeypatch.setattr(ports.transport, 'forward_task', transport)
-            result = recover_native_dispatch_results(ports=ports, tenant_id=reservation.values['manifest'].tenant_id)
-        assert result['accepted'] == 1 and result['unresolved'] == 0
+            transport = Mock(side_effect=AssertionError("must not send or fetch terminal recovery"))
+            monkeypatch.setattr(ports.transport, "forward_task", transport)
+            result = recover_native_dispatch_results(ports=ports, tenant_id=reservation.values["manifest"].tenant_id)
+        assert result["accepted"] == 1 and result["unresolved"] == 0
         transport.assert_not_called()
         with Session(engine) as session:
-            assert session.exec(select(HubRunEvidenceIdentityDB)).one().state == 'succeeded'
-            assert session.exec(select(NativeDispatchDB)).one().state == 'accepted'
+            assert session.exec(select(HubRunEvidenceIdentityDB)).one().state == "succeeded"
+            assert session.exec(select(NativeDispatchDB)).one().state == "accepted"
     finally:
         engine.dispose()

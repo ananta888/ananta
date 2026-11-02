@@ -48,10 +48,7 @@ def evaluate_runtime_reports(
 ) -> tuple[str, tuple[str, ...], dict[str, int]]:
     reasons: set[str] = set()
     python_total = int(python_report.get("tests", 0))
-    python_failed = sum(
-        int(python_report.get(name, 0))
-        for name in ("failures", "errors", "skipped")
-    )
+    python_failed = sum(int(python_report.get(name, 0)) for name in ("failures", "errors", "skipped"))
     if python_total < 1 or python_failed != 0:
         reasons.add("contract_parity_python_failed_or_incomplete")
     typescript_total = int(typescript_report.get("numTotalTests", 0))
@@ -94,9 +91,7 @@ def run(corpus_path: Path) -> dict[str, Any]:
         corpus,
         RepositoryArtifacts(ROOT),
     )
-    reasons = {
-        issue.code for issue in corpus_report.integrity_issues
-    }
+    reasons = {issue.code for issue in corpus_report.integrity_issues}
     reasons.update(corpus_report.fail_closed_blockers)
     environment = dict(os.environ)
     with tempfile.TemporaryDirectory(prefix="sfu-contract-parity-") as directory:

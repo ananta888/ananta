@@ -1,4 +1,5 @@
 """Registry for in-flight LM Studio HTTP sessions, keyed by goal_id/task_id."""
+
 from __future__ import annotations
 
 import logging
@@ -155,5 +156,5 @@ def _close_refs(refs: list[weakref.ref]) -> int:
                 session.close()
                 count += 1
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_close_refs: ignored Exception", exc_info=True)
     return count

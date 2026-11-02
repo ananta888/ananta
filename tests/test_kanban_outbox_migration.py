@@ -12,9 +12,7 @@ from sqlalchemy.exc import IntegrityError
 def test_kanban_outbox_migration_is_restart_safe_and_reversible(
     monkeypatch,
 ) -> None:
-    migration = importlib.import_module(
-        "migrations.versions.b8d0f2a4c6e8_add_kanban_event_outbox"
-    )
+    migration = importlib.import_module("migrations.versions.b8d0f2a4c6e8_add_kanban_event_outbox")
     engine = sa.create_engine("sqlite://")
     with engine.begin() as connection:
         monkeypatch.setattr(
@@ -53,7 +51,4 @@ def test_kanban_outbox_migration_is_restart_safe_and_reversible(
 
         migration.downgrade()
         migration.downgrade()
-        assert "kanban_event_outbox" not in sa.inspect(
-            connection
-        ).get_table_names()
-
+        assert "kanban_event_outbox" not in sa.inspect(connection).get_table_names()

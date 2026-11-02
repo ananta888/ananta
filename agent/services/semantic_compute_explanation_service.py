@@ -129,6 +129,4 @@ class SemanticComputeExplanationService:
         }
 
 
-__all__ = [
-    "SemanticComputeExplanation", "SemanticComputeExplanationError", "SemanticComputeExplanationService"
-]
+__all__ = ["SemanticComputeExplanation", "SemanticComputeExplanationError", "SemanticComputeExplanationService"]

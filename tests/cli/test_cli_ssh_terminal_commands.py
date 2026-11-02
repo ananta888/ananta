@@ -39,12 +39,14 @@ class _ClientAmbiguousWorkerTargets:
 
     def get(self, path: str, allow_redirects: bool = False):
         if path == "/terminal/targets":
-            return _Resp(payload={
-                "targets": [
-                    {"target_type": "worker", "target_id": "alpha", "capabilities": {"create": True}},
-                    {"target_type": "worker", "target_id": "beta", "capabilities": {"create": True}},
-                ]
-            })
+            return _Resp(
+                payload={
+                    "targets": [
+                        {"target_type": "worker", "target_id": "alpha", "capabilities": {"create": True}},
+                        {"target_type": "worker", "target_id": "beta", "capabilities": {"create": True}},
+                    ]
+                }
+            )
         return _Resp(headers={"Location": "http://issuer/auth"})
 
     def post(self, path: str, payload: dict):

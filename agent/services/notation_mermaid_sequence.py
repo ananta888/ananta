@@ -56,8 +56,7 @@ def _validate_participants(participants: list[dict]) -> dict[str, str]:
         kind = _as_str(p.get("kind", "participant"), field="participants[].kind")
         if kind not in _VALID_PARTICIPANT_KINDS:
             raise NotationRenderError(
-                f"participant {pid!r} has unknown kind {kind!r}; "
-                f"expected one of {sorted(_VALID_PARTICIPANT_KINDS)}"
+                f"participant {pid!r} has unknown kind {kind!r}; expected one of {sorted(_VALID_PARTICIPANT_KINDS)}"
             )
         participant_kinds[pid] = kind
     return participant_kinds
@@ -79,9 +78,7 @@ def _validate_fragment_tree(frag_list: list[dict], *, path: str, seen_ids: set[s
     for idx, frag in enumerate(frag_list):
         ftype = _as_str(frag.get("type"), field=f"{path}[{idx}].type")
         if ftype not in _VALID_FRAGMENT_TYPES:
-            raise NotationRenderError(
-                f"{path}[{idx}].type {ftype!r} must be one of {sorted(_VALID_FRAGMENT_TYPES)}"
-            )
+            raise NotationRenderError(f"{path}[{idx}].type {ftype!r} must be one of {sorted(_VALID_FRAGMENT_TYPES)}")
         label = frag.get("label")
         if not isinstance(label, str) or not label.strip():
             raise NotationRenderError(f"{path}[{idx}].label must be a non-empty string")

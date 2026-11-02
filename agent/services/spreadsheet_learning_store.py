@@ -88,8 +88,7 @@ class SpreadsheetLearningStore:
         elif version != 1:
             raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
         connection.execute(
-            "INSERT INTO spreadsheet_consents"
-            "(tenant_id,consent_id,feedback_id,version,payload_json) VALUES(?,?,?,?,?)",
+            "INSERT INTO spreadsheet_consents(tenant_id,consent_id,feedback_id,version,payload_json) VALUES(?,?,?,?,?)",
             (
                 tenant,
                 consent_id,

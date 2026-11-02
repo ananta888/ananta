@@ -13,13 +13,13 @@ from typing import Any
 
 # Each tuple: (pattern, replacement) where replacement keeps non-secret prefix
 _REDACT_SUBS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r'(Bearer\s+)[A-Za-z0-9\-._~+/]+=*', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(api[_-]?key["\s]*[=:]\s*)[\w\-]{8,}', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(password["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(secret["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(private[_\s]key["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(cookie["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r'\1[REDACTED]'),
-    (re.compile(r'(X-Ananta-User-Authorization["\s:]+)\S+', re.IGNORECASE), r'\1[REDACTED]'),
+    (re.compile(r"(Bearer\s+)[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(api[_-]?key["\s]*[=:]\s*)[\w\-]{8,}', re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(password["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(secret["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(private[_\s]key["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(cookie["\s]*[=:]\s*)[^\s,}"\':]{4,}', re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r'(X-Ananta-User-Authorization["\s:]+)\S+', re.IGNORECASE), r"\1[REDACTED]"),
 ]
 
 
@@ -167,10 +167,7 @@ class TraceStore:
 
     def _evict_old(self) -> None:
         now = time.time()
-        expired = [
-            tid for tid, t in self._traces.items()
-            if now - float(t.get("updated_at", 0)) > self.ttl_seconds
-        ]
+        expired = [tid for tid, t in self._traces.items() if now - float(t.get("updated_at", 0)) > self.ttl_seconds]
         for tid in expired:
             self._traces.pop(tid, None)
             if tid in self._order:
@@ -278,6 +275,7 @@ def get_trace_store() -> TraceStore:
 def _make_store() -> TraceStore:
     try:
         from agent.routes.ai_snake_config import _current_config
+
         cfg = _current_config()
         return TraceStore(
             max_traces=int(cfg.get("ai_snake_trace_max_traces") or 50),

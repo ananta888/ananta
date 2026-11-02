@@ -38,11 +38,13 @@ from agent.services.evolution_run_service import (
     failure_metric_status,
     metric_label,
 )
+from agent.services.mutation_gate_service import get_mutation_gate_service  # noqa: F401  (test monkeypatch seam)
 from agent.services.repository_registry import get_repository_registry
 
 
 class EvolutionService:
     """Hub-side facade that selects providers and invokes the EvolutionEngine SPI."""
+
     def __init__(
         self,
         *,
@@ -66,14 +68,17 @@ class EvolutionService:
             repositories=repositories,
             audit_fn=self._audit_fn,
         )
+
     def _bounded_payload(self, payload: Any, *, policy: EvolutionPolicy) -> Any:
         return _bounded_payload(payload, policy=policy)
+
     def list_providers(self) -> list[dict[str, Any]]:
         policy = self.resolve_policy(None)
         return [
             _with_capability_matrix(item, policy=policy, provider_config_fn=_provider_config)
             for item in self._registry.list_descriptors()
         ]
+
     def list_providers_with_config(self, config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         policy = self.resolve_policy(config)
         return [
@@ -84,26 +89,39 @@ class EvolutionService:
     def select_providers(self, selection, *, config: dict[str, Any] | None = None) -> dict:
         cfg = (config or {}).get("evolution") or {}
         result = self._registry.select(selection, envelopes=cfg.get("selection_envelopes") or {})
-        self._audit("evolution_engine_selection", {
-            "model_id": selection.model_id, "model_revision": selection.model_revision,
-            "task_class": selection.task_class, "status": result["status"],
-            "providers": [item["provider_name"] for item in result["candidates"]],
-            "rejected": result["rejected"], "grants_permission": False,
-        })
+        self._audit(
+            "evolution_engine_selection",
+            {
+                "model_id": selection.model_id,
+                "model_revision": selection.model_revision,
+                "task_class": selection.task_class,
+                "status": result["status"],
+                "providers": [item["provider_name"] for item in result["candidates"]],
+                "rejected": result["rejected"],
+                "grants_permission": False,
+            },
+        )
         return result
 
     def provider_health(self, provider_name: str | None = None) -> dict[str, Any]:
         policy = self.resolve_policy(None)
         return _with_health_capability_matrix(
-            self._registry.health(provider_name), policy=policy, provider_config_fn=_provider_config,
+            self._registry.health(provider_name),
+            policy=policy,
+            provider_config_fn=_provider_config,
         )
+
     def provider_health_with_config(
         self, provider_name: str | None = None, config: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         policy = self.resolve_policy(config)
         return _with_health_capability_matrix(
-            self._registry.health(provider_name), config=config, policy=policy, provider_config_fn=_provider_config,
+            self._registry.health(provider_name),
+            config=config,
+            policy=policy,
+            provider_config_fn=_provider_config,
         )
+
     def resolve_policy(self, config: dict[str, Any] | None = None) -> EvolutionPolicy:
         raw = dict((config or {}).get("evolution") or config or {})
         return EvolutionPolicy(
@@ -117,6 +135,7 @@ class EvolutionService:
             max_raw_payload_bytes=max(1024, min(int(raw.get("max_raw_payload_bytes") or 32768), 1024 * 1024)),
             max_manual_analyses_per_task=max(1, min(int(raw.get("max_manual_analyses_per_task") or 20), 1000)),
         )
+
     def evaluate_auto_trigger(
         self,
         task: dict[str, Any],
@@ -150,6 +169,7 @@ class EvolutionService:
             reasons=["no_matching_trigger_condition"],
             details={"task_status": status, "verification_status": verification_status.get("status")},
         )
+
     def task_read_model(self, task_id: str, *, limit: int = 50) -> dict[str, Any]:
         repos = self._repositories or get_repository_registry()
         task = repos.task_repo.get_by_id(task_id)
@@ -164,6 +184,7 @@ class EvolutionService:
             "runs": [self._run_service.run_read_model(run) for run in runs],
             "proposals": [self._proposal_service.proposal_read_model(proposal) for proposal in proposals],
         }
+
     def review_persisted_proposal(
         self,
         task_id: str,
@@ -174,8 +195,13 @@ class EvolutionService:
         comment: str | None = None,
     ) -> dict[str, Any]:
         return self._proposal_service.review_persisted_proposal(
-            task_id, proposal_id, action=action, actor=actor, comment=comment,
+            task_id,
+            proposal_id,
+            action=action,
+            actor=actor,
+            comment=comment,
         )
+
     def build_context_for_task(
         self,
         task_id: str,
@@ -184,6 +210,7 @@ class EvolutionService:
         options: EvolutionContextBuildOptions | None = None,
     ) -> EvolutionContext:
         return self._context_builder.build_for_task(task_id, objective=objective, options=options)
+
     def analyze_task(
         self,
         task_id: str,
@@ -197,6 +224,7 @@ class EvolutionService:
     ) -> PersistedEvolutionAnalysis | EvolutionResult:
         context = self.build_context_for_task(task_id, objective=objective, options=options)
         return self.analyze(context, provider_name=provider_name, config=config, trigger=trigger, persist=persist)
+
     def analyze(
         self,
         context: EvolutionContext,
@@ -226,9 +254,17 @@ class EvolutionService:
             from agent.services.evolution.candidates import EvolutionCandidateNormalizer
 
             result = EvolutionCandidateNormalizer().normalize(context, result, engine_version=engine.version)
-            persisted = self._run_service.persist_analysis(
-                context, result, resolved_trigger, policy=policy, proposal_service=self._proposal_service,
-            ) if persist else None
+            persisted = (
+                self._run_service.persist_analysis(
+                    context,
+                    result,
+                    resolved_trigger,
+                    policy=policy,
+                    proposal_service=self._proposal_service,
+                )
+                if persist
+                else None
+            )
             run_id = persisted.run_id if persisted else result.run_id
             proposal_count = len(persisted.proposal_ids) if persisted else len(result.proposals)
             self._audit(
@@ -261,6 +297,7 @@ class EvolutionService:
             ).inc()
             self._run_service.observe_operation_duration(engine.provider_name, "analyze", failure_status, started_at)
             raise
+
     def validate(
         self,
         context: EvolutionContext,
@@ -312,6 +349,7 @@ class EvolutionService:
             ).inc()
             self._run_service.observe_operation_duration(engine.provider_name, "validate", "failed", started_at)
             raise
+
     def apply(
         self,
         context: EvolutionContext,
@@ -374,6 +412,7 @@ class EvolutionService:
             ).inc()
             self._run_service.observe_operation_duration(engine.provider_name, "apply", "failed", started_at)
             raise
+
     def validate_persisted_proposal(
         self,
         task_id: str,
@@ -384,8 +423,13 @@ class EvolutionService:
         trigger: EvolutionTrigger | None = None,
     ) -> ValidationResult:
         return self._proposal_service.validate_persisted_proposal(
-            task_id, proposal_id, provider_name=provider_name, config=config, trigger=trigger,
+            task_id,
+            proposal_id,
+            provider_name=provider_name,
+            config=config,
+            trigger=trigger,
         )
+
     def apply_persisted_proposal(
         self,
         task_id: str,
@@ -396,11 +440,17 @@ class EvolutionService:
         trigger: EvolutionTrigger | None = None,
     ) -> ApplyResult:
         return self._proposal_service.apply_persisted_proposal(
-            task_id, proposal_id, provider_name=provider_name, config=config, trigger=trigger,
+            task_id,
+            proposal_id,
+            provider_name=provider_name,
+            config=config,
+            trigger=trigger,
         )
+
     def _audit(self, action: str, details: dict[str, Any]) -> None:
         if self._audit_fn is not None:
             self._audit_fn(action, details)
+
     def _enforce_provider_policy(
         self,
         provider_name: str,
@@ -412,6 +462,9 @@ class EvolutionService:
         if bool(provider_cfg.get("force_analyze_only", False)) and operation != "analyze":
             raise PermissionError("evolution_provider_analyze_only")
 
+
 evolution_service = EvolutionService()
+
+
 def get_evolution_service() -> EvolutionService:
     return evolution_service

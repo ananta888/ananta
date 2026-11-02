@@ -33,9 +33,7 @@ def _legacy_record_calls(path: Path) -> list[int]:
     return sorted(
         node.lineno
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "record_transition"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "record_transition"
     )
 
 
@@ -69,16 +67,8 @@ def test_authority_boundary_inventory_uses_transactional_audit_outbox() -> None:
 def test_schedule_receipt_compatibility_repository_cannot_bypass_atomic_lease_writer() -> None:
     path = ROOT / "agent/repositories/semantic_compute_schedule_repository.py"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    methods = {
-        node.name
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-    calls = {
-        _call_name(node.func)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-    }
+    methods = {node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    calls = {_call_name(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
     assert "record" not in methods
     assert not {name for name in calls if name.endswith((".add", ".commit", ".delete"))}
 
@@ -93,14 +83,9 @@ def test_speech_revocation_has_no_direct_or_file_backed_authority_writer() -> No
         and (
             (
                 isinstance(node, ast.ImportFrom)
-                and (node.module or "").startswith(
-                    ("agent.db_models", "sqlalchemy", "sqlmodel")
-                )
+                and (node.module or "").startswith(("agent.db_models", "sqlalchemy", "sqlmodel"))
             )
-            or any(
-                alias.name.startswith(("sqlalchemy", "sqlmodel"))
-                for alias in node.names
-            )
+            or any(alias.name.startswith(("sqlalchemy", "sqlmodel")) for alias in node.names)
         )
     )
     forbidden_calls = sorted(
@@ -109,7 +94,8 @@ def test_speech_revocation_has_no_direct_or_file_backed_authority_writer() -> No
         if isinstance(node, ast.Call)
         and (name := _call_name(node.func))
         and (
-            name in {
+            name
+            in {
                 "Session",
                 "CompositeSpeechAdapterFencePort",
                 "FileBackedSpeechAdapterFencePort",

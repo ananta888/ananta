@@ -1,4 +1,5 @@
 """Tests for HeuristicLeaseRepository — TTL, expiry, release, supersede semantics."""
+
 from __future__ import annotations
 
 import time
@@ -7,15 +8,17 @@ import pytest
 from sqlmodel import SQLModel
 
 from agent.database import engine
-from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository, _DOMAIN_TTL_DEFAULTS
+from agent.repositories.heuristic_lease_repo import _DOMAIN_TTL_DEFAULTS, HeuristicLeaseRepository
 
 
 @pytest.fixture(autouse=True)
 def _fresh_db():
     SQLModel.metadata.create_all(engine)
     yield
-    from agent.db_models import HeuristicDecisionLeaseDB
     from sqlmodel import Session, delete
+
+    from agent.db_models import HeuristicDecisionLeaseDB
+
     with Session(engine) as s:
         s.exec(delete(HeuristicDecisionLeaseDB))
         s.commit()
@@ -27,6 +30,7 @@ def repo() -> HeuristicLeaseRepository:
 
 
 # ── acquire ──────────────────────────────────────────────────────────────────
+
 
 def test_acquire_creates_active_lease(repo):
     lease = repo.acquire(
@@ -42,9 +46,7 @@ def test_acquire_creates_active_lease(repo):
 
 
 def test_acquire_uses_domain_ttl_default(repo):
-    lease = repo.acquire(
-        heuristic_id="h1", version="1.0.0", domain="chat_codecompass", context_hash="x"
-    )
+    lease = repo.acquire(heuristic_id="h1", version="1.0.0", domain="chat_codecompass", context_hash="x")
     expected_ttl = _DOMAIN_TTL_DEFAULTS["chat_codecompass"]
     assert abs(lease.ttl_seconds - expected_ttl) < 0.1
     assert abs((lease.deadline_at - lease.acquired_at) - expected_ttl) < 0.5
@@ -52,7 +54,10 @@ def test_acquire_uses_domain_ttl_default(repo):
 
 def test_acquire_accepts_custom_ttl(repo):
     lease = repo.acquire(
-        heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x",
+        heuristic_id="h1",
+        version="1.0.0",
+        domain="tui_snake",
+        context_hash="x",
         ttl_seconds=3.0,
     )
     assert lease.ttl_seconds == 3.0
@@ -69,7 +74,10 @@ def test_acquire_supersedes_previous_active_lease(repo):
 
 def test_acquire_stores_reason_codes(repo):
     lease = repo.acquire(
-        heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x",
+        heuristic_id="h1",
+        version="1.0.0",
+        domain="tui_snake",
+        context_hash="x",
         reason_codes=["fallback:ai_timeout", "context_changed"],
     )
     assert "fallback:ai_timeout" in lease.reason_codes
@@ -78,13 +86,17 @@ def test_acquire_stores_reason_codes(repo):
 
 def test_acquire_stores_selected_by(repo):
     lease = repo.acquire(
-        heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x",
+        heuristic_id="h1",
+        version="1.0.0",
+        domain="tui_snake",
+        context_hash="x",
         selected_by="operator",
     )
     assert lease.selected_by == "operator"
 
 
 # ── get_active ────────────────────────────────────────────────────────────────
+
 
 def test_get_active_returns_live_lease_only_for_its_domain(repo):
     repo.acquire(heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x")
@@ -113,6 +125,7 @@ def test_get_active_returns_none_for_empty_domain(repo):
 
 # ── release ───────────────────────────────────────────────────────────────────
 
+
 def test_release_marks_lease_released(repo):
     lease = repo.acquire(heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x")
     released = repo.release(lease.id)
@@ -138,6 +151,7 @@ def test_release_accepts_custom_status(repo):
 
 
 # ── list_expired ──────────────────────────────────────────────────────────────
+
 
 def test_list_expired_finds_overdue_leases(repo):
     lease = repo.acquire(heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x", ttl_seconds=5.0)
@@ -167,6 +181,7 @@ def test_mark_expired_batch_updates_status(repo):
 
 
 # ── list helpers ──────────────────────────────────────────────────────────────
+
 
 def test_list_by_domain(repo):
     repo.acquire(heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="a")

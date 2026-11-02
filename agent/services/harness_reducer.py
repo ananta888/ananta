@@ -60,8 +60,12 @@ class EvidencePreservingReducer:
             if not isinstance(candidate, tuple) or len(candidate) != 3:
                 return self._fallback(original, original_tokens, "reducer_span_shape_invalid")
             start, end, quote = candidate
-            if (type(start) is not int or type(end) is not int or not isinstance(quote, str)
-                    or not 0 <= start <= end <= len(original)):
+            if (
+                type(start) is not int
+                or type(end) is not int
+                or not isinstance(quote, str)
+                or not 0 <= start <= end <= len(original)
+            ):
                 return self._fallback(original, original_tokens, "reducer_span_bounds_invalid")
             if original[start:end] != quote:
                 return self._fallback(original, original_tokens, "reducer_span_not_verbatim")
@@ -69,17 +73,30 @@ class EvidencePreservingReducer:
         if not spans:
             return self._fallback(original, original_tokens, "reducer_no_evidence")
         reduced_text = "\n".join(span.text for span in spans)
-        return Reduction(reduced_text=reduced_text, spans=tuple(spans), fallback=False, reason=None,
-                         original_tokens=original_tokens, reduced_tokens=_tokens(reduced_text))
+        return Reduction(
+            reduced_text=reduced_text,
+            spans=tuple(spans),
+            fallback=False,
+            reason=None,
+            original_tokens=original_tokens,
+            reduced_tokens=_tokens(reduced_text),
+        )
 
     @staticmethod
     def _fallback(original: str, original_tokens: int, reason: str) -> Reduction:
-        return Reduction(reduced_text=original, spans=(), fallback=True, reason=reason,
-                         original_tokens=original_tokens, reduced_tokens=original_tokens)
+        return Reduction(
+            reduced_text=original,
+            spans=(),
+            fallback=True,
+            reason=reason,
+            original_tokens=original_tokens,
+            reduced_tokens=original_tokens,
+        )
 
     @staticmethod
     def select_by_markers(markers: Iterable[str]) -> SpanSelector:
         """Convenience selector: the first verbatim occurrence of each marker."""
+
         def select(original: str) -> list[tuple[int, int, str]]:
             found: list[tuple[int, int, str]] = []
             for marker in markers:

@@ -4,7 +4,7 @@ import math
 import os
 import shutil
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
@@ -101,6 +101,7 @@ def apply_snake_hover_selection_delay(
     if y >= body_start + 1 and x < left_width:
         row = y - (body_start + 1)
         from client_surfaces.operator_tui.sections import SECTIONS
+
         if 0 <= row < len(SECTIONS):
             candidate = ("nav", row)
 
@@ -157,7 +158,12 @@ def toggle_snake_mode(tui: SnakeOpsMixin) -> None:
     game["ui_steering"] = True
     game["free_mode"] = True
     if "tutorial_mode" not in game:
-        game["tutorial_mode"] = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {"0", "false", "no", "off"}
+        game["tutorial_mode"] = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1").strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
     game["chat_panel_open"] = bool(game.get("chat_panel_open", True))
     game["mouse_follow_enabled"] = bool(game.get("mouse_follow_enabled", tui._mouse_capabilities.get("enabled")))
     game["movement_mode"] = "mouse_follow" if bool(game.get("mouse_follow_enabled")) else "keyboard"
@@ -172,6 +178,7 @@ def toggle_snake_mode(tui: SnakeOpsMixin) -> None:
     game["selection_frame_anchor"] = None
     game["last_move"] = time.monotonic()
     from client_surfaces.operator_tui.keybindings_config import display_for_action
+
     tui._set_state(
         tui.state.with_updates(
             header_logo_game=game,
@@ -197,6 +204,7 @@ def toggle_tutorial_ai_mode(tui: SnakeOpsMixin) -> None:
         label = "aus"
     try:
         from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
         save_tui_chat_settings({"tutorial_mode": bool(game.get("tutorial_mode"))})
     except Exception:
         pass
@@ -237,10 +245,18 @@ def queue_tutor_event(tui: SnakeOpsMixin, game: dict[str, object], event_key: st
         return
     tui._tutor_event_session_used.add(event_key)
     queue: list[dict[str, object]] = list(game.get("tutor_event_queue") or [])
-    priority = {"collision_wall": 5, "collision_self": 5, "level_up_20": 4,
-                "level_up_10": 3, "level_up_5": 3, "zone_header": 2,
-                "zone_nav": 2, "zone_content": 2, "zone_detail": 2,
-                "food_eaten": 1}.get(event_key, 1)
+    priority = {
+        "collision_wall": 5,
+        "collision_self": 5,
+        "level_up_20": 4,
+        "level_up_10": 3,
+        "level_up_5": 3,
+        "zone_header": 2,
+        "zone_nav": 2,
+        "zone_content": 2,
+        "zone_detail": 2,
+        "food_eaten": 1,
+    }.get(event_key, 1)
     queue.append({"event": event_key, "priority": priority, "at": time.monotonic()})
     queue.sort(key=lambda e: (-int(e.get("priority") or 0), float(e.get("at") or 0)))
     game["tutor_event_queue"] = queue[:5]
@@ -260,7 +276,9 @@ def get_tutor_text(tui: SnakeOpsMixin, event_key: str) -> str:
     depth = tui._tutor_depth_mode
     try:
         from pathlib import Path
+
         import yaml as _yaml
+
         yaml_path = Path(__file__).parent / "snake_tutor_texts.yaml"
         data = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
         for category in ("events", "sections"):
@@ -278,9 +296,11 @@ def get_tutor_text(tui: SnakeOpsMixin, event_key: str) -> str:
 def get_idle_tutor_text(tui: SnakeOpsMixin) -> str:
     depth = tui._tutor_depth_mode
     try:
-        from pathlib import Path
-        import yaml as _yaml
         import random
+        from pathlib import Path
+
+        import yaml as _yaml
+
         yaml_path = Path(__file__).parent / "snake_tutor_texts.yaml"
         data = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
         idle_list = data.get("idle", [])
@@ -328,6 +348,7 @@ def inject_tutor_tip(tui: SnakeOpsMixin, game: dict[str, object], tip: str, *, s
 
 def maybe_set_tutor_pointer(tui: SnakeOpsMixin, game: dict[str, object], tip: str) -> None:
     from client_surfaces.operator_tui.sections import SECTIONS
+
     tip_lower = tip.lower()
     for section in SECTIONS:
         if section.id in tip_lower or section.title.lower() in tip_lower:
@@ -356,6 +377,7 @@ def maybe_fire_section_visit_explanation(tui: SnakeOpsMixin, game: dict[str, obj
         return
     try:
         from client_surfaces.operator_tui.snake_persistence import mark_section_visited
+
         is_first = mark_section_visited(section_id)
     except Exception:
         is_first = True
@@ -374,6 +396,7 @@ def tick_guided_tour(tui: SnakeOpsMixin, game: dict[str, object], *, now: float)
         return
     ts = dict(ts_raw)
     from client_surfaces.operator_tui.sections import SECTIONS
+
     section_ids = [s.id for s in SECTIONS]
     guided_idx = int(ts.get("guided_section_idx") or 0)
     guided_next_at = float(ts.get("guided_next_at") or 0.0)

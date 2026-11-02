@@ -48,9 +48,7 @@ class SQLContextPolicyLifecycleRepository:
                     tenant_id=tenant_id,
                     project_id=project_id,
                     policy_id=policy_id,
-                ).order_by(
-                    ContextPolicyVersionDB.version.desc()
-                )
+                ).order_by(ContextPolicyVersionDB.version.desc())
             ).first()
             return self._domain(row) if row is not None else None
 
@@ -88,20 +86,12 @@ class SQLContextPolicyLifecycleRepository:
             policy_id=policy_id,
         )
         if before is not None:
-            statement = statement.where(
-                ContextPolicyVersionDB.version < before
-            )
-        statement = statement.order_by(
-            ContextPolicyVersionDB.version.desc()
-        ).limit(limit + 1)
+            statement = statement.where(ContextPolicyVersionDB.version < before)
+        statement = statement.order_by(ContextPolicyVersionDB.version.desc()).limit(limit + 1)
         with Session(self._engine) as session:
             rows = list(session.exec(statement).all())
         page = rows[:limit]
-        next_cursor = (
-            f"v:{page[-1].version}"
-            if len(rows) > limit and page
-            else None
-        )
+        next_cursor = f"v:{page[-1].version}" if len(rows) > limit and page else None
         return tuple(self._domain(row) for row in page), next_cursor
 
     def active(
@@ -124,9 +114,7 @@ class SQLContextPolicyLifecycleRepository:
                 ).all()
             )
         if len(rows) > 1:
-            raise ContextPolicyLifecycleError(
-                "multiple_active_policy_snapshots"
-            )
+            raise ContextPolicyLifecycleError("multiple_active_policy_snapshots")
         return self._domain(rows[0]) if rows else None
 
     def get_mutation_result(
@@ -179,21 +167,13 @@ class SQLContextPolicyLifecycleRepository:
                         tenant_id=version.tenant_id,
                         project_id=version.project_id,
                         policy_id=version.policy_id,
-                    ).order_by(
-                        ContextPolicyVersionDB.version.desc()
-                    )
+                    ).order_by(ContextPolicyVersionDB.version.desc())
                 ).first()
-                actual_latest = (
-                    latest.version if latest is not None else None
-                )
+                actual_latest = latest.version if latest is not None else None
                 if actual_latest != expected_latest_version:
-                    raise ContextPolicyLifecycleError(
-                        "policy_version_conflict"
-                    )
+                    raise ContextPolicyLifecycleError("policy_version_conflict")
                 if version.version != (actual_latest or 0) + 1:
-                    raise ContextPolicyLifecycleError(
-                        "policy_version_conflict"
-                    )
+                    raise ContextPolicyLifecycleError("policy_version_conflict")
                 session.add(self._row(version))
                 self._add_mutation(
                     session,
@@ -213,9 +193,7 @@ class SQLContextPolicyLifecycleRepository:
             )
             if replay is not None:
                 return replay
-            raise ContextPolicyLifecycleError(
-                "policy_version_conflict"
-            ) from exc
+            raise ContextPolicyLifecycleError("policy_version_conflict") from exc
 
     def transition(
         self,
@@ -232,9 +210,7 @@ class SQLContextPolicyLifecycleRepository:
         request_digest: str | None = None,
     ) -> ContextPolicyVersion:
         if target_state not in {"active", "revoked"}:
-            raise ContextPolicyLifecycleError(
-                "policy_transition_invalid"
-            )
+            raise ContextPolicyLifecycleError("policy_transition_invalid")
         try:
             with Session(self._engine) as session:
                 mutation = self._find_mutation(
@@ -261,17 +237,9 @@ class SQLContextPolicyLifecycleRepository:
                     .where(ContextPolicyVersionDB.version == version)
                     .with_for_update()
                 ).first()
-                expected_state = (
-                    "draft" if target_state == "active" else "active"
-                )
-                if (
-                    target is None
-                    or target.etag != expected_etag
-                    or target.state != expected_state
-                ):
-                    raise ContextPolicyLifecycleError(
-                        "policy_version_conflict"
-                    )
+                expected_state = "draft" if target_state == "active" else "active"
+                if target is None or target.etag != expected_etag or target.state != expected_state:
+                    raise ContextPolicyLifecycleError("policy_version_conflict")
                 now = self._now()
                 if target_state == "active":
                     self._supersede_active(
@@ -291,8 +259,7 @@ class SQLContextPolicyLifecycleRepository:
                 update_result = session.exec(
                     sa.update(ContextPolicyVersionDB)
                     .where(
-                        ContextPolicyVersionDB.record_id
-                        == target.record_id,
+                        ContextPolicyVersionDB.record_id == target.record_id,
                         ContextPolicyVersionDB.etag == expected_etag,
                         ContextPolicyVersionDB.state == expected_state,
                     )
@@ -304,9 +271,7 @@ class SQLContextPolicyLifecycleRepository:
                     )
                 )
                 if update_result.rowcount != 1:
-                    raise ContextPolicyLifecycleError(
-                        "policy_version_conflict"
-                    )
+                    raise ContextPolicyLifecycleError("policy_version_conflict")
                 result = ContextPolicyVersion(
                     policy_id=policy_id,
                     version=version,
@@ -339,9 +304,7 @@ class SQLContextPolicyLifecycleRepository:
             )
             if replay is not None:
                 return replay
-            raise ContextPolicyLifecycleError(
-                "policy_version_conflict"
-            ) from exc
+            raise ContextPolicyLifecycleError("policy_version_conflict") from exc
 
     def record(
         self,
@@ -430,9 +393,7 @@ class SQLContextPolicyLifecycleRepository:
             )
         )
         if result.rowcount != 1:
-            raise ContextPolicyLifecycleError(
-                "policy_version_conflict"
-            )
+            raise ContextPolicyLifecycleError("policy_version_conflict")
 
     def _replay_in_session(
         self,
@@ -513,8 +474,7 @@ class SQLContextPolicyLifecycleRepository:
                 ContextPolicyMutationDB.project_id == project_id,
                 ContextPolicyMutationDB.policy_id == policy_id,
                 ContextPolicyMutationDB.operation == operation,
-                ContextPolicyMutationDB.idempotency_key
-                == _idempotency_key_digest(idempotency_key),
+                ContextPolicyMutationDB.idempotency_key == _idempotency_key_digest(idempotency_key),
             )
         ).first()
 
@@ -527,27 +487,15 @@ class SQLContextPolicyLifecycleRepository:
     ) -> ContextPolicyVersion | None:
         if mutation is None:
             return None
-        if (
-            not request_digest
-            or mutation.request_digest != request_digest
-        ):
-            raise ContextPolicyLifecycleError(
-                "policy_idempotency_conflict"
-            )
+        if not request_digest or mutation.request_digest != request_digest:
+            raise ContextPolicyLifecycleError("policy_idempotency_conflict")
         payload = dict(mutation.result_json or {})
-        if (
-            payload.get("version") != mutation.result_version
-            or payload.get("etag") != mutation.result_etag
-        ):
-            raise ContextPolicyLifecycleError(
-                "policy_idempotency_result_missing"
-            )
+        if payload.get("version") != mutation.result_version or payload.get("etag") != mutation.result_etag:
+            raise ContextPolicyLifecycleError("policy_idempotency_result_missing")
         try:
             return ContextPolicyVersion(**payload)
         except (TypeError, ValueError) as exc:
-            raise ContextPolicyLifecycleError(
-                "policy_idempotency_result_invalid"
-            ) from exc
+            raise ContextPolicyLifecycleError("policy_idempotency_result_invalid") from exc
 
     def _add_mutation(
         self,
@@ -561,9 +509,7 @@ class SQLContextPolicyLifecycleRepository:
         if not operation and not idempotency_key and not request_digest:
             return
         if not operation or not idempotency_key or not request_digest:
-            raise ContextPolicyLifecycleError(
-                "policy_idempotency_metadata_incomplete"
-            )
+            raise ContextPolicyLifecycleError("policy_idempotency_metadata_incomplete")
         session.add(
             ContextPolicyMutationDB(
                 mutation_id=_digest(
@@ -579,9 +525,7 @@ class SQLContextPolicyLifecycleRepository:
                 project_id=result.project_id,
                 policy_id=result.policy_id,
                 operation=operation,
-                idempotency_key=_idempotency_key_digest(
-                    idempotency_key
-                ),
+                idempotency_key=_idempotency_key_digest(idempotency_key),
                 request_digest=request_digest,
                 result_version=result.version,
                 result_etag=result.etag,
@@ -649,27 +593,19 @@ class SQLContextPolicyLifecycleRepository:
             return None
         raw = str(cursor)
         if not raw.startswith("v:"):
-            raise ContextPolicyLifecycleError(
-                "policy_cursor_invalid"
-            )
+            raise ContextPolicyLifecycleError("policy_cursor_invalid")
         try:
             value = int(raw[2:])
         except ValueError as exc:
-            raise ContextPolicyLifecycleError(
-                "policy_cursor_invalid"
-            ) from exc
+            raise ContextPolicyLifecycleError("policy_cursor_invalid") from exc
         if value < 1:
-            raise ContextPolicyLifecycleError(
-                "policy_cursor_invalid"
-            )
+            raise ContextPolicyLifecycleError("policy_cursor_invalid")
         return value
 
     def _now(self) -> str:
         value = str(self._clock() or "")
         if not value:
-            raise ContextPolicyLifecycleError(
-                "policy_repository_clock_invalid"
-            )
+            raise ContextPolicyLifecycleError("policy_repository_clock_invalid")
         return value
 
 
@@ -685,10 +621,7 @@ def _digest(payload: object) -> str:
 
 
 def _idempotency_key_digest(value: str) -> str:
-    return hashlib.sha256(
-        b"ananta.context-policy.idempotency.v1\0"
-        + str(value).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(b"ananta.context-policy.idempotency.v1\0" + str(value).encode("utf-8")).hexdigest()
 
 
 __all__ = ["SQLContextPolicyLifecycleRepository"]

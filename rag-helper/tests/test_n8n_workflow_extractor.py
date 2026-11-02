@@ -5,6 +5,7 @@ Covers N8N-001 (detection/skips), N8N-002 (records/embeddings), N8N-003
 document_extractor), N8N-005 (redaction/security findings) and the
 relation-priority contract for compact_relation_records.
 """
+
 from __future__ import annotations
 
 import json
@@ -89,13 +90,26 @@ class N8nDetectionTests(unittest.TestCase):
         ):
             text = _fixture_text(name) if name else "{broken"
             snapshot = FileSnapshot(
-                path=Path("/tmp/x.json"), rel_path="x.json", ext="json",
-                text=text, size=len(text), sha1="0" * 40,
+                path=Path("/tmp/x.json"),
+                rel_path="x.json",
+                ext="json",
+                text=text,
+                size=len(text),
+                sha1="0" * 40,
             )
             result = process_snapshot(
-                snapshot, "sig", False, False, False, ProcessingLimits(),
-                _DummyExtractor, _DummyExtractor, _DummyExtractor, _DummyExtractor,
-                {}, {},
+                snapshot,
+                "sig",
+                False,
+                False,
+                False,
+                ProcessingLimits(),
+                _DummyExtractor,
+                _DummyExtractor,
+                _DummyExtractor,
+                _DummyExtractor,
+                {},
+                {},
                 n8n_extractor_cls=N8nWorkflowExtractor,
             )
             self.assertTrue(result.manifest_entry.get("skipped"))
@@ -105,13 +119,26 @@ class N8nDetectionTests(unittest.TestCase):
     def test_process_snapshot_without_n8n_extractor_reports_unsupported(self) -> None:
         text = _fixture_text("simple_manual_http_workflow.json")
         snapshot = FileSnapshot(
-            path=Path("/tmp/wf.json"), rel_path="wf.json", ext="json",
-            text=text, size=len(text), sha1="0" * 40,
+            path=Path("/tmp/wf.json"),
+            rel_path="wf.json",
+            ext="json",
+            text=text,
+            size=len(text),
+            sha1="0" * 40,
         )
         result = process_snapshot(
-            snapshot, "sig", False, False, False, ProcessingLimits(),
-            _DummyExtractor, _DummyExtractor, _DummyExtractor, _DummyExtractor,
-            {}, {},
+            snapshot,
+            "sig",
+            False,
+            False,
+            False,
+            ProcessingLimits(),
+            _DummyExtractor,
+            _DummyExtractor,
+            _DummyExtractor,
+            _DummyExtractor,
+            {},
+            {},
         )
         self.assertEqual(result.manifest_entry.get("skip_reason"), "unsupported_extension")
 
@@ -133,7 +160,16 @@ class N8nRecordTests(unittest.TestCase):
         self.assertEqual(len(nodes), 3)
         for node in nodes:
             self.assertEqual(node["parent_id"], workflow["id"])
-            for field in ("node_id", "name", "node_type", "type_version", "parameter_keys", "role_labels", "summary", "embedding_text"):
+            for field in (
+                "node_id",
+                "name",
+                "node_type",
+                "type_version",
+                "parameter_keys",
+                "role_labels",
+                "summary",
+                "embedding_text",
+            ):
                 self.assertIn(field, node)
             self.assertTrue(node["embedding_text"])
 
@@ -207,8 +243,12 @@ class N8nRecordTests(unittest.TestCase):
     def test_no_record_explosion_for_large_workflow(self) -> None:
         nodes = [
             {
-                "id": f"n{i}", "name": f"Step {i}", "type": "n8n-nodes-base.set",
-                "typeVersion": 3, "position": [i, 0], "parameters": {},
+                "id": f"n{i}",
+                "name": f"Step {i}",
+                "type": "n8n-nodes-base.set",
+                "typeVersion": 3,
+                "position": [i, 0],
+                "parameters": {},
             }
             for i in range(50)
         ]
@@ -282,9 +322,14 @@ class N8nRelationTests(unittest.TestCase):
         caller = {
             "name": "Flow A",
             "nodes": [
-                {"id": "e1", "name": "Call Sub", "type": "n8n-nodes-base.executeWorkflow",
-                 "typeVersion": 1, "position": [0, 0],
-                 "parameters": {"workflowId": {"cachedResultName": "Flow B"}}},
+                {
+                    "id": "e1",
+                    "name": "Call Sub",
+                    "type": "n8n-nodes-base.executeWorkflow",
+                    "typeVersion": 1,
+                    "position": [0, 0],
+                    "parameters": {"workflowId": {"cachedResultName": "Flow B"}},
+                },
             ],
             "connections": {},
         }
@@ -319,7 +364,10 @@ class N8nSecurityTests(unittest.TestCase):
     def test_no_secret_appears_in_any_output(self) -> None:
         index, details, relations, stats = _parse_fixture("secrets_and_pindata_workflow.json")
         blobs = [
-            json.dumps(index), json.dumps(details), json.dumps(relations), json.dumps(stats),
+            json.dumps(index),
+            json.dumps(details),
+            json.dumps(relations),
+            json.dumps(stats),
             json.dumps(build_embedding_records(index)),
             json.dumps(build_context_records(details)),
             json.dumps(build_context_records(details, mode="compact")),

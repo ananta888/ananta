@@ -2,14 +2,16 @@
 
 Never calls an LLM. Pure deterministic validation.
 """
+
 from __future__ import annotations
 
 import uuid
 from typing import Any
 
 from simulation.models.action import (
-    ActionDecision, ActionProposal, ActionValidationResult,
-    AttackArgs, check_alive,
+    ActionProposal,
+    ActionValidationResult,
+    check_alive,
 )
 from simulation.models.world_state import SimEvent, WorldState
 
@@ -45,8 +47,7 @@ class PolicyEngine:
             effects=self._compute_effects(state, proposal, agent),
         )
 
-    def apply(self, state: WorldState, proposal: ActionProposal,
-              result: ActionValidationResult) -> None:
+    def apply(self, state: WorldState, proposal: ActionProposal, result: ActionValidationResult) -> None:
         """Apply validated effects to world state and log event."""
         event_kind = "action_executed" if result.decision == "allowed" else "action_denied"
         if result.decision == "crime":
@@ -55,13 +56,15 @@ class PolicyEngine:
         elif result.decision == "allowed":
             self._apply_effects(state, proposal, result)
 
-        state.apply_event(SimEvent(
-            tick=state.tick,
-            kind=event_kind,
-            actor_id=proposal.agent_id,
-            description=f"{proposal.action_type}: {result.reason}",
-            data={"proposal": proposal.model_dump(), "decision": result.decision},
-        ))
+        state.apply_event(
+            SimEvent(
+                tick=state.tick,
+                kind=event_kind,
+                actor_id=proposal.agent_id,
+                description=f"{proposal.action_type}: {result.reason}",
+                data={"proposal": proposal.model_dump(), "decision": result.decision},
+            )
+        )
 
     # ── law checking ──────────────────────────────────────────────────────────
 
@@ -75,8 +78,9 @@ class PolicyEngine:
                     decision="crime",
                     reason=f"violates_law:{law.id}",
                     crime_id=crime_id,
-                    effects=[{"kind": "crime_logged", "law_id": law.id,
-                               "penalty": law.penalty, "severity": law.severity}],
+                    effects=[
+                        {"kind": "crime_logged", "law_id": law.id, "penalty": law.penalty, "severity": law.severity}
+                    ],
                 )
         return None
 
@@ -119,55 +123,72 @@ class PolicyEngine:
         effects: list[dict[str, Any]] = []
 
         if at == "move":
-            effects.append({"kind": "agent_move", "agent_id": agent.id,
-                             "to": args.get("destination_id")})
+            effects.append({"kind": "agent_move", "agent_id": agent.id, "to": args.get("destination_id")})
 
         elif at == "eat":
             resource = args.get("resource", "food")
             amount = float(args.get("amount", 1.0))
-            effects += [{"kind": "location_resource_delta", "location_id": agent.location_id,
-                          "resource": resource, "delta": -amount},
-                         {"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "hunger", "delta": -amount * 0.5},
-                         {"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "energy", "delta": amount * 0.3}]
+            effects += [
+                {
+                    "kind": "location_resource_delta",
+                    "location_id": agent.location_id,
+                    "resource": resource,
+                    "delta": -amount,
+                },
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "hunger", "delta": -amount * 0.5},
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "energy", "delta": amount * 0.3},
+            ]
 
         elif at == "harvest":
             resource = args.get("resource", "food")
             amount = float(args.get("amount", 1.0))
-            effects += [{"kind": "location_resource_delta", "location_id": agent.location_id,
-                          "resource": resource, "delta": -amount},
-                         {"kind": "agent_inventory_delta", "agent_id": agent.id,
-                          "resource": resource, "delta": amount}]
+            effects += [
+                {
+                    "kind": "location_resource_delta",
+                    "location_id": agent.location_id,
+                    "resource": resource,
+                    "delta": -amount,
+                },
+                {"kind": "agent_inventory_delta", "agent_id": agent.id, "resource": resource, "delta": amount},
+            ]
 
         elif at == "give":
             target_id = args.get("target_id") or proposal.target
             resource = args.get("resource", "")
             amount = float(args.get("amount", 1.0))
-            effects += [{"kind": "agent_inventory_delta", "agent_id": agent.id,
-                          "resource": resource, "delta": -amount},
-                         {"kind": "agent_inventory_delta", "agent_id": target_id,
-                          "resource": resource, "delta": amount},
-                         {"kind": "relationship_delta", "source": agent.id, "target": target_id,
-                          "trust": 0.05, "friendship": 0.05}]
+            effects += [
+                {"kind": "agent_inventory_delta", "agent_id": agent.id, "resource": resource, "delta": -amount},
+                {"kind": "agent_inventory_delta", "agent_id": target_id, "resource": resource, "delta": amount},
+                {
+                    "kind": "relationship_delta",
+                    "source": agent.id,
+                    "target": target_id,
+                    "trust": 0.05,
+                    "friendship": 0.05,
+                },
+            ]
 
         elif at == "attack":
             target_id = args.get("target_id") or proposal.target
             intensity = float(args.get("intensity", 0.3))
-            effects += [{"kind": "agent_stat_delta", "agent_id": target_id,
-                          "stat": "health", "delta": -intensity},
-                         {"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "energy", "delta": -0.1},
-                         {"kind": "relationship_delta", "source": target_id, "target": agent.id,
-                          "fear": intensity * 0.5, "hostility": 0.3},
-                         {"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "reputation", "delta": -0.1}]
+            effects += [
+                {"kind": "agent_stat_delta", "agent_id": target_id, "stat": "health", "delta": -intensity},
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "energy", "delta": -0.1},
+                {
+                    "kind": "relationship_delta",
+                    "source": target_id,
+                    "target": agent.id,
+                    "fear": intensity * 0.5,
+                    "hostility": 0.3,
+                },
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "reputation", "delta": -0.1},
+            ]
 
         elif at == "rest":
-            effects += [{"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "energy", "delta": 0.3},
-                         {"kind": "agent_stat_delta", "agent_id": agent.id,
-                          "stat": "morale", "delta": 0.1}]
+            effects += [
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "energy", "delta": 0.3},
+                {"kind": "agent_stat_delta", "agent_id": agent.id, "stat": "morale", "delta": 0.1},
+            ]
 
         return effects
 
@@ -199,14 +220,16 @@ class PolicyEngine:
                         setattr(ag, stat, max(0.0, min(1.0, current + delta)))
                 elif kind == "relationship_delta":
                     state.relationships.update(
-                        effect["source"], effect["target"],
-                        **{k: v for k, v in effect.items()
-                           if k not in ("kind", "source", "target")},
+                        effect["source"],
+                        effect["target"],
+                        **{k: v for k, v in effect.items() if k not in ("kind", "source", "target")},
                     )
             except (KeyError, AttributeError):
                 pass
 
-    def _apply_crime_consequence(self, state: WorldState, proposal: ActionProposal, result: ActionValidationResult) -> None:
+    def _apply_crime_consequence(
+        self, state: WorldState, proposal: ActionProposal, result: ActionValidationResult
+    ) -> None:
         for effect in result.effects:
             if effect.get("kind") == "crime_logged":
                 penalty = effect.get("penalty", "reputation_loss")
@@ -219,6 +242,12 @@ class PolicyEngine:
                         ag.shelter_status = "imprisoned"
                     elif penalty == "death":
                         ag.alive = False
-                        state.apply_event(SimEvent(tick=state.tick, kind="death",
-                            actor_id=proposal.agent_id, description="died by law penalty",
-                            data={"reason": f"law_penalty:{effect.get('law_id')}"}))
+                        state.apply_event(
+                            SimEvent(
+                                tick=state.tick,
+                                kind="death",
+                                actor_id=proposal.agent_id,
+                                description="died by law penalty",
+                                data={"reason": f"law_penalty:{effect.get('law_id')}"},
+                            )
+                        )

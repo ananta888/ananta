@@ -63,4 +63,3 @@ def test_load_config_success(tmp_path):
     path.write_text(json.dumps(_valid_config()), encoding="utf-8")
     cfg = load_llm_interceptor_config(path)
     assert cfg.listen.prefix == "/v1"
-

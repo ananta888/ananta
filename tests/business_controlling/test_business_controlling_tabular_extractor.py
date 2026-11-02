@@ -53,9 +53,7 @@ def test_csv_is_read_from_scoped_artifact_and_formula_injection_is_flagged() -> 
     extracted = BusinessControllingTabularExtractor(artifacts).extract(_request("csv"))
     assert extracted.headers == ("invoice", "amount")
     assert extracted.risk.has_formula_cells is True
-    assert artifacts.scopes == [
-        {"tenant_id": "tenant-a", "project_id": "project-a", "source_revision_id": "srev-a"}
-    ]
+    assert artifacts.scopes == [{"tenant_id": "tenant-a", "project_id": "project-a", "source_revision_id": "srev-a"}]
 
 
 def test_xlsx_requires_explicit_visible_sheet_and_never_evaluates_formula() -> None:

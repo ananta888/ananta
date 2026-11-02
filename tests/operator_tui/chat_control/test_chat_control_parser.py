@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.chat_control_parser import (
-    ParsedCommand,
     is_chat_command,
     parse_chat_command,
 )

@@ -73,9 +73,7 @@ CENTRAL_ONLY_ENVIRONMENT = {
     "INITIAL_ADMIN_PASSWORD",
     "SECRET_KEY",
 }
-DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV = (
-    "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES"
-)
+DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV = "ANANTA_CODECOMPASS_DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES"
 DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE = "3221225472"
 NATIVE_ALLOWED_CAPABILITIES = [
     "planning",
@@ -140,9 +138,7 @@ def _secret_sources(service: dict[str, Any]) -> set[str]:
 
 def _mount_at(service: dict[str, Any], target: str) -> dict[str, Any]:
     matches = [
-        mount
-        for mount in service.get("volumes", ())
-        if isinstance(mount, dict) and mount.get("target") == target
+        mount for mount in service.get("volumes", ()) if isinstance(mount, dict) and mount.get("target") == target
     ]
     assert len(matches) == 1
     return matches[0]
@@ -177,23 +173,15 @@ def _temporary_secret_files(tmp_path: Path) -> tuple[dict[str, Path], dict[str, 
                 "ananta-worker-1": {
                     "worker_url": "http://ai-agent-alpha:5000",
                     "registration_token": payloads[ALPHA_REGISTRATION_TOKEN].decode("ascii"),
-                    "service_token_sha256": hashlib.sha256(
-                        payloads[ALPHA_SERVICE_TOKEN]
-                    ).hexdigest(),
-                    "session_signing_key_sha256": hashlib.sha256(
-                        payloads[ALPHA_SESSION_KEY]
-                    ).hexdigest(),
+                    "service_token_sha256": hashlib.sha256(payloads[ALPHA_SERVICE_TOKEN]).hexdigest(),
+                    "session_signing_key_sha256": hashlib.sha256(payloads[ALPHA_SESSION_KEY]).hexdigest(),
                     "allowed_capabilities": NATIVE_ALLOWED_CAPABILITIES,
                 },
                 "ananta-worker-2": {
                     "worker_url": "http://ai-agent-beta:5000",
                     "registration_token": payloads[BETA_REGISTRATION_TOKEN].decode("ascii"),
-                    "service_token_sha256": hashlib.sha256(
-                        payloads[BETA_SERVICE_TOKEN]
-                    ).hexdigest(),
-                    "session_signing_key_sha256": hashlib.sha256(
-                        payloads[BETA_SESSION_KEY]
-                    ).hexdigest(),
+                    "service_token_sha256": hashlib.sha256(payloads[BETA_SERVICE_TOKEN]).hexdigest(),
+                    "session_signing_key_sha256": hashlib.sha256(payloads[BETA_SESSION_KEY]).hexdigest(),
                     "allowed_capabilities": NATIVE_ALLOWED_CAPABILITIES,
                 },
             },
@@ -332,9 +320,7 @@ def test_native_production_workers_use_identity_local_named_workspaces() -> None
             for mount in services[service_name]["volumes"]
         )
 
-    base_worker = _load(ROOT / "docker/compose-next/compose.base.yml")["services"][
-        "ai-agent-worker-base"
-    ]
+    base_worker = _load(ROOT / "docker/compose-next/compose.base.yml")["services"]["ai-agent-worker-base"]
     assert "../../project-workspaces:/project-workspaces:rw" in base_worker["volumes"]
 
 
@@ -384,9 +370,7 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
         pytest.skip("docker CLI is not installed")
     secret_paths, secret_payloads = _temporary_secret_files(tmp_path)
     environment = _docker_environment(secret_paths)
-    environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] = (
-        DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE
-    )
+    environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] = DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE
     completed = _render_compose(environment)
     assert completed.returncode == 0, completed.stderr
 
@@ -416,9 +400,7 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
         assert "native-central-postgres-password" not in json.dumps(worker)
         assert HUB_TOKEN not in _secret_sources(worker)
         assert environment["ANANTA_QUICKSTART_ROLE"] == "worker"
-        assert environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] == (
-            DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE
-        )
+        assert environment[DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_ENV] == (DOMAIN_SUPPLEMENT_SOURCE_MAX_BYTES_TEST_VALUE)
         assert set(worker["networks"]) == {"workflow-worker-control"}
         assert not worker.get("ports")
 
@@ -453,9 +435,9 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
         assert path.stat().st_uid in {0, os.geteuid()}
         assert (
             read_file_managed_bytes(
-                    str(path),
-                    description=f"test {name}",
-                    max_bytes=4096,
+                str(path),
+                description=f"test {name}",
+                max_bytes=4096,
             )
             == secret_payloads[name]
         )
@@ -469,16 +451,9 @@ def test_native_production_merged_model_contains_no_worker_or_angular_admin_secr
         "ananta-worker-2": NATIVE_ALLOWED_CAPABILITIES,
     }
     loaded_keyring = load_worker_registration_keyring(
-        {
-            "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(
-                secret_paths[REGISTRATION_KEYRING]
-            )
-        }
+        {"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": str(secret_paths[REGISTRATION_KEYRING])}
     )
-    assert {
-        worker_id: set(credential.allowed_capabilities)
-        for worker_id, credential in loaded_keyring.items()
-    } == {
+    assert {worker_id: set(credential.allowed_capabilities) for worker_id, credential in loaded_keyring.items()} == {
         "ananta-worker-1": set(NATIVE_ALLOWED_CAPABILITIES),
         "ananta-worker-2": set(NATIVE_ALLOWED_CAPABILITIES),
     }

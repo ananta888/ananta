@@ -3,6 +3,7 @@
 Contains enums, dataclasses, and message/answer-block factories that have
 no dependencies on other chat_* modules in this package.
 """
+
 from __future__ import annotations
 
 import time
@@ -10,7 +11,6 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
-
 
 # ── ChatState type alias ──────────────────────────────────────────────────────
 #: Structural type alias for the top-level chat state dict.  Used in
@@ -93,9 +93,11 @@ def make_message(
 
 # ── ChatAnswerBlock ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class SourceRef:
     """A context reference that can be opened in the TUI."""
+
     ref: str
     display_label: str = ""
     openable: bool = True
@@ -111,11 +113,12 @@ class ChatAnswerBlock:
     Displayed with '[Heuristik]' / '~' prefix in TUI.
     source_refs are openable (Enter/Click) in TUI.
     """
+
     result_text: str
     source_refs: list[SourceRef] = field(default_factory=list)
-    why_these_sources: str = ""       # max 200 chars
+    why_these_sources: str = ""  # max 200 chars
     next_steps: list[str] = field(default_factory=list)  # max 3
-    uncertainty_note: str = ""        # set when confidence < 0.7
+    uncertainty_note: str = ""  # set when confidence < 0.7
     is_heuristic: bool = True
     confidence: float = 1.0
 

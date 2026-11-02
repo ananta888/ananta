@@ -250,8 +250,9 @@ class ToolDecision:
     def router_payload(self) -> dict[str, Any]:
         """The tiny-router adapter payload for this decision."""
         if self.status == CALL:
-            payload: dict[str, Any] = {"tool_calls": [{"name": self.tool, "arguments": dict(self.arguments),
-                                                       "confidence": self.confidence}]}
+            payload: dict[str, Any] = {
+                "tool_calls": [{"name": self.tool, "arguments": dict(self.arguments), "confidence": self.confidence}]
+            }
             if self.generated_arguments:
                 payload["generated_arguments"] = list(self.generated_arguments)
             return payload
@@ -318,8 +319,9 @@ def read_tool_decision(response: Any, decision: ToolDecisionSchema, *, min_confi
     confidence = _probability(tool_field)
     margin = _margin(tool_field)
     if tool_field.get("abstain") is True or confidence < min_confidence:
-        return ToolDecision(ABSTAIN, tool if tool != NO_TOOL else None, confidence=confidence,
-                            reason="tool_uncertain", margin=margin)
+        return ToolDecision(
+            ABSTAIN, tool if tool != NO_TOOL else None, confidence=confidence, reason="tool_uncertain", margin=margin
+        )
     if tool == NO_TOOL:
         return ToolDecision(RESPOND, confidence=confidence, reason="no_tool_needed", margin=margin)
     if tool in decision.free_text_tools:

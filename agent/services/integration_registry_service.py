@@ -33,9 +33,7 @@ class IntegrationRegistryService:
         ollama_model_discovery: OllamaModelDiscoveryService | None = None,
     ) -> None:
         self._ollama_model_discovery = (
-            ollama_model_discovery
-            if ollama_model_discovery is not None
-            else get_ollama_model_discovery_service()
+            ollama_model_discovery if ollama_model_discovery is not None else get_ollama_model_discovery_service()
         )
 
     def list_execution_backends(
@@ -194,12 +192,8 @@ class IntegrationRegistryService:
             default_model=default_model,
         ):
             is_remote_hub = bool(backend.get("remote_hub"))
-            remote_hub_allowed = (
-                (not is_remote_hub)
-                or (
-                    bool(remote_hubs_policy.get("enabled"))
-                    and bool(routing_fallback_policy.get("allow_remote_hubs", True))
-                )
+            remote_hub_allowed = (not is_remote_hub) or (
+                bool(remote_hubs_policy.get("enabled")) and bool(routing_fallback_policy.get("allow_remote_hubs", True))
             )
             providers.append(
                 {

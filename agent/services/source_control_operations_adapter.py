@@ -94,35 +94,25 @@ class HubSourceControlOperationsAdapter:
         self._refresh = refresh
         self._index_submission = index_submission
         self._resolver = graph_resolver
-        self._graph_domains = (
-            graph_domains or get_codecompass_graph_domain_catalog_service()
-        )
+        self._graph_domains = graph_domains or get_codecompass_graph_domain_catalog_service()
         self._graph_read = graph_read or CodeCompassGraphReadService(
             projection=graph_projection,
             window=graph_window,
             domains=self._graph_domains,
         )
-        self._graph_store_cache = (
-            graph_store_cache or get_codecompass_graph_store_cache()
-        )
-        self._domain_supplements = (
-            domain_supplements or get_codecompass_domain_supplement_reader()
-        )
-        self._domain_supplement_graph_read = (
-            CodeCompassDomainSupplementGraphReadCoordinator(
-                graph_read=self._graph_read,
-                graph_domains=self._graph_domains,
-                domain_supplements=self._domain_supplements,
-            )
+        self._graph_store_cache = graph_store_cache or get_codecompass_graph_store_cache()
+        self._domain_supplements = domain_supplements or get_codecompass_domain_supplement_reader()
+        self._domain_supplement_graph_read = CodeCompassDomainSupplementGraphReadCoordinator(
+            graph_read=self._graph_read,
+            graph_domains=self._graph_domains,
+            domain_supplements=self._domain_supplements,
         )
         self._scanner = scanner
 
     def refresh(self, **kwargs: object) -> Mapping[str, object]:
         descriptor = self._descriptor(**kwargs)
         connection = self._connection(**kwargs)
-        refresh_descriptor = getattr(
-            self._refresh, "refresh_descriptor", None
-        )
+        refresh_descriptor = getattr(self._refresh, "refresh_descriptor", None)
         result = (
             refresh_descriptor(descriptor=descriptor, dry_run=False)
             if callable(refresh_descriptor)
@@ -146,15 +136,9 @@ class HubSourceControlOperationsAdapter:
         descriptor = self._descriptor(**kwargs)
         connection = self._connection(**kwargs)
         source_id = str(descriptor["source_id"])
-        resolve_revision = getattr(
-            self._refresh, "resolve_revision_descriptor", None
-        )
-        inventory_descriptor = getattr(
-            self._refresh, "inventory_descriptor", None
-        )
-        health_descriptor = getattr(
-            self._refresh, "health_descriptor", None
-        )
+        resolve_revision = getattr(self._refresh, "resolve_revision_descriptor", None)
+        inventory_descriptor = getattr(self._refresh, "inventory_descriptor", None)
+        health_descriptor = getattr(self._refresh, "health_descriptor", None)
         revision = (
             resolve_revision(descriptor=descriptor)
             if callable(resolve_revision)
@@ -172,9 +156,7 @@ class HubSourceControlOperationsAdapter:
         )
         scan = getattr(self._scanner, "scan_source", None)
         if not callable(scan):
-            raise SourceControlProductionAdapterError(
-                "source_scan_backend_unconfigured", status_code=503
-            )
+            raise SourceControlProductionAdapterError("source_scan_backend_unconfigured", status_code=503)
         result = scan(
             descriptor=dict(descriptor),
             revision=revision,
@@ -182,20 +164,15 @@ class HubSourceControlOperationsAdapter:
         )
         scan_result = public_projection(result)
         if not isinstance(scan_result, Mapping):
-            raise SourceControlProductionAdapterError(
-                "source_scan_result_invalid", status_code=502
-            )
+            raise SourceControlProductionAdapterError("source_scan_result_invalid", status_code=502)
         persisted = self._latest_revision(connection.connection_id)
         if (
             persisted is None
             or persisted.revision_digest != revision.revision_digest
-            or persisted.content_manifest_digest
-            != inventory.manifest_digest
+            or persisted.content_manifest_digest != inventory.manifest_digest
             or persisted.admission_state not in {"admitted", "blocked"}
         ):
-            raise SourceControlProductionAdapterError(
-                "source_scan_admission_receipt_missing", status_code=502
-            )
+            raise SourceControlProductionAdapterError("source_scan_admission_receipt_missing", status_code=502)
         return {
             "status": str(scan_result.get("status") or "completed"),
             "source_revision_id": persisted.source_revision_id,
@@ -213,9 +190,7 @@ class HubSourceControlOperationsAdapter:
         connection = self._connection(**kwargs)
         revision = self._latest_revision(connection.connection_id)
         if revision is None or revision.admission_state != "admitted":
-            raise SourceControlProductionAdapterError(
-                "source_revision_admission_required", status_code=409
-            )
+            raise SourceControlProductionAdapterError("source_revision_admission_required", status_code=409)
         submit = getattr(self._index_submission, "submit", None)
         if not callable(submit):
             raise SourceControlProductionAdapterError(
@@ -223,11 +198,7 @@ class HubSourceControlOperationsAdapter:
                 status_code=503,
             )
         payload = kwargs.get("payload")
-        profile_name = (
-            str(payload.get("index_profile_id"))
-            if isinstance(payload, Mapping)
-            else "default"
-        )
+        profile_name = str(payload.get("index_profile_id")) if isinstance(payload, Mapping) else "default"
         result = submit(
             connection=connection,
             revision=revision,
@@ -248,11 +219,7 @@ class HubSourceControlOperationsAdapter:
             base_store = self._graph_store(index)
             # The immutable supplement is opened only for catalog or scoped
             # reads. A regular graph request remains a base-artifact read.
-            resolved = (
-                self._resolve_domain_supplement(index)
-                if view == "inventory" or domain_scope
-                else None
-            )
+            resolved = self._resolve_domain_supplement(index) if view == "inventory" or domain_scope else None
             if view != "inventory" and not domain_scope:
                 return self._graph_read.read(
                     index_id=index.id,
@@ -288,23 +255,15 @@ class HubSourceControlOperationsAdapter:
                     domain_supplements=self._domain_supplements,
                 )
                 self._domain_supplement_graph_read = coordinator
-            metadata = (
-                index.index_metadata
-                if isinstance(index.index_metadata, Mapping)
-                else {}
-            )
+            metadata = index.index_metadata if isinstance(index.index_metadata, Mapping) else {}
             return coordinator.read(
                 index_id=index.id,
                 base_store=base_store,
                 parameters=values,
                 artifact_status=self._artifact_projection(index),
                 resolved=resolved,
-                fallback_source_revision_id=str(
-                    metadata.get("source_revision_id") or ""
-                ),
-                fallback_source_revision_digest=str(
-                    metadata.get("source_revision_digest") or ""
-                ),
+                fallback_source_revision_id=str(metadata.get("source_revision_id") or ""),
+                fallback_source_revision_digest=str(metadata.get("source_revision_digest") or ""),
             )
         except CodeCompassGraphReadError as exc:
             raise SourceControlProductionAdapterError(
@@ -321,11 +280,7 @@ class HubSourceControlOperationsAdapter:
             raise SourceControlProductionAdapterError(
                 reason_code,
                 status_code=(
-                    409
-                    if reason_code.startswith(
-                        ("graph_domain_supplement_", "domain_supplement_")
-                    )
-                    else 400
+                    409 if reason_code.startswith(("graph_domain_supplement_", "domain_supplement_")) else 400
                 ),
             ) from exc
 
@@ -352,9 +307,7 @@ class HubSourceControlOperationsAdapter:
         return {
             "answer": None,
             "matches": matches,
-            "text_alternative": (
-                f"{len(matches)} bounded matches for the active index."
-            ),
+            "text_alternative": (f"{len(matches)} bounded matches for the active index."),
             "artifact_status": self._artifact_projection(index),
         }
 
@@ -394,10 +347,8 @@ class HubSourceControlOperationsAdapter:
             or binding.source_id != expected_source_id
             or str(metadata.get("source_scope") or "") != binding.source_scope
             or str(metadata.get("source_id") or "") != expected_source_id
-            or str(metadata.get("source_revision_id") or "")
-            != binding.source_revision_id
-            or str(metadata.get("source_revision_digest") or "")
-            != binding.source_revision_digest
+            or str(metadata.get("source_revision_id") or "") != binding.source_revision_id
+            or str(metadata.get("source_revision_digest") or "") != binding.source_revision_digest
         ):
             raise ValueError("graph_domain_supplement_binding_stale")
         tenant_id = str(kwargs.get("tenant_id") or "")
@@ -409,9 +360,7 @@ class HubSourceControlOperationsAdapter:
                 index.id,
             )
             revision = (
-                db.get(SourceRevisionDB, source_binding.source_revision_id)
-                if source_binding is not None
-                else None
+                db.get(SourceRevisionDB, source_binding.source_revision_id) if source_binding is not None else None
             )
             active = db.exec(
                 select(ActiveKnowledgeIndexDB).where(
@@ -442,15 +391,9 @@ class HubSourceControlOperationsAdapter:
     def artifact_status(self, **kwargs: object) -> Mapping[str, object]:
         index = self._active_index(**kwargs)
         parameters = kwargs.get("parameters")
-        artifact_id = str(
-            parameters.get("artifact_id") or ""
-            if isinstance(parameters, Mapping)
-            else ""
-        )
+        artifact_id = str(parameters.get("artifact_id") or "" if isinstance(parameters, Mapping) else "")
         if artifact_id not in {index.id, str(index.latest_run_id or "")}:
-            raise SourceControlProductionAdapterError(
-                "artifact_not_found", status_code=404
-            )
+            raise SourceControlProductionAdapterError("artifact_not_found", status_code=404)
         result = self._artifact_projection(index)
         result["artifact_id"] = artifact_id
         return result
@@ -461,9 +404,7 @@ class HubSourceControlOperationsAdapter:
             SQLSourceControlRepository,
         )
 
-        selector = SQLSourceControlRepository(
-            self._engine
-        ).get_connection_selector(
+        selector = SQLSourceControlRepository(self._engine).get_connection_selector(
             tenant_id=connection.tenant_id,
             project_id=connection.project_id,
             connection_id=connection.connection_id,
@@ -473,72 +414,40 @@ class HubSourceControlOperationsAdapter:
                 display_name=connection.display_name,
                 enabled=connection.state not in {"disabled", "tombstoned"},
             )
-        for descriptor in self._registry.list_sources(
-            include_disabled=True
-        ):
+        for descriptor in self._registry.list_sources(include_disabled=True):
             extensions = descriptor.get("extensions")
-            extension_values = (
-                extensions.get("source_control")
-                if isinstance(extensions, Mapping)
-                else None
-            )
-            binding = (
-                extension_values
-                if isinstance(extension_values, Mapping)
-                else descriptor
-            )
+            extension_values = extensions.get("source_control") if isinstance(extensions, Mapping) else None
+            binding = extension_values if isinstance(extension_values, Mapping) else descriptor
             if (
-                str(
-                    binding.get("connection_id")
-                    or binding.get("source_control_connection_id")
-                    or ""
-                )
+                str(binding.get("connection_id") or binding.get("source_control_connection_id") or "")
                 == connection.connection_id
-                and str(binding.get("tenant_id") or "")
-                == connection.tenant_id
-                and str(binding.get("project_id") or "")
-                == connection.project_id
+                and str(binding.get("tenant_id") or "") == connection.tenant_id
+                and str(binding.get("project_id") or "") == connection.project_id
             ):
                 return descriptor
-        raise SourceControlProductionAdapterError(
-            "source_connector_not_configured", status_code=503
-        )
+        raise SourceControlProductionAdapterError("source_connector_not_configured", status_code=503)
 
     def _connection(self, **kwargs: object) -> SourceConnectionDB:
         with Session(self._engine) as db:
             row = db.exec(
                 select(SourceConnectionDB).where(
-                    SourceConnectionDB.connection_id
-                    == str(kwargs["connection_id"]),
-                    SourceConnectionDB.tenant_id
-                    == str(kwargs["tenant_id"]),
-                    SourceConnectionDB.project_id
-                    == str(kwargs["project_id"]),
+                    SourceConnectionDB.connection_id == str(kwargs["connection_id"]),
+                    SourceConnectionDB.tenant_id == str(kwargs["tenant_id"]),
+                    SourceConnectionDB.project_id == str(kwargs["project_id"]),
                 )
             ).first()
             if row is None:
-                raise SourceControlProductionAdapterError(
-                    "source_control_not_found", status_code=404
-                )
+                raise SourceControlProductionAdapterError("source_control_not_found", status_code=404)
             db.expunge(row)
             return row
 
-    def _latest_revision(
-        self, connection_id: str
-    ) -> SourceRevisionDB | None:
+    def _latest_revision(self, connection_id: str) -> SourceRevisionDB | None:
         with Session(self._engine) as db:
-            rows = list(
-                db.exec(
-                    select(SourceRevisionDB).where(
-                        SourceRevisionDB.connection_id == connection_id
-                    )
-                ).all()
-            )
+            rows = list(db.exec(select(SourceRevisionDB).where(SourceRevisionDB.connection_id == connection_id)).all())
             row = max(
                 rows,
                 key=lambda item: float(
-                    getattr(item, "captured_at_epoch", 0.0)
-                    or getattr(item, "created_at_epoch", 0.0)
+                    getattr(item, "captured_at_epoch", 0.0) or getattr(item, "created_at_epoch", 0.0)
                 ),
                 default=None,
             )
@@ -550,23 +459,16 @@ class HubSourceControlOperationsAdapter:
         with Session(self._engine) as db:
             active = db.exec(
                 select(ActiveKnowledgeIndexDB).where(
-                    ActiveKnowledgeIndexDB.connection_id
-                    == str(kwargs["connection_id"]),
-                    ActiveKnowledgeIndexDB.tenant_id
-                    == str(kwargs["tenant_id"]),
-                    ActiveKnowledgeIndexDB.project_id
-                    == str(kwargs["project_id"]),
+                    ActiveKnowledgeIndexDB.connection_id == str(kwargs["connection_id"]),
+                    ActiveKnowledgeIndexDB.tenant_id == str(kwargs["tenant_id"]),
+                    ActiveKnowledgeIndexDB.project_id == str(kwargs["project_id"]),
                 )
             ).first()
             if active is None:
-                raise SourceControlProductionAdapterError(
-                    "active_index_not_found", status_code=404
-                )
+                raise SourceControlProductionAdapterError("active_index_not_found", status_code=404)
             index = db.get(KnowledgeIndexDB, active.knowledge_index_id)
             if index is None:
-                raise SourceControlProductionAdapterError(
-                    "knowledge_index_not_found", status_code=404
-                )
+                raise SourceControlProductionAdapterError("knowledge_index_not_found", status_code=404)
             db.expunge(index)
             return index
 
@@ -576,13 +478,8 @@ class HubSourceControlOperationsAdapter:
             index_path, visual_metrics_path = artifact_resolver(index)
         else:
             index_path = self._resolver.resolve(index)
-            visual_metrics_path = Path(index_path).with_name(
-                GRAPH_VISUAL_METRICS_FILENAME
-            )
-        cache = (
-            getattr(self, "_graph_store_cache", None)
-            or get_codecompass_graph_store_cache()
-        )
+            visual_metrics_path = Path(index_path).with_name(GRAPH_VISUAL_METRICS_FILENAME)
+        cache = getattr(self, "_graph_store_cache", None) or get_codecompass_graph_store_cache()
         return cache.get(
             index_path=index_path,
             visual_metrics_path=visual_metrics_path,
@@ -592,9 +489,7 @@ class HubSourceControlOperationsAdapter:
     def _bounded_receipt(value: object) -> Mapping[str, object]:
         result = public_projection(value)
         if not isinstance(result, Mapping):
-            raise SourceControlProductionAdapterError(
-                "source_operation_result_invalid", status_code=502
-            )
+            raise SourceControlProductionAdapterError("source_operation_result_invalid", status_code=502)
         allowed = {
             "status",
             "reason_code",
@@ -606,27 +501,15 @@ class HubSourceControlOperationsAdapter:
             "revision_digest",
             "manifest_digest",
         }
-        return {
-            key: result[key]
-            for key in allowed
-            if key in result
-        }
+        return {key: result[key] for key in allowed if key in result}
 
     @staticmethod
     def _artifact_projection(index: KnowledgeIndexDB) -> dict[str, object]:
         output = Path(str(index.output_dir or ""))
         manifest = Path(str(index.manifest_path or ""))
         return {
-            "state": (
-                "available"
-                if output.is_dir() and manifest.is_file()
-                else "unavailable"
-            ),
-            "reason_code": (
-                None
-                if output.is_dir() and manifest.is_file()
-                else "artifact_not_materialized"
-            ),
+            "state": ("available" if output.is_dir() and manifest.is_file() else "unavailable"),
+            "reason_code": (None if output.is_dir() and manifest.is_file() else "artifact_not_materialized"),
             "knowledge_index_id": index.id,
             "manifest_present": manifest.is_file(),
         }

@@ -24,6 +24,7 @@ the implementation; consumers (and external tests that patch
 module's namespace at call time so monkey-patches win the
 attribute-resolution race across module boundaries.
 """
+
 from __future__ import annotations
 
 from flask import Blueprint

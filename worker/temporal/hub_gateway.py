@@ -233,9 +233,7 @@ def _http_error_reason(error: urllib.error.HTTPError) -> str:
         reason = str(data.get("reason_code") or "") if isinstance(data, Mapping) else ""
     except (OSError, UnicodeError, json.JSONDecodeError):
         return f"hub_http_{error.code}"
-    invalid_character = any(
-        character not in "abcdefghijklmnopqrstuvwxyz0123456789_:-" for character in reason
-    )
+    invalid_character = any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_:-" for character in reason)
     if not reason or len(reason) > 256 or invalid_character:
         return f"hub_http_{error.code}"
     return reason

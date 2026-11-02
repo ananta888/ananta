@@ -31,9 +31,21 @@ DEFAULT_OUTPUT_RESERVE = 1024  # compatibility constant; the reserve of a window
 _log = logging.getLogger("ananta.context_window")
 _EVENTS: ContextVar[list[TruncationEvent] | None] = ContextVar("context_truncations", default=None)
 # bounded label values for metrics (free-form sites are folded into "other")
-KNOWN_SITES = frozenset({"llm.trim_messages", "llm.lmstudio_completion", "llm.generate_text", "tool_loop.results",
-                         "planning.context", "recovery.context", "recovery.goal", "context_bundle", "rag.rerank",
-                         "context_compression", "rlm.evidence"})
+KNOWN_SITES = frozenset(
+    {
+        "llm.trim_messages",
+        "llm.lmstudio_completion",
+        "llm.generate_text",
+        "tool_loop.results",
+        "planning.context",
+        "recovery.context",
+        "recovery.goal",
+        "context_bundle",
+        "rag.rerank",
+        "context_compression",
+        "rlm.evidence",
+    }
+)
 KINDS = frozenset({"trim_messages", "char_cut", "condense", "drop_items"})
 
 
@@ -91,13 +103,23 @@ class ContextFit:
         return self.estimated_tokens / self.budget_tokens if self.budget_tokens else float("inf")
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"window_tokens": self.window_tokens, "output_reserve_tokens": self.output_reserve_tokens,
-                "estimated_tokens": self.estimated_tokens, "fits": self.fits,
-                "overflow_tokens": self.overflow_tokens, "ratio": round(self.ratio, 3)}
+        return {
+            "window_tokens": self.window_tokens,
+            "output_reserve_tokens": self.output_reserve_tokens,
+            "estimated_tokens": self.estimated_tokens,
+            "fits": self.fits,
+            "overflow_tokens": self.overflow_tokens,
+            "ratio": round(self.ratio, 3),
+        }
 
 
-def check_fit(*, prompt: str = "", messages: Sequence[Any] | None = None, window_tokens: int | None = None,
-              output_reserve_tokens: int | None = None) -> ContextFit:
+def check_fit(
+    *,
+    prompt: str = "",
+    messages: Sequence[Any] | None = None,
+    window_tokens: int | None = None,
+    output_reserve_tokens: int | None = None,
+) -> ContextFit:
     """Whether ``prompt`` plus ``messages`` fit ``window_tokens`` (default: the effective window) minus the reserve
     (default: the central output reserve of that window)."""
     window = int(window_tokens or context_window_tokens())
@@ -126,21 +148,35 @@ def _metric_site(site: str) -> str:
     return site if site in KNOWN_SITES else "other"
 
 
-def record_truncation(site: str, kind: str, *, before_tokens: int, after_tokens: int, dropped_items: int = 0,
-                      **detail: Any) -> TruncationEvent | None:
+def record_truncation(
+    site: str, kind: str, *, before_tokens: int, after_tokens: int, dropped_items: int = 0, **detail: Any
+) -> TruncationEvent | None:
     """Log, count and collect one shortening of context. ``None`` (nothing recorded) when nothing was lost."""
     if before_tokens <= after_tokens and not dropped_items:
         return None
-    event = TruncationEvent(site, kind if kind in KINDS else "char_cut", int(before_tokens), int(after_tokens),
-                            int(dropped_items), {k: v for k, v in detail.items() if v is not None})
+    event = TruncationEvent(
+        site,
+        kind if kind in KINDS else "char_cut",
+        int(before_tokens),
+        int(after_tokens),
+        int(dropped_items),
+        {k: v for k, v in detail.items() if v is not None},
+    )
     try:
-        _log.warning("context truncated at %s (%s): ~%d -> ~%d tokens, %d item(s) dropped %s", event.site,
-                     event.kind, event.before_tokens, event.after_tokens, event.dropped_items, event.detail or "")
+        _log.warning(
+            "context truncated at %s (%s): ~%d -> ~%d tokens, %d item(s) dropped %s",
+            event.site,
+            event.kind,
+            event.before_tokens,
+            event.after_tokens,
+            event.dropped_items,
+            event.detail or "",
+        )
         from agent.metrics import CONTEXT_TRUNCATIONS_TOTAL
 
         CONTEXT_TRUNCATIONS_TOTAL.labels(site=_metric_site(site), kind=event.kind).inc()
     except Exception:  # noqa: BLE001 -- accounting never breaks a call
-        pass
+        logging.getLogger(__name__).debug("record_truncation: ignored Exception", exc_info=True)
     events = _EVENTS.get()
     if events is not None:
         events.append(event)
@@ -157,7 +193,7 @@ def record_expected_overflow(site: str, fit: ContextFit) -> None:
 
         CONTEXT_OVERFLOW_EXPECTED_TOTAL.labels(site=_metric_site(site)).inc()
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("record_expected_overflow: ignored Exception", exc_info=True)
 
 
 @contextmanager
@@ -178,6 +214,9 @@ def truncation_summary(events: Sequence[TruncationEvent]) -> dict[str, Any] | No
     """What a result carries about its shortened context (``None`` when nothing was lost)."""
     if not events:
         return None
-    return {"truncated": True, "events": [event.to_mapping() for event in events],
-            "lost_tokens": sum(event.lost_tokens for event in events),
-            "dropped_items": sum(event.dropped_items for event in events)}
+    return {
+        "truncated": True,
+        "events": [event.to_mapping() for event in events],
+        "lost_tokens": sum(event.lost_tokens for event in events),
+        "dropped_items": sum(event.dropped_items for event in events),
+    }

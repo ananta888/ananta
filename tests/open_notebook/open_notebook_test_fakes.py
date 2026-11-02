@@ -104,10 +104,10 @@ def fake_knowledge_index_factory(**kwargs):
 
 
 def build_importer(tmp_path, *, policy=None, ingestion=None):
+    from agent.sources.open_notebook_import_state import OpenNotebookImportStateStore
     from agent.sources.open_notebook_importer import OpenNotebookImporter
     from agent.sources.source_registry import SourceRegistry
     from agent.sources.source_snapshot_store import SourceSnapshotStore
-    from agent.sources.open_notebook_import_state import OpenNotebookImportStateStore
 
     ingestion = ingestion or FakeIngestionService()
     artifact_repo = FakeArtifactRepo()

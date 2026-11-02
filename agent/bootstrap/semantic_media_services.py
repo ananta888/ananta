@@ -16,25 +16,25 @@ from agent.repositories.semantic_media_audit_repository import (
 from agent.repositories.semantic_media_capability_grant_repository import (
     SqlSemanticMediaCapabilityGrantRepository,
 )
-from agent.repositories.sfu_broadcast_feature_flag_repository import (
-    SqlSfuBroadcastFeatureFlagRepository,
-)
-from agent.repositories.sfu_broadcast_flag_projection_repository import (
-    SqlSfuBroadcastFlagProjectionRepository,
-)
 from agent.repositories.sfu_broadcast_admission_operation_repository import (
     SqlSfuBroadcastAdmissionOperationRepository,
 )
 from agent.repositories.sfu_broadcast_background_job_repository import (
     SqlSfuBroadcastBackgroundJobRepository,
 )
+from agent.repositories.sfu_broadcast_feature_flag_repository import (
+    SqlSfuBroadcastFeatureFlagRepository,
+)
+from agent.repositories.sfu_broadcast_flag_projection_repository import (
+    SqlSfuBroadcastFlagProjectionRepository,
+)
 from agent.repositories.sfu_capacity_reservation_repository import (
     SqlSfuCapacityReservationRepository,
 )
-from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
 from agent.repositories.sfu_node_observation_cursor_repository import (
     SqlSfuNodeObservationCursorRepository,
 )
+from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
 from agent.repositories.sfu_runtime_identity_repository import SqlSfuRuntimeIdentityRepository
 from agent.services.media_topology_policy import MediaTopologyPolicy
 from agent.services.semantic_fanout_coordination_service import SemanticFanoutCoordinationService
@@ -48,40 +48,40 @@ from agent.services.semantic_media_feature_flags import (
     resolve_semantic_media_feature_flags,
 )
 from agent.services.semantic_media_permission_service import SemanticMediaPermissionService
-from agent.services.sfu_broadcast_feature_policy import SfuBroadcastFeaturePolicy
-from agent.services.sfu_broadcast_flag_projection_service import (
-    SfuBroadcastFlagProjectionService,
-)
-from agent.services.sfu_broadcast_runtime_control_port import (
-    UnsupportedSfuRuntimeControlBoundary,
-)
 from agent.services.sfu_broadcast_admission_saga import (
     SfuBroadcastAdmissionFacade,
     SfuBroadcastAdmissionSaga,
     UnavailableSfuBroadcastAdmissionPlanResolver,
     UnavailableSfuBroadcastAdmissionPort,
 )
+from agent.services.sfu_broadcast_feature_policy import SfuBroadcastFeaturePolicy
+from agent.services.sfu_broadcast_flag_projection_service import (
+    SfuBroadcastFlagProjectionService,
+)
 from agent.services.sfu_broadcast_reconciler_scheduler import (
     CallableSfuBroadcastJob,
     SfuBroadcastReconcilerScheduler,
     load_sfu_broadcast_background_specs,
+)
+from agent.services.sfu_broadcast_runtime_control_port import (
+    UnsupportedSfuRuntimeControlBoundary,
 )
 from agent.services.sfu_capacity_reservation_service import (
     SfuCapacityReservationPolicy,
     SfuCapacityReservationService,
 )
 from agent.services.sfu_node_health_evaluator import SfuNodeHealthEvaluator
-from agent.services.sfu_receiver_quality_ingestion_service import (
-    AdmissionBackedSfuReceiverQualityAuthority,
-    SfuReceiverQualityIngestionService,
-    build_sfu_receiver_quality_validator,
-)
 from agent.services.sfu_node_identity_service import SfuNodeIdentityService, SfuNodeTrustPolicy
 from agent.services.sfu_node_observation_ingestion_service import (
     SfuNodeObservationIngestionService,
     SfuNodeObservationPolicy,
     build_sfu_node_observation_validator,
     collector_token_digest,
+)
+from agent.services.sfu_receiver_quality_ingestion_service import (
+    AdmissionBackedSfuReceiverQualityAuthority,
+    SfuReceiverQualityIngestionService,
+    build_sfu_receiver_quality_validator,
 )
 
 
@@ -113,8 +113,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
     app.extensions["semantic_media_audit_recorder"] = recorder
     capability_repository = SqlSemanticMediaCapabilityGrantRepository()
     capability_signing_key = hashlib.sha256(
-        b"ananta:semantic-media-capability:v1\x00"
-        + str(app.secret_key or "").encode("utf-8")
+        b"ananta:semantic-media-capability:v1\x00" + str(app.secret_key or "").encode("utf-8")
     ).digest()
     app.extensions["semantic_media_capability_grant_repository"] = capability_repository
     app.extensions["semantic_media_permission_service"] = SemanticMediaPermissionService(
@@ -144,6 +143,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
     from agent.services.speech_evidence_revocation_service import SpeechEvidenceRevocationService
 
     app.extensions["speech_evidence_revocation_service"] = SpeechEvidenceRevocationService(audit=recorder)
+    from agent.repositories.sfu_vendor_identity_repository import SqlSfuVendorIdentityRepository
     from agent.services.semantic_sfu_admission_service import (
         configure_semantic_sfu_admission_audit,
         configure_semantic_sfu_topology,
@@ -154,18 +154,13 @@ def initialize_semantic_media_services(app: Flask) -> None:
         configure_semantic_sfu_group_key_audit,
         get_semantic_sfu_group_key_service,
     )
-    from agent.repositories.sfu_vendor_identity_repository import SqlSfuVendorIdentityRepository
     from agent.services.sfu_hub_secret_envelope import derive_sfu_hub_envelope
     from agent.services.sfu_vendor_identity_service import SfuVendorIdentityService
 
     configure_semantic_sfu_admission_audit(recorder)
-    sfu_hub_envelope = derive_sfu_hub_envelope(
-        str(app.secret_key or ""), key_id="sfu-hub-v1"
-    )
+    sfu_hub_envelope = derive_sfu_hub_envelope(str(app.secret_key or ""), key_id="sfu-hub-v1")
     vendor_identity_repository = SqlSfuVendorIdentityRepository()
-    vendor_identity_service = SfuVendorIdentityService(
-        vendor_identity_repository, sfu_hub_envelope, clock=time.time
-    )
+    vendor_identity_service = SfuVendorIdentityService(vendor_identity_repository, sfu_hub_envelope, clock=time.time)
     configure_semantic_sfu_vendor_identities(vendor_identity_service)
     app.extensions["sfu_vendor_identity_repository"] = vendor_identity_repository
     app.extensions["sfu_vendor_identity_service"] = vendor_identity_service
@@ -175,16 +170,12 @@ def initialize_semantic_media_services(app: Flask) -> None:
     topology_policy = MediaTopologyPolicy()
     fanout = SemanticFanoutCoordinationService()
     configure_semantic_sfu_topology(topology_policy, fanout)
-    quality_authority = AdmissionBackedSfuReceiverQualityAuthority(
-        get_semantic_sfu_admission_service
-    )
+    quality_authority = AdmissionBackedSfuReceiverQualityAuthority(get_semantic_sfu_admission_service)
     app.extensions["sfu_receiver_quality_authority"] = quality_authority
-    app.extensions["sfu_receiver_quality_ingestion_service"] = (
-        SfuReceiverQualityIngestionService(
-            authority=quality_authority,
-            validator=build_sfu_receiver_quality_validator(clock=time.time),
-            clock=time.time,
-        )
+    app.extensions["sfu_receiver_quality_ingestion_service"] = SfuReceiverQualityIngestionService(
+        authority=quality_authority,
+        validator=build_sfu_receiver_quality_validator(clock=time.time),
+        clock=time.time,
     )
     app.extensions["semantic_media_topology_policy"] = topology_policy
     app.extensions["semantic_media_fanout_coordination"] = fanout
@@ -221,8 +212,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
         sfu_trust_policy,
     )
     sfu_node_cursor_key = hashlib.sha256(
-        b"ananta:sfu-node-directory:cursor:v1\x00"
-        + str(app.secret_key or "").encode("utf-8")
+        b"ananta:sfu-node-directory:cursor:v1\x00" + str(app.secret_key or "").encode("utf-8")
     ).digest()
     app.extensions["sfu_node_repository"] = SqlSfuNodeRepository(
         cursor_signing_key=sfu_node_cursor_key,
@@ -232,12 +222,10 @@ def initialize_semantic_media_services(app: Flask) -> None:
     capacity_policy = SfuCapacityReservationPolicy.fail_closed()
     app.extensions["sfu_capacity_reservation_repository"] = capacity_repository
     app.extensions["sfu_capacity_reservation_policy"] = capacity_policy
-    app.extensions["sfu_capacity_reservation_service"] = (
-        SfuCapacityReservationService(
-            capacity_repository,
-            capacity_policy,
-            clock=time.time,
-        )
+    app.extensions["sfu_capacity_reservation_service"] = SfuCapacityReservationService(
+        capacity_repository,
+        capacity_policy,
+        clock=time.time,
     )
     admission_operation_repository = SqlSfuBroadcastAdmissionOperationRepository()
     unavailable_admission_port = UnavailableSfuBroadcastAdmissionPort()
@@ -269,9 +257,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
     )
 
     audience_retention_repository = SqlSfuAudienceSnapshotRetentionRepository()
-    audience_retention_service = SfuAudienceSnapshotRetentionService(
-        audience_retention_repository, clock=time.time
-    )
+    audience_retention_service = SfuAudienceSnapshotRetentionService(audience_retention_repository, clock=time.time)
     app.extensions["sfu_audience_retention_repository"] = audience_retention_repository
     app.extensions["sfu_audience_retention_job"] = audience_retention_service
     from agent.bootstrap.sfu_broadcast_services import (
@@ -333,9 +319,7 @@ def initialize_semantic_media_services(app: Flask) -> None:
         if name == "observation_collection" and (
             sfu_trust_policy.runtime_control_mode != "livekit_control_api"
             or not bool(
-                app.extensions.get("sfu_broadcast_final_composition_status", {}).get(
-                    "livekit_observation_ready"
-                )
+                app.extensions.get("sfu_broadcast_final_composition_status", {}).get("livekit_observation_ready")
             )
         ):
             continue
@@ -356,15 +340,13 @@ def initialize_semantic_media_services(app: Flask) -> None:
     observation_cursor_repository = SqlSfuNodeObservationCursorRepository()
     app.extensions["sfu_node_observation_cursor_repository"] = observation_cursor_repository
     app.extensions["sfu_node_observation_policy"] = observation_policy
-    app.extensions["sfu_node_observation_ingestion_service"] = (
-        SfuNodeObservationIngestionService(
-            cursor_repository=observation_cursor_repository,
-            node_repository=app.extensions["sfu_node_repository"],
-            identity_service=app.extensions["sfu_node_identity_service"],
-            policy=observation_policy,
-            validator=build_sfu_node_observation_validator(clock=time.time),
-            clock=time.time,
-        )
+    app.extensions["sfu_node_observation_ingestion_service"] = SfuNodeObservationIngestionService(
+        cursor_repository=observation_cursor_repository,
+        node_repository=app.extensions["sfu_node_repository"],
+        identity_service=app.extensions["sfu_node_identity_service"],
+        policy=observation_policy,
+        validator=build_sfu_node_observation_validator(clock=time.time),
+        clock=time.time,
     )
     collector_token = str(os.environ.get("ANANTA_SFU_OBSERVATION_COLLECTOR_TOKEN") or "")
     app.extensions["sfu_node_observation_collector_token_digest"] = (

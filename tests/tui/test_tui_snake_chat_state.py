@@ -1,26 +1,23 @@
 """T07.01: Unit-Tests für Chat State – Channel, Message, Unread, Notes-Invarianten."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from client_surfaces.operator_tui.chat_state import (
     ChannelType,
     DeliveryState,
     Visibility,
+    add_direct_channel,
     append_message,
     default_channels,
     default_chat_state,
     get_active_channel,
-    get_channel,
     get_chat_state,
     make_channel,
     make_message,
     sanitize_text,
     switch_channel,
     unread_total,
-    add_direct_channel,
 )
-
 
 # ── Channel tests ─────────────────────────────────────────────────────────────
 
@@ -120,10 +117,7 @@ def test_add_direct_channel_creates_new_and_is_idempotent():
 
 
 def test_make_message_required_fields():
-    msg = make_message(
-        channel_id="room:main", channel_type="room",
-        sender_id="s1", text="hello"
-    )
+    msg = make_message(channel_id="room:main", channel_type="room", sender_id="s1", text="hello")
     assert msg["channel_id"] == "room:main"
     assert msg["channel_type"] == "room"
     assert msg["sender_id"] == "s1"
@@ -135,18 +129,12 @@ def test_make_message_required_fields():
 
 
 def test_make_message_notes_visibility():
-    msg = make_message(
-        channel_id="notes:self", channel_type="notes",
-        sender_id="s1", text="private note"
-    )
+    msg = make_message(channel_id="notes:self", channel_type="notes", sender_id="s1", text="private note")
     assert msg["visibility"] == Visibility.LOCAL_ONLY
 
 
 def test_make_message_ai_visibility():
-    msg = make_message(
-        channel_id="ai:tutor", channel_type="ai",
-        sender_id="s1", text="question"
-    )
+    msg = make_message(channel_id="ai:tutor", channel_type="ai", sender_id="s1", text="question")
     assert msg["visibility"] == Visibility.AI_CONTEXT
 
 
@@ -200,10 +188,7 @@ def test_append_message_unknown_channel_does_nothing():
 
 
 def test_notes_message_always_local_only():
-    msg = make_message(
-        channel_id="notes:self", channel_type="notes",
-        sender_id="s1", text="private"
-    )
+    msg = make_message(channel_id="notes:self", channel_type="notes", sender_id="s1", text="private")
     assert msg["visibility"] == "local_only"
 
 

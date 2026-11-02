@@ -46,12 +46,8 @@ def resolve_codecompass_graph_store(
         # a caller's trusted index scope. Do not even resolve a foreign path.
         if allowed_index_ids is not None and candidate_id not in allowed_index_ids:
             continue
-        if not consumption_policy.can_consume(
-            index, allowed_index_ids=allowed_index_ids
-        ):
-            diagnostics.append(
-                {"knowledge_index_id": candidate_id, "reason": "consumption_denied"}
-            )
+        if not consumption_policy.can_consume(index, allowed_index_ids=allowed_index_ids):
+            diagnostics.append({"knowledge_index_id": candidate_id, "reason": "consumption_denied"})
             continue
         try:
             index_path, visual_metrics_path = resolver.resolve_artifacts(index)
@@ -67,9 +63,7 @@ def resolve_codecompass_graph_store(
             )
             continue
         if not index_path.exists():
-            diagnostics.append(
-                {"knowledge_index_id": candidate_id, "reason": "graph_file_missing"}
-            )
+            diagnostics.append({"knowledge_index_id": candidate_id, "reason": "graph_file_missing"})
             continue
         return (
             CodeCompassGraphStore(
@@ -80,7 +74,5 @@ def resolve_codecompass_graph_store(
             diagnostics[-8:],
         )
     if not candidates:
-        diagnostics.append(
-            {"knowledge_index_id": "", "reason": "no_completed_indices"}
-        )
+        diagnostics.append({"knowledge_index_id": "", "reason": "no_completed_indices"})
     return None, None, diagnostics[-8:]

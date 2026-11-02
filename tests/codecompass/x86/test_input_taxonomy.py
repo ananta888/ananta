@@ -150,16 +150,12 @@ def test_valid_bitness(bitness):
     assert bitness in VALID_BITNESS
 
 
-@pytest.mark.parametrize(
-    "syntax", ["intel", "att", "unknown"]
-)
+@pytest.mark.parametrize("syntax", ["intel", "att", "unknown"])
 def test_valid_syntaxes(syntax):
     assert syntax in VALID_SYNTAXES
 
 
-@pytest.mark.parametrize(
-    "abi", ["x86_64_sysv", "x86_64_windows", "x86_32_cdecl", "x86_32_stdcall", "unknown_x86"]
-)
+@pytest.mark.parametrize("abi", ["x86_64_sysv", "x86_64_windows", "x86_32_cdecl", "x86_32_stdcall", "unknown_x86"])
 def test_valid_abis(abi):
     assert abi in VALID_ABIS
 

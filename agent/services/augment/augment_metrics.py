@@ -1,8 +1,11 @@
 from __future__ import annotations
-import time, uuid
-from dataclasses import dataclass, field
+
+import time
+import uuid
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
 
 class ProviderLabel(str, Enum):
     CODECOMPASS = "codecompass"
@@ -11,13 +14,14 @@ class ProviderLabel(str, Enum):
     AUGGIE_INTERACTIVE = "auggie_interactive"
     FAKE = "fake"
 
+
 @dataclass
 class MetricEvent:
     event_id: str
     provider: ProviderLabel
-    operation: str          # "retrieve" | "worker_run" | "session" | "benchmark"
+    operation: str  # "retrieve" | "worker_run" | "session" | "benchmark"
     latency_ms: int
-    cost_units: float       # abstract unit: 0.0 for local, > 0 for external
+    cost_units: float  # abstract unit: 0.0 for local, > 0 for external
     items_returned: int
     items_blocked: int
     error: bool
@@ -27,12 +31,18 @@ class MetricEvent:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "event_id": self.event_id, "provider": self.provider.value,
-            "operation": self.operation, "latency_ms": self.latency_ms,
-            "cost_units": self.cost_units, "items_returned": self.items_returned,
-            "items_blocked": self.items_blocked, "error": self.error,
-            "timestamp": self.timestamp, "run_id": self.run_id,
+            "event_id": self.event_id,
+            "provider": self.provider.value,
+            "operation": self.operation,
+            "latency_ms": self.latency_ms,
+            "cost_units": self.cost_units,
+            "items_returned": self.items_returned,
+            "items_blocked": self.items_blocked,
+            "error": self.error,
+            "timestamp": self.timestamp,
+            "run_id": self.run_id,
         }
+
 
 @dataclass
 class ProviderMetricsSummary:
@@ -61,6 +71,7 @@ class ProviderMetricsSummary:
             "period_end": self.period_end,
         }
 
+
 @dataclass
 class ProviderComparison:
     query_used: str
@@ -72,7 +83,8 @@ class ProviderComparison:
 
     def to_markdown(self) -> str:
         lines = [
-            f"# Provider Comparison", "",
+            "# Provider Comparison",
+            "",
             "| Provider | Ops | Avg Latency | Cost | Items/call | Error Rate |",
             "|---|---|---|---|---|---|",
         ]
@@ -87,6 +99,7 @@ class ProviderComparison:
             lines += [f"**Cheapest:** {self.cheapest_provider}"]
         return "\n".join(lines)
 
+
 class AugmentMetricsCollector:
     """
     AUG-905: Provider-scoped metrics collection.
@@ -96,22 +109,34 @@ class AugmentMetricsCollector:
     def __init__(self) -> None:
         self._events: list[MetricEvent] = []
 
-    def record(self, *, provider: ProviderLabel, operation: str,
-               latency_ms: int, cost_units: float = 0.0,
-               items_returned: int = 0, items_blocked: int = 0,
-               error: bool = False, run_id: str | None = None) -> MetricEvent:
+    def record(
+        self,
+        *,
+        provider: ProviderLabel,
+        operation: str,
+        latency_ms: int,
+        cost_units: float = 0.0,
+        items_returned: int = 0,
+        items_blocked: int = 0,
+        error: bool = False,
+        run_id: str | None = None,
+    ) -> MetricEvent:
         ev = MetricEvent(
             event_id=str(uuid.uuid4())[:8],
-            provider=provider, operation=operation,
-            latency_ms=max(0, latency_ms), cost_units=max(0.0, cost_units),
-            items_returned=max(0, items_returned), items_blocked=max(0, items_blocked),
-            error=error, timestamp=time.time(), run_id=run_id,
+            provider=provider,
+            operation=operation,
+            latency_ms=max(0, latency_ms),
+            cost_units=max(0.0, cost_units),
+            items_returned=max(0, items_returned),
+            items_blocked=max(0, items_blocked),
+            error=error,
+            timestamp=time.time(),
+            run_id=run_id,
         )
         self._events.append(ev)
         return ev
 
-    def summary_for(self, provider: ProviderLabel, *,
-                    since: float | None = None) -> ProviderMetricsSummary | None:
+    def summary_for(self, provider: ProviderLabel, *, since: float | None = None) -> ProviderMetricsSummary | None:
         events = [e for e in self._events if e.provider == provider]
         if since:
             events = [e for e in events if e.timestamp >= since]
@@ -150,9 +175,12 @@ class AugmentMetricsCollector:
         most_results = max(summaries, key=lambda k: summaries[k].avg_items_per_call) if summaries else None
 
         return ProviderComparison(
-            query_used=query_used, providers=summaries,
-            fastest_provider=fastest, cheapest_provider=cheapest,
-            most_results_provider=most_results, created_at=time.time(),
+            query_used=query_used,
+            providers=summaries,
+            fastest_provider=fastest,
+            cheapest_provider=cheapest,
+            most_results_provider=most_results,
+            created_at=time.time(),
         )
 
     def all_events(self) -> list[MetricEvent]:

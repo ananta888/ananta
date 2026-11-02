@@ -1,4 +1,5 @@
 """ananta config — configuration management commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -117,12 +118,9 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _base_url(parsed) -> str:
-    return (
-        getattr(parsed, "base_url", None)
-        or os.environ.get("ANANTA_BASE_URL", "")
-        or _DEFAULT_BASE_URL
-    )
+    return getattr(parsed, "base_url", None) or os.environ.get("ANANTA_BASE_URL", "") or _DEFAULT_BASE_URL
 
 
 def _login(base_url: str, user: str, password: str) -> str:
@@ -149,6 +147,7 @@ def _auth_headers(token: str) -> dict:
 
 def _cmd_show(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     try:
         r = requests.get(f"{base}/config", timeout=15)
@@ -177,7 +176,7 @@ def _print_config_summary(data: dict) -> None:
     print(f"Max segments:           {pp.get('max_segments', '—')}")
     print(f"Repair rounds:          {pp.get('selective_repair_rounds', '—')}")
     print(f"lmstudio_laptop.timeout:{lm.get('timeout_seconds', '—')}s")
-    gw = (ws.get("git_workspace") or {})
+    gw = ws.get("git_workspace") or {}
     if gw.get("enabled"):
         print(f"Git workspace:          enabled (branch_strategy={gw.get('branch_strategy', 'goal')})")
     sm = ws.get("sync_mode", "")
@@ -187,6 +186,7 @@ def _print_config_summary(data: dict) -> None:
 
 def _cmd_validate() -> int:
     from pathlib import Path
+
     cfg_path = Path("config.json")
     if not cfg_path.exists():
         print("FAIL: config.json not found in current directory.", file=sys.stderr)
@@ -204,6 +204,7 @@ def _cmd_validate() -> int:
 
 def _cmd_export(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     try:
         r = requests.get(f"{base}/config", timeout=15)
@@ -216,6 +217,7 @@ def _cmd_export(parsed) -> int:
     text = json.dumps(data, indent=2, ensure_ascii=False)
     if out:
         from pathlib import Path
+
         Path(out).write_text(text)
         print(f"Config exported to {out}")
     else:
@@ -284,6 +286,7 @@ def _build_planning_policy_payload(parsed) -> dict:
 
 def _cmd_setup_planning(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     user = parsed.user
     password = parsed.password
@@ -312,19 +315,23 @@ def _cmd_setup_planning(parsed) -> int:
 
 def _cmd_apply_profile(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     profile_id = parsed.profile
 
     try:
         from agent.services.config_profile_service import get_config_profile_service
+
         profile = get_config_profile_service().get_profile(profile_id)
     except Exception as exc:
         print(f"Error loading profile '{profile_id}': {exc}", file=sys.stderr)
         return 1
     if profile is None:
         print(f"Error: Unknown profile '{profile_id}'.", file=sys.stderr)
-        print("Available profiles: opencode_preconfigured, opencode_preconfigured_e2e, "
-              "opencode_lmstudio_local, ananta_lmstudio_local, hermes_free_models_preconfigured")
+        print(
+            "Available profiles: opencode_preconfigured, opencode_preconfigured_e2e, "
+            "opencode_lmstudio_local, ananta_lmstudio_local, hermes_free_models_preconfigured"
+        )
         return 3
 
     overrides = profile.get("overrides", {})

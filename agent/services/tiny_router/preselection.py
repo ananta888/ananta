@@ -1,4 +1,5 @@
 """Deterministic preselection over an already-authorized tool subset."""
+
 from __future__ import annotations
 
 import re
@@ -9,7 +10,11 @@ _TOKEN = re.compile(r"[a-z0-9_.-]+")
 
 class AllowedToolPreselector:
     def select(
-        self, prompt: str, tools: Sequence[Mapping[str, Any]], *, top_k: int,
+        self,
+        prompt: str,
+        tools: Sequence[Mapping[str, Any]],
+        *,
+        top_k: int,
     ) -> tuple[Mapping[str, Any], ...]:
         limit = max(1, int(top_k))
         prompt_terms = set(_TOKEN.findall(str(prompt or "").lower()))
@@ -20,10 +25,13 @@ class AllowedToolPreselector:
                 continue
             name = str(function.get("name") or "")
             properties = (function.get("parameters") or {}).get("properties") or {}
-            searchable = " ".join([
-                name, str(function.get("description") or ""),
-                " ".join(str(key) for key in properties),
-            ]).lower()
+            searchable = " ".join(
+                [
+                    name,
+                    str(function.get("description") or ""),
+                    " ".join(str(key) for key in properties),
+                ]
+            ).lower()
             terms = set(_TOKEN.findall(searchable))
             name_fragments = set(_TOKEN.findall(name.replace(".", " ").lower()))
             score = len(prompt_terms & terms) * 10 + len(prompt_terms & name_fragments) * 20

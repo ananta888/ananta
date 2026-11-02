@@ -42,7 +42,9 @@ def submit_goal() -> tuple:
         requested_by=_current_username(),
     )
     if result.get("status") != "accepted":
-        return api_response(status="error", message=str(result.get("reason") or "goal_submit_failed"), data=result, code=400)
+        return api_response(
+            status="error", message=str(result.get("reason") or "goal_submit_failed"), data=result, code=400
+        )
     log_audit("freecad_goal_submitted", {"goal_id": result.get("goal_id"), "trace_id": result.get("trace_id")})
     return api_response(data=result, code=201)
 
@@ -57,8 +59,15 @@ def approval_decision() -> tuple:
         requested_by=_current_username(),
     )
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "approval_decision_failed"), data=result, code=status_code)
-    log_audit("freecad_approval_decision", {"approval_id": result.get("approval_id"), "decision": result.get("decision")})
+        return api_response(
+            status="error",
+            message=str(result.get("reason") or "approval_decision_failed"),
+            data=result,
+            code=status_code,
+        )
+    log_audit(
+        "freecad_approval_decision", {"approval_id": result.get("approval_id"), "decision": result.get("decision")}
+    )
     return api_response(data=result, code=status_code)
 
 
@@ -83,7 +92,9 @@ def macro_plan() -> tuple:
         context_summary=dict(payload.get("context_summary") or {}),
     )
     if result.get("status") != "accepted":
-        return api_response(status="error", message=str(result.get("reason") or "macro_plan_failed"), data=result, code=400)
+        return api_response(
+            status="error", message=str(result.get("reason") or "macro_plan_failed"), data=result, code=400
+        )
     return api_response(data=result)
 
 
@@ -97,6 +108,11 @@ def macro_execution() -> tuple:
         correlation_id=str(payload.get("correlation_id") or ""),
     )
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "approval_required"), data=result, code=status_code)
-    log_audit("freecad_macro_execution_requested", {"correlation_id": payload.get("correlation_id"), "approval_id": payload.get("approval_id")})
+        return api_response(
+            status="error", message=str(result.get("reason") or "approval_required"), data=result, code=status_code
+        )
+    log_audit(
+        "freecad_macro_execution_requested",
+        {"correlation_id": payload.get("correlation_id"), "approval_id": payload.get("approval_id")},
+    )
     return api_response(data=result, code=status_code)

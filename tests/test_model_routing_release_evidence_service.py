@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 
 from agent.services.model_routing_release_evidence_service import (
-    ModelRoutingReleaseEvidenceService,
     RELEASE_EVIDENCE_SCHEMA,
     REQUIRED_RELEASE_GATES,
+    ModelRoutingReleaseEvidenceService,
     release_source_digests,
     release_source_files,
 )
@@ -14,15 +14,19 @@ from agent.services.model_routing_release_evidence_service import (
 
 def _write_evidence(path, repo_root, *, passed=True):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({
-        "schema": RELEASE_EVIDENCE_SCHEMA,
-        "suite_revision": "central-model-settings-test",
-        "source_digests": release_source_digests(repo_root),
-        "gates": {
-            gate_id: {"passed": passed, "command": f"test {gate_id}"}
-            for gate_id in REQUIRED_RELEASE_GATES
-        },
-    }), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            {
+                "schema": RELEASE_EVIDENCE_SCHEMA,
+                "suite_revision": "central-model-settings-test",
+                "source_digests": release_source_digests(repo_root),
+                "gates": {
+                    gate_id: {"passed": passed, "command": f"test {gate_id}"} for gate_id in REQUIRED_RELEASE_GATES
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_release_evidence_passes_only_with_complete_fresh_source_digests(tmp_path):
@@ -32,7 +36,8 @@ def test_release_evidence_passes_only_with_complete_fresh_source_digests(tmp_pat
     evidence = tmp_path / "evidence.json"
     _write_evidence(evidence, tmp_path)
     service = ModelRoutingReleaseEvidenceService(
-        repo_root=tmp_path, evidence_path=evidence,
+        repo_root=tmp_path,
+        evidence_path=evidence,
     )
 
     assert all(check.passed for check in service.checks())
@@ -40,14 +45,13 @@ def test_release_evidence_passes_only_with_complete_fresh_source_digests(tmp_pat
     source.write_text("release = 2\n", encoding="utf-8")
     drifted = service.checks()
     assert not any(check.passed for check in drifted)
-    assert {check.reason_code for check in drifted} == {
-        "model_routing_release_source_drift"
-    }
+    assert {check.reason_code for check in drifted} == {"model_routing_release_source_drift"}
 
 
 def test_missing_or_failed_release_evidence_fails_closed(tmp_path):
     missing = ModelRoutingReleaseEvidenceService(
-        repo_root=tmp_path, evidence_path=tmp_path / "missing.json",
+        repo_root=tmp_path,
+        evidence_path=tmp_path / "missing.json",
     ).checks()
     assert len(missing) == len(REQUIRED_RELEASE_GATES)
     assert not any(check.passed for check in missing)
@@ -58,19 +62,15 @@ def test_missing_or_failed_release_evidence_fails_closed(tmp_path):
     evidence = tmp_path / "failed.json"
     _write_evidence(evidence, tmp_path, passed=False)
     failed = ModelRoutingReleaseEvidenceService(
-        repo_root=tmp_path, evidence_path=evidence,
+        repo_root=tmp_path,
+        evidence_path=evidence,
     ).checks()
-    assert {check.reason_code for check in failed} == {
-        "model_routing_release_gate_failed"
-    }
+    assert {check.reason_code for check in failed} == {"model_routing_release_gate_failed"}
 
 
 def test_release_sources_bind_local_runtime_and_cognitive_style_routing():
     repo_root = Path(__file__).resolve().parents[1]
-    relative = {
-        path.relative_to(repo_root).as_posix()
-        for path in release_source_files(repo_root)
-    }
+    relative = {path.relative_to(repo_root).as_posix() for path in release_source_files(repo_root)}
 
     assert {
         "ananta_contracts/cognitive_style.py",

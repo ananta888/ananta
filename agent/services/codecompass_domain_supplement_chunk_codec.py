@@ -206,5 +206,3 @@ def domain_supplement_chunk_logical_line(row: sqlite3.Row) -> bytes:
         )
         + b"\n"
     )
-
-

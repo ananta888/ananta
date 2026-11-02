@@ -12,4 +12,3 @@ def test_load_model_profiles_merges_defaults_and_overrides():
 
 def test_default_profiles_present():
     assert "intercepted-coder" in DEFAULT_MODEL_PROFILES
-

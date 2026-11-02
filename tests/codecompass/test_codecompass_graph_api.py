@@ -20,6 +20,7 @@ from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _build_graph_index(tmp_path: Path) -> Path:
     index_path = tmp_path / "cc_graph_index.json"
     store = CodeCompassGraphStore(index_path=index_path)
@@ -90,6 +91,7 @@ def _allow_test_legacy_graph_artifacts(monkeypatch):
 
 
 # ── GET /api/codecompass/graph ────────────────────────────────────────────────
+
 
 def test_get_graph_returns_domain_graph_artifact(client, auth_header, tmp_path):
     _build_graph_index(tmp_path)
@@ -164,12 +166,17 @@ def test_get_graph_preserves_raw_types_zero_values_and_parallel_edges(client, au
             {"_provenance": {"output_kind": "graph_nodes"}, "id": "b", "kind": "python_file"},
             {
                 "_provenance": {"output_kind": "graph_edges"},
-                "source": "a", "target": "b", "type": "Vendor::Relation",
-                "confidence": 0, "multiplicity": 0,
+                "source": "a",
+                "target": "b",
+                "type": "Vendor::Relation",
+                "confidence": 0,
+                "multiplicity": 0,
             },
             {
                 "_provenance": {"output_kind": "graph_edges"},
-                "source": "a", "target": "b", "type": "Vendor::Relation",
+                "source": "a",
+                "target": "b",
+                "type": "Vendor::Relation",
                 "confidence": 1,
             },
         ],
@@ -251,9 +258,7 @@ def test_get_graph_requires_projected_v2_after_source_authorization(
             },
         },
     )
-    repository = SimpleNamespace(
-        get_by_id=lambda index_id: index if index_id == index.id else None
-    )
+    repository = SimpleNamespace(get_by_id=lambda index_id: index if index_id == index.id else None)
 
     with patch(
         "agent.routes.codecompass_graph._knowledge_index_repo",
@@ -286,6 +291,7 @@ def test_get_graph_degraded_when_index_missing(client, auth_header, tmp_path):
 
 # ── GET /api/codecompass/graph/node/<node_id> ─────────────────────────────────
 
+
 def test_get_node_returns_node_details(client, auth_header, tmp_path):
     _build_graph_index(tmp_path)
     repo = _mock_repo(output_dir=str(tmp_path))
@@ -307,6 +313,7 @@ def test_get_node_unknown_id_returns_404(client, auth_header, tmp_path):
 
 
 # ── GET /api/codecompass/graph/expand ─────────────────────────────────────────
+
 
 def test_expand_graph_returns_traversal(client, auth_header, tmp_path):
     _build_graph_index(tmp_path)
@@ -337,11 +344,17 @@ def test_expand_graph_preserves_parallel_store_edges(client, auth_header, tmp_pa
             {"_provenance": {"output_kind": "graph_nodes"}, "id": "b", "kind": "python_function"},
             {
                 "_provenance": {"output_kind": "graph_edges"},
-                "source": "a", "target": "b", "type": "calls_probable_target", "confidence": 0,
+                "source": "a",
+                "target": "b",
+                "type": "calls_probable_target",
+                "confidence": 0,
             },
             {
                 "_provenance": {"output_kind": "graph_edges"},
-                "source": "a", "target": "b", "type": "calls_probable_target", "confidence": 1,
+                "source": "a",
+                "target": "b",
+                "type": "calls_probable_target",
+                "confidence": 1,
             },
         ],
     )
@@ -395,10 +408,9 @@ def test_expand_graph_default_profile_is_bugfix_local(client, auth_header, tmp_p
 
 # ── GET /api/codecompass/query (CCAQE-017) ────────────────────────────────────
 
+
 def _build_architecture_index(tmp_path: Path) -> Path:
-    fixture = json.loads(
-        Path("tests/fixtures/codecompass_architecture/graph_records.json").read_text(encoding="utf-8")
-    )
+    fixture = json.loads(Path("tests/fixtures/codecompass_architecture/graph_records.json").read_text(encoding="utf-8"))
     index_path = tmp_path / "cc_graph_index.json"
     store = CodeCompassGraphStore(index_path=index_path)
     store.rebuild_from_output_records(records=fixture["records"], manifest_hash=fixture["manifest_hash"])
@@ -482,6 +494,7 @@ def test_architecture_query_unknown_seed_returns_valid_empty_result(client, auth
 
 
 # ── unauthenticated ───────────────────────────────────────────────────────────
+
 
 def test_unauthenticated_graph_returns_401(client):
     resp = client.get("/api/codecompass/graph?knowledge_index_id=idx-1")

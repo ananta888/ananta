@@ -1,10 +1,11 @@
 """Batch Experiment Runner (SIM-031)."""
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from simulation.adapters.model_strategy import ModelStrategyResolver
 from simulation.engine.budget_guard import BudgetGuard
@@ -12,7 +13,7 @@ from simulation.engine.tick_runner import TickResult, TickRunner
 from simulation.metrics.core_metrics import MetricsCollector
 from simulation.metrics.report_generator import ReportGenerator
 from simulation.models.scenario import ScenarioConfig
-from simulation.models.world_state import AgentState, LocationState, LawState, WorldState
+from simulation.models.world_state import AgentState, LawState, LocationState, WorldState
 
 
 @dataclass
@@ -27,7 +28,7 @@ class BatchRunResult:
 
 def _build_world(scenario: ScenarioConfig) -> WorldState:
     """Construct initial WorldState from ScenarioConfig."""
-    from simulation.models.world_state import LawState
+
     state = WorldState(scenario_name=scenario.name)
 
     for loc_def in scenario.locations:
@@ -44,8 +45,9 @@ def _build_world(scenario: ScenarioConfig) -> WorldState:
     for ag_def in scenario.agents:
         ag_id = ag_def["id"]
         loc_id = ag_def.get("location_id", list(state.locations.keys())[0])
-        ag = AgentState(id=ag_id, name=ag_def.get("name", ag_id),
-                        role=ag_def.get("role", "citizen"), location_id=loc_id)
+        ag = AgentState(
+            id=ag_id, name=ag_def.get("name", ag_id), role=ag_def.get("role", "citizen"), location_id=loc_id
+        )
         ag.inventory = dict(ag_def.get("starting_inventory", {}))
         ag.profile_id = ag_def.get("profile_id", "")
         state.agents[ag_id] = ag
@@ -54,9 +56,11 @@ def _build_world(scenario: ScenarioConfig) -> WorldState:
 
     for law_def in scenario.laws:
         state.laws[law_def.id] = LawState(
-            id=law_def.id, description=law_def.description,
+            id=law_def.id,
+            description=law_def.description,
             forbidden_actions=list(law_def.forbidden_actions),
-            penalty=law_def.penalty, severity=law_def.severity,
+            penalty=law_def.penalty,
+            severity=law_def.severity,
         )
 
     return state
@@ -76,8 +80,7 @@ class BatchRunner:
             results.append(result)
         return results
 
-    def _run_one(self, scenario: ScenarioConfig,
-                  on_tick: Callable[[str, TickResult], None] | None) -> BatchRunResult:
+    def _run_one(self, scenario: ScenarioConfig, on_tick: Callable[[str, TickResult], None] | None) -> BatchRunResult:
         run_id = f"run-{uuid.uuid4().hex[:8]}"
         state = _build_world(scenario)
         resolver = ModelStrategyResolver(scenario)
@@ -100,13 +103,21 @@ class BatchRunner:
                     break
         except Exception as exc:
             report = {"error": str(exc)}
-            return BatchRunResult(run_id=run_id, scenario_name=scenario.name,
-                                   report=report, ticks_run=ticks_run,
-                                   elapsed_seconds=time.monotonic() - t0,
-                                   error=str(exc))
+            return BatchRunResult(
+                run_id=run_id,
+                scenario_name=scenario.name,
+                report=report,
+                ticks_run=ticks_run,
+                elapsed_seconds=time.monotonic() - t0,
+                error=str(exc),
+            )
 
         gen = ReportGenerator(run_id, scenario.name)
         report = gen.generate(metrics, state, budget, violation)
-        return BatchRunResult(run_id=run_id, scenario_name=scenario.name,
-                               report=report, ticks_run=ticks_run,
-                               elapsed_seconds=time.monotonic() - t0)
+        return BatchRunResult(
+            run_id=run_id,
+            scenario_name=scenario.name,
+            report=report,
+            ticks_run=ticks_run,
+            elapsed_seconds=time.monotonic() - t0,
+        )

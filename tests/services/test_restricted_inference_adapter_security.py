@@ -59,9 +59,7 @@ def test_onnx_external_data_requires_exact_manifest_and_cannot_escape(tmp_path: 
         onnx_module = ModuleType("onnx")
         onnx_module.TensorProto = SimpleNamespace(EXTERNAL=1)
         onnx_module.load = lambda *_args, **_kwargs: SimpleNamespace(
-            graph=SimpleNamespace(
-                initializer=[SimpleNamespace(data_location=1, location=location)]
-            )
+            graph=SimpleNamespace(initializer=[SimpleNamespace(data_location=1, location=location)])
         )
         helper_module = ModuleType("onnx.external_data_helper")
         helper_module.ExternalDataInfo = lambda tensor: SimpleNamespace(location=tensor.location)

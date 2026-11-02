@@ -5,8 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.services.workflow_status_service import (  # noqa: E402
@@ -15,7 +13,6 @@ from agent.services.workflow_status_service import (  # noqa: E402
     build_workflow_status,
     debug_workflow_status,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -32,8 +29,9 @@ def _step(step_id, role="developer", task_kind="coding", gate=False, consumes=No
     }
 
 
-def _task(task_id, plan_node_id="", status="todo", blocked_reason="",
-          gate_decision="", missing_consumes_in_details=False):
+def _task(
+    task_id, plan_node_id="", status="todo", blocked_reason="", gate_decision="", missing_consumes_in_details=False
+):
     task = {
         "id": task_id,
         "plan_node_id": plan_node_id,
@@ -79,9 +77,7 @@ class TestBuildWorkflowStatus:
             _step("impl", consumes=["execution_plan"]),
         ]
         tasks = [_task("ptask-plan", plan_node_id="plan", status="completed")]
-        result = build_workflow_status(
-            goal_id="g", steps=steps, tasks=tasks
-        )
+        result = build_workflow_status(goal_id="g", steps=steps, tasks=tasks)
         impl = next(s for s in result["steps"] if s["step_id"] == "impl")
         assert "execution_plan" in impl["missing_consumes"]
         assert "missing_artifacts" in impl["blocked_reasons"]
@@ -93,7 +89,9 @@ class TestBuildWorkflowStatus:
         ]
         tasks = [_task("ptask-plan", plan_node_id="plan", status="completed")]
         result = build_workflow_status(
-            goal_id="g", steps=steps, tasks=tasks,
+            goal_id="g",
+            steps=steps,
+            tasks=tasks,
             produced_artifact_keys=["execution_plan"],
         )
         impl = next(s for s in result["steps"] if s["step_id"] == "impl")
@@ -103,8 +101,7 @@ class TestBuildWorkflowStatus:
     def test_blocked_task_keeps_status(self):
         steps = [_step("impl")]
         tasks = [
-            _task("ptask-impl", plan_node_id="impl", status="blocked",
-                  blocked_reason="gate_pending"),
+            _task("ptask-impl", plan_node_id="impl", status="blocked", blocked_reason="gate_pending"),
         ]
         result = build_workflow_status(goal_id="g", steps=steps, tasks=tasks)
         impl = result["steps"][0]
@@ -115,8 +112,7 @@ class TestBuildWorkflowStatus:
     def test_gate_decision_propagates(self):
         steps = [_step("gate", role="scrum_master", gate=True)]
         tasks = [
-            _task("ptask-gate", plan_node_id="gate", status="completed",
-                  gate_decision="passed"),
+            _task("ptask-gate", plan_node_id="gate", status="completed", gate_decision="passed"),
         ]
         result = build_workflow_status(goal_id="g", steps=steps, tasks=tasks)
         assert result["steps"][0]["gate"] is True
@@ -180,21 +176,16 @@ class TestBuildWorkflowStatus:
             _step("impl"),
         ]
         tasks = [
-            _task("ptask-impl", plan_node_id="impl", status="blocked",
-                  blocked_reason="gate_pending"),
+            _task("ptask-impl", plan_node_id="impl", status="blocked", blocked_reason="gate_pending"),
         ]
-        result = build_workflow_status(
-            goal_id="g", steps=steps, tasks=tasks, debug_summary=True
-        )
+        result = build_workflow_status(goal_id="g", steps=steps, tasks=tasks, debug_summary=True)
         assert "debug_summary" in result
         ds = result["debug_summary"]
         assert ds["step_count"] == 2
         assert ds["blocking_count"] >= 1
 
     def test_audit_log_skipped_when_disabled(self):
-        result = build_workflow_status(
-            goal_id="g", include_audit_log=False
-        )
+        result = build_workflow_status(goal_id="g", include_audit_log=False)
         assert result["audit_log_actions"] == []
 
     def test_blueprint_provenance_passed_through(self):
@@ -210,13 +201,15 @@ class TestBuildWorkflowStatus:
 
     def test_redaction_applied(self):
         steps = [_step("plan")]
-        tasks = [{
-            "id": "ptask-plan",
-            "plan_node_id": "plan",
-            "status": "todo",
-            "password": "super-secret",  # noqa: S105 — test redaction
-            "token": "abc",
-        }]
+        tasks = [
+            {
+                "id": "ptask-plan",
+                "plan_node_id": "plan",
+                "status": "todo",
+                "password": "super-secret",  # noqa: S105 — test redaction
+                "token": "abc",
+            }
+        ]
         result = build_workflow_status(goal_id="g", steps=steps, tasks=tasks)
         # The sensitive key names are redacted (we cannot assert
         # the value is redacted here because the user-level
@@ -237,12 +230,9 @@ class TestDebugWorkflowStatus:
             _step("impl"),
         ]
         tasks = [
-            _task("ptask-impl", plan_node_id="impl", status="blocked",
-                  blocked_reason="gate_pending"),
+            _task("ptask-impl", plan_node_id="impl", status="blocked", blocked_reason="gate_pending"),
         ]
-        output = debug_workflow_status(
-            goal_id="g-1", steps=steps, tasks=tasks, plan_id="p-1"
-        )
+        output = debug_workflow_status(goal_id="g-1", steps=steps, tasks=tasks, plan_id="p-1")
         assert "g-1" in output
         assert "p-1" in output
         assert "impl" in output
@@ -266,7 +256,9 @@ class TestDebugWorkflowStatus:
             _task("ptask-impl", plan_node_id="impl", status="todo"),
         ]
         output = debug_workflow_status(
-            goal_id="g", steps=steps, tasks=tasks,
+            goal_id="g",
+            steps=steps,
+            tasks=tasks,
             produced_artifact_keys=["execution_plan"],
         )
         assert "no blocking steps" in output

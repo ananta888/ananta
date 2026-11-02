@@ -1,9 +1,9 @@
 """PromptRenderer — assembles per-agent LLM prompts from world state (SIM-013)."""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
 
 from simulation.models.agent_profile import AgentProfile
 from simulation.models.memory import AgentMemory
@@ -18,8 +18,7 @@ class RenderedPrompt:
     tick: int
 
     def as_messages(self) -> list[dict[str, str]]:
-        return [{"role": "system", "content": self.system},
-                {"role": "user", "content": self.user}]
+        return [{"role": "system", "content": self.system}, {"role": "user", "content": self.user}]
 
 
 class PromptRenderer:
@@ -81,13 +80,9 @@ What do you do?"""
         memory: AgentMemory | None,
         allowed_actions: list[str] | None = None,
     ) -> RenderedPrompt:
-        allowed = allowed_actions or ["move", "eat", "rest", "attack", "give",
-                                       "harvest", "communicate", "vote", "noop"]
+        allowed = allowed_actions or ["move", "eat", "rest", "attack", "give", "harvest", "communicate", "vote", "noop"]
         loc = state.locations.get(agent.location_id)
-        colocated = [
-            a.name for a in state.agents_at(agent.location_id)
-            if a.id != agent.id
-        ]
+        colocated = [a.name for a in state.agents_at(agent.location_id) if a.id != agent.id]
 
         system = self.SYSTEM_TEMPLATE.format(
             name=profile.name if profile else agent.name,
@@ -101,15 +96,21 @@ What do you do?"""
             allowed_actions=", ".join(allowed),
         )
 
-        laws_text = "; ".join(
-            f"{l.description} (forbidden: {', '.join(l.forbidden_actions)})"
-            for l in state.laws.values() if l.active
-        ) or "none"
+        laws_text = (
+            "; ".join(
+                f"{l.description} (forbidden: {', '.join(l.forbidden_actions)})"
+                for l in state.laws.values()
+                if l.active
+            )
+            or "none"
+        )
 
-        status = (f"health={agent.health:.2f} hunger={agent.hunger:.2f} "
-                  f"energy={agent.energy:.2f} morale={agent.morale:.2f} "
-                  f"reputation={agent.reputation:.2f} "
-                  f"inventory={json.dumps(agent.inventory)}")
+        status = (
+            f"health={agent.health:.2f} hunger={agent.hunger:.2f} "
+            f"energy={agent.energy:.2f} morale={agent.morale:.2f} "
+            f"reputation={agent.reputation:.2f} "
+            f"inventory={json.dumps(agent.inventory)}"
+        )
 
         user = self.USER_TEMPLATE.format(
             tick=state.tick,
@@ -123,5 +124,4 @@ What do you do?"""
             perceptions=json.dumps(memory.perception_for_prompt() if memory else [], indent=2),
         )
 
-        return RenderedPrompt(system=system, user=user,
-                               agent_id=agent.id, tick=state.tick)
+        return RenderedPrompt(system=system, user=user, agent_id=agent.id, tick=state.tick)

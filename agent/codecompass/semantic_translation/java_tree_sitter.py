@@ -259,11 +259,7 @@ class JavaTreeSitterExtractor:
         modifiers = next((child for child in node.named_children if child.type == "modifiers"), None)
         if modifiers is None:
             return []
-        return [
-            _text(child, source)
-            for child in modifiers.named_children
-            if "annotation" in child.type
-        ]
+        return [_text(child, source) for child in modifiers.named_children if "annotation" in child.type]
 
     def _heritage(self, node: Any | None, source: bytes, prefix: str) -> list[str]:
         if node is None:
@@ -281,12 +277,17 @@ def _text(node: Any | None, source: bytes) -> str:
 
 def _classify_throw(exception_name: str) -> dict:
     simple = exception_name.rsplit(".", 1)[-1]
-    unchecked = simple.endswith("RuntimeException") or simple.endswith("Error") or simple in {
-        "NullPointerException",
-        "IllegalArgumentException",
-        "IllegalStateException",
-        "IndexOutOfBoundsException",
-    }
+    unchecked = (
+        simple.endswith("RuntimeException")
+        or simple.endswith("Error")
+        or simple
+        in {
+            "NullPointerException",
+            "IllegalArgumentException",
+            "IllegalStateException",
+            "IndexOutOfBoundsException",
+        }
+    )
     return {
         "name": exception_name,
         "kind": "unchecked_exception" if unchecked else "checked_exception",

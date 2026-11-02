@@ -156,39 +156,27 @@ def repository_revision(root: Path = ROOT) -> str:
     )
     revision = completed.stdout.strip().lower()
     if completed.returncode != 0 or _SHA.fullmatch(revision) is None:
-        raise GitHubOAuthEvidenceGateError(
-            "github_oauth_gate_repository_revision_invalid"
-        )
+        raise GitHubOAuthEvidenceGateError("github_oauth_gate_repository_revision_invalid")
     changed = subprocess.run(
         ("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS),
         cwd=root,
         check=False,
     )
     if changed.returncode != 0:
-        raise GitHubOAuthEvidenceGateError(
-            "github_oauth_gate_bound_sources_dirty"
-        )
+        raise GitHubOAuthEvidenceGateError("github_oauth_gate_bound_sources_dirty")
     return revision
 
 
 def read_oauth_token() -> str:
     if sys.stdin.isatty():
-        raise GitHubOAuthEvidenceGateError(
-            "github_oauth_gate_token_stdin_required"
-        )
+        raise GitHubOAuthEvidenceGateError("github_oauth_gate_token_stdin_required")
     token = sys.stdin.read(4097).strip()
-    if (
-        not token
-        or len(token) > 4096
-        or any(character.isspace() or not character.isprintable() for character in token)
-    ):
+    if not token or len(token) > 4096 or any(character.isspace() or not character.isprintable() for character in token):
         raise GitHubOAuthEvidenceGateError("github_oauth_gate_token_invalid")
     return token
 
 
-def oauth_scope_assessment(
-    scopes: frozenset[str], *, visibility: str
-) -> dict[str, Any]:
+def oauth_scope_assessment(scopes: frozenset[str], *, visibility: str) -> dict[str, Any]:
     normalized = frozenset(str(scope).strip() for scope in scopes if str(scope).strip())
     accepted = frozenset({"repo"} if visibility == "private" else {"public_repo"})
     required_present = bool(normalized & {"repo", "public_repo", "contents:read"})
@@ -199,9 +187,7 @@ def oauth_scope_assessment(
     }
 
 
-def projection_passed(
-    execution: Mapping[str, Any], *, expected_immutable_ref: str
-) -> bool:
+def projection_passed(execution: Mapping[str, Any], *, expected_immutable_ref: str) -> bool:
     return bool(
         execution.get("refresh_status") == "ok"
         and execution.get("immutable_ref") == expected_immutable_ref
@@ -209,8 +195,7 @@ def projection_passed(
         and int(execution["item_count"]) > 0
         and isinstance(execution.get("total_bytes"), int)
         and int(execution["total_bytes"]) > 0
-        and _DIGEST.fullmatch(str(execution.get("manifest_digest") or ""))
-        is not None
+        and _DIGEST.fullmatch(str(execution.get("manifest_digest") or "")) is not None
         and execution.get("credential_ref_opaque") is True
         and execution.get("token_exposed") is False
         and execution.get("revoked_health") == "authorization_required"
@@ -219,9 +204,7 @@ def projection_passed(
 
 
 def _git_version() -> str:
-    completed = subprocess.run(
-        ("git", "--version"), capture_output=True, text=True, check=False
-    )
+    completed = subprocess.run(("git", "--version"), capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         raise GitHubOAuthEvidenceGateError("github_oauth_gate_git_unavailable")
     return completed.stdout.strip()[:160]
@@ -234,9 +217,7 @@ def _prepare_database(database_url: str) -> str:
         "",
         ":memory:",
     }:
-        Path(parsed.database).expanduser().resolve().parent.mkdir(
-            parents=True, exist_ok=True
-        )
+        Path(parsed.database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     return database_url
 
 
@@ -263,15 +244,11 @@ def execute_gate(
         repository=repository,
     )
     provider = GitHubAuthorizationProvisioner(api=api, oauth_grants=grants)
-    resolved = provider.resolve_authorization(
-        GitAuthorizationProvisioningRequest(scope=scope, selection=selection)
-    )
+    resolved = provider.resolve_authorization(GitAuthorizationProvisioningRequest(scope=scope, selection=selection))
     metadata = api.inspect_repository(repository=repository, access_token=token)
     visibility = str(metadata.get("visibility") or "unknown").strip().lower()
     observed_scopes = api.inspect_oauth_scopes(access_token=token)
-    scope_assessment = oauth_scope_assessment(
-        observed_scopes, visibility=visibility
-    )
+    scope_assessment = oauth_scope_assessment(observed_scopes, visibility=visibility)
     record = RegisteredGitAuthorization(
         scope=scope,
         connection_ref=resolved.connection_ref,
@@ -284,9 +261,7 @@ def execute_gate(
         repository=resolved.repository,
     )
     registry = ScopedGitAuthorizationRegistry([record])
-    policy = GitRemoteAccessPolicy(
-        credential_status=_ActiveCredentialStatus(str(record.credential_ref))
-    )
+    policy = GitRemoteAccessPolicy(credential_status=_ActiveCredentialStatus(str(record.credential_ref)))
     secret_resolver = GitHubAppInstallationSecretResolver(
         api=api,
         jwt_issuer=_UnusedAppJwtIssuer(),
@@ -305,12 +280,8 @@ def execute_gate(
         )
         content = HubGitContentProvider(registry=registry, transport=transport)
         connector = GitHubRepositoryConnector(
-            endpoint_provider=HubGitHubRepositoryEndpointProvider(
-                registry=registry
-            ),
-            commit_resolver=HubGitHubCommitResolver(
-                registry=registry, transport=transport
-            ),
+            endpoint_provider=HubGitHubRepositoryEndpointProvider(registry=registry),
+            commit_resolver=HubGitHubCommitResolver(registry=registry, transport=transport),
             remote_policy=policy,
             inventory_provider=content,
             refresh_provider=content,
@@ -329,9 +300,7 @@ def execute_gate(
         immutable_ref = resolved_revision.immutable_ref
         remote_commit = immutable_ref.removeprefix("git-commit:")
         if _SHA.fullmatch(remote_commit) is None:
-            raise GitHubOAuthEvidenceGateError(
-                "github_oauth_gate_remote_revision_invalid"
-            )
+            raise GitHubOAuthEvidenceGateError("github_oauth_gate_remote_revision_invalid")
 
         environment = {
             "schema": "ananta.github-oauth-live-environment.v1",
@@ -360,9 +329,7 @@ def execute_gate(
                 HubRunEvidenceIdentityDB.__table__,
             ],
         )
-        evidence_registry = HubEvidenceRegistryService(
-            SqlEvidenceIdentityRepository(engine)
-        )
+        evidence_registry = HubEvidenceRegistryService(SqlEvidenceIdentityRepository(engine))
         policy_digest = canonical_evidence_digest(
             {
                 "authorization": "github_oauth",
@@ -387,9 +354,7 @@ def execute_gate(
                     "repository": repository,
                 }
             ),
-            execution_profile_digest=canonical_evidence_digest(
-                execution_profile
-            ),
+            execution_profile_digest=canonical_evidence_digest(execution_profile),
             environment_digest=canonical_evidence_digest(environment),
             evidence_scope="external",
             required_scope="external",
@@ -417,9 +382,7 @@ def execute_gate(
         )
 
         def worker(assignment: Mapping[str, Any]) -> Mapping[str, Any]:
-            refreshed = connector.refresh(
-                descriptor, ConnectorRefreshRequest(dry_run=False)
-            )
+            refreshed = connector.refresh(descriptor, ConnectorRefreshRequest(dry_run=False))
             registry.set_authorization_state(
                 scope=scope,
                 connection_ref=HANDLE,
@@ -444,10 +407,7 @@ def execute_gate(
                         str(assignment.get("run_id") or ""),
                     )
                     is not None
-                    and _DIGEST.fullmatch(
-                        str(assignment.get("binding_digest") or "")
-                    )
-                    is not None
+                    and _DIGEST.fullmatch(str(assignment.get("binding_digest") or "")) is not None
                 ),
                 "authorization_kind": record.authorization_kind,
                 "granted_scopes": sorted(record.granted_scopes),
@@ -462,9 +422,7 @@ def execute_gate(
                 "item_count": refreshed.get("item_count"),
                 "total_bytes": refreshed.get("total_bytes"),
                 "exclusions": list(refreshed.get("exclusions") or []),
-                "credential_ref_opaque": str(record.credential_ref).startswith(
-                    "secret://github-oauth/grant/"
-                ),
+                "credential_ref_opaque": str(record.credential_ref).startswith("secret://github-oauth/grant/"),
                 "revoked_health": health.status,
                 "revoked_index_reason": revoked_reason,
                 "token_exposed": False,
@@ -472,21 +430,14 @@ def execute_gate(
             encoded = json.dumps(execution, sort_keys=True)
             execution["token_exposed"] = token in encoded
             execution["passed"] = bool(
-                execution["assignment_bound"]
-                and projection_passed(
-                    execution, expected_immutable_ref=immutable_ref
-                )
+                execution["assignment_bound"] and projection_passed(execution, expected_immutable_ref=immutable_ref)
             )
             execution["reason_code"] = (
-                "github_oauth_live_gate_passed"
-                if execution["passed"]
-                else "github_oauth_live_gate_failed"
+                "github_oauth_live_gate_passed" if execution["passed"] else "github_oauth_live_gate_failed"
             )
             return execution
 
-        outcome = HubEvidenceGateService(evidence_registry).execute(
-            request, worker
-        )
+        outcome = HubEvidenceGateService(evidence_registry).execute(request, worker)
 
     report = {
         "schema": "ananta.hub-evidence-github-oauth-gate-result.v1",

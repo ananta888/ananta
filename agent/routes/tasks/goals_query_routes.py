@@ -1,3 +1,5 @@
+import logging
+
 from flask import g, request
 
 from agent.auth import check_auth, check_strict_auth
@@ -40,11 +42,7 @@ def list_goal_modes():
 @check_auth
 def list_goals():
     return api_response(
-        data=[
-            _goal_service().serialize_goal(goal)
-            for goal in _repos().goal_repo.get_all()
-            if _can_access_goal(goal)
-        ]
+        data=[_goal_service().serialize_goal(goal) for goal in _repos().goal_repo.get_all() if _can_access_goal(goal)]
     )
 
 
@@ -80,11 +78,7 @@ def get_goal_effective_config(goal_id: str):
             "goal_id": str(getattr(goal, "id", "") or ""),
             "config_snapshot": snapshot,
             "provenance": dict(
-                execution_preferences.get(
-                    "config_snapshot_provenance"
-                )
-                or snapshot.get("provenance")
-                or {}
+                execution_preferences.get("config_snapshot_provenance") or snapshot.get("provenance") or {}
             ),
             "config_checksum": str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
             "config_snapshot_hash": str(execution_preferences.get("config_snapshot_hash") or "").strip() or None,
@@ -222,6 +216,7 @@ def goal_gate_human_decision(goal_id: str, gate_task_id: str):
         HumanApprovalForbidden,
         submit_human_decision_via_repo,
     )
+
     try:
         block = submit_human_decision_via_repo(
             goal_id=goal_id,
@@ -266,6 +261,7 @@ def goal_workflow_status(goal_id: str):
     produced_artifact_keys: list = []
     try:
         from agent.artifacts.goal_artifact_service import GoalArtifactService
+
         graph = GoalArtifactService().get_goal_graph(goal_id)
         for output in list(graph.get("output_artifacts") or []):
             if isinstance(output, dict):
@@ -279,7 +275,7 @@ def goal_workflow_status(goal_id: str):
                             if isinstance(prod, str):
                                 produced_artifact_keys.append(prod)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("goal_workflow_status: ignored Exception", exc_info=True)
     if str(request.args.get("debug") or "").strip() in {"1", "true", "yes"}:
         text = debug_workflow_status(
             goal_id=goal_id,
@@ -313,6 +309,7 @@ def purge_goal(goal_id: str):
     from agent.services.recovery_task_mutation_policy import (
         RecoveryTaskMutationConflict,
     )
+
     goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal:
         return api_response(data={"goal_id": goal_id, "already_deleted": True, "deleted_total": 0})
@@ -320,14 +317,11 @@ def purge_goal(goal_id: str):
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
-    include_prompt_traces = (
-        str(
-            request.args.get("include_prompt_traces", "1")
-        )
-        .strip()
-        .lower()
-        not in {"0", "false", "no"}
-    )
+    include_prompt_traces = str(request.args.get("include_prompt_traces", "1")).strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
     try:
         result = get_goal_purge_service().purge_goal(
             goal_id,
@@ -366,11 +360,7 @@ def _guard_vector_request_kill(
     goal_id: str | None = None,
     global_scope: bool,
 ):
-    tasks = (
-        _repos().task_repo.get_all()
-        if global_scope
-        else _repos().task_repo.get_by_goal_id(str(goal_id or ""))
-    )
+    tasks = _repos().task_repo.get_all() if global_scope else _repos().task_repo.get_by_goal_id(str(goal_id or ""))
     try:
         get_vector_task_admin_guard_service().require_authorized_tasks_if_vector(
             tasks=tasks,
@@ -394,6 +384,7 @@ def _guard_vector_request_kill(
 @check_strict_auth
 def kill_goal_requests(goal_id: str):
     from agent.services.request_cancellation_service import get_request_cancellation_service
+
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     goal_id_norm = str(goal_id or "").strip()
@@ -413,6 +404,7 @@ def kill_goal_requests(goal_id: str):
 @check_strict_auth
 def kill_goal_requests_internal(goal_id: str):
     from agent.services.request_cancellation_service import get_request_cancellation_service
+
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         return api_response(status="error", message="goal_id required", code=400)
@@ -430,6 +422,7 @@ def kill_goal_requests_internal(goal_id: str):
 @check_strict_auth
 def kill_all_requests():
     from agent.services.request_cancellation_service import get_request_cancellation_service
+
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     vector_error = _guard_vector_request_kill(
@@ -445,6 +438,7 @@ def kill_all_requests():
 @check_strict_auth
 def kill_all_requests_internal():
     from agent.services.request_cancellation_service import get_request_cancellation_service
+
     vector_error = _guard_vector_request_kill(
         global_scope=True,
     )

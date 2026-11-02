@@ -9,9 +9,15 @@ from worker.meet_media.companion_native_sequence import NativeCompanionSequence
 
 
 def owner():
-    return SimpleNamespace(page=SimpleNamespace(evaluate=Mock()), renew=Mock(), pump=SimpleNamespace(last_renew=0),
-        client=SimpleNamespace(assignment={"session_id": "synthetic"}), avatar_generation=None,
-        sequence_active=False, controls=SimpleNamespace(state={"controls": {"avatar": {"enabled": True}}}))
+    return SimpleNamespace(
+        page=SimpleNamespace(evaluate=Mock()),
+        renew=Mock(),
+        pump=SimpleNamespace(last_renew=0),
+        client=SimpleNamespace(assignment={"session_id": "synthetic"}),
+        avatar_generation=None,
+        sequence_active=False,
+        controls=SimpleNamespace(state={"controls": {"avatar": {"enabled": True}}}),
+    )
 
 
 def test_prepare_validates_probe_hub_renewal_and_exact_ready_receipt():
@@ -19,7 +25,8 @@ def test_prepare_validates_probe_hub_renewal_and_exact_ready_receipt():
     instance.page.evaluate.side_effect = [
         {"schema": "ananta.meet-avatar-sequence-probe.v1", "profile": "persona-sequence-v1", "supported": True},
         {"schema": "ananta.meet-avatar-sequence-preparation.v1", "id": 1},
-        {"schema": "ananta.meet-avatar-sequence-status.v1", "id": 1, "state": "ready"}]
+        {"schema": "ananta.meet-avatar-sequence-status.v1", "id": 1, "state": "ready"},
+    ]
     adapter = NativeCompanionSequence(instance)
     assert adapter.prepare({"synthetic": True}, cooperate=Mock()) == 1
     instance.renew.assert_called_once()
@@ -28,7 +35,10 @@ def test_prepare_validates_probe_hub_renewal_and_exact_ready_receipt():
 def test_hub_denial_prevents_any_native_preparation():
     instance = owner()
     instance.page.evaluate.return_value = {
-        "schema": "ananta.meet-avatar-sequence-probe.v1", "profile": "persona-sequence-v1", "supported": True}
+        "schema": "ananta.meet-avatar-sequence-probe.v1",
+        "profile": "persona-sequence-v1",
+        "supported": True,
+    }
     instance.renew.side_effect = ValueError("synthetic_hub_denial")
     with pytest.raises(ValueError, match="synthetic_hub_denial"):
         NativeCompanionSequence(instance).prepare({}, cooperate=Mock())

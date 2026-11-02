@@ -9,9 +9,9 @@ Covers:
 - Workspace boundary enforcement
 - Cross-workspace isolation
 """
+
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -23,14 +23,15 @@ from agent.services.context_file_reader_service import (
 )
 from client_surfaces.operator_tui.tools.filesystem_read_tool import FilesystemReadTool
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _service_for(root: str) -> ContextFileReaderService:
     return ContextFileReaderService(policy=FileReadPolicy(workspace_root=root))
 
 
 # ── Path traversal ────────────────────────────────────────────────────────────
+
 
 def test_path_traversal_dotdot_blocked():
     with tempfile.TemporaryDirectory() as root:
@@ -65,6 +66,7 @@ def test_path_within_workspace_allowed():
 
 # ── Symlink outside workspace ─────────────────────────────────────────────────
 
+
 def test_symlink_outside_workspace_blocked():
     with tempfile.TemporaryDirectory() as root:
         link = Path(root) / "escape.py"
@@ -77,16 +79,20 @@ def test_symlink_outside_workspace_blocked():
 
 # ── Secret file patterns (denied globs) ──────────────────────────────────────
 
-@pytest.mark.parametrize("secret_path", [
-    ".env",
-    ".env.production",
-    "secrets.yaml",
-    "credentials.json",
-    "token.txt",
-    "id_rsa",
-    "server.key",
-    "cert.pem",
-])
+
+@pytest.mark.parametrize(
+    "secret_path",
+    [
+        ".env",
+        ".env.production",
+        "secrets.yaml",
+        "credentials.json",
+        "token.txt",
+        "id_rsa",
+        "server.key",
+        "cert.pem",
+    ],
+)
 def test_denied_glob_blocks_secret_files(secret_path: str):
     with tempfile.TemporaryDirectory() as root:
         svc = _service_for(root)
@@ -110,6 +116,7 @@ def test_pycache_pyc_blocked():
 
 # ── Extension filtering ───────────────────────────────────────────────────────
 
+
 def test_disallowed_extension_blocked():
     with tempfile.TemporaryDirectory() as root:
         bad = Path(root) / "payload.exe"
@@ -129,6 +136,7 @@ def test_allowed_extension_passes():
 
 
 # ── Binary file handling ──────────────────────────────────────────────────────
+
 
 def test_binary_py_file_skipped_without_allow_binary():
     with tempfile.TemporaryDirectory() as root:
@@ -152,6 +160,7 @@ def test_binary_allowed_when_policy_allows():
 
 # ── File size limits ──────────────────────────────────────────────────────────
 
+
 def test_oversized_file_truncated():
     with tempfile.TemporaryDirectory() as root:
         big = Path(root) / "big.py"
@@ -165,6 +174,7 @@ def test_oversized_file_truncated():
 
 # ── Missing files ─────────────────────────────────────────────────────────────
 
+
 def test_missing_file_returns_error_result():
     with tempfile.TemporaryDirectory() as root:
         svc = _service_for(root)
@@ -174,6 +184,7 @@ def test_missing_file_returns_error_result():
 
 
 # ── Batch reads ───────────────────────────────────────────────────────────────
+
 
 def test_read_files_skip_errors_default():
     with tempfile.TemporaryDirectory() as root:
@@ -195,6 +206,7 @@ def test_read_files_raise_on_errors():
 
 
 # ── read_required_files ───────────────────────────────────────────────────────
+
 
 def test_read_required_files_only_reads_requires_read_true():
     with tempfile.TemporaryDirectory() as root:
@@ -222,6 +234,7 @@ def test_read_required_files_drops_error_results():
 
 
 # ── Cross-workspace isolation ─────────────────────────────────────────────────
+
 
 def test_two_workspaces_cannot_cross_read():
     with tempfile.TemporaryDirectory() as ws1, tempfile.TemporaryDirectory() as ws2:
@@ -264,6 +277,7 @@ def test_snakechat_filesystem_tool_prefix_sibling_absolute_path_blocked():
 
 def test_sha256_computed_correctly():
     import hashlib
+
     with tempfile.TemporaryDirectory() as root:
         f = Path(root) / "check.py"
         content = b"print('hello')\n"

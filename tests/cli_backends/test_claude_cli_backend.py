@@ -16,6 +16,7 @@ Acceptance criteria covered (todo.subscription-cli-adapters-codex-claude):
 * COMMON-005: all tests run with mock binaries, no real accounts,
   no ANTHROPIC_API_KEY needed.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -24,10 +25,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # shared mock helpers (same style as tests/cli_backends/test_codex_cli_auth_mode.py)
 # ---------------------------------------------------------------------------
+
 
 def _fake_settings(
     *,
@@ -89,6 +90,7 @@ def _completed(rc: int = 0, stdout: str = "OK", stderr: str = "") -> MagicMock:
 # ---------------------------------------------------------------------------
 # CLA-001 / resolve_claude_runtime_config
 # ---------------------------------------------------------------------------
+
 
 def test_resolve_claude_runtime_config_defaults_are_safe():
     """Default: disabled, claude_login, no api_key requirement,
@@ -152,9 +154,7 @@ def test_resolve_claude_runtime_config_accepts_supported_permission_modes(
 ):
     from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-    app = _fake_app(
-        {"claude_cli": {"enabled": True, "permission_mode": permission_mode}}
-    )
+    app = _fake_app({"claude_cli": {"enabled": True, "permission_mode": permission_mode}})
     settings = _fake_settings()
     with app.app_context():
         result = resolve_claude_runtime_config(backend_settings=settings)
@@ -165,9 +165,7 @@ def test_resolve_claude_runtime_config_accepts_supported_permission_modes(
 def test_resolve_claude_runtime_config_maps_legacy_default_to_manual():
     from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-    app = _fake_app(
-        {"claude_cli": {"enabled": True, "permission_mode": "default"}}
-    )
+    app = _fake_app({"claude_cli": {"enabled": True, "permission_mode": "default"}})
     settings = _fake_settings()
     with app.app_context():
         result = resolve_claude_runtime_config(backend_settings=settings)
@@ -189,6 +187,7 @@ def test_resolve_claude_runtime_config_bounds_timeout_and_concurrency():
 # ---------------------------------------------------------------------------
 # CLA-001 / run_claude_command
 # ---------------------------------------------------------------------------
+
 
 def test_run_claude_command_disabled_returns_clear_error():
     from agent.cli_backends.opencode import run_claude_command
@@ -228,9 +227,12 @@ def test_run_claude_command_claude_login_strips_anthropic_api_key_from_env():
         captured["shell"] = kwargs.get("shell", False)
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
-         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-should-not-leak"}, clear=False), \
-         patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"),
+        patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-should-not-leak"}, clear=False),
+        patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture),
+    ):
         rc, out, err = run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert rc == 0
     assert "ANTHROPIC_API_KEY" not in captured["env"]
@@ -250,9 +252,12 @@ def test_run_claude_command_api_key_mode_injects_settings_key():
         captured["env"] = kwargs.get("env")
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
-         patch.dict("os.environ", {}, clear=False), \
-         patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"),
+        patch.dict("os.environ", {}, clear=False),
+        patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture),
+    ):
         import os
 
         os.environ.pop("ANTHROPIC_API_KEY", None)
@@ -272,8 +277,11 @@ def test_run_claude_command_default_model_sentinel_skips_model_flag():
         captured["args"] = args
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
-         patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"),
+        patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture),
+    ):
         run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert "--model" not in captured["args"]
     assert "--permission-mode" in captured["args"]
@@ -291,8 +299,11 @@ def test_run_claude_command_explicit_model_is_passed():
         captured["args"] = args
         return _completed()
 
-    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
-         patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"),
+        patch("agent.cli_backends.opencode.subprocess.run", side_effect=_capture),
+    ):
         run_claude_command("analyse this", model="claude-sonnet-5", timeout=10, backend_settings=settings)
     idx = captured["args"].index("--model")
     assert captured["args"][idx + 1] == "claude-sonnet-5"
@@ -305,11 +316,14 @@ def test_run_claude_command_timeout_maps_to_clean_error():
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"), \
-         patch(
-             "agent.cli_backends.opencode.subprocess.run",
-             side_effect=real_subprocess.TimeoutExpired(cmd="claude", timeout=10),
-         ):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "agent.cli_backends.opencode.subprocess.run",
+            side_effect=real_subprocess.TimeoutExpired(cmd="claude", timeout=10),
+        ),
+    ):
         rc, out, err = run_claude_command("analyse this", timeout=10, backend_settings=settings)
     assert rc == -1
     assert err == "Timeout"
@@ -345,6 +359,7 @@ def test_run_claude_command_source_has_no_shell_true():
 # CLA-002 / preflight + login command
 # ---------------------------------------------------------------------------
 
+
 def test_claude_login_command_for_mode():
     from agent.cli_backends.routing import _claude_login_command_for_mode
 
@@ -360,9 +375,11 @@ def test_preflight_contains_claude_provider_block():
 
     app = _fake_app({"claude_cli": {"enabled": True, "auth_mode": "claude_login"}})
     settings = _fake_settings()
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"),
+    ):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
     assert claude["enabled"] is True
@@ -379,9 +396,11 @@ def test_preflight_claude_not_installed_shows_hint_without_error():
 
     app = _fake_app({})
     settings = _fake_settings()
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value=None):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value=None),
+    ):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
     assert claude["enabled"] is False
@@ -397,9 +416,11 @@ def test_preflight_claude_api_key_mode_has_no_login_command():
 
     app = _fake_app({"claude_cli": {"enabled": True, "auth_mode": "api_key"}})
     settings = _fake_settings(anthropic_api_key="sk-x")
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"),
+    ):
         preflight = get_cli_backend_preflight(runtime_scope="worker")
     claude = preflight["providers"]["claude"]
     assert claude["auth_mode"] == "api_key"
@@ -411,13 +432,13 @@ def test_preflight_claude_api_key_mode_has_no_login_command():
 # COMMON-002 / routing gate
 # ---------------------------------------------------------------------------
 
+
 def test_choose_candidates_auto_excludes_disabled_claude():
     from agent.cli_backends.routing import _choose_candidates
 
     app = _fake_app({})
     settings = _fake_settings()
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings):
+    with app.app_context(), patch("agent.cli_backends.routing.settings", settings):
         candidates = _choose_candidates(requested="auto", prompt="hello")
     assert "claude_code" not in candidates
 
@@ -427,9 +448,11 @@ def test_choose_candidates_auto_excludes_enabled_installed_claude_without_paid_f
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"),
+    ):
         candidates = _choose_candidates(requested="auto", prompt="hello")
     assert "claude_code" not in candidates
 
@@ -439,9 +462,11 @@ def test_choose_candidates_auto_includes_enabled_installed_claude_when_paid_fall
 
     app = _fake_app({"claude_cli": {"enabled": True}})
     settings = _fake_settings()
-    with app.app_context(), \
-         patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
+    with (
+        app.app_context(),
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"),
+    ):
         candidates = _choose_candidates(
             requested="auto",
             prompt="hello",
@@ -473,6 +498,7 @@ def test_worker_selection_policy_treats_codex_and_claude_as_expensive():
 # ---------------------------------------------------------------------------
 # CLA-001 / registration surfaces
 # ---------------------------------------------------------------------------
+
 
 def test_claude_code_is_registered_everywhere():
     from agent.backend_provider_contracts import BACKEND_PROVIDER_CONTRACTS
@@ -526,12 +552,15 @@ def test_config_defaults_claude_cli_block_is_opt_in():
 # COMMON-003 / diagnose helper + API endpoints
 # ---------------------------------------------------------------------------
 
+
 def test_diagnose_cli_backend_not_installed():
     from agent.cli_backends.routing import diagnose_cli_backend
 
     settings = _fake_settings()
-    with patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value=None):
+    with (
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value=None),
+    ):
         result = diagnose_cli_backend("claude_code")
     assert result["status"] == "not_installed"
     assert result["install_hint"] == "npm i -g @anthropic-ai/claude-code"
@@ -542,9 +571,11 @@ def test_diagnose_cli_backend_ready_with_mock_binary():
     from agent.cli_backends.routing import diagnose_cli_backend
 
     settings = _fake_settings()
-    with patch("agent.cli_backends.routing.settings", settings), \
-         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"), \
-         patch("subprocess.run", return_value=_completed(0, "1.2.3", "")):
+    with (
+        patch("agent.cli_backends.routing.settings", settings),
+        patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"),
+        patch("subprocess.run", return_value=_completed(0, "1.2.3", "")),
+    ):
         result = diagnose_cli_backend("claude_code")
     assert result["status"] == "ready"
     assert result["version_probe"]["rc"] == 0
@@ -603,7 +634,6 @@ def test_backend_test_run_endpoint_uses_requested_backend(client, admin_auth_hea
 # COMMON-001 follow-up / write_armed + diff review
 # ---------------------------------------------------------------------------
 
-import os
 import stat
 import subprocess as _subprocess
 
@@ -616,7 +646,9 @@ def _init_git_repo(path) -> None:
         _subprocess.run(cmd, cwd=str(path), check=True, capture_output=True)
     _subprocess.run(
         ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init", "--allow-empty"],
-        cwd=str(path), check=True, capture_output=True,
+        cwd=str(path),
+        check=True,
+        capture_output=True,
     )
 
 

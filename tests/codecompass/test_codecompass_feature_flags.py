@@ -1,16 +1,12 @@
 """DD-015 + CRG-001/RIG-001: feature flags default off, opt-in via env."""
-from __future__ import annotations
 
-import os
+from __future__ import annotations
 
 import pytest
 
-from agent.feature_flags import all_flags, is_enabled
 from agent.feature_flags import (
-    codecompass_crg,
-    codecompass_rig,
-    codecompass_spade,
-    codecompass_sqlite,
+    all_flags,
+    is_enabled,
 )
 
 

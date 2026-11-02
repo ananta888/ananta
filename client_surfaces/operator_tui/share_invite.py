@@ -4,6 +4,7 @@ Invite enthält: session_id, rendezvous_url, oidc_issuer, owner_device_fingerpri
                 expires_at, allowed_permissions.
 Keine privaten Schlüssel, keine Bearer-Tokens.
 """
+
 from __future__ import annotations
 
 import base64
@@ -11,8 +12,6 @@ import json
 import secrets
 import time
 from typing import Any
-from urllib.parse import urlencode, urlparse
-
 
 _DEFAULT_INVITE_TTL = 24 * 3600  # 24h
 
@@ -75,7 +74,8 @@ def parse_invite(raw: str) -> dict[str, Any] | None:
     # ananta:// Link
     if raw.startswith("ananta://"):
         try:
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
+
             parsed = urlparse(raw)
             qs = parse_qs(parsed.query)
             p = (qs.get("p") or [""])[0]
@@ -94,7 +94,15 @@ def parse_invite(raw: str) -> dict[str, Any] | None:
 
 
 def _validate_invite(invite: dict[str, Any]) -> dict[str, Any] | None:
-    required = {"version", "session_id", "rendezvous_url", "oidc_issuer", "owner_device_fingerprint", "expires_at", "allowed_permissions"}
+    required = {
+        "version",
+        "session_id",
+        "rendezvous_url",
+        "oidc_issuer",
+        "owner_device_fingerprint",
+        "expires_at",
+        "allowed_permissions",
+    }
     if not all(k in invite for k in required):
         return None
     if float(invite.get("expires_at", 0)) < time.time():

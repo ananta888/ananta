@@ -259,10 +259,7 @@ def _validated(settings: dict[str, Any]) -> dict[str, Any]:
             out[key] = {
                 str(item_key): str(item_value)
                 for item_key, item_value in value.items()
-                if isinstance(item_key, str)
-                and isinstance(item_value, str)
-                and item_key
-                and item_value
+                if isinstance(item_key, str) and isinstance(item_value, str) and item_key and item_value
             }
     return out
 
@@ -314,10 +311,7 @@ def _extract_settings(settings: dict[str, Any]) -> dict[str, Any]:
         out["chat_active_session_ids"] = {
             str(key): str(value)
             for key, value in raw_active_ids.items()
-            if isinstance(key, str)
-            and isinstance(value, str)
-            and key
-            and value
+            if isinstance(key, str) and isinstance(value, str) and key and value
         }
     # Persist structured chat collections if provided directly.  These are
     # deliberately copied as JSON values here and validated again by the

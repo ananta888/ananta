@@ -61,16 +61,12 @@ def compute_post_processing(
     returns the per-mode data needed for the manifest dict.
     """
     error_entries = collect_error_entries(manifest_files)
-    duplicate_report, duplicate_relations = build_duplicate_report(
-        all_index, limits.duplicate_detection_mode
-    )
-    specialized_details, specialized_relations, specialized_stats = (
-        build_specialized_chunks(
-            all_index,
-            all_details,
-            limits.specialized_chunker_mode,
-            limits.embedding_text_mode,
-        )
+    duplicate_report, duplicate_relations = build_duplicate_report(all_index, limits.duplicate_detection_mode)
+    specialized_details, specialized_relations, specialized_stats = build_specialized_chunks(
+        all_index,
+        all_details,
+        limits.specialized_chunker_mode,
+        limits.embedding_text_mode,
     )
     summary_records, summary_stats = build_summary_records(
         all_index,
@@ -104,9 +100,7 @@ def compute_post_processing(
         all_relations,
         limits.gem_partition_mode,
     )
-    xml_overview_records = build_xml_overview_records(
-        all_index, limits.xml_overview_mode
-    )
+    xml_overview_records = build_xml_overview_records(all_index, limits.xml_overview_mode)
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = (
         build_graph_nodes(all_index, all_details, limits.graph_export_mode)
@@ -176,9 +170,7 @@ def build_manifest_dict(
         "embedding_record_count": len(build_embedding_records(all_index))
         if limits.retrieval_output_mode in {"split", "both"}
         else 0,
-        "context_record_count": len(
-            build_context_records(all_details, limits.context_output_mode)
-        )
+        "context_record_count": len(build_context_records(all_details, limits.context_output_mode))
         if limits.retrieval_output_mode in {"split", "both"}
         else 0,
         "graph_node_count": len(graph_nodes),
@@ -187,9 +179,7 @@ def build_manifest_dict(
         "duplicate_detection": duplicate_report,
         "specialized_chunks": specialized_stats,
         "summary_records": summary_stats,
-        "record_counts_by_kind": count_records_by_kind(
-            all_index, all_details, all_relations
-        ),
+        "record_counts_by_kind": count_records_by_kind(all_index, all_details, all_relations),
         "cache_file": str(cache_file),
         "cache_enabled": cache_enabled,
         "cache_rebuilt": rebuild,
@@ -220,9 +210,7 @@ def build_manifest_dict(
         "package_type_index": {k: sorted(v) for k, v in known_package_types.items()},
         "output_bundle": {
             "mode": limits.output_bundle_mode,
-            "path": str(out_dir / "output_bundle.zip")
-            if limits.output_bundle_mode == "zip"
-            else None,
+            "path": str(out_dir / "output_bundle.zip") if limits.output_bundle_mode == "zip" else None,
         },
         "partitioned_outputs": {
             "mode": limits.output_partition_mode,

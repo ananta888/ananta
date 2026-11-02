@@ -128,9 +128,7 @@ def test_stream_final_uses_creation_snapshot_when_profile_changes_mid_stream(
         "state": "created",
         "max_audio_seconds": kwargs["max_audio_seconds"],
     }
-    provider.finalize_stream.return_value = {
-        "event": {"event_type": "final", "payload": {"result": _result()}}
-    }
+    provider.finalize_stream.return_value = {"event": {"event_type": "final", "payload": {"result": _result()}}}
     corrector = Mock()
     corrector.apply.return_value = VoiceGenerativeCorrectorOutcome(
         result=_corrected(_result(), "gemma-2b-it"),
@@ -153,13 +151,16 @@ def test_stream_final_uses_creation_snapshot_when_profile_changes_mid_stream(
             },
         )
         assert created.status_code == 201
-        assert _configure(
-            client,
-            admin_auth_header,
-            profile_id,
-            "phi-3-mini-instruct",
-            expected_version=1,
-        ).status_code == 200
+        assert (
+            _configure(
+                client,
+                admin_auth_header,
+                profile_id,
+                "phi-3-mini-instruct",
+                expected_version=1,
+            ).status_code
+            == 200
+        )
         session_id = created.get_json()["data"]["stream"]["session_id"]
         final = client.post(
             f"/v1/voice/streams/{session_id}/finalize",
@@ -193,7 +194,8 @@ def test_capability_is_not_advertised_when_configured_model_is_not_worker_ready(
     with (
         override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
         override_voice_route(
-            client.application, "generative_corrector_capability_bundle",
+            client.application,
+            "generative_corrector_capability_bundle",
             return_value={
                 "correction_models": [missing_model],
                 "correction_providers": [],
@@ -224,13 +226,16 @@ def test_batch_resolves_inherit_from_general_llm_configuration_at_the_hub_bounda
         **dict(app.config.get("AGENT_CONFIG") or {}),
         "llm_config": {"provider": "ollama", "model": "qwen2.5:7b"},
     }
-    assert _configure(
-        client,
-        admin_auth_header,
-        profile_id,
-        "",
-        provider_id="inherit",
-    ).status_code == 200
+    assert (
+        _configure(
+            client,
+            admin_auth_header,
+            profile_id,
+            "",
+            provider_id="inherit",
+        ).status_code
+        == 200
+    )
     provider = Mock()
     provider.transcribe.return_value = _result()
     corrector = Mock()

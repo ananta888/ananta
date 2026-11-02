@@ -6,14 +6,14 @@ from unittest.mock import patch
 
 import pytest
 
-from client_surfaces.operator_tui.config.user_config_manager import (
-    UserConfigManager,
-    reset_manager,
-    _SCHEMA_KEYS,
-)
 from client_surfaces.operator_tui.ai_snake_config_view import (
     ai_snake_config_items,
     apply_ai_snake_config_value,
+)
+from client_surfaces.operator_tui.config.user_config_manager import (
+    _SCHEMA_KEYS,
+    UserConfigManager,
+    reset_manager,
 )
 
 
@@ -37,6 +37,7 @@ def _project_json(tmp_path: Path) -> dict:
 
 
 # ── Immediate write on change ─────────────────────────────────────────────────
+
 
 def test_changing_chat_backend_writes_project_json(tmp_path):
     game: dict = {}
@@ -71,6 +72,7 @@ def test_partial_change_does_not_corrupt_json(tmp_path):
 
 # ── Reload restores settings ──────────────────────────────────────────────────
 
+
 def test_reload_restores_changed_backend(tmp_path):
     game: dict = {}
     apply_ai_snake_config_value(game, key="chat_backend", value="opencode")
@@ -92,25 +94,51 @@ def test_reload_restores_memory_settings(tmp_path):
 
 # ── All persistent keys are schema-compliant ──────────────────────────────────
 
+
 def test_all_config_items_have_schema_keys():
     items = ai_snake_config_items({})
-    real_keys = {i["key"] for i in items if i["key"] not in {
-        "visual_enabled", "chat_panel_open", "visual_provider", "visual_codecompass",
-        "chat_backend", "chat_model", "chat_api_base", "chat_ask_timeout_s",
-        "chat_source_pack_id", "chat_context_chars", "chat_max_tokens",
-        "chat_rag_top_k", "chat_answer_chars",
-    }}
+    {
+        i["key"]
+        for i in items
+        if i["key"]
+        not in {
+            "visual_enabled",
+            "chat_panel_open",
+            "visual_provider",
+            "visual_codecompass",
+            "chat_backend",
+            "chat_model",
+            "chat_api_base",
+            "chat_ask_timeout_s",
+            "chat_source_pack_id",
+            "chat_context_chars",
+            "chat_max_tokens",
+            "chat_rag_top_k",
+            "chat_answer_chars",
+        }
+    }
     # Memory keys should all be in schema
-    memory_keys = {"chat_use_history", "chat_history_turns", "chat_history_chars",
-                   "chat_use_summary", "chat_summary_chars", "chat_summary_update_every_turns",
-                   "chat_pass_memory_to_worker", "chat_worker_mode", "chat_backend_fallback",
-                   "chat_include_runtime_status", "chat_retrieval_profile",
-                   "chat_retrieval_domain_hint", "chat_code_questions_repo_first",
-                   "chat_architecture_analysis_mode"}
+    memory_keys = {
+        "chat_use_history",
+        "chat_history_turns",
+        "chat_history_chars",
+        "chat_use_summary",
+        "chat_summary_chars",
+        "chat_summary_update_every_turns",
+        "chat_pass_memory_to_worker",
+        "chat_worker_mode",
+        "chat_backend_fallback",
+        "chat_include_runtime_status",
+        "chat_retrieval_profile",
+        "chat_retrieval_domain_hint",
+        "chat_code_questions_repo_first",
+        "chat_architecture_analysis_mode",
+    }
     assert memory_keys.issubset(_SCHEMA_KEYS)
 
 
 # ── Flush on exit ─────────────────────────────────────────────────────────────
+
 
 def test_flush_writes_both_files(tmp_path):
     global_path = tmp_path / "global_user.json"
@@ -131,6 +159,7 @@ def test_flush_writes_both_files(tmp_path):
 def test_flush_survives_write_error():
     """flush() must not raise even if both files are unwritable."""
     from client_surfaces.operator_tui.config.user_config_manager import flush_user_config
+
     game = {"chat_backend": "lmstudio"}
     with patch("client_surfaces.operator_tui.config.user_config_manager._write_atomic", return_value=False):
         p_ok, g_ok = flush_user_config(game, cwd=Path("/nonexistent/path/xyz"))

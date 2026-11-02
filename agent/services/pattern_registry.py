@@ -24,7 +24,6 @@ from typing import Dict, List, Optional, Tuple
 
 from agent.services.pattern_service import PatternService, get_pattern_service
 
-
 DEFAULT_OVERLAY_PATH = "./schemas/patterns/runtime_overlay.v1.json"
 
 
@@ -43,9 +42,7 @@ class PatternRegistry:
         overlay_path: Optional[str] = None,
     ) -> None:
         self._service = service or get_pattern_service()
-        self._overlay_path = overlay_path or os.environ.get(
-            "ANANTA_PATTERN_RUNTIME_OVERLAY", DEFAULT_OVERLAY_PATH
-        )
+        self._overlay_path = overlay_path or os.environ.get("ANANTA_PATTERN_RUNTIME_OVERLAY", DEFAULT_OVERLAY_PATH)
         self._lock = threading.RLock()
 
     # --- catalog access -------------------------------------------------
@@ -89,9 +86,7 @@ class PatternRegistry:
             # the caller's responsibility; we keep registry strict).
             for existing in overlay:
                 if existing.get("pattern_id") == pattern.get("pattern_id"):
-                    return False, [
-                        f"pattern_id '{pattern.get('pattern_id')}' already exists in overlay"
-                    ]
+                    return False, [f"pattern_id '{pattern.get('pattern_id')}' already exists in overlay"]
             overlay.append(pattern)
             self._write_overlay(overlay)
         return True, []

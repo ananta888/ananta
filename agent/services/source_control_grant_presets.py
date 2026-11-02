@@ -47,17 +47,11 @@ class SourceControlGrantPresetCatalog:
 
     def get(self, preset_id: str) -> GrantPreset | None:
         return next(
-            (
-                preset
-                for preset in self._PRESETS
-                if preset.preset_id == preset_id
-            ),
+            (preset for preset in self._PRESETS if preset.preset_id == preset_id),
             None,
         )
 
-    def matching_id(
-        self, *, operation: str, transformation: str, purpose: str
-    ) -> str | None:
+    def matching_id(self, *, operation: str, transformation: str, purpose: str) -> str | None:
         return next(
             (
                 preset.preset_id

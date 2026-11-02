@@ -66,9 +66,7 @@ def test_hub_probe_rejects_unregistered_url(client, admin_auth_header, monkeypat
     assert response.json["message"] == "registered_worker_required"
 
 
-def test_hub_resolves_lan_display_name_from_registered_container_hostname(
-    client, admin_auth_header, monkeypatch
-):
+def test_hub_resolves_lan_display_name_from_registered_container_hostname(client, admin_auth_header, monkeypatch):
     worker = SimpleNamespace(
         name="ananta-worker-2",
         url="http://ai-agent-beta:5000",
@@ -105,6 +103,4 @@ def test_hub_resolves_lan_display_name_from_registered_container_hostname(
 
     assert response.status_code == 200
     assert response.json["data"]["worker"]["name"] == "ananta-worker-2"
-    assert http.get.call_args_list[0].args[0] == (
-        "http://ai-agent-beta:5000/health?basic=1"
-    )
+    assert http.get.call_args_list[0].args[0] == ("http://ai-agent-beta:5000/health?basic=1")

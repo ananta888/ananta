@@ -5,4 +5,3 @@ from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisu
 __all__ = [
     "TerminalVisualCapabilities",
 ]
-

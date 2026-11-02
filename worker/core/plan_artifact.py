@@ -38,8 +38,12 @@ def build_plan_artifact(*, task_id: str, profile: str, steps: list[dict[str, Any
             title=str(raw.get("title") or f"Step {index}").strip(),
             depends_on=tuple(str(item).strip() for item in list(raw.get("depends_on") or []) if str(item).strip()),
             state=state,
-            required_tools=tuple(str(item).strip() for item in list(raw.get("required_tools") or []) if str(item).strip()),
-            expected_artifacts=tuple(str(item).strip() for item in list(raw.get("expected_artifacts") or []) if str(item).strip()),
+            required_tools=tuple(
+                str(item).strip() for item in list(raw.get("required_tools") or []) if str(item).strip()
+            ),
+            expected_artifacts=tuple(
+                str(item).strip() for item in list(raw.get("expected_artifacts") or []) if str(item).strip()
+            ),
         )
         normalized_steps.append(plan_step.as_dict())
     return {
@@ -60,4 +64,3 @@ def update_plan_step_state(*, plan_artifact: dict[str, Any], step_id: str, state
             step["state"] = normalized_state
             return updated
     raise ValueError(f"plan_step_not_found:{step_id}")
-

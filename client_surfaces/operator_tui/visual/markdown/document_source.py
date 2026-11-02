@@ -51,11 +51,7 @@ def resolve_source(
 
     if source.kind == "file":
         path = Path(source.content_or_ref).expanduser().resolve()
-        roots = (
-            [Path(r).expanduser().resolve() for r in allowed_roots]
-            if allowed_roots
-            else [Path.cwd().resolve()]
-        )
+        roots = [Path(r).expanduser().resolve() for r in allowed_roots] if allowed_roots else [Path.cwd().resolve()]
         if not any(_is_within(path, root) for root in roots):
             return "", f"file {path} outside allowed roots"
         try:

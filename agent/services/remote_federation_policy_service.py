@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 TRUST_LEVELS = ("untrusted", "partner", "trusted-internal", "local-equivalent")
 
 _DEFAULT_POLICY = {
@@ -58,7 +57,9 @@ class RemoteFederationPolicyService:
 
     def resolve_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
         cfg = cfg if isinstance(cfg, dict) else {}
-        return self.normalize_policy(cfg.get("remote_federation_policy") if isinstance(cfg.get("remote_federation_policy"), dict) else {})
+        return self.normalize_policy(
+            cfg.get("remote_federation_policy") if isinstance(cfg.get("remote_federation_policy"), dict) else {}
+        )
 
     def normalize_backend(self, backend: dict[str, Any], *, cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         policy = self.resolve_policy(cfg)
@@ -98,7 +99,9 @@ class RemoteFederationPolicyService:
             return RemoteFederationDecision(False, "remote_provenance_required", policy)
         return RemoteFederationDecision(True, "ok", policy)
 
-    def provenance_headers(self, *, local_instance_id: str | None, trace_id: str | None, hop_count: int = 0) -> dict[str, str]:
+    def provenance_headers(
+        self, *, local_instance_id: str | None, trace_id: str | None, hop_count: int = 0
+    ) -> dict[str, str]:
         next_hop = max(1, int(hop_count or 0) + 1)
         headers = {"X-Ananta-Hop-Count": str(next_hop)}
         if local_instance_id:

@@ -6,14 +6,15 @@ from typing import Sequence
 
 from agent.services.imap_connector_service import ImapConnectorService, ImapSession
 from agent.services.mail_account_mapper import MailAccountMapper
-from agent.services.mail_contract_service import MailAccountV2, MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
+from agent.services.mail_contract_service import (
+    MailAccountV2,
+    MailMessageRefV2,
+)
 from agent.services.mail_legacy_mapper import MailLegacyMapper
 from agent.services.mail_provider_ports import (
     MailAttachment,
     MailAuthMaterial,
     MailBody,
-    MailContentAccessRequest,
-    MailContentAccessVerifier,
     MailDeleteRequest,
     MailKeywordChange,
     MailMailbox,
@@ -135,9 +136,7 @@ class ImapProviderAdapter:
             message = MailMessage(mapped.message_ref, mapped.metadata)
             self._messages[mapped.message_ref.mail_ref_id] = message
             ids.append(mapped.message_ref.mail_ref_id)
-        return MailProviderResult.success(
-            MailQueryPage(message_ref_ids=tuple(ids), total=len(ids), next_position=None)
-        )
+        return MailProviderResult.success(MailQueryPage(message_ref_ids=tuple(ids), total=len(ids), next_position=None))
 
     def get_messages(
         self,
@@ -147,9 +146,7 @@ class ImapProviderAdapter:
     ) -> MailProviderResult[tuple[MailMessage, ...]]:
         if self._session(session) is None:
             return MailProviderResult.failure("mail_session_not_found")
-        return MailProviderResult.success(
-            tuple(self._messages[item] for item in ids if item in self._messages)
-        )
+        return MailProviderResult.success(tuple(self._messages[item] for item in ids if item in self._messages))
 
     def get_body(
         self,

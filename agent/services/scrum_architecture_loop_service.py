@@ -258,9 +258,7 @@ class ScrumArchitectureLoopService:
         required = {"evidence", "security", "compatibility", "migration", "scope"}
         normalized_checks = {str(key): bool(value) for key, value in checks.items()}
         accepted = (
-            normalized_decision == "accepted"
-            and set(normalized_checks) == required
-            and all(normalized_checks.values())
+            normalized_decision == "accepted" and set(normalized_checks) == required and all(normalized_checks.values())
         )
         status = "accepted" if accepted else "rejected"
         return self._store.append(
@@ -378,11 +376,7 @@ def _metrics(value: Mapping[str, float]) -> dict[str, float]:
         "debt",
     }
     result = {str(key): float(item) for key, item in value.items() if str(key) in allowed}
-    if (
-        not result
-        or len(result) != len(value)
-        or any(not math.isfinite(item) or item < 0 for item in result.values())
-    ):
+    if not result or len(result) != len(value) or any(not math.isfinite(item) or item < 0 for item in result.values()):
         raise ValueError("architecture_effect_metrics_invalid")
     return result
 

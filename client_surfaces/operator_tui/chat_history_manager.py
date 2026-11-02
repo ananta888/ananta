@@ -3,6 +3,7 @@
 Mixin extracted from chat_mixin.py (SPLIT-024). Contains all session
 management, chat memory, context building, and RAG helper methods.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,10 +28,11 @@ class ChatHistoryManagerMixin:
 
     def _build_chat_memory(self, game: dict, *, current_question: str = "") -> "object":
         from client_surfaces.operator_tui.chat_memory import (
+            build_runtime_status,
             extract_memory_context,
             resolve_memory_settings,
-            build_runtime_status,
         )
+
         settings = resolve_memory_settings(game)
         ctx = extract_memory_context(
             game,
@@ -42,6 +44,7 @@ class ChatHistoryManagerMixin:
             ctx.rolling_summary = ""
         if settings["include_runtime_status"]:
             from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
+
             ctx = ChatMemoryContext(
                 recent_turns=ctx.recent_turns,
                 rolling_summary=ctx.rolling_summary,
@@ -54,7 +57,8 @@ class ChatHistoryManagerMixin:
         return ctx
 
     def _trigger_rolling_summary_update(self, game: dict, *, question: str, answer: str) -> None:
-        from client_surfaces.operator_tui.chat_memory import update_rolling_summary, resolve_memory_settings
+        from client_surfaces.operator_tui.chat_memory import resolve_memory_settings, update_rolling_summary
+
         settings = resolve_memory_settings(game)
         if not settings["use_summary"]:
             return
@@ -140,6 +144,7 @@ class ChatHistoryManagerMixin:
         top_k: int,
     ) -> list[str]:
         from client_surfaces.operator_tui.tutorial_ai_mixin import _load_rag_context_from_dir
+
         tokens = list(question_tokens or [])
         if not tokens:
             tokens = [t for t in re.findall(r"[a-z0-9_./-]+", str(question).lower()) if len(t) >= 2][:32]
@@ -157,22 +162,36 @@ class ChatHistoryManagerMixin:
         if isinstance(enabled_raw, bool):
             enabled = enabled_raw
         else:
-            enabled = str(os.environ.get("ANANTA_TUI_CHAT_USE_CODECOMPASS", "1")).strip().lower() not in {"0", "false", "no", "off"}
+            enabled = str(os.environ.get("ANANTA_TUI_CHAT_USE_CODECOMPASS", "1")).strip().lower() not in {
+                "0",
+                "false",
+                "no",
+                "off",
+            }
         if not enabled:
             return []
-        source_pack_id = str(game.get("chat_source_pack_id") or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK") or "ananta-dev-default").strip()
+        source_pack_id = str(
+            game.get("chat_source_pack_id") or os.environ.get("ANANTA_TUI_CHAT_SOURCE_PACK") or "ananta-dev-default"
+        ).strip()
         if not source_pack_id:
             return []
         include_wikipedia_raw = game.get("chat_include_wikipedia")
         if isinstance(include_wikipedia_raw, bool):
             include_wikipedia = include_wikipedia_raw
         else:
-            include_wikipedia = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", "0")).strip().lower() in {"1", "true", "yes", "on"}
+            include_wikipedia = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_WIKIPEDIA", "0")).strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
         include_local_project_raw = game.get("chat_include_local_project")
         if isinstance(include_local_project_raw, bool):
             include_local_project = include_local_project_raw
         else:
-            include_local_project = str(os.environ.get("ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", "1")).strip().lower() not in {"0", "false", "no", "off"}
+            include_local_project = str(
+                os.environ.get("ANANTA_TUI_CHAT_INCLUDE_LOCAL_PROJECT", "1")
+            ).strip().lower() not in {"0", "false", "no", "off"}
         try:
             from agent.sources.source_pack_service import SourcePackService
             from agent.sources.source_registry import SourceRegistry
@@ -218,11 +237,20 @@ class ChatHistoryManagerMixin:
         ch_id: str | None,
     ) -> bool:
         from client_surfaces.operator_tui.chat_state import (
-            get_sessions, get_active_session, set_active_session,
-            add_session, delete_session, get_session, make_session,
-            ensure_session_channels, switch_channel, make_message,
-            append_message, set_chat_state,
-            clear_session_messages, clear_all_session_messages,
+            add_session,
+            append_message,
+            clear_all_session_messages,
+            clear_session_messages,
+            delete_session,
+            ensure_session_channels,
+            get_active_session,
+            get_session,
+            get_sessions,
+            make_message,
+            make_session,
+            set_active_session,
+            set_chat_state,
+            switch_channel,
         )
 
         def _consume_buffer() -> None:
@@ -234,7 +262,7 @@ class ChatHistoryManagerMixin:
         stripped = buf.strip().lower()
         if stripped == "/clear" or stripped == "/clear all" or stripped.startswith("/clear "):
             _consume_buffer()
-            arg = buf.strip()[len("/clear"):].strip()
+            arg = buf.strip()[len("/clear") :].strip()
             target_ch_id = ch_id or str(chat.get("active_channel") or "ai:tutor")
             ch_type = "ai"
             if not arg:
@@ -243,10 +271,13 @@ class ChatHistoryManagerMixin:
                 cleared = clear_session_messages(chat, active_id) if active_id else False
                 if cleared:
                     sys_msg = make_message(
-                        channel_id=target_ch_id, channel_type=ch_type,
-                        sender_id="system", sender_kind="system",
+                        channel_id=target_ch_id,
+                        channel_type=ch_type,
+                        sender_id="system",
+                        sender_kind="system",
                         text=f"[TUI] Verlauf der aktiven Session '{active_id}' gel\u00f6scht.",
-                        visibility="local_only", delivery_state="received",
+                        visibility="local_only",
+                        delivery_state="received",
                     )
                     append_message(chat, sys_msg)
                     status = f"clear: {active_id}"
@@ -255,20 +286,26 @@ class ChatHistoryManagerMixin:
             elif arg.lower() == "all":
                 count = clear_all_session_messages(chat)
                 sys_msg = make_message(
-                    channel_id=target_ch_id, channel_type=ch_type,
-                    sender_id="system", sender_kind="system",
+                    channel_id=target_ch_id,
+                    channel_type=ch_type,
+                    sender_id="system",
+                    sender_kind="system",
                     text=f"[TUI] Verlauf aller {count} Sessions gel\u00f6scht.",
-                    visibility="local_only", delivery_state="received",
+                    visibility="local_only",
+                    delivery_state="received",
                 )
                 append_message(chat, sys_msg)
                 status = f"clear: {count} sessions"
             else:
                 if clear_session_messages(chat, arg):
                     sys_msg = make_message(
-                        channel_id=target_ch_id, channel_type=ch_type,
-                        sender_id="system", sender_kind="system",
+                        channel_id=target_ch_id,
+                        channel_type=ch_type,
+                        sender_id="system",
+                        sender_kind="system",
                         text=f"[TUI] Verlauf von Session '{arg}' gel\u00f6scht.",
-                        visibility="local_only", delivery_state="received",
+                        visibility="local_only",
+                        delivery_state="received",
                     )
                     append_message(chat, sys_msg)
                     status = f"clear: {arg}"
@@ -280,13 +317,14 @@ class ChatHistoryManagerMixin:
 
         if stripped == "/session" or stripped.startswith("/session "):
             _consume_buffer()
-            arg = buf.strip()[len("/session"):].strip()
+            arg = buf.strip()[len("/session") :].strip()
             raw_sessions = chat.get("ai_sessions")
             sessions = raw_sessions if isinstance(raw_sessions, list) and raw_sessions else get_sessions(chat)
             active_id_value = str(chat.get("active_session_id") or "")
             active = next(
                 (
-                    session for session in sessions
+                    session
+                    for session in sessions
                     if isinstance(session, dict) and str(session.get("id") or "") == active_id_value
                 ),
                 None,
@@ -308,16 +346,22 @@ class ChatHistoryManagerMixin:
                 if not sessions:
                     lines.append("  (keine)")
                 list_msg = make_message(
-                    channel_id=target_ch_id, channel_type=ch_type,
-                    sender_id="system", sender_kind="system",
-                    text="\n".join(lines), visibility="local_only",
+                    channel_id=target_ch_id,
+                    channel_type=ch_type,
+                    sender_id="system",
+                    sender_kind="system",
+                    text="\n".join(lines),
+                    visibility="local_only",
                     delivery_state="received",
                 )
                 append_message(chat, list_msg)
                 set_chat_state(game, chat)
-                self._set_state(self.state.with_updates(
-                    header_logo_game=game, status_message=f"sessions: {len(sessions)}",
-                ))
+                self._set_state(
+                    self.state.with_updates(
+                        header_logo_game=game,
+                        status_message=f"sessions: {len(sessions)}",
+                    )
+                )
                 return True
             parts = arg.split(maxsplit=1)
             sub = parts[0].lower()
@@ -335,17 +379,23 @@ class ChatHistoryManagerMixin:
                         safe_id = f"{base_id}-{suffix}"
                         suffix += 1
                     new_session = make_session(
-                        session_id=safe_id, name=rest,
-                        icon="\u2728", system_prompt="", settings={},
+                        session_id=safe_id,
+                        name=rest,
+                        icon="\u2728",
+                        system_prompt="",
+                        settings={},
                     )
                     add_session(chat, new_session)
                     ensure_session_channels(chat)
                     if set_active_session(chat, safe_id):
                         switch_channel(chat, f"ai:{safe_id}", preserve_input=True)
                     set_chat_state(game, chat)
-                    self._set_state(self.state.with_updates(
-                        header_logo_game=game, status_message=f"session erstellt: {safe_id}",
-                    ))
+                    self._set_state(
+                        self.state.with_updates(
+                            header_logo_game=game,
+                            status_message=f"session erstellt: {safe_id}",
+                        )
+                    )
                     return True
             elif sub == "delete":
                 if not rest:
@@ -353,7 +403,8 @@ class ChatHistoryManagerMixin:
                 else:
                     target = next(
                         (
-                            session for session in sessions
+                            session
+                            for session in sessions
                             if isinstance(session, dict) and str(session.get("id") or "") == rest
                         ),
                         None,
@@ -368,9 +419,12 @@ class ChatHistoryManagerMixin:
                         if new_active is not None:
                             switch_channel(chat, f"ai:{str(new_active.get('id') or 'tutor')}", preserve_input=True)
                         set_chat_state(game, chat)
-                        self._set_state(self.state.with_updates(
-                            header_logo_game=game, status_message=f"session gel\u00f6scht: {rest}",
-                        ))
+                        self._set_state(
+                            self.state.with_updates(
+                                header_logo_game=game,
+                                status_message=f"session gel\u00f6scht: {rest}",
+                            )
+                        )
                         return True
             elif sub == "rename":
                 rename_parts = rest.split(maxsplit=1)
@@ -386,18 +440,24 @@ class ChatHistoryManagerMixin:
                         target["updated_at"] = time.time()
                         ensure_session_channels(chat)
                         set_chat_state(game, chat)
-                        self._set_state(self.state.with_updates(
-                            header_logo_game=game, status_message=f"session renamed: {target_id}",
-                        ))
+                        self._set_state(
+                            self.state.with_updates(
+                                header_logo_game=game,
+                                status_message=f"session renamed: {target_id}",
+                            )
+                        )
                         return True
             else:
                 if get_session(chat, sub):
                     if set_active_session(chat, sub):
                         switch_channel(chat, f"ai:{sub}", preserve_input=True)
                         set_chat_state(game, chat)
-                        self._set_state(self.state.with_updates(
-                            header_logo_game=game, status_message=f"session: {sub}",
-                        ))
+                        self._set_state(
+                            self.state.with_updates(
+                                header_logo_game=game,
+                                status_message=f"session: {sub}",
+                            )
+                        )
                         return True
                     status = f"session: '{sub}' nicht gefunden"
                 else:

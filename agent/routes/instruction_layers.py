@@ -296,7 +296,9 @@ def patch_instruction_profile(profile_id: str):
     if "prompt_content" in payload:
         profile.prompt_content = str(payload.get("prompt_content") or "").strip()
     if "profile_metadata" in payload:
-        profile.profile_metadata = get_instruction_layer_service().normalize_profile_metadata(payload.get("profile_metadata"))
+        profile.profile_metadata = get_instruction_layer_service().normalize_profile_metadata(
+            payload.get("profile_metadata")
+        )
     if "is_active" in payload:
         profile.is_active = bool(payload.get("is_active"))
     if "is_default" in payload:
@@ -440,7 +442,9 @@ def patch_instruction_overlay(overlay_id: str):
     if "prompt_content" in payload:
         overlay.prompt_content = str(payload.get("prompt_content") or "").strip()
     if "overlay_metadata" in payload:
-        overlay.overlay_metadata = get_instruction_layer_service().normalize_overlay_metadata(payload.get("overlay_metadata"))
+        overlay.overlay_metadata = get_instruction_layer_service().normalize_overlay_metadata(
+            payload.get("overlay_metadata")
+        )
     if "scope" in payload:
         overlay.scope = get_instruction_layer_service().normalize_overlay_scope(payload.get("scope"))
     if "attachment_kind" in payload:

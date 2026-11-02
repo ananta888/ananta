@@ -70,7 +70,9 @@ class TerminalGraphicsBackend(Protocol):
 
     name: str
 
-    def render_frame(self, *, width_cells: int, height_cells: int, t: float = 0.0, writer: LogoWriter | None = None) -> LogoFrame: ...
+    def render_frame(
+        self, *, width_cells: int, height_cells: int, t: float = 0.0, writer: LogoWriter | None = None
+    ) -> LogoFrame: ...
 
     def clear_region(self, *, x: int, y: int, width: int, height: int, writer: LogoWriter | None = None) -> str: ...
 

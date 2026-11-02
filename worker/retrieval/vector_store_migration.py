@@ -77,11 +77,7 @@ class JsonToQdrantMigrator:
         raw = source if isinstance(source, bytes) else Path(source).read_bytes()
         payload = json.loads(raw.decode("utf-8"))
         state = dict(payload.get("state") or {})
-        entries = [
-            dict(item)
-            for item in list(payload.get("entries") or [])
-            if isinstance(item, Mapping)
-        ]
+        entries = [dict(item) for item in list(payload.get("entries") or []) if isinstance(item, Mapping)]
         return raw, state, entries
 
     @staticmethod
@@ -133,9 +129,7 @@ class JsonToQdrantMigrator:
             return tuple(float(value) for value in list(entry.get("vector") or []))
         encoded = entry.get("encoded_vector")
         if isinstance(encoded, Mapping):
-            profile = VectorEncodingProfile.from_config(
-                dict(state.get("vector_encoding_profile") or {})
-            )
+            profile = VectorEncodingProfile.from_config(dict(state.get("vector_encoding_profile") or {}))
             return tuple(VectorEncoder(profile).decode(dict(encoded)))
         return ()
 
@@ -215,10 +209,7 @@ class JsonToQdrantMigrator:
             scope,
             index_version=digest,
         )
-        if any(
-            not self._entry_matches_scope(entry, scope)
-            for entry in entries
-        ):
+        if any(not self._entry_matches_scope(entry, scope) for entry in entries):
             return MigrationPlan(
                 status="blocked",
                 reason="vector_scope_conflict",
@@ -320,10 +311,7 @@ class JsonToQdrantMigrator:
             )
             self._observe(result, started)
             return MigrationResult(result, None, False)
-        if (
-            type(batch_size) is not int
-            or not 1 <= batch_size <= 1000
-        ):
+        if type(batch_size) is not int or not 1 <= batch_size <= 1000:
             result = IndexWriteResult(
                 status="failed",
                 mode="migrate",
@@ -353,17 +341,14 @@ class JsonToQdrantMigrator:
             )
             self._observe(result, started)
             return MigrationResult(result, None, False)
-        idempotency_key_hash = hashlib.sha256(
-            normalized_idempotency_key.encode("utf-8")
-        ).hexdigest()
+        idempotency_key_hash = hashlib.sha256(normalized_idempotency_key.encode("utf-8")).hexdigest()
         points = self._prepared_points(entries, state, scope)
         if checkpoint is not None and (
             checkpoint.source_digest != plan.source_digest
             or not 0 <= checkpoint.next_offset <= len(points)
             or (
                 checkpoint.scope_fingerprint != scope_fingerprint
-                or checkpoint.idempotency_key_hash
-                != idempotency_key_hash
+                or checkpoint.idempotency_key_hash != idempotency_key_hash
             )
         ):
             result = IndexWriteResult(

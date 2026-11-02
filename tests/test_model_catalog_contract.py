@@ -59,23 +59,16 @@ def test_schema_alias_round_trips_without_changing_wire_contract() -> None:
                 mode="json",
                 by_alias=True,
             ),
-            "models": [
-                summary.model_dump(mode="json", by_alias=True)
-            ],
+            "models": [summary.model_dump(mode="json", by_alias=True)],
             "provider_failures": [],
         }
     )
 
     assert summary.schema_version == MODEL_SUMMARY_SCHEMA
     assert selection.schema_version == MODEL_DEFAULT_SELECTION_SCHEMA
-    assert (
-        command.schema_version
-        == MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA
-    )
+    assert command.schema_version == MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA
     assert catalog.schema_version == MODEL_CATALOG_SCHEMA
-    assert summary.model_dump(mode="json", by_alias=True) == (
-        _summary_payload()
-    )
+    assert summary.model_dump(mode="json", by_alias=True) == (_summary_payload())
     assert catalog.to_wire()["schema"] == MODEL_CATALOG_SCHEMA
     assert "schema_version" not in catalog.to_wire()
     assert "schema_version" not in catalog.to_wire()["models"][0]

@@ -29,10 +29,7 @@ from agent.services.sfu_broadcast_route_port import (
 )
 
 PINNED_LIVEKIT_SERVER_VERSION = "1.13.1"
-PINNED_LIVEKIT_IMAGE = (
-    "livekit/livekit-server@sha256:"
-    "2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
-)
+PINNED_LIVEKIT_IMAGE = "livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
 ROOM_SERVICE_PREFIX = "/twirp/livekit.RoomService"
 MAX_REQUEST_BYTES = 65_536
 MAX_RESPONSE_BYTES = 1_048_576
@@ -255,13 +252,21 @@ class LiveKitControlApiClient:
             )
         applied = self._set_subscriptions("update_apply_desired", desired, subscribe=True)
         if applied.accepted_by_api:
-            return LiveKitControlResult("update", True, False, "livekit_command_accepted_unverified", applied.calls_completed + revoked.calls_completed)
+            return LiveKitControlResult(
+                "update",
+                True,
+                False,
+                "livekit_command_accepted_unverified",
+                applied.calls_completed + revoked.calls_completed,
+            )
         rollback = self._set_subscriptions("update_rollback", previous, subscribe=True)
         return LiveKitControlResult(
             "update",
             False,
             False,
-            "livekit_partial_update_rolled_back" if rollback.accepted_by_api else "livekit_partial_update_rollback_failed",
+            "livekit_partial_update_rolled_back"
+            if rollback.accepted_by_api
+            else "livekit_partial_update_rollback_failed",
             revoked.calls_completed + applied.calls_completed + rollback.calls_completed,
             rollback_completed=rollback.accepted_by_api,
             retryable=applied.retryable,
@@ -369,9 +374,7 @@ class LiveKitControlApiClient:
             len(completed),
         )
 
-    def _call(
-        self, method: str, payload: Mapping[str, object], *, room: str | None
-    ) -> Mapping[str, object]:
+    def _call(self, method: str, payload: Mapping[str, object], *, room: str | None) -> Mapping[str, object]:
         if method not in {"UpdateSubscriptions", "ListParticipants", "ListRooms"}:
             raise LiveKitControlApiError("livekit_control_operation_unsupported")
         encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")

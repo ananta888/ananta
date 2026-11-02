@@ -345,9 +345,7 @@ def complete_unsloth_release_chain(
         evaluation_error = dict(evaluation_status.get("error") or {})
         failed = {
             "status": "failed",
-            "reason_code": str(
-                evaluation_error.get("code") or "standalone_adapter_evaluation_failed"
-            ),
+            "reason_code": str(evaluation_error.get("code") or "standalone_adapter_evaluation_failed"),
             "diagnostic": bounded_worker_diagnostic(evaluation_error.get("message")),
         }
         return {

@@ -5,8 +5,8 @@ from pathlib import Path
 
 from agent.services.planning_track_contract_service import (
     build_planning_track_envelope,
-    planning_track_profile,
     planning_contract_ref,
+    planning_track_profile,
     required_optional_field_spec,
     unwrap_planning_track_payload,
     validate_planning_track_payload,
@@ -15,10 +15,7 @@ from agent.services.planning_track_contract_service import (
 
 def _todo_track_payload() -> dict:
     file_path = (
-        Path(__file__).resolve().parents[2]
-        / "todos"
-        / "archiv"
-        / "todo.operator-tui-three-way-flex-diff-ai-mode.json"
+        Path(__file__).resolve().parents[2] / "todos" / "archiv" / "todo.operator-tui-three-way-flex-diff-ai-mode.json"
     )
     return json.loads(file_path.read_text(encoding="utf-8"))
 

@@ -6,6 +6,7 @@ dispatches ``summary`` and ``track``; each subcommand is a small handler in
 ``_PlanTrackCommand``. Planning persistence and task integration stay in the
 agent planning services.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -121,15 +122,13 @@ def _build_plan_task_diff(left_payload: dict[str, object], right_payload: dict[s
     new_ids = sorted([task_id for task_id in right_tasks if task_id not in left_tasks])
     removed_ids = sorted([task_id for task_id in left_tasks if task_id not in right_tasks])
     changed_ids = sorted(
-        [
-            task_id
-            for task_id in right_tasks
-            if task_id in left_tasks and left_tasks[task_id] != right_tasks[task_id]
-        ]
+        [task_id for task_id in right_tasks if task_id in left_tasks and left_tasks[task_id] != right_tasks[task_id]]
     )
     return {
         "new_tasks": [{"id": task_id, "title": str(right_tasks[task_id].get("title") or "")} for task_id in new_ids],
-        "removed_tasks": [{"id": task_id, "title": str(left_tasks[task_id].get("title") or "")} for task_id in removed_ids],
+        "removed_tasks": [
+            {"id": task_id, "title": str(left_tasks[task_id].get("title") or "")} for task_id in removed_ids
+        ],
         "changed_tasks": [
             {
                 "id": task_id,
@@ -152,7 +151,11 @@ def _build_plan_task_diff(left_payload: dict[str, object], right_payload: dict[s
 def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> dict[str, object]:
     service = GoalArtifactService()
     graph = service.get_goal_graph(goal_id)
-    provenance_items = [dict(item) for item in list(dict(graph.get("extensions") or {}).get("execution_provenance") or []) if isinstance(item, dict)]
+    provenance_items = [
+        dict(item)
+        for item in list(dict(graph.get("extensions") or {}).get("execution_provenance") or [])
+        if isinstance(item, dict)
+    ]
     provenance_by_id = {
         str(item.get("provenance_id") or ""): item
         for item in provenance_items
@@ -195,10 +198,15 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
     selected_output_id = str(game.get("planning_track_selected_output_id") or "")
     if not selected_output_id and rows:
         selected_output_id = str(rows[0].get("output_artifact_id") or "")
-    selected_row = next((item for item in rows if str(item.get("output_artifact_id") or "") == selected_output_id), rows[0] if rows else None)
+    selected_row = next(
+        (item for item in rows if str(item.get("output_artifact_id") or "") == selected_output_id),
+        rows[0] if rows else None,
+    )
     selected_payload = dict(selected_row.get("payload") or {}) if isinstance(selected_row, dict) else {}
 
-    task_filters = dict(game.get("planning_track_filters") or {}) if isinstance(game.get("planning_track_filters"), dict) else {}
+    task_filters = (
+        dict(game.get("planning_track_filters") or {}) if isinstance(game.get("planning_track_filters"), dict) else {}
+    )
     filtered_tasks = [
         dict(task)
         for task in list(selected_payload.get("tasks") or [])
@@ -216,7 +224,9 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
         selected_payload_with_filters["provenance"] = dict(selected_row.get("provenance") or {})
         selected_task_mapping = dict(selected_row.get("task_mapping") or {})
         selected_payload_with_filters["task_mapping"] = selected_task_mapping
-        selected_payload_with_filters["summary_recalculation_status"] = str(selected_row.get("summary_recalculation_status") or "not_needed")
+        selected_payload_with_filters["summary_recalculation_status"] = str(
+            selected_row.get("summary_recalculation_status") or "not_needed"
+        )
         selected_payload_with_filters["repaired_fields"] = list(selected_row.get("repaired_fields") or [])
         selected_payload_with_filters["old_summary_hash"] = str(selected_row.get("old_summary_hash") or "")
         selected_payload_with_filters["new_summary_hash"] = str(selected_row.get("new_summary_hash") or "")
@@ -231,7 +241,9 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
     if selected_output_task_states:
         selected_payload_with_filters["internal_task_status"] = selected_output_task_states
 
-    diff_state = dict(game.get("planning_track_diff") or {}) if isinstance(game.get("planning_track_diff"), dict) else {}
+    diff_state = (
+        dict(game.get("planning_track_diff") or {}) if isinstance(game.get("planning_track_diff"), dict) else {}
+    )
     return {
         "planning_track_mode": True,
         "goal_id": goal_id,
@@ -243,8 +255,12 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
         "selected_output_id": selected_output_id,
         "selected_track": selected_payload_with_filters,
         "task_filters": task_filters,
-        "active_output_id": str(prefs.get("active_planning_track_output_id") or game.get("active_planning_track_output_id") or ""),
-        "rejected_output_ids": list(prefs.get("rejected_planning_track_output_ids") or game.get("rejected_planning_track_output_ids") or []),
+        "active_output_id": str(
+            prefs.get("active_planning_track_output_id") or game.get("active_planning_track_output_id") or ""
+        ),
+        "rejected_output_ids": list(
+            prefs.get("rejected_planning_track_output_ids") or game.get("rejected_planning_track_output_ids") or []
+        ),
         "task_mapping": selected_task_mapping,
         "internal_task_status": selected_output_task_states,
         "plan_diff": diff_state,

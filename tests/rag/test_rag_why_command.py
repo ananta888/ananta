@@ -1,16 +1,20 @@
 """RWY-010: Regression tests für /rag why — typische Blindheitsfälle."""
+
 from __future__ import annotations
 
 import json
+
 import pytest
 
-
 # ── Flask app fixture ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def app():
     from flask import Flask
+
     from agent.routes.snakes import snakes_bp
+
     a = Flask(__name__)
     a.config["TESTING"] = True
     a.register_blueprint(snakes_bp)
@@ -30,8 +34,10 @@ def client(app):
 
 # ── _snake_retrieval_dry_run unit tests ───────────────────────────────────────
 
+
 def test_dry_run_returns_profile():
     from agent.routes.snakes import _snake_retrieval_dry_run
+
     result = _snake_retrieval_dry_run("Wo wird TaskRoutingContract definiert?")
     assert "retrieval_profile" in result
     prof = result["retrieval_profile"]
@@ -42,6 +48,7 @@ def test_dry_run_returns_profile():
 
 def test_dry_run_returns_scope():
     from agent.routes.snakes import _snake_retrieval_dry_run
+
     result = _snake_retrieval_dry_run("zeige alle Tests")
     scope = result.get("resolver_scope") or {}
     assert "include_source" in scope
@@ -127,12 +134,16 @@ def test_dry_run_preset_hint_workflows(monkeypatch):
 
 # ── /snake/ask trace_only endpoint tests ─────────────────────────────────────
 
+
 def test_trace_only_returns_without_llm(client):
     """/snake/ask trace_only=True returns rag_why without answer."""
-    resp = client.post("/snake/ask", json={
-        "question": "Wo ist der TaskRouter definiert?",
-        "trace_only": True,
-    })
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "Wo ist der TaskRouter definiert?",
+            "trace_only": True,
+        },
+    )
     assert resp.status_code == 200
     data = json.loads(resp.data)
     assert data.get("trace_only") is True
@@ -146,10 +157,13 @@ def test_trace_only_empty_question(client):
 
 
 def test_trace_only_includes_profile(client):
-    resp = client.post("/snake/ask", json={
-        "question": "zeige mir die Architektur",
-        "trace_only": True,
-    })
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "zeige mir die Architektur",
+            "trace_only": True,
+        },
+    )
     assert resp.status_code == 200
     data = json.loads(resp.data)
     rag_why = data.get("rag_why") or {}
@@ -159,10 +173,13 @@ def test_trace_only_includes_profile(client):
 
 
 def test_trace_only_includes_scope(client):
-    resp = client.post("/snake/ask", json={
-        "question": "was steht in den Tests?",
-        "trace_only": True,
-    })
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "was steht in den Tests?",
+            "trace_only": True,
+        },
+    )
     assert resp.status_code == 200
     data = json.loads(resp.data)
     scope = (data.get("rag_why") or {}).get("resolver_scope") or {}
@@ -171,11 +188,14 @@ def test_trace_only_includes_scope(client):
 
 
 def test_trace_only_with_retrieval_config_override(client):
-    resp = client.post("/snake/ask", json={
-        "question": "Wo werden Blueprints verarbeitet?",
-        "trace_only": True,
-        "retrieval_config": {"chat_retrieval_profile": "repo_first"},
-    })
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "Wo werden Blueprints verarbeitet?",
+            "trace_only": True,
+            "retrieval_config": {"chat_retrieval_profile": "repo_first"},
+        },
+    )
     assert resp.status_code == 200
     data = json.loads(resp.data)
     prof = (data.get("rag_why") or {}).get("retrieval_profile") or {}
@@ -183,19 +203,22 @@ def test_trace_only_with_retrieval_config_override(client):
 
 
 def test_trace_only_honors_source_scope_retrieval_overrides(client):
-    resp = client.post("/snake/ask", json={
-        "question": "Erklaere den lokalen Projektcode",
-        "trace_only": True,
-        "retrieval_config": {
-            "chat_retrieval_profile": "repo_first",
-            "chat_codecompass_trigger_mode": "force_repo_first",
-            "chat_use_codecompass": True,
-            "chat_include_local_project": False,
-            "chat_include_wikipedia": False,
-            "chat_include_task_memory": False,
-            "chat_source_pack_id": "local-project",
+    resp = client.post(
+        "/snake/ask",
+        json={
+            "question": "Erklaere den lokalen Projektcode",
+            "trace_only": True,
+            "retrieval_config": {
+                "chat_retrieval_profile": "repo_first",
+                "chat_codecompass_trigger_mode": "force_repo_first",
+                "chat_use_codecompass": True,
+                "chat_include_local_project": False,
+                "chat_include_wikipedia": False,
+                "chat_include_task_memory": False,
+                "chat_source_pack_id": "local-project",
+            },
         },
-    })
+    )
     assert resp.status_code == 200
     data = json.loads(resp.data)
     prof = (data.get("rag_why") or {}).get("retrieval_profile") or {}

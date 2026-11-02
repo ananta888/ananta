@@ -12,10 +12,18 @@ from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCom
 from ananta_contracts.native_context_bundle import native_context_digest
 from ananta_contracts.workflow_adapter_task import WorkflowAdapterTaskResult
 
-_ROUTE_FIELDS = frozenset({
-    "status", "output", "exit_code", "reason_code", "adapter_kind", "artifacts", "sources",
-    "workflow_adapter_verification",
-})
+_ROUTE_FIELDS = frozenset(
+    {
+        "status",
+        "output",
+        "exit_code",
+        "reason_code",
+        "adapter_kind",
+        "artifacts",
+        "sources",
+        "workflow_adapter_verification",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +42,10 @@ class PiNativeResultCandidate:
 
 
 def pi_native_result_candidate(
-    response: Mapping[str, Any], *, command: NativeNodeCommand, hub_task_id: str,
+    response: Mapping[str, Any],
+    *,
+    command: NativeNodeCommand,
+    hub_task_id: str,
 ) -> PiNativeResultCandidate:
     """Validate facts only; the caller must supply current Hub authority."""
     reason = "pi_native_result_envelope_invalid"
@@ -55,14 +66,17 @@ def pi_native_result_candidate(
         raise ValueError(reason)
     witness = nested["verification"]
     if (
-        not isinstance(witness, dict) or set(witness) != {"schema", "native_node_result"}
+        not isinstance(witness, dict)
+        or set(witness) != {"schema", "native_node_result"}
         or witness["schema"] != "ananta.native_graph_task_verification.v1"
     ):
         raise ValueError(reason)
     native = {key: value for key, value in nested.items() if key != "verification"}
     result = validate_pi_native_result(native, command=command, hub_task_id=hub_task_id)
     witness_result = validate_pi_native_result(
-        witness["native_node_result"], command=command, hub_task_id=hub_task_id,
+        witness["native_node_result"],
+        command=command,
+        hub_task_id=hub_task_id,
     )
     if native_context_digest(result.to_dict()) != native_context_digest(witness_result.to_dict()):
         raise ValueError("pi_native_result_verification_conflict")
@@ -73,14 +87,21 @@ def pi_native_result_candidate(
     except (TypeError, ValueError) as exc:
         raise ValueError(reason) from exc
     status = {"completed": "success", "cancelled": "cancelled"}.get(result.status, "failed")
-    artifacts = [{'artifact_id': name, 'reference': reference}
-                 for name, reference in sorted(result.artifact_refs.items())]
+    artifacts = [
+        {"artifact_id": name, "reference": reference} for name, reference in sorted(result.artifact_refs.items())
+    ]
     if (
-        parsed.hub_task_id != hub_task_id or parsed.adapter_kind != "native" or parsed.status != status
-        or parsed.reason_code != result.reason_code or list(parsed.artifacts) != artifacts or parsed.sources
-        or response["status"] != result.status or response["adapter_kind"] != "native"
+        parsed.hub_task_id != hub_task_id
+        or parsed.adapter_kind != "native"
+        or parsed.status != status
+        or parsed.reason_code != result.reason_code
+        or list(parsed.artifacts) != artifacts
+        or parsed.sources
+        or response["status"] != result.status
+        or response["adapter_kind"] != "native"
         or response["reason_code"] != result.reason_code
-        or response["artifacts"] != artifacts or response["sources"] != []
+        or response["artifacts"] != artifacts
+        or response["sources"] != []
         or type(response["exit_code"]) is not int
         or response["exit_code"] != (0 if result.status == "completed" else 1)
         or response["output"] != (parsed.summary or parsed.reason_code)

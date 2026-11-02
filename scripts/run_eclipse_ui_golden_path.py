@@ -77,10 +77,12 @@ def _docker_command(
         str(timeout_seconds),
     ]
     if update_site is not None:
-        command.extend([
-            "--update-site",
-            f"/workspace/{update_site.resolve().relative_to(ROOT.resolve()).as_posix()}",
-        ])
+        command.extend(
+            [
+                "--update-site",
+                f"/workspace/{update_site.resolve().relative_to(ROOT.resolve()).as_posix()}",
+            ]
+        )
     return command
 
 
@@ -100,27 +102,51 @@ def _run_docker_golden_path(
         {"check_id": "dockerfile_present", "ok": DOCKERFILE.exists(), "dockerfile": _relative_or_absolute(DOCKERFILE)},
     ]
     if not shutil.which("docker"):
-        checks.append({
-            "check_id": "docker_eclipse_ui_golden_path",
-            "ok": not require_eclipse,
-            "skipped": True,
-            "reason": "docker_missing",
-        })
-        return _write_report(report_path, {
-            "schema": "eclipse_ui_golden_path_report_v1",
-            "environment": "docker_xvfb_eclipse",
-            "ok": all(bool(item.get("ok")) for item in checks),
-            "skipped": not require_eclipse,
-            "skip_reason": "docker_missing",
-            "checks": checks,
-            "runtime_complete_claim_allowed": False,
-        })
+        checks.append(
+            {
+                "check_id": "docker_eclipse_ui_golden_path",
+                "ok": not require_eclipse,
+                "skipped": True,
+                "reason": "docker_missing",
+            }
+        )
+        return _write_report(
+            report_path,
+            {
+                "schema": "eclipse_ui_golden_path_report_v1",
+                "environment": "docker_xvfb_eclipse",
+                "ok": all(bool(item.get("ok")) for item in checks),
+                "skipped": not require_eclipse,
+                "skip_reason": "docker_missing",
+                "checks": checks,
+                "runtime_complete_claim_allowed": False,
+            },
+        )
 
     if build_plugin:
         ok, output = _build_plugin()
         checks.append({"check_id": "plugin_build", "ok": ok, "output_tail": output[-4000:]})
         if not ok:
-            return _write_report(report_path, {
+            return _write_report(
+                report_path,
+                {
+                    "schema": "eclipse_ui_golden_path_report_v1",
+                    "environment": "docker_xvfb_eclipse",
+                    "ok": False,
+                    "skipped": False,
+                    "skip_reason": "",
+                    "checks": checks,
+                    "runtime_complete_claim_allowed": False,
+                },
+            )
+
+    checks.append(
+        {"check_id": "plugin_jar_present", "ok": plugin_jar.exists(), "plugin_jar": _relative_or_absolute(plugin_jar)}
+    )
+    if not plugin_jar.exists():
+        return _write_report(
+            report_path,
+            {
                 "schema": "eclipse_ui_golden_path_report_v1",
                 "environment": "docker_xvfb_eclipse",
                 "ok": False,
@@ -128,38 +154,38 @@ def _run_docker_golden_path(
                 "skip_reason": "",
                 "checks": checks,
                 "runtime_complete_claim_allowed": False,
-            })
-
-    checks.append({"check_id": "plugin_jar_present", "ok": plugin_jar.exists(), "plugin_jar": _relative_or_absolute(plugin_jar)})
-    if not plugin_jar.exists():
-        return _write_report(report_path, {
-            "schema": "eclipse_ui_golden_path_report_v1",
-            "environment": "docker_xvfb_eclipse",
-            "ok": False,
-            "skipped": False,
-            "skip_reason": "",
-            "checks": checks,
-            "runtime_complete_claim_allowed": False,
-        })
+            },
+        )
 
     if update_site is not None:
-        checks.append({"check_id": "p2_update_site_present", "ok": update_site.exists(), "update_site": _relative_or_absolute(update_site)})
+        checks.append(
+            {
+                "check_id": "p2_update_site_present",
+                "ok": update_site.exists(),
+                "update_site": _relative_or_absolute(update_site),
+            }
+        )
         for metadata_name in ("content.jar", "artifacts.jar"):
-            checks.append({
-                "check_id": f"p2_{metadata_name}_present",
-                "ok": (update_site / metadata_name).exists(),
-                "path": _relative_or_absolute(update_site / metadata_name),
-            })
+            checks.append(
+                {
+                    "check_id": f"p2_{metadata_name}_present",
+                    "ok": (update_site / metadata_name).exists(),
+                    "path": _relative_or_absolute(update_site / metadata_name),
+                }
+            )
         if not all(bool(item.get("ok")) for item in checks):
-            return _write_report(report_path, {
-                "schema": "eclipse_ui_golden_path_report_v1",
-                "environment": "docker_xvfb_eclipse_jee_2026_03",
-                "ok": False,
-                "skipped": False,
-                "skip_reason": "",
-                "checks": checks,
-                "runtime_complete_claim_allowed": False,
-            })
+            return _write_report(
+                report_path,
+                {
+                    "schema": "eclipse_ui_golden_path_report_v1",
+                    "environment": "docker_xvfb_eclipse_jee_2026_03",
+                    "ok": False,
+                    "skipped": False,
+                    "skip_reason": "",
+                    "checks": checks,
+                    "runtime_complete_claim_allowed": False,
+                },
+            )
 
     if build_docker_image:
         build_result = subprocess.run(
@@ -171,22 +197,27 @@ def _run_docker_golden_path(
             timeout=900,
             env=_docker_env(),
         )
-        checks.append({
-            "check_id": "docker_image_build",
-            "ok": build_result.returncode == 0,
-            "image": docker_image,
-            "output_tail": (build_result.stdout + "\n" + build_result.stderr).strip()[-4000:],
-        })
+        checks.append(
+            {
+                "check_id": "docker_image_build",
+                "ok": build_result.returncode == 0,
+                "image": docker_image,
+                "output_tail": (build_result.stdout + "\n" + build_result.stderr).strip()[-4000:],
+            }
+        )
         if build_result.returncode != 0:
-            return _write_report(report_path, {
-                "schema": "eclipse_ui_golden_path_report_v1",
-                "environment": "docker_xvfb_eclipse",
-                "ok": False,
-                "skipped": False,
-                "skip_reason": "",
-                "checks": checks,
-                "runtime_complete_claim_allowed": False,
-            })
+            return _write_report(
+                report_path,
+                {
+                    "schema": "eclipse_ui_golden_path_report_v1",
+                    "environment": "docker_xvfb_eclipse",
+                    "ok": False,
+                    "skipped": False,
+                    "skip_reason": "",
+                    "checks": checks,
+                    "runtime_complete_claim_allowed": False,
+                },
+            )
 
     report_path.unlink(missing_ok=True)
     report_path.with_name("eclipse-ui-availability-report.json").unlink(missing_ok=True)
@@ -205,38 +236,47 @@ def _run_docker_golden_path(
         timeout=timeout_seconds * 2 + 120,
         env=_docker_env(),
     )
-    checks.append({
-        "check_id": "docker_container_golden_path",
-        "ok": run_result.returncode == 0,
-        "image": docker_image,
-        "output_tail": (run_result.stdout + "\n" + run_result.stderr).strip()[-4000:],
-    })
+    checks.append(
+        {
+            "check_id": "docker_container_golden_path",
+            "ok": run_result.returncode == 0,
+            "image": docker_image,
+            "output_tail": (run_result.stdout + "\n" + run_result.stderr).strip()[-4000:],
+        }
+    )
 
     if report_path.exists():
         report = json.loads(report_path.read_text(encoding="utf-8"))
         report.setdefault("host_checks", checks)
         expected_container_checks = {str(item.get("check_id")) for item in list(report.get("checks") or [])}
-        if update_site is not None and not {"p2_install_from_update_site", "ui_availability_verifier"}.issubset(expected_container_checks):
-            checks.append({
-                "check_id": "fresh_p2_ui_report",
-                "ok": False,
-                "reason": "container report did not include p2 install and UI availability checks",
-            })
+        if update_site is not None and not {"p2_install_from_update_site", "ui_availability_verifier"}.issubset(
+            expected_container_checks
+        ):
+            checks.append(
+                {
+                    "check_id": "fresh_p2_ui_report",
+                    "ok": False,
+                    "reason": "container report did not include p2 install and UI availability checks",
+                }
+            )
         report["runtime_complete_claim_allowed"] = bool(report.get("runtime_complete_claim_allowed")) and all(
             bool(item.get("ok")) for item in checks
         )
         report["ok"] = bool(report.get("ok")) and all(bool(item.get("ok")) for item in checks)
         return _write_report(report_path, report)
 
-    return _write_report(report_path, {
-        "schema": "eclipse_ui_golden_path_report_v1",
-        "environment": "docker_xvfb_eclipse",
-        "ok": all(bool(item.get("ok")) for item in checks),
-        "skipped": False,
-        "skip_reason": "",
-        "checks": checks,
-        "runtime_complete_claim_allowed": False,
-    })
+    return _write_report(
+        report_path,
+        {
+            "schema": "eclipse_ui_golden_path_report_v1",
+            "environment": "docker_xvfb_eclipse",
+            "ok": all(bool(item.get("ok")) for item in checks),
+            "skipped": False,
+            "skip_reason": "",
+            "checks": checks,
+            "runtime_complete_claim_allowed": False,
+        },
+    )
 
 
 def run_eclipse_ui_golden_path(
@@ -272,7 +312,10 @@ def run_eclipse_ui_golden_path(
         },
         {
             "check_id": "viewpart_adapters_present",
-            "ok": (ROOT / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java").exists(),
+            "ok": (
+                ROOT
+                / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java"
+            ).exists(),
         },
     ]
     if resolved_eclipse_binary:
@@ -284,15 +327,23 @@ def run_eclipse_ui_golden_path(
             text=True,
             timeout=90,
         )
-        checks.append({"check_id": "installed_eclipse_launch", "ok": result.returncode in {0, 13}, "returncode": result.returncode})
+        checks.append(
+            {
+                "check_id": "installed_eclipse_launch",
+                "ok": result.returncode in {0, 13},
+                "returncode": result.returncode,
+            }
+        )
         skipped = False
     else:
-        checks.append({
-            "check_id": "installed_eclipse_launch",
-            "ok": not require_eclipse,
-            "skipped": True,
-            "reason": "eclipse_binary_missing",
-        })
+        checks.append(
+            {
+                "check_id": "installed_eclipse_launch",
+                "ok": not require_eclipse,
+                "skipped": True,
+                "reason": "eclipse_binary_missing",
+            }
+        )
         skipped = True
 
     report = {
@@ -301,7 +352,8 @@ def run_eclipse_ui_golden_path(
         "skipped": skipped,
         "skip_reason": "eclipse_binary_missing" if skipped else "",
         "checks": checks,
-        "runtime_complete_claim_allowed": bool(resolved_eclipse_binary) and all(bool(item.get("ok")) for item in checks),
+        "runtime_complete_claim_allowed": bool(resolved_eclipse_binary)
+        and all(bool(item.get("ok")) for item in checks),
     }
     return _write_report(report_path, report)
 
@@ -311,7 +363,9 @@ def main() -> int:
     parser.add_argument("--out", default=str(DEFAULT_REPORT))
     parser.add_argument("--require-eclipse", action="store_true")
     parser.add_argument("--eclipse-binary")
-    parser.add_argument("--docker", action="store_true", help="Run the installed Eclipse evidence in a Docker/Xvfb container.")
+    parser.add_argument(
+        "--docker", action="store_true", help="Run the installed Eclipse evidence in a Docker/Xvfb container."
+    )
     parser.add_argument("--docker-image", default=DEFAULT_DOCKER_IMAGE)
     parser.add_argument("--skip-docker-build", action="store_true")
     parser.add_argument("--build-plugin", action="store_true")

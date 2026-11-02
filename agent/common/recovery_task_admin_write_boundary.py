@@ -20,9 +20,7 @@ class RecoveryTaskAdminWriteAuthority:
     to_status: str
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryTaskAdminWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryTaskAdminWriteAuthority | None] = ContextVar(
     "ananta_recovery_task_admin_write_authority",
     default=None,
 )

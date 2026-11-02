@@ -6,28 +6,26 @@ EW-T040: ParallelExecutionCoordinator — read-only ops parallel, mutations seri
 EW-T041: DelegationArtifact — audit-reconstructible delegation tree.
 EW-T042: CancellationToken + timeout propagation.
 """
+
 from __future__ import annotations
 
-import time
 import threading
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from worker.core.execution_envelope import (
     CONFIRM_REQUIRED_CAPABILITIES,
     ApprovalRef,
     CapabilityGrant,
     ExecutionEnvelope,
-    WorkerResult,
-    WorkerResultStatus,
-    make_trace,
 )
 
-
 # ── SubworkerEnvelope (EW-T038) ───────────────────────────────────────────────
+
 
 class SubworkerEnvelope(BaseModel):
     """Delegated execution contract for a child worker. EW-T038.
@@ -35,13 +33,14 @@ class SubworkerEnvelope(BaseModel):
     Capability set MUST be a subset of parent capabilities.
     Context set MUST be a subset or policy-approved derivative of parent context.
     """
+
     parent_execution_id: str
     delegated_task: str
     reduced_capability_grant: CapabilityGrant
     context_subset_refs: list[str] = Field(default_factory=list)
     approval_refs: list[ApprovalRef] = Field(default_factory=list)
-    depth: int = 1               # delegation depth, incremented by spawn gate
-    max_depth: int = 3           # absolute recursion ceiling
+    depth: int = 1  # delegation depth, incremented by spawn gate
+    max_depth: int = 3  # absolute recursion ceiling
     child_task_id: str = ""
     delegated_by: str = ""
 
@@ -65,6 +64,7 @@ class SubworkerEnvelope(BaseModel):
 
 # ── SpawnGateResult ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class SpawnGateResult:
     allowed: bool
@@ -73,6 +73,7 @@ class SpawnGateResult:
 
 
 # ── SubworkerSpawnGate (EW-T039) ──────────────────────────────────────────────
+
 
 class SubworkerSpawnGate:
     """Validates subworker spawn requests. EW-T039.
@@ -96,19 +97,16 @@ class SubworkerSpawnGate:
     ) -> SpawnGateResult:
         # 1. Parent must have subworker_spawn capability
         if not parent.has_capability("subworker_spawn"):
-            return SpawnGateResult(False, "missing_capability",
-                                   "parent lacks subworker_spawn capability")
+            return SpawnGateResult(False, "missing_capability", "parent lacks subworker_spawn capability")
 
         # 2. Parent must have approval if confirm_required
         if "subworker_spawn" in CONFIRM_REQUIRED_CAPABILITIES:
             if not parent.approval_for("subworker_spawn"):
-                return SpawnGateResult(False, "approval_missing",
-                                       "subworker_spawn requires ApprovalRef")
+                return SpawnGateResult(False, "approval_missing", "subworker_spawn requires ApprovalRef")
 
         # 3. Reduced capability grant must exist and be non-empty
         if not sub_env.reduced_capability_grant.capabilities:
-            return SpawnGateResult(False, "missing_capability",
-                                   "SubworkerEnvelope has no capabilities")
+            return SpawnGateResult(False, "missing_capability", "SubworkerEnvelope has no capabilities")
 
         # 4. Capability subset check
         errors = sub_env.validate_subset_of(parent)
@@ -117,13 +115,15 @@ class SubworkerSpawnGate:
 
         # 5. Depth / recursion ceiling
         if sub_env.depth > sub_env.max_depth:
-            return SpawnGateResult(False, "subworker_depth_exceeded",
-                                   f"depth {sub_env.depth} > max {sub_env.max_depth}")
+            return SpawnGateResult(
+                False, "subworker_depth_exceeded", f"depth {sub_env.depth} > max {sub_env.max_depth}"
+            )
 
         # 6. Fan-out ceiling
         if current_fan_out >= self.MAX_FAN_OUT:
-            return SpawnGateResult(False, "subworker_fanout_exceeded",
-                                   f"fan-out {current_fan_out} >= max {self.MAX_FAN_OUT}")
+            return SpawnGateResult(
+                False, "subworker_fanout_exceeded", f"fan-out {current_fan_out} >= max {self.MAX_FAN_OUT}"
+            )
 
         return SpawnGateResult(True, "spawn_allow")
 
@@ -151,6 +151,7 @@ class SubworkerSpawnGate:
 
 # ── DelegationArtifact (EW-T041) ─────────────────────────────────────────────
 
+
 @dataclass
 class DelegationRecord:
     child_task_id: str
@@ -165,6 +166,7 @@ class DelegationRecord:
 @dataclass
 class DelegationArtifact:
     """Audit-reconstructible delegation tree entry. EW-T041."""
+
     artifact_id: str
     parent_task_id: str
     records: list[DelegationRecord] = field(default_factory=list)
@@ -194,6 +196,7 @@ class DelegationArtifact:
 
 
 # ── CancellationToken (EW-T042) ───────────────────────────────────────────────
+
 
 class CancellationToken:
     """Cooperative cancellation propagated to children. EW-T042."""
@@ -226,6 +229,7 @@ class CancellationToken:
 
 # ── ExecutionState vocabulary ─────────────────────────────────────────────────
 
+
 class ExecutionState(str, Enum):
     pending = "pending"
     running = "running"
@@ -238,7 +242,7 @@ class ExecutionState(str, Enum):
 @dataclass
 class CoordinatedTask:
     task_id: str
-    is_mutation: bool           # True → must be serialized
+    is_mutation: bool  # True → must be serialized
     is_independent: bool = False
     state: ExecutionState = ExecutionState.pending
     result: Any = None
@@ -254,6 +258,7 @@ class CoordinatedTask:
 
 # ── ParallelExecutionCoordinator (EW-T040) ───────────────────────────────────
 
+
 class ParallelExecutionCoordinator:
     """Manages parallel vs serialized task execution. EW-T040.
 
@@ -263,9 +268,14 @@ class ParallelExecutionCoordinator:
     - Deterministic result ordering preserved.
     """
 
-    MUTATION_CAPABILITIES = frozenset({
-        "patch_apply", "shell_execute", "memory_write", "cron_schedule",
-    })
+    MUTATION_CAPABILITIES = frozenset(
+        {
+            "patch_apply",
+            "shell_execute",
+            "memory_write",
+            "cron_schedule",
+        }
+    )
 
     def classify(self, task: CoordinatedTask, envelope: ExecutionEnvelope) -> CoordinatedTask:
         """Classify a task as mutation or parallel-safe."""

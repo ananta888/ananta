@@ -7,16 +7,13 @@ from typing import Callable, Generic, Protocol, TypeVar
 
 from agent.services.mail_provider_ports import MailProviderResult
 
-
 T = TypeVar("T")
 
 
 class JmapCancellationSignal(Protocol):
-    def is_cancelled(self) -> bool:
-        ...
+    def is_cancelled(self) -> bool: ...
 
-    def wait(self, timeout: float) -> bool:
-        ...
+    def wait(self, timeout: float) -> bool: ...
 
 
 class JmapCancellationToken:

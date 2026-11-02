@@ -150,7 +150,6 @@ class ActivationReconciliationResult:
     active: ActiveKnowledgeIndexRecord | None
 
 
-
 def _derived_id(prefix: str, coordinates: dict[str, object]) -> str:
     canonical = json.dumps(
         coordinates,
@@ -176,9 +175,7 @@ def derive_grant_family_id(contract: SourceAccessGrant) -> str:
     )
 
 
-def derive_active_index_id(
-    *, tenant_id: str, project_id: str, connection_id: str
-) -> str:
+def derive_active_index_id(*, tenant_id: str, project_id: str, connection_id: str) -> str:
     return _derived_id(
         "active",
         {
@@ -197,17 +194,10 @@ def derive_index_lifecycle(
     current_policy_snapshot_digest: str,
     has_verified_run: bool,
 ) -> IndexLifecycleProjection:
-    policy_changed = (
-        binding.policy_snapshot_digest != current_policy_snapshot_digest
-    )
-    stale = (
-        binding.source_revision_id != current_source_revision_id
-        or policy_changed
-    )
+    policy_changed = binding.policy_snapshot_digest != current_policy_snapshot_digest
+    stale = binding.source_revision_id != current_source_revision_id or policy_changed
     superseded = (
-        binding.status == "completed"
-        and active is not None
-        and active.knowledge_index_id != binding.knowledge_index_id
+        binding.status == "completed" and active is not None and active.knowledge_index_id != binding.knowledge_index_id
     )
     return IndexLifecycleProjection(
         knowledge_index_id=binding.knowledge_index_id,
@@ -216,7 +206,6 @@ def derive_index_lifecycle(
         superseded=superseded,
         rollback_candidate=superseded and has_verified_run and not stale,
     )
-
 
 
 __all__ = [

@@ -4,62 +4,62 @@ EW-T031: Context blocks scanned for injection, exfiltration, hidden unicode,
           steganographic instructions. Blocked blocks replaced by safe stubs.
           Findings appear in TraceBundle and WorkerResult.warnings.
 """
+
 from __future__ import annotations
 
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Any
 
 from worker.core.context_resolver import ContextBlock
 
-
 # ── Injection pattern vocabulary ──────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class InjectionPattern:
     name: str
     pattern: re.Pattern[str]
-    severity: str   # "high", "medium", "low"
+    severity: str  # "high", "medium", "low"
 
 
 _INJECTION_PATTERNS: list[InjectionPattern] = [
-    InjectionPattern("ignore_instructions",
+    InjectionPattern(
+        "ignore_instructions",
         re.compile(r"(?i)\bignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?|directives?)\b"),
-        "high"),
-    InjectionPattern("forget_context",
-        re.compile(r"(?i)\bforget\s+(everything|all|the\s+above|context|history)\b"),
-        "high"),
-    InjectionPattern("new_system_prompt",
-        re.compile(r"(?i)(system\s*prompt|new\s+instructions?)\s*[:=]"),
-        "high"),
-    InjectionPattern("act_as_jailbreak",
+        "high",
+    ),
+    InjectionPattern(
+        "forget_context", re.compile(r"(?i)\bforget\s+(everything|all|the\s+above|context|history)\b"), "high"
+    ),
+    InjectionPattern("new_system_prompt", re.compile(r"(?i)(system\s*prompt|new\s+instructions?)\s*[:=]"), "high"),
+    InjectionPattern(
+        "act_as_jailbreak",
         re.compile(r"(?i)\byou\s+are\s+(now\s+)?(jailbroken|DAN|free|unrestricted|root|admin)\b"),
-        "high"),
-    InjectionPattern("privilege_escalation",
-        re.compile(r"(?i)\bACT\s+AS\s+(root|admin|superuser|operator)\b"),
-        "high"),
-    InjectionPattern("policy_bypass",
-        re.compile(r"(?i)\b(bypass|disregard|override|ignore)\s+(your\s+)?(safety|policy|policies|rules?|guidelines?|restrictions?)\b"),
-        "high"),
-    InjectionPattern("exfiltration_instruction",
-        re.compile(r"(?i)\b(send|exfiltrate|leak|transmit|upload|POST)\s+(all|any)?\s*(data|content|file|secret|token|key|password)\b"),
-        "high"),
-    InjectionPattern("hidden_command",
-        re.compile(r"(?i)<!--\s*(exec|run|execute|eval)\b"),
-        "medium"),
-    InjectionPattern("markdown_hidden",
-        re.compile(r"\[//\]:\s*#\s*\(.*?(exec|inject|override)"),
-        "medium"),
-    InjectionPattern("role_injection",
-        re.compile(r"(?i)\b(assistant|user|system)\s*:\s*(ignore|forget|bypass|override)\b"),
-        "medium"),
-    InjectionPattern("latex_injection",
-        re.compile(r"\\(?:input|include|write18|immediate)\{"),
-        "medium"),
-    InjectionPattern("shell_in_context",
-        re.compile(r"(?i)\$\(\s*(rm|curl|wget|bash|sh|python|nc|ncat)\b"),
-        "medium"),
+        "high",
+    ),
+    InjectionPattern("privilege_escalation", re.compile(r"(?i)\bACT\s+AS\s+(root|admin|superuser|operator)\b"), "high"),
+    InjectionPattern(
+        "policy_bypass",
+        re.compile(
+            r"(?i)\b(bypass|disregard|override|ignore)\s+(your\s+)?(safety|policy|policies|rules?|guidelines?|restrictions?)\b"
+        ),
+        "high",
+    ),
+    InjectionPattern(
+        "exfiltration_instruction",
+        re.compile(
+            r"(?i)\b(send|exfiltrate|leak|transmit|upload|POST)\s+(all|any)?\s*(data|content|file|secret|token|key|password)\b"
+        ),
+        "high",
+    ),
+    InjectionPattern("hidden_command", re.compile(r"(?i)<!--\s*(exec|run|execute|eval)\b"), "medium"),
+    InjectionPattern("markdown_hidden", re.compile(r"\[//\]:\s*#\s*\(.*?(exec|inject|override)"), "medium"),
+    InjectionPattern(
+        "role_injection", re.compile(r"(?i)\b(assistant|user|system)\s*:\s*(ignore|forget|bypass|override)\b"), "medium"
+    ),
+    InjectionPattern("latex_injection", re.compile(r"\\(?:input|include|write18|immediate)\{"), "medium"),
+    InjectionPattern("shell_in_context", re.compile(r"(?i)\$\(\s*(rm|curl|wget|bash|sh|python|nc|ncat)\b"), "medium"),
 ]
 
 # Hidden/misleading Unicode categories
@@ -69,11 +69,12 @@ _ALLOWED_CONTROL_CHARS = frozenset({"\n", "\r", "\t"})
 
 # ── ScanResult ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ScanFinding:
     pattern_name: str
     severity: str
-    snippet: str     # up to 80 chars around the match, no full secrets
+    snippet: str  # up to 80 chars around the match, no full secrets
     position: int
 
 
@@ -83,10 +84,11 @@ class ContextScanResult:
     clean: bool
     findings: list[ScanFinding] = field(default_factory=list)
     has_hidden_unicode: bool = False
-    safe_stub: ContextBlock | None = None   # replacement when blocked
+    safe_stub: ContextBlock | None = None  # replacement when blocked
 
 
 # ── ContextScanner ────────────────────────────────────────────────────────────
+
 
 class ContextScanner:
     """Scans context blocks for prompt injection and steganographic instructions.
@@ -109,23 +111,27 @@ class ContextScanner:
                 start = max(0, match.start() - 20)
                 end = min(len(block.content), match.end() + 20)
                 snippet = block.content[start:end].replace("\n", " ")[:80]
-                result.findings.append(ScanFinding(
-                    pattern_name=ip.name,
-                    severity=ip.severity,
-                    snippet=snippet,
-                    position=match.start(),
-                ))
+                result.findings.append(
+                    ScanFinding(
+                        pattern_name=ip.name,
+                        severity=ip.severity,
+                        snippet=snippet,
+                        position=match.start(),
+                    )
+                )
 
         # 2. Hidden/misleading unicode scan
         if self._has_suspicious_unicode(block.content):
             result.clean = False
             result.has_hidden_unicode = True
-            result.findings.append(ScanFinding(
-                pattern_name="hidden_unicode",
-                severity="high",
-                snippet="[unicode control/private-use characters detected]",
-                position=0,
-            ))
+            result.findings.append(
+                ScanFinding(
+                    pattern_name="hidden_unicode",
+                    severity="high",
+                    snippet="[unicode control/private-use characters detected]",
+                    position=0,
+                )
+            )
 
         # 3. Build safe stub if not clean
         if not result.clean:
@@ -158,13 +164,10 @@ class ContextScanner:
         for scan in findings:
             for f in scan.findings:
                 warnings.append(
-                    f"prompt_injection_blocked:{f.pattern_name}:"
-                    f"origin={scan.block_origin_id}:severity={f.severity}"
+                    f"prompt_injection_blocked:{f.pattern_name}:origin={scan.block_origin_id}:severity={f.severity}"
                 )
             if scan.has_hidden_unicode:
-                warnings.append(
-                    f"hidden_unicode_blocked:origin={scan.block_origin_id}"
-                )
+                warnings.append(f"hidden_unicode_blocked:origin={scan.block_origin_id}")
         return warnings
 
     # ── Internals ──────────────────────────────────────────────────────────────
@@ -180,6 +183,7 @@ class ContextScanner:
 
     def _make_stub(self, block: ContextBlock, result: ContextScanResult) -> ContextBlock:
         from worker.core.context_resolver import ContextSensitivity
+
         finding_names = ", ".join(f.pattern_name for f in result.findings[:3])
         stub_content = (
             f"[CONTEXT BLOCK BLOCKED: prompt_injection_detected]\n"

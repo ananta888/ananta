@@ -1,4 +1,5 @@
 """Tests for the Python → Java/Rust semantic translation track (PYJR-001 to PYJR-027)."""
+
 from __future__ import annotations
 
 import json
@@ -11,15 +12,18 @@ FIXTURE_DIR = Path(__file__).parent.parent / "fixtures"
 # PYJR-006: Python Type Confidence Model
 # ---------------------------------------------------------------------------
 
+
 class TestPythonTypeModel:
     def test_annotated_str(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("str")
         assert t.confidence == "annotated"
         assert t.raw == "str"
 
     def test_optional_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("Optional[str]")
         assert t.confidence == "annotated"
         assert t.is_optional is True
@@ -28,18 +32,21 @@ class TestPythonTypeModel:
 
     def test_union_none(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("str | None")
         assert t.is_optional is True
         assert t.element_type == "str"
 
     def test_any_type_is_dynamic(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("Any")
         assert t.confidence == "dynamic"
         assert "any_type_requires_review" in t.warnings
 
     def test_unknown_type_no_annotation(self):
         from agent.codecompass.semantic_translation.python_type_model import parse_python_type
+
         t = parse_python_type(None)
         assert t.confidence == "unknown"
         assert "no_type_annotation" in t.warnings
@@ -48,6 +55,7 @@ class TestPythonTypeModel:
         import ast
 
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
+
         node = ast.parse("5", mode="eval").body
         t = infer_type_from_default(node)
         assert t.confidence == "inferred_from_default"
@@ -57,6 +65,7 @@ class TestPythonTypeModel:
         import ast
 
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
+
         node = ast.parse("None", mode="eval").body
         t = infer_type_from_default(node)
         assert t.confidence == "inferred_from_default"
@@ -67,6 +76,7 @@ class TestPythonTypeModel:
         import ast
 
         from agent.codecompass.semantic_translation.python_type_model import infer_type_from_default
+
         node = ast.parse("[]", mode="eval").body
         t = infer_type_from_default(node)
         assert t.confidence == "inferred_from_default"
@@ -77,9 +87,11 @@ class TestPythonTypeModel:
 # PYJR-007: None/Optional Semantics
 # ---------------------------------------------------------------------------
 
+
 class TestNoneOptionalSemantics:
     def test_optional_str_not_confused_with_falsy(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t_optional = _classify_type("Optional[str]")
         t_str = _classify_type("str")
         assert t_optional.is_optional is True
@@ -87,18 +99,21 @@ class TestNoneOptionalSemantics:
 
     def test_none_literal_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("None")
         assert t.none_model == "none_literal"
         assert t.is_optional is True
 
     def test_union_none_detected(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("int | None")
         assert t.is_optional is True
         assert t.element_type == "int"
 
     def test_java_optional_mapping(self):
         from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
+
         r = PythonToJavaTypeRegistry()
         m = r.map_type("Optional[str]")
         assert "Optional" in m.java_type
@@ -106,6 +121,7 @@ class TestNoneOptionalSemantics:
 
     def test_rust_option_mapping(self):
         from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
+
         r = PythonToRustTypeRegistry()
         m = r.map_type("Optional[str]")
         assert m.rust_type == "Option<String>"
@@ -115,15 +131,18 @@ class TestNoneOptionalSemantics:
 # PYJR-008: Collection Semantics
 # ---------------------------------------------------------------------------
 
+
 class TestCollectionSemantics:
     def test_list_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("list[str]")
         assert t.collection_kind == "list"
         assert t.element_type == "str"
 
     def test_dict_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("dict[str, int]")
         assert t.collection_kind == "dict"
         assert t.key_type == "str"
@@ -131,11 +150,13 @@ class TestCollectionSemantics:
 
     def test_tuple_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("tuple[str, int]")
         assert t.collection_kind == "tuple"
 
     def test_set_type(self):
         from agent.codecompass.semantic_translation.python_type_model import _classify_type
+
         t = _classify_type("set[str]")
         assert t.collection_kind == "set"
 
@@ -145,6 +166,7 @@ class TestCollectionSemantics:
 
     def test_rust_hashset_mapping(self):
         from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
+
         r = PythonToRustTypeRegistry()
         m = r.map_type("set[str]")
         assert "HashSet" in m.rust_type
@@ -155,15 +177,18 @@ class TestCollectionSemantics:
 # PYJR-001/002/003/004: Python Adapter
 # ---------------------------------------------------------------------------
 
+
 class TestPythonAdapter:
     def _adapt(self, code: str, path: str = "test.py") -> dict:
         from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
+
         adapter = PythonSemanticAdapter()
         assert adapter.detect(path, code)
         return adapter.parse(path, code)
 
     def test_detects_py_files(self):
         from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
+
         a = PythonSemanticAdapter()
         assert a.detect("foo.py", "") is True
         assert a.detect("foo.java", "") is False
@@ -239,6 +264,7 @@ class TestPythonAdapter:
     def test_emits_graph_records(self):
         code = "@dataclass\nclass User:\n    name: str"
         from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
+
         result = PythonSemanticAdapter().emit_graph_records("test.py", code)
         assert result["nodes"]
         node_ids = [n["id"] for n in result["nodes"]]
@@ -262,13 +288,16 @@ class TestPythonAdapter:
 # PYJR-009: Python Exception und Error Flow
 # ---------------------------------------------------------------------------
 
+
 class TestPythonExceptionFlow:
     def _adapt(self, code: str) -> dict:
         from agent.codecompass.semantic_translation.python_adapter import PythonSemanticAdapter
+
         return PythonSemanticAdapter().parse("test.py", code)
 
     def _detect(self, code: str) -> object:
         from agent.codecompass.semantic_translation.python_dynamic_detector import detect_dynamic_features
+
         return detect_dynamic_features(code)
 
     def test_raise_extracted(self):
@@ -320,6 +349,7 @@ class TestPythonExceptionFlow:
 
     def test_rust_exception_policy_for_known_exception(self):
         from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+
         engine = RustOwnershipPolicyEngine()
         d = engine.classify_exception_policy("ValueError")
         assert d.rust_policy == "result_t_e"
@@ -329,6 +359,7 @@ class TestPythonExceptionFlow:
 
     def test_unsupported_exception_type_needs_review(self):
         from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+
         engine = RustOwnershipPolicyEngine()
         d = engine.classify_exception_policy("SomeWeirdDomainException")
         assert d.rust_policy == "needs_review"
@@ -338,9 +369,11 @@ class TestPythonExceptionFlow:
 # PYJR-010: Dynamic Feature Detector
 # ---------------------------------------------------------------------------
 
+
 class TestDynamicFeatureDetector:
     def _detect(self, code: str) -> object:
         from agent.codecompass.semantic_translation.python_dynamic_detector import detect_dynamic_features
+
         return detect_dynamic_features(code)
 
     def test_eval_blocked(self):
@@ -388,9 +421,11 @@ class TestDynamicFeatureDetector:
 # PYJR-012: Python → Java Type Registry
 # ---------------------------------------------------------------------------
 
+
 class TestJavaTypeRegistry:
     def setup_method(self):
         from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
+
         self.reg = PythonToJavaTypeRegistry()
 
     def test_bool(self):
@@ -459,9 +494,11 @@ class TestJavaTypeRegistry:
 # PYJR-016: Python → Rust Type Registry
 # ---------------------------------------------------------------------------
 
+
 class TestRustTypeRegistry:
     def setup_method(self):
         from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
+
         self.reg = PythonToRustTypeRegistry()
 
     def test_bool(self):
@@ -526,9 +563,11 @@ class TestRustTypeRegistry:
 # PYJR-017: Rust Ownership Policy
 # ---------------------------------------------------------------------------
 
+
 class TestRustOwnershipPolicy:
     def setup_method(self):
         from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+
         self.engine = RustOwnershipPolicyEngine()
 
     def test_owned_field(self):
@@ -565,9 +604,11 @@ class TestRustOwnershipPolicy:
 # PYJR-014: Java Emitter
 # ---------------------------------------------------------------------------
 
+
 class TestJavaEmitter:
     def setup_method(self):
         from agent.codecompass.semantic_translation.java_emitter import JavaEmitter
+
         self.emitter = JavaEmitter()
 
     def test_emit_record_basic(self):
@@ -617,9 +658,11 @@ class TestJavaEmitter:
 # PYJR-019: Rust Emitter
 # ---------------------------------------------------------------------------
 
+
 class TestRustEmitter:
     def setup_method(self):
         from agent.codecompass.semantic_translation.rust_emitter import RustEmitter
+
         self.emitter = RustEmitter()
 
     def test_emit_struct_basic(self):
@@ -673,9 +716,11 @@ class TestRustEmitter:
 # PYJR-020/021: Translation Plan Service + Transform Engine
 # ---------------------------------------------------------------------------
 
+
 class TestTranslationPlanService:
     def _plan(self, code: str, target: str = "java") -> object:
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         return PythonTranslationPlanService().create_plan(code, "test.py", target)
 
     def test_plan_dataclass_java(self):
@@ -766,6 +811,7 @@ class TestTranslationPlanService:
         code = "@dataclass\nclass A:\n    x: int"
         # filter by symbol not present
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         plan2 = PythonTranslationPlanService().create_plan(code, "test.py", "java")
         filtered = [e for e in plan2.entries if "NonExistent" in e.symbol]
         assert filtered == []
@@ -774,6 +820,7 @@ class TestTranslationPlanService:
 class TestTransformEngine:
     def _transform(self, code: str, target: str = "java") -> list:
         from agent.codecompass.semantic_translation.python_transform import PythonTransformEngine
+
         return PythonTransformEngine().transform(code, "test.py", target)
 
     def test_transform_dataclass_java(self):
@@ -814,10 +861,12 @@ class TestTransformEngine:
 # PYJR-022: Verifier
 # ---------------------------------------------------------------------------
 
+
 class TestPythonVerifier:
     def test_java_verifier_field_completeness(self):
         from agent.codecompass.semantic_translation.java_emitter import JavaEmitter
         from agent.codecompass.semantic_translation.python_verifier import PythonToJavaVerifier
+
         fields = [
             {"name": "email", "type": "str", "type_annotation": {"is_optional": True}, "has_default": True},
         ]
@@ -829,7 +878,13 @@ class TestPythonVerifier:
 
     def test_java_verifier_missing_field_fails(self):
         from agent.codecompass.semantic_translation.python_verifier import PythonToJavaVerifier
-        item = {"name": "X", "kind": "dataclass", "fields": [{"name": "secret", "type": "str", "type_annotation": {}, "has_default": False}], "methods": []}
+
+        item = {
+            "name": "X",
+            "kind": "dataclass",
+            "fields": [{"name": "secret", "type": "str", "type_annotation": {}, "has_default": False}],
+            "methods": [],
+        }
         artifact = {"source": "public record X() {}", "needs_review": False, "warnings": []}
         result = PythonToJavaVerifier().verify(item, artifact)
         assert result.status == "failed"
@@ -837,7 +892,15 @@ class TestPythonVerifier:
 
     def test_rust_verifier_option_not_emitted_fails(self):
         from agent.codecompass.semantic_translation.python_verifier import PythonToRustVerifier
-        item = {"name": "P", "kind": "dataclass", "fields": [{"name": "email", "type": "str", "type_annotation": {"is_optional": True}, "has_default": False}], "methods": []}
+
+        item = {
+            "name": "P",
+            "kind": "dataclass",
+            "fields": [
+                {"name": "email", "type": "str", "type_annotation": {"is_optional": True}, "has_default": False}
+            ],
+            "methods": [],
+        }
         artifact = {"source": "pub struct P { pub email: String, }", "needs_review": False, "warnings": []}
         result = PythonToRustVerifier().verify(item, artifact)
         assert result.status == "failed"
@@ -845,6 +908,7 @@ class TestPythonVerifier:
     def test_rust_verifier_enum_values(self):
         from agent.codecompass.semantic_translation.python_verifier import PythonToRustVerifier
         from agent.codecompass.semantic_translation.rust_emitter import RustEmitter
+
         item = {"name": "Color", "kind": "enum", "fields": [], "enum_values": ["RED", "GREEN"], "methods": []}
         artifact = RustEmitter().emit_enum("Color", ["RED", "GREEN"]).as_dict()
         result = PythonToRustVerifier().verify(item, artifact)
@@ -855,20 +919,32 @@ class TestPythonVerifier:
 # PYJR-023: Semantic Diff
 # ---------------------------------------------------------------------------
 
+
 class TestSemanticDiff:
     def setup_method(self):
         from agent.codecompass.semantic_translation.semantic_diff import SemanticDiffEngine
+
         self.engine = SemanticDiffEngine()
 
     def test_no_diff_for_complete_struct(self):
-        item = {"name": "P", "kind": "dataclass", "fields": [{"name": "x", "type_annotation": {"is_optional": False}}], "enum_values": []}
+        item = {
+            "name": "P",
+            "kind": "dataclass",
+            "fields": [{"name": "x", "type_annotation": {"is_optional": False}}],
+            "enum_values": [],
+        }
         artifact = {"source": "pub struct P { pub x: f64, }"}
         result = self.engine.diff(item, artifact, "rust")
         missing = [e for e in result.entries if e.kind == "missing_field"]
         assert not missing
 
     def test_missing_field_detected(self):
-        item = {"name": "P", "kind": "dataclass", "fields": [{"name": "secret", "type_annotation": {"is_optional": False}}], "enum_values": []}
+        item = {
+            "name": "P",
+            "kind": "dataclass",
+            "fields": [{"name": "secret", "type_annotation": {"is_optional": False}}],
+            "enum_values": [],
+        }
         artifact = {"source": "pub struct P {}"}
         result = self.engine.diff(item, artifact, "rust")
         assert result.has_divergence
@@ -882,7 +958,12 @@ class TestSemanticDiff:
         assert lost
 
     def test_changed_optionality_rust(self):
-        item = {"name": "P", "kind": "dataclass", "fields": [{"name": "email", "type_annotation": {"is_optional": True}}], "enum_values": []}
+        item = {
+            "name": "P",
+            "kind": "dataclass",
+            "fields": [{"name": "email", "type_annotation": {"is_optional": True}}],
+            "enum_values": [],
+        }
         artifact = {"source": "pub struct P { pub email: String, }"}
         result = self.engine.diff(item, artifact, "rust")
         changed = [e for e in result.entries if e.kind == "changed_optionality"]
@@ -904,10 +985,16 @@ class TestSemanticDiff:
     def test_ten_intentional_divergences(self):
         """Verify semantic diff catches 10 different intentional divergences."""
         from agent.codecompass.semantic_translation.semantic_diff import SemanticDiffEngine
+
         engine = SemanticDiffEngine()
         divergences = []
         for i in range(10):
-            item = {"name": f"C{i}", "kind": "dataclass", "fields": [{"name": f"f{i}", "type_annotation": {"is_optional": i % 2 == 0}}], "enum_values": []}
+            item = {
+                "name": f"C{i}",
+                "kind": "dataclass",
+                "fields": [{"name": f"f{i}", "type_annotation": {"is_optional": i % 2 == 0}}],
+                "enum_values": [],
+            }
             # Artifact intentionally missing field
             artifact = {"source": f"pub struct C{i} {{}}"}
             r = engine.diff(item, artifact, "rust")
@@ -919,6 +1006,7 @@ class TestSemanticDiff:
 # ---------------------------------------------------------------------------
 # PYJR-025: Golden Sample Suite
 # ---------------------------------------------------------------------------
+
 
 class TestGoldenSamples:
     def _load(self, fname: str) -> list[dict]:
@@ -935,6 +1023,7 @@ class TestGoldenSamples:
 
     def test_java_dataclass_to_record(self):
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         samples = self._load("python_golden_samples_java.json")
         svc = PythonTranslationPlanService()
         for s in samples:
@@ -942,12 +1031,20 @@ class TestGoldenSamples:
                 continue
             py_code = f"from dataclasses import dataclass\nfrom typing import Optional\nfrom uuid import UUID\nfrom decimal import Decimal\nfrom datetime import datetime\n{s['source_python']}"
             plan = svc.create_plan(py_code, "sample.py", "java")
-            entry = next((e for e in plan.entries if e.symbol == s["source_python"].split("class ")[-1].split(":")[0].split("(")[0].strip()), None)
+            entry = next(
+                (
+                    e
+                    for e in plan.entries
+                    if e.symbol == s["source_python"].split("class ")[-1].split(":")[0].split("(")[0].strip()
+                ),
+                None,
+            )
             if entry and s.get("expected_java_kind") == "record":
                 assert entry.java_artifact is not None
 
     def test_rust_enum_golden(self):
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         samples = self._load("python_golden_samples_rust.json")
         svc = PythonTranslationPlanService()
         for s in samples:
@@ -960,6 +1057,7 @@ class TestGoldenSamples:
 
     def test_java_blocked_dynamic_runtime(self):
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         samples = self._load("python_golden_samples_java.json")
         blocked = [s for s in samples if s.get("expected_transform_status") == "blocked_dynamic_runtime"]
         assert blocked
@@ -970,6 +1068,7 @@ class TestGoldenSamples:
 
     def test_rust_blocked_dynamic_runtime(self):
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         samples = self._load("python_golden_samples_rust.json")
         blocked = [s for s in samples if s.get("expected_transform_status") == "blocked_dynamic_runtime"]
         assert blocked
@@ -980,6 +1079,7 @@ class TestGoldenSamples:
 
     def test_no_network_required(self):
         from agent.codecompass.semantic_translation.python_transform import PythonTranslationPlanService
+
         # Must work without any network — pure stdlib + local code
         svc = PythonTranslationPlanService()
         plan = svc.create_plan("@dataclass\nclass X:\n    v: int", "x.py", "both")

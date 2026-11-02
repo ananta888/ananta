@@ -112,10 +112,7 @@ def test_exact_duplicates_are_order_independent_and_non_destructive() -> None:
 
 
 def test_partial_pair_budget_never_reports_complete_or_false_zero() -> None:
-    claims = tuple(
-        _claim(f"claim-{index}", source_id="SRC_0001", value=index)
-        for index in range(4)
-    )
+    claims = tuple(_claim(f"claim-{index}", source_id="SRC_0001", value=index) for index in range(4))
 
     result = analyze_claims(claims, max_candidate_pairs=1, now=20.0)
 

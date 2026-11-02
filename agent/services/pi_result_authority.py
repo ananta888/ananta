@@ -6,7 +6,9 @@ from agent.services.native_result_authority import SQLAlchemyNativeResultAuthori
 class SQLAlchemyPiResultAuthority:
     def __init__(self, *, key_ring):
         self._authority = SQLAlchemyNativeResultAuthority(
-            key_ring=key_ring, required_capabilities=("coding.agent.pi",), reason_prefix="pi_native_result",
+            key_ring=key_ring,
+            required_capabilities=("coding.agent.pi",),
+            reason_prefix="pi_native_result",
         )
 
     def require_current(self, *, session, command, task, now):

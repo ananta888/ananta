@@ -525,6 +525,7 @@ def activate_team(team_id):
         log_audit("team_activated", {"team_id": team_id})
         return api_response(data={"status": "activated"})
 
+
 @teams_bp.route("/teams/templates", methods=["GET"])
 @check_auth
 def list_team_templates():

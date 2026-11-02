@@ -8,12 +8,12 @@ PAT-013: Blueprint workflow steps may carry optional pattern_hints so the
 planner (BlueprintPlanningAdapter) can forward validated pattern constraints
 to subtasks and worker execution contexts without re-querying the catalog.
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
-
 
 revision: str = "g1h2i3j4k5l6"
 down_revision: Union[str, Sequence[str], None] = "f7a8b9c0d1e2"

@@ -27,14 +27,19 @@ class _StubJavaExtractor:
         return {"file": rel_path, "package": None, "imports": [], "type_names": []}
 
     def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
-        return [
-            {
-                "kind": "java_file",
-                "file": rel_path,
-                "id": f"java_file:{rel_path}",
-                "embedding_text": "java file",
-            }
-        ], [], [], {}
+        return (
+            [
+                {
+                    "kind": "java_file",
+                    "file": rel_path,
+                    "id": f"java_file:{rel_path}",
+                    "embedding_text": "java file",
+                }
+            ],
+            [],
+            [],
+            {},
+        )
 
 
 class _StubAdocExtractor:
@@ -99,9 +104,7 @@ class TestDomainDiscoveryManifest(unittest.TestCase):
                 xsd_extractor_cls=_StubXsdExtractor,
                 text_extractor_cls=None,
             )
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertNotIn("domain_discovery", manifest)
             self.assertFalse((out_dir / "domains.detected.json").exists())
             self.assertFalse((out_dir / "domain_boundaries.jsonl").exists())
@@ -128,9 +131,7 @@ class TestDomainDiscoveryManifest(unittest.TestCase):
                 xsd_extractor_cls=_StubXsdExtractor,
                 text_extractor_cls=None,
             )
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("domain_discovery", manifest)
             block = manifest["domain_discovery"]
             self.assertEqual(block["mode"], "basic")
@@ -171,9 +172,7 @@ class TestDomainDiscoveryManifest(unittest.TestCase):
                 xsd_extractor_cls=_StubXsdExtractor,
                 text_extractor_cls=None,
             )
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("domain_discovery", manifest)
             self.assertEqual(manifest["domain_discovery"]["mode"], "rich")
             self.assertIn("domains", manifest["domain_discovery"])
@@ -202,9 +201,7 @@ class TestDomainDiscoveryManifest(unittest.TestCase):
                 xsd_extractor_cls=_StubXsdExtractor,
                 text_extractor_cls=None,
             )
-            manifest = json.loads(
-                (out_dir / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("domain_discovery", manifest)
             block = manifest["domain_discovery"]
             self.assertNotIn("domains", block)

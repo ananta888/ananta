@@ -78,14 +78,17 @@ def test_dry_run_is_read_only_and_reports_target_shape(tmp_path) -> None:
     assert plan.source_entries == 2
     assert plan.dimensions == 2
     assert plan.distance == "cosine"
-    assert plan.scope_fingerprint == hashlib.sha256(
-        json.dumps(
-            _scope().as_dict(),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-    ).hexdigest()
+    assert (
+        plan.scope_fingerprint
+        == hashlib.sha256(
+            json.dumps(
+                _scope().as_dict(),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
     assert plan.target_collection == (
         store.collection_manager.target_collection_name(
             _scope(),
@@ -128,9 +131,7 @@ def test_dry_run_blocks_incomplete_compatibility_state_without_writes(
 
     assert plan.status == "blocked"
     assert plan.reason == "rebuild_required"
-    assert plan.distance == (
-        "" if missing_field == "distance" else "cosine"
-    )
+    assert plan.distance == ("" if missing_field == "distance" else "cosine")
     assert len(plan.scope_fingerprint) == 64
     assert plan.target_collection is not None
     assert client.collections == {}
@@ -302,10 +303,7 @@ def test_migration_requires_idempotency_before_qdrant_writes(
     )
 
     assert result.result.status == "failed"
-    assert (
-        result.result.reason
-        == "migration_idempotency_key_required"
-    )
+    assert result.result.reason == "migration_idempotency_key_required"
     assert result.checkpoint is None
     assert result.activated is False
     assert client.collections == {}
@@ -317,18 +315,21 @@ def test_activation_failure_keeps_old_alias_and_json_unchanged_and_can_resume(
     source = tmp_path / "index.json"
     original = _write_source(source)
     client, store, migrator = _migrator()
-    assert store.rebuild(
-        [
-            PreparedVectorPoint(
-                record_id="old",
-                vector=(1.0, 0.0),
-                scope=_scope(),
-                payload={"kind": "code"},
-                source_hash="source-old",
-            )
-        ],
-        compatibility=_compatibility(),
-    ).status == "ok"
+    assert (
+        store.rebuild(
+            [
+                PreparedVectorPoint(
+                    record_id="old",
+                    vector=(1.0, 0.0),
+                    scope=_scope(),
+                    payload={"kind": "code"},
+                    source_hash="source-old",
+                )
+            ],
+            compatibility=_compatibility(),
+        ).status
+        == "ok"
+    )
     alias = store.collection_manager.alias_name(_scope())
     old_collection = client.aliases[alias]
     old_points = dict(client.collections[old_collection]["points"])

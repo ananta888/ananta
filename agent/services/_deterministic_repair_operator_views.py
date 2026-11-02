@@ -10,19 +10,10 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 log = logging.getLogger(__name__)
-
-
 
 
 def build_operator_session_summary(
@@ -44,9 +35,6 @@ def build_operator_session_summary(
         "verification_status": final_verification.get("verification_summary"),
         "compact_view": True,
     }
-
-
-
 
 
 def build_operator_proposal_preview(
@@ -73,6 +61,3 @@ def build_operator_proposal_preview(
         "approval_decision_ready": True,
         "compact_view": True,
     }
-
-
-

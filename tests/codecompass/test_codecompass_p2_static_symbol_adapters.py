@@ -195,11 +195,7 @@ def test_p2_descriptors_state_static_symbol_limits_without_semantic_claims(
     extension: str,
     language: str,
 ) -> None:
-    descriptor = next(
-        item
-        for item in SemanticAdapterRegistry().descriptors()
-        if extension in item.extensions
-    )
+    descriptor = next(item for item in SemanticAdapterRegistry().descriptors() if extension in item.extensions)
 
     assert descriptor.language == language
     assert descriptor.parser_strategy in {"regex-static-symbol-v1", "regex-sfc-script-symbol-v1"}
@@ -415,10 +411,7 @@ def test_support_matrix_projects_p2_adapters_as_symbol_index() -> None:
     assert {item["format_id"] for item in rows} == expected
     assert all(item["support_level"] == "symbol_index" for item in rows)
     assert all(item["capabilities"][CapabilityDimension.SYMBOLS.value]["effective"] for item in rows)
-    assert all(
-        not item["capabilities"][CapabilityDimension.RELATIONSHIPS.value]["configured"]
-        for item in rows
-    )
+    assert all(not item["capabilities"][CapabilityDimension.RELATIONSHIPS.value]["configured"] for item in rows)
 
 
 def test_kotlin_script_keeps_gradle_rag_helper_contract_separate() -> None:

@@ -3,6 +3,7 @@ HCCA-008 — Tests for QualityGuard and QualityResult.
 
 The module already exists; all tests should pass immediately.
 """
+
 from __future__ import annotations
 
 import json

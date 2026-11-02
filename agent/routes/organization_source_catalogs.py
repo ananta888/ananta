@@ -26,20 +26,14 @@ from agent.services.organization_source_catalog_query_adapter import (
 )
 from agent.services.project_access_authority import ProjectCapability
 
-organization_source_catalogs_bp = Blueprint(
-    "organization_source_catalogs", __name__
-)
+organization_source_catalogs_bp = Blueprint("organization_source_catalogs", __name__)
 
 
-@organization_source_catalogs_bp.post(
-    "/api/organizations/<organization_id>/source-catalogs"
-)
+@organization_source_catalogs_bp.post("/api/organizations/<organization_id>/source-catalogs")
 @check_auth
 @organization_boundary
 def publish_organization_source_catalog(organization_id: str):
-    payload = request_payload(
-        allowed_fields={"connection_id", "queries", "limit"}
-    )
+    payload = request_payload(allowed_fields={"connection_id", "queries", "limit"})
     scope = require_organization_scope(
         organization_id,
         ProjectCapability.MANAGE,
@@ -72,9 +66,7 @@ def publish_organization_source_catalog(organization_id: str):
 
 
 def _service() -> OrganizationSourceCatalogPublisherService:
-    configured = current_app.extensions.get(
-        "organization_source_catalog_publisher_service"
-    )
+    configured = current_app.extensions.get("organization_source_catalog_publisher_service")
     if configured is not None:
         return configured
     return OrganizationSourceCatalogPublisherService(

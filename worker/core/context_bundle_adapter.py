@@ -4,6 +4,7 @@ The Hub sends a context_envelope_ref — either a bare string ID or a structured
 dict with context_bundle_id, context_hash, and retrieval_refs.
 This adapter converts it into resolved ContextBlocks for the worker.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,24 +18,25 @@ from worker.core.context_resolver import (
     _estimate_tokens,
 )
 
-
 # ── ContextEnvelopeRef ────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ContextEnvelopeRef:
     """Normalized Hub context_envelope_ref. AWF-T018."""
+
     bundle_id: str
     context_hash: str
     retrieval_refs: list[dict[str, Any]] = field(default_factory=list)
     context_byte_limit: int = 120_000
     context_chunk_limit: int = 32
-    access_policy_id: Optional[str] = None # T018
-    access_policy_version: Optional[int] = None # T018
-    destination_context_hash: Optional[str] = None # T018
-    denied_block_count: int = 0 # T018
-    redacted_block_count: int = 0 # T018
-    summarized_block_count: int = 0 # T018
-    context_access_summary: Optional[str] = None # T018
+    access_policy_id: Optional[str] = None  # T018
+    access_policy_version: Optional[int] = None  # T018
+    destination_context_hash: Optional[str] = None  # T018
+    denied_block_count: int = 0  # T018
+    redacted_block_count: int = 0  # T018
+    summarized_block_count: int = 0  # T018
+    context_access_summary: Optional[str] = None  # T018
     artifact_grant_refs: list[str] = field(default_factory=list)
     source_usage_refs: list[str] = field(default_factory=list)
     denied_context_refs: list[str] = field(default_factory=list)
@@ -87,6 +89,7 @@ class ContextEnvelopeRef:
 
 
 # ── ContextEnvelopeAdapter ────────────────────────────────────────────────────
+
 
 class ContextEnvelopeAdapter:
     """Converts Hub context_envelope_ref → resolved ContextBlocks. AWF-T018.

@@ -1,4 +1,5 @@
 """X86CC-002: Configuration for the x86 CodeCompass extension."""
+
 from __future__ import annotations
 
 import os

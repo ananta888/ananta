@@ -56,9 +56,7 @@ class SQLSourceIndexLifecycleStore:
         self._clock = clock
         self._activation_fault_hook = activation_fault_hook
 
-    def save_index_binding(
-        self, record: KnowledgeIndexBindingRecord
-    ) -> KnowledgeIndexBindingRecord:
+    def save_index_binding(self, record: KnowledgeIndexBindingRecord) -> KnowledgeIndexBindingRecord:
         with Session(self._engine) as db:
             existing = db.get(
                 KnowledgeIndexSourceBindingDB,
@@ -67,9 +65,7 @@ class SQLSourceIndexLifecycleStore:
             if existing is not None:
                 stored = index_binding_record(existing)
                 if stored != record:
-                    raise SourceControlPersistenceError(
-                        "source_control_index_binding_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_index_binding_conflict")
                 return stored
             require_scoped_revision(
                 db,
@@ -84,15 +80,11 @@ class SQLSourceIndexLifecycleStore:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                raise SourceControlPersistenceError(
-                    "source_control_index_binding_conflict"
-                ) from None
+                raise SourceControlPersistenceError("source_control_index_binding_conflict") from None
             db.refresh(row)
             return index_binding_record(row)
 
-    def save_index_run_binding(
-        self, record: KnowledgeIndexRunBindingRecord
-    ) -> KnowledgeIndexRunBindingRecord:
+    def save_index_run_binding(self, record: KnowledgeIndexRunBindingRecord) -> KnowledgeIndexRunBindingRecord:
         with Session(self._engine) as db:
             existing = db.get(
                 KnowledgeIndexRunSourceBindingDB,
@@ -101,9 +93,7 @@ class SQLSourceIndexLifecycleStore:
             if existing is not None:
                 stored = index_run_binding_record(existing)
                 if stored != record:
-                    raise SourceControlPersistenceError(
-                        "source_control_index_run_binding_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_index_run_binding_conflict")
                 return stored
             index = require_scoped_index(
                 db,
@@ -115,21 +105,16 @@ class SQLSourceIndexLifecycleStore:
             if (
                 index.source_revision_id != record.source_revision_id
                 or index.policy_snapshot_id != record.policy_snapshot_id
-                or index.policy_snapshot_digest
-                != record.policy_snapshot_digest
+                or index.policy_snapshot_digest != record.policy_snapshot_digest
             ):
-                raise SourceControlPersistenceError(
-                    "source_control_index_run_binding_mismatch"
-                )
+                raise SourceControlPersistenceError("source_control_index_run_binding_mismatch")
             row = KnowledgeIndexRunSourceBindingDB(**record.__dict__)
             db.add(row)
             try:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                raise SourceControlPersistenceError(
-                    "source_control_index_run_binding_conflict"
-                ) from None
+                raise SourceControlPersistenceError("source_control_index_run_binding_conflict") from None
             db.refresh(row)
             return index_run_binding_record(row)
 
@@ -147,8 +132,7 @@ class SQLSourceIndexLifecycleStore:
             or not run.artifacts_verified
             or not index.activation_requested
             or not index.artifact_manifest_digest
-            or run.artifact_manifest_digest
-            != index.artifact_manifest_digest
+            or run.artifact_manifest_digest != index.artifact_manifest_digest
             or run.knowledge_index_id != index.knowledge_index_id
             or (
                 run.tenant_id,
@@ -167,9 +151,7 @@ class SQLSourceIndexLifecycleStore:
                 index.policy_snapshot_digest,
             )
         ):
-            raise SourceControlPersistenceError(
-                "source_control_completed_index_projection_invalid"
-            )
+            raise SourceControlPersistenceError("source_control_completed_index_projection_invalid")
         require_sha256_digest(index.artifact_manifest_digest)
         with Session(self._engine) as db:
             with db.begin():
@@ -185,9 +167,7 @@ class SQLSourceIndexLifecycleStore:
                     index.knowledge_index_id,
                 )
                 if index_row is None:
-                    index_row = KnowledgeIndexSourceBindingDB(
-                        **index.__dict__
-                    )
+                    index_row = KnowledgeIndexSourceBindingDB(**index.__dict__)
                     db.add(index_row)
                     db.flush()
                 else:
@@ -202,43 +182,30 @@ class SQLSourceIndexLifecycleStore:
                     if run_row.status == "completed":
                         if (
                             not run_row.artifacts_verified
-                            or run_row.artifact_manifest_digest
-                            != run.artifact_manifest_digest
+                            or run_row.artifact_manifest_digest != run.artifact_manifest_digest
                         ):
-                            raise SourceControlPersistenceError(
-                                "source_control_index_run_projection_conflict"
-                            )
+                            raise SourceControlPersistenceError("source_control_index_run_projection_conflict")
                         return (
                             index_binding_record(index_row),
                             index_run_binding_record(run_row),
                         )
                     if run_row.status != "pending":
-                        raise SourceControlPersistenceError(
-                            "source_control_index_run_projection_conflict"
-                        )
+                        raise SourceControlPersistenceError("source_control_index_run_projection_conflict")
                     run_row.status = "completed"
-                    run_row.artifact_manifest_digest = (
-                        run.artifact_manifest_digest
-                    )
+                    run_row.artifact_manifest_digest = run.artifact_manifest_digest
                     run_row.artifacts_verified = True
                     run_row.lock_version += 1
                     run_row.completed_at_epoch = run.completed_at_epoch
                 else:
-                    run_row = KnowledgeIndexRunSourceBindingDB(
-                        **run.__dict__
-                    )
+                    run_row = KnowledgeIndexRunSourceBindingDB(**run.__dict__)
                     db.add(run_row)
 
                 if index_row.status not in {"pending", "completed"}:
-                    raise SourceControlPersistenceError(
-                        "source_control_index_projection_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_index_projection_conflict")
                 if index_row.status == "completed":
                     index_row.lock_version += 1
                 index_row.status = "completed"
-                index_row.artifact_manifest_digest = (
-                    index.artifact_manifest_digest
-                )
+                index_row.artifact_manifest_digest = index.artifact_manifest_digest
                 index_row.activation_requested = True
                 index_row.updated_at_epoch = index.updated_at_epoch
                 db.flush()
@@ -261,13 +228,8 @@ class SQLSourceIndexLifecycleStore:
             "policy_snapshot_digest",
             "index_contract_version",
         )
-        if any(
-            getattr(row, field) != getattr(expected, field)
-            for field in fields
-        ):
-            raise SourceControlPersistenceError(
-                "source_control_index_projection_binding_mismatch"
-            )
+        if any(getattr(row, field) != getattr(expected, field) for field in fields):
+            raise SourceControlPersistenceError("source_control_index_projection_binding_mismatch")
 
     @staticmethod
     def _assert_run_projection_binding(
@@ -283,13 +245,8 @@ class SQLSourceIndexLifecycleStore:
             "policy_snapshot_id",
             "policy_snapshot_digest",
         )
-        if any(
-            getattr(row, field) != getattr(expected, field)
-            for field in fields
-        ):
-            raise SourceControlPersistenceError(
-                "source_control_index_run_projection_binding_mismatch"
-            )
+        if any(getattr(row, field) != getattr(expected, field) for field in fields):
+            raise SourceControlPersistenceError("source_control_index_run_projection_binding_mismatch")
 
     def complete_index_run(
         self,
@@ -311,19 +268,14 @@ class SQLSourceIndexLifecycleStore:
             with db.begin():
                 run = db.exec(
                     select(KnowledgeIndexRunSourceBindingDB).where(
-                        KnowledgeIndexRunSourceBindingDB.index_run_id
-                        == index_run_id,
-                        KnowledgeIndexRunSourceBindingDB.tenant_id
-                        == tenant_id,
-                        KnowledgeIndexRunSourceBindingDB.project_id
-                        == project_id,
+                        KnowledgeIndexRunSourceBindingDB.index_run_id == index_run_id,
+                        KnowledgeIndexRunSourceBindingDB.tenant_id == tenant_id,
+                        KnowledgeIndexRunSourceBindingDB.project_id == project_id,
                         KnowledgeIndexRunSourceBindingDB.owner_id == owner_id,
                     )
                 ).first()
                 if run is None:
-                    raise SourceControlPersistenceError(
-                        "source_control_index_run_not_found"
-                    )
+                    raise SourceControlPersistenceError("source_control_index_run_not_found")
                 index = require_scoped_index(
                     db,
                     tenant_id=tenant_id,
@@ -331,20 +283,13 @@ class SQLSourceIndexLifecycleStore:
                     owner_id=owner_id,
                     knowledge_index_id=run.knowledge_index_id,
                 )
-                if (
-                    run.lock_version != expected_run_lock_version
-                    or index.lock_version != expected_index_lock_version
-                ):
-                    raise SourceControlPersistenceError(
-                        "source_control_version_conflict"
-                    )
+                if run.lock_version != expected_run_lock_version or index.lock_version != expected_index_lock_version:
+                    raise SourceControlPersistenceError("source_control_version_conflict")
                 run_result = db.execute(
                     update(KnowledgeIndexRunSourceBindingDB)
                     .where(
-                        KnowledgeIndexRunSourceBindingDB.index_run_id
-                        == index_run_id,
-                        KnowledgeIndexRunSourceBindingDB.lock_version
-                        == expected_run_lock_version,
+                        KnowledgeIndexRunSourceBindingDB.index_run_id == index_run_id,
+                        KnowledgeIndexRunSourceBindingDB.lock_version == expected_run_lock_version,
                     )
                     .values(
                         status="completed",
@@ -357,10 +302,8 @@ class SQLSourceIndexLifecycleStore:
                 index_result = db.execute(
                     update(KnowledgeIndexSourceBindingDB)
                     .where(
-                        KnowledgeIndexSourceBindingDB.knowledge_index_id
-                        == index.knowledge_index_id,
-                        KnowledgeIndexSourceBindingDB.lock_version
-                        == expected_index_lock_version,
+                        KnowledgeIndexSourceBindingDB.knowledge_index_id == index.knowledge_index_id,
+                        KnowledgeIndexSourceBindingDB.lock_version == expected_index_lock_version,
                     )
                     .values(
                         status="completed",
@@ -371,9 +314,7 @@ class SQLSourceIndexLifecycleStore:
                     )
                 )
                 if run_result.rowcount != 1 or index_result.rowcount != 1:
-                    raise SourceControlPersistenceError(
-                        "source_control_version_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_version_conflict")
             with Session(self._engine) as loaded:
                 refreshed_run = loaded.get(
                     KnowledgeIndexRunSourceBindingDB,
@@ -384,9 +325,7 @@ class SQLSourceIndexLifecycleStore:
                     run.knowledge_index_id,
                 )
                 if refreshed_run is None or refreshed_index is None:
-                    raise SourceControlPersistenceError(
-                        "source_control_index_completion_inconsistent"
-                    )
+                    raise SourceControlPersistenceError("source_control_index_completion_inconsistent")
                 return (
                     index_binding_record(refreshed_index),
                     index_run_binding_record(refreshed_run),
@@ -406,9 +345,7 @@ class SQLSourceIndexLifecycleStore:
         action: str,
     ) -> ActiveKnowledgeIndexRecord:
         if action not in {"activate", "rollback", "reconcile"}:
-            raise SourceControlPersistenceError(
-                "source_control_activation_action_invalid"
-            )
+            raise SourceControlPersistenceError("source_control_activation_action_invalid")
         require_sha256_digest(current_policy_snapshot_digest)
         active_index_id = derive_active_index_id(
             tenant_id=tenant_id,
@@ -428,36 +365,24 @@ class SQLSourceIndexLifecycleStore:
                     if (
                         index.connection_id != connection_id
                         or index.status != "completed"
-                        or index.source_revision_id
-                        != current_source_revision_id
-                        or index.policy_snapshot_digest
-                        != current_policy_snapshot_digest
+                        or index.source_revision_id != current_source_revision_id
+                        or index.policy_snapshot_digest != current_policy_snapshot_digest
                     ):
-                        raise SourceControlPersistenceError(
-                            "source_control_index_activation_stale"
-                        )
+                        raise SourceControlPersistenceError("source_control_index_activation_stale")
                     verified_run = db.exec(
                         select(KnowledgeIndexRunSourceBindingDB).where(
-                            KnowledgeIndexRunSourceBindingDB.knowledge_index_id
-                            == knowledge_index_id,
-                            KnowledgeIndexRunSourceBindingDB.status
-                            == "completed",
-                            KnowledgeIndexRunSourceBindingDB.artifacts_verified
-                            == True,  # noqa: E712
-                            KnowledgeIndexRunSourceBindingDB.artifact_manifest_digest
-                            == index.artifact_manifest_digest,
+                            KnowledgeIndexRunSourceBindingDB.knowledge_index_id == knowledge_index_id,
+                            KnowledgeIndexRunSourceBindingDB.status == "completed",
+                            KnowledgeIndexRunSourceBindingDB.artifacts_verified == True,  # noqa: E712
+                            KnowledgeIndexRunSourceBindingDB.artifact_manifest_digest == index.artifact_manifest_digest,
                         )
                     ).first()
                     if verified_run is None:
-                        raise SourceControlPersistenceError(
-                            "source_control_index_artifacts_unverified"
-                        )
+                        raise SourceControlPersistenceError("source_control_index_artifacts_unverified")
                     active = db.get(ActiveKnowledgeIndexDB, active_index_id)
                     if active is None:
                         if expected_generation != 0:
-                            raise SourceControlPersistenceError(
-                                "source_control_generation_conflict"
-                            )
+                            raise SourceControlPersistenceError("source_control_generation_conflict")
                         generation = 1
                         previous_id = None
                         active = ActiveKnowledgeIndexDB(
@@ -477,16 +402,11 @@ class SQLSourceIndexLifecycleStore:
                         db.flush()
                     else:
                         if active.generation != expected_generation:
-                            raise SourceControlPersistenceError(
-                                "source_control_generation_conflict"
-                            )
+                            raise SourceControlPersistenceError("source_control_generation_conflict")
                         if active.knowledge_index_id == knowledge_index_id:
                             db.execute(
                                 update(KnowledgeIndexSourceBindingDB)
-                                .where(
-                                    KnowledgeIndexSourceBindingDB.knowledge_index_id
-                                    == knowledge_index_id
-                                )
+                                .where(KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id)
                                 .values(activation_requested=False)
                             )
                             return active_index_record(active)
@@ -495,10 +415,8 @@ class SQLSourceIndexLifecycleStore:
                         result = db.execute(
                             update(ActiveKnowledgeIndexDB)
                             .where(
-                                ActiveKnowledgeIndexDB.active_index_id
-                                == active_index_id,
-                                ActiveKnowledgeIndexDB.generation
-                                == expected_generation,
+                                ActiveKnowledgeIndexDB.active_index_id == active_index_id,
+                                ActiveKnowledgeIndexDB.generation == expected_generation,
                             )
                             .values(
                                 source_revision_id=index.source_revision_id,
@@ -510,15 +428,10 @@ class SQLSourceIndexLifecycleStore:
                             )
                         )
                         if result.rowcount != 1:
-                            raise SourceControlPersistenceError(
-                                "source_control_generation_conflict"
-                            )
+                            raise SourceControlPersistenceError("source_control_generation_conflict")
                     db.execute(
                         update(KnowledgeIndexSourceBindingDB)
-                        .where(
-                            KnowledgeIndexSourceBindingDB.knowledge_index_id
-                            == knowledge_index_id
-                        )
+                        .where(KnowledgeIndexSourceBindingDB.knowledge_index_id == knowledge_index_id)
                         .values(activation_requested=False)
                     )
                     if self._activation_fault_hook is not None:
@@ -564,16 +477,17 @@ class SQLSourceIndexLifecycleStore:
                             created_at_epoch=event.occurred_at_epoch,
                         )
                     )
-                return self.get_active_index(
-                    tenant_id=tenant_id,
-                    project_id=project_id,
-                    owner_id=owner_id,
-                    connection_id=connection_id,
-                ) or self._missing_active()
+                return (
+                    self.get_active_index(
+                        tenant_id=tenant_id,
+                        project_id=project_id,
+                        owner_id=owner_id,
+                        connection_id=connection_id,
+                    )
+                    or self._missing_active()
+                )
         except IntegrityError:
-            raise SourceControlPersistenceError(
-                "source_control_generation_conflict"
-            ) from None
+            raise SourceControlPersistenceError("source_control_generation_conflict") from None
 
     def get_active_index(
         self,
@@ -623,11 +537,9 @@ class SQLSourceIndexLifecycleStore:
             ).first()
             verified = db.exec(
                 select(KnowledgeIndexRunSourceBindingDB).where(
-                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id
-                    == knowledge_index_id,
+                    KnowledgeIndexRunSourceBindingDB.knowledge_index_id == knowledge_index_id,
                     KnowledgeIndexRunSourceBindingDB.status == "completed",
-                    KnowledgeIndexRunSourceBindingDB.artifacts_verified
-                    == True,  # noqa: E712
+                    KnowledgeIndexRunSourceBindingDB.artifacts_verified == True,  # noqa: E712
                 )
             ).first()
             return derive_index_lifecycle(
@@ -655,15 +567,11 @@ class SQLSourceIndexLifecycleStore:
                     KnowledgeIndexSourceBindingDB.tenant_id == tenant_id,
                     KnowledgeIndexSourceBindingDB.project_id == project_id,
                     KnowledgeIndexSourceBindingDB.owner_id == owner_id,
-                    KnowledgeIndexSourceBindingDB.connection_id
-                    == connection_id,
-                    KnowledgeIndexSourceBindingDB.source_revision_id
-                    == current_source_revision_id,
-                    KnowledgeIndexSourceBindingDB.policy_snapshot_digest
-                    == current_policy_snapshot_digest,
+                    KnowledgeIndexSourceBindingDB.connection_id == connection_id,
+                    KnowledgeIndexSourceBindingDB.source_revision_id == current_source_revision_id,
+                    KnowledgeIndexSourceBindingDB.policy_snapshot_digest == current_policy_snapshot_digest,
                     KnowledgeIndexSourceBindingDB.status == "completed",
-                    KnowledgeIndexSourceBindingDB.activation_requested
-                    == True,  # noqa: E712
+                    KnowledgeIndexSourceBindingDB.activation_requested == True,  # noqa: E712
                 )
                 .order_by(
                     KnowledgeIndexSourceBindingDB.updated_at_epoch.desc(),
@@ -700,22 +608,15 @@ class SQLSourceIndexLifecycleStore:
             active=repaired,
         )
 
-    def list_activation_events(
-        self, *, active_index_id: str
-    ) -> tuple[ActiveKnowledgeIndexEventRecord, ...]:
+    def list_activation_events(self, *, active_index_id: str) -> tuple[ActiveKnowledgeIndexEventRecord, ...]:
         with Session(self._engine) as db:
             rows = db.exec(
                 select(ActiveKnowledgeIndexEventDB)
-                .where(
-                    ActiveKnowledgeIndexEventDB.active_index_id
-                    == active_index_id
-                )
+                .where(ActiveKnowledgeIndexEventDB.active_index_id == active_index_id)
                 .order_by(ActiveKnowledgeIndexEventDB.generation)
             ).all()
             return tuple(activation_event_record(row) for row in rows)
 
     @staticmethod
     def _missing_active() -> ActiveKnowledgeIndexRecord:
-        raise SourceControlPersistenceError(
-            "source_control_activation_inconsistent"
-        )
+        raise SourceControlPersistenceError("source_control_activation_inconsistent")

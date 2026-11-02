@@ -56,9 +56,7 @@ SOURCE_TASK_ID = "aaa-source-task"
 
 class MemoryRepository:
     def __init__(self, rows: list[Any] | None = None) -> None:
-        self.rows = {
-            str(row.id): row for row in list(rows or [])
-        }
+        self.rows = {str(row.id): row for row in list(rows or [])}
         self.save_calls: list[Any] = []
 
     def get_by_id(self, row_id: str) -> Any | None:
@@ -78,26 +76,15 @@ class LockPort:
 
 class RecordingTaskMutationLockPort(TaskMutationLockPort):
     def __init__(self) -> None:
-        engine = SimpleNamespace(
-            dialect=SimpleNamespace(name="sqlite")
-        )
+        engine = SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
         super().__init__(engine_provider=lambda: engine)
         self.calls: list[tuple[str, ...]] = []
 
     @contextlib.contextmanager
     def mutation_locks(self, task_ids: Any):
-        normalized = tuple(
-            sorted(
-                {
-                    str(task_id)
-                    for task_id in task_ids
-                }
-            )
-        )
+        normalized = tuple(sorted({str(task_id) for task_id in task_ids}))
         self.calls.append(normalized)
-        with super().mutation_locks(
-            set(normalized)
-        ) as acquired:
+        with super().mutation_locks(set(normalized)) as acquired:
             yield acquired
 
 
@@ -113,16 +100,10 @@ class LockingMemoryTaskRepository(MemoryRepository):
 
     def save(self, row: Any) -> Any:
         task_id = str(getattr(row, "id", "") or "")
-        source_task_id = str(
-            getattr(row, "source_task_id", "") or ""
-        )
-        with self._lock_port.mutation_locks(
-            {task_id, source_task_id}
-        ) as acquired:
+        source_task_id = str(getattr(row, "source_task_id", "") or "")
+        with self._lock_port.mutation_locks({task_id, source_task_id}) as acquired:
             if not acquired:
-                raise RuntimeError(
-                    "task_mutation_lock_unavailable"
-                )
+                raise RuntimeError("task_mutation_lock_unavailable")
             return super().save(row)
 
 
@@ -137,9 +118,7 @@ class WorkspaceService:
         task: dict[str, Any],
         agent_name: str,
     ) -> Path:
-        self.calls.append(
-            {"task": task, "agent_name": agent_name}
-        )
+        self.calls.append({"task": task, "agent_name": agent_name})
         return self.root
 
 
@@ -156,11 +135,7 @@ class ArtifactStore:
         content: bytes,
         media_type: str,
     ) -> dict[str, Any]:
-        target = (
-            self.root
-            / artifact_id
-            / f"v{version_number:04d}__{filename}"
-        )
+        target = self.root / artifact_id / f"v{version_number:04d}__{filename}"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
         return {
@@ -187,9 +162,7 @@ class DispatchGate:
         return SimpleNamespace(
             allowed=self.allowed,
             reason_code=(
-                "recovery_dispatch_worker_readmitted"
-                if self.allowed
-                else "recovery_dispatch_worker_identity_denied"
+                "recovery_dispatch_worker_readmitted" if self.allowed else "recovery_dispatch_worker_identity_denied"
             ),
         )
 
@@ -199,18 +172,10 @@ class DispatchGate:
         *,
         repos: Any,
     ) -> SimpleNamespace:
-        self.evaluation_calls.append(
-            {"task": task, "repos": repos}
-        )
-        source = repos.task_repo.get_by_id(
-            str(getattr(task, "source_task_id", "") or "")
-        )
-        source_status = str(
-            getattr(source, "status", "") or ""
-        ).strip().lower()
-        task_status = str(
-            getattr(task, "status", "") or ""
-        ).strip().lower()
+        self.evaluation_calls.append({"task": task, "repos": repos})
+        source = repos.task_repo.get_by_id(str(getattr(task, "source_task_id", "") or ""))
+        source_status = str(getattr(source, "status", "") or "").strip().lower()
+        task_status = str(getattr(task, "status", "") or "").strip().lower()
         terminal = {
             "completed",
             "failed",
@@ -219,34 +184,22 @@ class DispatchGate:
             "timeout",
             "archived",
         }
-        allowed = bool(
-            source is not None
-            and source_status not in terminal
-            and task_status not in terminal
-        )
+        allowed = bool(source is not None and source_status not in terminal and task_status not in terminal)
         return SimpleNamespace(
             allowed=allowed,
-            reason_code=(
-                "recovery_release_gate_valid"
-                if allowed
-                else "recovery_dispatch_owner_terminal"
-            ),
+            reason_code=("recovery_release_gate_valid" if allowed else "recovery_dispatch_owner_terminal"),
         )
 
 
 def _task() -> SimpleNamespace:
-    token_digest = recovery_artifact_lease_token_digest(
-        LEASE_TOKEN
-    )
+    token_digest = recovery_artifact_lease_token_digest(LEASE_TOKEN)
     return SimpleNamespace(
         id=TASK_ID,
         status="in_progress",
         derivation_reason="goal_task_recovery",
         source_task_id=SOURCE_TASK_ID,
         assigned_agent_url=WORKER_URL,
-        worker_execution_context={
-            "workspace": {"scope_key": "goal-artifact"}
-        },
+        worker_execution_context={"workspace": {"scope_key": "goal-artifact"}},
         verification_spec={
             "expected_artifacts": [
                 {
@@ -258,9 +211,7 @@ def _task() -> SimpleNamespace:
         expected_artifacts=[],
         verification_status={},
         status_reason_details={
-            "model_recovery_release": {
-                "source_task_id": SOURCE_TASK_ID
-            },
+            "model_recovery_release": {"source_task_id": SOURCE_TASK_ID},
             "recovery_dispatch_lease": {
                 "schema": "ananta.recovery_dispatch_lease.v1",
                 "state": "worker_admitted",
@@ -294,9 +245,7 @@ def _descriptor(content: bytes) -> dict[str, Any]:
         "size_bytes": len(content),
         "sha256": hashlib.sha256(content).hexdigest(),
         "worker_artifact_id": "worker-local-artifact",
-        "worker_artifact_version_id": (
-            "worker-local-version"
-        ),
+        "worker_artifact_version_id": ("worker-local-version"),
     }
 
 
@@ -311,20 +260,14 @@ def _receipt(
         "kind": "workspace_file",
         "task_id": task_id,
         "artifact_id": f"recovery-artifact-{identity}",
-        "artifact_version_id": (
-            f"recovery-artifact-version-{identity}"
-        ),
+        "artifact_version_id": (f"recovery-artifact-version-{identity}"),
         "filename": f"result-{source_index}.txt",
         "media_type": "text/plain",
-        "workspace_relative_path": (
-            f"result-{source_index}.txt"
-        ),
+        "workspace_relative_path": (f"result-{source_index}.txt"),
         "content_hash": f"{source_index + 1:064x}",
         "size_bytes": 1,
         "provenance_summary": {
-            "schema": (
-                "ananta.recovery_artifact_provenance.v1"
-            ),
+            "schema": ("ananta.recovery_artifact_provenance.v1"),
             "authority": "hub",
             "ingress": "workspace",
             "worker_url": WORKER_URL,
@@ -364,9 +307,7 @@ def _manifest_binding(
         "task_id": TASK_ID,
         "lease_revision": int(lease["revision"]),
         "token_digest": str(lease["token_digest"]),
-        "request_fingerprint": str(
-            lease["request_fingerprint"]
-        ),
+        "request_fingerprint": str(lease["request_fingerprint"]),
         "manifest_digest": manifest_digest,
         "artifact_count": artifact_count,
         "total_bytes": total_bytes,
@@ -433,41 +374,23 @@ def test_valid_ingress_materializes_hub_owned_rows_from_isolated_worker_data(
 
     result = _materialize(fixture, _manifest(content))
 
-    assert result["schema"] == (
-        "ananta.recovery_artifact_receipts.v1"
-    )
+    assert result["schema"] == ("ananta.recovery_artifact_receipts.v1")
     assert result["replayed"] is False
     receipt = result["artifacts"][0]
-    assert receipt["artifact_id"].startswith(
-        "recovery-artifact-"
-    )
+    assert receipt["artifact_id"].startswith("recovery-artifact-")
     assert receipt["artifact_id"] != "worker-local-artifact"
-    assert receipt["artifact_version_id"] != (
-        "worker-local-version"
-    )
-    artifact = fixture.repos.artifact_repo.get_by_id(
-        receipt["artifact_id"]
-    )
-    version = fixture.repos.artifact_version_repo.get_by_id(
-        receipt["artifact_version_id"]
-    )
-    assert artifact.created_by == (
-        "hub_recovery_artifact_ingress"
-    )
+    assert receipt["artifact_version_id"] != ("worker-local-version")
+    artifact = fixture.repos.artifact_repo.get_by_id(receipt["artifact_id"])
+    version = fixture.repos.artifact_version_repo.get_by_id(receipt["artifact_version_id"])
+    assert artifact.created_by == ("hub_recovery_artifact_ingress")
     assert version.artifact_id == artifact.id
     assert Path(version.storage_path).read_bytes() == content
-    binding = artifact.artifact_metadata[
-        "recovery_artifact_ingress"
-    ]
+    binding = artifact.artifact_metadata["recovery_artifact_ingress"]
     assert binding["task_id"] == TASK_ID
     assert binding["worker_url"] == WORKER_URL
-    assert binding["worker_artifact_id"] == (
-        "worker-local-artifact"
-    )
+    assert binding["worker_artifact_id"] == ("worker-local-artifact")
     assert fixture.gate.calls[0]["worker_token"] == WORKER_TOKEN
-    assert fixture.workspace_service.calls[0]["agent_name"] == (
-        WORKER_ID
-    )
+    assert fixture.workspace_service.calls[0]["agent_name"] == (WORKER_ID)
 
 
 def test_duplicate_and_partial_replay_are_idempotent(
@@ -480,9 +403,7 @@ def test_duplicate_and_partial_replay_are_idempotent(
 
     first = _materialize(fixture, manifest)
     artifact_id = first["artifacts"][0]["artifact_id"]
-    artifact = fixture.repos.artifact_repo.get_by_id(
-        artifact_id
-    )
+    artifact = fixture.repos.artifact_repo.get_by_id(artifact_id)
     # Simulate a crash after the deterministic Version save and before the
     # Artifact.latest_version_id publication.
     artifact.latest_version_id = None
@@ -497,14 +418,10 @@ def test_duplicate_and_partial_replay_are_idempotent(
     assert len(fixture.repos.artifact_repo.rows) == 1
     assert len(fixture.repos.artifact_version_repo.rows) == 1
     assert (
-        fixture.repos.artifact_repo.get_by_id(
-            artifact_id
-        ).latest_version_id
+        fixture.repos.artifact_repo.get_by_id(artifact_id).latest_version_id
         == first["artifacts"][0]["artifact_version_id"]
     )
-    binding = fixture.repos.task_repo.get_by_id(
-        TASK_ID
-    ).status_reason_details["recovery_dispatch_lease"][
+    binding = fixture.repos.task_repo.get_by_id(TASK_ID).status_reason_details["recovery_dispatch_lease"][
         "artifact_manifest_binding"
     ]
     assert binding["manifest_digest"] == manifest["digest"]
@@ -520,9 +437,7 @@ def test_second_manifest_digest_on_same_lease_is_rejected(
     first_content = b"first immutable manifest"
     second_content = b"second manifest must lose"
     (fixture.workspace / "result.txt").write_bytes(first_content)
-    (fixture.workspace / "second.txt").write_bytes(
-        second_content
-    )
+    (fixture.workspace / "second.txt").write_bytes(second_content)
     first_manifest = _manifest(first_content)
     second_descriptor = _descriptor(second_content)
     second_descriptor.update(
@@ -531,9 +446,7 @@ def test_second_manifest_digest_on_same_lease_is_rejected(
             "relative_path": "second.txt",
             "filename": "second.txt",
             "worker_artifact_id": "worker-second-artifact",
-            "worker_artifact_version_id": (
-                "worker-second-version"
-            ),
+            "worker_artifact_version_id": ("worker-second-version"),
         }
     )
     second_manifest = _manifest(
@@ -551,17 +464,11 @@ def test_second_manifest_digest_on_same_lease_is_rejected(
     assert denied.value.status_code == 409
     assert len(fixture.repos.artifact_repo.rows) == 1
     assert len(fixture.repos.artifact_version_repo.rows) == 1
-    binding = fixture.repos.task_repo.get_by_id(
-        TASK_ID
-    ).status_reason_details["recovery_dispatch_lease"][
+    binding = fixture.repos.task_repo.get_by_id(TASK_ID).status_reason_details["recovery_dispatch_lease"][
         "artifact_manifest_binding"
     ]
-    assert binding["manifest_digest"] == (
-        first["manifest_digest"]
-    )
-    assert binding["manifest_digest"] != (
-        second_manifest["digest"]
-    )
+    assert binding["manifest_digest"] == (first["manifest_digest"])
+    assert binding["manifest_digest"] != (second_manifest["digest"])
 
 
 def test_ingress_outer_lock_initially_fences_child_and_source(
@@ -577,17 +484,11 @@ def test_ingress_outer_lock_initially_fences_child_and_source(
 
     _materialize(fixture, _manifest(content))
 
-    assert lock_port.calls[0] == tuple(
-        sorted({TASK_ID, SOURCE_TASK_ID})
-    )
+    assert lock_port.calls[0] == tuple(sorted({TASK_ID, SOURCE_TASK_ID}))
 
 
 def test_task_lease_merge_requires_exact_manifest_write_authority() -> None:
-    lease = dict(
-        _task().status_reason_details[
-            "recovery_dispatch_lease"
-        ]
-    )
+    lease = dict(_task().status_reason_details["recovery_dispatch_lease"])
     binding = _manifest_binding(
         lease=lease,
         manifest_digest="a" * 64,
@@ -609,22 +510,16 @@ def test_task_lease_merge_requires_exact_manifest_write_authority() -> None:
         lease=lease,
         binding=binding,
     ):
-        authorized = (
-            task_repository_module._merge_dispatch_lease(
-                lease,
-                proposed,
-                task_id=TASK_ID,
-            )
+        authorized = task_repository_module._merge_dispatch_lease(
+            lease,
+            proposed,
+            task_id=TASK_ID,
         )
     assert authorized["artifact_manifest_binding"] == binding
 
 
 def test_task_lease_merge_keeps_existing_manifest_binding_sticky() -> None:
-    lease = dict(
-        _task().status_reason_details[
-            "recovery_dispatch_lease"
-        ]
-    )
+    lease = dict(_task().status_reason_details["recovery_dispatch_lease"])
     original = _manifest_binding(
         lease=lease,
         manifest_digest="a" * 64,
@@ -646,11 +541,7 @@ def test_task_lease_merge_keeps_existing_manifest_binding_sticky() -> None:
 
 
 def test_new_active_lease_revision_drops_old_manifest_binding() -> None:
-    lease = dict(
-        _task().status_reason_details[
-            "recovery_dispatch_lease"
-        ]
-    )
+    lease = dict(_task().status_reason_details["recovery_dispatch_lease"])
     lease["expires_at"] = 1.0
     lease["artifact_manifest_binding"] = _manifest_binding(
         lease=lease,
@@ -686,21 +577,15 @@ def test_new_active_lease_revision_drops_old_manifest_binding() -> None:
 def test_concurrent_second_manifest_digest_has_one_winner(
     tmp_path: Path,
 ) -> None:
-    sqlite_engine = SimpleNamespace(
-        dialect=SimpleNamespace(name="sqlite")
-    )
+    sqlite_engine = SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
     fixture = _service_fixture(
         tmp_path,
-        lock_port=TaskMutationLockPort(
-            engine_provider=lambda: sqlite_engine
-        ),
+        lock_port=TaskMutationLockPort(engine_provider=lambda: sqlite_engine),
     )
     first_content = b"concurrent manifest alpha"
     second_content = b"concurrent manifest beta"
     (fixture.workspace / "result.txt").write_bytes(first_content)
-    (fixture.workspace / "second.txt").write_bytes(
-        second_content
-    )
+    (fixture.workspace / "second.txt").write_bytes(second_content)
     first_manifest = _manifest(first_content)
     second_descriptor = _descriptor(second_content)
     second_descriptor.update(
@@ -709,9 +594,7 @@ def test_concurrent_second_manifest_digest_has_one_winner(
             "relative_path": "second.txt",
             "filename": "second.txt",
             "worker_artifact_id": "worker-concurrent-second",
-            "worker_artifact_version_id": (
-                "worker-concurrent-second-version"
-            ),
+            "worker_artifact_version_id": ("worker-concurrent-second-version"),
         }
     )
     second_manifest = _manifest(
@@ -738,30 +621,16 @@ def test_concurrent_second_manifest_digest_has_one_winner(
             )
         ]
 
-    accepted = [
-        value
-        for state, value in outcomes
-        if state == "accepted"
-    ]
-    denied = [
-        value
-        for state, value in outcomes
-        if state == "denied"
-    ]
+    accepted = [value for state, value in outcomes if state == "accepted"]
+    denied = [value for state, value in outcomes if state == "denied"]
     assert len(accepted) == 1
     assert len(denied) == 1
-    assert denied[0].reason_code == (
-        "recovery_artifact_manifest_conflict"
-    )
+    assert denied[0].reason_code == ("recovery_artifact_manifest_conflict")
     assert denied[0].status_code == 409
-    binding = fixture.repos.task_repo.get_by_id(
-        TASK_ID
-    ).status_reason_details["recovery_dispatch_lease"][
+    binding = fixture.repos.task_repo.get_by_id(TASK_ID).status_reason_details["recovery_dispatch_lease"][
         "artifact_manifest_binding"
     ]
-    assert binding["manifest_digest"] == accepted[0][
-        "manifest_digest"
-    ]
+    assert binding["manifest_digest"] == accepted[0]["manifest_digest"]
     assert len(fixture.repos.artifact_repo.rows) == 1
     assert len(fixture.repos.artifact_version_repo.rows) == 1
 
@@ -792,13 +661,9 @@ def test_ingress_and_terminal_sweep_have_one_fenced_winner(
 
     def terminal_sweep() -> None:
         start.wait(timeout=5)
-        with lock_port.mutation_locks(
-            {TASK_ID, SOURCE_TASK_ID}
-        ) as acquired:
+        with lock_port.mutation_locks({TASK_ID, SOURCE_TASK_ID}) as acquired:
             assert acquired
-            source = fixture.repos.task_repo.get_by_id(
-                SOURCE_TASK_ID
-            )
+            source = fixture.repos.task_repo.get_by_id(SOURCE_TASK_ID)
             child = fixture.repos.task_repo.get_by_id(TASK_ID)
             source.status = "failed"
             child.status = "failed"
@@ -809,9 +674,7 @@ def test_ingress_and_terminal_sweep_have_one_fenced_winner(
                     "state": "revoked",
                     "revision": int(lease["revision"]) + 1,
                     "revoked_at": 1_900_000_002.0,
-                    "revocation_reason": (
-                        "goal_terminal:failed"
-                    ),
+                    "revocation_reason": ("goal_terminal:failed"),
                 }
             )
             details["recovery_dispatch_lease"] = lease
@@ -825,30 +688,18 @@ def test_ingress_and_terminal_sweep_have_one_fenced_winner(
 
     source = fixture.repos.task_repo.get_by_id(SOURCE_TASK_ID)
     child = fixture.repos.task_repo.get_by_id(TASK_ID)
-    final_lease = child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    final_lease = child.status_reason_details["recovery_dispatch_lease"]
     assert source.status == "failed"
     assert child.status == "failed"
     assert final_lease["state"] == "revoked"
-    assert final_lease["revocation_reason"] == (
-        "goal_terminal:failed"
-    )
+    assert final_lease["revocation_reason"] == ("goal_terminal:failed")
     if publication[0] == "accepted":
         assert len(fixture.repos.artifact_repo.rows) == 1
-        assert (
-            "artifact_manifest_binding"
-            in final_lease
-        )
+        assert "artifact_manifest_binding" in final_lease
     else:
-        assert publication[1].reason_code == (
-            "recovery_dispatch_owner_terminal"
-        )
+        assert publication[1].reason_code == ("recovery_dispatch_owner_terminal")
         assert fixture.repos.artifact_repo.rows == {}
-        assert (
-            "artifact_manifest_binding"
-            not in final_lease
-        )
+        assert "artifact_manifest_binding" not in final_lease
 
 
 def test_ingress_rejects_hash_tampering(
@@ -916,10 +767,7 @@ def test_ingress_contract_rejects_noncanonical_path_alias(
 
 
 def test_forwarded_receipt_contract_rejects_excess_count() -> None:
-    receipts = [
-        _receipt(source_index=index)
-        for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)
-    ]
+    receipts = [_receipt(source_index=index) for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)]
 
     with pytest.raises(
         RecoveryArtifactIngressContractError,
@@ -937,9 +785,7 @@ def test_forwarded_receipt_contract_rejects_padding_before_json_copy(
     from ananta_contracts import recovery_artifact_ingress
 
     oversized = _receipt()
-    oversized["untrusted_padding"] = (
-        "x" * (MAX_RECOVERY_ARTIFACT_RECEIPTS_BYTES + 1)
-    )
+    oversized["untrusted_padding"] = "x" * (MAX_RECOVERY_ARTIFACT_RECEIPTS_BYTES + 1)
     json_dumps_calls = 0
 
     def forbidden_json_dump(*_args: Any, **_kwargs: Any) -> str:
@@ -970,9 +816,7 @@ def test_forwarded_receipt_contract_bounds_known_scalar_before_json_copy(
     from ananta_contracts import recovery_artifact_ingress
 
     oversized = _receipt()
-    oversized["filename"] = "x" * (
-        MAX_RECOVERY_ARTIFACT_RECEIPTS_BYTES + 1
-    )
+    oversized["filename"] = "x" * (MAX_RECOVERY_ARTIFACT_RECEIPTS_BYTES + 1)
     json_dumps_calls = 0
 
     def forbidden_json_dump(*_args: Any, **_kwargs: Any) -> str:
@@ -1036,8 +880,7 @@ def test_manifest_rejects_excess_claims_before_workspace_io(
         service.build(
             task={"id": TASK_ID},
             artifacts=[
-                {"workspace_relative_path": f"result-{index}.txt"}
-                for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)
+                {"workspace_relative_path": f"result-{index}.txt"} for index in range(MAX_RECOVERY_ARTIFACT_COUNT + 1)
             ],
             lease_token=LEASE_TOKEN,
             request_fingerprint=REQUEST_FINGERPRINT,
@@ -1053,9 +896,7 @@ def test_manifest_reader_rejects_oversized_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from agent.services import (
-        recovery_workspace_artifact_manifest_service as manifest_module,
-    )
+    from agent.services import recovery_workspace_artifact_manifest_service as manifest_module
 
     content = b"12345"
     (tmp_path / "result.txt").write_bytes(content)
@@ -1065,9 +906,7 @@ def test_manifest_reader_rejects_oversized_file(
         4,
     )
     service = RecoveryWorkspaceArtifactManifestService(
-        workspace_service_provider=lambda: WorkspaceService(
-            tmp_path
-        ),
+        workspace_service_provider=lambda: WorkspaceService(tmp_path),
     )
 
     with pytest.raises(
@@ -1080,9 +919,7 @@ def test_manifest_reader_rejects_oversized_file(
                 {
                     "kind": "workspace_file",
                     "workspace_relative_path": "result.txt",
-                    "content_hash": hashlib.sha256(
-                        content
-                    ).hexdigest(),
+                    "content_hash": hashlib.sha256(content).hexdigest(),
                 }
             ],
             lease_token=LEASE_TOKEN,
@@ -1118,9 +955,7 @@ def test_manifest_reader_rejects_file_growth_during_read(
         growing_read,
     )
     service = RecoveryWorkspaceArtifactManifestService(
-        workspace_service_provider=lambda: WorkspaceService(
-            tmp_path
-        ),
+        workspace_service_provider=lambda: WorkspaceService(tmp_path),
     )
 
     with pytest.raises(
@@ -1133,9 +968,7 @@ def test_manifest_reader_rejects_file_growth_during_read(
                 {
                     "kind": "workspace_file",
                     "workspace_relative_path": "result.txt",
-                    "content_hash": hashlib.sha256(
-                        content
-                    ).hexdigest(),
+                    "content_hash": hashlib.sha256(content).hexdigest(),
                 }
             ],
             lease_token=LEASE_TOKEN,
@@ -1167,16 +1000,12 @@ def test_manifest_reader_fails_closed_without_open_fd_identity(
         missing_fd_identity,
     )
     service = RecoveryWorkspaceArtifactManifestService(
-        workspace_service_provider=lambda: WorkspaceService(
-            tmp_path
-        ),
+        workspace_service_provider=lambda: WorkspaceService(tmp_path),
     )
 
     with pytest.raises(
         RecoveryWorkspaceArtifactManifestError,
-        match=(
-            "recovery_artifact_open_file_identity_unavailable"
-        ),
+        match=("recovery_artifact_open_file_identity_unavailable"),
     ):
         service.build(
             task={"id": TASK_ID},
@@ -1184,9 +1013,7 @@ def test_manifest_reader_fails_closed_without_open_fd_identity(
                 {
                     "kind": "workspace_file",
                     "workspace_relative_path": "result.txt",
-                    "content_hash": hashlib.sha256(
-                        content
-                    ).hexdigest(),
+                    "content_hash": hashlib.sha256(content).hexdigest(),
                 }
             ],
             lease_token=LEASE_TOKEN,
@@ -1251,11 +1078,7 @@ class PassingVerification:
         artifacts: list[dict[str, Any]],
         **_values: Any,
     ) -> dict[str, Any]:
-        passed = bool(artifacts) and all(
-            value.get("_exists")
-            and value.get("_hash_verified")
-            for value in artifacts
-        )
+        passed = bool(artifacts) and all(value.get("_exists") and value.get("_hash_verified") for value in artifacts)
         return {
             "status": "passed" if passed else "failed",
             "passed": passed,
@@ -1279,24 +1102,17 @@ class ArtifactGrounding:
         artifacts: list[dict[str, Any]],
         **_values: Any,
     ) -> dict[str, Any]:
-        passed = any(
-            value.get("_hash_verified")
-            for value in artifacts
-        )
+        passed = any(value.get("_hash_verified") for value in artifacts)
         return {
             "passed": passed,
-            "reason_code": (
-                "recovery_artifact_evidence_verified"
-                if passed
-                else "recovery_result_evidence_missing"
-            ),
+            "reason_code": ("recovery_artifact_evidence_verified" if passed else "recovery_result_evidence_missing"),
         }
 
 
 def test_hub_ingress_receipt_passes_result_verification_end_to_end(
     tmp_path: Path,
 ) -> None:
-    from agent.services._task_scoped_forwarding import (
+    from agent.services.task_scoped.forwarding import (
         normalize_recovery_forwarded_artifacts,
     )
 
@@ -1340,7 +1156,7 @@ def test_trusted_local_adapter_materializes_once_and_passes_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services._task_scoped_forwarding import (
+    from agent.services.task_scoped.forwarding import (
         normalize_recovery_forwarded_artifacts,
     )
 
@@ -1385,12 +1201,8 @@ def test_trusted_local_adapter_materializes_once_and_passes_verification(
     assert len(fixture.repos.artifact_repo.rows) == 1
     assert len(fixture.repos.artifact_version_repo.rows) == 1
     assert fixture.gate.calls == []
-    artifact = fixture.repos.artifact_repo.get_by_id(
-        first[0]["artifact_id"]
-    )
-    binding = artifact.artifact_metadata[
-        "recovery_artifact_ingress"
-    ]
+    artifact = fixture.repos.artifact_repo.get_by_id(first[0]["artifact_id"])
+    binding = artifact.artifact_metadata["recovery_artifact_ingress"]
     assert binding["materialization_channel"] == "trusted_local"
     assert binding["task_id"] == TASK_ID
     assert binding["request_fingerprint"] == REQUEST_FINGERPRINT
@@ -1568,30 +1380,20 @@ class ReceiptHttpClient:
         data: dict[str, Any],
         **values: Any,
     ) -> Response:
-        self.calls.append(
-            {"url": url, "data": data, **values}
-        )
+        self.calls.append({"url": url, "data": data, **values})
         descriptor = data["artifacts"][0]
         receipt = {
             "kind": descriptor["kind"],
             "task_id": data["task_id"],
-            "artifact_id": (
-                "recovery-artifact-" + "a" * 32
-            ),
-            "artifact_version_id": (
-                "recovery-artifact-version-" + "a" * 32
-            ),
+            "artifact_id": ("recovery-artifact-" + "a" * 32),
+            "artifact_version_id": ("recovery-artifact-version-" + "a" * 32),
             "filename": descriptor["filename"],
             "media_type": descriptor["media_type"],
-            "workspace_relative_path": descriptor[
-                "relative_path"
-            ],
+            "workspace_relative_path": descriptor["relative_path"],
             "content_hash": descriptor["sha256"],
             "size_bytes": descriptor["size_bytes"],
             "provenance_summary": {
-                "schema": (
-                    "ananta.recovery_artifact_provenance.v1"
-                ),
+                "schema": ("ananta.recovery_artifact_provenance.v1"),
                 "authority": "hub",
                 "ingress": "workspace",
                 "worker_url": data["worker_url"],
@@ -1603,9 +1405,7 @@ class ReceiptHttpClient:
             {
                 "status": "success",
                 "data": {
-                    "schema": (
-                        "ananta.recovery_artifact_receipts.v1"
-                    ),
+                    "schema": ("ananta.recovery_artifact_receipts.v1"),
                     "task_id": data["task_id"],
                     "manifest_digest": data["digest"],
                     "artifacts": [receipt],
@@ -1633,9 +1433,7 @@ def test_worker_accepts_aggregate_replay_without_receipt_field_drift(
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
     publisher = RecoveryWorkerArtifactPublisher(
         http_client_provider=lambda: client,
-        workspace_service_provider=lambda: WorkspaceService(
-            workspace
-        ),
+        workspace_service_provider=lambda: WorkspaceService(workspace),
         token_provider=lambda: WORKER_TOKEN,
     )
 
@@ -1647,9 +1445,7 @@ def test_worker_accepts_aggregate_replay_without_receipt_field_drift(
                 "workspace_relative_path": "result.txt",
                 "filename": "result.txt",
                 "media_type": "text/plain",
-                "content_hash": hashlib.sha256(
-                    content
-                ).hexdigest(),
+                "content_hash": hashlib.sha256(content).hexdigest(),
                 "artifact_id": "worker-local-artifact",
                 "artifact_version_id": "worker-local-version",
             }
@@ -1661,36 +1457,29 @@ def test_worker_accepts_aggregate_replay_without_receipt_field_drift(
     assert receipts is not None
     assert "_replayed" not in receipts[0]
     assert set(receipts[0]) == _RECEIPT_FIELDS_FOR_TEST
-    assert client.calls[0]["data"]["artifacts"][0][
-        "workspace_path"
-    ] == "result.txt"
-    assert client.calls[0]["data"]["artifacts"][0][
-        "relative_path"
-    ] == "result.txt"
+    assert client.calls[0]["data"]["artifacts"][0]["workspace_path"] == "result.txt"
+    assert client.calls[0]["data"]["artifacts"][0]["relative_path"] == "result.txt"
 
 
 def test_execute_step_replaces_worker_local_refs_with_hub_receipts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services import _task_scoped_step_orchestrator, recovery_worker_artifact_publisher
+    from agent.services import recovery_worker_artifact_publisher
+    from agent.services.task_scoped import step_orchestrator as _task_scoped_step_orchestrator
 
     receipt = {
         "kind": "workspace_file",
         "task_id": TASK_ID,
         "artifact_id": "recovery-artifact-" + "a" * 32,
-        "artifact_version_id": (
-            "recovery-artifact-version-" + "a" * 32
-        ),
+        "artifact_version_id": ("recovery-artifact-version-" + "a" * 32),
         "filename": "result.txt",
         "media_type": "text/plain",
         "workspace_relative_path": "result.txt",
         "content_hash": "a" * 64,
         "size_bytes": 10,
         "provenance_summary": {
-            "schema": (
-                "ananta.recovery_artifact_provenance.v1"
-            ),
+            "schema": ("ananta.recovery_artifact_provenance.v1"),
             "authority": "hub",
             "ingress": "workspace",
             "worker_url": WORKER_URL,
@@ -1727,23 +1516,17 @@ def test_execute_step_replaces_worker_local_refs_with_hub_receipts(
         }
     )
 
-    first = (
-        _task_scoped_step_orchestrator
-        ._publish_recovery_artifact_receipts(
-            task={"id": TASK_ID},
-            outcome=outcome,
-            token=LEASE_TOKEN,
-            request_fingerprint=REQUEST_FINGERPRINT,
-        )
+    first = _task_scoped_step_orchestrator._publish_recovery_artifact_receipts(
+        task={"id": TASK_ID},
+        outcome=outcome,
+        token=LEASE_TOKEN,
+        request_fingerprint=REQUEST_FINGERPRINT,
     )
-    second = (
-        _task_scoped_step_orchestrator
-        ._publish_recovery_artifact_receipts(
-            task={"id": TASK_ID},
-            outcome=first,
-            token=LEASE_TOKEN,
-            request_fingerprint=REQUEST_FINGERPRINT,
-        )
+    second = _task_scoped_step_orchestrator._publish_recovery_artifact_receipts(
+        task={"id": TASK_ID},
+        outcome=first,
+        token=LEASE_TOKEN,
+        request_fingerprint=REQUEST_FINGERPRINT,
     )
 
     assert first is outcome
@@ -1751,18 +1534,16 @@ def test_execute_step_replaces_worker_local_refs_with_hub_receipts(
     assert outcome.data["artifacts"] == [receipt]
     assert len(publisher.calls) == 1
     assert publisher.calls[0]["lease_token"] == LEASE_TOKEN
-    assert publisher.calls[0]["request_fingerprint"] == (
-        REQUEST_FINGERPRINT
-    )
+    assert publisher.calls[0]["request_fingerprint"] == (REQUEST_FINGERPRINT)
 
 
 def test_execute_step_uses_trusted_local_adapter_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from agent.config import settings
-    from agent.services import (
-        _task_scoped_step_orchestrator,
-        recovery_trusted_local_artifact_adapter,
+    from agent.services import recovery_trusted_local_artifact_adapter
+    from agent.services.task_scoped import (
+        step_orchestrator as _task_scoped_step_orchestrator,
     )
 
     receipt = _receipt()
@@ -1798,32 +1579,24 @@ def test_execute_step_uses_trusted_local_adapter_once(
         }
     )
 
-    first = (
-        _task_scoped_step_orchestrator
-        ._publish_recovery_artifact_receipts(
-            task={"id": TASK_ID},
-            outcome=outcome,
-            token=LEASE_TOKEN,
-            request_fingerprint=REQUEST_FINGERPRINT,
-        )
+    first = _task_scoped_step_orchestrator._publish_recovery_artifact_receipts(
+        task={"id": TASK_ID},
+        outcome=outcome,
+        token=LEASE_TOKEN,
+        request_fingerprint=REQUEST_FINGERPRINT,
     )
-    second = (
-        _task_scoped_step_orchestrator
-        ._publish_recovery_artifact_receipts(
-            task={"id": TASK_ID},
-            outcome=first,
-            token=LEASE_TOKEN,
-            request_fingerprint=REQUEST_FINGERPRINT,
-        )
+    second = _task_scoped_step_orchestrator._publish_recovery_artifact_receipts(
+        task={"id": TASK_ID},
+        outcome=first,
+        token=LEASE_TOKEN,
+        request_fingerprint=REQUEST_FINGERPRINT,
     )
 
     assert second is outcome
     assert outcome.data["artifacts"] == [receipt]
     assert len(adapter.calls) == 1
     assert adapter.calls[0]["lease_token"] == LEASE_TOKEN
-    assert adapter.calls[0]["request_fingerprint"] == (
-        REQUEST_FINGERPRINT
-    )
+    assert adapter.calls[0]["request_fingerprint"] == (REQUEST_FINGERPRINT)
 
 
 def test_recovery_workspace_sync_returns_claims_without_legacy_rows(
@@ -1848,11 +1621,7 @@ def test_recovery_workspace_sync_returns_claims_without_legacy_rows(
         "id": TASK_ID,
         "derivation_reason": "goal_task_recovery",
         "current_worker_job_id": "recovery-job",
-        "status_reason_details": {
-            "model_recovery_release": {
-                "source_task_id": "source-task"
-            }
-        },
+        "status_reason_details": {"model_recovery_release": {"source_task_id": "source-task"}},
     }
     sync_cfg = {
         "enabled": True,
@@ -1880,9 +1649,7 @@ def test_recovery_workspace_sync_returns_claims_without_legacy_rows(
     assert diff_ref is None
     assert len(refs) == 1
     assert refs[0]["workspace_relative_path"] == "result.txt"
-    assert refs[0]["content_hash"] == hashlib.sha256(
-        content
-    ).hexdigest()
+    assert refs[0]["content_hash"] == hashlib.sha256(content).hexdigest()
     assert "artifact_id" not in refs[0]
     assert "artifact_version_id" not in refs[0]
 
@@ -1901,12 +1668,8 @@ def test_native_degraded_diagnostics_are_not_pseudo_artifacts() -> None:
     )
 
     assert result["artifact_refs"] == []
-    assert result["native_runtime"]["degraded"] == {
-        "reason": "delegation_required"
-    }
-    assert result["approval_decision"]["reason_code"] == (
-        "native_worker_in_process_execution_disabled"
-    )
+    assert result["native_runtime"]["degraded"] == {"reason": "delegation_required"}
+    assert result["approval_decision"]["reason_code"] == ("native_worker_in_process_execution_disabled")
 
 
 def test_recovery_research_report_uses_workspace_claim_and_hub_receipt(
@@ -1974,12 +1737,8 @@ def test_recovery_research_report_uses_workspace_claim_and_hub_receipt(
     assert ingestion.extract_calls == 0
     assert "artifact_id" not in claim
     assert "artifact_version_id" not in claim
-    assert claim["workspace_relative_path"] == (
-        "recovery-artifacts/research-report.md"
-    )
-    assert (
-        fixture.workspace / claim["workspace_relative_path"]
-    ).read_text(encoding="utf-8") == report
+    assert claim["workspace_relative_path"] == ("recovery-artifacts/research-report.md")
+    assert (fixture.workspace / claim["workspace_relative_path"]).read_text(encoding="utf-8") == report
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_can_be_worker", True)
@@ -2000,18 +1759,10 @@ def test_recovery_research_report_uses_workspace_claim_and_hub_receipt(
 
     assert receipts is not None
     assert receipts[0]["kind"] == "research_report"
-    assert receipts[0]["workspace_relative_path"] == (
-        "recovery-artifacts/research-report.md"
-    )
-    assert receipts[0]["artifact_id"].startswith(
-        "recovery-artifact-"
-    )
-    version = fixture.repos.artifact_version_repo.get_by_id(
-        receipts[0]["artifact_version_id"]
-    )
-    assert Path(version.storage_path).read_text(
-        encoding="utf-8"
-    ) == report
+    assert receipts[0]["workspace_relative_path"] == ("recovery-artifacts/research-report.md")
+    assert receipts[0]["artifact_id"].startswith("recovery-artifact-")
+    version = fixture.repos.artifact_version_repo.get_by_id(receipts[0]["artifact_version_id"])
+    assert Path(version.storage_path).read_text(encoding="utf-8") == report
 
 
 _RECEIPT_FIELDS_FOR_TEST = {

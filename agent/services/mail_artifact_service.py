@@ -13,8 +13,8 @@ from typing import Any, Callable, Mapping, TypeVar
 from agent.artifacts.artifact_grants import is_grant_active
 from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.services.mail_contract_service import MailMessageRefV2
-from agent.services.mail_provider_ports import VerifiedMailContentAccess
 from agent.services.mail_migration_journal import MailFileLock
+from agent.services.mail_provider_ports import VerifiedMailContentAccess
 
 R = TypeVar("R")
 
@@ -26,6 +26,7 @@ def _locked(method: Callable[..., R]) -> Callable[..., R]:
             return method(self, *args, **kwargs)
 
     return wrapped
+
 
 _SCOPES = frozenset(
     {
@@ -110,11 +111,7 @@ class MailArtifactService:
         release_scope = str(scope or "metadata_only").strip()
         if release_scope not in _SCOPES:
             raise ValueError("mail_artifact_scope_invalid")
-        ref = (
-            message_ref.to_dict()
-            if isinstance(message_ref, MailMessageRefV2)
-            else dict(message_ref or {})
-        )
+        ref = message_ref.to_dict() if isinstance(message_ref, MailMessageRefV2) else dict(message_ref or {})
         mail_ref_id = str(ref.get("mail_ref_id") or "").strip()
         account_id = str(ref.get("account_id") or "").strip()
         if not mail_ref_id or not account_id:
@@ -124,9 +121,7 @@ class MailArtifactService:
             raise ValueError("mail_artifact_policy_decision_required")
         released_content = str(content or excerpt or "")
         if release_scope != "metadata_only":
-            expected_scope = (
-                "body_excerpt" if release_scope == "excerpt" else release_scope
-            )
+            expected_scope = "body_excerpt" if release_scope == "excerpt" else release_scope
             if not isinstance(access, VerifiedMailContentAccess):
                 raise PermissionError("verified_mail_content_access_required")
             if (
@@ -150,21 +145,15 @@ class MailArtifactService:
             "policy_decision_ref": policy_ref,
             "redaction_status": str(redaction_status or "not_required"),
             "excerpt": (
-                released_content
-                if release_scope
-                in {"excerpt", "body_excerpt", "full_body", "attachment_ref"}
-                else ""
+                released_content if release_scope in {"excerpt", "body_excerpt", "full_body", "attachment_ref"} else ""
             ),
-            "created_at": datetime.now(UTC)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
         payload = self._load()
         rows = [
             dict(item)
             for item in payload["artifacts"]
-            if isinstance(item, Mapping)
-            and str(item.get("artifact_ref") or "") != artifact_ref
+            if isinstance(item, Mapping) and str(item.get("artifact_ref") or "") != artifact_ref
         ]
         rows.append(artifact)
         payload["artifacts"] = rows
@@ -175,10 +164,7 @@ class MailArtifactService:
     def get(self, artifact_ref: str) -> dict[str, Any] | None:
         target = str(artifact_ref or "").strip()
         for item in self._load()["artifacts"]:
-            if (
-                isinstance(item, Mapping)
-                and str(item.get("artifact_ref") or "") == target
-            ):
+            if isinstance(item, Mapping) and str(item.get("artifact_ref") or "") == target:
                 return dict(item)
         return None
 
@@ -217,13 +203,8 @@ class MailArtifactService:
             "allowed": True,
             "reason_code": "mail_context_allowed_local",
             "mail_artifacts": rows,
-            "mail_source_refs": [
-                str(item["artifact_ref"]) for item in rows
-            ],
-            "redaction_statuses": [
-                str(item.get("redaction_status") or "not_required")
-                for item in rows
-            ],
+            "mail_source_refs": [str(item["artifact_ref"]) for item in rows],
+            "redaction_statuses": [str(item.get("redaction_status") or "not_required") for item in rows],
         }
 
 

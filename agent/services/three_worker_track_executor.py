@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import os
-import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -40,26 +40,32 @@ class ThreeWorkerTrackExecutor:
         return {"status": "failed", "reason": f"unsupported_track_backend:{backend or '<empty>'}"}
 
     def _execute_hermes(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
-        cfg = build_hermes_adapter_config_from_agent_config({
-            **self.agent_cfg,
-            "worker": {"type": "hermes"},
-        })
-        cfg_ref = self._load_config_ref_overrides(str(track.get("config_ref") or "").strip())
-        if cfg_ref:
-            cfg = build_hermes_adapter_config_from_agent_config({
+        cfg = build_hermes_adapter_config_from_agent_config(
+            {
                 **self.agent_cfg,
                 "worker": {"type": "hermes"},
-                "hermes_worker_adapter": {
-                    **cfg.model_dump(),
-                    **cfg_ref,
-                },
-            })
+            }
+        )
+        cfg_ref = self._load_config_ref_overrides(str(track.get("config_ref") or "").strip())
+        if cfg_ref:
+            cfg = build_hermes_adapter_config_from_agent_config(
+                {
+                    **self.agent_cfg,
+                    "worker": {"type": "hermes"},
+                    "hermes_worker_adapter": {
+                        **cfg.model_dump(),
+                        **cfg_ref,
+                    },
+                }
+            )
         adapter = HermesAdapter(config=cfg)
         prompt = str(context.get("prompt") or "").strip()
         envelope = ExecutionEnvelope(
             task_id=f"three-worker-{track.get('id') or 'hermes'}",
             actor_ref="ananta:three-worker-runner",
-            capability_grant=CapabilityGrant(capabilities=["planning", "review", "summarize", "patch_propose", "research_limited"]),
+            capability_grant=CapabilityGrant(
+                capabilities=["planning", "review", "summarize", "patch_propose", "research_limited"]
+            ),
             context_envelope_ref="three-worker:context",
             audit_correlation_id=f"three-worker:{context.get('run_id') or 'run'}:{track.get('id') or 'hermes'}",
             model_policy=ModelPolicy(
@@ -139,7 +145,9 @@ class ThreeWorkerTrackExecutor:
         cfg_before.raise_for_status()
         cfg_payload = dict((cfg_before.json().get("data") or {}))
         sgpt_routing = cfg_payload.get("sgpt_routing") if isinstance(cfg_payload.get("sgpt_routing"), dict) else {}
-        backend_map = sgpt_routing.get("task_kind_backend") if isinstance(sgpt_routing.get("task_kind_backend"), dict) else {}
+        backend_map = (
+            sgpt_routing.get("task_kind_backend") if isinstance(sgpt_routing.get("task_kind_backend"), dict) else {}
+        )
         backend_map = dict(backend_map)
         backend_map[task_kind] = backend
 
@@ -239,7 +247,7 @@ class ThreeWorkerTrackExecutor:
             try:
                 session.post(f"{base_url}/config", headers=headers, json=restore_patch, timeout=30)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_run_task_scoped_track: ignored Exception", exc_info=True)
 
     def _load_config_ref_overrides(self, config_ref: str) -> dict[str, Any]:
         if not config_ref:

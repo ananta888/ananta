@@ -21,9 +21,7 @@ def test_recovery_materialization_requires_explicit_hub_policy() -> None:
 
     assert (
         policy.reason(
-            policy_by_mode={
-                "balanced": {"recovery_plan_materialization": False}
-            },
+            policy_by_mode={"balanced": {"recovery_plan_materialization": False}},
             human_required_tools=[],
             tool_name=RECOVERY_MATERIALIZE_TOOL,
             scope=_recovery_scope(),
@@ -31,15 +29,16 @@ def test_recovery_materialization_requires_explicit_hub_policy() -> None:
         )
         is None
     )
-    assert policy.reason(
-        policy_by_mode={
-            "balanced": {"recovery_plan_materialization": True}
-        },
-        human_required_tools=[],
-        tool_name=RECOVERY_MATERIALIZE_TOOL,
-        scope=_recovery_scope(),
-        governance_mode="balanced",
-    ) == "auto_approved:recovery_plan_materialization"
+    assert (
+        policy.reason(
+            policy_by_mode={"balanced": {"recovery_plan_materialization": True}},
+            human_required_tools=[],
+            tool_name=RECOVERY_MATERIALIZE_TOOL,
+            scope=_recovery_scope(),
+            governance_mode="balanced",
+        )
+        == "auto_approved:recovery_plan_materialization"
+    )
 
 
 def test_recovery_auto_approval_is_exactly_scoped_and_human_override_wins() -> None:

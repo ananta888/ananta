@@ -65,7 +65,7 @@ def _perform_cleanup():
                 try:
                     t.join(timeout=1)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_perform_cleanup: ignored Exception", exc_info=True)
         logging.info("Hintergrund-Threads wurden (soweit möglich) beendet.")
 
     logging.info("Shutdown-Vorgang abgeschlossen.")

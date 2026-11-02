@@ -21,7 +21,6 @@ from agent.services.mail_provider_ports import (
     MailMoveRequest,
     MailProviderBinding,
     MailProviderResult,
-    MailQuery,
     MailSyncCursor,
 )
 from agent.services.mail_secret_resolver import MailAccountAuthResolver
@@ -41,8 +40,7 @@ class MailProviderRouterFactory(Protocol):
 
 
 class MailboxLocatorRecorder(Protocol):
-    def remember(self, *, account_id: str, mailboxes: Any) -> MailProviderResult[None]:
-        ...
+    def remember(self, *, account_id: str, mailboxes: Any) -> MailProviderResult[None]: ...
 
 
 def _reason(reason_code: str) -> str:
@@ -104,11 +102,7 @@ class ProviderMailTaskExecution:
         del idempotency_key, policy_refs
         if deadline_at <= self._clock() or lease_fencing_token < 1:
             return _failed("mail_worker_execution_context_expired")
-        account_id = (
-            account_ref.split(":", 1)[1]
-            if account_ref.startswith("mail-account:")
-            else account_ref
-        )
+        account_id = account_ref.split(":", 1)[1] if account_ref.startswith("mail-account:") else account_ref
         account = self._accounts.get_account(account_id)
         if account is None:
             return _failed("mail_account_not_found")
@@ -315,12 +309,9 @@ class ProviderMailTaskExecution:
             )
         delta = result.value
         cursor_material = (
-            f"{account_id}|{delta.cursor.email_state}|"
-            f"{delta.cursor.query_state}|{delta.cursor.mailbox_state}"
+            f"{account_id}|{delta.cursor.email_state}|{delta.cursor.query_state}|{delta.cursor.mailbox_state}"
         )
-        cursor_ref = "mail-sync:" + hashlib.sha256(
-            cursor_material.encode("utf-8")
-        ).hexdigest()
+        cursor_ref = "mail-sync:" + hashlib.sha256(cursor_material.encode("utf-8")).hexdigest()
         return MailTaskExecutionOutcome(
             status="completed",
             reason_code="mail_sync_completed",
@@ -347,18 +338,14 @@ class ProviderMailTaskExecution:
             return _failed("mail_body_unsupported", provider=binding.protocol)
         payload = dict(intent.payload)
         try:
-            message_ref = MailMessageRefV2.from_mapping(
-                dict(payload.get("message_ref") or {})
-            )
+            message_ref = MailMessageRefV2.from_mapping(dict(payload.get("message_ref") or {}))
         except (TypeError, ValueError):
             return _failed(
                 "mail_operation_intent_message_ref_invalid",
                 provider=binding.protocol,
             )
         release_scope = str(payload.get("release_scope") or "")
-        artifact_ref = (
-            f"mail://{message_ref.mail_ref_id}?scope={release_scope}"
-        )
+        artifact_ref = f"mail://{message_ref.mail_ref_id}?scope={release_scope}"
         request = MailContentAccessRequest(
             account_id=account_id,
             workspace_id=str(workspace_scope.get("workspace_id") or ""),
@@ -465,9 +452,7 @@ class ProviderMailTaskExecution:
                 metadata=MailMessageMetadata(),
             )
             return
-        provider_id = str(
-            message_ref.protocol_locator.get("email_id") or ""
-        )
+        provider_id = str(message_ref.protocol_locator.get("email_id") or "")
         if not provider_id:
             raise ValueError("mail_message_provider_locator_missing")
         fetched = binding.reader.get_messages(
@@ -497,10 +482,7 @@ class ProviderMailTaskExecution:
             )
         payload = dict(intent.payload)
         try:
-            refs = tuple(
-                MailMessageRefV2.from_mapping(dict(item))
-                for item in list(payload.get("message_refs") or [])
-            )
+            refs = tuple(MailMessageRefV2.from_mapping(dict(item)) for item in list(payload.get("message_refs") or []))
         except (TypeError, ValueError):
             return _failed(
                 "mail_mutation_message_refs_invalid",
@@ -535,14 +517,8 @@ class ProviderMailTaskExecution:
                 tuple(
                     MailKeywordChange(
                         message_ref=ref,
-                        add_keywords=tuple(
-                            str(item)
-                            for item in list(payload.get("add_keywords") or [])
-                        ),
-                        remove_keywords=tuple(
-                            str(item)
-                            for item in list(payload.get("remove_keywords") or [])
-                        ),
+                        add_keywords=tuple(str(item) for item in list(payload.get("add_keywords") or [])),
+                        remove_keywords=tuple(str(item) for item in list(payload.get("remove_keywords") or [])),
                         **common,
                     )
                     for ref in refs
@@ -556,10 +532,7 @@ class ProviderMailTaskExecution:
                     MailMoveRequest(
                         message_ref=ref,
                         destination_mailbox_ref_ids=tuple(
-                            str(item)
-                            for item in list(
-                                payload.get("destination_mailbox_ref_ids") or []
-                            )
+                            str(item) for item in list(payload.get("destination_mailbox_ref_ids") or [])
                         ),
                         **common,
                     )
@@ -574,9 +547,7 @@ class ProviderMailTaskExecution:
                     MailDeleteRequest(
                         message_ref=ref,
                         permanent=bool(payload.get("permanent")),
-                        confirmation_ref=str(
-                            payload.get("confirmation_ref") or ""
-                        ),
+                        confirmation_ref=str(payload.get("confirmation_ref") or ""),
                         **common,
                     )
                     for ref in refs

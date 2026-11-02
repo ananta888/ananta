@@ -45,4 +45,3 @@ def test_worker_retrieval_falls_back_when_codecompass_fts_disabled():
     assert "codecompass_fts" not in payload["used_channels"]
     assert payload["used_channels"] == ["lexical"]
     assert payload["selected"][0]["path"] == "docs/payment.md"
-

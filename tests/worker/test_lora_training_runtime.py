@@ -301,9 +301,10 @@ def test_specialist_evaluation_runs_through_worker_process_and_persisted_report(
     """Exercise real worker execution with synthetic mock model output."""
     runtime, training_request, _state = _setup(tmp_path, isolate_processes=True)
     expected = json.dumps({"schema": "ananta.specialist-decision-output.v1", "label": "deny", "confidence": 0.9})
-    split = _write_split(tmp_path / "datasets" / "validation.jsonl", [
-        {"instruction": f"synthetic gate case {index}", "output": expected} for index in range(25)
-    ])
+    split = _write_split(
+        tmp_path / "datasets" / "validation.jsonl",
+        [{"instruction": f"synthetic gate case {index}", "output": expected} for index in range(25)],
+    )
     training_request["dataset"]["validation"] = split
     evaluation = _evaluation_request(training_request, tmp_path / "workspaces")
     evaluation["configuration"]["scorer_name"] = "specialist_decision"
@@ -347,9 +348,10 @@ def test_specialist_evaluation_runs_through_worker_process_and_persisted_report(
 
 def test_specialist_worker_refuses_a_partial_evaluation_limit(tmp_path: Path) -> None:
     runtime, training_request, _state = _setup(tmp_path, isolate_processes=True)
-    split = _write_split(tmp_path / "datasets" / "validation.jsonl", [
-        {"instruction": f"case {index}", "output": '{"label":"deny"}'} for index in range(3)
-    ])
+    split = _write_split(
+        tmp_path / "datasets" / "validation.jsonl",
+        [{"instruction": f"case {index}", "output": '{"label":"deny"}'} for index in range(3)],
+    )
     training_request["dataset"]["validation"] = split
     evaluation = _evaluation_request(training_request, tmp_path / "workspaces")
     evaluation["configuration"].update({"scorer_name": "specialist_decision", "max_samples": 2})
@@ -652,11 +654,7 @@ def test_higher_fence_supersedes_active_attempt_and_resumes_its_checkpoint(tmp_p
         assert result["status"] == "succeeded"
         assert result["attempt_id"] == "attempt-2"
         assert backend.contexts[1].resume_path == state / checkpoint["relative_path"]
-        old_status = json.loads(
-            (_attempt_root(state, request) / "status.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        old_status = json.loads((_attempt_root(state, request) / "status.json").read_text(encoding="utf-8"))
         assert old_status["status"] == "cancelled"
         assert old_status["error"]["code"] == "superseded_by_higher_fence"
         with pytest.raises(TrainingBackendError) as stale:

@@ -70,17 +70,11 @@ def _observed_proof_sources(
             f"terminal:{record.observation.terminal_status}",
         )
     if category == "security":
-        return tuple(
-            f"policy:{value}"
-            for value in sorted(record.observation.policy_decisions)
-        )
+        return tuple(f"policy:{value}" for value in sorted(record.observation.policy_decisions))
     if category == "event":
         return tuple(f"event:{value}" for value in sorted(events))
     if category == "artifact":
-        return tuple(
-            f"artifact:{value}"
-            for value in sorted(record.observation.artifact_ids)
-        )
+        return tuple(f"artifact:{value}" for value in sorted(record.observation.artifact_ids))
     if category == "checkpoint":
         allowed = set(events & _HUB_CHECKPOINT_SOURCE_EVENTS)
         if record.durable:
@@ -105,9 +99,6 @@ def _observed_proof_sources(
             return ()
         return (
             *(f"event:{value}" for value in sorted(ledger_events)),
-            *(
-                f"operation:{value}"
-                for value in sorted(record.observation.side_effect_operations)
-            ),
+            *(f"operation:{value}" for value in sorted(record.observation.side_effect_operations)),
         )
     return ()

@@ -16,11 +16,13 @@ def extract_mermaid_task_candidates(text: str) -> dict[str, Any]:
     subtasks = []
     for n in nodes:
         deps = [str(idx[a]) for a, b in edges if b == n]
-        subtasks.append({
-            "title": f"Node {n}",
-            "description": f"Implement/verify Mermaid node {n}",
-            "priority": "Medium",
-            "depends_on": deps,
-            "dependency_mode": "explicit" if deps else "parallel",
-        })
+        subtasks.append(
+            {
+                "title": f"Node {n}",
+                "description": f"Implement/verify Mermaid node {n}",
+                "priority": "Medium",
+                "depends_on": deps,
+                "dependency_mode": "explicit" if deps else "parallel",
+            }
+        )
     return {"ok": True, "subtasks": subtasks}

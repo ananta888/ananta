@@ -1,4 +1,5 @@
 """AudioDecision as primary path of ``/v1/voice/command``: hub executor and explicit confirmations."""
+
 from __future__ import annotations
 
 import http.client
@@ -143,8 +144,16 @@ def test_feature_off_keeps_the_command_route_unchanged(client, admin_auth_header
         data = res.get_json()["data"]
         assert data["transcript"] == RUNTIME_TRANSCRIPT and data["requires_approval"] is True
         assert set(data) == {
-            "transcript", "intent", "confidence", "proposed_goal", "requires_approval", "audit_id",
-            "task_id", "result_ref", "result_digest", "idempotent_replay",
+            "transcript",
+            "intent",
+            "confidence",
+            "proposed_goal",
+            "requires_approval",
+            "audit_id",
+            "task_id",
+            "result_ref",
+            "result_digest",
+            "idempotent_replay",
         }
     assert runtime.voice_command.call_count == 2
     assert contacted == [] and decision_audit.call_count == 0
@@ -194,7 +203,10 @@ def test_calibrated_direct_command_is_executed_and_audited(client, admin_auth_he
     details = _audits(audit)["voice_audio_decision_command"]
     assert details["endpoint"] == COMMAND
     assert details["decision"]["execution"] == {
-        "status": "executed", "action_type": "voice.control.stop", "error_code": None, "grants_permission": False,
+        "status": "executed",
+        "action_type": "voice.control.stop",
+        "error_code": None,
+        "grants_permission": False,
     }
     dumped = json.dumps(details)
     assert '"stop"' not in dumped and "effect" not in dumped
@@ -312,8 +324,11 @@ def test_expired_confirmation_is_denied(client, admin_auth_header, runtime, stor
     res = _confirm(
         client,
         admin_auth_header,
-        {"confirmation_id": confirmation["confirmation_id"], "action_type": confirmation["action_type"],
-         "confirmed": True},
+        {
+            "confirmation_id": confirmation["confirmation_id"],
+            "action_type": confirmation["action_type"],
+            "confirmed": True,
+        },
     )
     assert res.status_code == 410
     assert res.get_json()["data"]["error"]["code"] == "confirmation.expired"
@@ -322,8 +337,11 @@ def test_expired_confirmation_is_denied(client, admin_auth_header, runtime, stor
 
 def test_foreign_principal_cannot_use_and_burns_the_confirmation(client, admin_auth_header, runtime, store):
     confirmation = _issue_confirmation(client, admin_auth_header)["confirmation"]
-    body = {"confirmation_id": confirmation["confirmation_id"], "action_type": confirmation["action_type"],
-            "confirmed": True}
+    body = {
+        "confirmation_id": confirmation["confirmation_id"],
+        "action_type": confirmation["action_type"],
+        "confirmed": True,
+    }
     with patch("agent.routes.voice_audio_decision._principal", return_value=MALLORY):
         foreign = _confirm(client, admin_auth_header, body)
     assert foreign.status_code == 403
@@ -337,8 +355,11 @@ def test_confirmation_is_bound_to_the_concrete_action(client, admin_auth_header,
     res = _confirm(
         client,
         admin_auth_header,
-        {"confirmation_id": confirmation["confirmation_id"], "action_type": "voice.control.switch_off",
-         "confirmed": True},
+        {
+            "confirmation_id": confirmation["confirmation_id"],
+            "action_type": "voice.control.switch_off",
+            "confirmed": True,
+        },
     )
     assert res.status_code == 403 and res.get_json()["data"]["error"]["code"] == "confirmation.action_mismatch"
     assert store.pending_count() == 0
@@ -353,16 +374,22 @@ def test_only_a_literal_boolean_confirms(client, admin_auth_header, runtime, sto
     rejected = _confirm(client, admin_auth_header, {**body, "confirmed": False})
     assert rejected.status_code == 200
     assert rejected.get_json()["data"]["execution"] == {
-        "status": "denied", "action_type": "voice.control.switch_on", "error_code": "confirmation.rejected",
-        "effect": None, "grants_permission": False,
+        "status": "denied",
+        "action_type": "voice.control.switch_on",
+        "error_code": "confirmation.rejected",
+        "effect": None,
+        "grants_permission": False,
     }
     assert store.pending_count() == 0
 
 
 def test_confirm_route_enforces_auth_and_exposure_policy(client, admin_auth_header, runtime, store):
     confirmation = _issue_confirmation(client, admin_auth_header)["confirmation"]
-    body = {"confirmation_id": confirmation["confirmation_id"], "action_type": confirmation["action_type"],
-            "confirmed": True}
+    body = {
+        "confirmation_id": confirmation["confirmation_id"],
+        "action_type": confirmation["action_type"],
+        "confirmed": True,
+    }
     assert _confirm(client, {}, body).status_code == 401
     denied = SimpleNamespace(
         allowed=False, reason="voice_exposure_disabled", auth_source="user_jwt", policy={"emit_audit_events": False}
@@ -375,16 +402,20 @@ def test_confirm_route_enforces_auth_and_exposure_policy(client, admin_auth_head
 
 
 def test_unknown_confirmation_id_is_denied(client, admin_auth_header, store):
-    res = _confirm(client, admin_auth_header, {"confirmation_id": "vcc-guess", "action_type": "voice.control.stop",
-                                               "confirmed": True})
+    res = _confirm(
+        client,
+        admin_auth_header,
+        {"confirmation_id": "vcc-guess", "action_type": "voice.control.stop", "confirmed": True},
+    )
     assert res.status_code == 403 and res.get_json()["data"]["error"]["code"] == "confirmation.unknown"
 
 
 def test_confirm_for_an_unregistered_action_type_is_denied_without_a_confirmation(
     client, admin_auth_header, runtime, store
 ):
-    payload = _result({"command": _field("ok", "lights_on", calibrated=True, confidence=0.99)},
-                      profile="home-control-en")
+    payload = _result(
+        {"command": _field("ok", "lights_on", calibrated=True, confidence=0.99)}, profile="home-control-en"
+    )
     payload["model"] = MODEL
     with _with_provider(FakeTransport(200, payload)):
         data = _command(client, admin_auth_header, decision_profile="home-control-en").get_json()["data"]
@@ -468,10 +499,15 @@ def test_register_refuses_to_overwrite():
         executor.register("voice.control.stop", lambda _invocation: {})
 
 
-def _hub_result(action: HubAction, verdict: PolicyVerdict, *, grants_permission: bool = False,
-                with_action: bool = True) -> AudioDecisionCommandResult:
+def _hub_result(
+    action: HubAction, verdict: PolicyVerdict, *, grants_permission: bool = False, with_action: bool = True
+) -> AudioDecisionCommandResult:
     hub = HubAudioDecision(
-        field="command", kind=AudioDecisionKind.PROPOSAL, action=action, value="stop", confidence=0.99,
+        field="command",
+        kind=AudioDecisionKind.PROPOSAL,
+        action=action,
+        value="stop",
+        confidence=0.99,
         grants_permission=grants_permission,
     )
     return AudioDecisionCommandResult(
@@ -496,8 +532,12 @@ def test_dispatch_never_executes_what_the_hub_policy_did_not_allow(result, code)
     store = VoiceCommandConfirmationStore()
     handler = MagicMock(return_value={})
     dispatch = dispatch_audio_decision(
-        result, principal=ALICE, authorize=lambda: True,
-        executor=VoiceCommandExecutor({"voice.control.stop": handler}), confirmations=store, ttl_seconds=30,
+        result,
+        principal=ALICE,
+        authorize=lambda: True,
+        executor=VoiceCommandExecutor({"voice.control.stop": handler}),
+        confirmations=store,
+        ttl_seconds=30,
     )
     assert dispatch.response["hub_action"] == "deny" and dispatch.response["error_code"] == code
     assert dispatch.response["grants_permission"] is False and dispatch.response["confirmation"] is None
@@ -520,14 +560,24 @@ def test_errors_and_timeouts_never_become_an_allow(outcome):
     allow_everything = MagicMock()
     allow_everything.decide.side_effect = AssertionError("policy must not see a failed decision")
     result = run_audio_decision_command(
-        provider, filename="a.wav", content=b"x", profile="speech-commands-en", field_name="command",
-        language="en", fallback="none", policy=allow_everything,
+        provider,
+        filename="a.wav",
+        content=b"x",
+        profile="speech-commands-en",
+        field_name="command",
+        language="en",
+        fallback="none",
+        policy=allow_everything,
     )
     handler = MagicMock(return_value={})
     store = VoiceCommandConfirmationStore()
     dispatch = dispatch_audio_decision(
-        result, principal=ALICE, authorize=lambda: True,
-        executor=VoiceCommandExecutor({"voice.control.stop": handler}), confirmations=store, ttl_seconds=30,
+        result,
+        principal=ALICE,
+        authorize=lambda: True,
+        executor=VoiceCommandExecutor({"voice.control.stop": handler}),
+        confirmations=store,
+        ttl_seconds=30,
     )
     assert dispatch.response["hub_action"] == "normal_path" and dispatch.execution is None
     assert handler.call_count == 0 and store.pending_count() == 0
@@ -546,8 +596,13 @@ def test_store_binding_expiry_and_replay():
 
     def confirm(pending, principal=ALICE, action_type="voice.control.start"):
         return confirm_voice_command(
-            pending.confirmation_id, principal=principal, action_type=action_type, confirmed=True,
-            authorize=lambda: True, executor=executor, confirmations=store,
+            pending.confirmation_id,
+            principal=principal,
+            action_type=action_type,
+            confirmed=True,
+            authorize=lambda: True,
+            executor=executor,
+            confirmations=store,
         )
 
     assert confirm(first, principal=VoicePrincipal(tenant_id="tenant-b", subject="alice")).error_code == (
@@ -562,11 +617,17 @@ def test_store_binding_expiry_and_replay():
 
 def test_confirmation_denied_when_authorization_is_revoked():
     store = VoiceCommandConfirmationStore()
-    pending = store.issue(ALICE, action_type="voice.control.stop", command="stop", profile="p", field_name="f",
-                          ttl_seconds=30)
+    pending = store.issue(
+        ALICE, action_type="voice.control.stop", command="stop", profile="p", field_name="f", ttl_seconds=30
+    )
     execution = confirm_voice_command(
-        pending.confirmation_id, principal=ALICE, action_type="voice.control.stop", confirmed=True,
-        authorize=lambda: False, executor=VoiceCommandExecutor(), confirmations=store,
+        pending.confirmation_id,
+        principal=ALICE,
+        action_type="voice.control.stop",
+        confirmed=True,
+        authorize=lambda: False,
+        executor=VoiceCommandExecutor(),
+        confirmations=store,
     )
     assert execution.executed is False and execution.error_code == "executor.not_authorized"
 
@@ -584,8 +645,8 @@ def test_store_capacity_and_principal_are_fail_closed():
 
 
 @pytest.mark.parametrize(
-    ("raw", "expected"), [(None, 30.0), ("", 30.0), ("abc", 30.0), ("nan", 30.0), ("1", 5.0), ("9999", 300.0),
-                          ("45", 45.0)]
+    ("raw", "expected"),
+    [(None, 30.0), ("", 30.0), ("abc", 30.0), ("nan", 30.0), ("1", 5.0), ("9999", 300.0), ("45", 45.0)],
 )
 def test_confirmation_ttl_is_clamped(raw, expected):
     env = {} if raw is None else {"VOICE_AUDIO_DECISION_CONFIRM_TTL_SECONDS": raw}

@@ -23,14 +23,10 @@ _ARROW_FOR_REL = {
 _REL_LABEL_REQUIRED = set(_ARROW_FOR_REL.keys())
 
 
-def _arrow(rel_type: str, *, from_label: str = "", to_label: str = "",
-           label: str = "") -> str:
+def _arrow(rel_type: str, *, from_label: str = "", to_label: str = "", label: str = "") -> str:
     arrow = _ARROW_FOR_REL.get(rel_type)
     if arrow is None:
-        raise NotationRenderError(
-            f"unknown relationship type {rel_type!r}; expected one of "
-            f"{sorted(_ARROW_FOR_REL)}"
-        )
+        raise NotationRenderError(f"unknown relationship type {rel_type!r}; expected one of {sorted(_ARROW_FOR_REL)}")
     parts: list[str] = []
     if from_label:
         parts.append(f'"{from_label}"')
@@ -47,9 +43,7 @@ def _render_mermaid_class(params: dict[str, Any]) -> tuple[str, str]:
     diagram_title = _as_str(params.get("diagram_title", "") or "", field="diagram_title")
     direction = _as_str(params.get("direction", "TB"), field="direction")
     if direction not in {"TB", "BT", "LR", "RL"}:
-        raise NotationRenderError(
-            f"direction must be one of TB/BT/LR/RL, got {direction!r}"
-        )
+        raise NotationRenderError(f"direction must be one of TB/BT/LR/RL, got {direction!r}")
     classes_raw = _as_list(params.get("classes"), field="classes")
     if not classes_raw:
         raise NotationRenderError("classes must be a non-empty list")
@@ -68,19 +62,13 @@ def _render_mermaid_class(params: dict[str, Any]) -> tuple[str, str]:
     for r in relationships:
         rtype = _as_str(r.get("type"), field="relationships[].type")
         if rtype not in _ARROW_FOR_REL:
-            raise NotationRenderError(
-                f"relationship type {rtype!r} must be one of {sorted(_ARROW_FOR_REL)}"
-            )
+            raise NotationRenderError(f"relationship type {rtype!r} must be one of {sorted(_ARROW_FOR_REL)}")
         frm = _as_str(r.get("from"), field="relationships[].from")
         to = _as_str(r.get("to"), field="relationships[].to")
         if frm not in seen:
-            raise NotationRenderError(
-                f"relationship from {frm!r} references unknown class"
-            )
+            raise NotationRenderError(f"relationship from {frm!r} references unknown class")
         if to not in seen:
-            raise NotationRenderError(
-                f"relationship to {to!r} references unknown class"
-            )
+            raise NotationRenderError(f"relationship to {to!r} references unknown class")
 
     lines: list[str] = ["classDiagram"]
     if diagram_title:

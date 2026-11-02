@@ -41,10 +41,7 @@ class SfuRuntimeBinding:
         if self.runtime_control_mode == RuntimeControlModeV1.LIVEKIT_CONTROL_API.value:
             if self.runtime_instance_id is not None:
                 raise ValueError("sfu_failover_native_node_scope_forbidden")
-        elif (
-            self.runtime_control_mode
-            == RuntimeControlModeV1.AUTHENTICATED_RUNTIME_EXTENSION.value
-        ):
+        elif self.runtime_control_mode == RuntimeControlModeV1.AUTHENTICATED_RUNTIME_EXTENSION.value:
             if not self.runtime_instance_id:
                 raise ValueError("sfu_failover_runtime_instance_required")
         else:
@@ -153,9 +150,7 @@ class SfuFailoverDecisionRepositoryPort(Protocol):
     def load_or_create(
         self, request: SfuBroadcastFailoverRequest, record: SfuBroadcastFailoverRecord
     ) -> SfuBroadcastFailoverRecord: ...
-    def save(
-        self, record: SfuBroadcastFailoverRecord, *, expected_version: int
-    ) -> SfuBroadcastFailoverRecord: ...
+    def save(self, record: SfuBroadcastFailoverRecord, *, expected_version: int) -> SfuBroadcastFailoverRecord: ...
 
 
 class SfuOldAdmissionRevocationPort(Protocol):
@@ -197,9 +192,7 @@ class SfuFailoverRouteActivationPort(Protocol):
 
 
 class SfuParentFallbackPort(Protocol):
-    def activate_parent_fallback(
-        self, request: SfuBroadcastFailoverRequest, operation_id: str
-    ) -> bool: ...
+    def activate_parent_fallback(self, request: SfuBroadcastFailoverRequest, operation_id: str) -> bool: ...
 
 
 class SfuFailoverGuardPort(Protocol):
@@ -224,9 +217,7 @@ class InMemorySfuFailoverDecisionRepository:
             self._records[request.decision_id] = record
             return record
 
-    def save(
-        self, record: SfuBroadcastFailoverRecord, *, expected_version: int
-    ) -> SfuBroadcastFailoverRecord:
+    def save(self, record: SfuBroadcastFailoverRecord, *, expected_version: int) -> SfuBroadcastFailoverRecord:
         with self._lock:
             current = self._records.get(record.decision_id)
             if current is None or current.version != expected_version:
@@ -314,11 +305,7 @@ class SfuBroadcastFailoverService:
         if current.state is SfuFailoverState.PLANNED:
             if not self._admission.revoke_old(request, current.epochs, operation_id):
                 return self._retry(request, current, "sfu_failover_old_admission_revoke_failed")
-            target = (
-                SfuFailoverState.REKEY_PENDING
-                if request.rekey_required
-                else SfuFailoverState.ACTIVATING
-            )
+            target = SfuFailoverState.REKEY_PENDING if request.rekey_required else SfuFailoverState.ACTIVATING
             return self._transition(
                 current,
                 target,
@@ -327,9 +314,7 @@ class SfuBroadcastFailoverService:
             )
 
         if current.state is SfuFailoverState.REKEY_PENDING:
-            result = self._rekey.request_rekey(
-                request, request.current_epochs.key_epoch + 1, operation_id
-            )
+            result = self._rekey.request_rekey(request, request.current_epochs.key_epoch + 1, operation_id)
             if (
                 not result.accepted
                 or not result.signed
@@ -346,9 +331,7 @@ class SfuBroadcastFailoverService:
 
         if current.state is SfuFailoverState.ACTIVATING:
             if not current.admission_revoked:
-                return self._fallback_terminal(
-                    request, current, "sfu_failover_admission_revoke_missing"
-                )
+                return self._fallback_terminal(request, current, "sfu_failover_admission_revoke_missing")
             token = self._tokens.issue(
                 request,
                 request.target,
@@ -398,9 +381,7 @@ class SfuBroadcastFailoverService:
     ) -> SfuBroadcastFailoverRecord:
         attempts = current.attempts + 1
         if attempts > self._policy.retry_budget:
-            return self._fallback_terminal(
-                request, current, "sfu_failover_retry_budget_exhausted"
-            )
+            return self._fallback_terminal(request, current, "sfu_failover_retry_budget_exhausted")
         now = float(self._clock())
         updated = replace(
             current,
@@ -420,11 +401,7 @@ class SfuBroadcastFailoverService:
     ) -> SfuBroadcastFailoverRecord:
         operation_id = f"failover-fallback:{request.decision_id}:{current.version + 1}"
         accepted = self._fallback.activate_parent_fallback(request, operation_id)
-        state = (
-            SfuFailoverState.PARENT_FALLBACK
-            if accepted
-            else SfuFailoverState.CONTROLLED_FAILED
-        )
+        state = SfuFailoverState.PARENT_FALLBACK if accepted else SfuFailoverState.CONTROLLED_FAILED
         return self._transition(current, state, reason_code=reason_code)
 
     def _transition(
@@ -441,11 +418,7 @@ class SfuBroadcastFailoverService:
             current,
             state=state,
             epochs=current.epochs if epochs is None else epochs,
-            admission_revoked=(
-                current.admission_revoked
-                if admission_revoked is None
-                else admission_revoked
-            ),
+            admission_revoked=(current.admission_revoked if admission_revoked is None else admission_revoked),
             token_id=current.token_id if token_id is None else token_id,
             reason_code=reason_code,
             version=current.version + 1,

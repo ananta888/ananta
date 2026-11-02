@@ -34,7 +34,9 @@ def test_plan_track_records_reason_codes_for_invalid_output(monkeypatch, tmp_pat
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    state = _state().with_updates(header_logo_game={"active_goal_id": "goal-plan-2", "planner_mock_output": "just prose"})
+    state = _state().with_updates(
+        header_logo_game={"active_goal_id": "goal-plan-2", "planner_mock_output": "just prose"}
+    )
     result = execute_command(":plan track", state)
     assert result.handled is True
     payload = json.loads(result.message)
@@ -90,7 +92,9 @@ def test_plan_track_blocks_adopt_for_invalid_candidate(monkeypatch, tmp_path: Pa
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    state = _state().with_updates(header_logo_game={"active_goal_id": "goal-plan-4", "planner_mock_output": "prose invalid"})
+    state = _state().with_updates(
+        header_logo_game={"active_goal_id": "goal-plan-4", "planner_mock_output": "prose invalid"}
+    )
     created = execute_command(":plan track", state)
     payload = json.loads(created.message)
     output_id = str(payload["selected_output_id"])
@@ -194,7 +198,9 @@ def test_plan_track_sync_status_updates_selected_track(monkeypatch, tmp_path: Pa
     synced = execute_command(f":plan track sync-status {plan_task_id} completed", executed.state)
     assert synced.handled is True
     synced_payload = json.loads(synced.message)
-    task_rows = [dict(item) for item in list(synced_payload["selected_track"].get("tasks") or []) if isinstance(item, dict)]
+    task_rows = [
+        dict(item) for item in list(synced_payload["selected_track"].get("tasks") or []) if isinstance(item, dict)
+    ]
     row = next((item for item in task_rows if str(item.get("id") or "") == plan_task_id), {})
     assert row.get("status") == "done"
 

@@ -86,9 +86,7 @@ def validate_domain_runtime_inventory(
 
     descriptor_ids = set(descriptors.keys())
     inventory_ids = {
-        str(entry.get("domain_id") or "").strip()
-        for entry in domains
-        if str(entry.get("domain_id") or "").strip()
+        str(entry.get("domain_id") or "").strip() for entry in domains if str(entry.get("domain_id") or "").strip()
     }
     missing_inventory = sorted(descriptor_ids - inventory_ids)
     if missing_inventory:
@@ -162,9 +160,7 @@ def validate_domain_runtime_inventory(
                 if missing_evidence:
                     blockers.append(f"{domain_id}: missing runtime evidence refs: {missing_evidence}")
         elif runtime_files or smoke_commands or evidence_refs:
-            warnings.append(
-                f"{domain_id}: advisory runtime metadata present while inventory_status={inventory_status}"
-            )
+            warnings.append(f"{domain_id}: advisory runtime metadata present while inventory_status={inventory_status}")
 
     return blockers, warnings
 

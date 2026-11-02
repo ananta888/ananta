@@ -181,9 +181,13 @@ def test_admin_json_dataset_to_async_job_preview_sse_and_retention(
 
         with Session(engine) as session:  # the job view hides the stored failure message
             stored = session.get(MlInternTrainingJobDB, accepted["id"])
-            stored_error = {"error_code": getattr(stored, "error_code", None),
-                            "error_message": getattr(stored, "error_message", None)}
-        raise AssertionError(json.dumps({"stored": stored_error, "events": events, "detail": detail}, default=str)[:6000])
+            stored_error = {
+                "error_code": getattr(stored, "error_code", None),
+                "error_message": getattr(stored, "error_message", None),
+            }
+        raise AssertionError(
+            json.dumps({"stored": stored_error, "events": events, "detail": detail}, default=str)[:6000]
+        )
 
     events = client.get(accepted["events_url"], headers=admin_auth_header)
     assert events.status_code == 200

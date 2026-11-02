@@ -36,4 +36,3 @@ def test_relation_normalizer_handles_resolved_unresolved_and_malformed_rows():
     assert len(payload["unresolved_candidates"]) == 1
     assert payload["unresolved_candidates"][0]["resolved_target"] == "PaymentRepository"
     assert payload["malformed_count"] == 2
-

@@ -20,14 +20,22 @@ from ananta_contracts.memory_access import MemoryScope
 
 class ResultMemoryQuarantinePort(Protocol):
     def set_quarantine(
-        self, entry_id: str, *, action: str, reason_code: str,
+        self,
+        entry_id: str,
+        *,
+        action: str,
+        reason_code: str,
         scope: MemoryScope = MemoryScope.task,
     ) -> bool: ...
 
 
 class DerivedMemoryTreeQuarantinePort(Protocol):
     def set_provenance_quarantine(
-        self, provenance_ref: str, *, action: str, reason_code: str,
+        self,
+        provenance_ref: str,
+        *,
+        action: str,
+        reason_code: str,
     ) -> bool: ...
 
 
@@ -65,6 +73,8 @@ class ResultMemoryQuarantineService:
         # derivation without producing a duplicate state change or audit event.
         if self._derived_tree is not None:
             self._derived_tree.set_provenance_quarantine(
-                f"{self.PROVENANCE_PREFIX}{entry_id}", action=action, reason_code=reason_code,
+                f"{self.PROVENANCE_PREFIX}{entry_id}",
+                action=action,
+                reason_code=reason_code,
             )
         return True

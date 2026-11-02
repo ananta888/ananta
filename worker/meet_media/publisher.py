@@ -6,7 +6,8 @@ import time
 from worker.meet_media.av_quality import MAX_VIDEO_BYTES
 from worker.meet_media.browser_network import restrict_meet_browser_network
 from worker.meet_media.publication_session import PublicationSession
-from worker.meet_media.publisher_diagnostics import PublisherDiagnostics, enabled as diagnostics_enabled
+from worker.meet_media.publisher_diagnostics import PublisherDiagnostics
+from worker.meet_media.publisher_diagnostics import enabled as diagnostics_enabled
 
 # No persisted human profile, certificates bypass, file input or device grant.
 CAPTURE_FORBIDDEN_SCRIPT = """for (const name of ['getUserMedia', 'getDisplayMedia']) {

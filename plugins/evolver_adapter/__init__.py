@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from flask import Flask
 from urllib.parse import urlparse
+
+from flask import Flask
 
 from agent.sdk import get_sdk
 

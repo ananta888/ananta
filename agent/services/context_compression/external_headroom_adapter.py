@@ -2,13 +2,14 @@
 
 Disabled by default — requires explicit config to activate.
 """
+
 from __future__ import annotations
 
 import json
 import shutil
 import subprocess
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -78,9 +79,7 @@ class ExternalHeadroomAdapter:
         else:
             return _passthrough_result(content, reason_code="unknown_transport")
 
-    def _compress_cli(
-        self, content: str, content_type: str, budget_tokens: int
-    ) -> dict[str, Any]:
+    def _compress_cli(self, content: str, content_type: str, budget_tokens: int) -> dict[str, Any]:
         cmd = list(self._config.command)
         payload = json.dumps(
             {
@@ -104,9 +103,7 @@ class ExternalHeadroomAdapter:
         except Exception:
             return _passthrough_result(content)
 
-    def _compress_http(
-        self, content: str, content_type: str, budget_tokens: int
-    ) -> dict[str, Any]:
+    def _compress_http(self, content: str, content_type: str, budget_tokens: int) -> dict[str, Any]:
         if not self._config.base_url:
             return _passthrough_result(content)
         payload = json.dumps(
@@ -133,9 +130,7 @@ class ExternalHeadroomAdapter:
         """Return whether the external headroom service appears reachable."""
         transport = self._config.transport
         if transport == "cli":
-            return bool(
-                self._config.command and shutil.which(self._config.command[0]) is not None
-            )
+            return bool(self._config.command and shutil.which(self._config.command[0]) is not None)
         elif transport == "http":
             return bool(self._config.base_url)
         return False

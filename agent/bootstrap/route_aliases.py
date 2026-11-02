@@ -26,7 +26,9 @@ SYSTEM_ROUTE_ALIASES: tuple[RouteAlias, ...] = (
     RouteAlias("/agents", "/api/system/agents", "agent.routes.system.list_agents"),
     RouteAlias("/audit-logs", "/api/system/audit-logs", "agent.routes.system.get_audit_logs"),
     RouteAlias("/audit-logs/summary", "/api/system/audit-logs/summary", "agent.routes.system.get_audit_logs_summary"),
-    RouteAlias("/audit-logs/integrity", "/api/system/audit-logs/integrity", "agent.routes.system.get_audit_logs_integrity"),
+    RouteAlias(
+        "/audit-logs/integrity", "/api/system/audit-logs/integrity", "agent.routes.system.get_audit_logs_integrity"
+    ),
     RouteAlias(
         "/audit/analyze",
         "/api/system/audit/analyze",

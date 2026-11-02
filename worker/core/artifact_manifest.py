@@ -3,6 +3,7 @@
 Workers write this manifest to .ananta/handoff/<execution_id>/artifact_manifest.v1.json
 so the Hub can validate completion without parsing model chat output.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -49,9 +50,15 @@ def build_artifact_entry(
         content_hash = hashlib.sha256(content).hexdigest()
         size_bytes = len(content)
     valid_kinds = {
-        "generated_file", "modified_file", "patch_file",
-        "command_output", "test_result", "verification_result",
-        "planner_proposal", "summary", "other",
+        "generated_file",
+        "modified_file",
+        "patch_file",
+        "command_output",
+        "test_result",
+        "verification_result",
+        "planner_proposal",
+        "summary",
+        "other",
     }
     if kind not in valid_kinds:
         kind = "other"

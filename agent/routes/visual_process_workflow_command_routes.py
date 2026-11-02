@@ -118,10 +118,13 @@ def workflow_message(workflow_id: str):
     except (ValueError, TypeError, OverflowError):
         return dependencies.backend_error("bpmn_message_payload_invalid", code=422)
     return _dispatch_workflow_signal(
-        workflow_id, principal,
+        workflow_id,
+        principal,
         WorkflowSignal(name="bpmn_message", payload=body["payload"], actor=principal.subject),
-        command_id=command_id, expected_revision=body["expected_revision"],
-        plan_hash=plan_hash, step_id=body["step_id"],
+        command_id=command_id,
+        expected_revision=body["expected_revision"],
+        plan_hash=plan_hash,
+        step_id=body["step_id"],
         **target_bindings,
     )
 

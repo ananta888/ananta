@@ -433,8 +433,11 @@ def test_call_tool_signs_a_closed_payload_and_bounds_the_answer(key_file, monkey
 
     url, data, headers, timeout = sent[0]
     assert url == assist.TOOL_URL and url.endswith("/internal/assist/tool") and timeout == 3
-    assert json.loads(data) == {"project_id": "project-a", "tool": "codecompass.layers_heads",
-                                "arguments": {"profile_id": "p"}}
+    assert json.loads(data) == {
+        "project_id": "project-a",
+        "tool": "codecompass.layers_heads",
+        "arguments": {"profile_id": "p"},
+    }
     assert headers["X-ananta-task-signature"]
     assert len(result["text"]) == assist.MAX_TOOL_TEXT_CHARS and result["truncated"] is True
     assert len(result["sources"]) == 8 and len(result["sources"][0]["excerpt"]) == 1200
@@ -467,12 +470,14 @@ def test_retrieve_falls_back_to_the_legacy_route_on_a_hub_without_the_tool_route
         raise _http_error(404, b"<html>Not Found</html>")
 
     monkeypatch.setattr(assist.urllib.request, "urlopen", urlopen)
+
     def legacy(query, limit):
         return {"snippets": [{"path": "legacy.py", "query": query}], "total": 7}
 
     monkeypatch.setattr(assist, "fetch_retrieval", legacy)
     assert assist.retrieve_snippets("q", limit=2, project="project-a") == {
-        "snippets": [{"path": "legacy.py", "query": "q"}], "total": 7,
+        "snippets": [{"path": "legacy.py", "query": "q"}],
+        "total": 7,
     }
 
 

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from flask import g
+
 # In-memory engines use StaticPool: SQLite's default pool for :memory: may close a thread's connection when
 # many threads of the worker use the engine, and the replacement connection opens an empty database.
 from sqlalchemy.pool import StaticPool
@@ -93,26 +94,16 @@ def _bind_recovery_dispatch_fixture(
         rationale={
             "task_kind": child.task_kind,
             "retrieval_intent": child.retrieval_intent,
-            "required_context_scope": (
-                child.required_context_scope
-            ),
+            "required_context_scope": (child.required_context_scope),
             "preferred_bundle_mode": child.preferred_bundle_mode,
-            "required_capabilities": list(
-                child.required_capabilities
-            ),
+            "required_capabilities": list(child.required_capabilities),
         },
         verification_spec=dict(child.verification_spec),
         materialized_task_id=child.id,
     )
-    plan.rationale["materialization_inputs_digest"] = (
-        calculate_recovery_materialization_inputs_digest(goal)
-    )
-    plan.rationale["plan_digest"] = (
-        calculate_recovery_plan_digest(plan, [node])
-    )
-    child.status_reason_details[
-        "model_recovery_release"
-    ]["task_payload_digest"] = (
+    plan.rationale["materialization_inputs_digest"] = calculate_recovery_materialization_inputs_digest(goal)
+    plan.rationale["plan_digest"] = calculate_recovery_plan_digest(plan, [node])
+    child.status_reason_details["model_recovery_release"]["task_payload_digest"] = (
         calculate_recovery_task_payload_digest(child)
     )
     return node
@@ -391,14 +382,10 @@ def test_exhaustion_creates_one_persisted_approval_gated_recovery_plan():
     assert len(planner.calls) == 1
     assert len(approvals.created) == 1
     assert approvals.created[0].tool_name == RECOVERY_MATERIALIZE_TOOL
-    assert approvals.created[0].canonical_arguments["team_id"] == (
-        "team-1"
-    )
+    assert approvals.created[0].canonical_arguments["team_id"] == ("team-1")
     assert approvals.created[0].scope["team_id"] == "team-1"
     assert repos.plan_repo.get_by_id(first["plan_id"]).status == "pending_approval"
-    assert repos.plan_repo.get_by_id(
-        first["plan_id"]
-    ).rationale["team_id"] == "team-1"
+    assert repos.plan_repo.get_by_id(first["plan_id"]).rationale["team_id"] == "team-1"
 
 
 def test_grant_materializes_once_and_requeues_parent_after_children():
@@ -436,16 +423,12 @@ def test_grant_materializes_once_and_requeues_parent_after_children():
     assert recovery["plan_id"] == proposal["plan_id"]
     assert recovery["recovery_depth"] == 1
     dependency_binding = recovery["dependency_binding"]
-    assert dependency_binding[
-        "preexisting_dependency_ids"
-    ] == ["already-complete"]
+    assert dependency_binding["preexisting_dependency_ids"] == ["already-complete"]
     assert dependency_binding["child_task_ids"] == [
         "child-1",
         "child-2",
     ]
-    assert dependency_binding[
-        "authoritative_dependency_ids"
-    ] == source_update[2]["depends_on"]
+    assert dependency_binding["authoritative_dependency_ids"] == source_update[2]["depends_on"]
     assert len(dependency_binding["digest"]) == 64
 
 
@@ -646,7 +629,7 @@ def test_worker_role_and_recursive_recovery_fail_closed():
 
 
 def test_autopilot_terminal_guard_covers_non_success_terminal_states():
-    from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
+    from agent.services.autopilot.task_dispatcher_helpers import (
         _is_terminal_status,
     )
 
@@ -785,7 +768,7 @@ def test_recovery_approval_details_are_team_scoped(
         team_id="team-b",
         tenant_id="tenant-private",
     )
-    repos = Record(goal_repo=Record(get_by_id=lambda goal_id: (goal if goal_id == goal.id else None)))
+    repos = Record(goal_repo=Record(get_by_id=lambda goal_id: goal if goal_id == goal.id else None))
     monkeypatch.setattr(
         "agent.services.repository_registry.get_repository_registry",
         lambda: repos,
@@ -1025,11 +1008,7 @@ def _partial_materialization_fixture(monkeypatch):
         plan_node_repo=node_repo,
         task_repo=task_repo,
         goal_repo=Record(
-            get_by_id=lambda goal_id: (
-                Record(id=goal_id, status="planned")
-                if goal_id == plan.goal_id
-                else None
-            )
+            get_by_id=lambda goal_id: Record(id=goal_id, status="planned") if goal_id == plan.goal_id else None
         ),
     )
     # Seam: the lifecycle slot lets a test swap the task lifecycle double
@@ -1532,24 +1511,12 @@ def test_release_commits_epoch_before_root_becomes_dispatchable(
 
     def observe_release(task_id, status, **values):
         if task_id == "child-1" and status == "todo":
-            rationale = dict(
-                repos.plan_repo.get_by_id(
-                    proposal["plan_id"]
-                ).rationale
-            )
+            rationale = dict(repos.plan_repo.get_by_id(proposal["plan_id"]).rationale)
             root_observations.append(
                 {
-                    "state": rationale.get(
-                        "materialization_release_state"
-                    ),
-                    "epoch": rationale.get(
-                        "materialization_release_epoch"
-                    ),
-                    "child_gate": dict(
-                        values["status_reason_details"][
-                            "model_recovery_release"
-                        ]
-                    ),
+                    "state": rationale.get("materialization_release_state"),
+                    "epoch": rationale.get("materialization_release_epoch"),
+                    "child_gate": dict(values["status_reason_details"]["model_recovery_release"]),
                 }
             )
         return original_conditional_update(
@@ -1570,9 +1537,7 @@ def test_release_commits_epoch_before_root_becomes_dispatchable(
     assert observed["child_gate"]["release_epoch"] == observed["epoch"]
     assert observed["child_gate"]["team_id"] == "team-1"
     plan = repos.plan_repo.get_by_id(proposal["plan_id"])
-    assert plan.rationale["materialization_release_state"] == (
-        "completed"
-    )
+    assert plan.rationale["materialization_release_state"] == ("completed")
     source_recovery = task.status_reason_details["model_recovery"]
     assert source_recovery["release_epoch"] == observed["epoch"]
 
@@ -1593,13 +1558,9 @@ def test_recovery_dispatch_gate_requires_epoch_and_live_owners():
             "recovery_key": "recovery-key-gate",
             "materialization_release_state": "committed",
             "materialization_release_epoch": release_epoch,
-            "materialization_release_source_task_id": (
-                "source-gate"
-            ),
+            "materialization_release_source_task_id": ("source-gate"),
             "materialization_release_goal_id": "goal-gate",
-            "materialization_release_approval_id": (
-                "approval-gate"
-            ),
+            "materialization_release_approval_id": ("approval-gate"),
             "materialization_release_team_id": "team-gate",
         },
     )
@@ -1649,24 +1610,10 @@ def test_recovery_dispatch_gate_requires_epoch_and_live_owners():
     )
     tasks = {source.id: source, child.id: child}
     repos = Record(
-        plan_repo=Record(
-            get_by_id=lambda plan_id: (
-                plan if plan_id == plan.id else None
-            )
-        ),
-        task_repo=Record(
-            get_by_id=lambda task_id: tasks.get(task_id)
-        ),
-        goal_repo=Record(
-            get_by_id=lambda goal_id: (
-                goal if goal_id == goal.id else None
-            )
-        ),
-        plan_node_repo=Record(
-            get_by_plan_id=lambda plan_id: (
-                [node] if plan_id == plan.id else []
-            )
-        ),
+        plan_repo=Record(get_by_id=lambda plan_id: plan if plan_id == plan.id else None),
+        task_repo=Record(get_by_id=lambda task_id: tasks.get(task_id)),
+        goal_repo=Record(get_by_id=lambda goal_id: goal if goal_id == goal.id else None),
+        plan_node_repo=Record(get_by_plan_id=lambda plan_id: [node] if plan_id == plan.id else []),
     )
     gate = RecoveryDispatchGateService(
         repository_provider=lambda: repos,
@@ -1674,23 +1621,13 @@ def test_recovery_dispatch_gate_requires_epoch_and_live_owners():
 
     assert gate.evaluate_task(child).allowed is True
     plan.rationale["materialization_release_state"] = "preparing"
-    assert gate.evaluate_task(child).reason_code == (
-        "recovery_release_not_committed"
-    )
+    assert gate.evaluate_task(child).reason_code == ("recovery_release_not_committed")
     plan.rationale["materialization_release_state"] = "committed"
-    child.status_reason_details[
-        "model_recovery_release"
-    ]["release_epoch"] = "stale-epoch"
-    assert gate.evaluate_task(child).reason_code == (
-        "recovery_release_epoch_mismatch"
-    )
-    child.status_reason_details[
-        "model_recovery_release"
-    ]["release_epoch"] = release_epoch
+    child.status_reason_details["model_recovery_release"]["release_epoch"] = "stale-epoch"
+    assert gate.evaluate_task(child).reason_code == ("recovery_release_epoch_mismatch")
+    child.status_reason_details["model_recovery_release"]["release_epoch"] = release_epoch
     source.status = "completed"
-    assert gate.evaluate_task(child).reason_code == (
-        "recovery_dispatch_owner_terminal"
-    )
+    assert gate.evaluate_task(child).reason_code == ("recovery_dispatch_owner_terminal")
 
 
 def _dispatch_lease_fixture():
@@ -1788,21 +1725,9 @@ def _dispatch_lease_fixture():
 
     repos = Record(
         task_repo=TaskRepo(),
-        goal_repo=Record(
-            get_by_id=lambda goal_id: (
-                goal if goal_id == goal.id else None
-            )
-        ),
-        plan_repo=Record(
-            get_by_id=lambda plan_id: (
-                plan if plan_id == plan.id else None
-            )
-        ),
-        plan_node_repo=Record(
-            get_by_plan_id=lambda plan_id: (
-                [node] if plan_id == plan.id else []
-            )
-        ),
+        goal_repo=Record(get_by_id=lambda goal_id: goal if goal_id == goal.id else None),
+        plan_repo=Record(get_by_id=lambda plan_id: plan if plan_id == plan.id else None),
+        plan_node_repo=Record(get_by_plan_id=lambda plan_id: [node] if plan_id == plan.id else []),
     )
     gate = RecoveryDispatchGateService(
         repository_provider=lambda: repos,
@@ -1816,9 +1741,7 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
         build_recovery_result_candidate,
     )
 
-    gate, repos, _goal, _source, child = (
-        _dispatch_lease_fixture()
-    )
+    gate, repos, _goal, _source, child = _dispatch_lease_fixture()
 
     lease = gate.acquire_dispatch_lease(
         child.id,
@@ -1828,9 +1751,7 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
     )
     assert lease.allowed is True
     assert lease.token
-    persisted = child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    persisted = child.status_reason_details["recovery_dispatch_lease"]
     assert lease.token not in str(persisted)
     assert persisted["state"] == "active"
 
@@ -1853,9 +1774,7 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
         request_fingerprint=_DISPATCH_REQUEST_FINGERPRINT,
         trusted_local=True,
     )
-    assert admitted.reason_code == (
-        "recovery_dispatch_worker_admitted"
-    )
+    assert admitted.reason_code == ("recovery_dispatch_worker_admitted")
     readmitted = gate.admit_dispatch_lease(
         child.id,
         token=lease.token,
@@ -1864,13 +1783,9 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
         request_fingerprint=_DISPATCH_REQUEST_FINGERPRINT,
         trusted_local=True,
     )
-    assert readmitted.reason_code == (
-        "recovery_dispatch_worker_readmitted"
-    )
+    assert readmitted.reason_code == ("recovery_dispatch_worker_readmitted")
 
-    persisted_lease = child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]
+    persisted_lease = child.status_reason_details["recovery_dispatch_lease"]
     child.status = "in_progress"
     child.last_output = "Hub-verified recovery output"
     child.last_exit_code = 0
@@ -1879,9 +1794,7 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
         "record_id": "verification-record-lease",
         "results": {"final_passed": True},
     }
-    child.status_reason_details[
-        "recovery_result_candidate"
-    ] = build_recovery_result_candidate(
+    child.status_reason_details["recovery_result_candidate"] = build_recovery_result_candidate(
         task_id=child.id,
         status="completed",
         verification_record_id="verification-record-lease",
@@ -1901,18 +1814,18 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
         assert accepted.allowed is True
     accepted_child = repos.task_repo.get_by_id(child.id)
     assert accepted_child.status == "completed"
-    assert accepted_child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "result_accepted"
-    assert gate.revoke_dispatch_lease(
-        child.id,
-        reason_code="late_transport_timeout",
-    ) is False
-    assert repos.task_repo.get_by_id(
-        child.id
-    ).status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "result_accepted"
+    assert accepted_child.status_reason_details["recovery_dispatch_lease"]["state"] == "result_accepted"
+    assert (
+        gate.revoke_dispatch_lease(
+            child.id,
+            reason_code="late_transport_timeout",
+        )
+        is False
+    )
+    assert (
+        repos.task_repo.get_by_id(child.id).status_reason_details["recovery_dispatch_lease"]["state"]
+        == "result_accepted"
+    )
     replay = gate.admit_dispatch_lease(
         child.id,
         token=lease.token,
@@ -1925,9 +1838,7 @@ def test_recovery_dispatch_lease_lifecycle_is_bound_and_single_effect():
 
 
 def test_recovery_dispatch_lease_rechecks_terminal_owner_at_admission_and_result():
-    gate, _repos, goal, source, child = (
-        _dispatch_lease_fixture()
-    )
+    gate, _repos, goal, source, child = _dispatch_lease_fixture()
     lease = gate.acquire_dispatch_lease(
         child.id,
         phase="propose",
@@ -1954,9 +1865,7 @@ def test_recovery_dispatch_lease_rechecks_terminal_owner_at_admission_and_result
     )
     assert second.allowed is False
     assert second.decision.reason_code == "recovery_dispatch_inflight"
-    child.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["expires_at"] = time.time() - 1
+    child.status_reason_details["recovery_dispatch_lease"]["expires_at"] = time.time() - 1
     replacement = gate.acquire_dispatch_lease(
         child.id,
         phase="execute",
@@ -1981,9 +1890,7 @@ def test_recovery_dispatch_lease_rechecks_terminal_owner_at_admission_and_result
         worker_url="http://worker:5000",
     ) as result:
         assert result.allowed is False
-        assert result.reason_code == (
-            "recovery_dispatch_owner_terminal"
-        )
+        assert result.reason_code == ("recovery_dispatch_owner_terminal")
 
 
 def test_source_terminal_transition_and_recovery_admission_are_linearizable():
@@ -1991,14 +1898,8 @@ def test_source_terminal_transition_and_recovery_admission_are_linearizable():
         TaskMutationLockPort,
     )
 
-    gate, _repos, _goal, source, child = (
-        _dispatch_lease_fixture()
-    )
-    port = TaskMutationLockPort(
-        engine_provider=lambda: Record(
-            dialect=Record(name="sqlite")
-        )
-    )
+    gate, _repos, _goal, source, child = _dispatch_lease_fixture()
+    port = TaskMutationLockPort(engine_provider=lambda: Record(dialect=Record(name="sqlite")))
     gate._mutation_lock_provider = lambda: port
     lease = gate.acquire_dispatch_lease(
         child.id,
@@ -2019,9 +1920,7 @@ def test_source_terminal_transition_and_recovery_admission_are_linearizable():
                 token=lease.token,
                 phase="execute",
                 worker_url="http://worker:5000",
-                request_fingerprint=(
-                    _DISPATCH_REQUEST_FINGERPRINT
-                ),
+                request_fingerprint=(_DISPATCH_REQUEST_FINGERPRINT),
                 trusted_local=True,
             )
         except BaseException as exc:
@@ -2059,13 +1958,11 @@ def test_source_terminal_transition_and_recovery_admission_are_linearizable():
         worker_url="http://worker:5000",
     ) as result:
         assert result.allowed is False
-        assert result.reason_code == (
-            "recovery_dispatch_owner_terminal"
-        )
+        assert result.reason_code == ("recovery_dispatch_owner_terminal")
 
 
 def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution():
-    from agent.services import _task_scoped_step_orchestrator as orchestration
+    from agent.services.task_scoped import step_orchestrator as orchestration
 
     orchestration._RECOVERY_OUTCOME_CACHE.clear()
     token = "same-invocation-token"
@@ -2126,8 +2023,8 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
     forwarding_dependencies,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     lease_token = "recovery-propose-lease"
     worker_url = "http://worker-recovery:5001"
@@ -2173,13 +2070,7 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
         lambda: gate,
     )
     dependencies = forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(
-                    token="current-worker-token"
-                )
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: Record(token="current-worker-token"))),
     )
 
     payload = {
@@ -2212,9 +2103,7 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
             endpoint="/tasks/child-forward/step/propose",
             payload=payload,
             forwarder=forwarder,
-            on_success=lambda data, task: accepted.append(
-                (dict(data), dict(task))
-            ),
+            on_success=lambda data, task: accepted.append((dict(data), dict(task))),
         )
 
     assert response is not None
@@ -2234,8 +2123,7 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
             "token": lease_token,
             "phase": "propose",
             "request_fingerprint": (
-                recovery_dispatch_gate_service
-                .recovery_dispatch_request_fingerprint(
+                recovery_dispatch_gate_service.recovery_dispatch_request_fingerprint(
                     "propose",
                     payload,
                 )
@@ -2251,8 +2139,8 @@ def test_task_scoped_recovery_forward_without_lease_fails_before_transport(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2270,11 +2158,7 @@ def test_task_scoped_recovery_forward_without_lease_fails_before_transport(
     monkeypatch.setattr(
         mail_task_service,
         "get_mail_task_service",
-        lambda: Record(
-            claim_for_delegation=lambda **values: mail_claims.append(
-                dict(values)
-            )
-        ),
+        lambda: Record(claim_for_delegation=lambda **values: mail_claims.append(dict(values))),
     )
     forwarded = []
     accepted = []
@@ -2321,8 +2205,8 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2335,11 +2219,7 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
             try:
                 yield Record(
                     allowed=guard_allowed,
-                    reason_code=(
-                        "recovery_dispatch_lease_valid"
-                        if guard_allowed
-                        else "recovery_dispatch_lease_stale"
-                    ),
+                    reason_code=("recovery_dispatch_lease_valid" if guard_allowed else "recovery_dispatch_lease_stale"),
                 )
             finally:
                 events.append("guard_exit")
@@ -2356,10 +2236,7 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
         return True
 
     mail_service = Record(
-        claim_for_delegation=lambda **values: (
-            claims.append(dict(values))
-            or {"fencing_token": 17}
-        ),
+        claim_for_delegation=lambda **values: claims.append(dict(values)) or {"fencing_token": 17},
         release_lease=release_lease,
     )
     monkeypatch.setattr(settings, "role", "hub")
@@ -2375,11 +2252,7 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
         lambda: mail_service,
     )
     forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(token="worker-token")
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: Record(token="worker-token"))),
     )
     accepted = []
 
@@ -2416,9 +2289,7 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
             with pytest.raises(WorkerForwardingError) as raised:
                 call()
             assert raised.value.details["details"] == (
-                "result persistence failed"
-                if callback_fails
-                else "result guard commit failed"
+                "result persistence failed" if callback_fails else "result guard commit failed"
             )
             response = None
         else:
@@ -2472,11 +2343,11 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
     monkeypatch,
     forwarding_dependencies,
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import (
         mail_task_service,
         recovery_worker_result_service,
     )
+    from agent.services.task_scoped import forwarding as forwarding
 
     task_id = "recovery-mail-persist"
     authoritative = Record(
@@ -2513,9 +2384,7 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
         "get_mail_task_service",
         lambda: Record(
             validate_worker_result=validate_worker_result,
-            release_lease=lambda **values: released.append(
-                dict(values)
-            ),
+            release_lease=lambda **values: released.append(dict(values)),
         ),
     )
 
@@ -2564,8 +2433,8 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2580,11 +2449,7 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
         lambda: Gate(),
     )
     dependencies = forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(token="worker-token")
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: Record(token="worker-token"))),
     )
     calls = []
 
@@ -2636,11 +2501,11 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import (
         recovery_dispatch_gate_service,
         vector_index_task_service,
     )
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2656,11 +2521,7 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
     )
     dependencies = forwarding_dependencies(
         repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(
-                    token="current-vector-worker-token"
-                )
-            )
+            agent_repo=Record(get_by_url=lambda _url: Record(token="current-vector-worker-token"))
         ),
     )
     monkeypatch.setattr(
@@ -2708,14 +2569,10 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
                     }
                 },
             },
-            endpoint=(
-                "/tasks/vector-forward-fenced/step/execute"
-            ),
+            endpoint=("/tasks/vector-forward-fenced/step/execute"),
             payload={"task_id": "vector-forward-fenced"},
             forwarder=forwarder,
-            on_success=lambda *_args: (_ for _ in ()).throw(
-                ValueError("vector result schema required")
-            ),
+            on_success=lambda *_args: (_ for _ in ()).throw(ValueError("vector result schema required")),
         )
 
     assert calls == ["current-vector-worker-token"]
@@ -2740,14 +2597,10 @@ def _governed_codecompass_forward_task(
             "resources": {"max_runtime_seconds": 60},
         }
         if include_manifest:
-            job["source_access_enforcement_manifest"] = {
-                "schema": "ananta.source-control.enforcement-manifest.v1"
-            }
+            job["source_access_enforcement_manifest"] = {"schema": "ananta.source-control.enforcement-manifest.v1"}
         task["worker_execution_context"] = {
             "knowledge_index_job": job,
-            "destination_selection": {
-                "worker_id": "worker-index-01"
-            },
+            "destination_selection": {"worker_id": "worker-index-01"},
         }
     return task
 
@@ -2770,8 +2623,8 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -2810,16 +2663,12 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
             "knowledge_index_job": {
                 "schema": "ananta.knowledge_index_execution_job.v2",
                 "resources": {"max_runtime_seconds": 60},
-                "source_access_enforcement_manifest": {
-                    "schema": "test-enforcement-manifest"
-                },
+                "source_access_enforcement_manifest": {"schema": "test-enforcement-manifest"},
             }
         }
 
     dependencies = forwarding_dependencies(
-        governed_index_job_service=lambda: Record(
-            authorize_bound_worker_dispatch=authorize_dispatch
-        ),
+        governed_index_job_service=lambda: Record(authorize_bound_worker_dispatch=authorize_dispatch),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
     dependencies = forwarding_dependencies(
@@ -2871,9 +2720,7 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
                     "knowledge_index_job": {
                         "schema": "ananta.knowledge_index_execution_job.v2",
                     },
-                    "destination_selection": {
-                        "worker_id": "worker-index-01"
-                    },
+                    "destination_selection": {"worker_id": "worker-index-01"},
                 },
             },
             endpoint="/tasks/codecompass-forward-fenced/step/execute",
@@ -2888,11 +2735,14 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
         "forbidden_response",
         "not_found",
     }:
-        assert error.value.status_code == {
-            "unauthorized_response": 401,
-            "forbidden_response": 403,
-            "not_found": 404,
-        }[failure_mode]
+        assert (
+            error.value.status_code
+            == {
+                "unauthorized_response": 401,
+                "forbidden_response": 403,
+                "not_found": 404,
+            }[failure_mode]
+        )
         assert error.value.retryable is False
     else:
         assert error.value.status_code == 502
@@ -2901,9 +2751,7 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
         {
             "job_id": "codecompass-forward-fenced",
             "authenticated_worker_id": "worker-index-01",
-            "destination_selection": {
-                "worker_id": "worker-index-01"
-            },
+            "destination_selection": {"worker_id": "worker-index-01"},
             "dispatch_phase": "execute",
         }
     ]
@@ -2913,9 +2761,7 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
     "task",
     [
         _governed_codecompass_forward_task(include_context=False),
-        _governed_codecompass_forward_task(
-            schema="ananta.knowledge_index_job.unknown"
-        ),
+        _governed_codecompass_forward_task(schema="ananta.knowledge_index_job.unknown"),
         _governed_codecompass_forward_task(worker_url=None),
     ],
 )
@@ -2926,7 +2772,7 @@ def test_codecompass_forward_rejects_missing_governed_binding_or_worker(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -2952,8 +2798,8 @@ def test_public_codecompass_v1_keeps_legacy_forwarder_boundary(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -2967,9 +2813,7 @@ def test_public_codecompass_v1_keeps_legacy_forwarder_boundary(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    task = _governed_codecompass_forward_task(
-        schema="ananta.knowledge_index_job.v1"
-    )
+    task = _governed_codecompass_forward_task(schema="ananta.knowledge_index_job.v1")
     calls = []
     accepted = []
 
@@ -3012,19 +2856,20 @@ def test_codecompass_forward_rejects_local_hub_alias(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
     monkeypatch.setattr(settings, "port", 5000)
-    task = _governed_codecompass_forward_task(
-        worker_url=worker_url
-    )
+    task = _governed_codecompass_forward_task(worker_url=worker_url)
     calls = []
 
-    with app.app_context(), pytest.raises(
-        WorkerForwardingError,
-        match="assigned_worker_must_be_remote",
+    with (
+        app.app_context(),
+        pytest.raises(
+            WorkerForwardingError,
+            match="assigned_worker_must_be_remote",
+        ),
     ):
         forwarding.forward_task_request_if_remote(
             tid=task["id"],
@@ -3043,7 +2888,7 @@ def test_codecompass_worker_executes_its_bound_assignment_locally(
     monkeypatch,
 ):
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "worker")
     monkeypatch.setattr(settings, "agent_url", "http://worker:5001")
@@ -3080,7 +2925,7 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
@@ -3091,24 +2936,23 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
         governed_index_job_service=lambda: authorizer_calls.append(True),
     )
 
-    with app.app_context(), pytest.raises(
-        WorkerForwardingError,
-        match="knowledge_index_dispatch_phase_mismatch",
-    ) as error:
+    with (
+        app.app_context(),
+        pytest.raises(
+            WorkerForwardingError,
+            match="knowledge_index_dispatch_phase_mismatch",
+        ) as error,
+    ):
         forwarding.forward_task_request_if_remote(
             dependencies=dependencies,
             tid=task["id"],
             task=task,
-            endpoint=(
-                f"/tasks/{task['id']}/step/{endpoint_phase}"
-            ),
+            endpoint=(f"/tasks/{task['id']}/step/{endpoint_phase}"),
             payload={
                 "task_id": task["id"],
                 "dispatch_lease_phase": payload_phase,
             },
-            forwarder=lambda *args, **kwargs: forwarder_calls.append(
-                (args, kwargs)
-            ),
+            forwarder=lambda *args, **kwargs: forwarder_calls.append((args, kwargs)),
             on_success=lambda *_args: None,
         )
 
@@ -3147,8 +2991,8 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3171,9 +3015,7 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
             task_id=None,
             endpoint=None,
         ):
-            self.failures.append(
-                (worker_url, reason, task_id, endpoint)
-            )
+            self.failures.append((worker_url, reason, task_id, endpoint))
 
     recorder = Recorder()
     monkeypatch.setattr(settings, "role", "hub")
@@ -3191,11 +3033,7 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
         if acceptance_error:
             raise ValueError(acceptance_error)
 
-    context = (
-        pytest.raises(WorkerForwardingError)
-        if expected_failures
-        else contextlib.nullcontext()
-    )
+    context = pytest.raises(WorkerForwardingError) if expected_failures else contextlib.nullcontext()
     with app.app_context(), context:
         forwarding.forward_task_request_if_remote(
             dependencies=dependencies,
@@ -3234,11 +3072,11 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
     from agent.services.knowledge_index_job_service import (
         KnowledgeIndexCompletionProjectionPending,
     )
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -3272,9 +3110,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
             "knowledge_index_job": {
                 "schema": "ananta.knowledge_index_execution_job.v2",
                 "resources": {"max_runtime_seconds": 60},
-                "source_access_enforcement_manifest": {
-                    "schema": "test-enforcement-manifest"
-                },
+                "source_access_enforcement_manifest": {"schema": "test-enforcement-manifest"},
             }
         }
 
@@ -3301,9 +3137,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
     )
 
     dependencies = forwarding_dependencies(
-        governed_index_job_service=lambda: Record(
-            authorize_bound_worker_dispatch=authorize_dispatch
-        ),
+        governed_index_job_service=lambda: Record(authorize_bound_worker_dispatch=authorize_dispatch),
     )
     dependencies = forwarding_dependencies(
         outcome_recorder=lambda: recorder,
@@ -3321,9 +3155,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
         }
 
     def projection_pending(*_args, **_kwargs):
-        raise KnowledgeIndexCompletionProjectionPending(
-            RuntimeError("source projector unavailable")
-        )
+        raise KnowledgeIndexCompletionProjectionPending(RuntimeError("source projector unavailable"))
 
     with app.app_context():
         result = forwarding.forward_task_request_if_remote(
@@ -3375,8 +3207,8 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
     from agent.services.worker_forward_transport import (
         WorkerTransportDeadline,
     )
@@ -3416,24 +3248,18 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
         with claim_lock:
             authorization_calls.append(values)
             if claimed:
-                raise ValueError(
-                    "knowledge_index_execute_dispatch_already_claimed"
-                )
+                raise ValueError("knowledge_index_execute_dispatch_already_claimed")
             claimed = True
         return {
             "knowledge_index_job": {
                 "schema": "ananta.knowledge_index_execution_job.v2",
                 "resources": {"max_runtime_seconds": 60},
-                "source_access_enforcement_manifest": {
-                    "schema": "test-enforcement-manifest"
-                },
+                "source_access_enforcement_manifest": {"schema": "test-enforcement-manifest"},
             }
         }
 
     dependencies = forwarding_dependencies(
-        governed_index_job_service=lambda: Record(
-            authorize_bound_worker_dispatch=authorize_dispatch
-        ),
+        governed_index_job_service=lambda: Record(authorize_bound_worker_dispatch=authorize_dispatch),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
     dependencies = forwarding_dependencies(
@@ -3473,9 +3299,7 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
                     dependencies=dependencies,
                     tid="codecompass-forward-fenced",
                     task=_governed_codecompass_forward_task(),
-                    endpoint=(
-                        "/tasks/codecompass-forward-fenced/step/execute"
-                    ),
+                    endpoint=("/tasks/codecompass-forward-fenced/step/execute"),
                     payload={"task_id": "codecompass-forward-fenced"},
                     forwarder=forwarder,
                     on_success=accept_success,
@@ -3485,30 +3309,20 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
                 return ("rejected", exc)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        outcomes = [
-            future.result(timeout=5)
-            for future in (executor.submit(dispatch), executor.submit(dispatch))
-        ]
+        outcomes = [future.result(timeout=5) for future in (executor.submit(dispatch), executor.submit(dispatch))]
 
     assert sorted(outcome[0] for outcome in outcomes) == [
         "forwarded",
         "rejected",
     ]
-    rejected = next(
-        outcome[1] for outcome in outcomes if outcome[0] == "rejected"
-    )
+    rejected = next(outcome[1] for outcome in outcomes if outcome[0] == "rejected")
     assert rejected.status_code == 409
     assert rejected.retryable is False
     assert str(rejected) == "knowledge_index_execute_dispatch_already_claimed"
-    assert forward_calls == [
-        ("current-codecompass-worker-token", deadline)
-    ]
+    assert forward_calls == [("current-codecompass-worker-token", deadline)]
     assert accepted_deadlines == [deadline]
     assert len(authorization_calls) == 2
-    assert all(
-        call["dispatch_phase"] == "execute"
-        for call in authorization_calls
-    )
+    assert all(call["dispatch_phase"] == "execute" for call in authorization_calls)
 
 
 @pytest.mark.parametrize(
@@ -3541,8 +3355,8 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3557,18 +3371,12 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
         lambda: Gate(),
     )
     dependencies = forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: registered_agent
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: registered_agent)),
     )
     authorization_calls = []
     dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: Record(
-            authorize_bound_worker_dispatch=lambda **values: (
-                authorization_calls.append(values)
-            )
+            authorize_bound_worker_dispatch=lambda **values: authorization_calls.append(values)
         ),
     )
     task = _governed_codecompass_forward_task(include_manifest=True)
@@ -3596,8 +3404,8 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import mail_task_service, recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3612,25 +3420,22 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
         lambda: Gate(),
     )
     dependencies = forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(token=None)
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: Record(token=None))),
     )
     claims = []
     monkeypatch.setattr(
         mail_task_service,
         "get_mail_task_service",
-        lambda: Record(
-            claim_for_delegation=lambda **values: claims.append(values)
-        ),
+        lambda: Record(claim_for_delegation=lambda **values: claims.append(values)),
     )
     calls = []
 
-    with app.app_context(), pytest.raises(
-        WorkerForwardingError,
-        match="assigned_worker_token_missing",
+    with (
+        app.app_context(),
+        pytest.raises(
+            WorkerForwardingError,
+            match="assigned_worker_token_missing",
+        ),
     ):
         forwarding.forward_task_request_if_remote(
             dependencies=dependencies,
@@ -3663,8 +3468,8 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     class Gate:
         @staticmethod
@@ -3679,17 +3484,16 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
         lambda: Gate(),
     )
     dependencies = forwarding_dependencies(
-        repositories=lambda: Record(
-            agent_repo=Record(
-                get_by_url=lambda _url: Record(token=None)
-            )
-        ),
+        repositories=lambda: Record(agent_repo=Record(get_by_url=lambda _url: Record(token=None))),
     )
     calls = []
 
-    with app.app_context(), pytest.raises(
-        WorkerForwardingError,
-        match="assigned_worker_token_missing",
+    with (
+        app.app_context(),
+        pytest.raises(
+            WorkerForwardingError,
+            match="assigned_worker_token_missing",
+        ),
     ):
         forwarding.forward_task_request_if_remote(
             dependencies=dependencies,
@@ -3745,11 +3549,7 @@ def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(
                 id="source-z-sticky",
                 goal_id="goal-sticky",
                 status="completed",
-                status_reason_details={
-                    "model_recovery": {
-                        "plan_id": "sticky-plan"
-                    }
-                },
+                status_reason_details={"model_recovery": {"plan_id": "sticky-plan"}},
             )
         )
         session.add(
@@ -3780,21 +3580,15 @@ def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(
     rejected = repo.save(stale)
     assert rejected.status == "todo"
     assert rejected.status_reason_code is None
-    assert rejected.status_reason_details[
-        "model_recovery_release"
-    ] == release
-    assert rejected.status_reason_details[
-        "recovery_dispatch_lease"
-    ]["state"] == "worker_admitted"
+    assert rejected.status_reason_details["model_recovery_release"] == release
+    assert rejected.status_reason_details["recovery_dispatch_lease"]["state"] == "worker_admitted"
 
     terminal = repo.get_by_id("child-a-sticky")
     terminal.status = "cancelled"
     terminal.status_reason_code = "recovery_parent_terminal"
     terminal_at = time.time() + 20
     owner_marker = {
-        "schema": (
-            "ananta.recovery_owner_terminal_invalidation.v1"
-        ),
+        "schema": ("ananta.recovery_owner_terminal_invalidation.v1"),
         "task_id": terminal.id,
         "goal_id": terminal.goal_id,
         "goal_status": "cancelled",
@@ -3817,9 +3611,7 @@ def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(
     stale.updated_at = time.time() + 30
     still_terminal = repo.save(stale)
     assert still_terminal.status == "cancelled"
-    assert still_terminal.status_reason_code == (
-        "recovery_parent_terminal"
-    )
+    assert still_terminal.status_reason_code == ("recovery_parent_terminal")
 
 
 def test_task_repository_rejects_recovery_binding_mutation_without_corruption(
@@ -3893,9 +3685,7 @@ def test_task_repository_rejects_recovery_binding_mutation_without_corruption(
     assert persisted.derivation_reason == "goal_task_recovery"
     assert persisted.derivation_depth == 1
     assert persisted.status == "todo"
-    assert persisted.status_reason_details[
-        "model_recovery_release"
-    ]["release_epoch"] == "binding-epoch"
+    assert persisted.status_reason_details["model_recovery_release"]["release_epoch"] == "binding-epoch"
 
 
 def test_goal_repository_terminal_status_is_sticky_against_detached_save(
@@ -3927,18 +3717,14 @@ def test_goal_repository_terminal_status_is_sticky_against_detached_save(
     stale = repo.get_by_id("sticky-goal")
     terminal = repo.get_by_id("sticky-goal")
     terminal.status = "archived"
-    terminal.execution_preferences = {
-        "last_status_reason": "archived_by_admin"
-    }
+    terminal.execution_preferences = {"last_status_reason": "archived_by_admin"}
     repo.save(terminal)
 
     stale.status = "planned"
     stale.execution_preferences = {"stale": True}
     persisted = repo.save(stale)
     assert persisted.status == "archived"
-    assert persisted.execution_preferences[
-        "last_status_reason"
-    ] == "archived_by_admin"
+    assert persisted.execution_preferences["last_status_reason"] == "archived_by_admin"
 
 
 def test_task_queue_claim_honors_recovery_gate(
@@ -3977,10 +3763,7 @@ def test_task_queue_claim_honors_recovery_gate(
     )
     monkeypatch.setattr(
         "agent.services.task_queue_service.compare_and_set_local_task_status",
-        lambda *args, **kwargs: cas_calls.append(
-            (args, kwargs)
-        )
-        or True,
+        lambda *args, **kwargs: cas_calls.append((args, kwargs)) or True,
     )
 
     class LockPort:
@@ -4060,9 +3843,7 @@ def test_plan_lock_does_not_mask_body_exception(monkeypatch):
     monkeypatch.setattr("agent.database.engine", engine)
 
     with pytest.raises(ValueError, match="body-failure"):
-        with PlanningService._distributed_materialization_lock(
-            "plan-body-error"
-        ) as acquired:
+        with PlanningService._distributed_materialization_lock("plan-body-error") as acquired:
             assert acquired is True
             raise ValueError("body-failure")
     recovery = TaskRecoveryPlanningService(
@@ -4154,18 +3935,27 @@ def test_terminal_source_cas_cancels_children_and_finalizes_goal(
     )
 
     with Session(engine) as session:
-        assert session.get(
-            TaskDB,
-            "child-terminal-cascade-1",
-        ).status == "cancelled"
-        assert session.get(
-            TaskDB,
-            "child-terminal-cascade-2",
-        ).status == "cancelled"
-        assert session.get(
-            GoalDB,
-            "goal-terminal-cascade",
-        ).status == "completed"
+        assert (
+            session.get(
+                TaskDB,
+                "child-terminal-cascade-1",
+            ).status
+            == "cancelled"
+        )
+        assert (
+            session.get(
+                TaskDB,
+                "child-terminal-cascade-2",
+            ).status
+            == "cancelled"
+        )
+        assert (
+            session.get(
+                GoalDB,
+                "goal-terminal-cascade",
+            ).status
+            == "completed"
+        )
 
 
 def test_stale_digest_refresh_retries_source_cas_without_duplicate(
@@ -4186,9 +3976,7 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
         task=task,
         strategy_failures=failures,
     )
-    repos.plan_node_repo.rows["node-1"].title = (
-        "Operator edited before refresh CAS"
-    )
+    repos.plan_node_repo.rows["node-1"].title = "Operator edited before refresh CAS"
     stale = approvals.created[0]
     stale.status = "granted"
     original_update = task_cas.production
@@ -4200,10 +3988,7 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
         if (
             fail_once["active"]
             and status == "waiting_for_review"
-            and dict(values.get("event_details") or {}).get(
-                "approval_request_id"
-            )
-            == "approval-2"
+            and dict(values.get("event_details") or {}).get("approval_request_id") == "approval-2"
         ):
             fail_once["active"] = False
             return False
@@ -4212,31 +3997,21 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
     task_cas.replacement = fail_refresh_source_once
     first = service.handle_approval_decision(stale)
 
-    assert first["reason_code"] == (
-        "recovery_source_transition_conflict"
-    )
+    assert first["reason_code"] == ("recovery_source_transition_conflict")
     assert len(approvals.created) == 2
     assert stale.status == "granted"
     plan = repos.plan_repo.get_by_id(proposal["plan_id"])
     assert plan.rationale["approval_request_id"] == "approval-2"
-    assert plan.rationale["approval_refresh"]["state"] == (
-        "approval_bound"
-    )
+    assert plan.rationale["approval_refresh"]["state"] == ("approval_bound")
     assert planning.calls == []
 
     second = service.handle_approval_decision(stale)
 
-    assert second["reason_code"] == (
-        "recovery_plan_digest_refreshed"
-    )
+    assert second["reason_code"] == ("recovery_plan_digest_refreshed")
     assert len(approvals.created) == 2
     assert stale.status == "consumed"
-    assert task.status_reason_details["model_recovery"][
-        "approval_request_id"
-    ] == "approval-2"
-    assert plan.rationale["approval_refresh"]["state"] == (
-        "completed"
-    )
+    assert task.status_reason_details["model_recovery"]["approval_request_id"] == "approval-2"
+    assert plan.rationale["approval_refresh"]["state"] == ("completed")
 
 
 def test_stale_digest_refresh_recovers_after_consume_crash(
@@ -4256,9 +4031,7 @@ def test_stale_digest_refresh_recovers_after_consume_crash(
         task=task,
         strategy_failures=failures,
     )
-    repos.plan_node_repo.rows["node-1"].description = (
-        "Operator edited before consume crash."
-    )
+    repos.plan_node_repo.rows["node-1"].description = "Operator edited before consume crash."
     stale = approvals.created[0]
     stale.status = "granted"
     original_consume = approvals.consume_request
@@ -4280,24 +4053,16 @@ def test_stale_digest_refresh_recovers_after_consume_crash(
     assert first["reason_code"] == "approval_consume_failed"
     assert len(approvals.created) == 2
     assert stale.status == "granted"
-    assert task.status_reason_details["model_recovery"][
-        "approval_request_id"
-    ] == "approval-2"
+    assert task.status_reason_details["model_recovery"]["approval_request_id"] == "approval-2"
     plan = repos.plan_repo.get_by_id(proposal["plan_id"])
-    assert plan.rationale["approval_refresh"]["state"] == (
-        "source_bound"
-    )
+    assert plan.rationale["approval_refresh"]["state"] == ("source_bound")
 
     second = service.handle_approval_decision(stale)
 
-    assert second["reason_code"] == (
-        "recovery_plan_digest_refreshed"
-    )
+    assert second["reason_code"] == ("recovery_plan_digest_refreshed")
     assert len(approvals.created) == 2
     assert stale.status == "consumed"
-    assert plan.rationale["approval_refresh"]["state"] == (
-        "completed"
-    )
+    assert plan.rationale["approval_refresh"]["state"] == ("completed")
 
 
 def test_partial_materialization_transient_error_is_retryable(
@@ -4320,11 +4085,7 @@ def test_partial_materialization_transient_error_is_retryable(
             if fail_once["active"]:
                 fail_once["active"] = False
                 raise RuntimeError("transient_create_failure")
-            entry = next(
-                item
-                for item in staged
-                if item["task_id"] == values["task_id"]
-            )
+            entry = next(item for item in staged if item["task_id"] == values["task_id"])
             task_repo.save(task_repo.task_from_entry(entry))
 
     task_repo.lifecycle_slot["lifecycle"] = FlakyLifecycle()
@@ -4344,9 +4105,7 @@ def test_partial_materialization_transient_error_is_retryable(
     assert first["reason_code"] == "materialization_failed"
     assert first["retryable"] is True
     assert plan.status == "pending_approval"
-    assert plan.rationale[
-        "materialization_survivor_task_ids"
-    ] == [staged[0]["task_id"]]
+    assert plan.rationale["materialization_survivor_task_ids"] == [staged[0]["task_id"]]
     assert nodes[0].materialized_task_id == staged[0]["task_id"]
     assert nodes[1].materialized_task_id is None
 
@@ -4361,9 +4120,7 @@ def test_partial_materialization_transient_error_is_retryable(
     )
 
     assert second["status"] == "materialized"
-    assert second["created_task_ids"] == [
-        entry["task_id"] for entry in staged
-    ]
+    assert second["created_task_ids"] == [entry["task_id"] for entry in staged]
     assert lifecycle_calls == [
         staged[1]["task_id"],
         staged[1]["task_id"],
@@ -4393,15 +4150,11 @@ def test_team_change_invalidates_exact_recovery_grant():
     result = service.handle_approval_decision(approval)
 
     assert result["status"] == "stopped"
-    assert result["reason_code"] == (
-        "recovery_team_binding_changed"
-    )
+    assert result["reason_code"] == ("recovery_team_binding_changed")
     assert result["approval_status"] == "consumed"
     assert approval.status == "consumed"
     assert planning.calls == []
-    assert repos.plan_repo.get_by_id(
-        proposal["plan_id"]
-    ).status == "rejected"
+    assert repos.plan_repo.get_by_id(proposal["plan_id"]).status == "rejected"
 
 
 @pytest.mark.parametrize(
@@ -4427,9 +4180,7 @@ def test_terminal_goal_transition_fences_and_cancels_recovery_children(
         id="source-fenced",
         goal_id=goal.id,
         status="waiting_for_review",
-        status_reason_details={
-            "model_recovery": {"plan_id": "plan-fenced"}
-        },
+        status_reason_details={"model_recovery": {"plan_id": "plan-fenced"}},
         derivation_reason=None,
         source_task_id=None,
     )
@@ -4490,9 +4241,7 @@ def test_terminal_goal_transition_fences_and_cancels_recovery_children(
     def update_task(task_id, status, **values):
         assert lock_state["held"] is True
         assert goal.status == terminal_goal_status
-        marker = values["status_reason_details"][
-            "recovery_owner_terminal_invalidation"
-        ]
+        marker = values["status_reason_details"]["recovery_owner_terminal_invalidation"]
         assert recovery_owner_terminal_write_authorized(
             task_id=task_id,
             marker=marker,
@@ -4500,15 +4249,11 @@ def test_terminal_goal_transition_fences_and_cancels_recovery_children(
         assert marker["goal_status"] == terminal_goal_status
         assert marker["target_status"] == status
         if task_id == child.id:
-            proposed_lease = values[
-                "status_reason_details"
-            ]["recovery_dispatch_lease"]
-            assert (
-                recovery_dispatch_invalidation_write_authorized(
-                    task_id=task_id,
-                    current_lease=child_lease,
-                    proposed_lease=proposed_lease,
-                )
+            proposed_lease = values["status_reason_details"]["recovery_dispatch_lease"]
+            assert recovery_dispatch_invalidation_write_authorized(
+                task_id=task_id,
+                current_lease=child_lease,
+                proposed_lease=proposed_lease,
             )
             assert proposed_lease["state"] == "revoked"
             assert proposed_lease["revision"] == 2
@@ -4549,11 +4294,7 @@ def test_terminal_goal_transition_fences_and_cancels_recovery_children(
     assert events[0] == "lock_enter"
     assert events[1] == f"goal_saved:{terminal_goal_status}"
     assert events[-2:] == ["lock_exit", "cancel_goal"]
-    expected_task_status = (
-        "failed"
-        if terminal_goal_status == "failed"
-        else "cancelled"
-    )
+    expected_task_status = "failed" if terminal_goal_status == "failed" else "cancelled"
     assert [entry[:2] for entry in task_updates] == [
         (source.id, expected_task_status),
         (child.id, expected_task_status),

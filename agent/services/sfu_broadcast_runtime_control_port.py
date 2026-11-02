@@ -74,9 +74,7 @@ class AuthenticatedSfuRuntimeControlBoundary:
         if not secret or not isinstance(signature, str):
             return _rejected(command, "sfu_runtime_ack_authentication_failed")
         try:
-            canonical = json.dumps(
-                response, sort_keys=True, separators=(",", ":"), allow_nan=False
-            ).encode()
+            canonical = json.dumps(response, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         except (TypeError, ValueError):
             return _rejected(command, "sfu_runtime_ack_invalid")
         expected = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
@@ -134,9 +132,7 @@ def _validate_command(command: SfuRuntimeControlCommand) -> str | None:
         return "sfu_runtime_command_schema_unsupported"
     if command.command_type not in _COMMAND_TYPES:
         return "sfu_runtime_command_type_unsupported"
-    if not _DIGEST.fullmatch(command.config_digest) or not _DIGEST.fullmatch(
-        command.capability_digest
-    ):
+    if not _DIGEST.fullmatch(command.config_digest) or not _DIGEST.fullmatch(command.capability_digest):
         return "sfu_runtime_command_digest_invalid"
     for value in (
         command.topology_epoch,

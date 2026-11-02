@@ -31,9 +31,7 @@ class RegexSymbolLanguageAdapter:
     known_limits: tuple[str, ...]
     parser_strategy: str = "regex-symbol-v1"
     semantic_kinds: tuple[str, ...] = ("data_record", "function_signature", "module")
-    symbol_identity: (
-        SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort
-    ) = field(
+    symbol_identity: SemanticSymbolIdentityPort | LegacySemanticSymbolIdentityPort = field(
         default_factory=DeterministicSemanticSymbolIdentityFactory,
         repr=False,
         compare=False,
@@ -91,10 +89,7 @@ class RegexSymbolLanguageAdapter:
         file_key = path.replace("\\", "/")
         module_node_ids: set[str] = set()
         for item in parsed["types"]:
-            canonical_id = (
-                f"semantic:{self.language}:type:"
-                f"{item['kind']}:{item['name']}"
-            )
+            canonical_id = f"semantic:{self.language}:type:{item['kind']}:{item['name']}"
             node_id = semantic_occurrence_symbol_id(
                 self.symbol_identity,
                 language=self.language,
@@ -117,9 +112,7 @@ class RegexSymbolLanguageAdapter:
                 )
             )
         for item in parsed["functions"]:
-            canonical_id = (
-                f"semantic:{self.language}:function:{item['name']}"
-            )
+            canonical_id = f"semantic:{self.language}:function:{item['name']}"
             node_id = semantic_occurrence_symbol_id(
                 self.symbol_identity,
                 language=self.language,
@@ -142,9 +135,7 @@ class RegexSymbolLanguageAdapter:
                 )
             )
         for item in parsed["imports"]:
-            canonical_module_id = (
-                f"semantic:{self.language}:module:{item['name']}"
-            )
+            canonical_module_id = f"semantic:{self.language}:module:{item['name']}"
             module_id = semantic_occurrence_symbol_id(
                 self.symbol_identity,
                 language=self.language,
@@ -162,9 +153,7 @@ class RegexSymbolLanguageAdapter:
                         module_id,
                         {
                             **item,
-                            **semantic_identity_attributes(
-                                canonical_module_id
-                            ),
+                            **semantic_identity_attributes(canonical_module_id),
                         },
                         "module",
                     )
@@ -235,45 +224,59 @@ def default_symbol_adapters() -> tuple[RegexSymbolLanguageAdapter, ...]:
     )
     return (
         RegexSymbolLanguageAdapter(
-            "go", (".go",),
+            "go",
+            (".go",),
             r"^\s*type\s+(?P<name>[A-Za-z_]\w*)\s+(?P<kind>struct|interface|\w+)",
             r"^\s*func\s+(?:\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)\s*\(",
-            r"^\s*import\s+(?:\w+\s+)?[\"`](?P<module>[^\"`]+)", limitation,
+            r"^\s*import\s+(?:\w+\s+)?[\"`](?P<module>[^\"`]+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "rust", (".rs",),
+            "rust",
+            (".rs",),
             r"^\s*(?:pub\s+)?(?P<kind>struct|enum|trait|type)\s+(?P<name>[A-Za-z_]\w*)",
             r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(?P<name>[A-Za-z_]\w*)\s*(?:<[^>]+>)?\s*\(",
-            r"^\s*use\s+(?P<module>[^;]+)", limitation,
+            r"^\s*use\s+(?P<module>[^;]+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "c", (".c", ".h"),
+            "c",
+            (".c", ".h"),
             r"^\s*(?P<kind>struct|enum|union)\s+(?P<name>[A-Za-z_]\w*)",
             r"^\s*(?:[A-Za-z_]\w*[\s*]+)+(?P<name>[A-Za-z_]\w*)\s*\([^;]*\)\s*\{",
-            r"^\s*#\s*include\s*[<\"](?P<module>[^>\"]+)", limitation,
+            r"^\s*#\s*include\s*[<\"](?P<module>[^>\"]+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "cpp", (".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx"),
+            "cpp",
+            (".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx"),
             r"^\s*(?P<kind>class|struct|enum|union|concept)\s+(?P<name>[A-Za-z_]\w*)",
             r"^\s*(?:[A-Za-z_:<>~]\w*[\s:*&<>]+)+(?P<name>[A-Za-z_~]\w*)\s*\([^;]*\)\s*(?:const\s*)?\{",
-            r"^\s*#\s*include\s*[<\"](?P<module>[^>\"]+)", limitation,
+            r"^\s*#\s*include\s*[<\"](?P<module>[^>\"]+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "csharp", (".cs",),
+            "csharp",
+            (".cs",),
             r"^\s*(?:public|internal|private|protected|static|sealed|abstract|partial|record|\s)*\s*(?P<kind>class|interface|record|struct|enum)\s+(?P<name>[A-Za-z_]\w*)",
             r"^\s*(?:public|internal|private|protected|static|virtual|override|async|\s)+[\w<>,?\[\].]+\s+(?P<name>[A-Za-z_]\w*)\s*\(",
-            r"^\s*using\s+(?P<module>[^;=]+)", limitation,
+            r"^\s*using\s+(?P<module>[^;=]+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "ruby", (".rb",),
+            "ruby",
+            (".rb",),
             r"^\s*(?P<kind>class|module)\s+(?P<name>[A-Za-z_:]\w*)",
             r"^\s*def\s+(?P<name>[A-Za-z_?!]\w*[?!]?)",
-            r"^\s*(?:require|require_relative)\s*[\"'](?P<module>[^\"']+)", limitation,
+            r"^\s*(?:require|require_relative)\s*[\"'](?P<module>[^\"']+)",
+            limitation,
         ),
         RegexSymbolLanguageAdapter(
-            "php", (".php",),
+            "php",
+            (".php",),
             r"^\s*(?:(?:final|abstract|readonly)\s+)?(?P<kind>class|interface|trait|enum)\s+(?P<name>[A-Za-z_]\w*)",
             r"^\s*(?:(?:public|private|protected|static|final|abstract)\s+)*function\s+(?P<name>[A-Za-z_]\w*)\s*\(",
-            r"^\s*(?:require|require_once|include|include_once|use)\s*\(?[\"']?(?P<module>[^\"';)]+)", limitation,
+            r"^\s*(?:require|require_once|include|include_once|use)\s*\(?[\"']?(?P<module>[^\"';)]+)",
+            limitation,
         ),
     )

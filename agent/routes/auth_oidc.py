@@ -1,4 +1,5 @@
 """OIDC Authorization Code Flow with PKCE for browser-based terminal access."""
+
 from __future__ import annotations
 
 import base64
@@ -202,10 +203,12 @@ def _oidc_provisioning_unavailable_response(
 
 def _fetch_oidc_discovery(issuer: str) -> dict[str, Any]:
     import urllib.request
+
     url = issuer.rstrip("/") + "/.well-known/openid-configuration"
     try:
         with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310
             import json
+
             return json.loads(resp.read().decode())
     except Exception as exc:
         raise RuntimeError("oidc_discovery_failed") from exc
@@ -282,9 +285,7 @@ def _store_oidc_login_request(
         while len(_OIDC_LOGIN_REQUESTS) >= _OIDC_LOGIN_REQUEST_LIMIT:
             oldest_state = min(
                 _OIDC_LOGIN_REQUESTS,
-                key=lambda candidate: float(
-                    _OIDC_LOGIN_REQUESTS[candidate].get("expires_at") or 0.0
-                ),
+                key=lambda candidate: float(_OIDC_LOGIN_REQUESTS[candidate].get("expires_at") or 0.0),
             )
             _OIDC_LOGIN_REQUESTS.pop(oldest_state, None)
         _OIDC_LOGIN_REQUESTS[state] = {
@@ -361,12 +362,7 @@ def _consume_browser_bound_oidc_login_request(state: str) -> dict[str, Any]:
         raise OidcAuthorizationFlowError("oidc_browser_session_mismatch")
 
     stored_nonce = login_request.get("nonce")
-    if (
-        not isinstance(session_nonce, str)
-        or not session_nonce
-        or not isinstance(stored_nonce, str)
-        or not stored_nonce
-    ):
+    if not isinstance(session_nonce, str) or not session_nonce or not isinstance(stored_nonce, str) or not stored_nonce:
         raise OidcAuthorizationFlowError("oidc_nonce_missing")
     if not _constant_time_equal(session_nonce, stored_nonce):
         raise OidcAuthorizationFlowError("oidc_nonce_mismatch")
@@ -516,19 +512,23 @@ def oidc_callback():
 
         import urllib.parse
         import urllib.request
+
         redirect_uri = _oidc_redirect_uri()
-        post_data = urlencode({
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            **({"client_secret": client_secret} if client_secret else {}),
-            "code_verifier": code_verifier or "",
-        }).encode()
+        post_data = urlencode(
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                **({"client_secret": client_secret} if client_secret else {}),
+                "code_verifier": code_verifier or "",
+            }
+        ).encode()
         req = urllib.request.Request(token_endpoint, data=post_data, method="POST")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             import json
+
             token_response = json.loads(resp.read().decode())
 
         id_token = token_response.get("id_token")
@@ -543,10 +543,7 @@ def oidc_callback():
         LOGGER.info("OIDC login successful for sub=%s role=%s", auth_ctx.get("sub"), auth_ctx.get("role"))
         frontend_redirect = settings.terminal_oidc_frontend_redirect.strip()
         if frontend_redirect:
-            redirect_path = str(
-                login_request.get("redirect_path")
-                or "/"
-            )
+            redirect_path = str(login_request.get("redirect_path") or "/")
             code = _store_frontend_exchange_code(auth_ctx, redirect_path)
             _FRONTEND_TOKEN_EXCHANGE_CODES[code]["oidc_access_token"] = oidc_access_token
             return redirect(f"{frontend_redirect}{'&' if '?' in frontend_redirect else '?'}oidc_code={code}")
@@ -677,19 +674,23 @@ def oidc_exchange():
 
         import urllib.parse
         import urllib.request
+
         redirect_uri = _oidc_redirect_uri()
-        post_data = urlencode({
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "client_id": client_id,
-            **({"client_secret": client_secret} if client_secret else {}),
-            "code_verifier": code_verifier or "",
-        }).encode()
+        post_data = urlencode(
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": client_id,
+                **({"client_secret": client_secret} if client_secret else {}),
+                "code_verifier": code_verifier or "",
+            }
+        ).encode()
         req = urllib.request.Request(token_endpoint, data=post_data, method="POST")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             import json
+
             token_response = json.loads(resp.read().decode())
 
         id_token = token_response.get("id_token")
@@ -760,14 +761,16 @@ def oidc_identity_link():
             link = _identity_link_service().status(username=username, issuer=cfg.issuer_url)
         except (OidcIdentityValidationError, UserSessionIdentityError) as exc:
             return _oidc_identity_rejection_response(exc, phase="link_status")
-        return jsonify({
-            "ok": True,
-            "data": {
-                "linked": link is not None,
-                "issuer": cfg.issuer_url,
-                "subject": link.subject if link else None,
-            },
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "data": {
+                    "linked": link is not None,
+                    "issuer": cfg.issuer_url,
+                    "subject": link.subject if link else None,
+                },
+            }
+        )
 
     if request.method == "DELETE":
         try:
@@ -801,15 +804,17 @@ def oidc_identity_link():
         "oidc_identity_linked",
         {"username": link.username, "issuer": link.issuer, "subject": link.subject},
     )
-    return jsonify({
-        "ok": True,
-        "data": {
-            "linked": True,
-            "issuer": link.issuer,
-            "subject": link.subject,
-            "username": link.username,
-        },
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "data": {
+                "linked": True,
+                "issuer": link.issuer,
+                "subject": link.subject,
+                "username": link.username,
+            },
+        }
+    )
 
 
 @oidc_bp.route("/auth/oidc/userinfo", methods=["GET"])

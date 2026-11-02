@@ -6,7 +6,7 @@ from tests.planning_collaborator_seam import install_repo_context_loader
 
 def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
     install_repo_context_loader(app, lambda goal: None)
@@ -114,7 +114,9 @@ def test_effective_config_requires_authentication(client, admin_auth_header, mon
     assert res.status_code in (401, 403)
 
 
-def test_effective_config_accessible_to_authenticated_non_owner(client, admin_auth_header, user_auth_header, monkeypatch):
+def test_effective_config_accessible_to_authenticated_non_owner(
+    client, admin_auth_header, user_auth_header, monkeypatch
+):
     _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
@@ -146,16 +148,19 @@ def test_profiles_api_returns_required_profile_ids(client, admin_auth_header):
     res = client.get("/config/profiles", headers=admin_auth_header)
     assert res.status_code == 200
     ids = {p["id"] for p in res.get_json()["data"]["profiles"]}
-    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local", "hermes_free_models_preconfigured"}.issubset(ids)
+    assert {
+        "opencode_preconfigured",
+        "opencode_ollama_local",
+        "ananta_ollama_local",
+        "hermes_free_models_preconfigured",
+    }.issubset(ids)
 
 
 def test_all_profile_override_keys_are_allowed():
     svc = get_config_profile_service()
     for profile in svc.list_profiles():
         for key in profile["overrides"]:
-            assert key in ALLOWED_GOAL_CONFIG_KEYS, (
-                f"Profile '{profile['id']}' contains unknown config key '{key}'"
-            )
+            assert key in ALLOWED_GOAL_CONFIG_KEYS, f"Profile '{profile['id']}' contains unknown config key '{key}'"
 
 
 def test_profile_overrides_contain_no_secret_values():
@@ -180,14 +185,17 @@ def test_profile_overrides_contain_no_secret_values():
 import pytest
 
 
-@pytest.mark.parametrize("profile_id", [
-    "opencode_preconfigured",
-    "opencode_ollama_local",
-    "ananta_ollama_local",
-    "ananta_lmstudio_local",
-    "opencode_lmstudio_local",
-    "hermes_free_models_preconfigured",
-])
+@pytest.mark.parametrize(
+    "profile_id",
+    [
+        "opencode_preconfigured",
+        "opencode_ollama_local",
+        "ananta_ollama_local",
+        "ananta_lmstudio_local",
+        "opencode_lmstudio_local",
+        "hermes_free_models_preconfigured",
+    ],
+)
 def test_goal_creation_succeeds_for_all_profiles(profile_id, client, admin_auth_header, monkeypatch):
     _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
@@ -238,16 +246,16 @@ def test_goal_create_with_explicit_overrides_snapshot_and_effective_config_agree
 def test_invalid_config_blocks_creation_not_just_planning(client, admin_auth_header, monkeypatch):
     """TRM-002: Unknown override keys must be rejected at create time, before planning runs."""
     planner_calls = []
-    original = __import__(
-        "agent.routes.tasks.auto_planner", fromlist=["generate_text"]
-    ).generate_text
+    original = __import__("agent.services.autopilot.auto_planner_engine", fromlist=["generate_text"]).generate_text
 
     def _spy(**kwargs):
         planner_calls.append(kwargs)
         return original(**kwargs)
 
     _mock_goal_planning_llm(monkeypatch, client.application)
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kw: planner_calls.append(kw) or "[]")
+    monkeypatch.setattr(
+        "agent.services.autopilot.auto_planner_engine.generate_text", lambda **kw: planner_calls.append(kw) or "[]"
+    )
 
     res = client.post(
         "/goals",

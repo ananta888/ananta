@@ -6,9 +6,8 @@ The tests for the live path are in the optional-extras e2e suite
 (only collected when ananta[langchain] / ananta[langgraph] is
 installed).
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.providers.lc_lg import (
     LangChainProviderConfig,
@@ -18,10 +17,8 @@ from worker.adapters.langchain_adapter import LangChainAdapter
 from worker.adapters.langgraph_adapter import LangGraphAdapter
 from worker.adapters.workflow_adapter_base import (
     DryRunResult,
-    WorkflowArtifactResult,
 )
 from worker.adapters.workflow_adapter_registry import list_adapters_as_dicts
-
 
 # ── Registry inclusion ─────────────────────────────────────────────────
 
@@ -47,14 +44,12 @@ def test_lc_descriptor_default_off():
     desc = LangChainAdapter().descriptor()
     assert desc.status == "disabled"
     assert desc.enabled is False
-    assert "langchain_not_installed" in desc.reason or \
-           "adapter_disabled_by_config" in desc.reason
+    assert "langchain_not_installed" in desc.reason or "adapter_disabled_by_config" in desc.reason
 
 
 def test_lc_dry_run_rag_query_returns_plan():
     a = LangChainAdapter()
-    r = a.dry_run(task_id="t1", task_type="rag_query",
-                  payload={"query": "What is the workflow adapter interface?"})
+    r = a.dry_run(task_id="t1", task_type="rag_query", payload={"query": "What is the workflow adapter interface?"})
     assert isinstance(r, DryRunResult)
     assert r.adapter_id == "adapter.langchain"
     assert r.task_id == "t1"
@@ -79,8 +74,9 @@ def test_lc_dry_run_unknown_task_type_blocked():
 def test_lc_dry_run_external_url_blocked_by_default():
     """A chain that wants a non-codecompass source is blocked."""
     a = LangChainAdapter()
-    r = a.dry_run(task_id="t1", task_type="rag_query",
-                  payload={"query": "x", "external_url": "https://api.example.com/x"})
+    r = a.dry_run(
+        task_id="t1", task_type="rag_query", payload={"query": "x", "external_url": "https://api.example.com/x"}
+    )
     assert r.blocked
     assert "external" in r.block_reason.lower()
 
@@ -99,11 +95,9 @@ def test_lc_execute_tool_chain_requires_approval_by_default():
     """tool_chain task type asks for approval in dry-run when tools are allowed."""
     # Default-off has no allowed_tools, so any tool would be blocked.
     # Set allowed_tools to exercise the approval path.
-    cfg = LangChainProviderConfig(enabled=True, mode="dry_run",
-                                  allowed_tools=["summarize_doc"])
+    cfg = LangChainProviderConfig(enabled=True, mode="dry_run", allowed_tools=["summarize_doc"])
     a = LangChainAdapter(cfg)
-    r = a.dry_run(task_id="t1", task_type="tool_chain",
-                  payload={"tools": ["summarize_doc"]})
+    r = a.dry_run(task_id="t1", task_type="tool_chain", payload={"tools": ["summarize_doc"]})
     assert not r.blocked
     assert r.approval_required is True
     assert any("tool_chain" in reason for reason in r.approval_reasons)
@@ -129,8 +123,7 @@ def test_lg_dry_run_agent_workflow_returns_topology():
         ],
         "edges": [{"from": "n1", "to": "n2"}, {"from": "n2", "to": "n3"}],
     }
-    r = g.dry_run(task_id="t1", task_type="agent_workflow",
-                  payload={"graph_descriptor": desc_payload})
+    r = g.dry_run(task_id="t1", task_type="agent_workflow", payload={"graph_descriptor": desc_payload})
     assert isinstance(r, DryRunResult)
     assert not r.blocked
     # The plan lists every node as an action 'node:<id>'.
@@ -152,8 +145,7 @@ def test_lg_dry_run_with_human_gate_node_requires_approval():
         ],
         "edges": [{"from": "n1", "to": "n2"}],
     }
-    r = g.dry_run(task_id="t1", task_type="agent_workflow",
-                  payload={"graph_descriptor": desc_payload})
+    r = g.dry_run(task_id="t1", task_type="agent_workflow", payload={"graph_descriptor": desc_payload})
     assert r.approval_required
     assert any("human_gate" in reason for reason in r.approval_reasons)
 
@@ -161,7 +153,8 @@ def test_lg_dry_run_with_human_gate_node_requires_approval():
 def test_lg_dry_run_with_high_risk_tool_node_requires_approval():
     """A tool node whose ref is in the high-risk set requires approval."""
     cfg = LangGraphProviderConfig(
-        enabled=True, mode="dry_run",
+        enabled=True,
+        mode="dry_run",
         human_in_loop_required_for=["shell"],
     )
     g = LangGraphAdapter(cfg)
@@ -173,8 +166,7 @@ def test_lg_dry_run_with_high_risk_tool_node_requires_approval():
         ],
         "edges": [{"from": "n1", "to": "n2"}],
     }
-    r = g.dry_run(task_id="t1", task_type="agent_workflow",
-                  payload={"graph_descriptor": desc_payload})
+    r = g.dry_run(task_id="t1", task_type="agent_workflow", payload={"graph_descriptor": desc_payload})
     assert r.approval_required
     assert any("n2" in reason for reason in r.approval_reasons)
 

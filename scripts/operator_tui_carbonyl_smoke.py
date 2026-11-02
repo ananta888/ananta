@@ -10,6 +10,7 @@ Exit codes:
     0  — HTML rendered successfully (Carbonyl may not be present)
     1  — Unexpected error in adapter pipeline
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     # --- Step 1: Capability detection ---
     print("[smoke] Step 1: Detect Carbonyl capability")
     from client_surfaces.operator_tui.visual.runtime.capability_detector import detect_carbonyl_browser
+
     cap = detect_carbonyl_browser()
     print(f"  carbonyl_browser available: {cap.available}")
     if not cap.available:
@@ -78,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     # --- Step 2: Build snapshot ---
     print("[smoke] Step 2: Build CenterContentSnapshot")
     from client_surfaces.operator_tui.visual.browser.center_content_snapshot import CenterContentSnapshot
+
     snapshot = CenterContentSnapshot(
         content_type="mermaid_markdown",
         title="Smoke Test Document",
@@ -90,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     # --- Step 3: Adapter to HTML ---
     print("[smoke] Step 3: Convert snapshot to HTML via BrowserDocumentAdapter")
     from client_surfaces.operator_tui.visual.browser.browser_document_adapter import BrowserDocumentAdapter
+
     adapter = BrowserDocumentAdapter()
     try:
         html_doc = adapter.to_html(snapshot)
@@ -111,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     # --- Step 4: Security policy temp file ---
     print("[smoke] Step 4: Write HTML to temp file via BrowserSecurityPolicy")
     from client_surfaces.operator_tui.visual.browser.browser_security_policy import BrowserSecurityPolicy
+
     policy = BrowserSecurityPolicy(temp_root=".ananta/tmp/center-browser-smoke")
     try:
         html_path = policy.create_temp_file(html_doc, suffix=".html")
@@ -129,11 +134,13 @@ def main(argv: list[str] | None = None) -> int:
                 CarbonylNotAvailableError,
                 CarbonylRunner,
             )
+
             runner = CarbonylRunner()
             try:
                 runner.start(str(html_path), cols=args.cols, rows=args.rows)
                 print(f"  carbonyl started (cols={args.cols}, rows={args.rows})")
                 import time
+
                 time.sleep(0.5)
                 output = runner.read_output(timeout=0.5)
                 if output:

@@ -103,7 +103,9 @@ def _vector_candidates(*, embedding_records: list[dict], query: str, tmp_dir: Pa
     ]
 
 
-def _graph_expansion_payload(*, graph_nodes: list[dict], graph_edges: list[dict], seed_ids: list[str], tmp_dir: Path) -> dict:
+def _graph_expansion_payload(
+    *, graph_nodes: list[dict], graph_edges: list[dict], seed_ids: list[str], tmp_dir: Path
+) -> dict:
     graph_store = CodeCompassGraphStore(index_path=tmp_dir / "graph-index.json")
     graph_store.rebuild_from_output_records(
         records=[
@@ -124,7 +126,11 @@ def _mode_metrics(payload: dict, expected_ids: set[str]) -> dict[str, float]:
     provenance = list(payload.get("provenance") or [])
     selected_ids = [str(item.get("record_id") or "") for item in provenance]
     hits = [idx for idx, record_id in enumerate(selected_ids, start=1) if record_id in expected_ids]
-    recall = (len({record_id for record_id in selected_ids if record_id in expected_ids}) / float(len(expected_ids))) if expected_ids else 1.0
+    recall = (
+        (len({record_id for record_id in selected_ids if record_id in expected_ids}) / float(len(expected_ids)))
+        if expected_ids
+        else 1.0
+    )
     mrr = (1.0 / float(hits[0])) if hits else 0.0
     selected = list(payload.get("selected") or [])
     explanation_coverage = (
@@ -193,12 +199,18 @@ def test_codecompass_hybrid_retrieval_benchmark_fixture_modes_are_machine_readab
                 "graph_expansion": None,
             },
             "fts_vector": {
-                "contract": {"channels": ["codecompass_fts", "codecompass_vector"], "fallback_order": ["codecompass_fts", "codecompass_vector"]},
+                "contract": {
+                    "channels": ["codecompass_fts", "codecompass_vector"],
+                    "fallback_order": ["codecompass_fts", "codecompass_vector"],
+                },
                 "channels": {"codecompass_fts": fts, "codecompass_vector": vector},
                 "graph_expansion": None,
             },
             "graph_expanded": {
-                "contract": {"channels": ["codecompass_fts", "codecompass_graph"], "fallback_order": ["codecompass_fts", "codecompass_graph"]},
+                "contract": {
+                    "channels": ["codecompass_fts", "codecompass_graph"],
+                    "fallback_order": ["codecompass_fts", "codecompass_graph"],
+                },
                 "channels": {"codecompass_fts": fts, "codecompass_graph": []},
                 "graph_expansion": graph_payload,
             },
@@ -250,11 +262,17 @@ def test_codecompass_hybrid_retrieval_benchmark_fixture_modes_are_machine_readab
     }
     assert benchmark["schema"] == "codecompass_hybrid_retrieval_benchmark.v1"
     assert benchmark["scenario_count"] >= 4
-    assert set(benchmark["modes"]) == {"baseline_lexical", "fts_only", "vector_only", "fts_vector", "graph_expanded", "full_hybrid"}
+    assert set(benchmark["modes"]) == {
+        "baseline_lexical",
+        "fts_only",
+        "vector_only",
+        "fts_vector",
+        "graph_expanded",
+        "full_hybrid",
+    }
     for mode_result in benchmark["modes"].values():
         assert 0.0 <= mode_result["recall_at_k"] <= 1.0
         assert 0.0 <= mode_result["mrr"] <= 1.0
         assert mode_result["selected_token_count"] >= 0.0
         assert mode_result["latency_ms"] >= 0.0
         assert 0.0 <= mode_result["explanation_coverage"] <= 1.0
-

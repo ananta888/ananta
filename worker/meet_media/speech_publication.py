@@ -1,6 +1,7 @@
 """Nonblocking sink for already delegated PCM; never synthesizes or delegates work."""
 
 import base64
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -78,7 +79,7 @@ class SpeechPublication:
                 try:
                     browser.close(generation)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("__init__: ignored Exception", exc_info=True)
             self.closed = True
             raise
 
@@ -174,4 +175,4 @@ class SpeechPublication:
             try:
                 self.browser.close(self.receipt.generation)
             except Exception:
-                pass  # The browser also owns a bounded independent source watchdog.
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)

@@ -35,9 +35,7 @@ from agent.services.workflow_runtime.streaming import (
     WorkflowStreamService,
 )
 
-WORKFLOW_ADAPTER_STREAM_DESCRIPTOR_SCHEMA = (
-    "ananta.workflow-adapter-stream-descriptor.v1"
-)
+WORKFLOW_ADAPTER_STREAM_DESCRIPTOR_SCHEMA = "ananta.workflow-adapter-stream-descriptor.v1"
 
 
 class UnifiedWorkflowAdapterControlFacade:
@@ -51,9 +49,7 @@ class UnifiedWorkflowAdapterControlFacade:
         principal: WorkflowRoutePrincipal,
     ) -> "AuthorizedUnifiedWorkflowAdapterControl":
         if not principal.tenant_id or not principal.subject:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_principal_required", status_code=401
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_principal_required", status_code=401)
         return AuthorizedUnifiedWorkflowAdapterControl(
             composition=self._composition,
             principal=principal,
@@ -140,16 +136,10 @@ class AuthorizedUnifiedWorkflowAdapterControl:
             "control_path": "workflow_control_service",
             "runtime_id": handle.runtime_id,
             "task_refs": [
-                str(step.get("hub_task_id"))
-                for step in status.get("steps") or ()
-                if str(step.get("hub_task_id") or "")
+                str(step.get("hub_task_id")) for step in status.get("steps") or () if str(step.get("hub_task_id") or "")
             ],
-            "poll_url": (
-                f"/api/workflow_adapters/langgraph/operations/{request.run_id}"
-            ),
-            "cancel_url": (
-                f"/api/workflow_adapters/langgraph/operations/{request.run_id}/cancel"
-            ),
+            "poll_url": (f"/api/workflow_adapters/langgraph/operations/{request.run_id}"),
+            "cancel_url": (f"/api/workflow_adapters/langgraph/operations/{request.run_id}/cancel"),
         }
         response["stream"] = self._stream_descriptor(
             run_id=request.run_id,
@@ -228,9 +218,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
         }
         if set(body) - allowed:
             raise WorkflowStreamError("workflow_stream_unknown_field")
-        operation_id = str(
-            body.get("hub_task_id") or body.get("operation_id") or ""
-        ).strip()
+        operation_id = str(body.get("hub_task_id") or body.get("operation_id") or "").strip()
         if not operation_id:
             raise WorkflowStreamError("workflow_adapter_stream_task_id_required")
         binding = self._binding(operation_id)
@@ -268,9 +256,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
                 or plan.workflow_id != request.workflow_id
                 or plan.policy_version != request.policy_version
             ):
-                raise WorkflowAdapterQueueError(
-                    "workflow_adapter_plan_binding_mismatch", status_code=422
-                )
+                raise WorkflowAdapterQueueError("workflow_adapter_plan_binding_mismatch", status_code=422)
             steps = _steps_from_plan(plan)
         else:
             steps = (
@@ -281,9 +267,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
                     allowed_tools=request.allowed_tools,
                     policy_scope={"policy_version": request.policy_version},
                     metadata={
-                        "side_effect_class": (
-                            "read" if command == "dry_run" else "idempotent_write"
-                        ),
+                        "side_effect_class": ("read" if command == "dry_run" else "idempotent_write"),
                     },
                 ),
             )
@@ -314,9 +298,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
             workflow_type="workflow_adapter:langgraph",
             plan_id=plan.plan_id,
             steps=steps,
-            allowed_tools=tuple(
-                sorted({tool for node in plan.nodes for tool in node.allowed_tools})
-            ),
+            allowed_tools=tuple(sorted({tool for node in plan.nodes for tool in node.allowed_tools})),
             policy_scope={"policy_version": request.policy_version},
             correlation_id=request.correlation_id,
             requested_by=f"principal:{self._principal.subject_id}",
@@ -325,11 +307,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
                 "adapter_kind": "langgraph",
                 "adapter_command": command,
                 "adapter_task_type": request.task_type,
-                "adapter_payload": {
-                    key: value
-                    for key, value in request.payload.items()
-                    if key != "execution_plan"
-                },
+                "adapter_payload": {key: value for key, value in request.payload.items() if key != "execution_plan"},
                 "execution_plan": plan.to_dict(),
                 "tenant_parallel_limit": request.payload.get("tenant_parallel_limit", 4),
                 "worker_parallel_limit": request.payload.get("worker_parallel_limit", 4),
@@ -341,16 +319,9 @@ class AuthorizedUnifiedWorkflowAdapterControl:
     def _binding(self, operation_id: str) -> WorkflowControlRunBinding:
         binding = self._composition.bindings.get_by_run_id(str(operation_id))
         if binding is None or binding.runtime_id != "langgraph":
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
-        if (
-            binding.tenant_id != self._principal.tenant_id
-            or binding.subject_id != self._principal.subject_id
-        ):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
+        if binding.tenant_id != self._principal.tenant_id or binding.subject_id != self._principal.subject_id:
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
         return binding
 
     def _route_envelope(
@@ -368,9 +339,7 @@ class AuthorizedUnifiedWorkflowAdapterControl:
     @staticmethod
     def _assert_kind(kind: str) -> None:
         if str(kind or "").strip().lower() != "langgraph":
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_kind_unsupported", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_kind_unsupported", status_code=422)
 
     @staticmethod
     def _stream_descriptor(*, run_id: str, workflow_id: str) -> dict[str, Any]:
@@ -399,9 +368,7 @@ class _FixedHistory:
 
 def _steps_from_plan(plan: ExecutionPlan) -> tuple[WorkflowStepRequest, ...]:
     dependencies = {
-        node.node_id: tuple(
-            sorted(edge.source for edge in plan.edges if edge.target == node.node_id)
-        )
+        node.node_id: tuple(sorted(edge.source for edge in plan.edges if edge.target == node.node_id))
         for node in plan.nodes
     }
     return tuple(

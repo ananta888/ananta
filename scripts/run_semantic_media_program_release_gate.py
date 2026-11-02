@@ -33,21 +33,21 @@ from scripts.build_semantic_media_containers import (  # noqa: E402
     image_digest,
     validate_build_manifest,
 )
-from scripts.semantic_media_release_paths import OUTPUT, ROOT, SCHEMA, TODO  # noqa: E402
-from scripts.semantic_media_release_gate_catalog import (  # noqa: E402
-    CommandGate,
-    LOCAL_GATES,
-    MILESTONE_GATES,
-    QA_GATES,
-    task_gate_requirements,
-)
 from scripts.semantic_media_release_document import (  # noqa: E402
+    _result,
+    _unverified,
     build_release_document,
     program_config_projection,
     program_source_projection,
-    _result,
-    _unverified,
 )
+from scripts.semantic_media_release_gate_catalog import (  # noqa: E402
+    LOCAL_GATES,
+    MILESTONE_GATES,
+    QA_GATES,
+    CommandGate,
+    task_gate_requirements,
+)
+from scripts.semantic_media_release_paths import OUTPUT, ROOT, SCHEMA, TODO  # noqa: E402
 
 try:
     from scripts.benchmark.peer_speech_evidence_sync import CONFIG_PATH as PEER_SYNC_BENCHMARK_CONFIG

@@ -50,9 +50,7 @@ def test_worker_probe_has_closed_versioned_shape_and_package_variants() -> None:
         "train_lora",
         "evaluate_lora",
     ]
-    assert probe["backends"]["unsloth_vision"]["operations"] == [
-        "train_lora"
-    ]
+    assert probe["backends"]["unsloth_vision"]["operations"] == ["train_lora"]
     assert probe["packages"]["unsloth_zoo"]["version"] == "2026.7"
     assert probe["limits"]["reserve_bytes"] == 1024**3
 

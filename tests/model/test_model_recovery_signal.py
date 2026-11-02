@@ -50,15 +50,11 @@ def test_aggregate_preserves_strategy_failure_summary() -> None:
     first = build_model_recovery_signal(
         terminal_reason="timeout",
         llm_call_profile=[{"profile_id": "phi", "success": False, "error_type": "timeout"}],
-        strategy_failures=[
-            {"strategy_id": "tool_calling_llm", "terminal_reason": "timeout", "attempt_count": 1}
-        ],
+        strategy_failures=[{"strategy_id": "tool_calling_llm", "terminal_reason": "timeout", "attempt_count": 1}],
     )
     second = build_model_recovery_signal(
         terminal_reason="schema_validation_failed",
-        llm_call_profile=[
-            {"profile_id": "gemma", "success": False, "error_type": "schema_validation_failed"}
-        ],
+        llm_call_profile=[{"profile_id": "gemma", "success": False, "error_type": "schema_validation_failed"}],
         strategy_failures=[
             {
                 "strategy_id": "json_schema_llm",

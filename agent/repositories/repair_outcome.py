@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlmodel import Session, select
 
@@ -41,7 +41,6 @@ class RepairOutcomeMemoryRepository:
             if signature_id:
                 statement = statement.where(RepairOutcomeMemoryDB.signature_id == signature_id)
             if platform_target:
-                import json
                 statement = statement.where(
                     RepairOutcomeMemoryDB.environment_facts["platform_target"].as_string() == platform_target
                 )

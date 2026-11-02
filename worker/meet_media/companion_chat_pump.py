@@ -14,8 +14,21 @@ class CompanionSessionEnded(BaseException):
 
 
 class CompanionChatPump:
-    def __init__(self, inbox, *, status, open_chat, poll, redeliver, renew, stopped, log,
-                 reply_pending=lambda _identity: True, clock=time.monotonic, renew_interval=40):
+    def __init__(
+        self,
+        inbox,
+        *,
+        status,
+        open_chat,
+        poll,
+        redeliver,
+        renew,
+        stopped,
+        log,
+        reply_pending=lambda _identity: True,
+        clock=time.monotonic,
+        renew_interval=40,
+    ):
         if type(renew_interval) not in (int, float) or not 0 < renew_interval <= 120:
             raise ValueError("meet_companion_renew_interval_invalid")
         self.inbox = inbox
@@ -69,9 +82,12 @@ class CompanionChatPump:
                 ids = [identity for identity in self.inbox.pending_message_ids() if self.reply_pending(identity)]
                 if ids:
                     receipt = self.redeliver(ids)
-                    if (not isinstance(receipt, dict) or set(receipt) != {"schema", "message_ids"}
-                            or receipt["schema"] != "ananta.meet-chat-redelivery.draft1"
-                            or receipt["message_ids"] != ids):
+                    if (
+                        not isinstance(receipt, dict)
+                        or set(receipt) != {"schema", "message_ids"}
+                        or receipt["schema"] != "ananta.meet-chat-redelivery.draft1"
+                        or receipt["message_ids"] != ids
+                    ):
                         raise ValueError("meet_chat_redelivery_receipt_invalid")
                 self.last_redelivery = now
             return state

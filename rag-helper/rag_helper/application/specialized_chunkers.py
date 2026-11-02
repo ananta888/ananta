@@ -15,12 +15,8 @@ def build_specialized_chunks(
     if mode != "basic":
         return [], [], None
 
-    valid_index_records = [
-        record for record in index_records if isinstance(record, dict)
-    ]
-    valid_detail_records = [
-        record for record in detail_records if isinstance(record, dict)
-    ]
+    valid_index_records = [record for record in index_records if isinstance(record, dict)]
+    valid_detail_records = [record for record in detail_records if isinstance(record, dict)]
     extra_details: list[dict] = []
     extra_relations: list[dict] = []
     stats = defaultdict(int)
@@ -89,36 +85,40 @@ def _build_spring_xml_chunks(detail_records, extra_relations, stats, embedding_t
         if not bean_name:
             continue
         chunk_id = f"spring_xml_bean_chunk:{safe_id(record.get('file', ''), record.get('path', ''))}"
-        chunks.append({
-            "kind": "spring_xml_bean_chunk",
-            "file": record.get("file"),
-            "id": chunk_id,
-            "parent_id": f"xml_file:{safe_id(record.get('file', ''))}",
-            "bean_name": bean_name,
-            "bean_class": attrs.get("class"),
-            "scope": attrs.get("scope"),
-            "path": record.get("path"),
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                f"Spring XML bean {bean_name} in {record.get('file')}. Class {attrs.get('class') or 'none'}. Scope {attrs.get('scope') or 'default'}.",
-                f"Spring bean {bean_name}. Class {attrs.get('class') or 'none'}.",
-            ),
-        })
-        extra_relations.append({
-            "kind": "relation",
-            "file": record.get("file"),
-            "id": f"relation:{safe_id(chunk_id, record.get('id', ''), 'specializes')}",
-            "source_id": chunk_id,
-            "source_kind": "spring_xml_bean_chunk",
-            "source_name": bean_name,
-            "relation": "specializes_xml_node",
-            "target": record.get("path"),
-            "target_resolved": record.get("id"),
-            "weight": 1,
-            "from": chunk_id,
-            "to": record.get("id"),
-            "type": "specializes_xml_node",
-        })
+        chunks.append(
+            {
+                "kind": "spring_xml_bean_chunk",
+                "file": record.get("file"),
+                "id": chunk_id,
+                "parent_id": f"xml_file:{safe_id(record.get('file', ''))}",
+                "bean_name": bean_name,
+                "bean_class": attrs.get("class"),
+                "scope": attrs.get("scope"),
+                "path": record.get("path"),
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    f"Spring XML bean {bean_name} in {record.get('file')}. Class {attrs.get('class') or 'none'}. Scope {attrs.get('scope') or 'default'}.",
+                    f"Spring bean {bean_name}. Class {attrs.get('class') or 'none'}.",
+                ),
+            }
+        )
+        extra_relations.append(
+            {
+                "kind": "relation",
+                "file": record.get("file"),
+                "id": f"relation:{safe_id(chunk_id, record.get('id', ''), 'specializes')}",
+                "source_id": chunk_id,
+                "source_kind": "spring_xml_bean_chunk",
+                "source_name": bean_name,
+                "relation": "specializes_xml_node",
+                "target": record.get("path"),
+                "target_resolved": record.get("id"),
+                "weight": 1,
+                "from": chunk_id,
+                "to": record.get("id"),
+                "type": "specializes_xml_node",
+            }
+        )
         stats["spring_xml_bean_chunk_count"] += 1
     return chunks
 
@@ -144,54 +144,62 @@ def _build_maven_pom_chunks(detail_records, extra_relations, stats, embedding_te
             dep_root = path.rsplit("/", 1)[0]
             dependency_groups[dep_root][record.get("tag")] = record.get("text", "")
         for dep_root, dep_values in dependency_groups.items():
-            name = ":".join(filter(None, [dep_values.get("groupId"), dep_values.get("artifactId"), dep_values.get("version")]))
+            name = ":".join(
+                filter(None, [dep_values.get("groupId"), dep_values.get("artifactId"), dep_values.get("version")])
+            )
             if name:
                 dependency_names.append(name)
                 chunk_id = f"maven_dependency_chunk:{safe_id(file, dep_root)}"
-                chunks.append({
-                    "kind": "maven_dependency_chunk",
-                    "file": file,
-                    "id": chunk_id,
-                    "parent_id": f"maven_pom_chunk:{safe_id(file)}",
-                    "dependency": name,
-                    "scope": dep_values.get("scope"),
-                    "embedding_text": build_embedding_text(
-                        embedding_text_mode,
-                        f"Maven dependency {name} in {file}. Scope {dep_values.get('scope') or 'default'}.",
-                        f"Maven dependency {name}.",
-                    ),
-                })
+                chunks.append(
+                    {
+                        "kind": "maven_dependency_chunk",
+                        "file": file,
+                        "id": chunk_id,
+                        "parent_id": f"maven_pom_chunk:{safe_id(file)}",
+                        "dependency": name,
+                        "scope": dep_values.get("scope"),
+                        "embedding_text": build_embedding_text(
+                            embedding_text_mode,
+                            f"Maven dependency {name} in {file}. Scope {dep_values.get('scope') or 'default'}.",
+                            f"Maven dependency {name}.",
+                        ),
+                    }
+                )
                 stats["maven_dependency_chunk_count"] += 1
 
         pom_chunk_id = f"maven_pom_chunk:{safe_id(file)}"
-        chunks.append({
-            "kind": "maven_pom_chunk",
-            "file": file,
-            "id": pom_chunk_id,
-            "parent_id": f"xml_file:{safe_id(file)}",
-            "coordinates": ":".join(filter(None, [group_id, artifact_id, version])),
-            "dependencies": dependency_names[:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                f"Maven POM {file}. Coordinates {group_id or 'none'}:{artifact_id or 'none'}:{version or 'none'}. Dependencies {', '.join(dependency_names[:20]) or 'none'}.",
-                f"Maven POM {artifact_id or file}. Dependencies {compact_list(dependency_names, limit=6)}.",
-            ),
-        })
-        extra_relations.append({
-            "kind": "relation",
-            "file": file,
-            "id": f"relation:{safe_id(file, pom_chunk_id, 'specializes_pom')}",
-            "source_id": pom_chunk_id,
-            "source_kind": "maven_pom_chunk",
-            "source_name": artifact_id or file,
-            "relation": "specializes_xml_file",
-            "target": file,
-            "target_resolved": f"xml_file:{safe_id(file)}",
-            "weight": 1,
-            "from": pom_chunk_id,
-            "to": f"xml_file:{safe_id(file)}",
-            "type": "specializes_xml_file",
-        })
+        chunks.append(
+            {
+                "kind": "maven_pom_chunk",
+                "file": file,
+                "id": pom_chunk_id,
+                "parent_id": f"xml_file:{safe_id(file)}",
+                "coordinates": ":".join(filter(None, [group_id, artifact_id, version])),
+                "dependencies": dependency_names[:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    f"Maven POM {file}. Coordinates {group_id or 'none'}:{artifact_id or 'none'}:{version or 'none'}. Dependencies {', '.join(dependency_names[:20]) or 'none'}.",
+                    f"Maven POM {artifact_id or file}. Dependencies {compact_list(dependency_names, limit=6)}.",
+                ),
+            }
+        )
+        extra_relations.append(
+            {
+                "kind": "relation",
+                "file": file,
+                "id": f"relation:{safe_id(file, pom_chunk_id, 'specializes_pom')}",
+                "source_id": pom_chunk_id,
+                "source_kind": "maven_pom_chunk",
+                "source_name": artifact_id or file,
+                "relation": "specializes_xml_file",
+                "target": file,
+                "target_resolved": f"xml_file:{safe_id(file)}",
+                "weight": 1,
+                "from": pom_chunk_id,
+                "to": f"xml_file:{safe_id(file)}",
+                "type": "specializes_xml_file",
+            }
+        )
         stats["maven_pom_chunk_count"] += 1
     return chunks
 
@@ -210,20 +218,22 @@ def _build_xsd_schema_chunks(index_records, extra_relations, stats, embedding_te
             by_file[file]["root"].append(record.get("name"))
     for file, values in by_file.items():
         chunk_id = f"xsd_schema_chunk:{safe_id(file)}"
-        chunks.append({
-            "kind": "xsd_schema_chunk",
-            "file": file,
-            "id": chunk_id,
-            "parent_id": f"xsd_file:{safe_id(file)}",
-            "complex_types": values["complex"][:50],
-            "simple_types": values["simple"][:50],
-            "root_elements": values["root"][:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                f"XSD schema {file}. Complex types {', '.join(values['complex'][:20]) or 'none'}. Root elements {', '.join(values['root'][:20]) or 'none'}.",
-                f"XSD schema {file}. Complex {compact_list(values['complex'], limit=6)}. Roots {compact_list(values['root'], limit=6)}.",
-            ),
-        })
+        chunks.append(
+            {
+                "kind": "xsd_schema_chunk",
+                "file": file,
+                "id": chunk_id,
+                "parent_id": f"xsd_file:{safe_id(file)}",
+                "complex_types": values["complex"][:50],
+                "simple_types": values["simple"][:50],
+                "root_elements": values["root"][:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    f"XSD schema {file}. Complex types {', '.join(values['complex'][:20]) or 'none'}. Root elements {', '.join(values['root'][:20]) or 'none'}.",
+                    f"XSD schema {file}. Complex {compact_list(values['complex'], limit=6)}. Roots {compact_list(values['root'], limit=6)}.",
+                ),
+            }
+        )
         stats["xsd_schema_chunk_count"] += 1
     return chunks
 
@@ -237,19 +247,21 @@ def _build_adoc_architecture_chunks(index_records, extra_relations, stats, embed
         if not any(token in title for token in ("architecture", "overview", "design")):
             continue
         chunk_id = f"adoc_architecture_chunk:{safe_id(record.get('id', ''))}"
-        chunks.append({
-            "kind": "adoc_architecture_chunk",
-            "file": record.get("file"),
-            "id": chunk_id,
-            "parent_id": record.get("id"),
-            "title": record.get("title"),
-            "section_path": record.get("section_path"),
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                f"Architecture AsciiDoc section {record.get('title')} in {record.get('file')}. Path {' > '.join(record.get('section_path', [])) or 'none'}.",
-                f"Architecture section {record.get('title')}.",
-            ),
-        })
+        chunks.append(
+            {
+                "kind": "adoc_architecture_chunk",
+                "file": record.get("file"),
+                "id": chunk_id,
+                "parent_id": record.get("id"),
+                "title": record.get("title"),
+                "section_path": record.get("section_path"),
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    f"Architecture AsciiDoc section {record.get('title')} in {record.get('file')}. Path {' > '.join(record.get('section_path', [])) or 'none'}.",
+                    f"Architecture section {record.get('title')}.",
+                ),
+            }
+        )
         stats["adoc_architecture_chunk_count"] += 1
     return chunks
 
@@ -263,31 +275,34 @@ def _build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_te
         annotations = set(record.get("annotations", []))
         if "entity" not in role_labels and "@Entity" not in annotations:
             continue
-        fields = [
-            field for field in record.get("fields", []) if isinstance(field, dict)
-        ]
+        fields = [field for field in record.get("fields", []) if isinstance(field, dict)]
         field_names = [field.get("name") for field in fields if field.get("name")]
         association_fields = [
             field.get("name")
             for field in fields
             if field.get("name")
-            if any(annotation.startswith("@OneTo") or annotation.startswith("@ManyTo") for annotation in field.get("annotations", []))
+            if any(
+                annotation.startswith("@OneTo") or annotation.startswith("@ManyTo")
+                for annotation in field.get("annotations", [])
+            )
         ]
         chunk_id = f"jpa_entity_chunk:{safe_id(record.get('id', ''))}"
-        chunks.append({
-            "kind": "jpa_entity_chunk",
-            "file": record.get("file"),
-            "id": chunk_id,
-            "parent_id": record.get("id"),
-            "entity_name": record.get("name"),
-            "field_names": field_names[:50],
-            "association_fields": association_fields[:20],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                f"JPA entity {record.get('name')} in {record.get('file')}. Fields {', '.join(field_names[:20]) or 'none'}. Associations {', '.join(association_fields[:20]) or 'none'}.",
-                f"JPA entity {record.get('name')}. Fields {compact_list(field_names, limit=6)}.",
-            ),
-        })
+        chunks.append(
+            {
+                "kind": "jpa_entity_chunk",
+                "file": record.get("file"),
+                "id": chunk_id,
+                "parent_id": record.get("id"),
+                "entity_name": record.get("name"),
+                "field_names": field_names[:50],
+                "association_fields": association_fields[:20],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    f"JPA entity {record.get('name')} in {record.get('file')}. Fields {', '.join(field_names[:20]) or 'none'}. Associations {', '.join(association_fields[:20]) or 'none'}.",
+                    f"JPA entity {record.get('name')}. Fields {compact_list(field_names, limit=6)}.",
+                ),
+            }
+        )
         stats["jpa_entity_chunk_count"] += 1
     return chunks
 
@@ -320,7 +335,9 @@ def _build_type_member_chunks(index_records, extra_relations, stats, embedding_t
                     "kind": "field",
                     "name": name,
                     "type": str(field.get("type") or "").strip(),
-                    "annotations": [str(item).strip() for item in list(field.get("annotations") or []) if str(item).strip()],
+                    "annotations": [
+                        str(item).strip() for item in list(field.get("annotations") or []) if str(item).strip()
+                    ],
                 }
             )
         for method in record.get("methods", []):
@@ -334,7 +351,9 @@ def _build_type_member_chunks(index_records, extra_relations, stats, embedding_t
                     "kind": "method",
                     "name": name,
                     "return_type": str(method.get("return_type") or "").strip(),
-                    "annotations": [str(item).strip() for item in list(method.get("annotations") or []) if str(item).strip()],
+                    "annotations": [
+                        str(item).strip() for item in list(method.get("annotations") or []) if str(item).strip()
+                    ],
                 }
             )
 
@@ -346,12 +365,7 @@ def _build_type_member_chunks(index_records, extra_relations, stats, embedding_t
         for index, group in enumerate(_chunked(members, chunk_size), start=1):
             member_names = [item["name"] for item in group]
             annotations = sorted(
-                {
-                    annotation.lstrip("@")
-                    for item in group
-                    for annotation in item.get("annotations", [])
-                    if annotation
-                }
+                {annotation.lstrip("@") for item in group for annotation in item.get("annotations", []) if annotation}
             )
             focus_terms = [*member_names[:10], *annotations[:6]]
             kind_counts: dict[str, int] = defaultdict(int)

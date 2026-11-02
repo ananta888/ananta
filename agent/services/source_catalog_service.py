@@ -281,10 +281,12 @@ class SourceCatalogService:
             sensitivity = str(row.get("sensitivity") or "internal")
             if sensitivity not in self._SENSITIVITY_ORDER:
                 sensitivity = "internal"
-            external_denied = (
-                llm_scope == "external_cloud_allowed"
-                and sensitivity in {"internal_high", "secret", "credential", "security_sensitive"}
-            )
+            external_denied = llm_scope == "external_cloud_allowed" and sensitivity in {
+                "internal_high",
+                "secret",
+                "credential",
+                "security_sensitive",
+            }
             sources.append(
                 {
                     "source_ref": source_ref.to_dict(),
@@ -333,9 +335,7 @@ class SourceCatalogService:
             **projection,
             "catalog_hash": catalog_hash,
             "catalog_state": (
-                "current"
-                if sources and not rejected and trace_id and context_hash and manifest_hash
-                else "degraded"
+                "current" if sources and not rejected and trace_id and context_hash and manifest_hash else "degraded"
             ),
         }
         errors = validate_source_catalog_payload(base)

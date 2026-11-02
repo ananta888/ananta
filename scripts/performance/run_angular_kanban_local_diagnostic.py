@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend-angular"
 DEFAULT_OUTPUT = ROOT / "artifacts" / "angular-kanban-local-performance-diagnostic.json"
@@ -90,9 +89,7 @@ def _run(
         raise AngularDiagnosticError("angular_diagnostic_timeout") from exc
     if result.returncode != 0:
         tail = (result.stdout + "\n" + result.stderr)[-4000:]
-        raise AngularDiagnosticError(
-            f"angular_diagnostic_failed:{result.returncode}:{tail}"
-        )
+        raise AngularDiagnosticError(f"angular_diagnostic_failed:{result.returncode}:{tail}")
     return result
 
 

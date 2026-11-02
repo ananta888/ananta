@@ -66,8 +66,7 @@ class SpeechPeerCurationGroupDecoder:
                 or binding.offer_group_preview_digest != offer.group_preview_digest
                 or authorized_previews.get(binding.group_id) != preview
                 or preview.group_id != binding.group_id
-                or preview.group_id
-                != group_preview_group_id(preview.source_group_digest, preview.revision)
+                or preview.group_id != group_preview_group_id(preview.source_group_digest, preview.revision)
                 or preview.resolution_digest
                 != group_preview_resolution_digest(preview.source_group_digest, preview.revision)
                 or preview.speaker_scope_digest != expected_speaker_scope

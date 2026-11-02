@@ -198,10 +198,7 @@ class JmapMailMutationProvider:
             return _failure_from(response)
         report = _mutation_report(
             response.value.arguments,
-            requested={
-                _email_id(item.message_ref): item.message_ref.mail_ref_id
-                for item in requests
-            },
+            requested={_email_id(item.message_ref): item.message_ref.mail_ref_id for item in requests},
             action="update",
         )
         self._audit_report(requests, operation, report)
@@ -241,28 +238,17 @@ class JmapMailMutationProvider:
         operation: str,
         result: MailProviderResult[MailMutationReport],
     ) -> None:
-        by_ref = {
-            item.mail_ref_id: item
-            for item in tuple(result.value.items if result.value is not None else ())
-        }
+        by_ref = {item.mail_ref_id: item for item in tuple(result.value.items if result.value is not None else ())}
         for request in requests:
             item = by_ref.get(request.message_ref.mail_ref_id)
-            reconciled = bool(
-                item is not None
-                and item.ok
-                and item.reason_code == "jmap_mutation_reconciled"
-            )
+            reconciled = bool(item is not None and item.ok and item.reason_code == "jmap_mutation_reconciled")
             self._policy.record_reconciliation(
                 account_id=self._local_account_id,
                 operation=operation,
                 intent_ref=str(request.intent_ref),
                 audit_ref=str(request.audit_ref),
                 reconciled=reconciled,
-                reason_code=(
-                    item.reason_code
-                    if item is not None
-                    else "jmap_mutation_outcome_unknown"
-                ),
+                reason_code=(item.reason_code if item is not None else "jmap_mutation_outcome_unknown"),
             )
 
     def _audit_report(
@@ -271,10 +257,7 @@ class JmapMailMutationProvider:
         operation: str,
         result: MailProviderResult[MailMutationReport],
     ) -> None:
-        by_ref = {
-            item.mail_ref_id: item
-            for item in tuple(result.value.items if result.value is not None else ())
-        }
+        by_ref = {item.mail_ref_id: item for item in tuple(result.value.items if result.value is not None else ())}
         for request in requests:
             item = by_ref.get(request.message_ref.mail_ref_id)
             self._policy.record_outcome(
@@ -283,11 +266,7 @@ class JmapMailMutationProvider:
                 intent_ref=str(request.intent_ref),
                 audit_ref=str(request.audit_ref),
                 ok=bool(item is not None and item.ok),
-                reason_code=(
-                    item.reason_code
-                    if item is not None
-                    else "jmap_set_result_missing"
-                ),
+                reason_code=(item.reason_code if item is not None else "jmap_set_result_missing"),
             )
 
     def _validate_session(self, session: MailProviderSession) -> str:

@@ -202,9 +202,7 @@ class AnantaBaseLmBridge:
         if price is None:
             raise DspyBudgetExceeded("dspy_price_profile_missing")
         ananta_cost_micros = price.cost(usage)
-        self._ledger.record(
-            reservation_id, total_tokens=usage.total_tokens, cost_micros=ananta_cost_micros
-        )
+        self._ledger.record(reservation_id, total_tokens=usage.total_tokens, cost_micros=ananta_cost_micros)
         result = {
             "text": str(response.get("text") or ""),
             "finish_reason": str(response.get("finish_reason") or "unknown"),

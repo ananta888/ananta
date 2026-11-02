@@ -16,8 +16,15 @@ def _call(name, arguments, context=None):
     return result["content"][0]["json"]
 
 
-@pytest.mark.parametrize("profiles, expected", [(["other", "default"], "default"), (["only"], "only"),
-                                                ([{"profile_id": "b"}, {"profile_id": "a"}], "b"), ([], None)])
+@pytest.mark.parametrize(
+    "profiles, expected",
+    [
+        (["other", "default"], "default"),
+        (["only"], "only"),
+        ([{"profile_id": "b"}, {"profile_id": "a"}], "b"),
+        ([], None),
+    ],
+)
 def test_layers_heads_defaults_to_a_profile(monkeypatch, profiles, expected):
     service = SimpleNamespace(list_profiles=lambda: profiles, show_head=lambda profile_id: {"profile": profile_id})
     monkeypatch.setattr("agent.services.codecompass_layer_service.get_codecompass_layer_service", lambda: service)
@@ -33,15 +40,19 @@ def test_analytics_without_a_snapshot_is_unavailable_not_an_error(monkeypatch):
     def query(name, **kwargs):
         raise VectorStoreError("duckdb_snapshot_missing")
 
-    monkeypatch.setattr("agent.services.codecompass_duckdb_analytics_service.get_codecompass_duckdb_analytics_service",
-                        lambda: SimpleNamespace(query=query))
+    monkeypatch.setattr(
+        "agent.services.codecompass_duckdb_analytics_service.get_codecompass_duckdb_analytics_service",
+        lambda: SimpleNamespace(query=query),
+    )
     payload = _call("codecompass.analytics_query", {"template": "document_counts_by_kind"})
     assert payload["status"] == "unavailable" and payload["reason"] == "duckdb_snapshot_missing"
 
     def broken(name, **kwargs):
         raise VectorStoreError("duckdb_corrupt")
 
-    monkeypatch.setattr("agent.services.codecompass_duckdb_analytics_service.get_codecompass_duckdb_analytics_service",
-                        lambda: SimpleNamespace(query=broken))
+    monkeypatch.setattr(
+        "agent.services.codecompass_duckdb_analytics_service.get_codecompass_duckdb_analytics_service",
+        lambda: SimpleNamespace(query=broken),
+    )
     with pytest.raises(VectorStoreError):
         _call("codecompass.analytics_query", {"template": "document_counts_by_kind"})

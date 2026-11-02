@@ -185,9 +185,7 @@ def test_source_ref_v2_binds_version_scope_tenant_and_provenance_digest() -> Non
         "source_version": "snapshot-1",
         "provider": "symbol",
     }
-    digest = hashlib.sha256(
-        json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     source_ref = SourceRef(
         source_id="SRC_0001",
         source_version="snapshot-1",

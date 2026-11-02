@@ -167,16 +167,8 @@ def resolve_configured_registration_token(
     """
 
     source = config if config is not None else current_app.config
-    inline = str(
-        source.get("REGISTRATION_TOKEN")
-        or getattr(settings, "registration_token", None)
-        or ""
-    )
-    raw_path = str(
-        source.get("REGISTRATION_TOKEN_FILE")
-        or os.environ.get("REGISTRATION_TOKEN_FILE")
-        or ""
-    ).strip()
+    inline = str(source.get("REGISTRATION_TOKEN") or getattr(settings, "registration_token", None) or "")
+    raw_path = str(source.get("REGISTRATION_TOKEN_FILE") or os.environ.get("REGISTRATION_TOKEN_FILE") or "").strip()
     if not raw_path:
         return inline or None
     try:
@@ -189,7 +181,5 @@ def resolve_configured_registration_token(
     except FileCredentialConfigurationError as exc:
         raise AgentTokenConfigurationError(str(exc)) from exc
     if inline and not secrets.compare_digest(inline, token):
-        raise AgentTokenConfigurationError(
-            "inline and file-managed registration tokens conflict"
-        )
+        raise AgentTokenConfigurationError("inline and file-managed registration tokens conflict")
     return token

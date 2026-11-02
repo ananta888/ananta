@@ -40,19 +40,11 @@ class HybridRetrievalService:
                     "metadata": metadata,
                     "content": str(item.get("content") or ""),
                     "source_id": str(item.get("source_id") or metadata.get("source_id") or ""),
-                    "source_version": str(
-                        item.get("source_version") or metadata.get("source_version") or ""
-                    ),
+                    "source_version": str(item.get("source_version") or metadata.get("source_version") or ""),
                     "tenant_id": str(item.get("tenant_id") or metadata.get("tenant_id") or ""),
                     "scope": str(item.get("scope") or metadata.get("scope") or ""),
-                    "provenance": dict(
-                        item.get("provenance") or metadata.get("provenance") or {}
-                    ),
-                    "provenance_digest": str(
-                        item.get("provenance_digest")
-                        or metadata.get("provenance_digest")
-                        or ""
-                    ),
+                    "provenance": dict(item.get("provenance") or metadata.get("provenance") or {}),
+                    "provenance_digest": str(item.get("provenance_digest") or metadata.get("provenance_digest") or ""),
                 }
             )
         return ranked
@@ -187,35 +179,15 @@ class HybridRetrievalService:
                     "symbol_name": str(item.get("symbol_name") or ""),
                     "content_hash": str(item.get("content_hash") or ""),
                     "channel": str(item.get("channel") or ""),
-                    "source_id": str(
-                        item.get("source_id")
-                        or (item.get("metadata") or {}).get("source_id")
-                        or ""
-                    ),
+                    "source_id": str(item.get("source_id") or (item.get("metadata") or {}).get("source_id") or ""),
                     "source_version": str(
-                        item.get("source_version")
-                        or (item.get("metadata") or {}).get("source_version")
-                        or ""
+                        item.get("source_version") or (item.get("metadata") or {}).get("source_version") or ""
                     ),
-                    "tenant_id": str(
-                        item.get("tenant_id")
-                        or (item.get("metadata") or {}).get("tenant_id")
-                        or ""
-                    ),
-                    "scope": str(
-                        item.get("scope")
-                        or (item.get("metadata") or {}).get("scope")
-                        or ""
-                    ),
-                    "provenance": dict(
-                        item.get("provenance")
-                        or (item.get("metadata") or {}).get("provenance")
-                        or {}
-                    ),
+                    "tenant_id": str(item.get("tenant_id") or (item.get("metadata") or {}).get("tenant_id") or ""),
+                    "scope": str(item.get("scope") or (item.get("metadata") or {}).get("scope") or ""),
+                    "provenance": dict(item.get("provenance") or (item.get("metadata") or {}).get("provenance") or {}),
                     "provenance_digest": str(
-                        item.get("provenance_digest")
-                        or (item.get("metadata") or {}).get("provenance_digest")
-                        or ""
+                        item.get("provenance_digest") or (item.get("metadata") or {}).get("provenance_digest") or ""
                     ),
                     "final_score": float(item.get("final_score") or 0.0),
                     "channel_contributions": dict(item.get("channel_contributions") or {}),
@@ -230,12 +202,7 @@ class HybridRetrievalService:
         provenance = [
             {
                 "engine": str(item.get("channel") or ""),
-                "record_id": str(
-                    item.get("record_id")
-                    or item.get("content_hash")
-                    or item.get("path")
-                    or ""
-                ),
+                "record_id": str(item.get("record_id") or item.get("content_hash") or item.get("path") or ""),
                 "file": str(item.get("path") or ""),
                 "kind": str((item.get("metadata") or {}).get("record_kind") or ""),
                 "score": float(item.get("final_score") or 0.0),
@@ -248,11 +215,7 @@ class HybridRetrievalService:
             for item in selected
         ]
         manifest_hash = next(
-            (
-                str(item.get("manifest_hash") or "")
-                for item in provenance
-                if str(item.get("manifest_hash") or "")
-            ),
+            (str(item.get("manifest_hash") or "") for item in provenance if str(item.get("manifest_hash") or "")),
             "",
         )
         graph_diag = dict(diagnostics.get("codecompass_graph") or {})

@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from tests.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
+from tests.meet.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
 
 
 @pytest.mark.parametrize(

@@ -43,7 +43,9 @@ def _inspect(path: Path):
 
 
 def test_directory_inventory_is_deterministic_declarative_and_never_executes_scripts(tmp_path: Path) -> None:
-    package = _package(tmp_path / "package", body="See [guide](references/guide.md) and [source](https://example.test/paper).")
+    package = _package(
+        tmp_path / "package", body="See [guide](references/guide.md) and [source](https://example.test/paper)."
+    )
     first = _inspect(package)
     second = _inspect(package)
     assert first == second

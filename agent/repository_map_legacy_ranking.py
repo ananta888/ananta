@@ -9,6 +9,7 @@ read and tested on its own; the engine only orchestrates them.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,22 +19,40 @@ from agent.repository_map_path_focus import path_is_in_focus
 
 # Top-level directories holding documentation, runtime data, build outputs or
 # dependencies — never source code that answers architectural questions.
-_NON_SOURCE_TOP_DIRS: frozenset[str] = frozenset({
-    "docs", "artifacts", "data", "ci-artifacts",
-    "autoimport-state", "project-workspaces",
-    "todos", "test-reports", "logs",
-    "reference_sources", "data_test",
-    "ananta.egg-info", "secrets",
-    "git-hooks", "node_modules",
-    "__pycache__", "venv",
-})
+_NON_SOURCE_TOP_DIRS: frozenset[str] = frozenset(
+    {
+        "docs",
+        "artifacts",
+        "data",
+        "ci-artifacts",
+        "autoimport-state",
+        "project-workspaces",
+        "todos",
+        "test-reports",
+        "logs",
+        "reference_sources",
+        "data_test",
+        "ananta.egg-info",
+        "secrets",
+        "git-hooks",
+        "node_modules",
+        "__pycache__",
+        "venv",
+    }
+)
 # First-party top-level directories outside the core set (tooling, runtime
 # assets, reference material); everything else unknown counts as third party.
-_FIRST_PARTY_AUXILIARY_TOP_DIRS: frozenset[str] = frozenset({
-    "scripts", "public-rendezvous",
-    "website", "web", "examples",
-    "experiments", "prompts",
-})
+_FIRST_PARTY_AUXILIARY_TOP_DIRS: frozenset[str] = frozenset(
+    {
+        "scripts",
+        "public-rendezvous",
+        "website",
+        "web",
+        "examples",
+        "experiments",
+        "prompts",
+    }
+)
 
 _MAX_SYMBOL_HITS_PER_TOKEN = 8.0
 
@@ -49,10 +68,7 @@ class LegacyRankingVocabulary:
 
 
 def query_tokens(query: str, stop_tokens: frozenset) -> set[str]:
-    return {
-        t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
-        if len(t) >= 3 and t.lower() not in stop_tokens
-    }
+    return {t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query) if len(t) >= 3 and t.lower() not in stop_tokens}
 
 
 def _token_density_score(path_lower: str, sym_lower: list[str], tokens: set[str]) -> tuple[float, int]:
@@ -152,7 +168,7 @@ def _anchor_content(repo_root: Path, anchor_path: str, symbol_summary: str) -> s
         if anchor_file.exists() and anchor_file.is_file():
             file_content = anchor_file.read_text(encoding="utf-8", errors="ignore")[:2000]
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_anchor_content: ignored Exception", exc_info=True)
     if not file_content and not symbol_summary:
         return None
     if not file_content:
@@ -219,8 +235,7 @@ def select_with_path_focus(candidates: list[Any], *, path_focus: dict | None, to
     selected = ranked[:limit]
     selected_sources = {chunk.source for chunk in selected}
     focused = [
-        chunk for chunk in ranked
-        if chunk.source not in selected_sources and path_is_in_focus(chunk.source, path_focus)
+        chunk for chunk in ranked if chunk.source not in selected_sources and path_is_in_focus(chunk.source, path_focus)
     ]
     min_results = max(1, int(path_focus.get("min_results") or 1))
     current_focus_count = sum(1 for chunk in selected if path_is_in_focus(chunk.source, path_focus))

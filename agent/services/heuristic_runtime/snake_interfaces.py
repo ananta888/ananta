@@ -8,6 +8,7 @@ Defines:
 
 These are pure data models and protocols. No behavior is wired here.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,8 +18,8 @@ from typing import Any, Protocol, runtime_checkable
 from agent.services.heuristic_runtime.governance import GovernanceMode
 from agent.services.heuristic_runtime.snake_state_catalog import SnakeState
 
-
 # ── Movement modes ────────────────────────────────────────────────────────────
+
 
 class MovementMode(str):
     """Valid movement mode identifiers.
@@ -26,16 +27,15 @@ class MovementMode(str):
     Movement mode controls *how* the snake moves.
     Governance mode (GovernanceMode) controls *what it learns and activates*.
     """
-    FOLLOW_USER  = "follow_user"
-    LURK         = "lurk"
-    FAST_TARGET  = "fast_target"
-    KEYBOARD     = "keyboard"
-    MOUSE_FOLLOW = "mouse_follow"
-    IDLE         = "idle"
 
-    _ALL = frozenset({
-        "follow_user", "lurk", "fast_target", "keyboard", "mouse_follow", "idle"
-    })
+    FOLLOW_USER = "follow_user"
+    LURK = "lurk"
+    FAST_TARGET = "fast_target"
+    KEYBOARD = "keyboard"
+    MOUSE_FOLLOW = "mouse_follow"
+    IDLE = "idle"
+
+    _ALL = frozenset({"follow_user", "lurk", "fast_target", "keyboard", "mouse_follow", "idle"})
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
@@ -44,6 +44,7 @@ class MovementMode(str):
 
 # ── Runtime state ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SnakeRuntimeState:
     """Snapshot of AI-snake state for one tick.
@@ -51,6 +52,7 @@ class SnakeRuntimeState:
     movement_mode and governance_mode are independent fields.
     Changing movement_mode never affects governance_mode and vice versa.
     """
+
     snake_state: SnakeState = SnakeState.HEURISTIC_FALLBACK
     movement_mode: str = MovementMode.FOLLOW_USER
     governance_mode: GovernanceMode = GovernanceMode.AUTO_WITHOUT_HUMAN_APPROVAL
@@ -58,7 +60,7 @@ class SnakeRuntimeState:
     current_candidate_id: str | None = None
     activation_strategy: str = "promote_to_active"
     last_reason_codes: list[str] = field(default_factory=list)
-    rollout_stage: str | None = None   # "canary", "partial", "full"
+    rollout_stage: str | None = None  # "canary", "partial", "full"
     rollout_quota: float = 0.0
     activation_score: float | None = None
     risk_score: float | None = None
@@ -66,27 +68,31 @@ class SnakeRuntimeState:
 
     def with_movement(self, mode: str) -> "SnakeRuntimeState":
         import dataclasses
+
         return dataclasses.replace(self, movement_mode=mode)
 
     def with_governance(self, mode: GovernanceMode) -> "SnakeRuntimeState":
         import dataclasses
+
         return dataclasses.replace(self, governance_mode=mode)
 
 
 # ── Candidate record ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class CandidateRecord:
     """Schema-validated representation of a heuristic candidate file."""
+
     proposal_id: str
     domain: str
     base_heuristic_ref: str | None
     action_kind: str
-    status: str                         # candidate | pending_simulation | auto_promoted | failed
+    status: str  # candidate | pending_simulation | auto_promoted | failed
     simulation_result: dict | None
-    fingerprint: str = ""               # SHA-256 over (domain, base_heuristic_ref, action_kind, params_json)
+    fingerprint: str = ""  # SHA-256 over (domain, base_heuristic_ref, action_kind, params_json)
     created_at: float = field(default_factory=time.time)
-    expires_at: float | None = None     # created_at + TTL
+    expires_at: float | None = None  # created_at + TTL
     evidence_count: int = 1
     metrics: dict[str, Any] = field(default_factory=dict)
     score: dict[str, Any] = field(default_factory=dict)
@@ -106,9 +112,11 @@ class CandidateRecord:
 
 # ── Activation policy ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class ActivationPolicy:
     """Configures when and how candidates are promoted to active/."""
+
     candidate_activation_mode: GovernanceMode = GovernanceMode.AUTO_WITHOUT_HUMAN_APPROVAL
     requires_validation: bool = True
     requires_simulation: bool = True
@@ -123,6 +131,7 @@ class ActivationPolicy:
 
 # ── Service protocols ─────────────────────────────────────────────────────────
 
+
 @runtime_checkable
 class ISnakeHeuristicSelector(Protocol):
     """Selects the best matching active heuristic for the current context."""
@@ -135,6 +144,7 @@ class ISnakeHeuristicSelector(Protocol):
         ai_status: str,
         artifact_present: bool,
     ) -> tuple[dict | None, str]: ...
+
     """Returns (selected_heuristic, fallback_reason)."""
 
 
@@ -143,6 +153,7 @@ class ISnakeCandidateService(Protocol):
     """Generates and persists heuristic candidates from decision traces."""
 
     def maybe_generate(self, traces: list, *, now: float) -> None: ...
+
     """Fire-and-forget: generate a candidate if thresholds are met."""
 
 
@@ -151,4 +162,5 @@ class ISnakeActivationService(Protocol):
     """Promotes qualified candidates to active/ via shadow-run + progressive rollout."""
 
     def maybe_promote(self, candidate: CandidateRecord) -> bool: ...
+
     """Returns True if promotion was started."""

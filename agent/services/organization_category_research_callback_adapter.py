@@ -7,11 +7,7 @@ import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
-
-_CATEGORY_CALLBACK_PATH = (
-    "/api/worker-results/tasks/{source_task_id}/assignments/"
-    "{assignment_id}/planning/category"
-)
+_CATEGORY_CALLBACK_PATH = "/api/worker-results/tasks/{source_task_id}/assignments/{assignment_id}/planning/category"
 
 
 class OrganizationCategoryResearchCallbackError(ValueError):
@@ -54,24 +50,18 @@ class OrganizationCategoryResearchCallbackAdapter:
             get_organization_planning_composition,
         )
 
-        return get_organization_planning_composition().accept_category_research_result(
-            **kwargs
-        )
+        return get_organization_planning_composition().accept_category_research_result(**kwargs)
 
     @staticmethod
     def _is_category_task(task: Any) -> bool:
         worker_context = _mapping(_value(task, "worker_execution_context"))
         callback = _mapping(worker_context.get("planning_result_callback"))
-        return (
-            str(_value(task, "task_kind") or "") == "planning_research"
-            and callback
-            == {
-                "schema": "organization_planning_result_callback.v1",
-                "method": "POST",
-                "path_template": _CATEGORY_CALLBACK_PATH,
-                "authorization": "worker_result_capability",
-            }
-        )
+        return str(_value(task, "task_kind") or "") == "planning_research" and callback == {
+            "schema": "organization_planning_result_callback.v1",
+            "method": "POST",
+            "path_template": _CATEGORY_CALLBACK_PATH,
+            "authorization": "worker_result_capability",
+        }
 
     def accept_if_applicable(
         self,
@@ -91,40 +81,34 @@ class OrganizationCategoryResearchCallbackAdapter:
         if status != "completed" or exit_code != 0 or not raw_output:
             return None
 
-        assignment_id = str(
-            payload.get("id") or payload.get("assignment_id") or ""
-        ).strip()
+        assignment_id = str(payload.get("id") or payload.get("assignment_id") or "").strip()
         if (
             str(capability_claims.get("source_task_id") or "") != task_id
-            or str(capability_claims.get("assignment_id") or "")
-            != assignment_id
+            or str(capability_claims.get("assignment_id") or "") != assignment_id
         ):
-            raise OrganizationCategoryResearchCallbackError(
-                "category_research_callback_capability_mismatch"
-            )
+            raise OrganizationCategoryResearchCallbackError("category_research_callback_capability_mismatch")
 
         digest = hashlib.sha256(raw_output.encode("utf-8")).hexdigest()
         worker_context = _mapping(_value(task, "worker_execution_context"))
-        research_binding = _mapping(
-            worker_context.get("planning_research_binding")
-        )
+        research_binding = _mapping(worker_context.get("planning_research_binding"))
         artifact_hashes = _mapping(research_binding.get("artifact_hashes"))
         idempotency_payload = {
             "source_task_id": task_id,
             "assignment_id": assignment_id,
-            "dispatch_lease_id": str(
-                capability_claims.get("dispatch_lease_id") or ""
-            ),
+            "dispatch_lease_id": str(capability_claims.get("dispatch_lease_id") or ""),
             "raw_output_digest": digest,
         }
-        idempotency_key = "category-result-" + hashlib.sha256(
-            json.dumps(
-                idempotency_payload,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("utf-8")
-        ).hexdigest()
+        idempotency_key = (
+            "category-result-"
+            + hashlib.sha256(
+                json.dumps(
+                    idempotency_payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                ).encode("utf-8")
+            ).hexdigest()
+        )
         try:
             return self._result_acceptor(
                 source_task_id=task_id,
@@ -133,20 +117,11 @@ class OrganizationCategoryResearchCallbackAdapter:
                 raw_output=raw_output,
                 raw_output_digest=digest,
                 idempotency_key=idempotency_key,
-                runtime_artifact_hashes={
-                    str(key): str(value)
-                    for key, value in artifact_hashes.items()
-                },
+                runtime_artifact_hashes={str(key): str(value) for key, value in artifact_hashes.items()},
             )
         except (TypeError, ValueError) as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "")
-                or str(exc)
-                or "category_research_result_invalid"
-            )
-            raise OrganizationCategoryResearchCallbackError(
-                reason_code
-            ) from exc
+            reason_code = str(getattr(exc, "reason_code", "") or str(exc) or "category_research_result_invalid")
+            raise OrganizationCategoryResearchCallbackError(reason_code) from exc
 
 
 __all__ = [

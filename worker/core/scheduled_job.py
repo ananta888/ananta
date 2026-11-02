@@ -6,6 +6,7 @@ EW-T055: HeadlessApprovalPolicy — confirm_required without pre-approved ref �
 EW-T056: JobRunArtifact — status, started_at, ended_at, artifacts, trace_bundle_ref,
           warnings, retry recommendation.
 """
+
 from __future__ import annotations
 
 import time
@@ -14,13 +15,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class ApprovalMode(str, Enum):
-    pre_approved = "pre_approved"     # approval_refs provided with the envelope
+    pre_approved = "pre_approved"  # approval_refs provided with the envelope
     confirm_required = "confirm_required"  # worker must pause and await hub approval
-    auto_deny = "auto_deny"           # no approval ever granted; blocks all sensitive ops
+    auto_deny = "auto_deny"  # no approval ever granted; blocks all sensitive ops
 
 
 class JobStatus(str, Enum):
@@ -28,22 +29,24 @@ class JobStatus(str, Enum):
     running = "running"
     success = "success"
     failure = "failure"
-    blocked = "blocked"       # blocked by approval policy
+    blocked = "blocked"  # blocked by approval policy
     cancelled = "cancelled"
     timeout = "timeout"
 
 
 class DeliveryTarget(str, Enum):
-    hub = "hub"               # result delivered back to Hub
+    hub = "hub"  # result delivered back to Hub
     artifact_store = "artifact_store"  # result written to artifact store only
-    callback_url = "callback_url"      # HTTP callback
+    callback_url = "callback_url"  # HTTP callback
 
 
 # ── ScheduledJobContract ──────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class ContextPolicy:
     """Scope of context available to the scheduled job."""
+
     allowed_refs: list[str] = field(default_factory=list)
     max_tokens: int = 8192
     cloud_allowed: bool = False
@@ -61,16 +64,17 @@ class ScheduledJobContract:
     Worker never stores or modifies the schedule — it only executes within
     the boundaries this contract defines.
     """
+
     job_id: str
-    task_template: str           # task description template
+    task_template: str  # task description template
     capability_grant_ids: list[str]  # capability classes granted for this job
-    schedule_cron: str           # cron expression owned by Hub, informational only
+    schedule_cron: str  # cron expression owned by Hub, informational only
     context_policy: ContextPolicy
     approval_mode: ApprovalMode
-    max_runtime_seconds: int     # hard ceiling; worker must abort when exceeded
+    max_runtime_seconds: int  # hard ceiling; worker must abort when exceeded
     delivery_target: DeliveryTarget
     pre_approved_ref_ids: list[str] = field(default_factory=list)
-    delivery_url: str = ""       # required when target == callback_url
+    delivery_url: str = ""  # required when target == callback_url
     retry_limit: int = 0
     created_by: str = ""
     created_at: float = field(default_factory=time.time)
@@ -83,6 +87,7 @@ class ScheduledJobContract:
 
 
 # ── HeadlessApprovalPolicy ────────────────────────────────────────────────────
+
 
 @dataclass
 class ApprovalCheckResult:
@@ -132,7 +137,7 @@ class HeadlessApprovalPolicy:
                 return ApprovalCheckResult(
                     False,
                     "approval_missing",
-                    f"pre_approved mode but no ref_ids present in contract",
+                    "pre_approved mode but no ref_ids present in contract",
                 )
             if ref_id and ref_id not in contract.pre_approved_ref_ids:
                 return ApprovalCheckResult(
@@ -169,9 +174,11 @@ class HeadlessApprovalPolicy:
 
 # ── JobRunArtifact ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class JobRunArtifact:
     """Structured result of a scheduled job execution. EW-T056."""
+
     artifact_id: str
     job_id: str
     task_id: str
@@ -202,9 +209,7 @@ class JobRunArtifact:
             "ended_at": self.ended_at,
             "duration_seconds": self.duration_seconds,
             "artifact_count": len(self.artifacts),
-            "artifact_refs": [
-                a.get("artifact_id", a.get("id", "")) for a in self.artifacts
-            ],
+            "artifact_refs": [a.get("artifact_id", a.get("id", "")) for a in self.artifacts],
             "trace_bundle_ref": self.trace_bundle_ref,
             "warnings": self.warnings,
             "reason_code": self.reason_code,

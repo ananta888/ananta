@@ -3,9 +3,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import AgentInfoDB, BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
+from agent.db_models import (
+    AgentInfoDB,
+    BlueprintArtifactDB,
+    BlueprintRoleDB,
+    TaskDB,
+    TeamBlueprintDB,
+    TeamDB,
+    TeamMemberDB,
+)
 from agent.repository import audit_repo
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 @pytest.fixture(autouse=True)
@@ -21,8 +29,8 @@ def _register_member_agents():
         session.commit()
 
 
-
 # Split from tests/slow/team/test_team_blueprints.py to keep source files below 1000 lines.
+
 
 def test_delete_blueprint_blocks_when_team_references_it(client):
     admin_token = _login_admin(client)
@@ -75,7 +83,9 @@ def test_seed_blueprints_reconcile_drift_and_preserve_ids(client):
     assert blueprints_response.status_code == 200
     scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
     developer_role = next(role for role in scrum_blueprint["roles"] if role["name"] == "Developer")
-    backlog_artifact = next(artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog")
+    backlog_artifact = next(
+        artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog"
+    )
 
     with Session(engine) as session:
         persisted_role = session.get(BlueprintRoleDB, developer_role["id"])
@@ -108,7 +118,9 @@ def test_seed_blueprints_reconcile_drift_and_preserve_ids(client):
     assert reconcile_response.status_code == 200
     scrum_blueprint = next(blueprint for blueprint in reconcile_response.json["data"] if blueprint["name"] == "Scrum")
     developer_role_after = next(role for role in scrum_blueprint["roles"] if role["name"] == "Developer")
-    backlog_artifact_after = next(artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog")
+    backlog_artifact_after = next(
+        artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog"
+    )
 
     assert developer_role_after["id"] == developer_role["id"]
     assert developer_role_after["description"] == "Builds and delivers backlog items."
@@ -160,7 +172,9 @@ def test_seed_blueprint_reconcile_keeps_instantiation_contract(client):
     assert instantiate_response.status_code == 201
     team = instantiate_response.json["data"]["team"]
     assert team["blueprint_snapshot"]["name"] == "Scrum"
-    assert all(artifact["title"] != "Drift Artifact" for artifact in (team["blueprint_snapshot"].get("artifacts") or []))
+    assert all(
+        artifact["title"] != "Drift Artifact" for artifact in (team["blueprint_snapshot"].get("artifacts") or [])
+    )
 
     with Session(engine) as session:
         persisted_members = session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team["id"])).all()
@@ -184,7 +198,13 @@ def test_blueprint_update_preserves_existing_child_ids(client):
                 {"name": "Developer", "description": "initial", "sort_order": 10, "is_required": True, "config": {}},
             ],
             "artifacts": [
-                {"kind": "task", "title": "Kickoff", "description": "initial", "sort_order": 10, "payload": {"status": "todo"}},
+                {
+                    "kind": "task",
+                    "title": "Kickoff",
+                    "description": "initial",
+                    "sort_order": 10,
+                    "payload": {"status": "todo"},
+                },
             ],
         },
         headers=auth_header,
@@ -198,12 +218,30 @@ def test_blueprint_update_preserves_existing_child_ids(client):
         f"/teams/blueprints/{blueprint['id']}",
         json={
             "roles": [
-                {"name": "Developer", "description": "updated", "sort_order": 10, "is_required": True, "config": {"focus": "build"}},
+                {
+                    "name": "Developer",
+                    "description": "updated",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {"focus": "build"},
+                },
                 {"name": "Reviewer", "description": "new", "sort_order": 20, "is_required": False, "config": {}},
             ],
             "artifacts": [
-                {"kind": "task", "title": "Kickoff", "description": "updated", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}},
-                {"kind": "policy", "title": "Definition Of Done", "description": "new", "sort_order": 20, "payload": {"required": True}},
+                {
+                    "kind": "task",
+                    "title": "Kickoff",
+                    "description": "updated",
+                    "sort_order": 10,
+                    "payload": {"status": "todo", "priority": "High"},
+                },
+                {
+                    "kind": "policy",
+                    "title": "Definition Of Done",
+                    "description": "new",
+                    "sort_order": 20,
+                    "payload": {"required": True},
+                },
             ],
         },
         headers=auth_header,
@@ -211,9 +249,13 @@ def test_blueprint_update_preserves_existing_child_ids(client):
     assert update_response.status_code == 200
     updated_blueprint = update_response.json["data"]
     developer_role_after = next(role for role in updated_blueprint["roles"] if role["name"] == "Developer")
-    kickoff_artifact_after = next(artifact for artifact in updated_blueprint["artifacts"] if artifact["title"] == "Kickoff")
+    kickoff_artifact_after = next(
+        artifact for artifact in updated_blueprint["artifacts"] if artifact["title"] == "Kickoff"
+    )
     reviewer_role = next(role for role in updated_blueprint["roles"] if role["name"] == "Reviewer")
-    dod_artifact = next(artifact for artifact in updated_blueprint["artifacts"] if artifact["title"] == "Definition Of Done")
+    dod_artifact = next(
+        artifact for artifact in updated_blueprint["artifacts"] if artifact["title"] == "Definition Of Done"
+    )
 
     assert developer_role_after["id"] == developer_role["id"]
     assert developer_role_after["description"] == "updated"
@@ -232,8 +274,18 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
         json={
             "name": "Audit Blueprint",
             "description": "audit create",
-            "roles": [{"name": "Developer", "description": "initial", "sort_order": 10, "is_required": True, "config": {}}],
-            "artifacts": [{"kind": "task", "title": "Kickoff", "description": "initial", "sort_order": 10, "payload": {"status": "todo"}}],
+            "roles": [
+                {"name": "Developer", "description": "initial", "sort_order": 10, "is_required": True, "config": {}}
+            ],
+            "artifacts": [
+                {
+                    "kind": "task",
+                    "title": "Kickoff",
+                    "description": "initial",
+                    "sort_order": 10,
+                    "payload": {"status": "todo"},
+                }
+            ],
         },
         headers=auth_header,
     )
@@ -245,7 +297,12 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
         for log in audit_repo.get_all(limit=500)
         if log.action == "team_blueprint_created" and log.details.get("blueprint_id") == blueprint["id"]
     )
-    assert create_log.details["changes"]["blueprint_fields"] == ["name", "description", "base_team_type_name", "is_seed"]
+    assert create_log.details["changes"]["blueprint_fields"] == [
+        "name",
+        "description",
+        "base_team_type_name",
+        "is_seed",
+    ]
     assert create_log.details["changes"]["roles"]["created"] == [{"name": "Developer"}]
     assert create_log.details["changes"]["artifacts"]["created"] == [{"title": "Kickoff", "kind": "task"}]
 
@@ -253,8 +310,24 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
         f"/teams/blueprints/{blueprint['id']}",
         json={
             "description": "audit update",
-            "roles": [{"name": "Developer", "description": "updated", "sort_order": 10, "is_required": True, "config": {"focus": "build"}}],
-            "artifacts": [{"kind": "task", "title": "Kickoff", "description": "updated", "sort_order": 10, "payload": {"status": "todo", "priority": "High"}}],
+            "roles": [
+                {
+                    "name": "Developer",
+                    "description": "updated",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {"focus": "build"},
+                }
+            ],
+            "artifacts": [
+                {
+                    "kind": "task",
+                    "title": "Kickoff",
+                    "description": "updated",
+                    "sort_order": 10,
+                    "payload": {"status": "todo", "priority": "High"},
+                }
+            ],
         },
         headers=auth_header,
     )
@@ -266,8 +339,12 @@ def test_blueprint_audit_log_contains_child_change_sets(client):
         if log.action == "team_blueprint_updated" and log.details.get("blueprint_id") == blueprint["id"]
     )
     assert update_log.details["changes"]["blueprint_fields"] == ["description"]
-    assert update_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description", "config"]}]
-    assert update_log.details["changes"]["artifacts"]["updated"] == [{"title": "Kickoff", "fields": ["description", "payload"]}]
+    assert update_log.details["changes"]["roles"]["updated"] == [
+        {"name": "Developer", "fields": ["description", "config"]}
+    ]
+    assert update_log.details["changes"]["artifacts"]["updated"] == [
+        {"title": "Kickoff", "fields": ["description", "payload"]}
+    ]
 
 
 def test_seed_reconcile_writes_audit_diff(client):
@@ -278,7 +355,9 @@ def test_seed_reconcile_writes_audit_diff(client):
     assert blueprints_response.status_code == 200
     scrum_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Scrum")
     developer_role = next(role for role in scrum_blueprint["roles"] if role["name"] == "Developer")
-    backlog_artifact = next(artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog")
+    backlog_artifact = next(
+        artifact for artifact in scrum_blueprint["artifacts"] if artifact["title"] == "Scrum Backlog"
+    )
 
     with Session(engine) as session:
         persisted_role = session.get(BlueprintRoleDB, developer_role["id"])
@@ -318,8 +397,12 @@ def test_seed_reconcile_writes_audit_diff(client):
     assert reconcile_log.details["source"] == "seed_sync"
     assert reconcile_log.details["changes"]["roles"]["updated"] == [{"name": "Developer", "fields": ["description"]}]
     assert reconcile_log.details["changes"]["roles"]["deleted"] == [{"name": "Audit Drift Role"}]
-    assert reconcile_log.details["changes"]["artifacts"]["updated"] == [{"title": "Scrum Backlog", "fields": ["description"]}]
-    assert reconcile_log.details["changes"]["artifacts"]["deleted"] == [{"title": "Audit Drift Artifact", "kind": "task"}]
+    assert reconcile_log.details["changes"]["artifacts"]["updated"] == [
+        {"title": "Scrum Backlog", "fields": ["description"]}
+    ]
+    assert reconcile_log.details["changes"]["artifacts"]["deleted"] == [
+        {"title": "Audit Drift Artifact", "kind": "task"}
+    ]
 
 
 def test_blueprint_constraints_block_duplicate_rows_on_db_level():
@@ -329,17 +412,25 @@ def test_blueprint_constraints_block_duplicate_rows_on_db_level():
         session.commit()
         session.refresh(blueprint)
 
-        session.add(BlueprintRoleDB(blueprint_id=blueprint.id, name="Developer", sort_order=10, is_required=True, config={}))
+        session.add(
+            BlueprintRoleDB(blueprint_id=blueprint.id, name="Developer", sort_order=10, is_required=True, config={})
+        )
         session.commit()
 
-        session.add(BlueprintRoleDB(blueprint_id=blueprint.id, name="Developer", sort_order=20, is_required=True, config={}))
+        session.add(
+            BlueprintRoleDB(blueprint_id=blueprint.id, name="Developer", sort_order=20, is_required=True, config={})
+        )
         with pytest.raises(IntegrityError):
             session.commit()
         session.rollback()
 
-        session.add(BlueprintArtifactDB(blueprint_id=blueprint.id, kind="task", title="Kickoff", sort_order=10, payload={}))
+        session.add(
+            BlueprintArtifactDB(blueprint_id=blueprint.id, kind="task", title="Kickoff", sort_order=10, payload={})
+        )
         session.commit()
-        session.add(BlueprintArtifactDB(blueprint_id=blueprint.id, kind="policy", title="Policy", sort_order=10, payload={}))
+        session.add(
+            BlueprintArtifactDB(blueprint_id=blueprint.id, kind="policy", title="Policy", sort_order=10, payload={})
+        )
         with pytest.raises(IntegrityError):
             session.commit()
         session.rollback()
@@ -385,12 +476,16 @@ def test_instantiate_blueprint_rolls_back_when_materialization_fails(client, mon
     def fail_materialization(*args, **kwargs):
         raise RuntimeError("materialization failed")
 
-    monkeypatch.setattr(team_blueprint_instantiation_service, "_materialize_blueprint_artifacts_in_session", fail_materialization)
+    monkeypatch.setattr(
+        team_blueprint_instantiation_service, "_materialize_blueprint_artifacts_in_session", fail_materialization
+    )
 
     with Session(engine) as session:
         before_team_count = len(session.exec(select(TeamDB)).all())
         before_member_count = len(session.exec(select(TeamMemberDB)).all())
-        before_rollback_task_count = len(session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all())
+        before_rollback_task_count = len(
+            session.exec(select(TaskDB).where(TaskDB.title.startswith("Rollback Team:"))).all()
+        )
 
     response = client.post(
         f"/teams/blueprints/{scrum_blueprint['id']}/instantiate",

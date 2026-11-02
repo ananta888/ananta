@@ -37,11 +37,14 @@ def test_options_route_returns_autocomplete_dimensions(monkeypatch) -> None:
 def test_resolve_route_returns_effective_workflow(monkeypatch) -> None:
     client = app_with_effective_workflow(monkeypatch).test_client()
 
-    response = client.post("/api/effective-workflow/resolve", json={
-        "surface": "ai_snake_chat",
-        "task_kind": "bugfix",
-        "path": "agent/routes/tasks/goals.py",
-    })
+    response = client.post(
+        "/api/effective-workflow/resolve",
+        json={
+            "surface": "ai_snake_chat",
+            "task_kind": "bugfix",
+            "path": "agent/routes/tasks/goals.py",
+        },
+    )
 
     assert response.status_code == 200
     payload = response.get_json()
@@ -61,10 +64,13 @@ def test_resolve_route_requires_surface(monkeypatch) -> None:
 def test_compare_route_returns_differences(monkeypatch) -> None:
     client = app_with_effective_workflow(monkeypatch).test_client()
 
-    response = client.post("/api/effective-workflow/compare", json={
-        "left": {"surface": "ai_snake_chat", "task_kind": "bugfix"},
-        "right": {"surface": "unknown_surface_xyz"},
-    })
+    response = client.post(
+        "/api/effective-workflow/compare",
+        json={
+            "left": {"surface": "ai_snake_chat", "task_kind": "bugfix"},
+            "right": {"surface": "unknown_surface_xyz"},
+        },
+    )
 
     assert response.status_code == 200
     payload = response.get_json()

@@ -90,9 +90,7 @@ class AtomicProviderBudgetLedger:
 
     def __init__(self) -> None:
         self._usage: dict[tuple[str, str, str], _BudgetUsage] = {}
-        self._reservations: dict[
-            tuple[str, str, str, str], _BudgetReservation
-        ] = {}
+        self._reservations: dict[tuple[str, str, str, str], _BudgetReservation] = {}
         self._lock = threading.RLock()
 
     @staticmethod
@@ -118,10 +116,7 @@ class AtomicProviderBudgetLedger:
             reservation_key = (*self._key(context), reservation_id)
             existing = self._reservations.get(reservation_key)
             if existing is not None:
-                if (
-                    existing.reserved_tokens != reserved_tokens
-                    or existing.reserved_cost_micros != reserved_cost
-                ):
+                if existing.reserved_tokens != reserved_tokens or existing.reserved_cost_micros != reserved_cost:
                     return ProviderBudgetDecision(
                         False,
                         "provider_budget_reservation_binding_mismatch",
@@ -175,18 +170,12 @@ class AtomicProviderBudgetLedger:
             return
         with self._lock:
             usage = self._usage.setdefault(self._key(context), _BudgetUsage())
-            reservation = self._reservations.get(
-                (*self._key(context), reservation_id)
-            )
+            reservation = self._reservations.get((*self._key(context), reservation_id))
             if reservation is None:
-                raise ProviderInvocationBlocked(
-                    "provider_budget_reservation_not_found"
-                )
+                raise ProviderInvocationBlocked("provider_budget_reservation_not_found")
             if reservation.actual_total_tokens is not None:
                 if reservation.actual_total_tokens != int(actual_total_tokens):
-                    raise ProviderInvocationBlocked(
-                        "provider_budget_reconciliation_conflict"
-                    )
+                    raise ProviderInvocationBlocked("provider_budget_reconciliation_conflict")
                 return
             delta = int(actual_total_tokens) - int(reserved_tokens)
             usage.tokens = max(0, usage.tokens + delta)
@@ -291,9 +280,7 @@ class ProviderInvocationMiddleware:
         resolved = ProviderInvocationContext.from_value(context)
         resolved.assert_valid()
         if not resolved.provider_call_id:
-            resolved = resolved.for_provider_call(
-                f"provider-call:{uuid.uuid4().hex}"
-            )
+            resolved = resolved.for_provider_call(f"provider-call:{uuid.uuid4().hex}")
         if resolved.selected_provider_id and (
             provider != resolved.selected_provider_id or model != resolved.selected_model_id
         ):
@@ -541,9 +528,7 @@ class ProviderInvocationMiddleware:
             "provider": provider,
             "model": model,
             "provider_binding_id": context.provider_binding_id,
-            "provider_endpoint_identity": (
-                context.provider_endpoint_identity
-            ),
+            "provider_endpoint_identity": (context.provider_endpoint_identity),
             "payload_hash": payload_hash,
         }
         rendered = json.dumps(binding, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -569,9 +554,7 @@ class ProviderInvocationMiddleware:
             "provider": provider,
             "model": model,
             "provider_binding_id": context.provider_binding_id,
-            "provider_endpoint_identity": (
-                context.provider_endpoint_identity
-            ),
+            "provider_endpoint_identity": (context.provider_endpoint_identity),
             "payload_hash": payload_hash,
         }
         rendered = json.dumps(

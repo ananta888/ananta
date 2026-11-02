@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 from agent.services.three_worker_track_executor import ThreeWorkerTrackExecutor
@@ -84,7 +83,12 @@ def test_non_hermes_track_returns_handoff() -> None:
         },
     )
     out = executor(
-        {"id": "opencode-local", "requested_backend": "opencode", "worker_type": "opencode", "execution_provider": "local"},
+        {
+            "id": "opencode-local",
+            "requested_backend": "opencode",
+            "worker_type": "opencode",
+            "execution_provider": "local",
+        },
         {"planning": {"provider": "lmstudio", "model": "google/gemma-4-e4b"}},
     )
     assert out["status"] == "pending_integration"

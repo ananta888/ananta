@@ -6,6 +6,7 @@ BayesianEvidence records without altering the source persistence format.
 Filters mirror the filter parameters already supported by the corresponding
 recommend_* functions so evidence counts match recommendation sample counts.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -16,8 +17,8 @@ from agent.services.bayesian_benchmark_estimator import (
     normalize_sample_to_evidence,
 )
 
-
 # ── Hub benchmark adapter ──────────────────────────────────────────────────────
+
 
 def extract_hub_evidence(
     bucket: dict[str, Any],
@@ -86,6 +87,7 @@ def enrich_hub_score_with_bayes(
 
 
 # ── Ollama benchmark adapter ───────────────────────────────────────────────────
+
 
 def extract_ollama_evidence(
     bucket: dict[str, Any],
@@ -156,6 +158,7 @@ def enrich_ollama_score_with_bayes(
 
 
 # ── llm_benchmarks adapter ─────────────────────────────────────────────────────
+
 
 def extract_llm_benchmark_evidence(
     bucket: dict[str, Any],

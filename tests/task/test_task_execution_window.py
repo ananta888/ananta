@@ -34,8 +34,10 @@ def test_claude_cli_keeps_its_own_window():
 def test_a_cloud_provider_keeps_its_own_window():
     window = execution_window(TASK, _cfg("ananta-worker", default_provider="anthropic", default_model="claude-opus-4"))
     assert window.tokens == 200_000 and not window.local
-    assert execution_window(TASK, _cfg("ananta-worker", default_provider="openai", default_model="gpt-4.1")).tokens \
+    assert (
+        execution_window(TASK, _cfg("ananta-worker", default_provider="openai", default_model="gpt-4.1")).tokens
         == 128_000
+    )
 
 
 def test_opencode_follows_its_model():
@@ -45,8 +47,10 @@ def test_opencode_follows_its_model():
 
 
 def test_a_failing_prediction_sizes_for_the_local_window(monkeypatch):
-    monkeypatch.setattr("agent.services._task_scoped_runtime.resolve_task_cli_backend",
-                        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        "agent.services.task_scoped.runtime.resolve_task_cli_backend",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
     window = execution_window(TASK, _cfg("claude_code"))
     assert (window.tokens, window.local, window.reason) == (32768, True, "prediction_failed")
 

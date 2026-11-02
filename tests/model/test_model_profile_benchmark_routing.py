@@ -1,5 +1,6 @@
 import pytest
-from agent.llm_benchmarks import record_benchmark_sample, recommend_profiles_for_context
+
+from agent.llm_benchmarks import recommend_profiles_for_context, record_benchmark_sample
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, SecurityPolicyChecker
 
@@ -108,6 +109,7 @@ def test_benchmark_ranking_cannot_override_secret_cloud_policy(tmp_path):
 
 # ── T07 — RoutingDecisionChain + cost estimation ──────────────────────────────
 
+
 def _routing_profile(profile_id: str, cost_class: str = "free", **kwargs) -> ModelProfile:
     return ModelProfile(
         profile_id=profile_id,
@@ -123,8 +125,9 @@ def _routing_profile(profile_id: str, cost_class: str = "free", **kwargs) -> Mod
 
 
 def test_routing_decision_chain_with_context_budget():
-    from agent.services.routing_decision_service import RoutingDecisionService
     from unittest.mock import MagicMock
+
+    from agent.services.routing_decision_service import RoutingDecisionService
 
     svc = RoutingDecisionService()
     mock_budget = MagicMock()
@@ -198,10 +201,7 @@ def test_free_to_cheap_to_expensive_routing_with_budget_gate():
     expensive_profile = _routing_profile("expensive-cloud", cost_class="high", input_cost_per_1m_tokens=10.0)
 
     tokens = 100_000
-    costs = {
-        p.profile_id: estimate_cost_eur(tokens, p)
-        for p in [free_profile, cheap_profile, expensive_profile]
-    }
+    costs = {p.profile_id: estimate_cost_eur(tokens, p) for p in [free_profile, cheap_profile, expensive_profile]}
     assert costs["free-local"] is None  # free, no cost data
     assert costs["cheap-cloud"] == pytest.approx(0.01)
     assert costs["expensive-cloud"] == pytest.approx(1.0)

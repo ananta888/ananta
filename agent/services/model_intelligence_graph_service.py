@@ -7,13 +7,13 @@ container-local model paths.
 
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass
 import hashlib
 import json
 import time
+from collections import deque
+from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping, Sequence
+from typing import Mapping
 
 
 class ModelGraphError(ValueError):
@@ -32,9 +32,7 @@ def _canonical_json(value: object) -> str:
 
 
 def _stable_id(model_id: str, kind: str, key: str) -> str:
-    return hashlib.sha256(
-        f"{model_id}\0{kind}\0{key}".encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(f"{model_id}\0{kind}\0{key}".encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -90,9 +88,7 @@ class ModelGraphArtifact:
             "nodes": [item.to_dict() for item in self.nodes],
             "edges": [item.to_dict() for item in self.edges],
         }
-        body["content_digest"] = hashlib.sha256(
-            _canonical_json(body).encode("utf-8")
-        ).hexdigest()
+        body["content_digest"] = hashlib.sha256(_canonical_json(body).encode("utf-8")).hexdigest()
         return body
 
 
@@ -148,11 +144,7 @@ class ModelGraphBuilder:
         )
         for raw in sorted(
             raw_tensors,
-            key=lambda value: (
-                str(value.get("name") or "")
-                if isinstance(value, Mapping)
-                else ""
-            ),
+            key=lambda value: str(value.get("name") or "") if isinstance(value, Mapping) else "",
         ):
             if not isinstance(raw, Mapping):
                 raise ModelGraphError(
@@ -239,10 +231,7 @@ class ModelGraphBuilder:
                 target=tensor_node_id,
                 kind="contains_tensor",
             )
-            if (
-                len(nodes) > self._policy.max_nodes
-                or len(edges) > self._policy.max_edges
-            ):
+            if len(nodes) > self._policy.max_nodes or len(edges) > self._policy.max_edges:
                 raise ModelGraphError(
                     "model_graph_build_limit_exceeded",
                     "Model graph exceeds its configured build limits.",
@@ -284,12 +273,15 @@ class ModelGraphQueryPolicy:
     max_timeout_ms: int = 1000
 
     def __post_init__(self) -> None:
-        if min(
-            self.max_depth,
-            self.max_nodes,
-            self.max_page_size,
-            self.max_timeout_ms,
-        ) <= 0:
+        if (
+            min(
+                self.max_depth,
+                self.max_nodes,
+                self.max_page_size,
+                self.max_timeout_ms,
+            )
+            <= 0
+        ):
             raise ValueError("model graph query limits must be positive")
 
 
@@ -320,17 +312,10 @@ class ModelGraphQueryService:
         self._nodes = {item.node_id: item for item in artifact.nodes}
         adjacency: dict[str, list[tuple[str, ModelGraphEdge]]] = {}
         for edge in artifact.edges:
-            adjacency.setdefault(edge.source_node_id, []).append(
-                (edge.target_node_id, edge)
-            )
-            adjacency.setdefault(edge.target_node_id, []).append(
-                (edge.source_node_id, edge)
-            )
+            adjacency.setdefault(edge.source_node_id, []).append((edge.target_node_id, edge))
+            adjacency.setdefault(edge.target_node_id, []).append((edge.source_node_id, edge))
         self._adjacency = {
-            key: tuple(
-                sorted(value, key=lambda item: (item[0], item[1].edge_id))
-            )
-            for key, value in adjacency.items()
+            key: tuple(sorted(value, key=lambda item: (item[0], item[1].edge_id))) for key, value in adjacency.items()
         }
 
     def traverse(
@@ -398,8 +383,7 @@ class ModelGraphQueryService:
                 used_edges.values(),
                 key=lambda item: item.edge_id,
             )
-            if edge.source_node_id in page_node_set
-            and edge.target_node_id in page_node_set
+            if edge.source_node_id in page_node_set and edge.target_node_id in page_node_set
         )
         next_offset = offset + len(page_node_ids)
         has_more = next_offset < len(ordered)

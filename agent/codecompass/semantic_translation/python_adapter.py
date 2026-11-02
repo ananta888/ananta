@@ -38,13 +38,9 @@ class PythonSemanticAdapter:
     def __init__(
         self,
         *,
-        symbol_identity: (
-            PythonSymbolIdentityPort | LegacyPythonSymbolIdentityPort | None
-        ) = None,
+        symbol_identity: (PythonSymbolIdentityPort | LegacyPythonSymbolIdentityPort | None) = None,
     ) -> None:
-        self._symbol_identity = (
-            symbol_identity or DeterministicPythonSymbolIdentityFactory()
-        )
+        self._symbol_identity = symbol_identity or DeterministicPythonSymbolIdentityFactory()
 
     def detect(self, path: str, content: str) -> bool:
         return Path(path).suffix == ".py"
@@ -86,9 +82,17 @@ class PythonSemanticAdapter:
         for item in parsed.get("types") or []:
             symbols.append({"symbol": item["name"], "kind": item["kind"], "line_start": item["line_start"]})
             for field in item.get("fields") or []:
-                symbols.append({"symbol": f"{item['name']}.{field['name']}", "kind": "field", "line_start": field.get("line_start", item["line_start"])})
+                symbols.append(
+                    {
+                        "symbol": f"{item['name']}.{field['name']}",
+                        "kind": "field",
+                        "line_start": field.get("line_start", item["line_start"]),
+                    }
+                )
             for method in item.get("methods") or []:
-                symbols.append({"symbol": f"{item['name']}.{method['name']}", "kind": "method", "line_start": method["line_start"]})
+                symbols.append(
+                    {"symbol": f"{item['name']}.{method['name']}", "kind": "method", "line_start": method["line_start"]}
+                )
         for fn in parsed.get("functions") or []:
             symbols.append({"symbol": fn["name"], "kind": "function", "line_start": fn["line_start"]})
         return symbols
@@ -99,7 +103,13 @@ class PythonSemanticAdapter:
     def extract_semantics(self, parsed: dict) -> list[dict]:
         semantics = []
         for item in parsed.get("types") or []:
-            kind_map = {"dataclass": "data_record", "frozen_dataclass": "data_record", "enum": "data_record", "typed_dict": "data_record", "class": "data_record"}
+            kind_map = {
+                "dataclass": "data_record",
+                "frozen_dataclass": "data_record",
+                "enum": "data_record",
+                "typed_dict": "data_record",
+                "class": "data_record",
+            }
             semantics.append({"symbol": item["name"], "semantic_kind": kind_map.get(item["kind"], "data_record")})
         for fn in parsed.get("functions") or []:
             semantics.append({"symbol": fn["name"], "semantic_kind": "function_signature"})
@@ -119,7 +129,11 @@ class PythonSemanticAdapter:
                 provenance_line_start=int(item["line_start"]),
                 provenance_column_start=int(item["column_start"]),
             )
-            semantic_kind = "data_record" if item["kind"] in {"dataclass", "frozen_dataclass", "typed_dict", "class"} else "data_record"
+            semantic_kind = (
+                "data_record"
+                if item["kind"] in {"dataclass", "frozen_dataclass", "typed_dict", "class"}
+                else "data_record"
+            )
             if item["kind"] == "enum":
                 semantic_kind = "data_record"
             type_node = SemanticNode(
@@ -148,23 +162,29 @@ class PythonSemanticAdapter:
                     path=path,
                     symbol_kind="field",
                     qualified_symbol=qualified_field,
-                    provenance_line_start=int(
-                        field.get("line_start", item["line_start"])
-                    ),
-                    provenance_column_start=int(
-                        field.get("column_start", item["column_start"])
-                    ),
+                    provenance_line_start=int(field.get("line_start", item["line_start"])),
+                    provenance_column_start=int(field.get("column_start", item["column_start"])),
                 )
                 null_kind = "nullable_value" if field.get("type_annotation", {}).get("is_optional") else "property"
-                nodes.append(SemanticNode(
-                    id=field_id,
-                    kind="semantic_node",
-                    semantic_kind=null_kind,
-                    language="python",
-                    symbol=qualified_field,
-                    attributes=field,
-                    provenance=Provenance(file=path, language="python", symbol=qualified_field, line_start=field.get("line_start", item["line_start"]), line_end=field.get("line_start", item["line_start"]), parser=self.parser_strategy, confidence=0.82),
-                ).as_record())
+                nodes.append(
+                    SemanticNode(
+                        id=field_id,
+                        kind="semantic_node",
+                        semantic_kind=null_kind,
+                        language="python",
+                        symbol=qualified_field,
+                        attributes=field,
+                        provenance=Provenance(
+                            file=path,
+                            language="python",
+                            symbol=qualified_field,
+                            line_start=field.get("line_start", item["line_start"]),
+                            line_end=field.get("line_start", item["line_start"]),
+                            parser=self.parser_strategy,
+                            confidence=0.82,
+                        ),
+                    ).as_record()
+                )
                 edges.append(SemanticEdge(source_id=type_id, target_id=field_id, edge_type="declares").as_record())
 
             for value in item.get("enum_values") or []:
@@ -177,15 +197,25 @@ class PythonSemanticAdapter:
                     provenance_line_start=int(item["line_start"]),
                     provenance_column_start=int(item["column_start"]),
                 )
-                nodes.append(SemanticNode(
-                    id=value_id,
-                    kind="semantic_node",
-                    semantic_kind="enum_value",
-                    language="python",
-                    symbol=qualified_value,
-                    attributes={"name": value},
-                    provenance=Provenance(file=path, language="python", symbol=qualified_value, line_start=item["line_start"], line_end=item["line_end"], parser=self.parser_strategy, confidence=0.9),
-                ).as_record())
+                nodes.append(
+                    SemanticNode(
+                        id=value_id,
+                        kind="semantic_node",
+                        semantic_kind="enum_value",
+                        language="python",
+                        symbol=qualified_value,
+                        attributes={"name": value},
+                        provenance=Provenance(
+                            file=path,
+                            language="python",
+                            symbol=qualified_value,
+                            line_start=item["line_start"],
+                            line_end=item["line_end"],
+                            parser=self.parser_strategy,
+                            confidence=0.9,
+                        ),
+                    ).as_record()
+                )
                 edges.append(SemanticEdge(source_id=type_id, target_id=value_id, edge_type="declares").as_record())
 
             for method in item.get("methods") or []:
@@ -198,15 +228,25 @@ class PythonSemanticAdapter:
                     provenance_line_start=int(method["line_start"]),
                     provenance_column_start=int(method["column_start"]),
                 )
-                nodes.append(SemanticNode(
-                    id=method_id,
-                    kind="semantic_node",
-                    semantic_kind="function_signature",
-                    language="python",
-                    symbol=qualified_method,
-                    attributes=method,
-                    provenance=Provenance(file=path, language="python", symbol=qualified_method, line_start=method["line_start"], line_end=method["line_start"], parser=self.parser_strategy, confidence=0.8),
-                ).as_record())
+                nodes.append(
+                    SemanticNode(
+                        id=method_id,
+                        kind="semantic_node",
+                        semantic_kind="function_signature",
+                        language="python",
+                        symbol=qualified_method,
+                        attributes=method,
+                        provenance=Provenance(
+                            file=path,
+                            language="python",
+                            symbol=qualified_method,
+                            line_start=method["line_start"],
+                            line_end=method["line_start"],
+                            parser=self.parser_strategy,
+                            confidence=0.8,
+                        ),
+                    ).as_record()
+                )
                 edges.append(SemanticEdge(source_id=type_id, target_id=method_id, edge_type="declares").as_record())
 
         for fn in parsed.get("functions") or []:
@@ -218,15 +258,25 @@ class PythonSemanticAdapter:
                 provenance_line_start=int(fn["line_start"]),
                 provenance_column_start=int(fn["column_start"]),
             )
-            nodes.append(SemanticNode(
-                id=fn_id,
-                kind="semantic_node",
-                semantic_kind="function_signature",
-                language="python",
-                symbol=fn["name"],
-                attributes=fn,
-                provenance=Provenance(file=path, language="python", symbol=fn["name"], line_start=fn["line_start"], line_end=fn["line_end"], parser=self.parser_strategy, confidence=0.83),
-            ).as_record())
+            nodes.append(
+                SemanticNode(
+                    id=fn_id,
+                    kind="semantic_node",
+                    semantic_kind="function_signature",
+                    language="python",
+                    symbol=fn["name"],
+                    attributes=fn,
+                    provenance=Provenance(
+                        file=path,
+                        language="python",
+                        symbol=fn["name"],
+                        line_start=fn["line_start"],
+                        line_end=fn["line_end"],
+                        parser=self.parser_strategy,
+                        confidence=0.83,
+                    ),
+                ).as_record()
+            )
 
         return {"nodes": nodes, "edges": edges, "diagnostics": list(parsed.get("diagnostics") or [])}
 
@@ -242,7 +292,9 @@ class _PythonExtractor(ast.NodeVisitor):
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
-            self.imports.append({"name": alias.name, "alias": alias.asname, "line_start": node.lineno, "kind": "import"})
+            self.imports.append(
+                {"name": alias.name, "alias": alias.asname, "line_start": node.lineno, "kind": "import"}
+            )
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         module = node.module or ""
@@ -253,8 +305,18 @@ class _PythonExtractor(ast.NodeVisitor):
         # Detect __future__ imports early
         for alias in node.names:
             if alias.name == "*":
-                self.diagnostics.append(diagnostic("dynamic_import", f"star import from {module}", path=self.path, line=node.lineno))
-            self.imports.append({"name": f"{module}.{alias.name}", "alias": alias.asname, "line_start": node.lineno, "kind": kind, "module": module})
+                self.diagnostics.append(
+                    diagnostic("dynamic_import", f"star import from {module}", path=self.path, line=node.lineno)
+                )
+            self.imports.append(
+                {
+                    "name": f"{module}.{alias.name}",
+                    "alias": alias.asname,
+                    "line_start": node.lineno,
+                    "kind": kind,
+                    "module": module,
+                }
+            )
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         decorators = [ast.unparse(d) for d in node.decorator_list]
@@ -289,7 +351,9 @@ class _PythonExtractor(ast.NodeVisitor):
             inheritance = [b for b in bases if b not in ("object", "ABC")]
             if len(inheritance) > 1:
                 item["warnings"].append("multiple_inheritance_requires_review")
-                item["unsupported"].append({"code": "unsupported_construct", "reason": "multiple_inheritance", "path": self.path})
+                item["unsupported"].append(
+                    {"code": "unsupported_construct", "reason": "multiple_inheritance", "path": self.path}
+                )
             for decorator in decorators:
                 if "property" in decorator:
                     item["warnings"].append("property_decorator_detected")
@@ -299,17 +363,31 @@ class _PythonExtractor(ast.NodeVisitor):
                 method = _extract_function_info(child)
                 method["is_method"] = True
                 method["is_property"] = any("property" in d for d in [ast.unparse(d) for d in child.decorator_list])
-                method["is_classmethod"] = any("classmethod" in d for d in [ast.unparse(d) for d in child.decorator_list])
-                method["is_staticmethod"] = any("staticmethod" in d for d in [ast.unparse(d) for d in child.decorator_list])
+                method["is_classmethod"] = any(
+                    "classmethod" in d for d in [ast.unparse(d) for d in child.decorator_list]
+                )
+                method["is_staticmethod"] = any(
+                    "staticmethod" in d for d in [ast.unparse(d) for d in child.decorator_list]
+                )
                 # Check for dynamic attribute injection outside __init__
                 if child.name != "__init__":
                     for stmt in ast.walk(child):
                         if isinstance(stmt, ast.Assign):
                             for t in stmt.targets:
-                                if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == "self":
+                                if (
+                                    isinstance(t, ast.Attribute)
+                                    and isinstance(t.value, ast.Name)
+                                    and t.value.id == "self"
+                                ):
                                     if "dynamic_attribute_injection" not in item["warnings"]:
                                         item["warnings"].append("dynamic_attribute_injection_outside_init")
-                                        item["unsupported"].append({"code": "dynamic_attribute_injection", "reason": f"self.{t.attr} set outside __init__", "path": self.path})
+                                        item["unsupported"].append(
+                                            {
+                                                "code": "dynamic_attribute_injection",
+                                                "reason": f"self.{t.attr} set outside __init__",
+                                                "path": self.path,
+                                            }
+                                        )
                 item_methods = item.setdefault("methods", [])
                 child_identity = (
                     method["name"],
@@ -374,7 +452,12 @@ def _extract_dataclass_fields(node: ast.ClassDef) -> list[dict]:
                             default_ann = infer_type_from_default(kw.value)
                         elif kw.arg == "default_factory":
                             default_str = f"factory:{ast.unparse(kw.value)}"
-                            default_ann = TypeAnnotation(raw="factory", confidence="dynamic", source="default_factory", warnings=("default_factory_requires_review",))
+                            default_ann = TypeAnnotation(
+                                raw="factory",
+                                confidence="dynamic",
+                                source="default_factory",
+                                warnings=("default_factory_requires_review",),
+                            )
                 else:
                     default_str = raw_default
                     default_ann = infer_type_from_default(stmt.value)
@@ -385,16 +468,18 @@ def _extract_dataclass_fields(node: ast.ClassDef) -> list[dict]:
             if default_ann and default_ann.confidence == "dynamic":
                 warnings.extend(list(default_ann.warnings))
 
-            fields.append({
-                "name": name,
-                "type": ann.raw,
-                "type_annotation": ann.as_dict(),
-                "has_default": has_default,
-                "default": default_str,
-                "line_start": stmt.lineno,
-                "column_start": stmt.col_offset + 1,
-                "warnings": warnings,
-            })
+            fields.append(
+                {
+                    "name": name,
+                    "type": ann.raw,
+                    "type_annotation": ann.as_dict(),
+                    "has_default": has_default,
+                    "default": default_str,
+                    "line_start": stmt.lineno,
+                    "column_start": stmt.col_offset + 1,
+                    "warnings": warnings,
+                }
+            )
     return fields
 
 
@@ -403,16 +488,18 @@ def _extract_typed_dict_fields(node: ast.ClassDef) -> list[dict]:
     for stmt in node.body:
         if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
             ann = parse_python_type(stmt.annotation, source="annotation")
-            fields.append({
-                "name": stmt.target.id,
-                "type": ann.raw,
-                "type_annotation": ann.as_dict(),
-                "has_default": stmt.value is not None,
-                "default": ast.unparse(stmt.value) if stmt.value else None,
-                "line_start": stmt.lineno,
-                "column_start": stmt.col_offset + 1,
-                "warnings": ["no_type_annotation"] if ann.confidence == "unknown" else [],
-            })
+            fields.append(
+                {
+                    "name": stmt.target.id,
+                    "type": ann.raw,
+                    "type_annotation": ann.as_dict(),
+                    "has_default": stmt.value is not None,
+                    "default": ast.unparse(stmt.value) if stmt.value else None,
+                    "line_start": stmt.lineno,
+                    "column_start": stmt.col_offset + 1,
+                    "warnings": ["no_type_annotation"] if ann.confidence == "unknown" else [],
+                }
+            )
     return fields
 
 
@@ -436,28 +523,42 @@ def _extract_class_fields(node: ast.ClassDef) -> list[dict]:
                 if isinstance(s, ast.Assign):
                     for t in s.targets:
                         if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name) and t.value.id == "self":
-                            fields.append({
-                                "name": t.attr,
-                                "type": "",
-                                "type_annotation": TypeAnnotation(raw="", confidence="unknown", source="inferred", warnings=("instance_field_no_annotation",)).as_dict(),
-                                "has_default": True,
-                                "default": ast.unparse(s.value) if s.value else None,
-                                "line_start": s.lineno,
-                                "column_start": s.col_offset + 1,
-                                "warnings": ["instance_field_no_annotation"],
-                            })
-                elif isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Attribute) and isinstance(s.target.value, ast.Name) and s.target.value.id == "self":
+                            fields.append(
+                                {
+                                    "name": t.attr,
+                                    "type": "",
+                                    "type_annotation": TypeAnnotation(
+                                        raw="",
+                                        confidence="unknown",
+                                        source="inferred",
+                                        warnings=("instance_field_no_annotation",),
+                                    ).as_dict(),
+                                    "has_default": True,
+                                    "default": ast.unparse(s.value) if s.value else None,
+                                    "line_start": s.lineno,
+                                    "column_start": s.col_offset + 1,
+                                    "warnings": ["instance_field_no_annotation"],
+                                }
+                            )
+                elif (
+                    isinstance(s, ast.AnnAssign)
+                    and isinstance(s.target, ast.Attribute)
+                    and isinstance(s.target.value, ast.Name)
+                    and s.target.value.id == "self"
+                ):
                     ann = parse_python_type(s.annotation, source="annotation")
-                    fields.append({
-                        "name": s.target.attr,
-                        "type": ann.raw,
-                        "type_annotation": ann.as_dict(),
-                        "has_default": s.value is not None,
-                        "default": ast.unparse(s.value) if s.value else None,
-                        "line_start": s.lineno,
-                        "column_start": s.col_offset + 1,
-                        "warnings": [],
-                    })
+                    fields.append(
+                        {
+                            "name": s.target.attr,
+                            "type": ann.raw,
+                            "type_annotation": ann.as_dict(),
+                            "has_default": s.value is not None,
+                            "default": ast.unparse(s.value) if s.value else None,
+                            "line_start": s.lineno,
+                            "column_start": s.col_offset + 1,
+                            "warnings": [],
+                        }
+                    )
     seen = set()
     deduped = []
     for f in fields:
@@ -578,25 +679,54 @@ def _extract_parameters(args: ast.arguments) -> list[dict]:
                     warnings=default_ann.warnings,
                 )
         is_self = arg.arg == "self" and i == 0
-        params.append({
-            "name": arg.arg,
-            "kind": "self" if is_self else "positional",
-            "type": ann.raw,
-            "type_annotation": ann.as_dict(),
-            "has_default": has_default,
-            "default": ast.unparse(default_node) if default_node else None,
-        })
+        params.append(
+            {
+                "name": arg.arg,
+                "kind": "self" if is_self else "positional",
+                "type": ann.raw,
+                "type_annotation": ann.as_dict(),
+                "has_default": has_default,
+                "default": ast.unparse(default_node) if default_node else None,
+            }
+        )
 
     for arg in args.kwonlyargs:
         ann = parse_python_type(arg.annotation, source="parameter_annotation")
-        params.append({"name": arg.arg, "kind": "keyword_only", "type": ann.raw, "type_annotation": ann.as_dict(), "has_default": False, "default": None})
+        params.append(
+            {
+                "name": arg.arg,
+                "kind": "keyword_only",
+                "type": ann.raw,
+                "type_annotation": ann.as_dict(),
+                "has_default": False,
+                "default": None,
+            }
+        )
 
     if args.vararg:
         ann = parse_python_type(args.vararg.annotation, source="parameter_annotation")
-        params.append({"name": f"*{args.vararg.arg}", "kind": "varargs", "type": ann.raw, "type_annotation": ann.as_dict(), "has_default": False, "default": None})
+        params.append(
+            {
+                "name": f"*{args.vararg.arg}",
+                "kind": "varargs",
+                "type": ann.raw,
+                "type_annotation": ann.as_dict(),
+                "has_default": False,
+                "default": None,
+            }
+        )
 
     if args.kwarg:
         ann = parse_python_type(args.kwarg.annotation, source="parameter_annotation")
-        params.append({"name": f"**{args.kwarg.arg}", "kind": "kwargs", "type": ann.raw, "type_annotation": ann.as_dict(), "has_default": False, "default": None})
+        params.append(
+            {
+                "name": f"**{args.kwarg.arg}",
+                "kind": "kwargs",
+                "type": ann.raw,
+                "type_annotation": ann.as_dict(),
+                "has_default": False,
+                "default": None,
+            }
+        )
 
     return params

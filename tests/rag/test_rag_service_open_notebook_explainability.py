@@ -59,9 +59,7 @@ def test_source_types_and_counts_include_open_notebook():
 
 def test_standard_visibility_hides_ids_but_shows_source_and_type():
     bundle = _bundle()
-    open_notebook_rows = [
-        row for row in bundle["explainability"]["sources"] if row["source_type"] == "open_notebook"
-    ]
+    open_notebook_rows = [row for row in bundle["explainability"]["sources"] if row["source_type"] == "open_notebook"]
     assert open_notebook_rows
     row = open_notebook_rows[0]
     assert row["source"] == "open-notebook/context-budget.md"

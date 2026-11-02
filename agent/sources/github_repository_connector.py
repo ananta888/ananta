@@ -21,7 +21,6 @@ from agent.sources.git_source_connector_common import (
     validate_requested_ref,
 )
 
-
 _AUTHORIZATION_REF = re.compile(
     r"^(?:"
     r"github-(?:installation|oauth):[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}"
@@ -103,9 +102,7 @@ class GitHubRepositoryConnector(GitSourceConnectorBase):
         errors: list[str] = []
         if _AUTHORIZATION_REF.fullmatch(self._connection_ref(descriptor)) is None:
             errors.append("github_authorization_ref_invalid")
-        if _REPOSITORY.fullmatch(
-            str(descriptor.get("repository") or "").strip()
-        ) is None:
+        if _REPOSITORY.fullmatch(str(descriptor.get("repository") or "").strip()) is None:
             errors.append("github_repository_invalid")
         if not validate_requested_ref(self._requested_ref(descriptor)):
             errors.append("git_ref_invalid")

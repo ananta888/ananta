@@ -87,17 +87,16 @@ class AnswerTrace:
 def explain(trace, *, max_chars=450):
     """German self-explanation with observed / repository / generated parts."""
     if trace is None:
-        text = (
-            "Ich habe in diesem Gespräch noch keine Antwort erzeugt, "
-            "deshalb kann ich noch keinen Ablauf erklären."
-        )
+        text = "Ich habe in diesem Gespräch noch keine Antwort erzeugt, deshalb kann ich noch keinen Ablauf erklären."
         return text[:max_chars]
     observed = ", ".join(trace.observed[:6]) or "keine Schritte aufgezeichnet"
     parts = [f"Beobachtet: {observed}."]
     if trace.repository:
         parts.append("Aus dem Repository: " + "; ".join(trace.source_labels()[:4]) + ".")
     elif trace.codecompass_used:
-        parts.append("Aus dem Repository: CodeCompass hat keine passende Quelle geliefert, daher nenne ich keine Datei.")
+        parts.append(
+            "Aus dem Repository: CodeCompass hat keine passende Quelle geliefert, daher nenne ich keine Datei."
+        )
     else:
         parts.append("Aus dem Repository: nichts, diese Frage lief ohne CodeCompass.")
     who = trace.generated_by or "dem konfigurierten Sprachmodell"

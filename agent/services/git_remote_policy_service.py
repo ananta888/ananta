@@ -18,9 +18,7 @@ _CREDENTIAL_REFERENCE = re.compile(
     r"(?:[A-Za-z0-9._/-]|%[0-9A-Fa-f]{2}){2,511}$"
 )
 _MAX_CREDENTIAL_REFERENCE_LENGTH = 512
-_SCP_REMOTE = re.compile(
-    r"^(?P<user>[A-Za-z0-9._-]+)@(?P<host>[A-Za-z0-9.-]+):(?P<path>[^?#]+)$"
-)
+_SCP_REMOTE = re.compile(r"^(?P<user>[A-Za-z0-9._-]+)@(?P<host>[A-Za-z0-9.-]+):(?P<path>[^?#]+)$")
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 _DEFAULT_ALLOWED_HOSTS = ("github.com", "gitlab.com", "bitbucket.org")
 _HARDENED_GIT_CONFIG = (
@@ -152,46 +150,27 @@ class GitTransportAuthorization:
             or self.proxy != "deny"
             or self.recurse_submodules
             or self.lfs_mode not in {"disabled", "pointer_only"}
-            or self.operation
-            not in {"clone", "fetch", "pull", "push", "configure"}
+            or self.operation not in {"clone", "fetch", "pull", "push", "configure"}
             or self.scheme not in {"https", "ssh"}
             or not self.requires_dns_ip_pinning
             or not self.validated_ips
-            or _transport_digest(coordinates)
-            != self.authorization_digest
+            or _transport_digest(coordinates) != self.authorization_digest
         ):
-            raise GitRemotePolicyError(
-                "git_transport_authorization_invalid"
-            )
-        parsed = GitRemoteAccessPolicy._parse_remote_url(
-            self.canonical_url
-        )
+            raise GitRemotePolicyError("git_transport_authorization_invalid")
+        parsed = GitRemoteAccessPolicy._parse_remote_url(self.canonical_url)
         if (
             str(parsed.scheme).lower() != self.scheme
-            or GitRemoteAccessPolicy._normalize_host(
-                parsed.hostname or ""
-            )
-            != self.host
-            or int(
-                parsed.port
-                or (443 if self.scheme == "https" else 22)
-            )
-            != self.port
+            or GitRemoteAccessPolicy._normalize_host(parsed.hostname or "") != self.host
+            or int(parsed.port or (443 if self.scheme == "https" else 22)) != self.port
         ):
-            raise GitRemotePolicyError(
-                "git_transport_authorization_invalid"
-            )
+            raise GitRemotePolicyError("git_transport_authorization_invalid")
         for value in self.validated_ips:
             try:
                 address = ipaddress.ip_address(value)
             except ValueError as exc:
-                raise GitRemotePolicyError(
-                    "git_transport_authorization_invalid"
-                ) from exc
+                raise GitRemotePolicyError("git_transport_authorization_invalid") from exc
             if not address.is_global:
-                raise GitRemotePolicyError(
-                    "git_transport_authorization_invalid"
-                )
+                raise GitRemotePolicyError("git_transport_authorization_invalid")
 
     def coordinates(self) -> dict[str, object]:
         return {
@@ -206,9 +185,7 @@ class GitTransportAuthorization:
             "recurse_submodules": self.recurse_submodules,
             "lfs_mode": self.lfs_mode,
             "credential_ref": self.credential_ref,
-            "requires_dns_ip_pinning": (
-                self.requires_dns_ip_pinning
-            ),
+            "requires_dns_ip_pinning": (self.requires_dns_ip_pinning),
         }
 
     def __repr__(self) -> str:
@@ -247,20 +224,12 @@ def hardened_git_transport_args(
     address = ipaddress.ip_address(authorization.validated_ips[0])
     transport_config: list[str]
     if authorization.scheme == "https":
-        rendered_address = (
-            f"[{address.compressed}]"
-            if address.version == 6
-            else address.compressed
-        )
+        rendered_address = f"[{address.compressed}]" if address.version == 6 else address.compressed
         transport_config = [
             "-c",
             "http.curloptResolve=",
             "-c",
-            (
-                "http.curloptResolve="
-                f"{authorization.host}:{authorization.port}:"
-                f"{rendered_address}"
-            ),
+            (f"http.curloptResolve={authorization.host}:{authorization.port}:{rendered_address}"),
             "-c",
             "http.followRedirects=false",
             "-c",
@@ -272,9 +241,7 @@ def hardened_git_transport_args(
         ]
     else:
         host_key_alias = (
-            authorization.host
-            if authorization.port == 22
-            else f"[{authorization.host}]:{authorization.port}"
+            authorization.host if authorization.port == 22 else f"[{authorization.host}]:{authorization.port}"
         )
         ssh_command = shlex.join(
             [
@@ -302,16 +269,11 @@ def hardened_git_transport_args(
     if remote_name is not None:
         normalized_remote = str(remote_name).strip()
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", normalized_remote):
-            raise GitRemotePolicyError(
-                "git_transport_remote_name_invalid"
-            )
+            raise GitRemotePolicyError("git_transport_remote_name_invalid")
         transport_config.extend(
             [
                 "-c",
-                (
-                    f"remote.{normalized_remote}.url="
-                    f"{authorization.canonical_url}"
-                ),
+                (f"remote.{normalized_remote}.url={authorization.canonical_url}"),
                 "-c",
                 f"remote.{normalized_remote}.proxy=",
             ]
@@ -320,16 +282,11 @@ def hardened_git_transport_args(
             transport_config.extend(
                 [
                     "-c",
-                    (
-                        f"remote.{normalized_remote}.pushurl="
-                        f"{authorization.canonical_url}"
-                    ),
+                    (f"remote.{normalized_remote}.pushurl={authorization.canonical_url}"),
                 ]
             )
 
-    return hardened_git_network_args(
-        [*transport_config, *[str(item) for item in arguments]]
-    )
+    return hardened_git_network_args([*transport_config, *[str(item) for item in arguments]])
 
 
 def hardened_git_environment() -> dict[str, str]:
@@ -381,23 +338,15 @@ class GitRemoteAccessPolicy:
             if allowed_hosts is not None
             else tuple(
                 item.strip()
-                for item in str(
-                    os.environ.get("ANANTA_GIT_REMOTE_ALLOWED_HOSTS") or ""
-                ).split(",")
+                for item in str(os.environ.get("ANANTA_GIT_REMOTE_ALLOWED_HOSTS") or "").split(",")
                 if item.strip()
             )
             or _DEFAULT_ALLOWED_HOSTS
         )
-        self._allowed_schemes = frozenset(
-            str(item).strip().lower() for item in allowed_schemes if str(item).strip()
-        )
-        self._allowed_hosts = tuple(
-            self._normalize_host_pattern(item) for item in configured_hosts
-        )
+        self._allowed_schemes = frozenset(str(item).strip().lower() for item in allowed_schemes if str(item).strip())
+        self._allowed_hosts = tuple(self._normalize_host_pattern(item) for item in configured_hosts)
         self._allowed_lfs_modes = frozenset(
-            str(item).strip().lower()
-            for item in allowed_lfs_modes
-            if str(item).strip()
+            str(item).strip().lower() for item in allowed_lfs_modes if str(item).strip()
         )
         self._allow_submodules = bool(allow_submodules)
         self._credential_status = credential_status
@@ -458,22 +407,13 @@ class GitRemoteAccessPolicy:
             raise GitRemotePolicyError("git_remote_url_invalid")
         scp_match = _SCP_REMOTE.fullmatch(raw)
         if scp_match is not None:
-            raw = (
-                f"ssh://{scp_match.group('user')}@{scp_match.group('host')}/"
-                f"{scp_match.group('path').lstrip('/')}"
-            )
+            raw = f"ssh://{scp_match.group('user')}@{scp_match.group('host')}/{scp_match.group('path').lstrip('/')}"
         try:
             parsed = urlsplit(raw)
             _ = parsed.port
         except ValueError as exc:
             raise GitRemotePolicyError("git_remote_url_invalid") from exc
-        if (
-            not parsed.scheme
-            or not parsed.hostname
-            or not parsed.path
-            or parsed.query
-            or parsed.fragment
-        ):
+        if not parsed.scheme or not parsed.hostname or not parsed.path or parsed.query or parsed.fragment:
             raise GitRemotePolicyError("git_remote_url_invalid")
         return parsed
 
@@ -543,16 +483,13 @@ class GitRemoteAccessPolicy:
             normalized = raw.encode("idna").decode("ascii")
         except UnicodeError as exc:
             raise GitRemotePolicyError("git_remote_host_invalid") from exc
-        if (
-            len(normalized) > 253
-            or any(
-                not label
-                or len(label) > 63
-                or label.startswith("-")
-                or label.endswith("-")
-                or re.fullmatch(r"[a-z0-9-]+", label) is None
-                for label in normalized.split(".")
-            )
+        if len(normalized) > 253 or any(
+            not label
+            or len(label) > 63
+            or label.startswith("-")
+            or label.endswith("-")
+            or re.fullmatch(r"[a-z0-9-]+", label) is None
+            for label in normalized.split(".")
         ):
             raise GitRemotePolicyError("git_remote_host_invalid")
         return normalized
@@ -566,12 +503,7 @@ class GitRemoteAccessPolicy:
 
     def _host_allowed(self, host: str) -> bool:
         return any(
-            host == pattern
-            or (
-                pattern.startswith("*.")
-                and host.endswith(pattern[1:])
-                and host != pattern[2:]
-            )
+            host == pattern or (pattern.startswith("*.") and host.endswith(pattern[1:]) and host != pattern[2:])
             for pattern in self._allowed_hosts
         )
 

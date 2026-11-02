@@ -3,6 +3,7 @@
 Governance controls learning, candidate creation, and activation.
 It is orthogonal to movement_mode (follow_user, lurk, fast_target, …).
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -30,9 +31,7 @@ class GovernanceMode(str, Enum):
             return cls(value)
         except ValueError:
             valid = ", ".join(m.value for m in cls)
-            raise ValueError(
-                f"Unknown governance_mode {value!r}. Valid values: {valid}"
-            ) from None
+            raise ValueError(f"Unknown governance_mode {value!r}. Valid values: {valid}") from None
 
     @property
     def allows_candidate_creation(self) -> bool:
@@ -45,4 +44,3 @@ class GovernanceMode(str, Enum):
     @property
     def requires_human_approval(self) -> bool:
         return self == GovernanceMode.HUMAN_APPROVAL_REQUIRED
-

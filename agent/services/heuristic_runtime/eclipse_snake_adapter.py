@@ -14,9 +14,10 @@ Java ↔ Python protocol contract:
 
 No file contents cross this boundary — only zone classification strings.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
@@ -30,13 +31,14 @@ from agent.services.heuristic_runtime.snake_decision_manager import SnakeDecisio
 @dataclass
 class EclipseSnakeIntent:
     """Parsed intent message from AnantaSnakePredictionRuntime.java."""
-    intent: str              # follow | lurk | idle
-    zone: str                # e.g. "editor_active", "diff_panel", "chat_focus"
+
+    intent: str  # follow | lurk | idle
+    zone: str  # e.g. "editor_active", "diff_panel", "chat_focus"
     dx: int = 0
     dy: int = 0
-    ttl_millis: int = 7000   # maps to lease TTL; default 7s
+    ttl_millis: int = 7000  # maps to lease TTL; default 7s
     context_hash: str = ""
-    panel_hint: str = ""     # optional: which Eclipse panel is active
+    panel_hint: str = ""  # optional: which Eclipse panel is active
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> "EclipseSnakeIntent":

@@ -2,11 +2,15 @@
 
 Pre-built ScenarioConfig objects for quick experiments.
 """
+
 from __future__ import annotations
 
 from simulation.models.scenario import (
-    BudgetConfig, LawDefinition, ModelStrategyEntry,
-    ResourceDefinition, ScenarioConfig,
+    BudgetConfig,
+    LawDefinition,
+    ModelStrategyEntry,
+    ResourceDefinition,
+    ScenarioConfig,
 )
 
 
@@ -18,17 +22,25 @@ def survival_island() -> ScenarioConfig:
         seed=42,
         tick_limit=30,
         agents=[
-            {"id": "a1", "name": "Alice", "role": "hunter",
-             "location_id": "island", "starting_inventory": {"wood": 2.0}},
-            {"id": "a2", "name": "Bob", "role": "farmer",
-             "location_id": "island", "starting_inventory": {}},
-            {"id": "a3", "name": "Carol", "role": "medic",
-             "location_id": "island", "starting_inventory": {"herbs": 3.0}},
+            {
+                "id": "a1",
+                "name": "Alice",
+                "role": "hunter",
+                "location_id": "island",
+                "starting_inventory": {"wood": 2.0},
+            },
+            {"id": "a2", "name": "Bob", "role": "farmer", "location_id": "island", "starting_inventory": {}},
+            {
+                "id": "a3",
+                "name": "Carol",
+                "role": "medic",
+                "location_id": "island",
+                "starting_inventory": {"herbs": 3.0},
+            },
         ],
         locations=[{"id": "island", "name": "Island"}],
         resources=[
-            ResourceDefinition(name="food", initial_amount=5.0,
-                                regeneration_per_tick=0.5, location_id="island"),
+            ResourceDefinition(name="food", initial_amount=5.0, regeneration_per_tick=0.5, location_id="island"),
         ],
         laws=[],
         model_strategy=[ModelStrategyEntry(provider="dummy", model="dummy-v1")],
@@ -44,20 +56,21 @@ def governance_experiment() -> ScenarioConfig:
         seed=100,
         tick_limit=50,
         agents=[
-            {"id": f"agent{i}", "name": f"Citizen{i}", "role": "citizen",
-             "location_id": "town"}
-            for i in range(1, 6)
+            {"id": f"agent{i}", "name": f"Citizen{i}", "role": "citizen", "location_id": "town"} for i in range(1, 6)
         ],
         locations=[{"id": "town", "name": "Town Square"}],
         resources=[
-            ResourceDefinition(name="food", initial_amount=20.0,
-                                regeneration_per_tick=2.0, location_id="town"),
-            ResourceDefinition(name="gold", initial_amount=50.0,
-                                regeneration_per_tick=0.0, location_id="town"),
+            ResourceDefinition(name="food", initial_amount=20.0, regeneration_per_tick=2.0, location_id="town"),
+            ResourceDefinition(name="gold", initial_amount=50.0, regeneration_per_tick=0.0, location_id="town"),
         ],
         laws=[
-            LawDefinition(id="no_attack", description="No violence",
-                           forbidden_actions=["attack"], penalty="imprisonment", severity=0.8),
+            LawDefinition(
+                id="no_attack",
+                description="No violence",
+                forbidden_actions=["attack"],
+                penalty="imprisonment",
+                severity=0.8,
+            ),
         ],
         model_strategy=[ModelStrategyEntry(provider="dummy", model="dummy-v1")],
         budget=BudgetConfig(max_ticks=50),
@@ -72,16 +85,41 @@ def trade_network() -> ScenarioConfig:
         seed=7,
         tick_limit=40,
         agents=[
-            {"id": "merchant1", "name": "Merchant1", "role": "merchant",
-             "location_id": "market", "starting_inventory": {"gold": 10.0}},
-            {"id": "farmer1", "name": "Farmer1", "role": "farmer",
-             "location_id": "farm", "starting_inventory": {"food": 15.0}},
-            {"id": "farmer2", "name": "Farmer2", "role": "farmer",
-             "location_id": "farm", "starting_inventory": {"food": 10.0}},
-            {"id": "builder1", "name": "Builder1", "role": "builder",
-             "location_id": "workshop", "starting_inventory": {"wood": 20.0}},
-            {"id": "wanderer", "name": "Wanderer", "role": "explorer",
-             "location_id": "market", "starting_inventory": {}},
+            {
+                "id": "merchant1",
+                "name": "Merchant1",
+                "role": "merchant",
+                "location_id": "market",
+                "starting_inventory": {"gold": 10.0},
+            },
+            {
+                "id": "farmer1",
+                "name": "Farmer1",
+                "role": "farmer",
+                "location_id": "farm",
+                "starting_inventory": {"food": 15.0},
+            },
+            {
+                "id": "farmer2",
+                "name": "Farmer2",
+                "role": "farmer",
+                "location_id": "farm",
+                "starting_inventory": {"food": 10.0},
+            },
+            {
+                "id": "builder1",
+                "name": "Builder1",
+                "role": "builder",
+                "location_id": "workshop",
+                "starting_inventory": {"wood": 20.0},
+            },
+            {
+                "id": "wanderer",
+                "name": "Wanderer",
+                "role": "explorer",
+                "location_id": "market",
+                "starting_inventory": {},
+            },
         ],
         locations=[
             {"id": "market", "name": "Market"},
@@ -89,8 +127,7 @@ def trade_network() -> ScenarioConfig:
             {"id": "workshop", "name": "Workshop"},
         ],
         resources=[
-            ResourceDefinition(name="food", initial_amount=5.0,
-                                regeneration_per_tick=1.0, location_id="farm"),
+            ResourceDefinition(name="food", initial_amount=5.0, regeneration_per_tick=1.0, location_id="farm"),
         ],
         model_strategy=[ModelStrategyEntry(provider="dummy", model="dummy-v1")],
         budget=BudgetConfig(max_ticks=40),

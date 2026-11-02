@@ -11,6 +11,7 @@ Supported patterns:
   ``mermaid.usecase``, ``mermaid.activity``
 * BPMN 2.0: ``bpmn.process``, ``bpmn.pool_lane``, ``bpmn.collaboration``
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -92,22 +93,16 @@ class NotationRenderer:
             NotationRenderError: on validation errors, unknown
                 pattern_id, or unsafe output paths.
         """
-        pattern_id = _as_str(pattern_plan.get("pattern_id"),
-                             field="pattern_plan.pattern_id")
+        pattern_id = _as_str(pattern_plan.get("pattern_id"), field="pattern_plan.pattern_id")
         generator = _PATTERN_TO_GENERATOR.get(pattern_id)
         if generator is None:
             raise NotationRenderError(
-                f"unknown notation pattern_id {pattern_id!r}; expected one of "
-                f"{sorted(_PATTERN_TO_GENERATOR)}"
+                f"unknown notation pattern_id {pattern_id!r}; expected one of {sorted(_PATTERN_TO_GENERATOR)}"
             )
 
-        language = _as_str(pattern_plan.get("language"),
-                           field="pattern_plan.language")
+        language = _as_str(pattern_plan.get("language"), field="pattern_plan.language")
         if language not in {"mermaid", "bpmn"}:
-            raise NotationRenderError(
-                f"notation pattern language must be 'mermaid' or 'bpmn', "
-                f"got {language!r}"
-            )
+            raise NotationRenderError(f"notation pattern language must be 'mermaid' or 'bpmn', got {language!r}")
 
         params = self._resolve_params(pattern_plan)
         source, default_filename = generator(params)
@@ -138,10 +133,7 @@ class NotationRenderer:
             elif isinstance(parameters, list):
                 flat = {}
             else:
-                raise NotationRenderError(
-                    "pattern_plan parameters must be a dict (flat) or "
-                    "a list (schema array)"
-                )
+                raise NotationRenderError("pattern_plan parameters must be a dict (flat) or a list (schema array)")
         if not isinstance(flat, dict):
             raise NotationRenderError("pattern_plan parameters must be a dict")
         implicit = {}
@@ -154,31 +146,21 @@ class NotationRenderer:
     @staticmethod
     def _write_to_disk(artifact: NotationArtifact, target_root: str) -> None:
         if os.path.isabs(artifact.output_filename):
-            raise NotationRenderError(
-                f"output_filename {artifact.output_filename!r} must be relative"
-            )
+            raise NotationRenderError(f"output_filename {artifact.output_filename!r} must be relative")
         normalised = os.path.normpath(artifact.output_filename)
         if normalised.startswith("..") or "/.." in f"/{normalised}" or normalised == "..":
-            raise NotationRenderError(
-                f"output_filename {artifact.output_filename!r} escapes "
-                f"the target root"
-            )
+            raise NotationRenderError(f"output_filename {artifact.output_filename!r} escapes the target root")
         full = os.path.abspath(os.path.join(target_root, normalised))
         root_abs = os.path.abspath(target_root) + os.sep
         if not (full + os.sep).startswith(root_abs):
-            raise NotationRenderError(
-                f"output_filename {artifact.output_filename!r} resolves "
-                f"outside target_root"
-            )
+            raise NotationRenderError(f"output_filename {artifact.output_filename!r} resolves outside target_root")
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "w", encoding="utf-8") as f:
             f.write(artifact.source)
         with open(full, "rb") as f:
             actual_sha = hashlib.sha256(f.read()).hexdigest()
         if actual_sha != artifact.sha256:
-            raise NotationRenderError(
-                f"hash mismatch for {artifact.output_filename!r} after write"
-            )
+            raise NotationRenderError(f"hash mismatch for {artifact.output_filename!r} after write")
 
 
 _default_renderer: NotationRenderer | None = None

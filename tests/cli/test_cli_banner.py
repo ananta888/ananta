@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import os
-
-import pytest
-
 from agent.cli.banner import get_banner, print_banner
 
 

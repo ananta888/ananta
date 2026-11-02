@@ -3,14 +3,14 @@
 Contains: session defaults, session CRUD, session↔channel bridge,
           effective-settings merge, and message-history helpers.
 """
+
 from __future__ import annotations
 
 import time
 from typing import Any
 
-from client_surfaces.operator_tui.chat_models import ChannelType, Visibility
 from client_surfaces.operator_tui.chat_channel import make_channel
-
+from client_surfaces.operator_tui.chat_models import ChannelType, Visibility
 
 # ── AI Chat Sessions ─────────────────────────────────────────────────────────
 #
@@ -60,10 +60,10 @@ _DEFAULT_SESSION_SETTINGS: dict[str, Any] = {
     # tunable from the "Predictive Guide" tab in the Ananta-Konfig sidebar.
     # The master toggle defaults to False — the user must opt in.
     "predictive_guide_enabled": False,
-    "predictive_guide_mode": "balanced",   # "quiet" | "balanced" | "eager" | "custom"
-    "predictive_guide_dwell_ms": 1500,     # stability window before a prediction fires
+    "predictive_guide_mode": "balanced",  # "quiet" | "balanced" | "eager" | "custom"
+    "predictive_guide_dwell_ms": 1500,  # stability window before a prediction fires
     "predictive_guide_min_confidence": 0.55,  # CONFIRMED threshold (0.0–1.0)
-    "predictive_guide_ttl_seconds": 20,    # prediction lifetime before it expires
+    "predictive_guide_ttl_seconds": 20,  # prediction lifetime before it expires
     "predictive_guide_multi_candidates": 3,  # 1–5 alternative DSL candidates per tick
     "predictive_guide_log_deltas_only": True,  # log only changes between snapshots
 }
@@ -90,10 +90,10 @@ PREDICTIVE_GUIDE_KEYS: tuple[str, ...] = (
 PRESET_PREDICTIVE_QUIET: dict[str, Any] = {
     "predictive_guide_enabled": True,
     "predictive_guide_mode": "quiet",
-    "predictive_guide_dwell_ms": 3000,         # 3s stability
-    "predictive_guide_min_confidence": 0.75,   # high bar
-    "predictive_guide_ttl_seconds": 10,        # short memory
-    "predictive_guide_multi_candidates": 1,    # primary only
+    "predictive_guide_dwell_ms": 3000,  # 3s stability
+    "predictive_guide_min_confidence": 0.75,  # high bar
+    "predictive_guide_ttl_seconds": 10,  # short memory
+    "predictive_guide_multi_candidates": 1,  # primary only
     "predictive_guide_log_deltas_only": True,
 }
 
@@ -110,11 +110,11 @@ PRESET_PREDICTIVE_BALANCED: dict[str, Any] = {
 PRESET_PREDICTIVE_EAGER: dict[str, Any] = {
     "predictive_guide_enabled": True,
     "predictive_guide_mode": "eager",
-    "predictive_guide_dwell_ms": 500,          # fast trigger
-    "predictive_guide_min_confidence": 0.35,   # low bar
-    "predictive_guide_ttl_seconds": 30,        # longer memory
-    "predictive_guide_multi_candidates": 4,    # show alternatives
-    "predictive_guide_log_deltas_only": False, # full snapshot
+    "predictive_guide_dwell_ms": 500,  # fast trigger
+    "predictive_guide_min_confidence": 0.35,  # low bar
+    "predictive_guide_ttl_seconds": 30,  # longer memory
+    "predictive_guide_multi_candidates": 4,  # show alternatives
+    "predictive_guide_log_deltas_only": False,  # full snapshot
 }
 
 PREDICTIVE_PRESETS: dict[str, dict[str, Any]] = {
@@ -124,13 +124,55 @@ PREDICTIVE_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 DEFAULT_CHAT_TYPES: list[dict[str, Any]] = [
-    {"id": "code", "name": "Softwareentwicklung", "icon": "💻", "description": "Implementierung und Codequalität", "subtypes": ["implementation", "debugging", "refactoring", "code-review", "testing"]},
-    {"id": "architecture", "name": "Architektur", "icon": "🏗️", "description": "Systemstruktur und technische Entscheidungen", "subtypes": ["overview", "classes", "sequence", "dependencies", "data-flow", "deployment", "security"]},
-    {"id": "planning", "name": "Planung", "icon": "🗺️", "description": "Ziele, Roadmaps und Aufgaben", "subtypes": ["goal", "roadmap", "tasks", "estimation", "review"]},
-    {"id": "research", "name": "Recherche", "icon": "🔎", "description": "Quellenbasierte Untersuchung", "subtypes": ["repository", "web", "comparison", "evidence-review"]},
-    {"id": "writing", "name": "Schreiben", "icon": "✍️", "description": "Texte und Dokumentation", "subtypes": ["draft", "review", "summary", "translation", "documentation"]},
-    {"id": "configuration", "name": "Konfiguration", "icon": "⚙️", "description": "Ananta- und Laufzeitkonfiguration", "subtypes": ["ananta", "ui", "worker", "model", "deployment"]},
-    {"id": "analysis", "name": "Analyse", "icon": "📊", "description": "Auswertung und Diagnose", "subtypes": ["diagnosis", "audit", "performance", "risk", "data"]},
+    {
+        "id": "code",
+        "name": "Softwareentwicklung",
+        "icon": "💻",
+        "description": "Implementierung und Codequalität",
+        "subtypes": ["implementation", "debugging", "refactoring", "code-review", "testing"],
+    },
+    {
+        "id": "architecture",
+        "name": "Architektur",
+        "icon": "🏗️",
+        "description": "Systemstruktur und technische Entscheidungen",
+        "subtypes": ["overview", "classes", "sequence", "dependencies", "data-flow", "deployment", "security"],
+    },
+    {
+        "id": "planning",
+        "name": "Planung",
+        "icon": "🗺️",
+        "description": "Ziele, Roadmaps und Aufgaben",
+        "subtypes": ["goal", "roadmap", "tasks", "estimation", "review"],
+    },
+    {
+        "id": "research",
+        "name": "Recherche",
+        "icon": "🔎",
+        "description": "Quellenbasierte Untersuchung",
+        "subtypes": ["repository", "web", "comparison", "evidence-review"],
+    },
+    {
+        "id": "writing",
+        "name": "Schreiben",
+        "icon": "✍️",
+        "description": "Texte und Dokumentation",
+        "subtypes": ["draft", "review", "summary", "translation", "documentation"],
+    },
+    {
+        "id": "configuration",
+        "name": "Konfiguration",
+        "icon": "⚙️",
+        "description": "Ananta- und Laufzeitkonfiguration",
+        "subtypes": ["ananta", "ui", "worker", "model", "deployment"],
+    },
+    {
+        "id": "analysis",
+        "name": "Analyse",
+        "icon": "📊",
+        "description": "Auswertung und Diagnose",
+        "subtypes": ["diagnosis", "audit", "performance", "risk", "data"],
+    },
     {"id": "general", "name": "Allgemein", "icon": "💬", "description": "Freie oder gemischte Themen", "subtypes": []},
 ]
 
@@ -352,6 +394,7 @@ DEFAULT_SESSIONS = DEFAULT_CHAT_PROFILES
 def default_chat_profiles() -> list[dict[str, Any]]:
     """Return immutable-style copies of the built-in profile definitions."""
     import copy as _copy
+
     return [_copy.deepcopy(profile) for profile in DEFAULT_CHAT_PROFILES if profile.get("id") != "ananta-visual"]
 
 
@@ -406,9 +449,8 @@ def make_session(
     the explicitly provided keys) are stored so the frontend can tell which
     values are session-specific overrides vs. inherited defaults."""
     import copy as _copy
-    settings_delta: dict[str, Any] = {
-        k: v for k, v in (settings or {}).items() if v is not None
-    }
+
+    settings_delta: dict[str, Any] = {k: v for k, v in (settings or {}).items() if v is not None}
     profile = get_chat_profile(profile_id)
     profile_settings = dict((profile or {}).get("settings") or {})
     merged_settings = _copy.deepcopy(_DEFAULT_SESSION_SETTINGS)
@@ -509,9 +551,9 @@ def _ensure_settings_delta(session: dict[str, Any]) -> None:
     if "settings_delta" not in session:
         stored = dict(session.get("settings") or {})
         session["settings_delta"] = {
-            k: v for k, v in stored.items()
-            if k not in _DEFAULT_SESSION_SETTINGS
-            or _DEFAULT_SESSION_SETTINGS.get(k) != v
+            k: v
+            for k, v in stored.items()
+            if k not in _DEFAULT_SESSION_SETTINGS or _DEFAULT_SESSION_SETTINGS.get(k) != v
         }
 
 
@@ -520,6 +562,7 @@ def _ensure_settings_delta(session: dict[str, Any]) -> None:
 # "active session" is `active_session_id`; the active *channel* stays
 # `ai:<active_session_id>`. We keep both for backward compat with the
 # existing channel-based message rendering. ──────────────────────────────
+
 
 def get_sessions(chat: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the list of session dicts. Always non-empty — returns the
@@ -673,6 +716,7 @@ def active_session_id(chat: dict[str, Any]) -> str:
 
 # ── Session message-history helpers ─────────────────────────────────────────
 
+
 def clear_session_messages(chat: dict[str, Any], session_id: str | None = None) -> bool:
     """Clear the message list of the named session's channel. If
     `session_id` is None, clear the active session. Returns True if
@@ -775,7 +819,8 @@ def set_active_session(chat: dict[str, Any], session_id: str) -> bool:
     if isinstance(raw_sessions, list) and raw_sessions:
         target_session = next(
             (
-                session for session in raw_sessions
+                session
+                for session in raw_sessions
                 if isinstance(session, dict) and str(session.get("id") or "") == target_id
             ),
             None,
@@ -814,6 +859,7 @@ def update_session_settings(
     ``_DEFAULT_SESSION_SETTINGS`` is restored in ``settings``.  All other
     values are added to both ``settings`` and ``settings_delta``."""
     import copy as _copy
+
     session = get_session(chat, session_id)
     if session is None:
         return False

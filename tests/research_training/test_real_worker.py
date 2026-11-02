@@ -90,9 +90,7 @@ def test_tiny_cpu_pretrain_sft_evaluation_benchmark_and_safe_export(tmp_path: Pa
     backend = LocalResearchBackend(ResearchWorkspaceReader(tmp_path, maximum_input_bytes=20_000_000))
     runner = ResearchAssignmentRunner(backend)
 
-    token_result = runner.execute(
-        assignment(spec=spec, dataset=dataset, stage_definition=definitions[0], inputs=[])
-    )
+    token_result = runner.execute(assignment(spec=spec, dataset=dataset, stage_definition=definitions[0], inputs=[]))
     token_input = persist_artifact(tmp_path, "tokenizer", token_result["content"])
     base_result = runner.execute(
         assignment(spec=spec, dataset=dataset, stage_definition=definitions[1], inputs=[token_input])
@@ -236,10 +234,12 @@ def test_worker_verifies_scheduler_runtime_identity_before_execution(tmp_path: P
     # The positive contract binds the installed optional runtime, rather than
     # assuming the old fixture's Torch release is installed in every test image.
     from dataclasses import replace
+
     import torch
 
-    runtime = replace(parsed.runtime, torch_version=str(torch.__version__),
-                      cuda_version=str(torch.version.cuda or "none"))
+    runtime = replace(
+        parsed.runtime, torch_version=str(torch.__version__), cuda_version=str(torch.version.cuda or "none")
+    )
     verifier.configure_and_verify(runtime)
     with pytest.raises(PermissionError, match="torch_version"):
         verifier.configure_and_verify(replace(runtime, torch_version="0.0.0-mismatched"))
@@ -287,9 +287,7 @@ def test_training_preemption_atomically_hands_off_a_monotone_checkpoint(tmp_path
     controller.request()
     backend = LocalResearchBackend(
         ResearchWorkspaceReader(tmp_path, maximum_input_bytes=20_000_000),
-        checkpoint_manager=ResearchCheckpointManager(
-            tmp_path / "checkpoints", max_checkpoint_bytes=10_000_000
-        ),
+        checkpoint_manager=ResearchCheckpointManager(tmp_path / "checkpoints", max_checkpoint_bytes=10_000_000),
         preemption=controller,
     )
     with pytest.raises(ResearchStagePreempted) as caught:

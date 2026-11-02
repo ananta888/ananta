@@ -17,9 +17,7 @@ from agent.services.business_controlling_tabular_extractor import (
 
 
 class ControllingProfileStorePort(Protocol):
-    def append_profile(
-        self, *, tenant_id: str, project_id: str, profile: TabularProfile
-    ) -> TabularProfile: ...
+    def append_profile(self, *, tenant_id: str, project_id: str, profile: TabularProfile) -> TabularProfile: ...
 
     def append_mapping(
         self,

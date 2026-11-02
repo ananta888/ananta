@@ -6,10 +6,11 @@ output_parts, ResultMemory oder Planner-Kontext gelangen.
 Kein LLM im Hot-Path.
 Fehler, Tracebacks, Security-Signale werden immer bewahrt.
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from agent.common.utils.tool_output_compaction_utils import (
     apply_keep_first_last,
@@ -32,7 +33,7 @@ class CompactionResult:
     original_ref: str
     omitted_summary: str
     preserved_signals: list[str]
-    compaction_ratio: float        # output_chars / input_chars; 1.0 = no compaction
+    compaction_ratio: float  # output_chars / input_chars; 1.0 = no compaction
     applied_rule_ids: list[str]
     input_chars: int
     output_chars: int

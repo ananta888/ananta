@@ -26,14 +26,9 @@ def test_real_tui_process_redraws_at_required_terminal_sizes() -> None:
     assert report["release_evidence"] is False
     assert report["formal_gate_eligible"] is False
     assert report["card_count"] == 1000
-    assert [
-        (item["columns"], item["rows"])
-        for item in report["terminal_sizes"]
-    ] == list(DEFAULT_TERMINAL_SIZES)
+    assert [(item["columns"], item["rows"]) for item in report["terminal_sizes"]] == list(DEFAULT_TERMINAL_SIZES)
     assert all(
-        measurement["marker_present"]
-        and measurement["process_alive"]
-        and measurement["redraw_latency_ms"] >= 0
+        measurement["marker_present"] and measurement["process_alive"] and measurement["redraw_latency_ms"] >= 0
         for measurement in report["resize_measurements"]
     )
     assert report["peak_rss_kib"] > 0

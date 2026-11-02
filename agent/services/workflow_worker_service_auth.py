@@ -30,9 +30,7 @@ KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
 CODECOMPASS_LAYER_JOB_SCOPE = "codecompass.layers.jobs"
 CODECOMPASS_ARTIFACT_READ_SCOPE = "codecompass.artifacts.read"
 CODECOMPASS_TOOL_GATEWAY_SCOPE = "codecompass.tools.execute"
-KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE = (
-    "knowledge.index.task_snapshot.read"
-)
+KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE = "knowledge.index.task_snapshot.read"
 SEMANTIC_COMPUTE_WORKER_SCOPE = "semantic.compute.execute"
 HRM_EXPERIMENT_WORKER_SCOPE = "hrm.experiment.execute"
 SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
@@ -41,9 +39,7 @@ RECOVERY_TASK_MANIFEST_SCOPE = "task.recovery.manifest.read"
 RECOVERY_ARTIFACT_INGRESS_SCOPE = "task.recovery.artifacts.publish"
 NATIVE_ARTIFACT_INGRESS_SCOPE = "task.native.artifacts.publish"
 NATIVE_ARTIFACT_INPUT_SCOPE = "task.native.artifacts.read_input"
-VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE = (
-    "task.vector_index.dispatch.admit"
-)
+VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE = "task.vector_index.dispatch.admit"
 
 _STRICT_ENV = "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
 _KEYRING_FILE_ENV = "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
@@ -61,9 +57,7 @@ _SCOPE_CAPABILITIES = {
     CODECOMPASS_LAYER_JOB_SCOPE: frozenset({"retrieval", "index_write"}),
     CODECOMPASS_ARTIFACT_READ_SCOPE: frozenset({"retrieval"}),
     CODECOMPASS_TOOL_GATEWAY_SCOPE: frozenset({"retrieval"}),
-    KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE: frozenset(
-        {"retrieval", "index_write"}
-    ),
+    KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE: frozenset({"retrieval", "index_write"}),
     SEMANTIC_COMPUTE_WORKER_SCOPE: frozenset(
         {
             "semantic_compute",
@@ -94,9 +88,7 @@ _SCOPE_CAPABILITIES = {
     RECOVERY_ARTIFACT_INGRESS_SCOPE: frozenset(),
     NATIVE_ARTIFACT_INGRESS_SCOPE: frozenset({"workflow.adapter.native"}),
     NATIVE_ARTIFACT_INPUT_SCOPE: frozenset({"workflow.adapter.native"}),
-    VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE: frozenset(
-        {"vector_index_operation"}
-    ),
+    VECTOR_INDEX_DISPATCH_ADMISSION_SCOPE: frozenset({"vector_index_operation"}),
 }
 _RUNTIME_SERVICE_SCOPES = frozenset({WORKFLOW_TEMPORAL_TASK_SCOPE})
 
@@ -671,8 +663,7 @@ def authenticate_registered_workflow_worker(
         str(getattr(agent, "role", "") or "").strip().lower() != "worker"
         or not bool(getattr(agent, "registration_validated", False))
         or str(getattr(agent, "registration_provenance", "") or "") != STRICT_WORKER_REGISTRATION_PROVENANCE
-        or str(getattr(agent, "status", "") or "").strip().lower()
-        not in {"online", "degraded", "busy"}
+        or str(getattr(agent, "status", "") or "").strip().lower() not in {"online", "degraded", "busy"}
         or not actual_id
         or not actual_url
     ):
@@ -725,9 +716,7 @@ def authenticate_registered_workflow_worker(
             user_session_secret=user_session_secret,
         )
     scope_capabilities = _SCOPE_CAPABILITIES[required_scope]
-    if scope_capabilities and not set(capabilities).intersection(
-        scope_capabilities
-    ):
+    if scope_capabilities and not set(capabilities).intersection(scope_capabilities):
         raise WorkflowWorkerAuthDenied(
             "workflow_worker_service_scope_forbidden",
             status_code=403,

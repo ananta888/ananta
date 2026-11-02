@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 RELATION_PRIORITY = {
     "extends": 100,
     "implements": 95,
@@ -145,9 +144,4 @@ def _relation_type(relation: dict) -> str:
 
 
 def _target_diversity_key(relation: dict) -> str:
-    return str(
-        relation.get("target_resolved")
-        or relation.get("to")
-        or relation.get("target")
-        or ""
-    )
+    return str(relation.get("target_resolved") or relation.get("to") or relation.get("target") or "")

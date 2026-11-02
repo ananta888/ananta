@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from client_surfaces.freecad.workbench.context import capture_active_freecad_context, capture_context_from_freecad_document
+from client_surfaces.freecad.workbench.context import (
+    capture_active_freecad_context,
+    capture_context_from_freecad_document,
+)
 
 
 class FakeSelection:
@@ -18,8 +21,22 @@ def _fake_document():
     shape = SimpleNamespace(Volume=42.5)
     visible_view = SimpleNamespace(Visibility=True)
     hidden_view = SimpleNamespace(Visibility=False)
-    obj_a = SimpleNamespace(Label="Body", Name="Body001", TypeId="Part::Feature", ViewObject=visible_view, Shape=shape, Constraints=[constraint])
-    obj_b = SimpleNamespace(Label="Sketch", Name="Sketch001", TypeId="Sketcher::SketchObject", ViewObject=hidden_view, Shape=SimpleNamespace(Volume=0.0), Constraints=[])
+    obj_a = SimpleNamespace(
+        Label="Body",
+        Name="Body001",
+        TypeId="Part::Feature",
+        ViewObject=visible_view,
+        Shape=shape,
+        Constraints=[constraint],
+    )
+    obj_b = SimpleNamespace(
+        Label="Sketch",
+        Name="Sketch001",
+        TypeId="Sketcher::SketchObject",
+        ViewObject=hidden_view,
+        Shape=SimpleNamespace(Volume=0.0),
+        Constraints=[],
+    )
     return SimpleNamespace(Name="Assembly", FileName="/tmp/secret.FCStd", UnitSystem="mm", Objects=[obj_a, obj_b])
 
 

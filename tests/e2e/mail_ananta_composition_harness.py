@@ -138,7 +138,7 @@ class InProcessIntentHub:
                             "payload": dict(registered["payload"]),
                             "expires_at": time.time() + 300.0,
                             "job_id": str(request.get("job_id") or ""),
-                        }
+                        },
                     },
                 )
 
@@ -157,9 +157,7 @@ class InProcessIntentHub:
                 ):
                     self._reply(400, {"reason_code": "access_context_incomplete"})
                     return
-                expires = (
-                    datetime.now(UTC) + timedelta(minutes=5)
-                ).isoformat().replace("+00:00", "Z")
+                expires = (datetime.now(UTC) + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
                 self._reply(
                     200,
                     {
@@ -170,14 +168,12 @@ class InProcessIntentHub:
                             "policy_decision_ref": "policy-decision-contract",
                             "expires_at": expires,
                             "nonce": "nonce-contract",
-                        }
+                        },
                     },
                 )
 
             def _reply(self, status: int, payload: Mapping[str, Any]) -> None:
-                body = json.dumps(dict(payload), separators=(",", ":")).encode(
-                    "utf-8"
-                )
+                body = json.dumps(dict(payload), separators=(",", ":")).encode("utf-8")
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -386,11 +382,7 @@ class ContractJmapAdapter:
     ) -> dict[str, Any]:
         if not properties:
             return dict(message)
-        return {
-            key: value
-            for key, value in message.items()
-            if key in properties or key == "id"
-        }
+        return {key: value for key, value in message.items() if key in properties or key == "id"}
 
     @staticmethod
     def _session() -> dict[str, Any]:
@@ -410,19 +402,14 @@ class ContractJmapAdapter:
                 "A1": {
                     "name": "alice@example.test",
                     "isPersonal": True,
-                    "accountCapabilities": {
-                        "urn:ietf:params:jmap:mail": {}
-                    },
+                    "accountCapabilities": {"urn:ietf:params:jmap:mail": {}},
                 }
             },
             "primaryAccounts": {"urn:ietf:params:jmap:mail": "A1"},
             "apiUrl": "http://127.0.0.1:18080/jmap",
             "downloadUrl": "http://127.0.0.1:18080/download/{accountId}/{blobId}/{name}?accept={type}",
             "uploadUrl": "http://127.0.0.1:18080/upload/{accountId}",
-            "eventSourceUrl": (
-                "http://127.0.0.1:18080/events"
-                "?types={types}&closeafter={closeafter}&ping={ping}"
-            ),
+            "eventSourceUrl": ("http://127.0.0.1:18080/events?types={types}&closeafter={closeafter}&ping={ping}"),
             "state": "session-state-1",
         }
 
@@ -495,9 +482,7 @@ class AnantaMailCompositionHarness:
             clock=time.time,
             role="hub",
         )
-        self.accounts = MailAccountService(
-            store_path=self.data_root / "accounts-v2.json"
-        )
+        self.accounts = MailAccountService(store_path=self.data_root / "accounts-v2.json")
         self.accounts.upsert_account(
             MailAccountV2(
                 account_id=self.account_id,
@@ -512,10 +497,7 @@ class AnantaMailCompositionHarness:
             )
         )
         self.intent_hub = intent_hub
-        execution_environment = {
-            str(key): str(value)
-            for key, value in dict(runtime_environment or {}).items()
-        }
+        execution_environment = {str(key): str(value) for key, value in dict(runtime_environment or {}).items()}
         execution_environment.update(
             {
                 "ANANTA_REPO_ROOT": str(self.data_root.parent),
@@ -523,18 +505,10 @@ class AnantaMailCompositionHarness:
                 "ANANTA_MAIL_ENABLED": "1",
                 "ANANTA_MAIL_JMAP_ENABLED": "1",
                 "ANANTA_MAIL_IMAP_FALLBACK_ENABLED": "1",
-                "ANANTA_MAIL_EXTERNAL_NETWORK_ENABLED": (
-                    "1" if external_network_enabled else "0"
-                ),
-                "ANANTA_MAIL_LOCAL_ENDPOINTS_ENABLED": (
-                    "1" if local_endpoints_enabled else "0"
-                ),
-                "ANANTA_MAIL_ALLOWED_LOCAL_HOSTS": (
-                    "127.0.0.1,localhost" if local_endpoints_enabled else ""
-                ),
-                "ANANTA_MAIL_ALLOWED_LOCAL_CIDRS": (
-                    "127.0.0.0/8" if local_endpoints_enabled else ""
-                ),
+                "ANANTA_MAIL_EXTERNAL_NETWORK_ENABLED": ("1" if external_network_enabled else "0"),
+                "ANANTA_MAIL_LOCAL_ENDPOINTS_ENABLED": ("1" if local_endpoints_enabled else "0"),
+                "ANANTA_MAIL_ALLOWED_LOCAL_HOSTS": ("127.0.0.1,localhost" if local_endpoints_enabled else ""),
+                "ANANTA_MAIL_ALLOWED_LOCAL_CIDRS": ("127.0.0.0/8" if local_endpoints_enabled else ""),
                 "ANANTA_MAIL_SECRET_ROOTS": str(secret_root.resolve()),
                 "ANANTA_JMAP_FIXTURE_ALICE_USER": "alice@example.test",
                 "ANANTA_MAIL_HUB_URL": intent_hub.url,
@@ -544,28 +518,18 @@ class AnantaMailCompositionHarness:
         self.execution = build_production_mail_task_execution(
             environ=execution_environment,
             runtime_availability=MailRuntimeAvailabilityPolicy(
-                runtime_policy=MailRuntimePolicy.from_environment(
-                    {"ANANTA_MAIL_ROLLOUT_PHASE": "operator_opt_in"}
-                ),
-                circuit_breaker=MailCircuitBreaker(
-                    state_path=self.data_root / "circuit-breakers.json"
-                ),
+                runtime_policy=MailRuntimePolicy.from_environment({"ANANTA_MAIL_ROLLOUT_PHASE": "operator_opt_in"}),
+                circuit_breaker=MailCircuitBreaker(state_path=self.data_root / "circuit-breakers.json"),
             ),
             sync_fault_injector=sync_fault_injector,
         )
         self.worker = MailWorkerTaskHandler(self.execution, clock=time.time)
-        self.metadata = SqliteMailMetadataStore(
-            database_path=self.data_root / "runtime-state-v1.sqlite3"
-        )
+        self.metadata = SqliteMailMetadataStore(database_path=self.data_root / "runtime-state-v1.sqlite3")
 
     def add_auto_account(self, *, resolved_protocol: str | None) -> None:
         self.accounts.create_account(
             MailAccountV2(
-                account_id=(
-                    "auto-unresolved"
-                    if resolved_protocol is None
-                    else f"auto-{resolved_protocol}"
-                ),
+                account_id=("auto-unresolved" if resolved_protocol is None else f"auto-{resolved_protocol}"),
                 display_name="Auto protocol",
                 requested_protocol="auto",
                 resolved_protocol=resolved_protocol,
@@ -605,12 +569,8 @@ class AnantaMailCompositionHarness:
             operation=operation,
             account_ref=f"mail-account:{selected_account_id}",
             workspace_scope=MailWorkspaceScope(self._workspace_id),
-            idempotency_key=(
-                f"mail-{operation}-{selected_account_id}-{self._counter}"
-            ),
-            policy_refs={
-                f"{operation}_policy_ref": f"policy:mail:{operation}:v1"
-            },
+            idempotency_key=(f"mail-{operation}-{selected_account_id}-{self._counter}"),
+            policy_refs={f"{operation}_policy_ref": f"policy:mail:{operation}:v1"},
             operation_refs=operation_refs,
             actor=self._actor,
         )

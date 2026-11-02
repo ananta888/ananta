@@ -13,10 +13,7 @@ from pathlib import Path
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
-CAPTURE_IMAGE = (
-    "nicolaka/netshoot@sha256:"
-    "a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b"
-)
+CAPTURE_IMAGE = "nicolaka/netshoot@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b"
 KNOWN_MARKERS = (
     b"synthetic-control-marker",
     b"synthetic-transcript-marker",
@@ -87,10 +84,14 @@ def _start_capture(
     )
     if pull.returncode != 0:
         raise PacketCaptureError("capture_image_unavailable")
-    network_args = ["--network", "host"] if network[0] == "host" else [
-        "--network",
-        f"container:{network[1]}",
-    ]
+    network_args = (
+        ["--network", "host"]
+        if network[0] == "host"
+        else [
+            "--network",
+            f"container:{network[1]}",
+        ]
+    )
     started = subprocess.run(
         [
             "docker",
@@ -167,9 +168,9 @@ def capture_measurements(
         f"{boundary}_boundary_known_marker_matches": marker_matches,
     }
     if scan_credentials:
-        measurements[f"{boundary}_boundary_credential_matches"] = (
-            data.count(b"-----BEGIN PRIVATE KEY-----") + data.count(b'"private_key"')
-        )
+        measurements[f"{boundary}_boundary_credential_matches"] = data.count(
+            b"-----BEGIN PRIVATE KEY-----"
+        ) + data.count(b'"private_key"')
     return measurements
 
 

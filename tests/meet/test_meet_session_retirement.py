@@ -39,8 +39,16 @@ def test_closed_retirement_is_not_new_membership_or_a_renewed_lease():
 @pytest.mark.parametrize(
     "field",
     [
-        "issuer", "subject", "roomId", "taskId", "tenantId", "projectId", "protocolVersion",
-        "runtimeId", "hubSessionId", "capabilitySet",
+        "issuer",
+        "subject",
+        "roomId",
+        "taskId",
+        "tenantId",
+        "projectId",
+        "protocolVersion",
+        "runtimeId",
+        "hubSessionId",
+        "capabilitySet",
     ],
 )
 def test_retirement_cannot_substitute_any_immutable_binding(field):
@@ -51,10 +59,18 @@ def test_retirement_cannot_substitute_any_immutable_binding(field):
         validate_retirement(receipt, *args)
 
 
-@pytest.mark.parametrize("patch", [
-    {"schema": "ananta.meet-authorization.v1"}, {"nonce": "old"}, {"sessionId": "ms_" + "c" * 32},
-    {"retired": False}, {"retired": 1}, {"retired": "true"}, {"binding": None},
-])
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"schema": "ananta.meet-authorization.v1"},
+        {"nonce": "old"},
+        {"sessionId": "ms_" + "c" * 32},
+        {"retired": False},
+        {"retired": 1},
+        {"retired": "true"},
+        {"binding": None},
+    ],
+)
 def test_old_nonce_session_or_unconfirmed_receipt_is_rejected(patch):
     value, args = observation_fixture()
     with pytest.raises(MeetError):

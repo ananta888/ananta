@@ -5,8 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.tui.workflow_status_view import (  # noqa: E402
@@ -92,10 +90,7 @@ class TestRenderPlain:
 
     def test_summarises_more_than_ten_handoffs(self):
         payload = _sample_payload()
-        payload["handoff_events"] = [
-            {"from_step": "a", "to_step": "b", "status": "created"}
-            for _ in range(15)
-        ]
+        payload["handoff_events"] = [{"from_step": "a", "to_step": "b", "status": "created"} for _ in range(15)]
         view = render_workflow_status(payload, colour=False)
         assert "and 5 more" in view.text
 
@@ -136,18 +131,20 @@ class TestRenderPlain:
 
     def test_long_role_truncated(self):
         payload = _sample_payload()
-        payload["steps"].append({
-            "step_id": "review",
-            "role": "X" * 60,
-            "task_id": "t",
-            "task_status": "todo",
-            "task_blocker_reason": "",
-            "gate": False,
-            "gate_decision": "",
-            "is_blocker": False,
-            "blocked_reasons": [],
-            "missing_consumes": [],
-        })
+        payload["steps"].append(
+            {
+                "step_id": "review",
+                "role": "X" * 60,
+                "task_id": "t",
+                "task_status": "todo",
+                "task_blocker_reason": "",
+                "gate": False,
+                "gate_decision": "",
+                "is_blocker": False,
+                "blocked_reasons": [],
+                "missing_consumes": [],
+            }
+        )
         view = render_workflow_status(payload, colour=False)
         # The truncated string contains an ellipsis char
         assert "\u2026" in view.text

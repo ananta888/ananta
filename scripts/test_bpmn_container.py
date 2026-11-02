@@ -21,37 +21,52 @@ from pathlib import Path
 
 def repository_identity(root, *, include_browser=False):
     """Actual HEAD plus immutable digest of the test's mounted source families."""
-    revision = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, check=True, timeout=10,
-                              capture_output=True, text=True).stdout.strip()
-    if len(revision) != 40 or any(char not in '0123456789abcdef' for char in revision):
-        raise ValueError('bpmn_repository_revision_invalid')
-    families = ['agent', 'worker', 'ananta_contracts', 'schemas',
-                'config/workflow_runtime', 'config/security', 'tests/bpmn_container']
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, timeout=10, capture_output=True, text=True
+    ).stdout.strip()
+    if len(revision) != 40 or any(char not in "0123456789abcdef" for char in revision):
+        raise ValueError("bpmn_repository_revision_invalid")
+    families = [
+        "agent",
+        "worker",
+        "ananta_contracts",
+        "schemas",
+        "config/workflow_runtime",
+        "config/security",
+        "tests/bpmn_container",
+    ]
     if include_browser:
-        families.extend(['frontend-angular/src', 'frontend-angular/tsconfig.json'])
-    names = subprocess.run(['rg', '--files', *families],
-                           cwd=root, check=True, timeout=10, capture_output=True, text=True).stdout.splitlines()
+        families.extend(["frontend-angular/src", "frontend-angular/tsconfig.json"])
+    names = subprocess.run(
+        ["rg", "--files", *families], cwd=root, check=True, timeout=10, capture_output=True, text=True
+    ).stdout.splitlines()
     if not 1 <= len(names) <= 20000:
-        raise ValueError('bpmn_source_snapshot_limit')
+        raise ValueError("bpmn_source_snapshot_limit")
     digest, total = hashlib.sha256(), 0
     for name in sorted(names):
         path = root / name
-        if (not name.startswith('frontend-angular/')
-                and path.suffix not in {'.py', '.json', '.yaml', '.yml', '.mjs', '.md'}):
+        if not name.startswith("frontend-angular/") and path.suffix not in {
+            ".py",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".mjs",
+            ".md",
+        }:
             continue
         if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError('bpmn_source_snapshot_path_denied')
+            raise ValueError("bpmn_source_snapshot_path_denied")
         content = path.read_bytes()
         total += len(content)
         if total > 100 * 1024 * 1024:
-            raise ValueError('bpmn_source_snapshot_size_limit')
-        digest.update(name.encode() + b'\0' + hashlib.sha256(content).digest())
+            raise ValueError("bpmn_source_snapshot_size_limit")
+        digest.update(name.encode() + b"\0" + hashlib.sha256(content).digest())
     return revision, digest.hexdigest()
 
 
 def require_unchanged_repository(root, expected, *, include_browser=False):
     if repository_identity(root, include_browser=include_browser) != expected:
-        raise ValueError('bpmn_acceptance_source_changed_during_execution')
+        raise ValueError("bpmn_acceptance_source_changed_during_execution")
 
 
 def require_cached_images(options, env):
@@ -61,38 +76,60 @@ def require_cached_images(options, env):
     if options.postgres:
         images.append(options.postgres_image)
     for image in images:
-        subprocess.run(['docker', 'image', 'inspect', image], env=env,
-                       stdout=subprocess.DEVNULL, check=True, timeout=15)
+        subprocess.run(
+            ["docker", "image", "inspect", image], env=env, stdout=subprocess.DEVNULL, check=True, timeout=15
+        )
     if options.browser:
-        browser_image = subprocess.run(['docker', 'image', 'inspect', '--format', '{{.Id}}', options.browser_image],
-            env=env, check=True, timeout=15, capture_output=True, text=True).stdout.strip()
-        if re.fullmatch(r'sha256:[0-9a-f]{64}', browser_image) is None:
-            raise ValueError('bpmn_browser_image_identity_invalid')
+        browser_image = subprocess.run(
+            ["docker", "image", "inspect", "--format", "{{.Id}}", options.browser_image],
+            env=env,
+            check=True,
+            timeout=15,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", browser_image) is None:
+            raise ValueError("bpmn_browser_image_identity_invalid")
         env.update(BPMN_BROWSER_IMAGE=browser_image, BPMN_BROWSER_IMAGE_ID=browser_image)
 
 
 def validate_owned_database_options(options, parser):
     if not options.postgres:
         return
-    native_mode = any((options.full_app_autopilot, options.full_app_worker_loss,
-                      options.full_app_worker_redelivery, options.full_app_expired_retry,
-                      options.full_app_tool_isolation))
-    if not native_mode or re.fullmatch(r'sha256:[a-f0-9]{64}', options.postgres_image) is None:
-        parser.error('--postgres requires a full Native application mode and an exact cached PostgreSQL image digest')
+    native_mode = any(
+        (
+            options.full_app_autopilot,
+            options.full_app_worker_loss,
+            options.full_app_worker_redelivery,
+            options.full_app_expired_retry,
+            options.full_app_tool_isolation,
+        )
+    )
+    if not native_mode or re.fullmatch(r"sha256:[a-f0-9]{64}", options.postgres_image) is None:
+        parser.error("--postgres requires a full Native application mode and an exact cached PostgreSQL image digest")
 
 
 def configure_owned_database(options, env, command):
     if not options.postgres:
         return
-    env.update(BPMN_POSTGRES_ENABLED='1', BPMN_POSTGRES_IMAGE=options.postgres_image, BPMN_HUB_DATABASE_URL=(
-        'postgresql+psycopg2://ananta_fixture:synthetic-postgres-fixture-password@postgres:5432/ananta_bpmn_fixture'))
-    command.extend(['--profile', 'postgres'])
+    env.update(
+        BPMN_POSTGRES_ENABLED="1",
+        BPMN_POSTGRES_IMAGE=options.postgres_image,
+        BPMN_HUB_DATABASE_URL=(
+            "postgresql+psycopg2://ananta_fixture:synthetic-postgres-fixture-password@postgres:5432/ananta_bpmn_fixture"
+        ),
+    )
+    command.extend(["--profile", "postgres"])
 
 
 def start_owned_database(options, command, env):
     if options.postgres:
-        subprocess.run(command + ['up', '--detach', '--no-build', '--pull', 'never', '--wait',
-                                  '--wait-timeout', '30', 'postgres'], env=env, check=True, timeout=45)
+        subprocess.run(
+            command + ["up", "--detach", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "30", "postgres"],
+            env=env,
+            check=True,
+            timeout=45,
+        )
 
 
 class WorkerRecreation:
@@ -104,17 +141,33 @@ class WorkerRecreation:
         self.cancelled = threading.Event()
 
     def observe(self, service):
-        identity = subprocess.run(self.command + ["ps", "--all", "--quiet", service], env=self.env,
-                                  check=True, timeout=10, capture_output=True, text=True).stdout.strip()
+        identity = subprocess.run(
+            self.command + ["ps", "--all", "--quiet", service],
+            env=self.env,
+            check=True,
+            timeout=10,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
         if not identity or "\n" in identity:
             raise ValueError("worker_loss_container_identity_missing")
-        state = subprocess.run(["docker", "inspect", "--format", "{{json .State}}", identity],
-                               env=self.env, check=True, timeout=10, capture_output=True, text=True)
+        state = subprocess.run(
+            ["docker", "inspect", "--format", "{{json .State}}", identity],
+            env=self.env,
+            check=True,
+            timeout=10,
+            capture_output=True,
+            text=True,
+        )
         return identity, json.loads(state.stdout)
 
     def handle(self, supplied):
-        if (not self.enabled or self.requested or self.cancelled.is_set()
-                or not secrets.compare_digest(supplied.encode(), self.env["BPMN_RESTART_TOKEN"].encode())):
+        if (
+            not self.enabled
+            or self.requested
+            or self.cancelled.is_set()
+            or not secrets.compare_digest(supplied.encode(), self.env["BPMN_RESTART_TOKEN"].encode())
+        ):
             return
         self.requested = True
         try:
@@ -124,9 +177,22 @@ class WorkerRecreation:
             self.exit_observed = True
             if self.cancelled.is_set():
                 return
-            subprocess.run(self.command + ["up", "--detach", "--no-build", "--pull", "never", "--no-deps",
-                                           "--force-recreate", "autopilot-worker"],
-                           env=self.env, check=True, timeout=30)
+            subprocess.run(
+                self.command
+                + [
+                    "up",
+                    "--detach",
+                    "--no-build",
+                    "--pull",
+                    "never",
+                    "--no-deps",
+                    "--force-recreate",
+                    "autopilot-worker",
+                ],
+                env=self.env,
+                check=True,
+                timeout=30,
+            )
             new_id, state = self.observe("autopilot-worker")
             self.recreated = old_id != new_id and state.get("Status") == "running"
         except (OSError, ValueError, subprocess.SubprocessError):
@@ -148,22 +214,39 @@ def consume_output(stream, acceptance, recreation):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--full-app", action="store_true",
-                        help="Run full application bootstrap in a separate container")
-    parser.add_argument("--full-app-autopilot", action="store_true",
-                        help="Run a full Hub application with real Native Autopilot dispatch and an isolated Worker")
-    parser.add_argument("--full-app-worker-loss", action="store_true",
-                        help="Terminate the isolated Worker before its result response and verify Hub containment")
-    parser.add_argument("--full-app-worker-redelivery", action="store_true",
-                        help="Recreate the isolated Worker and admit its persisted Native result")
-    parser.add_argument("--full-app-expired-retry", action="store_true",
-                        help="Deny expired result admission and exercise an exact Hub-preauthorized fresh attempt")
-    parser.add_argument("--full-app-tool-isolation", action="store_true",
-                        help="Run real bounded shell tools against the Worker's private result-store boundary")
+    parser.add_argument(
+        "--full-app", action="store_true", help="Run full application bootstrap in a separate container"
+    )
+    parser.add_argument(
+        "--full-app-autopilot",
+        action="store_true",
+        help="Run a full Hub application with real Native Autopilot dispatch and an isolated Worker",
+    )
+    parser.add_argument(
+        "--full-app-worker-loss",
+        action="store_true",
+        help="Terminate the isolated Worker before its result response and verify Hub containment",
+    )
+    parser.add_argument(
+        "--full-app-worker-redelivery",
+        action="store_true",
+        help="Recreate the isolated Worker and admit its persisted Native result",
+    )
+    parser.add_argument(
+        "--full-app-expired-retry",
+        action="store_true",
+        help="Deny expired result admission and exercise an exact Hub-preauthorized fresh attempt",
+    )
+    parser.add_argument(
+        "--full-app-tool-isolation",
+        action="store_true",
+        help="Run real bounded shell tools against the Worker's private result-store boundary",
+    )
     parser.add_argument("--image", default="ananta-backend-tests:local")
-    parser.add_argument('--postgres', action='store_true', help='Use an owned isolated PostgreSQL Hub database')
-    parser.add_argument('--postgres-image',
-        default='sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59')
+    parser.add_argument("--postgres", action="store_true", help="Use an owned isolated PostgreSQL Hub database")
+    parser.add_argument(
+        "--postgres-image", default="sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59"
+    )
     parser.add_argument(
         "--browser", action="store_true", help="Include authenticated Chromium editor against the test Hub"
     )
@@ -176,10 +259,22 @@ def main() -> int:
     options = parser.parse_args()
     validate_owned_database_options(options, parser)
     recreation_mode = options.full_app_worker_redelivery or options.full_app_expired_retry
-    native_app = (options.full_app_autopilot or options.full_app_worker_loss
-                  or recreation_mode or options.full_app_tool_isolation)
-    if sum((options.full_app, options.full_app_autopilot, options.full_app_worker_loss,
-            options.full_app_worker_redelivery, options.full_app_expired_retry, options.full_app_tool_isolation)) > 1:
+    native_app = (
+        options.full_app_autopilot or options.full_app_worker_loss or recreation_mode or options.full_app_tool_isolation
+    )
+    if (
+        sum(
+            (
+                options.full_app,
+                options.full_app_autopilot,
+                options.full_app_worker_loss,
+                options.full_app_worker_redelivery,
+                options.full_app_expired_retry,
+                options.full_app_tool_isolation,
+            )
+        )
+        > 1
+    ):
         parser.error("Choose one full application mode")
     if (options.full_app or native_app) and (options.browser or options.case):
         parser.error("Full application modes cannot be combined with --browser or --case")
@@ -273,16 +368,27 @@ def main() -> int:
         start_owned_database(options, command, env)
         print(f"Isolated Compose project: {project}", flush=True)
         if recreation_mode:
-            subprocess.run(command + ["run", "--rm", "--no-deps", "-T", "result-volume-init"],
-                           env=env, check=True, timeout=30)
+            subprocess.run(
+                command + ["run", "--rm", "--no-deps", "-T", "result-volume-init"], env=env, check=True, timeout=30
+            )
         if options.full_app_worker_loss or recreation_mode:
-            subprocess.run(command + ["up", "--detach", "--no-build", "--pull", "never", application_service],
-                           env=env, check=True, timeout=60)
+            subprocess.run(
+                command + ["up", "--detach", "--no-build", "--pull", "never", application_service],
+                env=env,
+                check=True,
+                timeout=60,
+            )
             execution_command = command + ["logs", "--follow", "--no-color", application_service]
         else:
-            execution_command = command + ["up", "--no-build", "--pull", "never", "--abort-on-container-exit",
-                                           "--exit-code-from",
-                                           application_service if options.full_app or native_app else "hub"]
+            execution_command = command + [
+                "up",
+                "--no-build",
+                "--pull",
+                "never",
+                "--abort-on-container-exit",
+                "--exit-code-from",
+                application_service if options.full_app or native_app else "hub",
+            ]
             execution_command += [application_service] if options.full_app or native_app else []
         process = subprocess.Popen(
             execution_command,
@@ -300,21 +406,50 @@ def main() -> int:
         if options.full_app_worker_loss:
             observed = {}
             for service in (application_service, "autopilot-worker"):
-                container = subprocess.run(command + ["ps", "--all", "--quiet", service], env=env,
-                                           check=True, timeout=10, capture_output=True, text=True).stdout.strip()
+                container = subprocess.run(
+                    command + ["ps", "--all", "--quiet", service],
+                    env=env,
+                    check=True,
+                    timeout=10,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
                 if not container or "\n" in container:
                     raise ValueError("worker_loss_container_identity_missing")
-                state = subprocess.run(["docker", "inspect", "--format", "{{json .State}}", container],
-                                       env=env, check=True, timeout=10, capture_output=True, text=True)
+                state = subprocess.run(
+                    ["docker", "inspect", "--format", "{{json .State}}", container],
+                    env=env,
+                    check=True,
+                    timeout=10,
+                    capture_output=True,
+                    text=True,
+                )
                 observed[service] = json.loads(state.stdout)
-            worker_exit_observed = (observed["autopilot-worker"].get("Status") == "exited"
-                                    and observed["autopilot-worker"].get("ExitCode") == 73)
-            code = 0 if (worker_exit_observed and observed[application_service].get("Status") == "exited"
-                         and observed[application_service].get("ExitCode") == 0) else 1
+            worker_exit_observed = (
+                observed["autopilot-worker"].get("Status") == "exited"
+                and observed["autopilot-worker"].get("ExitCode") == 73
+            )
+            code = (
+                0
+                if (
+                    worker_exit_observed
+                    and observed[application_service].get("Status") == "exited"
+                    and observed[application_service].get("ExitCode") == 0
+                )
+                else 1
+            )
         if recreation_mode:
             _, hub_state = recreation.observe(application_service)
-            code = 0 if (recreation.exit_observed and recreation.recreated and hub_state.get("Status") == "exited"
-                         and hub_state.get("ExitCode") == 0) else 1
+            code = (
+                0
+                if (
+                    recreation.exit_observed
+                    and recreation.recreated
+                    and hub_state.get("Status") == "exited"
+                    and hub_state.get("ExitCode") == 0
+                )
+                else 1
+            )
         if not code and acceptance.get("passed") is not True:
             code = 1
     except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
@@ -372,10 +507,18 @@ def main() -> int:
             )
             volumes = subprocess.run(
                 ["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"],
-                env=env, timeout=10, check=True, capture_output=True, text=True,
+                env=env,
+                timeout=10,
+                check=True,
+                capture_output=True,
+                text=True,
             )
-            cleanup_ok = (cleanup.returncode == 0 and not containers.stdout.strip()
-                          and not networks.stdout.strip() and not volumes.stdout.strip())
+            cleanup_ok = (
+                cleanup.returncode == 0
+                and not containers.stdout.strip()
+                and not networks.stdout.strip()
+                and not volumes.stdout.strip()
+            )
         except (OSError, subprocess.SubprocessError) as exc:
             print(f"Cleanup failed for {project}: {exc}", file=sys.stderr)
         if reader is not None:
@@ -397,7 +540,7 @@ def main() -> int:
             "worker_redelivery_requested": recreation_mode,
             "expired_retry_requested": options.full_app_expired_retry,
             "tool_isolation_requested": options.full_app_tool_isolation,
-            'hub_database_backend': 'postgresql' if options.postgres else 'sqlite',
+            "hub_database_backend": "postgresql" if options.postgres else "sqlite",
             "worker_container_recreated": recreation.recreated,
             "worker_container_exit_observed": worker_exit_observed or recreation.exit_observed,
             "cases": {name: value.get("passed", False) for name, value in acceptance.get("cases", {}).items()},

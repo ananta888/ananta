@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from copy import deepcopy
-from pathlib import Path
 import subprocess
 import sys
+from copy import deepcopy
+from pathlib import Path
 from threading import Event, Thread
 
 import pytest
@@ -115,24 +115,16 @@ def test_accepts_multiple_simulcast_encodings_but_one_publication_and_peer_conne
 
 
 def test_local_turn_compose_exposes_only_loopback_relay_ports() -> None:
-    document = yaml.safe_load(
-        (ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8")
-    )
+    document = yaml.safe_load((ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8"))
     service = document["services"]["semantic-media-turn-gate"]
 
     # The container must discover and advertise its bridge address. Forcing
     # 127.0.0.1 here produces relay candidates that point back at each browser
     # process and makes real host-to-container TURN traffic unreachable.
     assert not any(str(argument).startswith("--external-ip=") for argument in service["command"])
-    assert (
-        "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:"
-        "49160-49200:49160-49200/udp"
-    ) in service["ports"]
+    assert ("${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:49160-49200:49160-49200/udp") in service["ports"]
     assert all(
-        str(port).startswith(
-            "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:"
-        )
-        for port in service["ports"]
+        str(port).startswith("${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:") for port in service["ports"]
     )
 
 
@@ -179,12 +171,8 @@ def test_turn_port_reservation_serializes_parallel_runners() -> None:
 
 
 def test_local_spike_defaults_are_non_release_tmp_diagnostics() -> None:
-    spike = (ROOT / "scripts/spikes/semantic_sfu_three_peer.mjs").read_text(
-        encoding="utf-8"
-    )
-    group_runner = (ROOT / "scripts/e2e/semantic_sfu_group_e2e.py").read_text(
-        encoding="utf-8"
-    )
+    spike = (ROOT / "scripts/spikes/semantic_sfu_three_peer.mjs").read_text(encoding="utf-8")
+    group_runner = (ROOT / "scripts/e2e/semantic_sfu_group_e2e.py").read_text(encoding="utf-8")
 
     assert "/tmp/ananta-semantic-sfu-three-peer.json" in spike
     assert "release_evidence: false" in spike

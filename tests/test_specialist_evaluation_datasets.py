@@ -21,9 +21,13 @@ def _prepared(tmp_path):
     admission, repo, principal = setup_admission(tmp_path)
     manifest, partitions = split_examples(gate_examples(45), seed=11)
     strategy = SpecialistTrainingTaskFamilyStrategy(GATE)
-    return admission, repo, principal, manifest, {
-        name: strategy.training_records(rows) for name, rows in partitions.items()
-    }
+    return (
+        admission,
+        repo,
+        principal,
+        manifest,
+        {name: strategy.training_records(rows) for name, rows in partitions.items()},
+    )
 
 
 def test_training_validation_and_holdout_have_distinct_stable_dataset_versions(app, tmp_path):
@@ -59,7 +63,8 @@ def test_real_hub_rejects_training_on_evaluation_only_dataset(app, tmp_path, mon
     monkeypatch.setattr("agent.services.ml_intern_training_control_service.get_task_queue_service", lambda: queue)
     control = MlInternTrainingControlService(
         {"enabled": True, "artifact_root": str(tmp_path / "artifacts")},
-        repository=repo, executor=HoldingExecutor(),
+        repository=repo,
+        executor=HoldingExecutor(),
     )
     with pytest.raises(MlInternTrainingContractError) as error:
         control.create_job(principal, _payload(admitted.dataset_id), idempotency_key="forbidden-training")
@@ -81,12 +86,16 @@ def test_catalog_resplit_cannot_remove_evaluation_purpose(app, tmp_path):
     admitted = admission.admit_evaluation(manifest, records["train"], records["holdout"], partition="holdout")
     dataset = repo.get_dataset(principal, admitted.dataset_id)
     summary = admission._catalog.commit_split(
-        tenant_id=principal.tenant_id, principal_id=principal.subject,
+        tenant_id=principal.tenant_id,
+        principal_id=principal.subject,
         dataset_id=dataset.dataset_metadata["catalog_dataset_id"],
         train_stream=io.BytesIO(encode_specialist_partition(records["train"])),
         validation_stream=io.BytesIO(encode_specialist_partition(records["holdout"])),
-        manifest={"algorithm_version": "resplit-test", "train_record_count": len(records["train"]),
-                  "validation_record_count": len(records["holdout"])},
+        manifest={
+            "algorithm_version": "resplit-test",
+            "train_record_count": len(records["train"]),
+            "validation_record_count": len(records["holdout"]),
+        },
     )
     assert summary["split"]["execution_purpose"] == "specialist_evaluation"
     assert summary["split"]["evaluation_partition"] == "holdout"

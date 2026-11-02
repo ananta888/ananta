@@ -36,5 +36,8 @@ class ContextGate:
                 text = str(item.get("content") or "")
                 item["content"] = text[:500]
             allowed.append(item)
-        return allowed, {"input_count": len(list(snippets or [])), "allowed_count": len(allowed), "denied_count": denied}
-
+        return allowed, {
+            "input_count": len(list(snippets or [])),
+            "allowed_count": len(allowed),
+            "denied_count": denied,
+        }

@@ -44,9 +44,11 @@ def test_gpu_persona_turn_uses_real_profile_task_and_request_bound_hub_lease(app
     callback.config.update(ROLE="hub", TESTING=True)
     callback.register_blueprint(meet_bp)
     callback.before_request(
-        lambda: None
-        if (flask_request.method == "POST" and flask_request.path == "/api/meet/v1/internal/lease")
-        else ("", 404)
+        lambda: (
+            None
+            if (flask_request.method == "POST" and flask_request.path == "/api/meet/v1/internal/lease")
+            else ("", 404)
+        )
     )
     callback.extensions.update(
         meet_binding_service=service.binding,

@@ -99,9 +99,7 @@ class SfuNodeHealthEvaluation:
 class SfuNodeHealthEvaluator:
     """Reduce authenticated observations and active probes into Hub policy state."""
 
-    _DRAINING_STATES = frozenset(
-        {"requested", "admission_stopped", "draining", "drained", "forced"}
-    )
+    _DRAINING_STATES = frozenset({"requested", "admission_stopped", "draining", "drained", "forced"})
 
     def __init__(self, policy: SfuNodeHealthPolicy | None = None, *, clock=time.time) -> None:
         self._policy = policy or SfuNodeHealthPolicy()
@@ -130,9 +128,7 @@ class SfuNodeHealthEvaluator:
         if observation.revoked:
             return self._terminal_unhealthy(now, history, observation.boot_id, "sfu_health_node_revoked")
         if not observation.compatible:
-            return self._terminal_unhealthy(
-                now, history, observation.boot_id, "sfu_health_version_incompatible"
-            )
+            return self._terminal_unhealthy(now, history, observation.boot_id, "sfu_health_version_incompatible")
 
         restarted = history.boot_id not in {None, observation.boot_id}
         if restarted:
@@ -170,11 +166,11 @@ class SfuNodeHealthEvaluator:
         has_unknown = any(item.status is SfuNodeHealthStatus.UNKNOWN for item in dimensions)
         has_failure = any(item.status is SfuNodeHealthStatus.UNHEALTHY for item in dimensions)
         self_report_blocks = observation.self_reported_health != "healthy"
-        immediate_safety_block = (
-            drain.status is SfuNodeHealthStatus.UNHEALTHY or probe_reason is not None
-        )
+        immediate_safety_block = drain.status is SfuNodeHealthStatus.UNHEALTHY or probe_reason is not None
 
-        successes = history.consecutive_successes + 1 if not has_unknown and not has_failure and not self_report_blocks else 0
+        successes = (
+            history.consecutive_successes + 1 if not has_unknown and not has_failure and not self_report_blocks else 0
+        )
         failures = history.consecutive_failures + 1 if has_failure or self_report_blocks else 0
         stable = history.stable_status
         transition_at = history.last_transition_at
@@ -256,35 +252,24 @@ class SfuNodeHealthEvaluator:
             )
             return SfuNodeHealthDimension(status, probe_reason)
         if observed is None or probed is None:
-            return SfuNodeHealthDimension(
-                SfuNodeHealthStatus.UNKNOWN, f"sfu_health_{name}_signal_missing"
-            )
+            return SfuNodeHealthDimension(SfuNodeHealthStatus.UNKNOWN, f"sfu_health_{name}_signal_missing")
         if not observed:
-            return SfuNodeHealthDimension(
-                SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_{name}_observation_failed"
-            )
+            return SfuNodeHealthDimension(SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_{name}_observation_failed")
         if not probed:
-            return SfuNodeHealthDimension(
-                SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_{name}_probe_failed"
-            )
+            return SfuNodeHealthDimension(SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_{name}_probe_failed")
         return SfuNodeHealthDimension(SfuNodeHealthStatus.HEALTHY, f"sfu_health_{name}_ready")
 
     def _drain_dimension(self, state: str) -> SfuNodeHealthDimension:
         if state in {"active", "cancelled"}:
             return SfuNodeHealthDimension(SfuNodeHealthStatus.HEALTHY, "sfu_health_drain_clear")
         if state in self._DRAINING_STATES:
-            return SfuNodeHealthDimension(
-                SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_drain_{state}"
-            )
+            return SfuNodeHealthDimension(SfuNodeHealthStatus.UNHEALTHY, f"sfu_health_drain_{state}")
         return SfuNodeHealthDimension(SfuNodeHealthStatus.UNKNOWN, "sfu_health_drain_unknown")
 
-    def _terminal_unknown(
-        self, now: float, history: SfuNodeHealthHistory, reason: str
-    ) -> SfuNodeHealthEvaluation:
+    def _terminal_unknown(self, now: float, history: SfuNodeHealthHistory, reason: str) -> SfuNodeHealthEvaluation:
         unknown = SfuNodeHealthDimension(SfuNodeHealthStatus.UNKNOWN, reason)
         return SfuNodeHealthEvaluation(
-            unknown, unknown, unknown, unknown, unknown,
-            SfuNodeHealthStatus.UNKNOWN, False, (reason,), now, history
+            unknown, unknown, unknown, unknown, unknown, SfuNodeHealthStatus.UNKNOWN, False, (reason,), now, history
         )
 
     def _terminal_unhealthy(
@@ -300,13 +285,19 @@ class SfuNodeHealthEvaluator:
             consecutive_failures=history.consecutive_failures + 1,
             stable_status=SfuNodeHealthStatus.UNHEALTHY,
             last_transition_at=now,
-            flap_cooldown_until=max(
-                history.flap_cooldown_until, now + self._policy.flap_cooldown_seconds
-            ),
+            flap_cooldown_until=max(history.flap_cooldown_until, now + self._policy.flap_cooldown_seconds),
         )
         return SfuNodeHealthEvaluation(
-            unhealthy, unhealthy, unhealthy, unhealthy, unhealthy,
-            SfuNodeHealthStatus.UNHEALTHY, False, (reason,), now, next_history
+            unhealthy,
+            unhealthy,
+            unhealthy,
+            unhealthy,
+            unhealthy,
+            SfuNodeHealthStatus.UNHEALTHY,
+            False,
+            (reason,),
+            now,
+            next_history,
         )
 
 

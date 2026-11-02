@@ -35,9 +35,7 @@ class RagSourceProfileLoader:
                 payload = self._load_json(profile_path)
                 errors = sorted(validator.iter_errors(payload), key=lambda err: list(err.path))
                 if errors:
-                    readable = "; ".join(
-                        f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in errors
-                    )
+                    readable = "; ".join(f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in errors)
                     raise ValueError(f"invalid rag profile {profile_path}: {readable}")
 
                 profile_domain = str(payload.get("domain_id") or "").strip()

@@ -166,12 +166,9 @@ class SfuBroadcastContractValidator:
             raise ValueError("contract_definition_duplicate")
         self._reader_compatibility = reader_compatibility or ContractReaderCompatibility(
             schema_versions={
-                definition.contract_id: frozenset({definition.schema_version})
-                for definition in definitions
+                definition.contract_id: frozenset({definition.schema_version}) for definition in definitions
             },
-            materialization_versions=frozenset(
-                definition.materialization_version for definition in definitions
-            ),
+            materialization_versions=frozenset(definition.materialization_version for definition in definitions),
         )
 
         resources: dict[str, JsonMapping] = dict(registry_resources or {})
@@ -180,8 +177,7 @@ class SfuBroadcastContractValidator:
             if isinstance(schema_id, str):
                 resources[schema_id] = definition.schema
         registry = Registry().with_resources(
-            (resource_id, Resource.from_contents(document))
-            for resource_id, document in resources.items()
+            (resource_id, Resource.from_contents(document)) for resource_id, document in resources.items()
         )
         self._validators = {
             definition.contract_id: Draft202012Validator(
@@ -462,8 +458,7 @@ class ReceiverGroupMemberDigestPayloadBuilder:
         epochs = document.get("epochs")
         policy = document.get("policy")
         if not isinstance(members, list) or not all(
-            isinstance(value, Mapping)
-            for value in (publications, scope, epochs, policy)
+            isinstance(value, Mapping) for value in (publications, scope, epochs, policy)
         ):
             raise ValueError("receiver_group_digest_context_unavailable")
         assert isinstance(publications, Mapping)
@@ -472,8 +467,10 @@ class ReceiverGroupMemberDigestPayloadBuilder:
         assert isinstance(policy, Mapping)
         primary = publications.get("primary_publication_ref")
         shared = publications.get("shared_publication_refs")
-        if not isinstance(primary, str) or not isinstance(shared, list) or not all(
-            isinstance(value, str) for value in shared
+        if (
+            not isinstance(primary, str)
+            or not isinstance(shared, list)
+            or not all(isinstance(value, str) for value in shared)
         ):
             raise ValueError("receiver_group_digest_context_unavailable")
         bindings: list[dict[str, str]] = []
@@ -486,8 +483,7 @@ class ReceiverGroupMemberDigestPayloadBuilder:
             matching = [
                 grant
                 for grant in grants
-                if isinstance(grant, Mapping)
-                and grant.get("publication_ref") == publication_ref
+                if isinstance(grant, Mapping) and grant.get("publication_ref") == publication_ref
             ]
             if len(matching) != 1:
                 raise ValueError("receiver_group_digest_context_unavailable")
@@ -589,10 +585,7 @@ class ReceiverGroupMemberDigestRule:
         publications = document.get("publications")
         scope_value = document.get("scope")
         epochs = document.get("epochs")
-        if not all(
-            isinstance(value, Mapping)
-            for value in (audience, publications, scope_value, epochs)
-        ):
+        if not all(isinstance(value, Mapping) for value in (audience, publications, scope_value, epochs)):
             return "receiver_group_digest_context_unavailable"
         assert isinstance(audience, Mapping)
         assert isinstance(publications, Mapping)
@@ -609,10 +602,7 @@ class ReceiverGroupMemberDigestRule:
             publication_ref = digest.get("publication_ref")
             key_ref = digest.get("key_ref")
             supplied = digest.get("value")
-            if not all(
-                isinstance(value, str)
-                for value in (publication_ref, key_ref, supplied)
-            ):
+            if not all(isinstance(value, str) for value in (publication_ref, key_ref, supplied)):
                 return "receiver_group_digest_context_unavailable"
             try:
                 payload = self._payload_builder.build(
@@ -645,9 +635,7 @@ class ReceiverGroupMemberDigestRule:
                     return "receiver_group_digest_key_unavailable"
                 candidate_value = supplied
                 if re.fullmatch(r"[a-f0-9]{64}", supplied):
-                    candidate_value = base64.urlsafe_b64encode(
-                        bytes.fromhex(supplied)
-                    ).rstrip(b"=").decode("ascii")
+                    candidate_value = base64.urlsafe_b64encode(bytes.fromhex(supplied)).rstrip(b"=").decode("ascii")
                 verification = self._digest_service.verify_digest(
                     payload,
                     digest_scope,

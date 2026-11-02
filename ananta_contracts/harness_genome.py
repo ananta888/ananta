@@ -87,8 +87,13 @@ class PromptStrategy:
             _identifier(self.repair_ref, "harness_prompt_repair_ref_invalid")
         _identifier_tuple(self.few_shot_refs, "harness_prompt_few_shot_refs_invalid")
         _identifier(self.output_profile, "harness_prompt_output_profile_invalid")
-        return {"system_ref": self.system_ref, "user_ref": self.user_ref, "repair_ref": self.repair_ref,
-                "few_shot_refs": list(self.few_shot_refs), "output_profile": self.output_profile}
+        return {
+            "system_ref": self.system_ref,
+            "user_ref": self.user_ref,
+            "repair_ref": self.repair_ref,
+            "few_shot_refs": list(self.few_shot_refs),
+            "output_profile": self.output_profile,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,22 +108,27 @@ class ContextPolicy:
 
     def to_mapping(self) -> dict[str, Any]:
         _bounded_int(self.budget_tokens, "harness_context_budget_invalid", minimum=1024, maximum=8_388_608)
-        reserved = (_bounded_int(self.reserved_completion_tokens, "harness_context_reserved_completion_invalid",
-                                 minimum=1, maximum=1_048_576)
-                    + _bounded_int(self.reserved_tool_tokens, "harness_context_reserved_tool_invalid",
-                                   minimum=0, maximum=1_048_576))
+        reserved = _bounded_int(
+            self.reserved_completion_tokens, "harness_context_reserved_completion_invalid", minimum=1, maximum=1_048_576
+        ) + _bounded_int(
+            self.reserved_tool_tokens, "harness_context_reserved_tool_invalid", minimum=0, maximum=1_048_576
+        )
         if reserved >= self.budget_tokens:
             raise ValueError("harness_context_reserved_exceeds_budget")
         _ratio(self.compaction_threshold, "harness_context_compaction_threshold_invalid")
         _identifier(self.observation_retention, "harness_context_observation_retention_invalid")
-        _bounded_int(self.retrieval_window_tokens, "harness_context_retrieval_window_invalid",
-                     minimum=256, maximum=8_388_608)
-        return {"budget_tokens": self.budget_tokens, "reserved_completion_tokens": self.reserved_completion_tokens,
-                "reserved_tool_tokens": self.reserved_tool_tokens,
-                "compaction_threshold": self.compaction_threshold,
-                "observation_retention": self.observation_retention,
-                "evidence_preserving_reduction": bool(self.evidence_preserving_reduction),
-                "retrieval_window_tokens": self.retrieval_window_tokens}
+        _bounded_int(
+            self.retrieval_window_tokens, "harness_context_retrieval_window_invalid", minimum=256, maximum=8_388_608
+        )
+        return {
+            "budget_tokens": self.budget_tokens,
+            "reserved_completion_tokens": self.reserved_completion_tokens,
+            "reserved_tool_tokens": self.reserved_tool_tokens,
+            "compaction_threshold": self.compaction_threshold,
+            "observation_retention": self.observation_retention,
+            "evidence_preserving_reduction": bool(self.evidence_preserving_reduction),
+            "retrieval_window_tokens": self.retrieval_window_tokens,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,8 +141,11 @@ class MemoryPolicy:
         _identifier_tuple(self.scopes, "harness_memory_scopes_invalid")
         _identifier(self.retention_class, "harness_memory_retention_invalid")
         _identifier(self.recall_strategy, "harness_memory_recall_invalid")
-        return {"scopes": list(self.scopes), "retention_class": self.retention_class,
-                "recall_strategy": self.recall_strategy}
+        return {
+            "scopes": list(self.scopes),
+            "retention_class": self.retention_class,
+            "recall_strategy": self.recall_strategy,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,10 +169,16 @@ class RetrievalPolicy:
         _identifier(self.reranking, "harness_retrieval_reranking_invalid")
         _identifier(self.query_rewrite, "harness_retrieval_query_rewrite_invalid")
         _identifier(self.profile, "harness_retrieval_profile_invalid")
-        return {"top_k": self.top_k, "candidate_budget": self.candidate_budget,
-                "dense_weight": float(self.dense_weight), "bm25_weight": float(self.bm25_weight),
-                "graph_weight": float(self.graph_weight), "reranking": self.reranking,
-                "query_rewrite": self.query_rewrite, "profile": self.profile}
+        return {
+            "top_k": self.top_k,
+            "candidate_budget": self.candidate_budget,
+            "dense_weight": float(self.dense_weight),
+            "bm25_weight": float(self.bm25_weight),
+            "graph_weight": float(self.graph_weight),
+            "reranking": self.reranking,
+            "query_rewrite": self.query_rewrite,
+            "profile": self.profile,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,9 +197,15 @@ class ToolPolicy:
         _bounded_int(self.retry_max, "harness_tools_retry_invalid", minimum=0, maximum=10)
         _bounded_int(self.backoff_ms, "harness_tools_backoff_invalid", minimum=0, maximum=60_000)
         _bounded_int(self.timeout_ms, "harness_tools_timeout_invalid", minimum=100, maximum=3_600_000)
-        return {"allowed_tools": list(self.allowed_tools), "routing_heuristic": self.routing_heuristic,
-                "action_fusion": bool(self.action_fusion), "parallel_safe_tools": bool(self.parallel_safe_tools),
-                "retry_max": self.retry_max, "backoff_ms": self.backoff_ms, "timeout_ms": self.timeout_ms}
+        return {
+            "allowed_tools": list(self.allowed_tools),
+            "routing_heuristic": self.routing_heuristic,
+            "action_fusion": bool(self.action_fusion),
+            "parallel_safe_tools": bool(self.parallel_safe_tools),
+            "retry_max": self.retry_max,
+            "backoff_ms": self.backoff_ms,
+            "timeout_ms": self.timeout_ms,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,8 +224,13 @@ class AgentTopology:
         _identifier(self.termination, "harness_topology_termination_invalid")
         if self.delegation_depth == 0 and self.fan_out != 0:
             raise ValueError("harness_topology_fan_out_without_delegation")
-        return {"pattern": self.pattern, "roles": list(self.roles), "delegation_depth": self.delegation_depth,
-                "fan_out": self.fan_out, "termination": self.termination}
+        return {
+            "pattern": self.pattern,
+            "roles": list(self.roles),
+            "delegation_depth": self.delegation_depth,
+            "fan_out": self.fan_out,
+            "termination": self.termination,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,8 +243,7 @@ class ModelRouting:
         _identifier(self.provider_id, "harness_routing_provider_invalid")
         _identifier(self.model_id, "harness_routing_model_invalid")
         _identifier_tuple(self.fallback_chain, "harness_routing_fallback_invalid")
-        return {"provider_id": self.provider_id, "model_id": self.model_id,
-                "fallback_chain": list(self.fallback_chain)}
+        return {"provider_id": self.provider_id, "model_id": self.model_id, "fallback_chain": list(self.fallback_chain)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,8 +256,12 @@ class ReducerPolicy:
     def to_mapping(self) -> dict[str, Any]:
         _identifier(self.strategy, "harness_reducer_strategy_invalid")
         _ratio(self.max_ratio, "harness_reducer_max_ratio_invalid")
-        return {"strategy": self.strategy, "preserve_evidence": bool(self.preserve_evidence),
-                "verify_fallback": bool(self.verify_fallback), "max_ratio": self.max_ratio}
+        return {
+            "strategy": self.strategy,
+            "preserve_evidence": bool(self.preserve_evidence),
+            "verify_fallback": bool(self.verify_fallback),
+            "max_ratio": self.max_ratio,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,28 +290,62 @@ class GatePolicy:
 
 
 _SECTION_TYPES: dict[str, type] = {
-    "prompt": PromptStrategy, "context": ContextPolicy, "memory": MemoryPolicy,
-    "retrieval": RetrievalPolicy, "tools": ToolPolicy, "topology": AgentTopology,
-    "model_routing": ModelRouting, "reducer": ReducerPolicy, "verification": VerificationPolicy,
+    "prompt": PromptStrategy,
+    "context": ContextPolicy,
+    "memory": MemoryPolicy,
+    "retrieval": RetrievalPolicy,
+    "tools": ToolPolicy,
+    "topology": AgentTopology,
+    "model_routing": ModelRouting,
+    "reducer": ReducerPolicy,
+    "verification": VerificationPolicy,
     "gates": GatePolicy,
 }
 _SECTION_FIELDS: dict[str, tuple[str, ...]] = {
     "prompt": ("system_ref", "user_ref", "repair_ref", "few_shot_refs", "output_profile"),
-    "context": ("budget_tokens", "reserved_completion_tokens", "reserved_tool_tokens", "compaction_threshold",
-                "observation_retention", "evidence_preserving_reduction", "retrieval_window_tokens"),
+    "context": (
+        "budget_tokens",
+        "reserved_completion_tokens",
+        "reserved_tool_tokens",
+        "compaction_threshold",
+        "observation_retention",
+        "evidence_preserving_reduction",
+        "retrieval_window_tokens",
+    ),
     "memory": ("scopes", "retention_class", "recall_strategy"),
-    "retrieval": ("top_k", "candidate_budget", "dense_weight", "bm25_weight", "graph_weight", "reranking",
-                  "query_rewrite", "profile"),
-    "tools": ("allowed_tools", "routing_heuristic", "action_fusion", "parallel_safe_tools", "retry_max",
-              "backoff_ms", "timeout_ms"),
+    "retrieval": (
+        "top_k",
+        "candidate_budget",
+        "dense_weight",
+        "bm25_weight",
+        "graph_weight",
+        "reranking",
+        "query_rewrite",
+        "profile",
+    ),
+    "tools": (
+        "allowed_tools",
+        "routing_heuristic",
+        "action_fusion",
+        "parallel_safe_tools",
+        "retry_max",
+        "backoff_ms",
+        "timeout_ms",
+    ),
     "topology": ("pattern", "roles", "delegation_depth", "fan_out", "termination"),
     "model_routing": ("provider_id", "model_id", "fallback_chain"),
     "reducer": ("strategy", "preserve_evidence", "verify_fallback", "max_ratio"),
     "verification": ("strategy", "require_evidence"),
     "gates": ("gate_refs", "promotion_ref"),
 }
-_TUPLE_SECTIONS = {"prompt": ("few_shot_refs",), "memory": ("scopes",), "tools": ("allowed_tools",),
-                   "topology": ("roles",), "model_routing": ("fallback_chain",), "gates": ("gate_refs",)}
+_TUPLE_SECTIONS = {
+    "prompt": ("few_shot_refs",),
+    "memory": ("scopes",),
+    "tools": ("allowed_tools",),
+    "topology": ("roles",),
+    "model_routing": ("fallback_chain",),
+    "gates": ("gate_refs",),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,12 +392,14 @@ class HarnessGenome:
 
     def to_mapping(self) -> dict[str, Any]:
         payload = self.semantic_mapping()
-        payload.update({
-            "genome_id": self.genome_id,
-            "parents": list(_identifier_tuple(self.parents, "harness_parents_invalid")),
-            "mutation_operators": list(_identifier_tuple(self.mutation_operators, "harness_mutations_invalid")),
-            "created_from": self.created_from,
-        })
+        payload.update(
+            {
+                "genome_id": self.genome_id,
+                "parents": list(_identifier_tuple(self.parents, "harness_parents_invalid")),
+                "mutation_operators": list(_identifier_tuple(self.mutation_operators, "harness_mutations_invalid")),
+                "created_from": self.created_from,
+            }
+        )
         return payload
 
     def to_json(self) -> str:
@@ -366,11 +435,13 @@ class HarnessGenome:
                 fields[field_name] = value
             sections[name] = section_type(**fields)
         genome = cls(
-            code_hash=payload.get("code_hash"), config_hash=payload.get("config_hash"),
+            code_hash=payload.get("code_hash"),
+            config_hash=payload.get("config_hash"),
             secret_refs=tuple(payload.get("secret_refs") or ()),
             parents=tuple(payload.get("parents") or ()),
             mutation_operators=tuple(payload.get("mutation_operators") or ()),
-            created_from=payload.get("created_from"), **sections,
+            created_from=payload.get("created_from"),
+            **sections,
         )
         expected = payload.get("genome_id")
         if expected is not None and expected != genome.genome_id:

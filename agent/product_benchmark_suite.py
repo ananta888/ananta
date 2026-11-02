@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 BENCHMARK_SUITE_VERSION = "v1"
 
 BENCHMARK_TASKS: list[dict[str, Any]] = [
@@ -49,13 +48,48 @@ BENCHMARK_TASKS: list[dict[str, Any]] = [
 ]
 
 BENCHMARK_CRITERIA: list[dict[str, Any]] = [
-    {"id": "task_success", "label": "Task Success", "weight": 20, "description": "Produces a usable result for the stated goal."},
-    {"id": "time_to_signal", "label": "Time To Signal", "weight": 10, "description": "Reaches first useful plan/result quickly."},
-    {"id": "traceability", "label": "Traceability", "weight": 15, "description": "Connects goal, plan, tasks, verification and artifacts."},
-    {"id": "governance_quality", "label": "Governance Quality", "weight": 20, "description": "Explains review, policy and safe boundaries instead of hiding them."},
-    {"id": "block_quality", "label": "Block Quality", "weight": 10, "description": "Blocks unsafe or underspecified work with clear reasons and next steps."},
-    {"id": "result_value", "label": "Result Value", "weight": 15, "description": "Leads with user value before internal mechanics."},
-    {"id": "reproducibility", "label": "Reproducibility", "weight": 10, "description": "Can be repeated with comparable inputs, outputs and evidence."},
+    {
+        "id": "task_success",
+        "label": "Task Success",
+        "weight": 20,
+        "description": "Produces a usable result for the stated goal.",
+    },
+    {
+        "id": "time_to_signal",
+        "label": "Time To Signal",
+        "weight": 10,
+        "description": "Reaches first useful plan/result quickly.",
+    },
+    {
+        "id": "traceability",
+        "label": "Traceability",
+        "weight": 15,
+        "description": "Connects goal, plan, tasks, verification and artifacts.",
+    },
+    {
+        "id": "governance_quality",
+        "label": "Governance Quality",
+        "weight": 20,
+        "description": "Explains review, policy and safe boundaries instead of hiding them.",
+    },
+    {
+        "id": "block_quality",
+        "label": "Block Quality",
+        "weight": 10,
+        "description": "Blocks unsafe or underspecified work with clear reasons and next steps.",
+    },
+    {
+        "id": "result_value",
+        "label": "Result Value",
+        "weight": 15,
+        "description": "Leads with user value before internal mechanics.",
+    },
+    {
+        "id": "reproducibility",
+        "label": "Reproducibility",
+        "weight": 10,
+        "description": "Can be repeated with comparable inputs, outputs and evidence.",
+    },
 ]
 
 COMPARISON_TARGETS: list[dict[str, Any]] = [

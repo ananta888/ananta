@@ -3,6 +3,7 @@
 These models are used by SignalingClient and WebRtcSessionController.
 They are completely separate from webrtc_transport.py (Hub Relay).
 """
+
 from __future__ import annotations
 
 import json

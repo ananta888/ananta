@@ -1,4 +1,5 @@
 """TuiFollowDistanceStrategy — implements snake_tui_follow_distance_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, UiMotionPort
@@ -25,7 +26,7 @@ class TuiFollowDistanceStrategy(HeuristicStrategyBase):
     ) -> DecisionResult:
         params = definition.parameters or {}
         distance = int(params.get("distance") or 4)
-        ui = UiMotionPort.from_context(context)
+        UiMotionPort.from_context(context)
 
         has_target = bool(context.active_goal_id or context.selected_artifacts)
 

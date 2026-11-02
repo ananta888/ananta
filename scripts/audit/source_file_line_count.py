@@ -17,7 +17,6 @@ from agent.services.generated_source_line_policy_service import (
     CATEGORY_TESTS,
     EXCLUDED_DIR_PARTS,
     EXCLUDED_PREFIXES,
-    GENERATED_PATTERNS,
     SOURCE_EXTENSIONS,
     GeneratedSourceLinePolicyService,
 )
@@ -170,7 +169,9 @@ def audit(
             "total_files": len(rows),
             "over_threshold": len(over_threshold),
             "source_over_threshold": sum(
-                1 for row in over_threshold if row["category"] in {CATEGORY_PRODUCTION_SOURCE, CATEGORY_FACADE_OR_ROUTES}
+                1
+                for row in over_threshold
+                if row["category"] in {CATEGORY_PRODUCTION_SOURCE, CATEGORY_FACADE_OR_ROUTES}
             ),
             "test_over_threshold": sum(1 for row in over_threshold if row["category"] == CATEGORY_TESTS),
             "generated_over_threshold": sum(1 for row in over_threshold if row["category"] == CATEGORY_GENERATED),

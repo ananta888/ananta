@@ -1,4 +1,5 @@
 """SCG-010: CommandToToolMapper is only applied to individual atomic segments, never to full chains."""
+
 from __future__ import annotations
 
 from agent.services.command_chain_parser import CommandChainParser

@@ -35,9 +35,12 @@ def _cfg() -> LlmInterceptorConfig:
 def test_forward_chat_stream_preserves_order(monkeypatch):
     monkeypatch.setattr(
         "agent.services.llm_interceptor.provider_router.requests.post",
-        lambda *args, **kwargs: _StreamResp(lines=["data: {\"a\":1}", "data: [DONE]"]),
+        lambda *args, **kwargs: _StreamResp(lines=['data: {"a":1}', "data: [DONE]"]),
     )
-    out = list(ProviderRouter(_cfg()).forward_chat_stream(payload={"model": "m-local", "messages": [{"role": "user", "content": "h"}], "stream": True}))
+    out = list(
+        ProviderRouter(_cfg()).forward_chat_stream(
+            payload={"model": "m-local", "messages": [{"role": "user", "content": "h"}], "stream": True}
+        )
+    )
     assert out[0].startswith("data: ")
     assert "DONE" in out[-1]
-

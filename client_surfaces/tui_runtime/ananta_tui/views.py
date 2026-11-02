@@ -556,9 +556,7 @@ def render_instruction_layers_view(
     layers = _safe_items(model.get("layers"))
     if layers:
         for layer in layers[:10]:
-            lines.append(
-                f"- layer={layer.get('id')} kind={layer.get('kind')} overridable={layer.get('overridable')}"
-            )
+            lines.append(f"- layer={layer.get('id')} kind={layer.get('kind')} overridable={layer.get('overridable')}")
     else:
         lines.append(f"model_state={layer_model.state}")
     effective = _safe_dict(effective_layers.data)

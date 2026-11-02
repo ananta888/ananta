@@ -46,4 +46,6 @@ def test_set_panel_state_updates_target_panel() -> None:
 def test_set_panel_state_rejects_unknown_panel() -> None:
     payload = build_three_way_diff_session(session_id="session-5")
     with pytest.raises(ValueError):
-        set_panel_state(payload, panel_id="Z", panel_type="diff", source_left=None, source_right=None, render_mode="unified")
+        set_panel_state(
+            payload, panel_id="Z", panel_type="diff", source_left=None, source_right=None, render_mode="unified"
+        )

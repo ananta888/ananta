@@ -38,7 +38,9 @@ def test_append_task_history_event_writes_versioned_hub_event():
 
 def test_audit_log_persists_hub_event_metadata():
     goal = goal_repo.save(GoalDB(goal="Audit event goal", summary="Audit event goal", status="planned"))
-    task_repo.save(TaskDB(id="audit-event-task", title="Task", status="todo", goal_id=goal.id, goal_trace_id=goal.trace_id))
+    task_repo.save(
+        TaskDB(id="audit-event-task", title="Task", status="todo", goal_id=goal.id, goal_trace_id=goal.trace_id)
+    )
 
     log_audit(
         "policy_decision_recorded",

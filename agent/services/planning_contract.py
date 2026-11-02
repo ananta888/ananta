@@ -51,11 +51,21 @@ def resolve_planning_contract(*, mode: str, planning_policy: dict[str, Any] | No
     contract_cfg = contracts.get(mode_key) if isinstance(contracts.get(mode_key), dict) else {}
 
     base = _DEFAULT_SOFTWARE_CONTRACT if mode_key == "new_software_project" else _GENERIC_CONTRACT
-    required_task_kinds = _normalize_required_task_kinds(contract_cfg.get("required_task_kinds"), base.required_task_kinds)
-    required_artifacts = tuple(str(x).strip() for x in list(contract_cfg.get("required_artifacts") or base.required_artifacts) if str(x).strip())
-    required_commands = tuple(str(x).strip() for x in list(contract_cfg.get("required_commands") or base.required_commands) if str(x).strip())
+    required_task_kinds = _normalize_required_task_kinds(
+        contract_cfg.get("required_task_kinds"), base.required_task_kinds
+    )
+    required_artifacts = tuple(
+        str(x).strip()
+        for x in list(contract_cfg.get("required_artifacts") or base.required_artifacts)
+        if str(x).strip()
+    )
+    required_commands = tuple(
+        str(x).strip() for x in list(contract_cfg.get("required_commands") or base.required_commands) if str(x).strip()
+    )
     required_verification_steps = tuple(
-        str(x).strip() for x in list(contract_cfg.get("required_verification_steps") or base.required_verification_steps) if str(x).strip()
+        str(x).strip()
+        for x in list(contract_cfg.get("required_verification_steps") or base.required_verification_steps)
+        if str(x).strip()
     )
     min_tasks = max(1, int(contract_cfg.get("min_tasks") or base.min_tasks))
     contract_id = str(contract_cfg.get("contract_id") or base.contract_id).strip() or base.contract_id

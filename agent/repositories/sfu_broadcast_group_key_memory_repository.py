@@ -87,8 +87,13 @@ class InMemorySfuBroadcastGroupKeyRepository:
         self._store = store or InMemorySfuBroadcastGroupKeyStore()
 
     def receipt(
-        self, *, tenant_id: str, actor_digest: str, operation: str,
-        idempotency_key_digest: str, now_ms: int,
+        self,
+        *,
+        tenant_id: str,
+        actor_digest: str,
+        operation: str,
+        idempotency_key_digest: str,
+        now_ms: int,
     ) -> SfuGroupKeyReceipt | None:
         with self._store.lock:
             value = self._store.receipts.get((tenant_id, actor_digest, operation, idempotency_key_digest))
@@ -97,7 +102,8 @@ class InMemorySfuBroadcastGroupKeyRepository:
     def latest(self, *, tenant_id: str, session_id: str, room_id: str) -> SfuGroupKeyEpochState | None:
         with self._store.lock:
             candidates = [
-                state for state in self._store.states.values()
+                state
+                for state in self._store.states.values()
                 if state.authorization.tenant_id == tenant_id
                 and state.session_id == session_id
                 and state.authorization.room_id == room_id
@@ -111,8 +117,11 @@ class InMemorySfuBroadcastGroupKeyRepository:
             return state if state is not None and state.authorization.tenant_id == tenant_id else None
 
     def create_epoch(
-        self, state: SfuGroupKeyEpochState, receipt: SfuGroupKeyReceipt,
-        *, now_ms: int,
+        self,
+        state: SfuGroupKeyEpochState,
+        receipt: SfuGroupKeyReceipt,
+        *,
+        now_ms: int,
     ) -> SfuGroupKeyMutationResult:
         _validate_state(state)
         _validate_receipt(receipt, state.authorization.tenant_id)
@@ -142,9 +151,15 @@ class InMemorySfuBroadcastGroupKeyRepository:
             return _result("saved", state=state)
 
     def deliver(
-        self, *, tenant_id: str, authorization_id: str, expected_version: int,
-        expected_fencing_token: int, packages: tuple[SfuGroupKeyPackageWrite, ...],
-        receipt: SfuGroupKeyReceipt, now_ms: int,
+        self,
+        *,
+        tenant_id: str,
+        authorization_id: str,
+        expected_version: int,
+        expected_fencing_token: int,
+        packages: tuple[SfuGroupKeyPackageWrite, ...],
+        receipt: SfuGroupKeyReceipt,
+        now_ms: int,
     ) -> SfuGroupKeyMutationResult:
         key = _receipt_key(receipt)
         with self._store.lock:
@@ -175,10 +190,20 @@ class InMemorySfuBroadcastGroupKeyRepository:
                         aad=aad,
                     )
                     self._store.packages[package.package_ref] = _StoredPackage(
-                        authorization_id, tenant_id, state.session_id, package.recipient_id,
-                        package.recipient_digest, package.package_ref, package.package_digest,
-                        len(package.opaque_package), envelope, state.authorization.membership_epoch or 0,
-                        state.authorization.epoch, "delivered", state.fencing_token, 1,
+                        authorization_id,
+                        tenant_id,
+                        state.session_id,
+                        package.recipient_id,
+                        package.recipient_digest,
+                        package.package_ref,
+                        package.package_digest,
+                        len(package.opaque_package),
+                        envelope,
+                        state.authorization.membership_epoch or 0,
+                        state.authorization.epoch,
+                        "delivered",
+                        state.fencing_token,
+                        1,
                         package.expires_at_ms,
                     )
             saved = replace(
@@ -193,18 +218,29 @@ class InMemorySfuBroadcastGroupKeyRepository:
             return _result("saved", state=saved, replayed=bool(existing))
 
     def read_for_recipient(
-        self, *, tenant_id: str, session_id: str, recipient_digest: str,
-        membership_epoch: int, cursor: str, limit: int, now_ms: int,
+        self,
+        *,
+        tenant_id: str,
+        session_id: str,
+        recipient_digest: str,
+        membership_epoch: int,
+        cursor: str,
+        limit: int,
+        now_ms: int,
     ) -> SfuGroupKeyDeliveryPage:
         _validate_page(limit)
         with self._store.lock:
             rows = sorted(
                 (
-                    row for row in self._store.packages.values()
-                    if row.tenant_id == tenant_id and row.session_id == session_id
-                    and row.recipient_digest == recipient_digest and row.membership_epoch == membership_epoch
+                    row
+                    for row in self._store.packages.values()
+                    if row.tenant_id == tenant_id
+                    and row.session_id == session_id
+                    and row.recipient_digest == recipient_digest
+                    and row.membership_epoch == membership_epoch
                     and row.status in {"delivered", "acknowledged"}
-                    and row.expires_at_ms > now_ms and row.package_ref > cursor
+                    and row.expires_at_ms > now_ms
+                    and row.package_ref > cursor
                 ),
                 key=lambda row: row.package_ref,
             )[:limit]
@@ -212,8 +248,14 @@ class InMemorySfuBroadcastGroupKeyRepository:
             return SfuGroupKeyDeliveryPage(deliveries, rows[-1].package_ref if rows else cursor)
 
     def acknowledge(
-        self, *, tenant_id: str, authorization_id: str, package_ref: str,
-        recipient_digest: str, membership_epoch: int, now_ms: int,
+        self,
+        *,
+        tenant_id: str,
+        authorization_id: str,
+        package_ref: str,
+        recipient_digest: str,
+        membership_epoch: int,
+        now_ms: int,
     ) -> SfuGroupKeyMutationResult:
         with self._store.lock:
             state = self._store.states.get(authorization_id)
@@ -223,8 +265,10 @@ class InMemorySfuBroadcastGroupKeyRepository:
                 return _result("expired", state=state, reason="sfu_group_authorization_stale")
             row = self._store.packages.get(package_ref)
             if (
-                row is None or row.authorization_id != authorization_id
-                or row.recipient_digest != recipient_digest or row.membership_epoch != membership_epoch
+                row is None
+                or row.authorization_id != authorization_id
+                or row.recipient_digest != recipient_digest
+                or row.membership_epoch != membership_epoch
             ):
                 return _result("not_found", state=state, reason="sfu_group_package_recipient_mismatch")
             if row.status == "acknowledged":
@@ -247,8 +291,11 @@ class InMemorySfuBroadcastGroupKeyRepository:
             for state in expired:
                 self._destroy_packages(state.authorization.authorization_id, status="tombstoned")
                 self._store.states[state.authorization.authorization_id] = replace(
-                    state, status="tombstoned", delivered_member_ids=(),
-                    acknowledged_member_ids=(), version=state.version + 1,
+                    state,
+                    status="tombstoned",
+                    delivered_member_ids=(),
+                    acknowledged_member_ids=(),
+                    version=state.version + 1,
                 )
             for key, receipt in tuple(self._store.receipts.items()):
                 if receipt.expires_at_ms <= now_ms:
@@ -266,8 +313,10 @@ class InMemorySfuBroadcastGroupKeyRepository:
                     continue
                 aad = _package_aad(row.tenant_id, row.authorization_id, row.package_ref, row.package_digest)
                 envelope = self._envelope.rewrap(
-                    row.envelope, purpose="sfu-group-key-package",
-                    scope=f"{row.tenant_id}:{row.authorization_id}", aad=aad,
+                    row.envelope,
+                    purpose="sfu-group-key-package",
+                    scope=f"{row.tenant_id}:{row.authorization_id}",
+                    aad=aad,
                 )
                 self._store.packages[package_ref] = replace(row, envelope=envelope, version=row.version + 1)
                 rotated += 1
@@ -279,8 +328,10 @@ class InMemorySfuBroadcastGroupKeyRepository:
             raise SfuBroadcastGroupKeyRepositoryError("sfu_group_package_unavailable")
         aad = _package_aad(row.tenant_id, row.authorization_id, row.package_ref, row.package_digest)
         opaque = self._envelope.open(
-            row.envelope, purpose="sfu-group-key-package",
-            scope=f"{row.tenant_id}:{row.authorization_id}", aad=aad,
+            row.envelope,
+            purpose="sfu-group-key-package",
+            scope=f"{row.tenant_id}:{row.authorization_id}",
+            aad=aad,
         )
         return SfuGroupKeyPackageDelivery(
             state.authorization,
@@ -299,9 +350,7 @@ class InMemorySfuBroadcastGroupKeyRepository:
     def _destroy_packages(self, authorization_id: str, *, status: str) -> None:
         for package_ref, row in tuple(self._store.packages.items()):
             if row.authorization_id == authorization_id:
-                self._store.packages[package_ref] = replace(
-                    row, envelope=None, status=status, version=row.version + 1
-                )
+                self._store.packages[package_ref] = replace(row, envelope=None, status=status, version=row.version + 1)
 
 
 __all__ = [

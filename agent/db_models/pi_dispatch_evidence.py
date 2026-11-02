@@ -5,7 +5,7 @@ from sqlmodel import Field, SQLModel
 
 
 class PiDispatchEvidenceDB(SQLModel, table=True):
-    __tablename__ = 'pi_dispatch_evidence'
+    __tablename__ = "pi_dispatch_evidence"
 
     tenant_id: str = Field(primary_key=True)
     task_id: str = Field(primary_key=True)

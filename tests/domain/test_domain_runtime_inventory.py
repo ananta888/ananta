@@ -52,4 +52,3 @@ def test_descriptor_only_domains_are_not_claimed_as_runtime_complete() -> None:
         descriptor = descriptors[domain_id]
         if str(descriptor.get("runtime_status") or "") == "descriptor_only":
             assert inventory_status not in runtime_claim_statuses
-

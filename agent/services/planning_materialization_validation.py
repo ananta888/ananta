@@ -31,11 +31,7 @@ def task_matches_materialization_binding(
 ) -> bool:
     """Check the immutable ownership fields of a deterministic plan task."""
 
-    expected_source = (
-        source_task_id
-        if source_task_id is not None
-        else parent_task_id
-    )
+    expected_source = source_task_id if source_task_id is not None else parent_task_id
     expected_depth = 1 if (parent_task_id or source_task_id) else 0
     rationale = dict(node.rationale or {})
     expected = {
@@ -54,70 +50,36 @@ def task_matches_materialization_binding(
         "description": str(node.description or ""),
         "priority": str(node.priority or ""),
         "task_kind": str(rationale.get("task_kind") or ""),
-        "retrieval_intent": str(
-            rationale.get("retrieval_intent") or ""
-        ),
-        "required_context_scope": str(
-            rationale.get("required_context_scope") or ""
-        ),
-        "preferred_bundle_mode": str(
-            rationale.get("preferred_bundle_mode") or ""
-        ),
+        "retrieval_intent": str(rationale.get("retrieval_intent") or ""),
+        "required_context_scope": str(rationale.get("required_context_scope") or ""),
+        "preferred_bundle_mode": str(rationale.get("preferred_bundle_mode") or ""),
     }
     actual = {
         "id": str(getattr(task, "id", "") or ""),
         "goal_id": str(getattr(task, "goal_id", "") or ""),
-        "goal_trace_id": str(
-            getattr(task, "goal_trace_id", "") or ""
-        ),
+        "goal_trace_id": str(getattr(task, "goal_trace_id", "") or ""),
         "plan_id": str(getattr(task, "plan_id", "") or ""),
-        "plan_node_id": str(
-            getattr(task, "plan_node_id", "") or ""
-        ),
+        "plan_node_id": str(getattr(task, "plan_node_id", "") or ""),
         "team_id": str(getattr(task, "team_id", "") or ""),
-        "parent_task_id": str(
-            getattr(task, "parent_task_id", "") or ""
-        ),
-        "source_task_id": str(
-            getattr(task, "source_task_id", "") or ""
-        ),
-        "derivation_reason": str(
-            getattr(task, "derivation_reason", "") or ""
-        ),
-        "derivation_depth": int(
-            getattr(task, "derivation_depth", 0) or 0
-        ),
-        "status": str(getattr(task, "status", "") or "")
-        .strip()
-        .lower(),
+        "parent_task_id": str(getattr(task, "parent_task_id", "") or ""),
+        "source_task_id": str(getattr(task, "source_task_id", "") or ""),
+        "derivation_reason": str(getattr(task, "derivation_reason", "") or ""),
+        "derivation_depth": int(getattr(task, "derivation_depth", 0) or 0),
+        "status": str(getattr(task, "status", "") or "").strip().lower(),
         "title": str(getattr(task, "title", "") or ""),
-        "description": str(
-            getattr(task, "description", "") or ""
-        ),
+        "description": str(getattr(task, "description", "") or ""),
         "priority": str(getattr(task, "priority", "") or ""),
-        "task_kind": str(
-            getattr(task, "task_kind", "") or ""
-        ),
-        "retrieval_intent": str(
-            getattr(task, "retrieval_intent", "") or ""
-        ),
-        "required_context_scope": str(
-            getattr(task, "required_context_scope", "") or ""
-        ),
-        "preferred_bundle_mode": str(
-            getattr(task, "preferred_bundle_mode", "") or ""
-        ),
+        "task_kind": str(getattr(task, "task_kind", "") or ""),
+        "retrieval_intent": str(getattr(task, "retrieval_intent", "") or ""),
+        "required_context_scope": str(getattr(task, "required_context_scope", "") or ""),
+        "preferred_bundle_mode": str(getattr(task, "preferred_bundle_mode", "") or ""),
     }
     return (
         actual == expected
-        and list(getattr(task, "depends_on", None) or [])
-        == list(depends_on or [])
-        and list(
-            getattr(task, "required_capabilities", None) or []
-        )
+        and list(getattr(task, "depends_on", None) or []) == list(depends_on or [])
+        and list(getattr(task, "required_capabilities", None) or [])
         == list(rationale.get("required_capabilities") or [])
-        and dict(getattr(task, "verification_spec", None) or {})
-        == dict(node.verification_spec or {})
+        and dict(getattr(task, "verification_spec", None) or {}) == dict(node.verification_spec or {})
     )
 
 
@@ -148,10 +110,7 @@ def validate_existing_plan_for_materialization(
             "ok": False,
             "reason_code": dependency_error,
         }
-    key_to_position = {
-        str(node.node_key): str(index)
-        for index, node in enumerate(nodes, start=1)
-    }
+    key_to_position = {str(node.node_key): str(index) for index, node in enumerate(nodes, start=1)}
     subtasks: list[dict[str, Any]] = []
     for node in nodes:
         rationale = dict(node.rationale or {})
@@ -161,19 +120,12 @@ def validate_existing_plan_for_materialization(
                 "description": str(node.description or ""),
                 "priority": str(node.priority or "Medium"),
                 "task_kind": str(rationale.get("task_kind") or "coding"),
-                "depends_on": [
-                    key_to_position[dep]
-                    for dep in list(node.depends_on or [])
-                ],
+                "depends_on": [key_to_position[dep] for dep in list(node.depends_on or [])],
                 "required_capabilities": [
-                    str(item)
-                    for item in list(rationale.get("required_capabilities") or [])
-                    if str(item).strip()
+                    str(item) for item in list(rationale.get("required_capabilities") or []) if str(item).strip()
                 ],
                 "expected_artifacts": [
-                    dict(item)
-                    for item in list(rationale.get("expected_artifacts") or [])
-                    if isinstance(item, dict)
+                    dict(item) for item in list(rationale.get("expected_artifacts") or []) if isinstance(item, dict)
                 ],
                 "verification_spec": dict(node.verification_spec or {}),
             }
@@ -190,14 +142,11 @@ def validate_existing_plan_for_materialization(
         planning_policy=planning_policy,
         team_id=team_id,
     )
-    remaining_reasons = [
-        item
-        for item in str(quality.reason or "").split("|")
-        if item and item != "ok"
-    ]
-    soft_only = bool(subtasks) and remaining_reasons and all(
-        item.startswith("missing_categories:")
-        for item in remaining_reasons
+    remaining_reasons = [item for item in str(quality.reason or "").split("|") if item and item != "ok"]
+    soft_only = (
+        bool(subtasks)
+        and remaining_reasons
+        and all(item.startswith("missing_categories:") for item in remaining_reasons)
     )
     if not quality.ok and not soft_only:
         return {
@@ -261,10 +210,7 @@ def dependency_contract_error(
         return "plan_node_key_duplicate"
     known = set(node_keys)
     for node in nodes:
-        dependencies = [
-            str(value or "").strip()
-            for value in list(node.depends_on or [])
-        ]
+        dependencies = [str(value or "").strip() for value in list(node.depends_on or [])]
         if len(set(dependencies)) != len(dependencies):
             return "plan_dependency_duplicate"
         if str(node.node_key) in dependencies:

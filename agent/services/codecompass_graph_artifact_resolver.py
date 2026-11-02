@@ -246,7 +246,8 @@ class CodeCompassGraphArtifactResolver:
             if admitted_path.name != filename:
                 raise
             local_path = self._validated_local_artifact_path(
-                self._materializer.materialize(digest, admitted_path), expected_filename=filename)
+                self._materializer.materialize(digest, admitted_path), expected_filename=filename
+            )
         self._verify_hash(
             path=local_path,
             digest=digest,

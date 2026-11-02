@@ -1,4 +1,5 @@
 """CRG-002: vendor-neutral import-provider port tests."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,10 +21,10 @@ from worker.retrieval.codecompass_import_provider import (
     compute_content_hash,
 )
 
-
 # ---------------------------------------------------------------------------
 # helpers: a minimal adapter that exercises the port end-to-end
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _FakeProvider:
@@ -101,6 +102,7 @@ def test_capability_constants_are_stable():
 # workspace-bound path guards (DD-013)
 # ---------------------------------------------------------------------------
 
+
 def test_assert_within_workspace_accepts_inner_path(tmp_path):
     inner = tmp_path / "a" / "b"
     inner.mkdir(parents=True)
@@ -136,6 +138,7 @@ def test_assert_within_workspace_rejects_symlink_escape(tmp_path):
 # provider must work without CRG / SPADE installed
 # ---------------------------------------------------------------------------
 
+
 def test_provider_works_without_optional_deps(monkeypatch):
     """Providers must be importable and runnable even if CRG/SPADE are
     not installed. The fake provider above has no CRG/SPADE imports;
@@ -144,6 +147,7 @@ def test_provider_works_without_optional_deps(monkeypatch):
     """
     # Sanity: import-port module must not import CRG/SPADE on load.
     import worker.retrieval.codecompass_import_provider as mod
+
     src = Path(mod.__file__).read_text(encoding="utf-8")
     assert "code-review-graph" not in src.lower()
     assert "spade" not in src.lower()

@@ -29,23 +29,39 @@ class GateRegistry:
 
 
 def baseline(**changes):
-    base = dict(code_hash=A, config_hash=B, provider_id="llamacpp", model_id="bonsai-27b",
-                gate_refs=("gate://security", "gate://correctness"), promotion_ref="gate://promotion",
-                allowed_tools=("repo.grep", "repo.read_list_files"))
+    base = dict(
+        code_hash=A,
+        config_hash=B,
+        provider_id="llamacpp",
+        model_id="bonsai-27b",
+        gate_refs=("gate://security", "gate://correctness"),
+        promotion_ref="gate://promotion",
+        allowed_tools=("repo.grep", "repo.read_list_files"),
+    )
     base.update(changes)
     return baseline_genome(**base)
 
 
 def runtime(genome, *, authorized_tools=frozenset(), gates=GATES, strategies=None):
-    return HarnessRuntime(genome, strategies=strategies or build_default_strategy_registry(),
-                          gates=GateRegistry(gates), authorized_tools=frozenset(authorized_tools))
+    return HarnessRuntime(
+        genome,
+        strategies=strategies or build_default_strategy_registry(),
+        gates=GateRegistry(gates),
+        authorized_tools=frozenset(authorized_tools),
+    )
 
 
 def test_baseline_reproduces_current_behaviour():
     value = runtime(baseline(), authorized_tools=("repo.grep",)).describe()
-    assert value.strategies == {"context": "fixed_reservation", "tools": "contract", "memory": "policy_gateway",
-                                "delegation": "hub_only", "verification": "hub_gate", "stop_retry": "task_terminal",
-                                "reducer": "none"}
+    assert value.strategies == {
+        "context": "fixed_reservation",
+        "tools": "contract",
+        "memory": "policy_gateway",
+        "delegation": "hub_only",
+        "verification": "hub_gate",
+        "stop_retry": "task_terminal",
+        "reducer": "none",
+    }
     assert value.immutable_gates == ("gate://security", "gate://correctness")
     assert value.promotion_ref == "gate://promotion"
 
@@ -107,8 +123,10 @@ def test_genome_hash_and_tools_are_independent_of_runtime_binding():
 
 
 def test_context_policy_budget_is_carried_into_the_reservation():
-    genome = replace(baseline(), context=ContextPolicy(budget_tokens=65536, reserved_completion_tokens=4096,
-                                                       reserved_tool_tokens=1024))
+    genome = replace(
+        baseline(),
+        context=ContextPolicy(budget_tokens=65536, reserved_completion_tokens=4096, reserved_tool_tokens=1024),
+    )
     reservation = runtime(genome, authorized_tools=("repo.grep",)).reservation()
     assert reservation.available_input_tokens == 65536 - 4096 - 1024
 

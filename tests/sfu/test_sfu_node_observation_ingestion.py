@@ -17,7 +17,7 @@ from cryptography.x509.oid import NameOID
 from flask import Flask
 from sqlalchemy import func, inspect
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.db_models import (
     SfuNodeDB,
@@ -44,7 +44,6 @@ from agent.services.sfu_node_observation_ingestion_service import (
     build_sfu_node_observation_validator,
     collector_token_digest,
 )
-
 
 NOW = 1_800_000_000.0
 CURSOR_KEY = b"test-observation-node-list-cursor"
@@ -230,9 +229,7 @@ def _signed_extension_document(key, **overrides):
 
 
 def test_migration_is_on_ops003_head_and_round_trips():
-    migration = importlib.import_module(
-        "migrations.versions.2ae1f2a3b4c5_add_sfu_node_observation_cursors"
-    )
+    migration = importlib.import_module("migrations.versions.2ae1f2a3b4c5_add_sfu_node_observation_cursors")
     assert migration.down_revision == "19d0e1f2a3b4"
     engine = create_engine("sqlite://")
     with engine.begin() as connection:
@@ -257,9 +254,7 @@ def test_control_api_collector_clamps_non_authoritative_values_without_mutating_
         "memory_bytes",
     ]
     assert result.normalized_observation["metrics"]["memory_bytes"] == 1000
-    node = node_repository.get_node(
-        tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a"
-    )
+    node = node_repository.get_node(tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a")
     assert node is not None
     assert node.health_status == "healthy"
     assert node.drain_state == "active"
@@ -279,9 +274,7 @@ def test_control_api_collector_clamps_non_authoritative_values_without_mutating_
         ),
     ],
 )
-def test_control_api_rejects_wrong_tls_auth_identity_and_invented_node_signature(
-    authentication, mutation, expected
-):
+def test_control_api_rejects_wrong_tls_auth_identity_and_invented_node_signature(authentication, mutation, expected):
     service, _, _ = _service()
     document = _document()
     document.update(mutation)
@@ -371,9 +364,7 @@ def test_cluster_observation_does_not_invent_node_identity_or_mutate_directory()
     result = service.ingest(_raw(cluster_document), _control_auth())
     assert result.status == "accepted"
     assert result.node is None
-    node = node_repository.get_node(
-        tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a"
-    )
+    node = node_repository.get_node(tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a")
     assert node is not None
     assert node.version == 1
     assert node.observation_status == "unknown"
@@ -422,9 +413,7 @@ def test_internal_route_requires_https_and_hub_collector_bearer():
     app = Flask(__name__)
     app.secret_key = "test"
     app.extensions["sfu_node_observation_ingestion_service"] = service
-    app.extensions["sfu_node_observation_collector_token_digest"] = collector_token_digest(
-        COLLECTOR_TOKEN
-    )
+    app.extensions["sfu_node_observation_collector_token_digest"] = collector_token_digest(COLLECTOR_TOKEN)
     app.register_blueprint(webrtc_sfu_node_observations_bp)
     response = app.test_client().post(
         "/api/internal/webrtc/sfu-node-observations",

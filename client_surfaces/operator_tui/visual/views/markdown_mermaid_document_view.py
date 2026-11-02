@@ -14,10 +14,9 @@ from client_surfaces.operator_tui.visual.markdown.document_source import (
 )
 from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import (
     MermaidFallbackInfo,
-    render_markdown_ansi,
     render_markdown_ansi_lines,
 )
-from client_surfaces.operator_tui.visual.markdown.markdown_parser import MermaidBlock, parse_markdown
+from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
 from client_surfaces.operator_tui.visual.markdown.mermaid_block_extractor import extract_mermaid_blocks
 from client_surfaces.operator_tui.visual.markdown.mermaid_cache import MermaidCache
 from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
@@ -117,8 +116,8 @@ class MarkdownMermaidDocumentView:
     _mermaid_renderer: MermaidRenderer = field(default_factory=MermaidRenderer)
     _mermaid_cache: MermaidCache = field(default_factory=MermaidCache)
     _policy_resolver: MarkdownRenderPolicyResolver = field(default_factory=MarkdownRenderPolicyResolver)
-    _scroll_offset: int = 0        # vertical: lines scrolled from top
-    _h_offset: int = 0             # horizontal: columns scrolled from left
+    _scroll_offset: int = 0  # vertical: lines scrolled from top
+    _h_offset: int = 0  # horizontal: columns scrolled from left
     _last_content_lines: int = 0
     _last_max_line_width: int = 0  # widest rendered line (for h-scrollbar)
     _last_doc_fingerprint: str = ""  # reset counters when document changes
@@ -195,9 +194,7 @@ class MarkdownMermaidDocumentView:
                 diagram_id = f"mermaid_{src_hash}_{idx}"
 
                 # Check cache first (MDP-008 / MIMG-006)
-                cached = self._mermaid_cache.get(
-                    src_hash, backend_name, "auto", diagram_w, diagram_h
-                )
+                cached = self._mermaid_cache.get(src_hash, backend_name, "auto", diagram_w, diagram_h)
                 if cached is not None and cached.success:
                     cache_hits += 1
                     result = cached
@@ -207,7 +204,7 @@ class MarkdownMermaidDocumentView:
                     was_cache_hit = False
                     t0 = time.perf_counter()
                     result = renderer.render(mb.source)
-                    duration_ms = (time.perf_counter() - t0) * 1000.0
+                    (time.perf_counter() - t0) * 1000.0
                     if result.success:
                         self._mermaid_cache.put(src_hash, backend_name, "auto", diagram_w, diagram_h, result)
 
@@ -215,19 +212,21 @@ class MarkdownMermaidDocumentView:
                     # Attach as diagram_image node (MIMG-004 / MDP-006)
                     mermaid_images_rendered += 1
                     mermaid_renderer_used = backend_name
-                    diagram_nodes.append(_make_diagram_image_node(
-                        diagram_id=diagram_id,
-                        image_format=result.image_format or "svg",
-                        image_data=result.image_data,
-                        x=0,
-                        y=idx * _DIAGRAM_RESERVED_ROWS,
-                        requested_width=diagram_w,
-                        requested_height=diagram_h,
-                        alt_text=f"Mermaid diagram {idx + 1}",
-                        fallback_text=mb.source,
-                        render_duration_ms=result.duration_ms,
-                        cache_hit=was_cache_hit,
-                    ))
+                    diagram_nodes.append(
+                        _make_diagram_image_node(
+                            diagram_id=diagram_id,
+                            image_format=result.image_format or "svg",
+                            image_data=result.image_data,
+                            x=0,
+                            y=idx * _DIAGRAM_RESERVED_ROWS,
+                            requested_width=diagram_w,
+                            requested_height=diagram_h,
+                            alt_text=f"Mermaid diagram {idx + 1}",
+                            fallback_text=mb.source,
+                            render_duration_ms=result.duration_ms,
+                            cache_hit=was_cache_hit,
+                        )
+                    )
                 elif not result.success and result.reason != _GRACEFUL_FALLBACK_REASON:
                     # Real render failure — record for ANSI fallback display
                     mermaid_fallback_count += 1
@@ -272,7 +271,8 @@ class MarkdownMermaidDocumentView:
         # Track max visible line width (plain chars only, for h-scrollbar)
         # Use current render's actual max — reset per document (not cumulative across docs)
         import re as _re
-        _ansi_strip = _re.compile(r'\x1b\[[0-9;]*m')
+
+        _ansi_strip = _re.compile(r"\x1b\[[0-9;]*m")
         max_w = 0
         for rl in rendered_lines:
             max_w = max(max_w, len(_ansi_strip.sub("", rl)))
@@ -291,10 +291,7 @@ class MarkdownMermaidDocumentView:
             lines.append(_h_clip(raw, h_offset=h_offset, width=context.region.columns))
 
         # Build label nodes from ANSI lines
-        nodes: list[dict[str, Any]] = [
-            {"kind": "label", "text": line, "x": 0, "y": y}
-            for y, line in enumerate(lines)
-        ]
+        nodes: list[dict[str, Any]] = [{"kind": "label", "text": line, "x": 0, "y": y} for y, line in enumerate(lines)]
         # Append diagram image nodes after label nodes (MIMG-004)
         nodes.extend(diagram_nodes)
 
@@ -336,10 +333,12 @@ class MarkdownMermaidDocumentView:
         body_width = max(1, width)
         lines: list[str] = ["# Chat-Nachricht", ""]
         if bool(context.state.get("chat_long_message_streaming")):
-            lines.extend([
-                "> Antwortstream wird hier in der mittleren Ansicht fortgesetzt.",
-                "",
-            ])
+            lines.extend(
+                [
+                    "> Antwortstream wird hier in der mittleren Ansicht fortgesetzt.",
+                    "",
+                ]
+            )
         for raw_line in text.splitlines() or [""]:
             if not raw_line:
                 lines.append("")
@@ -394,16 +393,14 @@ class MarkdownMermaidDocumentView:
             "markdown_ansi": True,
             "mermaid_renderer": mermaid_image_available,
             "mermaid_image": mermaid_image_available,
-            "mermaid_status": {
-                name: {"available": ok, "reason": reason}
-                for name, (ok, reason) in status.items()
-            },
+            "mermaid_status": {name: {"available": ok, "reason": reason} for name, (ok, reason) in status.items()},
             "cache_diagnostics": self._mermaid_cache.diagnostics(),
         }
 
     def scroll_context(self, *, content_lines: int = 0, viewport_rows: int = 24) -> "object":
         """Return accurate ScrollContext for shared ScrollManager (MDP-005)."""
         from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
+
         effective_content = max(content_lines, self._last_content_lines, self._scroll_offset + 1)
         return ScrollContext(
             id="center_viewport",
@@ -416,6 +413,7 @@ class MarkdownMermaidDocumentView:
     def h_scroll_context(self, *, viewport_cols: int = 80) -> "object":
         """Return ScrollContext for horizontal scrolling."""
         from client_surfaces.operator_tui.scroll.scroll_context import ScrollContext
+
         content_w = max(self._last_max_line_width, self._h_offset + viewport_cols)
         return ScrollContext(
             id="center_viewport_h",

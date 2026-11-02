@@ -116,7 +116,6 @@ def get_workspace_context_policy_resolver() -> WorkspaceContextPolicyResolver:
     global _resolver_instance
     if _resolver_instance is None:
         from agent.services.agent_template_registry import get_agent_template_registry
-        _resolver_instance = WorkspaceContextPolicyResolver(
-            template_registry=get_agent_template_registry()
-        )
+
+        _resolver_instance = WorkspaceContextPolicyResolver(template_registry=get_agent_template_registry())
     return _resolver_instance

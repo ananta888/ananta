@@ -19,9 +19,7 @@ from agent.db_models.scientific_skill_provenance import (
 def test_business_controlling_migration_adopts_preexisting_model_tables(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    migration = importlib.import_module(
-        "migrations.versions.f6b8c0d2e4a7_add_business_controlling_profiles"
-    )
+    migration = importlib.import_module("migrations.versions.f6b8c0d2e4a7_add_business_controlling_profiles")
     engine = sa.create_engine("sqlite://")
     metadata = sa.MetaData()
     BusinessControllingProfileDB.__table__.to_metadata(metadata)
@@ -43,21 +41,17 @@ def test_business_controlling_migration_adopts_preexisting_model_tables(
         "business_controlling_mappings",
     } <= set(inspector.get_table_names())
     assert "ix_business_controlling_profile_scope" in {
-        index["name"]
-        for index in inspector.get_indexes("business_controlling_profiles")
+        index["name"] for index in inspector.get_indexes("business_controlling_profiles")
     }
     assert "ix_business_controlling_mapping_scope" in {
-        index["name"]
-        for index in inspector.get_indexes("business_controlling_mappings")
+        index["name"] for index in inspector.get_indexes("business_controlling_mappings")
     }
 
 
 def test_scientific_skill_migration_adopts_preexisting_model_table(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    migration = importlib.import_module(
-        "migrations.versions.a8c0e2f4b6d9_add_scientific_skill_provenance"
-    )
+    migration = importlib.import_module("migrations.versions.a8c0e2f4b6d9_add_scientific_skill_provenance")
     engine = sa.create_engine("sqlite://")
     metadata = sa.MetaData()
     ScientificSkillProvenanceReceiptDB.__table__.to_metadata(metadata)
@@ -75,6 +69,5 @@ def test_scientific_skill_migration_adopts_preexisting_model_table(
     inspector = sa.inspect(engine)
     assert "scientific_skill_provenance_receipts" in inspector.get_table_names()
     assert "ix_scientific_skill_receipt_scope" in {
-        index["name"]
-        for index in inspector.get_indexes("scientific_skill_provenance_receipts")
+        index["name"] for index in inspector.get_indexes("scientific_skill_provenance_receipts")
     }

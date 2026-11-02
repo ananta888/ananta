@@ -94,6 +94,16 @@ capability use the Hub instead; the default (`none`) fails closed.
   `data/knowledge_indices` (graph and metrics stay side by side); both the
   fetch and the unchanged resolver verify the sha256.
 - The capability's index ids also narrow which index a graph tool may open.
+- Retrieval reads the same Hub-owned index (WCRB-013). A worker's own data root
+  does not hold a repo index, so when `KnowledgeIndexRetrievalService` finds the
+  granted index's output directory missing locally it fetches the retrieval
+  outputs once from `GET /api/codecompass/worker-index-artifacts/<index_id>/<role>`
+  (`role` in `index`, `details`, `relations`; same registered-worker scope and
+  capability header, and the index must be in the capability's
+  `allowed_index_ids`). The file is written to the index's own admitted path and
+  its body is verified against the `X-Artifact-SHA256` the Hub computed; a role
+  the Hub does not offer is a 404 the worker skips. Retrieval then runs locally
+  against the Hub-issued index.
 
 ### Path A - Hub gateway (WCRB-008)
 

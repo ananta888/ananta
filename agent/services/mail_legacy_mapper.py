@@ -78,8 +78,10 @@ class MailLegacyMapper:
             thread_ref_id=thread_ref_id,
         )
         raw_to = ref.get("to", headers.get("to", ()))
-        recipients = (str(raw_to),) if isinstance(raw_to, str) and raw_to else tuple(
-            str(item) for item in list(raw_to or []) if str(item)
+        recipients = (
+            (str(raw_to),)
+            if isinstance(raw_to, str) and raw_to
+            else tuple(str(item) for item in list(raw_to or []) if str(item))
         )
         subject = str(headers.get("subject") or "")
         metadata = MailMessageMetadata(
@@ -147,11 +149,7 @@ class MailLegacyMapper:
             if same_message_id:
                 return MailDedupeDecision("ambiguous", "dedupe_evidence_incomplete")
             return MailDedupeDecision("unmatched", "dedupe_evidence_incomplete")
-        exact = [
-            item
-            for item in existing
-            if MailLegacyMapper.conservative_fingerprint(item) == fingerprint
-        ]
+        exact = [item for item in existing if MailLegacyMapper.conservative_fingerprint(item) == fingerprint]
         if len(exact) == 1:
             return MailDedupeDecision("matched", "dedupe_strong_match", exact[0].message_ref.mail_ref_id, fingerprint)
         if len(exact) > 1:

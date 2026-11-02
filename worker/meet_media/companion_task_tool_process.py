@@ -18,20 +18,33 @@ class AssignedCompanionToolProcess:
         self.environment = assigned_model_environment(self.assignment, environment=environment)
 
     def __call__(self, arguments, *, cooperate):
-        if (not isinstance(arguments, dict) or set(arguments) != {"tool", "arguments"}
-                or not isinstance(arguments["tool"], str) or not isinstance(arguments["arguments"], dict)):
+        if (
+            not isinstance(arguments, dict)
+            or set(arguments) != {"tool", "arguments"}
+            or not isinstance(arguments["tool"], str)
+            or not isinstance(arguments["arguments"], dict)
+        ):
             raise ValueError("meet_companion_task_tool_port_invalid")
         remaining = min(20, self.deadline - self.monotonic())
         if remaining <= 0:
             raise ValueError("meet_companion_assignment_expired")
         transport = CompanionProcessTransport(
             (sys.executable, "-m", "worker.meet_media.companion_task_tool_runtime"),
-            environment=self.environment, timeout_seconds=remaining,
-            input_limit=24_000, output_limit=MAX_RESPONSE_BYTES,
+            environment=self.environment,
+            timeout_seconds=remaining,
+            input_limit=24_000,
+            output_limit=MAX_RESPONSE_BYTES,
         )
         try:
-            result = transport.exchange({"assignment": self.assignment, "endpoint": self.endpoint,
-                                         "key_hex": self.key.hex(), **deepcopy(arguments)}, cooperate=cooperate)
+            result = transport.exchange(
+                {
+                    "assignment": self.assignment,
+                    "endpoint": self.endpoint,
+                    "key_hex": self.key.hex(),
+                    **deepcopy(arguments),
+                },
+                cooperate=cooperate,
+            )
             cooperate()
             return validate_response(result, self.assignment, arguments["tool"])
         finally:

@@ -126,9 +126,7 @@ class VoiceDeletionReconciliationRepository:
             related_resource_ids.update(item.id for item in live_runs)
             related_resource_ids.update(item.id for item in live_segments)
             related_session_ids.update(
-                str(item.configuration_session_id)
-                for item in live_runs
-                if item.configuration_session_id
+                str(item.configuration_session_id) for item in live_runs if item.configuration_session_id
             )
             for segment in live_segments:
                 session.delete(segment)
@@ -181,9 +179,7 @@ class VoiceDeletionReconciliationRepository:
             )
             for configuration in (*profile_configurations, *session_configurations):
                 session.delete(configuration)
-            counts[VoiceConfigurationDeltaDB.__tablename__] = len(profile_configurations) + len(
-                session_configurations
-            )
+            counts[VoiceConfigurationDeltaDB.__tablename__] = len(profile_configurations) + len(session_configurations)
 
             old_idempotency = [
                 record
@@ -217,9 +213,7 @@ class VoiceDeletionReconciliationRepository:
             tasks = [task for task in session.exec(select(TaskDB)).all() if task.created_at <= deleted_at]
             archived = [task for task in session.exec(select(ArchivedTaskDB)).all() if task.created_at <= deleted_at]
             deleted_ids = {
-                task.id
-                for task in (*tasks, *archived)
-                if self._task_deletion_scope_digest(task) == scope_digest
+                task.id for task in (*tasks, *archived) if self._task_deletion_scope_digest(task) == scope_digest
             }
             for task in tasks:
                 if task.id in deleted_ids:

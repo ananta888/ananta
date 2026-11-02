@@ -1,8 +1,8 @@
 """Tests for scheduled_job.py (EW-T054, EW-T055, EW-T056)."""
-import time
+
 import pytest
+
 from worker.core.scheduled_job import (
-    ApprovalCheckResult,
     ApprovalMode,
     ContextPolicy,
     DeliveryTarget,
@@ -31,6 +31,7 @@ def _contract(**overrides) -> ScheduledJobContract:
 
 
 # ── EW-T054: ScheduledJobContract ────────────────────────────────────────────
+
 
 class TestScheduledJobContract:
     def test_default_contract_is_valid_and_frozen(self):
@@ -85,6 +86,7 @@ class TestScheduledJobContract:
 
 
 # ── EW-T055: HeadlessApprovalPolicy ──────────────────────────────────────────
+
 
 class TestHeadlessApprovalPolicy:
     def setup_method(self):
@@ -173,6 +175,7 @@ class TestHeadlessApprovalPolicy:
 
 # ── EW-T056: JobRunArtifact / JobRunArtifactBuilder ──────────────────────────
 
+
 class TestJobRunArtifact:
     def test_as_dict_has_required_fields_and_job_run_artifact_kind(self):
         artifact = JobRunArtifact(
@@ -184,23 +187,41 @@ class TestJobRunArtifact:
             ended_at=1010.0,
         )
         d = artifact.as_dict()
-        for key in ("kind", "artifact_id", "job_id", "task_id", "status",
-                    "started_at", "ended_at", "duration_seconds", "warnings",
-                    "retry_recommended", "trace_bundle_ref"):
+        for key in (
+            "kind",
+            "artifact_id",
+            "job_id",
+            "task_id",
+            "status",
+            "started_at",
+            "ended_at",
+            "duration_seconds",
+            "warnings",
+            "retry_recommended",
+            "trace_bundle_ref",
+        ):
             assert key in d, f"missing {key!r}"
         assert d["kind"] == "job_run_artifact"
 
     def test_duration_calculated(self):
         artifact = JobRunArtifact(
-            artifact_id="a1", job_id="j1", task_id="t1",
-            status=JobStatus.success, started_at=1000.0, ended_at=1015.0,
+            artifact_id="a1",
+            job_id="j1",
+            task_id="t1",
+            status=JobStatus.success,
+            started_at=1000.0,
+            ended_at=1015.0,
         )
         assert artifact.duration_seconds == pytest.approx(15.0)
 
     def test_artifact_refs_extracted(self):
         artifact = JobRunArtifact(
-            artifact_id="a1", job_id="j1", task_id="t1",
-            status=JobStatus.success, started_at=0.0, ended_at=1.0,
+            artifact_id="a1",
+            job_id="j1",
+            task_id="t1",
+            status=JobStatus.success,
+            started_at=0.0,
+            ended_at=1.0,
             artifacts=[{"artifact_id": "patch-001"}, {"id": "plan-002"}],
         )
         d = artifact.as_dict()
@@ -210,8 +231,12 @@ class TestJobRunArtifact:
     def test_all_statuses_serializable(self):
         for status in JobStatus:
             a = JobRunArtifact(
-                artifact_id="x", job_id="j", task_id="t",
-                status=status, started_at=0.0, ended_at=1.0,
+                artifact_id="x",
+                job_id="j",
+                task_id="t",
+                status=status,
+                started_at=0.0,
+                ended_at=1.0,
             )
             d = a.as_dict()
             assert d["status"] == status.value

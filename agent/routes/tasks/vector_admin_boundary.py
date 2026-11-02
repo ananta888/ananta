@@ -16,15 +16,10 @@ from agent.services.vector_task_admin_guard_service import (
 )
 
 
-def request_vector_authorization() -> (
-    VectorAdminAuthorizationContext
-):
+def request_vector_authorization() -> VectorAdminAuthorizationContext:
     return get_vector_store_authorization_policy().from_identity(
         get_request_auth_context(),
-        authenticated_admin=bool(
-            getattr(g, "is_admin", False)
-            and not (getattr(g, "user", {}) or {})
-        ),
+        authenticated_admin=bool(getattr(g, "is_admin", False) and not (getattr(g, "user", {}) or {})),
         source="task_management_route",
     )
 

@@ -146,7 +146,6 @@ class ReaderDiagnostics:
         }
 
 
-
 def build_output_manifest(
     *,
     output_dir: str | Path,

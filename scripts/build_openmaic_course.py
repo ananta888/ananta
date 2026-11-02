@@ -181,9 +181,7 @@ def build_archive(manifest: Mapping[str, Any]) -> bytes:
     return output.getvalue()
 
 
-def build_offline_html(
-    content: Mapping[str, Any], source: Mapping[str, Any], snapshot: Mapping[str, Any]
-) -> bytes:
+def build_offline_html(content: Mapping[str, Any], source: Mapping[str, Any], snapshot: Mapping[str, Any]) -> bytes:
     data = json.dumps(
         {"content": content, "source": source, "snapshot": snapshot},
         ensure_ascii=False,
@@ -235,7 +233,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     artifacts = expected_artifacts()
     if args.check:
-        mismatches = [str(path.relative_to(ROOT)) for path, value in artifacts.items() if not path.is_file() or path.read_bytes() != value]
+        mismatches = [
+            str(path.relative_to(ROOT))
+            for path, value in artifacts.items()
+            if not path.is_file() or path.read_bytes() != value
+        ]
         if mismatches:
             print(json.dumps({"status": "failed", "reason_code": "generated_course_outdated", "paths": mismatches}))
             return 1

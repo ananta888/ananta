@@ -12,7 +12,9 @@ def sign_callback(*, secret: str, correlation_id: str, provider: str, timestamp:
     return {"timestamp": str(ts), "signature": sig}
 
 
-def verify_callback_signature(*, secret: str, correlation_id: str, provider: str, timestamp: str, signature: str, max_age_seconds: int = 300) -> bool:
+def verify_callback_signature(
+    *, secret: str, correlation_id: str, provider: str, timestamp: str, signature: str, max_age_seconds: int = 300
+) -> bool:
     try:
         ts = int(timestamp)
     except Exception:

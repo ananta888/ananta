@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import json
+import os
 import tempfile
 import threading
 import time
@@ -11,8 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
-from typing import Protocol
+from typing import Any, Protocol
 
 from agent.services.mail_provider_ports import MailProviderResult
 
@@ -62,10 +61,7 @@ class MailRuntimePolicy:
         environ: Mapping[str, str] | None = None,
     ) -> "MailRuntimePolicy":
         source = os.environ if environ is None else environ
-        raw = str(
-            source.get("ANANTA_MAIL_ROLLOUT_PHASE")
-            or MailRolloutPhase.INFRASTRUCTURE_OFF.value
-        ).strip()
+        raw = str(source.get("ANANTA_MAIL_ROLLOUT_PHASE") or MailRolloutPhase.INFRASTRUCTURE_OFF.value).strip()
         try:
             phase = MailRolloutPhase(raw)
         except ValueError as exc:
@@ -196,9 +192,7 @@ class MailRuntimeAvailabilityPolicy:
                 "mail_provider_circuit_open",
                 retryable=True,
             )
-        return MailProviderResult.success(
-            reason_code="mail_provider_available"
-        )
+        return MailProviderResult.success(reason_code="mail_provider_available")
 
     def record_success(
         self,
@@ -370,10 +364,7 @@ class MailCircuitBreaker:
         with self._lock:
             record = self._records.setdefault(key, _BreakerRecord())
             record.failures += 1
-            if (
-                record.state == "half_open"
-                or record.failures >= self._failure_threshold
-            ):
+            if record.state == "half_open" or record.failures >= self._failure_threshold:
                 changed = record.state != "open"
                 record.state = "open"
                 record.open_until = float(self._clock()) + self._cooldown
@@ -462,9 +453,7 @@ def get_mail_circuit_breaker() -> MailCircuitBreaker:
             if _CIRCUIT_BREAKER is None:
                 from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
 
-                _CIRCUIT_BREAKER = MailCircuitBreaker(
-                    on_state_change=MailMetricsAdapter().record_circuit_state
-                )
+                _CIRCUIT_BREAKER = MailCircuitBreaker(on_state_change=MailMetricsAdapter().record_circuit_state)
     return _CIRCUIT_BREAKER
 
 

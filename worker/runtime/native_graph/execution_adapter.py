@@ -71,22 +71,12 @@ class NativeExecutionRuntimeAdapter:
                     "operation_id": parameters.get("operation_id") or "",
                     "side_effect_revision": parameters.get("side_effect_revision") or 0,
                     "provider_binding": parameters.get("provider_binding"),
-                    "primary_profile_id": parameters.get(
-                        "primary_profile_id"
-                    ),
-                    "provider_profile_bindings": parameters.get(
-                        "provider_profile_bindings"
-                    ),
-                    "provider_attempt_plan": parameters.get(
-                        "provider_attempt_plan"
-                    ),
-                    "provider_maximum_attempts": parameters.get(
-                        "provider_maximum_attempts"
-                    ),
+                    "primary_profile_id": parameters.get("primary_profile_id"),
+                    "provider_profile_bindings": parameters.get("provider_profile_bindings"),
+                    "provider_attempt_plan": parameters.get("provider_attempt_plan"),
+                    "provider_maximum_attempts": parameters.get("provider_maximum_attempts"),
                     "provider_context": parameters.get("provider_context"),
-                    "provider_contexts_by_profile_id": parameters.get(
-                        "provider_contexts_by_profile_id"
-                    ),
+                    "provider_contexts_by_profile_id": parameters.get("provider_contexts_by_profile_id"),
                 }
             )
             _assert_request_artifacts(request, command)
@@ -101,11 +91,7 @@ class NativeExecutionRuntimeAdapter:
                 attempt_id=result.attempt_id,
                 fencing_token=result.fencing_token,
                 status=result.status,
-                artifact_refs=(
-                    tuple(sorted(result.artifact_refs.values()))
-                    if result.status == "completed"
-                    else ()
-                ),
+                artifact_refs=(tuple(sorted(result.artifact_refs.values())) if result.status == "completed" else ()),
                 reason_code=result.reason_code,
             )
         except Exception as exc:
@@ -120,9 +106,7 @@ class NativeExecutionRuntimeAdapter:
             )
 
 
-def _assert_request_artifacts(
-    request: DelegatedExecutionRequest, command: NativeNodeCommand
-) -> None:
+def _assert_request_artifacts(request: DelegatedExecutionRequest, command: NativeNodeCommand) -> None:
     if set(request.input_artifact_refs) != set(command.artifact_refs.values()):
         raise ValueError("native_input_artifact_binding_mismatch")
     if command.node.node_id != request.step_id:

@@ -21,12 +21,7 @@ def test_additive_upgrade_and_downgrade_preserve_legacy_lora_tables(tmp_path) ->
         upgrade_registry_store(connection)
         downgrade_registry_store(connection)
         downgrade_job_store(connection)
-        assert connection.execute("SELECT payload FROM legacy_lora_jobs WHERE id='lora-1'").fetchone() == (
-            "unchanged",
-        )
-        names = {
-            row[0]
-            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-        }
+        assert connection.execute("SELECT payload FROM legacy_lora_jobs WHERE id='lora-1'").fetchone() == ("unchanged",)
+        names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     assert "legacy_lora_jobs" in names
     assert not any(name.startswith("dendritic_pack_") or name == "dendritic_job_revisions" for name in names)

@@ -22,35 +22,42 @@ written to ``.ananta/mutation-report.json``; the artifact sync path
 reads it and never registers success artifacts for blocked runs
 (AWWPI-017).
 """
+
 from __future__ import annotations
 
 import logging
 import pathlib
 from typing import Any, Callable
 
-from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context
+from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.tool_loop import (
     KIND_CANNOT_CONTINUE,
     KIND_FINAL_ANSWER,
     KIND_NEEDS_APPROVAL,
     KIND_TOOL_REQUEST,
 )
+from agent.cli_backends.workspace_mutation.handlers import ACTION_HANDLERS, KIND_WORKSPACE_WRITE
 from agent.cli_backends.workspace_mutation.prompts import (
     build_iteration_prompt as _build_iteration_prompt_impl,
+)
+from agent.cli_backends.workspace_mutation.prompts import (
     build_mode_instructions as _build_mode_instructions_impl,
+)
+from agent.cli_backends.workspace_mutation.prompts import (
     parse_mutation_output as _parse_mutation_output_impl,
 )
-from agent.cli_backends.workspace_mutation.signatures import (
-    changes_signature as _changes_signature_impl,
-    evidence_signature as _evidence_signature_impl,
-)
-from agent.cli_backends.workspace_mutation.handlers import ACTION_HANDLERS, KIND_WORKSPACE_WRITE
 from agent.cli_backends.workspace_mutation.session import (
     LoopTurn,
     MutationLimits,
     MutationServices,
     MutationSession,
+)
+from agent.cli_backends.workspace_mutation.signatures import (
+    changes_signature as _changes_signature_impl,
+)
+from agent.cli_backends.workspace_mutation.signatures import (
+    evidence_signature as _evidence_signature_impl,
 )
 from agent.cli_backends.workspace_mutation.tool_actions import KIND_PATCH_REQUEST
 
@@ -91,7 +98,7 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
             risk = str(research_context.get("risk") or "") or None
             explicit_mode = str(research_context.get("mutation_mode") or "") or None
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("get_workspace_mutation_config: ignored Exception", exc_info=True)
     _mutation_policy_svc = default_context.ananta_workspace_mutation_policy_service
 
     resolved = _mutation_policy_svc.resolve_mutation_mode(
@@ -101,7 +108,10 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
         **cfg,
         "enabled": bool(cfg.get("enabled", False)),
         "resolved_mode": resolved,
-        "max_feedback_iterations": max(1, min(int(cfg.get("max_feedback_iterations") or 4), 16)),
+        # Bounded, not generous: the ceiling keeps a wedged loop from burning the whole
+        # session (60 turns ≈ 40 min at local-runner latency), while leaving room for a
+        # repair round after `test.run` — at 16 the loop spent its last turn on the test.
+        "max_feedback_iterations": max(1, min(int(cfg.get("max_feedback_iterations") or 4), 60)),
         "max_patch_attempts_per_file": max(1, min(int(cfg.get("max_patch_attempts_per_file") or 3), 10)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
         "max_diff_chars": _max_diff_chars(cfg),
@@ -146,6 +156,7 @@ def _build_iteration_prompt(
     iteration: int,
     max_iterations: int,
     max_chars_per_block: int,
+    nudge: str | None = None,
 ) -> str:
     return _build_iteration_prompt_impl(
         original_prompt=original_prompt,
@@ -154,7 +165,40 @@ def _build_iteration_prompt(
         iteration=iteration,
         max_iterations=max_iterations,
         max_chars_per_block=max_chars_per_block,
+        nudge=nudge,
     )
+
+
+def resolve_mutation_llm_runner(
+    cfg: dict[str, Any], llm_runner: Callable[..., tuple[int, str, str]] | None = None
+) -> Callable[..., tuple[int, str, str]]:
+    """Pick the loop's LLM runner: injected, configured brain, structured, CLI.
+
+    Precedence (L6 variant A): an injected runner wins, then an explicit brain
+    (``llm_backend`` — e.g. ``opencode`` via ``ANANTA_WORKSPACE_MUTATION_LLM_BACKEND``),
+    then the schema-constrained structured path, then the CLI default. The brain
+    choice outranks ``structured_output`` because a configured brain decides *who
+    answers*, while structured output only decides *how* a non-opencode brain is
+    constrained; ``structured_output`` stays additive for every other brain.
+    """
+    if llm_runner is not None:
+        return llm_runner
+    brain = str(cfg.get("llm_backend") or "").strip().lower()
+    if brain == "opencode":
+        from agent.cli_backends.workspace_mutation.opencode_runner import (
+            run_opencode_mutation_llm,
+        )
+
+        return run_opencode_mutation_llm
+    if cfg.get("structured_output"):
+        from agent.cli_backends.workspace_mutation.structured_runner import (
+            run_structured_mutation_llm,
+        )
+
+        return run_structured_mutation_llm
+    from agent.cli_backends.sgpt import run_sgpt_command
+
+    return run_sgpt_command
 
 
 def run_ananta_worker_workspace_mutation(
@@ -170,17 +214,19 @@ def run_ananta_worker_workspace_mutation(
 ) -> tuple[int, str, str]:
     """AWWPI-014/015/016: run the feedback mutation loop, return (rc, out, err)."""
     cfg = dict(config or get_workspace_mutation_config(workdir))
-    mode = str(cfg.get("resolved_mode") or "read_only")
-    if llm_runner is None:
-        from agent.cli_backends.sgpt import run_sgpt_command
+    # Bind this step's CodeCompass capability to the loop's own config, so
+    # codecompass.* reads work instead of failing closed and forcing blind reads.
+    ensure_tool_context = default_context.codecompass_ensure_tool_context
 
-        llm_runner = run_sgpt_command
+    cfg = ensure_tool_context(cfg, task_id)
+    mode = str(cfg.get("resolved_mode") or "read_only")
+    llm_runner = resolve_mutation_llm_runner(cfg, llm_runner)
 
     session = MutationSession(
         cfg=cfg,
         mode=mode,
         workspace=pathlib.Path(workdir).resolve(),
-        task_id=task_id,
+        task_id=task_id or cfg.get("codecompass_task_id"),
         services=MutationServices(
             workspace=default_context.worker_workspace_service,
             mutation_policy=default_context.ananta_workspace_mutation_policy_service,
@@ -194,10 +240,26 @@ def run_ananta_worker_workspace_mutation(
             max_diff_chars=int(cfg.get("max_diff_chars") or _max_diff_chars(cfg)),
         ),
     )
+    _align_declared_test_command = default_context.worker_workspace_align_declared_test_command
+
+    # The assignment the model reads must quote a command the policy allows: the loop requires
+    # test.run before final_answer, so a refused command can never be satisfied. It is bound to
+    # the same ``cfg`` list ``test.run`` is judged against, so prompt and gate cannot drift. The
+    # brief file is bound separately (it is written without this config in hand).
+    prompt = _align_declared_test_command(str(prompt or ""), list(cfg.get("allowlisted_test_commands") or []))
+    session.task_prompt = str(prompt or "")
     instructions = _build_mode_instructions(mode)
+    if session.analysis_gate.required:
+        from agent.cli_backends.workspace_mutation.prompts import required_analysis_instructions
+
+        instructions += required_analysis_instructions()
+    nudge_after = int(cfg.get("read_only_nudge_after") or 4)
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
+        from agent.cli_backends.workspace_mutation.tool_routing import resolve_turn_nudge
+
+        nudge = resolve_turn_nudge(session, nudge_after=nudge_after)
         iter_prompt = _build_iteration_prompt(
             original_prompt=prompt,
             instructions=instructions,
@@ -205,6 +267,7 @@ def run_ananta_worker_workspace_mutation(
             iteration=iteration,
             max_iterations=session.limits.max_iterations,
             max_chars_per_block=session.limits.max_diff_chars,
+            nudge=nudge,
         )
         rc, out, err = llm_runner(
             prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir
@@ -246,12 +309,28 @@ def _record_invalid_output(
     session.invalid_count += 1
     session.report_iterations.append({"iteration": iteration, "kind": "invalid_output"})
     if session.invalid_count >= session.limits.max_invalid:
-        return session.finish("invalid_output_limit_reached", rc, out, err)
+        return session.finish_with_summary(
+            "invalid_output_limit_reached",
+            {"kind": "loop_aborted", "reason": "invalid_output_limit_reached"},
+            err,
+        )
+    from agent.cli_backends.workspace_mutation.prompts import INVALID_OUTPUT_CORRECTION_NUDGE
+
+    session.correction = INVALID_OUTPUT_CORRECTION_NUDGE
     session.add_evidence(
         {
             "kind": "protocol_warning",
             "iteration": iteration,
             "warning": "previous_answer_was_not_valid_mutation_json",
+            "expected_example": {
+                "kind": "tool_request",
+                "tool_name": "repo.read_file_range",
+                "arguments": {"path": "app.py", "line_start": 1, "line_end": 80},
+            },
+            "expected_final_answer_example": {
+                "kind": "final_answer",
+                "answer": "the complete analysis as one string",
+            },
         }
     )
     return None

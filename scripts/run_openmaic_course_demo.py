@@ -10,10 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
-OFFLINE_SNAPSHOT = (
-    ROOT
-    / "docs/learning/courses/openmaic-ananta-codecompass/demo/codecompass-snapshot.json"
-)
+OFFLINE_SNAPSHOT = ROOT / "docs/learning/courses/openmaic-ananta-codecompass/demo/codecompass-snapshot.json"
 EXPECTED_SCHEMA = "ananta.openmaic-codecompass-demo-snapshot.v1"
 
 

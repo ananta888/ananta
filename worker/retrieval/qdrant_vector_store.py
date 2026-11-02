@@ -75,11 +75,7 @@ def _resolve_secret(secret_resolver: Any, reference: Any) -> str | None:
         return None
     if secret_resolver is None:
         raise QdrantClientError("vector_store_secret_resolver_required", operation="resolve_secret")
-    parsed_reference = (
-        reference
-        if isinstance(reference, SecretReference)
-        else SecretReference.parse(str(reference))
-    )
+    parsed_reference = reference if isinstance(reference, SecretReference) else SecretReference.parse(str(reference))
     if callable(secret_resolver):
         value = secret_resolver(parsed_reference)
     else:
@@ -310,11 +306,7 @@ class QdrantVectorStore:
         *,
         batch_size: int,
     ) -> IndexWriteResult:
-        if (
-            isinstance(batch_size, bool)
-            or not isinstance(batch_size, int)
-            or not 1 <= batch_size <= 1000
-        ):
+        if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 1000:
             return IndexWriteResult(
                 status="failed",
                 mode="upsert",
@@ -335,9 +327,7 @@ class QdrantVectorStore:
                 distance=self._distance,
             )
             if not compatibility_report.compatible:
-                raise QdrantSchemaError(
-                    compatibility_report.reason
-                )
+                raise QdrantSchemaError(compatibility_report.reason)
             unique_point_count(points)
         except (QdrantClientError, QdrantSchemaError) as exc:
             return IndexWriteResult(
@@ -375,25 +365,21 @@ class QdrantVectorStore:
                 changed = []
                 for point in client_points:
                     current = existing.get(point.point_id)
-                    incoming_source_hash = str(
-                        point.payload.get("source_hash") or ""
-                    ).strip()
+                    incoming_source_hash = str(point.payload.get("source_hash") or "").strip()
                     if not incoming_source_hash:
                         raise QdrantSchemaError("missing_source_hash")
                     current_source_hash = (
-                        str(current.payload.get("source_hash") or "").strip()
-                        if current is not None
-                        else ""
+                        str(current.payload.get("source_hash") or "").strip() if current is not None else ""
                     )
-                    current_embedding_text = (
-                        current.payload.get("embedding_text")
-                        if current is not None
-                        else None
-                    )
+                    current_embedding_text = current.payload.get("embedding_text") if current is not None else None
                     incoming_embedding_text = point.payload.get("embedding_text")
-                    if current and current_source_hash and (
-                        current_source_hash == incoming_source_hash
-                        and current_embedding_text == incoming_embedding_text
+                    if (
+                        current
+                        and current_source_hash
+                        and (
+                            current_source_hash == incoming_source_hash
+                            and current_embedding_text == incoming_embedding_text
+                        )
                     ):
                         skipped += 1
                     else:
@@ -427,9 +413,7 @@ class QdrantVectorStore:
                 "errors": tuple(sorted(set(reasons))),
                 "failure_batches": tuple(failure_batches),
                 "total_failure_batches": total_failure_batches,
-                "failure_batches_truncated": (
-                    total_failure_batches > len(failure_batches)
-                ),
+                "failure_batches_truncated": (total_failure_batches > len(failure_batches)),
             },
             upserted=upserted,
             skipped=skipped,
@@ -470,11 +454,7 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": reason},
                 failed=len(point_list),
-                accepted=(
-                    0
-                    if reason == "vector_point_id_mismatch"
-                    else len(point_list)
-                ),
+                accepted=(0 if reason == "vector_point_id_mismatch" else len(point_list)),
             )
         emit_operation_observation(
             self._observer,
@@ -517,9 +497,7 @@ class QdrantVectorStore:
         try:
             scope = self._one_scope(point_list)
             expected_point_count = unique_point_count(point_list)
-            index_version = str(
-                compatibility.manifest_hash or compatibility_fingerprint(compatibility)
-            )
+            index_version = str(compatibility.manifest_hash or compatibility_fingerprint(compatibility))
             staging = self._manager.create_staging(
                 scope,
                 compatibility,
@@ -566,11 +544,7 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": exc.reason},
                 failed=len(point_list),
-                accepted=(
-                    0
-                    if exc.reason == "vector_point_id_mismatch"
-                    else len(point_list)
-                ),
+                accepted=(0 if exc.reason == "vector_point_id_mismatch" else len(point_list)),
             )
         emit_operation_observation(
             self._observer,
@@ -635,11 +609,7 @@ class QdrantVectorStore:
                     result = replace(
                         write,
                         mode="refresh",
-                        reason=(
-                            "unchanged"
-                            if write.upserted == 0 and write.failed == 0
-                            else "refreshed"
-                        ),
+                        reason=("unchanged" if write.upserted == 0 and write.failed == 0 else "refreshed"),
                     )
                     if result.status in {"ok", "partial"}:
                         self._remember_compatibility(scope, compatibility)
@@ -651,11 +621,7 @@ class QdrantVectorStore:
                 indexed_documents=0,
                 diagnostics={"status": "failed", "reason": exc.reason},
                 failed=len(point_list),
-                accepted=(
-                    0
-                    if exc.reason == "vector_point_id_mismatch"
-                    else len(point_list)
-                ),
+                accepted=(0 if exc.reason == "vector_point_id_mismatch" else len(point_list)),
             )
         emit_operation_observation(
             self._observer,
@@ -679,18 +645,9 @@ class QdrantVectorStore:
             collection = self._manager.active_collection(scope)
             if collection is None:
                 raise QdrantSchemaError(COLLECTION_MISSING)
-            normalised = [
-                value
-                if _is_uuid(value)
-                else deterministic_point_id(scope, value)
-                for value in requested
-            ]
+            normalised = [value if _is_uuid(value) else deterministic_point_id(scope, value) for value in requested]
             existing = self._client.retrieve(collection, normalised)
-            safe = [
-                point.point_id
-                for point in existing
-                if scope_matches_payload(scope, point.payload)
-            ]
+            safe = [point.point_id for point in existing if scope_matches_payload(scope, point.payload)]
             rejected = len(existing) - len(safe)
             self._client.delete_points(collection, safe)
             result = IndexWriteResult(

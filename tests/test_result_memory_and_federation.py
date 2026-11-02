@@ -39,11 +39,12 @@ def test_result_memory_creates_compact_followup_artifact_metadata(monkeypatch):
     monkeypatch.setattr("agent.services.result_memory_service.memory_entry_repo", repo)
     service = ResultMemoryService(memory_entry_repository=repo)
 
-    from tests.security.memory_fixtures import synthetic_memory_access
     from ananta_contracts.memory_access import MemoryScope
+    from tests.security.memory_fixtures import synthetic_memory_access
 
-    with synthetic_memory_access(task_id="T-1", goal_id="G-1", channels=("hub-result-memory",),
-                                 scopes=(MemoryScope.task,)):
+    with synthetic_memory_access(
+        task_id="T-1", goal_id="G-1", channels=("hub-result-memory",), scopes=(MemoryScope.task,)
+    ):
         entry = service.record_worker_result_memory(
             task_id="T-1",
             goal_id="G-1",
@@ -76,7 +77,9 @@ def test_result_memory_policy_normalizes_bounds():
 def test_task_neighborhood_uses_goal_dependency_and_file_overlap():
     memory_repo = _MemoryRepo()
     memory_repo.by_task["T-1"] = [
-        MemoryEntryDB(task_id="T-1", memory_metadata={"structured_summary": {"changed_files": ["agent/services/foo.py"]}})
+        MemoryEntryDB(
+            task_id="T-1", memory_metadata={"structured_summary": {"changed_files": ["agent/services/foo.py"]}}
+        )
     ]
     memory_repo.by_task["T-2"] = [
         MemoryEntryDB(task_id="T-2", memory_metadata={"structured_summary": {"changed_files": ["agent/routes/foo.py"]}})
@@ -89,7 +92,9 @@ def test_task_neighborhood_uses_goal_dependency_and_file_overlap():
         ]
     )
 
-    neighborhood = TaskNeighborhoodService(task_repository=task_repo, memory_entry_repository=memory_repo).build_neighborhood("T-1")
+    neighborhood = TaskNeighborhoodService(
+        task_repository=task_repo, memory_entry_repository=memory_repo
+    ).build_neighborhood("T-1")
 
     assert neighborhood["reason"] == "ok"
     assert "T-2" in neighborhood["neighbor_task_ids"]

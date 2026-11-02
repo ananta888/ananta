@@ -9,6 +9,7 @@ Security contract (EPC-003):
     AND base_url is in allowed_base_urls (if that list is non-empty).
   - api_key is never serialised; diagnostics receive a redacted placeholder.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,18 +18,28 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-ALLOWED_PROVIDERS = frozenset({
-    "fake", "test", "local", "local_hash", "hash",
-    "openai", "openai_compatible",
-    "ollama", "ollama_native",
-})
+ALLOWED_PROVIDERS = frozenset(
+    {
+        "fake",
+        "test",
+        "local",
+        "local_hash",
+        "hash",
+        "openai",
+        "openai_compatible",
+        "ollama",
+        "ollama_native",
+    }
+)
 
-VALID_SCOPES = frozenset({
-    "worker_retrieval",
-    "codecompass_vector",
-    "semantic_output_correction",
-    "rag_helper",
-})
+VALID_SCOPES = frozenset(
+    {
+        "worker_retrieval",
+        "codecompass_vector",
+        "semantic_output_correction",
+        "rag_helper",
+    }
+)
 
 ProviderStatus = Literal["ready", "degraded", "blocked"]
 
@@ -39,15 +50,16 @@ class EmbeddingProviderConfig:
     Canonical config for a single embedding provider scope (EPC-002).
     Matches the proposed_config_shape in the EPC todo.
     """
+
     provider: str = "local_hash"
     policy_profile: str | None = None
     model: str | None = None
     model_version: str = "hash-v1"
     dimensions: int = 12
     base_url: str | None = None
-    api_key_ref: str | None = None        # reference only — never a plaintext secret
+    api_key_ref: str | None = None  # reference only — never a plaintext secret
     timeout_seconds: int = 20
-    external_calls_allowed: bool = False   # default deny (EPC-003)
+    external_calls_allowed: bool = False  # default deny (EPC-003)
     allowed_base_urls: list[str] = field(default_factory=list)
     index_rebuild_policy: str = "on_provider_or_model_change"
     diagnostics_enabled: bool = True
@@ -76,18 +88,21 @@ class EmbeddingProviderConfig:
 
     def config_hash(self) -> str:
         """Stable hash of provider identity — excludes secrets. Used for rebuild detection."""
-        identity = json.dumps({
-            "provider": self.provider,
-            "policy_profile": self.policy_profile,
-            "model": self.model,
-            "model_version": self.model_version,
-            "dimensions": self.dimensions,
-            "base_url": self.base_url,
-            "external_calls_allowed": self.external_calls_allowed,
-            "allowed_base_urls": sorted(self.allowed_base_urls),
-            "index_rebuild_policy": self.index_rebuild_policy,
-            "scope": self.scope,
-        }, sort_keys=True)
+        identity = json.dumps(
+            {
+                "provider": self.provider,
+                "policy_profile": self.policy_profile,
+                "model": self.model,
+                "model_version": self.model_version,
+                "dimensions": self.dimensions,
+                "base_url": self.base_url,
+                "external_calls_allowed": self.external_calls_allowed,
+                "allowed_base_urls": sorted(self.allowed_base_urls),
+                "index_rebuild_policy": self.index_rebuild_policy,
+                "scope": self.scope,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(identity.encode()).hexdigest()[:16]
 
 
@@ -203,9 +218,7 @@ class EmbeddingProviderConfigService:
 
         cfg = EmbeddingProviderConfig(
             provider=provider,
-            policy_profile=(
-                str(raw.get("policy_profile") or "").strip() or None
-            ),
+            policy_profile=(str(raw.get("policy_profile") or "").strip() or None),
             model=str(raw["model"]).strip() or None if raw.get("model") else None,
             model_version=str(raw.get("model_version") or "hash-v1"),
             dimensions=dims,
@@ -290,6 +303,7 @@ def _default_url_port(scheme: str) -> int | None:
 # ---------------------------------------------------------------------------
 # build_embedding_provider guard (EPC-006)
 # ---------------------------------------------------------------------------
+
 
 def build_embedding_provider_from_config(
     config: "EmbeddingProviderConfig",

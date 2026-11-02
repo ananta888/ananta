@@ -26,23 +26,13 @@ def test_workflow_runtime_documentation_and_security_gate_are_complete() -> None
 
 
 def test_ci_renders_every_production_runtime_through_common_security_boundary() -> None:
-    workflow = yaml.safe_load(
-        (ROOT / ".github/workflows/quality-and-docs.yml").read_text(
-            encoding="utf-8"
-        )
-    )
+    workflow = yaml.safe_load((ROOT / ".github/workflows/quality-and-docs.yml").read_text(encoding="utf-8"))
     job = workflow["jobs"]["compose-config"]
     steps = {step.get("name"): str(step.get("run") or "") for step in job["steps"]}
     runtime_files = {
-        "Validate Compose-next production Native runtime": (
-            "compose.native.production.yml"
-        ),
-        "Validate Compose-next production LangGraph runtime": (
-            "compose.langgraph.production.yml"
-        ),
-        "Validate Compose-next production Temporal secret wiring": (
-            "compose.temporal.production.yml"
-        ),
+        "Validate Compose-next production Native runtime": ("compose.native.production.yml"),
+        "Validate Compose-next production LangGraph runtime": ("compose.langgraph.production.yml"),
+        "Validate Compose-next production Temporal secret wiring": ("compose.temporal.production.yml"),
     }
     for step_name, runtime_file in runtime_files.items():
         command = steps[step_name]
@@ -72,8 +62,8 @@ def test_production_runbooks_define_worker_fingerprint_generation_and_rotation()
     for field_name in ("service_token_sha256", "session_signing_key_sha256"):
         assert field_name in compose_runbook
         assert field_name in temporal_runbook
-    assert "hashlib.sha256(value.encode(\"utf-8\")).hexdigest()" in compose_runbook
-    assert ".read_text(encoding=\"utf-8\").strip()" in compose_runbook
+    assert 'hashlib.sha256(value.encode("utf-8")).hexdigest()' in compose_runbook
+    assert '.read_text(encoding="utf-8").strip()' in compose_runbook
     assert "atomar gemeinsam aktualisiert" in compose_runbook
 
 
@@ -177,15 +167,13 @@ def test_worker_runtimes_do_not_import_hub_control_or_persistence_implementation
                 imported.extend(alias.name for alias in node.names)
         for module in imported:
             assert not any(
-                module == forbidden
-                or module.startswith(f"{forbidden}.")
-                for forbidden in forbidden_modules
+                module == forbidden or module.startswith(f"{forbidden}.") for forbidden in forbidden_modules
             ), f"Worker imports Hub implementation {module}: {path}"
 
 
 def test_hub_native_compatibility_paths_cannot_execute_worker_code() -> None:
     facade = ROOT / "agent/services/native_worker_runtime_service.py"
-    execute_path = ROOT / "agent/services/_task_scoped_execute_workspace.py"
+    execute_path = ROOT / "agent/services/task_scoped/execute_workspace.py"
 
     facade_tree = ast.parse(facade.read_text(encoding="utf-8"), filename=str(facade))
     facade_imports: list[str] = []
@@ -194,10 +182,7 @@ def test_hub_native_compatibility_paths_cannot_execute_worker_code() -> None:
             facade_imports.append(node.module or "")
         elif isinstance(node, ast.Import):
             facade_imports.extend(alias.name for alias in node.names)
-    assert not any(
-        module == "worker" or module.startswith("worker.")
-        for module in facade_imports
-    )
+    assert not any(module == "worker" or module.startswith("worker.") for module in facade_imports)
     assert "subprocess" not in facade_imports
     assert "sgpt_fallback_proxy" not in facade.read_text(encoding="utf-8")
 
@@ -254,9 +239,7 @@ def test_remaining_worker_agent_imports_are_explicit_contract_facades() -> None:
         for module in imported:
             if module != "agent" and not module.startswith("agent."):
                 continue
-            assert module in allowed_facades, (
-                f"Unreviewed Worker-to-agent dependency {module}: {path}"
-            )
+            assert module in allowed_facades, f"Unreviewed Worker-to-agent dependency {module}: {path}"
 
 
 def test_flask_worker_composition_is_role_guarded_before_worker_imports() -> None:
@@ -276,8 +259,7 @@ def test_flask_worker_composition_has_no_concrete_hub_dependencies() -> None:
     function = next(
         node
         for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "_initialize_workflow_adapter_worker_runtime"
+        if isinstance(node, ast.FunctionDef) and node.name == "_initialize_workflow_adapter_worker_runtime"
     )
     imported: list[str] = []
     for node in ast.walk(function):
@@ -295,11 +277,7 @@ def test_flask_worker_composition_has_no_concrete_hub_dependencies() -> None:
         "agent.services.worker_runtime_execution_adapter",
         "agent.services.worker_workspace_service",
     )
-    assert not any(
-        module == prefix or module.startswith(f"{prefix}.")
-        for module in imported
-        for prefix in forbidden
-    )
+    assert not any(module == prefix or module.startswith(f"{prefix}.") for module in imported for prefix in forbidden)
 
 
 def test_native_worker_never_loads_hub_signing_material() -> None:
@@ -319,7 +297,7 @@ def test_native_worker_never_loads_hub_signing_material() -> None:
 
 
 def test_worker_composition_imports_without_hub_database_packages() -> None:
-    script = r'''
+    script = r"""
 import importlib.abc
 import sys
 
@@ -349,7 +327,7 @@ sys.meta_path.insert(0, BlockHubImplementations())
 import worker.runtime.workflow_tool_pipeline_composition
 import worker.runtime.native_graph.composition
 print("worker-composition-import-ok")
-'''
+"""
     completed = subprocess.run(
         [sys.executable, "-c", script],
         cwd=ROOT,

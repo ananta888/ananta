@@ -2,22 +2,21 @@
 
 Tests the full pipeline: scan → privacy filter → extract → index records.
 """
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
-from rag_helper.application.vault_scanner import scan, compute_diff, load_manifest
-from rag_helper.application.privacy_filter import list_excluded, is_private
-from rag_helper.extractors.obsidian import ObsidianExtractor, parse_frontmatter, extract_tags
-from rag_helper.extractors.obsidian_canvas import CanvasExtractor
-from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.importance_scoring import compute_importance_score, score_index_records
+from rag_helper.application.privacy_filter import list_excluded
+from rag_helper.application.processing_limits import ProcessingLimits
+from rag_helper.application.vault_scanner import scan
+from rag_helper.extractors.obsidian import ObsidianExtractor
+from rag_helper.extractors.obsidian_canvas import CanvasExtractor
 
 VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
 
@@ -44,6 +43,7 @@ class _VaultProfile:
 
 
 # ── OBS-012-002: Full scan + privacy filter ───────────────────────────────────
+
 
 def test_full_scan_finds_all_files():
     profile = _VaultProfile()
@@ -82,6 +82,7 @@ def test_public_files_after_filter():
 
 
 # ── OBS-012-003: Extract and index records ───────────────────────────────────
+
 
 def test_extract_alpha_produces_index_and_detail():
     extractor = ObsidianExtractor(vault_name="test_vault", min_block_size_chars=10)
@@ -130,6 +131,7 @@ def test_two_pass_link_resolution():
 
 # ── OBS-012-004: ProcessingLimits new fields ─────────────────────────────────
 
+
 def test_processing_limits_obsidian_fields():
     limits = ProcessingLimits()
     assert limits.md_heading_chunk_level == 2
@@ -152,6 +154,7 @@ def test_processing_limits_custom_obsidian_values():
 
 
 # ── OBS-012-005: Importance scoring for obsidian kinds ───────────────────────
+
 
 def test_importance_score_obsidian_note():
     record = {"kind": "obsidian_note", "tags": []}
@@ -185,6 +188,7 @@ def test_score_index_records_applies_scores():
 
 # ── OBS-012-006: Canvas integration ──────────────────────────────────────────
 
+
 def test_canvas_integration_extract():
     extractor = CanvasExtractor(vault_name="test_vault")
     canvas_text = (VAULT_DIR / "overview.canvas").read_text()
@@ -198,6 +202,7 @@ def test_canvas_integration_extract():
 
 # ── OBS-012-007: Full pipeline with build_extractors ─────────────────────────
 
+
 def test_build_extractors_obsidian_registration():
     from rag_helper.application.document_extractor import build_extractors
 
@@ -205,8 +210,10 @@ def test_build_extractors_obsidian_registration():
     class _StubExtractor:
         def __init__(self, **kwargs):
             pass
+
         def parse(self, rel_path, text, **kwargs):
             return [], [], [], {}
+
         def pre_scan_types(self, rel_path, text):
             return {}
 

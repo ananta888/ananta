@@ -1,4 +1,5 @@
 """UTCR-010: Tests for ToolCallingModeService."""
+
 from __future__ import annotations
 
 import pytest

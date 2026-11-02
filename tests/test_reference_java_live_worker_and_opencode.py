@@ -13,7 +13,6 @@ from agent.services.reference_profile_service import ReferenceProfileService
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "java_security_mini"
 LIVE_REFERENCE_FLAG = "RUN_LIVE_REFERENCE_FLOW_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
@@ -71,8 +70,7 @@ def _java_reference_context_text() -> str:
     return (
         f"Reference profile: {selected['profile_id']}\n"
         f"Reference repo: {selected['reference_source']['repo']}\n"
-        "Boundary: guidance_not_clone; no blind copy.\n\n"
-        + "\n\n".join(chunks)
+        "Boundary: guidance_not_clone; no blind copy.\n\n" + "\n\n".join(chunks)
     )
 
 
@@ -141,7 +139,8 @@ def test_live_ananta_worker_task_proposal_uses_real_llm_with_keycloak_java_refer
         from agent.llm_integration import generate_text
 
         response = generate_text(
-            prompt=prompt + "\nReturn exactly one JSON object only. No markdown fences, no tool_calls, no trailing text.",
+            prompt=prompt
+            + "\nReturn exactly one JSON object only. No markdown fences, no tool_calls, no trailing text.",
             provider="openai",
             model=str(runtime["model"]),
             api_key=str(runtime["api_key"]),
@@ -261,6 +260,10 @@ def test_live_task_scoped_opencode_route_uses_real_opencode_detection(app, tmp_p
     assert response.code == 200
     assert captured["backend"] == "opencode"
     assert captured["workdir"]
-    assert "ref.java.keycloak" in captured["prompt"] or Path(captured["workdir"], ".ananta", "hub-context.md").read_text(encoding="utf-8").find("ref.java.keycloak") >= 0
+    assert (
+        "ref.java.keycloak" in captured["prompt"]
+        or Path(captured["workdir"], ".ananta", "hub-context.md").read_text(encoding="utf-8").find("ref.java.keycloak")
+        >= 0
+    )
     assert response.data["backend"] == "opencode"
     assert response.data["routing"]["effective_backend"] == "opencode"

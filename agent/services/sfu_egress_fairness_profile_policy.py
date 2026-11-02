@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Protocol
 
-
 _ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_PATH = _ROOT / "config" / "sfu_broadcast_fairness_profiles.json"
 _ENFORCEMENT = frozenset({"browser_enforced", "runtime_enforced", "observation_only"})
@@ -98,17 +97,26 @@ class SfuPublisherBackpressureDecision:
 class SfuEgressFairnessProfilePolicy:
     """Validates constraints only; intentionally exposes no execution hook."""
 
-    def __init__(self, signatures: SfuFairnessSignaturePort, *,
-                 profile_path: str | Path = _DEFAULT_PATH,
-                 clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        signatures: SfuFairnessSignaturePort,
+        *,
+        profile_path: str | Path = _DEFAULT_PATH,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._signatures = signatures
         self._clock = clock
         self._catalog = _load_catalog(Path(profile_path))
 
-    def resolve(self, raw_document: bytes | str, *, scope: SfuFairnessScope,
-                capabilities: SfuFairnessRuntimeCapabilities,
-                parent_egress_bps_max: int,
-                parent_receiver_cap: int) -> SfuEgressFairnessDecision:
+    def resolve(
+        self,
+        raw_document: bytes | str,
+        *,
+        scope: SfuFairnessScope,
+        capabilities: SfuFairnessRuntimeCapabilities,
+        parent_egress_bps_max: int,
+        parent_receiver_cap: int,
+    ) -> SfuEgressFairnessDecision:
         fallback = self._fallback(scope, "sfu_fairness_profile_unknown", parent_egress_bps_max, parent_receiver_cap)
         raw = raw_document.encode() if isinstance(raw_document, str) else raw_document
         if len(raw) > 8192:
@@ -118,9 +126,21 @@ class SfuEgressFairnessProfilePolicy:
         except (UnicodeDecodeError, json.JSONDecodeError):
             return self._replace_reason(fallback, "sfu_fairness_profile_json_invalid")
         if not isinstance(document, dict) or set(document) != {
-            "schema", "schema_version", "profile_id", "profile_version", "tenant_ref", "room_ref",
-            "route_epoch", "topology_epoch", "issued_at_ms", "expires_at_ms", "weights",
-            "hard_limits", "stages", "rules", "signature",
+            "schema",
+            "schema_version",
+            "profile_id",
+            "profile_version",
+            "tenant_ref",
+            "room_ref",
+            "route_epoch",
+            "topology_epoch",
+            "issued_at_ms",
+            "expires_at_ms",
+            "weights",
+            "hard_limits",
+            "stages",
+            "rules",
+            "signature",
         }:
             return self._replace_reason(fallback, "sfu_fairness_profile_schema_invalid")
         unsigned = dict(document)
@@ -139,8 +159,13 @@ class SfuEgressFairnessProfilePolicy:
             return self._replace_reason(fallback, "sfu_fairness_profile_scope_stale")
         issued = _integer(document.get("issued_at_ms"))
         expires = _integer(document.get("expires_at_ms"))
-        if issued is None or expires is None or issued > now_ms + 5000 or expires <= now_ms \
-                or expires - issued > int(self._catalog["ttl_seconds_max"]) * 1000:
+        if (
+            issued is None
+            or expires is None
+            or issued > now_ms + 5000
+            or expires <= now_ms
+            or expires - issued > int(self._catalog["ttl_seconds_max"]) * 1000
+        ):
             return self._replace_reason(fallback, "sfu_fairness_profile_stale")
         try:
             weights = _weights(document["weights"])
@@ -157,46 +182,70 @@ class SfuEgressFairnessProfilePolicy:
                 capability = _RUNTIME_RULE_CAPABILITY.get(name)
                 if capability is None or not capabilities.supports(capability):
                     return self._replace_reason(fallback, "sfu_fairness_runtime_capability_unsupported")
-            if name in {"max_starvation_window_ms", "min_jain_fairness_index_basis_points"} \
-                    and mode == "browser_enforced":
+            if (
+                name in {"max_starvation_window_ms", "min_jain_fairness_index_basis_points"}
+                and mode == "browser_enforced"
+            ):
                 return self._replace_reason(fallback, "sfu_fairness_enforcement_invalid")
         return SfuEgressFairnessDecision(
-            True, "sfu_fairness_profile_accepted", str(document["profile_id"]), version,
-            scope, weights, limits, stages, enforcement,
+            True,
+            "sfu_fairness_profile_accepted",
+            str(document["profile_id"]),
+            version,
+            scope,
+            weights,
+            limits,
+            stages,
+            enforcement,
             rules["max_starvation_window_ms"],
-            rules["min_jain_fairness_index_basis_points"], expires,
+            rules["min_jain_fairness_index_basis_points"],
+            expires,
         )
 
     def derive_publisher_backpressure(
-        self, profile: SfuEgressFairnessDecision,
+        self,
+        profile: SfuEgressFairnessDecision,
         sample: SfuAggregateBackpressureSample,
     ) -> SfuPublisherBackpressureDecision:
         if sample.sample_count < 2 or sample.active_receivers < 1:
             return SfuPublisherBackpressureDecision(
                 min(sample.current_spatial_layer_cap, profile.stages.lowest_safe_spatial_layer),
-                "sfu_fairness_aggregate_unknown", False,
+                "sfu_fairness_aggregate_unknown",
+                False,
             )
         limit = min(profile.hard_limits.room_egress_bps_max, profile.hard_limits.tenant_egress_bps_max)
         utilization = max(sample.node_egress_bps, sample.publication_egress_bps) * 10_000 // max(1, limit)
         if utilization >= profile.stages.disconnect_utilization_basis_points:
             return SfuPublisherBackpressureDecision(
-                profile.stages.lowest_safe_spatial_layer, "sfu_fairness_admission_denied", False,
+                profile.stages.lowest_safe_spatial_layer,
+                "sfu_fairness_admission_denied",
+                False,
             )
         if utilization >= profile.stages.downshift_utilization_basis_points:
             return SfuPublisherBackpressureDecision(
                 min(sample.current_spatial_layer_cap, profile.stages.lowest_safe_spatial_layer),
-                "sfu_fairness_layer_cap_lowered", True,
+                "sfu_fairness_layer_cap_lowered",
+                True,
             )
         return SfuPublisherBackpressureDecision(
-            sample.current_spatial_layer_cap, "sfu_fairness_within_corridor", True,
+            sample.current_spatial_layer_cap,
+            "sfu_fairness_within_corridor",
+            True,
         )
 
-    def _monotone(self, weights: SfuFairnessWeights, limits: SfuFairnessHardLimits,
-                  stages: SfuFairnessStages, parent_egress: int, parent_receivers: int) -> bool:
+    def _monotone(
+        self,
+        weights: SfuFairnessWeights,
+        limits: SfuFairnessHardLimits,
+        stages: SfuFairnessStages,
+        parent_egress: int,
+        parent_receivers: int,
+    ) -> bool:
         ceilings = self._catalog["weight_ceilings"]
         hard = self._catalog["hard_limits"]
         return (
-            weights.receiver <= ceilings["receiver"] and weights.room <= ceilings["room"]
+            weights.receiver <= ceilings["receiver"]
+            and weights.room <= ceilings["room"]
             and weights.tenant <= ceilings["tenant"]
             and limits.receiver_egress_bps_max <= hard["receiver_egress_bps_max"]
             and limits.room_egress_bps_max <= min(hard["room_egress_bps_max"], parent_egress)
@@ -207,33 +256,46 @@ class SfuEgressFairnessProfilePolicy:
             and stages.lowest_safe_spatial_layer == 0
         )
 
-    def _fallback(self, scope: SfuFairnessScope, reason: str,
-                  parent_egress: int, parent_receivers: int) -> SfuEgressFairnessDecision:
+    def _fallback(
+        self, scope: SfuFairnessScope, reason: str, parent_egress: int, parent_receivers: int
+    ) -> SfuEgressFairnessDecision:
         hard = self._catalog["hard_limits"]
         stages = self._catalog["stages"]
         return SfuEgressFairnessDecision(
-            False, reason, "strict-default", 0, scope, SfuFairnessWeights(1, 1, 1),
+            False,
+            reason,
+            "strict-default",
+            0,
+            scope,
+            SfuFairnessWeights(1, 1, 1),
             SfuFairnessHardLimits(
                 min(hard["receiver_egress_bps_max"], parent_egress),
                 min(hard["room_egress_bps_max"], parent_egress),
                 min(hard["tenant_egress_bps_max"], parent_egress),
-                hard["queue_bytes_max"], min(hard["active_receivers_max"], parent_receivers),
+                hard["queue_bytes_max"],
+                min(hard["active_receivers_max"], parent_receivers),
             ),
             SfuFairnessStages(
                 stages["downshift_utilization_basis_points"],
                 stages["disconnect_utilization_basis_points"],
-                stages["disconnect_grace_ms"], 0,
+                stages["disconnect_grace_ms"],
+                0,
             ),
-            {"queue_limits": "browser_enforced", "egress_limits": "observation_only",
-             "max_starvation_window_ms": "observation_only",
-             "min_jain_fairness_index_basis_points": "observation_only"},
+            {
+                "queue_limits": "browser_enforced",
+                "egress_limits": "observation_only",
+                "max_starvation_window_ms": "observation_only",
+                "min_jain_fairness_index_basis_points": "observation_only",
+            },
             self._catalog["rules"]["max_starvation_window_ms"],
-            self._catalog["rules"]["min_jain_fairness_index_basis_points"], 0,
+            self._catalog["rules"]["min_jain_fairness_index_basis_points"],
+            0,
         )
 
     @staticmethod
     def _replace_reason(value: SfuEgressFairnessDecision, reason: str) -> SfuEgressFairnessDecision:
         from dataclasses import replace
+
         return replace(value, reason_code=reason)
 
 
@@ -254,19 +316,31 @@ def _weights(raw: object) -> SfuFairnessWeights:
 
 
 def _limits(raw: object) -> SfuFairnessHardLimits:
-    keys = ("receiver_egress_bps_max", "room_egress_bps_max", "tenant_egress_bps_max", "queue_bytes_max", "active_receivers_max")
+    keys = (
+        "receiver_egress_bps_max",
+        "room_egress_bps_max",
+        "tenant_egress_bps_max",
+        "queue_bytes_max",
+        "active_receivers_max",
+    )
     if not isinstance(raw, dict) or set(raw) != set(keys):
         raise ValueError
     return SfuFairnessHardLimits(*(_required_positive(raw[key]) for key in keys))
 
 
 def _stages(raw: object) -> SfuFairnessStages:
-    keys = ("downshift_utilization_basis_points", "disconnect_utilization_basis_points", "disconnect_grace_ms", "lowest_safe_spatial_layer")
+    keys = (
+        "downshift_utilization_basis_points",
+        "disconnect_utilization_basis_points",
+        "disconnect_grace_ms",
+        "lowest_safe_spatial_layer",
+    )
     if not isinstance(raw, dict) or set(raw) != set(keys):
         raise ValueError
     values = tuple(_integer(raw[key]) for key in keys)
-    if any(value is None for value in values) or not (0 <= values[0] <= 10_000 and 0 <= values[1] <= 10_000 \
-            and 1000 <= values[2] <= 60_000 and 0 <= values[3] <= 3):
+    if any(value is None for value in values) or not (
+        0 <= values[0] <= 10_000 and 0 <= values[1] <= 10_000 and 1000 <= values[2] <= 60_000 and 0 <= values[3] <= 3
+    ):
         raise ValueError
     return SfuFairnessStages(*values)
 
@@ -279,13 +353,19 @@ def _rules(raw: object) -> tuple[dict[str, int], dict[str, str]]:
     enforcement: dict[str, str] = {}
     for name in names:
         rule = raw[name]
-        if not isinstance(rule, dict) or set(rule) != {"value", "enforcement"} \
-                or _integer(rule["value"]) is None or rule["enforcement"] not in _ENFORCEMENT:
+        if (
+            not isinstance(rule, dict)
+            or set(rule) != {"value", "enforcement"}
+            or _integer(rule["value"]) is None
+            or rule["enforcement"] not in _ENFORCEMENT
+        ):
             raise ValueError
         values[name] = int(rule["value"])
         enforcement[name] = str(rule["enforcement"])
-    if not 250 <= values["max_starvation_window_ms"] <= 30_000 \
-            or not 0 <= values["min_jain_fairness_index_basis_points"] <= 10_000:
+    if (
+        not 250 <= values["max_starvation_window_ms"] <= 30_000
+        or not 0 <= values["min_jain_fairness_index_basis_points"] <= 10_000
+    ):
         raise ValueError
     if values["queue_limits"] > 16_777_216 or values["egress_limits"] > 1_000_000_000:
         raise ValueError
@@ -304,7 +384,11 @@ def _required_positive(value: object) -> int:
 
 
 __all__ = [
-    "SfuAggregateBackpressureSample", "SfuEgressFairnessDecision",
-    "SfuEgressFairnessProfilePolicy", "SfuFairnessRuntimeCapabilities",
-    "SfuFairnessScope", "SfuFairnessSignaturePort", "SfuPublisherBackpressureDecision",
+    "SfuAggregateBackpressureSample",
+    "SfuEgressFairnessDecision",
+    "SfuEgressFairnessProfilePolicy",
+    "SfuFairnessRuntimeCapabilities",
+    "SfuFairnessScope",
+    "SfuFairnessSignaturePort",
+    "SfuPublisherBackpressureDecision",
 ]

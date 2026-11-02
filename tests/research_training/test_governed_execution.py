@@ -207,10 +207,13 @@ def test_hub_automatically_admits_dispatches_executes_and_records_local_evidence
         evidence_scope="local",
         evidence_idempotency_key="research-evidence-tokenizer",
     )
-    assert assignments.resolve_for_worker(
-        assignment_id="assignment-tokenizer",
-        worker_id="worker-real-cpu",
-    )["assignment"]["run_id"] == created["run_id"]
+    assert (
+        assignments.resolve_for_worker(
+            assignment_id="assignment-tokenizer",
+            worker_id="worker-real-cpu",
+        )["assignment"]["run_id"]
+        == created["run_id"]
+    )
     with pytest.raises(PermissionError, match="worker_assignment_binding_invalid"):
         assignments.resolve_for_worker(
             assignment_id="assignment-tokenizer",
@@ -335,21 +338,22 @@ def test_worker_inventory_drift_quota_and_telemetry_are_bounded(tmp_path: Path) 
             "expires_at_epoch": 200.0,
         }
     )
-    assert workers.select(
-        required_capability="full_weight_training",
-        world_size=1,
-        precision="float32",
-        required_storage_bytes=500,
-    )["worker_id"] == "worker-cpu"
+    assert (
+        workers.select(
+            required_capability="full_weight_training",
+            world_size=1,
+            precision="float32",
+            required_storage_bytes=500,
+        )["worker_id"]
+        == "worker-cpu"
+    )
     with pytest.raises(ValueError, match="capability_drift"):
         workers.revalidate(worker_id="worker-cpu", expected_report_digest="0" * 64)
     now[0] = 201.0
     with pytest.raises(LookupError, match="inventory_expired"):
         workers.revalidate(worker_id="worker-cpu", expected_report_digest=report["report_digest"])
 
-    quota = ResearchTrainingQuotaService(
-        tmp_path / "quota.sqlite3", maximum_bytes_per_tenant=100, clock=lambda: now[0]
-    )
+    quota = ResearchTrainingQuotaService(tmp_path / "quota.sqlite3", maximum_bytes_per_tenant=100, clock=lambda: now[0])
     quota.reserve(tenant_id="tenant-a", reservation_id="one", expected_bytes=80, lease_seconds=10)
     with pytest.raises(ValueError, match="quota_exceeded"):
         quota.reserve(tenant_id="tenant-a", reservation_id="two", expected_bytes=30, lease_seconds=10)
@@ -375,13 +379,9 @@ def test_worker_inventory_drift_quota_and_telemetry_are_bounded(tmp_path: Path) 
 
 
 def test_retention_never_deletes_a_referenced_parent(tmp_path: Path) -> None:
-    quota = ResearchTrainingQuotaService(
-        tmp_path / "quota.sqlite3", maximum_bytes_per_tenant=10_000
-    )
+    quota = ResearchTrainingQuotaService(tmp_path / "quota.sqlite3", maximum_bytes_per_tenant=10_000)
     lineage = ResearchTrainingLineageService(tmp_path / "lineage.sqlite3")
-    artifacts = ResearchTrainingArtifactService(
-        tmp_path / "artifacts", max_artifact_bytes=1000, quota=quota
-    )
+    artifacts = ResearchTrainingArtifactService(tmp_path / "artifacts", max_artifact_bytes=1000, quota=quota)
 
     def publish(name: str, content: bytes, parents: list[str]) -> str:
         digest = hashlib.sha256(content).hexdigest()

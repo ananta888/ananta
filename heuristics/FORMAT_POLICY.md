@@ -126,6 +126,7 @@ OpenCode draft (YAML or JSON)
 ### Routing guard interface
 ```python
 from agent.services.heuristic_runtime.ai_proposal_guardrails import AiProposalGuardrails
+
 guard = AiProposalGuardrails()
 result = guard.check(proposal_dict)
 if not result.passed:

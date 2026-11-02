@@ -86,22 +86,17 @@ class RestrictedInferenceManagementCircuitBreaker:
 
 
 def _configured_open_seconds() -> float:
-    raw = str(
-        os.getenv("ANANTA_RESTRICTED_INFERENCE_CIRCUIT_OPEN_SECONDS", "60")
-    ).strip()
+    raw = str(os.getenv("ANANTA_RESTRICTED_INFERENCE_CIRCUIT_OPEN_SECONDS", "60")).strip()
     try:
         return float(raw)
     except ValueError:
         return 60.0
 
 
-_shared_circuit_breaker = RestrictedInferenceManagementCircuitBreaker(
-    open_seconds=_configured_open_seconds()
-)
+_shared_circuit_breaker = RestrictedInferenceManagementCircuitBreaker(open_seconds=_configured_open_seconds())
 
 
-def get_restricted_inference_management_circuit_breaker(
-) -> RestrictedInferenceManagementCircuitBreaker:
+def get_restricted_inference_management_circuit_breaker() -> RestrictedInferenceManagementCircuitBreaker:
     return _shared_circuit_breaker
 
 

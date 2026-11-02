@@ -61,9 +61,7 @@ class RecoveryArtifactIngressService:
         self._dispatch_gate_provider = dispatch_gate_provider
         self._lock_provider = lock_provider
         self._workspace_service_provider = workspace_service_provider
-        self._workspace_file_reader_provider = (
-            workspace_file_reader_provider
-        )
+        self._workspace_file_reader_provider = workspace_file_reader_provider
         self._artifact_store_provider = artifact_store_provider
         self._now_provider = now_provider
 
@@ -85,9 +83,7 @@ class RecoveryArtifactIngressService:
             executor_url=worker_url,
             lease_token=lease_token,
         )
-        request_fingerprint = str(
-            normalized["request_fingerprint"]
-        )
+        request_fingerprint = str(normalized["request_fingerprint"])
         decision = self._dispatch_gate().admit_dispatch_lease(
             str(task_id or ""),
             token=lease_token,
@@ -98,10 +94,7 @@ class RecoveryArtifactIngressService:
         )
         if not bool(getattr(decision, "allowed", False)):
             raise RecoveryArtifactIngressError(
-                str(
-                    getattr(decision, "reason_code", "")
-                    or "recovery_artifact_dispatch_denied"
-                )
+                str(getattr(decision, "reason_code", "") or "recovery_artifact_dispatch_denied")
             )
 
         return self._materialize_normalized(
@@ -127,17 +120,10 @@ class RecoveryArtifactIngressService:
 
         from agent.config import settings
 
-        configured_executor_id = str(
-            settings.agent_name or ""
-        ).strip()
-        configured_executor_url = str(
-            settings.agent_url
-            or f"http://localhost:{settings.port}"
-        ).strip().rstrip("/")
+        configured_executor_id = str(settings.agent_name or "").strip()
+        configured_executor_url = str(settings.agent_url or f"http://localhost:{settings.port}").strip().rstrip("/")
         normalized_executor_id = str(executor_id or "").strip()
-        normalized_executor_url = str(executor_url or "").strip().rstrip(
-            "/"
-        )
+        normalized_executor_url = str(executor_url or "").strip().rstrip("/")
         if (
             str(settings.role or "").strip().lower() != "hub"
             or not bool(settings.hub_can_be_worker)
@@ -207,59 +193,37 @@ class RecoveryArtifactIngressService:
     ) -> dict[str, Any]:
         repos = self._repos()
         normalized_task_id = str(task_id or "")
-        task_hint = repos.task_repo.get_by_id(
-            normalized_task_id
-        )
-        if (
-            task_hint is None
-            or recovery_task_role(task_hint) != "child"
-        ):
+        task_hint = repos.task_repo.get_by_id(normalized_task_id)
+        if task_hint is None or recovery_task_role(task_hint) != "child":
             raise RecoveryArtifactIngressError(
                 "recovery_artifact_task_not_authoritative",
                 status_code=404,
             )
-        source_task_id = str(
-            _value(task_hint, "source_task_id") or ""
-        ).strip()
+        source_task_id = str(_value(task_hint, "source_task_id") or "").strip()
         if not source_task_id:
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_source_binding_missing"
-            )
-        with self._locks().mutation_locks(
-            {normalized_task_id, source_task_id}
-        ) as acquired:
+            raise RecoveryArtifactIngressError("recovery_artifact_source_binding_missing")
+        with self._locks().mutation_locks({normalized_task_id, source_task_id}) as acquired:
             if not acquired:
                 raise RecoveryArtifactIngressError(
                     "recovery_artifact_task_lock_unavailable",
                     status_code=503,
                 )
-            task = repos.task_repo.get_by_id(
-                normalized_task_id
-            )
-            locked_source_task_id = str(
-                _value(task, "source_task_id") or ""
-            ).strip()
+            task = repos.task_repo.get_by_id(normalized_task_id)
+            locked_source_task_id = str(_value(task, "source_task_id") or "").strip()
             if (
                 not locked_source_task_id
                 or not hmac.compare_digest(
                     locked_source_task_id,
                     source_task_id,
                 )
-                or repos.task_repo.get_by_id(
-                    locked_source_task_id
-                )
-                is None
+                or repos.task_repo.get_by_id(locked_source_task_id) is None
             ):
-                raise RecoveryArtifactIngressError(
-                    "recovery_artifact_source_fence_changed"
-                )
+                raise RecoveryArtifactIngressError("recovery_artifact_source_fence_changed")
             owner_decision = self._dispatch_gate().evaluate_task(
                 task,
                 repos=repos,
             )
-            if not bool(
-                getattr(owner_decision, "allowed", False)
-            ):
+            if not bool(getattr(owner_decision, "allowed", False)):
                 raise RecoveryArtifactIngressError(
                     str(
                         getattr(
@@ -281,20 +245,12 @@ class RecoveryArtifactIngressService:
                 manifest=normalized,
                 task_repository=repos.task_repo,
             )
-            workspace_root = (
-                self._workspace_service()
-                .resolve_workspace_dir_for_read(
-                    task=_task_mapping(task),
-                    agent_name=executor_id,
-                )
+            workspace_root = self._workspace_service().resolve_workspace_dir_for_read(
+                task=_task_mapping(task),
+                agent_name=executor_id,
             )
-            if (
-                not workspace_root.exists()
-                or not workspace_root.is_dir()
-            ):
-                raise RecoveryArtifactIngressError(
-                    "recovery_artifact_workspace_missing"
-                )
+            if not workspace_root.exists() or not workspace_root.is_dir():
+                raise RecoveryArtifactIngressError("recovery_artifact_workspace_missing")
 
             # Read and validate the entire manifest before producing any Hub
             # database row.  A later persistence interruption is repaired by
@@ -315,19 +271,12 @@ class RecoveryArtifactIngressService:
                     worker_url=executor_url,
                     manifest=normalized,
                     candidate=candidate,
-                    materialization_channel=(
-                        materialization_channel
-                    ),
+                    materialization_channel=(materialization_channel),
                 )
                 for candidate in candidates
             ]
             receipts = [
-                {
-                    key: value
-                    for key, value in receipt.items()
-                    if key != "_replayed"
-                }
-                for receipt in persisted_receipts
+                {key: value for key, value in receipt.items() if key != "_replayed"} for receipt in persisted_receipts
             ]
 
         return {
@@ -335,10 +284,7 @@ class RecoveryArtifactIngressService:
             "task_id": str(task_id or ""),
             "manifest_digest": normalized["digest"],
             "artifacts": receipts,
-            "replayed": all(
-                bool(value.get("_replayed"))
-                for value in persisted_receipts
-            ),
+            "replayed": all(bool(value.get("_replayed")) for value in persisted_receipts),
         }
 
     @staticmethod
@@ -354,18 +300,13 @@ class RecoveryArtifactIngressService:
         )
 
         try:
-            result = (
-                get_recovery_artifact_manifest_binding_service()
-                .bind(
-                    task=task,
-                    manifest=manifest,
-                    task_repository=task_repository,
-                )
+            result = get_recovery_artifact_manifest_binding_service().bind(
+                task=task,
+                manifest=manifest,
+                task_repository=task_repository,
             )
         except RecoveryArtifactManifestBindingError as exc:
-            raise RecoveryArtifactIngressError(
-                exc.reason_code
-            ) from exc
+            raise RecoveryArtifactIngressError(exc.reason_code) from exc
         return result.task
 
     def _repos(self) -> Any:
@@ -436,48 +377,31 @@ class RecoveryArtifactIngressService:
                 status_code=404,
             )
         normalized_worker_url = str(worker_url or "").rstrip("/")
-        assigned_worker_url = str(
-            _value(task, "assigned_agent_url") or ""
-        ).strip().rstrip("/")
-        if (
-            not assigned_worker_url
-            or not hmac.compare_digest(
-                assigned_worker_url,
-                normalized_worker_url,
-            )
+        assigned_worker_url = str(_value(task, "assigned_agent_url") or "").strip().rstrip("/")
+        if not assigned_worker_url or not hmac.compare_digest(
+            assigned_worker_url,
+            normalized_worker_url,
         ):
             raise RecoveryArtifactIngressError(
                 "recovery_artifact_assignment_denied",
                 status_code=403,
             )
-        expected_assignment = (
-            recovery_artifact_assignment_fingerprint(
-                task_id=str(_value(task, "id") or ""),
-                worker_url=assigned_worker_url,
-            )
+        expected_assignment = recovery_artifact_assignment_fingerprint(
+            task_id=str(_value(task, "id") or ""),
+            worker_url=assigned_worker_url,
         )
         if not hmac.compare_digest(
             str(manifest.get("assignment_fingerprint") or ""),
             expected_assignment,
         ):
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_assignment_mismatch"
-            )
-        lease = _mapping(
-            _mapping(
-                _value(task, "status_reason_details")
-            ).get("recovery_dispatch_lease")
-        )
-        expected_token_digest = (
-            recovery_artifact_lease_token_digest(lease_token)
-        )
+            raise RecoveryArtifactIngressError("recovery_artifact_assignment_mismatch")
+        lease = _mapping(_mapping(_value(task, "status_reason_details")).get("recovery_dispatch_lease"))
+        expected_token_digest = recovery_artifact_lease_token_digest(lease_token)
         valid = bool(
-            lease.get("schema")
-            == "ananta.recovery_dispatch_lease.v1"
+            lease.get("schema") == "ananta.recovery_dispatch_lease.v1"
             and lease.get("state") == "worker_admitted"
             and lease.get("phase") == "execute"
-            and float(lease.get("expires_at") or 0.0)
-            > self._now_provider()
+            and float(lease.get("expires_at") or 0.0) > self._now_provider()
             and hmac.compare_digest(
                 str(lease.get("token_digest") or ""),
                 expected_token_digest,
@@ -490,17 +414,11 @@ class RecoveryArtifactIngressService:
                 str(lease.get("request_fingerprint") or ""),
                 str(manifest.get("request_fingerprint") or ""),
             )
-            and str(lease.get("worker_url") or "").rstrip("/")
-            == assigned_worker_url
-            and str(
-                lease.get("admitted_worker_url") or ""
-            ).rstrip("/")
-            == assigned_worker_url
+            and str(lease.get("worker_url") or "").rstrip("/") == assigned_worker_url
+            and str(lease.get("admitted_worker_url") or "").rstrip("/") == assigned_worker_url
         )
         if not valid:
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_lease_binding_mismatch"
-            )
+            raise RecoveryArtifactIngressError("recovery_artifact_lease_binding_mismatch")
 
     def _read_candidate(
         self,
@@ -521,33 +439,23 @@ class RecoveryArtifactIngressService:
                 maximum_bytes=MAX_RECOVERY_ARTIFACT_BYTES,
             )
         except RecoveryWorkspaceFileReadError as exc:
-            raise RecoveryArtifactIngressError(
-                exc.reason_code
-            ) from exc
+            raise RecoveryArtifactIngressError(exc.reason_code) from exc
         content = snapshot.content
         actual_size = len(content)
         actual_hash = hashlib.sha256(content).hexdigest()
         if actual_size != int(descriptor["size_bytes"]):
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_size_mismatch"
-            )
+            raise RecoveryArtifactIngressError("recovery_artifact_size_mismatch")
         if not hmac.compare_digest(
             actual_hash,
             str(descriptor["sha256"]),
         ):
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_hash_mismatch"
-            )
+            raise RecoveryArtifactIngressError("recovery_artifact_hash_mismatch")
         identity_payload = {
             "schema": "ananta.recovery_artifact_identity.v1",
             "task_id": manifest["task_id"],
             "worker_url": manifest["worker_url"],
-            "request_fingerprint": manifest[
-                "request_fingerprint"
-            ],
-            "lease_token_digest": manifest[
-                "lease_token_digest"
-            ],
+            "request_fingerprint": manifest["request_fingerprint"],
+            "lease_token_digest": manifest["lease_token_digest"],
             "manifest_digest": manifest["digest"],
             "source_index": descriptor["source_index"],
             "kind": descriptor["kind"],
@@ -571,13 +479,8 @@ class RecoveryArtifactIngressService:
             "size_bytes": actual_size,
             "identity_payload": identity_payload,
             "identity_digest": identity_digest,
-            "artifact_id": (
-                f"recovery-artifact-{identity_digest[:32]}"
-            ),
-            "version_id": (
-                f"recovery-artifact-version-"
-                f"{identity_digest[:32]}"
-            ),
+            "artifact_id": (f"recovery-artifact-{identity_digest[:32]}"),
+            "version_id": (f"recovery-artifact-version-{identity_digest[:32]}"),
         }
 
     def _materialize_candidate(
@@ -597,36 +500,19 @@ class RecoveryArtifactIngressService:
         ingress_binding = {
             **dict(candidate["identity_payload"]),
             "identity_digest": candidate["identity_digest"],
-            "assignment_fingerprint": manifest[
-                "assignment_fingerprint"
-            ],
+            "assignment_fingerprint": manifest["assignment_fingerprint"],
             "worker_id": str(worker_id or ""),
             "workspace_path": descriptor["workspace_path"],
-            "worker_artifact_id": descriptor[
-                "worker_artifact_id"
-            ],
-            "worker_artifact_version_id": descriptor[
-                "worker_artifact_version_id"
-            ],
+            "worker_artifact_id": descriptor["worker_artifact_id"],
+            "worker_artifact_version_id": descriptor["worker_artifact_version_id"],
         }
         if materialization_channel == "trusted_local":
-            ingress_binding["materialization_channel"] = (
-                "trusted_local"
-            )
-        existing_artifact = repos.artifact_repo.get_by_id(
-            artifact_id
-        )
-        existing_version = repos.artifact_version_repo.get_by_id(
-            version_id
-        )
-        replayed = bool(
-            existing_artifact is not None
-            and existing_version is not None
-        )
+            ingress_binding["materialization_channel"] = "trusted_local"
+        existing_artifact = repos.artifact_repo.get_by_id(artifact_id)
+        existing_version = repos.artifact_version_repo.get_by_id(version_id)
+        replayed = bool(existing_artifact is not None and existing_version is not None)
         if existing_artifact is None and existing_version is not None:
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_replay_state_invalid"
-            )
+            raise RecoveryArtifactIngressError("recovery_artifact_replay_state_invalid")
         if existing_artifact is not None:
             self._validate_existing_artifact(
                 artifact=existing_artifact,
@@ -649,16 +535,12 @@ class RecoveryArtifactIngressService:
             content=candidate["content"],
             media_type=descriptor["media_type"],
         )
-        if (
-            _integer(
-                stored.get("size_bytes"),
-                default=-1,
-            )
-            != int(candidate["size_bytes"])
-            or not hmac.compare_digest(
-                str(stored.get("sha256") or ""),
-                str(candidate["sha256"]),
-            )
+        if _integer(
+            stored.get("size_bytes"),
+            default=-1,
+        ) != int(candidate["size_bytes"]) or not hmac.compare_digest(
+            str(stored.get("sha256") or ""),
+            str(candidate["sha256"]),
         ):
             raise RecoveryArtifactIngressError(
                 "recovery_artifact_storage_verification_failed",
@@ -673,12 +555,8 @@ class RecoveryArtifactIngressService:
                     status="stored",
                     created_by="hub_recovery_artifact_ingress",
                     artifact_metadata={
-                        "ingestion_mode": (
-                            "hub_recovery_artifact_ingress"
-                        ),
-                        "recovery_artifact_ingress": (
-                            ingress_binding
-                        ),
+                        "ingestion_mode": ("hub_recovery_artifact_ingress"),
+                        "recovery_artifact_ingress": (ingress_binding),
                     },
                     created_at=now,
                     updated_at=now,
@@ -698,9 +576,7 @@ class RecoveryArtifactIngressService:
                     sha256=str(candidate["sha256"]),
                     version_metadata={
                         "versioning_ready": True,
-                        "recovery_artifact_ingress": (
-                            ingress_binding
-                        ),
+                        "recovery_artifact_ingress": (ingress_binding),
                     },
                     created_at=now,
                 )
@@ -720,15 +596,11 @@ class RecoveryArtifactIngressService:
             "artifact_version_id": version_id,
             "filename": descriptor["filename"],
             "media_type": descriptor["media_type"],
-            "workspace_relative_path": descriptor[
-                "relative_path"
-            ],
+            "workspace_relative_path": descriptor["relative_path"],
             "content_hash": str(candidate["sha256"]),
             "size_bytes": int(candidate["size_bytes"]),
             "provenance_summary": {
-                "schema": (
-                    "ananta.recovery_artifact_provenance.v1"
-                ),
+                "schema": ("ananta.recovery_artifact_provenance.v1"),
                 "authority": "hub",
                 "ingress": "workspace",
                 "worker_url": str(worker_url or ""),
@@ -745,25 +617,11 @@ class RecoveryArtifactIngressService:
         ingress_binding: Mapping[str, Any],
         version_id: str,
     ) -> None:
-        metadata = _mapping(
-            _value(artifact, "artifact_metadata")
-        )
-        existing_binding = _mapping(
-            metadata.get("recovery_artifact_ingress")
-        )
-        latest_version_id = str(
-            _value(artifact, "latest_version_id") or ""
-        )
-        if (
-            existing_binding != dict(ingress_binding)
-            or (
-                latest_version_id
-                and latest_version_id != version_id
-            )
-        ):
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_replay_conflict"
-            )
+        metadata = _mapping(_value(artifact, "artifact_metadata"))
+        existing_binding = _mapping(metadata.get("recovery_artifact_ingress"))
+        latest_version_id = str(_value(artifact, "latest_version_id") or "")
+        if existing_binding != dict(ingress_binding) or (latest_version_id and latest_version_id != version_id):
+            raise RecoveryArtifactIngressError("recovery_artifact_replay_conflict")
 
     @staticmethod
     def _validate_existing_version(
@@ -774,37 +632,26 @@ class RecoveryArtifactIngressService:
         candidate: Mapping[str, Any],
         descriptor: Mapping[str, Any],
     ) -> None:
-        metadata = _mapping(
-            _value(version, "version_metadata")
-        )
+        metadata = _mapping(_value(version, "version_metadata"))
         valid = bool(
-            str(_value(version, "artifact_id") or "")
-            == artifact_id
+            str(_value(version, "artifact_id") or "") == artifact_id
             and _integer(
                 _value(version, "version_number"),
                 default=0,
             )
             == 1
-            and str(_value(version, "sha256") or "")
-            == str(candidate["sha256"])
+            and str(_value(version, "sha256") or "") == str(candidate["sha256"])
             and _integer(
                 _value(version, "size_bytes"),
                 default=-1,
             )
             == int(candidate["size_bytes"])
-            and str(_value(version, "original_filename") or "")
-            == str(descriptor["filename"])
-            and str(_value(version, "media_type") or "")
-            == str(descriptor["media_type"])
-            and _mapping(
-                metadata.get("recovery_artifact_ingress")
-            )
-            == dict(ingress_binding)
+            and str(_value(version, "original_filename") or "") == str(descriptor["filename"])
+            and str(_value(version, "media_type") or "") == str(descriptor["media_type"])
+            and _mapping(metadata.get("recovery_artifact_ingress")) == dict(ingress_binding)
         )
         if not valid:
-            raise RecoveryArtifactIngressError(
-                "recovery_artifact_replay_conflict"
-            )
+            raise RecoveryArtifactIngressError("recovery_artifact_replay_conflict")
 
 
 def _task_mapping(task: Any) -> dict[str, Any]:
@@ -835,9 +682,7 @@ def _integer(value: Any, *, default: int) -> int:
 _SERVICE = RecoveryArtifactIngressService()
 
 
-def get_recovery_artifact_ingress_service() -> (
-    RecoveryArtifactIngressService
-):
+def get_recovery_artifact_ingress_service() -> RecoveryArtifactIngressService:
     return _SERVICE
 
 

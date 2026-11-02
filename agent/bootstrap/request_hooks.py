@@ -17,8 +17,7 @@ def configure_audit_logger() -> None:
         (
             handler
             for handler in audit_logger.handlers
-            if isinstance(handler, logging.FileHandler)
-            and handler.baseFilename == normalized_audit_file
+            if isinstance(handler, logging.FileHandler) and handler.baseFilename == normalized_audit_file
         ),
         None,
     )

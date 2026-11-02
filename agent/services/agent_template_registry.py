@@ -27,6 +27,33 @@ AGENT_TEMPLATE_DEFAULTS: dict[str, dict] = {
 }
 
 
+_VALID_SCOPE_MODES = {"full", "selective", "none"}
+
+
+def validate_context_policy(data: dict) -> list[str]:
+    """Validate an agent-template context-policy override payload (CSD-011).
+
+    Returns a list of human-readable errors; empty means valid.
+    """
+    from agent.services.rag_policy_service import SENSITIVITY_CLASSES
+
+    errors: list[str] = []
+    if "scope_mode" in data and data["scope_mode"] not in _VALID_SCOPE_MODES:
+        errors.append(f"scope_mode must be one of {sorted(_VALID_SCOPE_MODES)}, got '{data['scope_mode']}'")
+    if "max_files" in data:
+        try:
+            v = int(data["max_files"])
+            if v <= 0:
+                errors.append("max_files must be > 0")
+        except (TypeError, ValueError):
+            errors.append("max_files must be an integer > 0")
+    if "sensitivity_ceiling" in data and data["sensitivity_ceiling"] not in SENSITIVITY_CLASSES:
+        errors.append(
+            f"sensitivity_ceiling must be one of {sorted(SENSITIVITY_CLASSES)}, got '{data['sensitivity_ceiling']}'"
+        )
+    return errors
+
+
 class AgentTemplateRegistry:
     def __init__(self) -> None:
         self._lock = threading.Lock()

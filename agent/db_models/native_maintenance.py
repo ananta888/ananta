@@ -4,7 +4,7 @@ from sqlmodel import JSON, Column, Field, SQLModel
 
 
 class NativeMaintenanceCadenceDB(SQLModel, table=True):
-    __tablename__ = 'native_maintenance_cadence'
+    __tablename__ = "native_maintenance_cadence"
     id: str = Field(primary_key=True)
     tenant_id: str = Field(index=True)
     project_id: str = Field(index=True)
@@ -15,6 +15,6 @@ class NativeMaintenanceCadenceDB(SQLModel, table=True):
     next_due_at: float
     current_run_id: str | None = None
     last_run_id: str | None = None
-    status: str = 'idle'
-    reason_code: str = ''
+    status: str = "idle"
+    reason_code: str = ""
     updated_at: float

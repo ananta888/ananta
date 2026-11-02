@@ -80,9 +80,7 @@ class ChatBackend(Protocol):
     name: str
     description: str
 
-    def generate(
-        self, *, system: str, user: str, max_output_tokens: int, tools=None
-    ) -> RawAnswer: ...
+    def generate(self, *, system: str, user: str, max_output_tokens: int, tools=None) -> RawAnswer: ...
 
 
 def _usage(input_tokens, output_tokens, *, max_output_tokens):
@@ -101,9 +99,7 @@ def _tool_calls(message):
     calls = message.get("tool_calls")
     if not isinstance(calls, list):
         return []
-    usable = [
-        call for call in calls if isinstance(call, dict) and isinstance(call.get("function"), dict)
-    ]
+    usable = [call for call in calls if isinstance(call, dict) and isinstance(call.get("function"), dict)]
     return usable[: llm_tools.MAX_CALLS_PER_REPLY]
 
 
@@ -253,8 +249,7 @@ class OllamaBackend:
         digest = os.environ.get("MEET_LLM_DIGEST", DEFAULT_OLLAMA_DIGEST)
         loaded = self.transport.models()
         if not any(
-            item.get("name") == self.model and item.get("digest") == digest
-            for item in loaded.get("models", [])
+            item.get("name") == self.model and item.get("digest") == digest for item in loaded.get("models", [])
         ):
             raise ValueError("meet_llm_gpu_required")
 
@@ -366,9 +361,7 @@ class OpenAiBackend:
         if not isinstance(data, list):
             raise ValueError("meet_llm_model_unavailable")
         served = [
-            item["id"]
-            for item in data
-            if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]
+            item["id"] for item in data if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]
         ]
         wanted = configured_model()
         if wanted:

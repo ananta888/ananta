@@ -28,13 +28,9 @@ def _worker(**overrides):
 
 
 def test_bound_worker_directory_resolves_one_validated_registry_identity():
-    directory = RegisteredKnowledgeIndexWorkerDirectory(
-        _Agents([_worker()])
-    )
+    directory = RegisteredKnowledgeIndexWorkerDirectory(_Agents([_worker()]))
 
-    assert directory.resolve_worker_url("worker-index-01") == (
-        "http://worker-index-01:5001"
-    )
+    assert directory.resolve_worker_url("worker-index-01") == ("http://worker-index-01:5001")
 
 
 @pytest.mark.parametrize(

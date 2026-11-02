@@ -121,8 +121,14 @@ class DatasetReceipt:
             value,
             frozenset(
                 {
-                    "contract_version", "dataset_id", "dataset_version", "source_digest", "period_start", "period_end",
-                    "currency", "column_mapping",
+                    "contract_version",
+                    "dataset_id",
+                    "dataset_version",
+                    "source_digest",
+                    "period_start",
+                    "period_end",
+                    "currency",
+                    "column_mapping",
                 }
             ),
         )
@@ -194,8 +200,19 @@ class BusinessFinding:
     def from_mapping(cls, value: Any) -> "BusinessFinding":
         fields = frozenset(
             {
-                "contract_version", "finding_id", "dataset_id", "dataset_version", "kind", "severity", "rule_id",
-                "rule_version", "locator", "evidence_digest", "confidence", "disposition", "execution_receipt_digest",
+                "contract_version",
+                "finding_id",
+                "dataset_id",
+                "dataset_version",
+                "kind",
+                "severity",
+                "rule_id",
+                "rule_version",
+                "locator",
+                "evidence_digest",
+                "confidence",
+                "disposition",
+                "execution_receipt_digest",
             }
         )
         data = _closed(value, fields)

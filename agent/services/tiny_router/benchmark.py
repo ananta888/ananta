@@ -1,4 +1,5 @@
 """Deterministic evaluation helpers for candidate routing."""
+
 from __future__ import annotations
 
 import csv
@@ -14,7 +15,12 @@ from agent.services.tiny_router.types import TinyActionModelProfile
 from agent.services.tiny_router.validation import CandidateValidator
 
 _SENSITIVE_PARTS = (
-    "api_key", "authorization", "credential", "password", "secret", "token",
+    "api_key",
+    "authorization",
+    "credential",
+    "password",
+    "secret",
+    "token",
 )
 
 
@@ -105,14 +111,19 @@ class BenchmarkRunner:
         self._selector = AllowedToolPreselector()
 
     def run(
-        self, cases: Sequence[Mapping[str, Any]], *,
-        tools: Sequence[Mapping[str, Any]], profile: TinyActionModelProfile,
+        self,
+        cases: Sequence[Mapping[str, Any]],
+        *,
+        tools: Sequence[Mapping[str, Any]],
+        profile: TinyActionModelProfile,
     ) -> BenchmarkReport:
         selected = exact = abstain_expected = abstain_correct = 0
         unsafe_accepted = invalid = escalated = 0
         for case in cases:
             result = self._validator.validate(
-                case.get("model_output"), tools=tools, profile=profile,
+                case.get("model_output"),
+                tools=tools,
+                profile=profile,
                 adapter_id="replay",
             )
             expected = case.get("expected") or {}
@@ -130,10 +141,7 @@ class BenchmarkRunner:
             if result.status == "invalid":
                 invalid += 1
                 escalated += 1
-        positive = sum(
-            1 for case in cases
-            if (case.get("expected") or {}).get("tool_name") is not None
-        )
+        positive = sum(1 for case in cases if (case.get("expected") or {}).get("tool_name") is not None)
         total = len(cases)
         return BenchmarkReport(
             total,
@@ -147,7 +155,8 @@ class BenchmarkRunner:
         )
 
     def _catalog_size_results(
-        self, tools: Sequence[Mapping[str, Any]],
+        self,
+        tools: Sequence[Mapping[str, Any]],
     ) -> tuple[Mapping[str, Any], ...]:
         base = list(tools)
         rows: list[Mapping[str, Any]] = []
@@ -155,22 +164,30 @@ class BenchmarkRunner:
             expanded = list(base)
             while len(expanded) < requested:
                 index = len(expanded)
-                expanded.append({
-                    "type": "function",
-                    "function": {
-                        "name": f"benchmark.distractor.{index:03d}",
-                        "description": "Evaluation-only distractor",
-                        "parameters": {
-                            "type": "object", "properties": {},
-                            "additionalProperties": False,
+                expanded.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": f"benchmark.distractor.{index:03d}",
+                            "description": "Evaluation-only distractor",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": False,
+                            },
                         },
-                    },
-                })
+                    }
+                )
             selected = self._selector.select(
-                "search repository", expanded[:requested], top_k=5,
+                "search repository",
+                expanded[:requested],
+                top_k=5,
             )
-            rows.append({
-                "requested": requested, "available": len(expanded[:requested]),
-                "selected": len(selected),
-            })
+            rows.append(
+                {
+                    "requested": requested,
+                    "available": len(expanded[:requested]),
+                    "selected": len(selected),
+                }
+            )
         return tuple(rows)

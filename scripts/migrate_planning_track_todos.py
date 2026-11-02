@@ -11,7 +11,9 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Recompute derived planning summaries for todo track files.")
     parser.add_argument("--repo-root", default=".", help="Repository root that contains todos/")
     parser.add_argument("--write", action="store_true", help="Write recomputed summaries back to disk")
-    parser.add_argument("--convert-epics", action="store_true", help="Convert legacy epics.tasks payloads to flat tasks[] preview/apply")
+    parser.add_argument(
+        "--convert-epics", action="store_true", help="Convert legacy epics.tasks payloads to flat tasks[] preview/apply"
+    )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON report")
     return parser.parse_args()
 
@@ -28,7 +30,9 @@ def main() -> int:
     else:
         print(f"repo_root: {report.get('repo_root')}")
         print(f"dry_run: {'yes' if report.get('dry_run') else 'no'}")
-        print(f"scanned: {report.get('scanned')} track_files: {report.get('track_files')} changed: {report.get('changed')}")
+        print(
+            f"scanned: {report.get('scanned')} track_files: {report.get('track_files')} changed: {report.get('changed')}"
+        )
         for item in list(report.get("results") or [])[:100]:
             print(
                 f"- {item.get('path')} changed={bool(item.get('changed'))} "

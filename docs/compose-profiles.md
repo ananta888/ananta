@@ -26,7 +26,7 @@ Service-Defaults liegen intern in `compose.base.yml` und werden über
 Environment templates:
 
 - `.env.example`: ready-to-copy defaults for the common lite stack.
-- `.env.template`: compact template when secrets, ports and provider URLs should be filled explicitly.
+- `.env.example`: compact template when secrets, ports and provider URLs should be filled explicitly.
 - Für `compose.stack.distributed.yml` können die Worker-IDs über
   `ANANTA_WORKER_GAMMA_ID` und `ANANTA_WORKER_DELTA_ID` überschrieben werden.
 - Legacy-Testvariablen bleiben in `docker/old_way/README.md` und

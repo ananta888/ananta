@@ -65,7 +65,7 @@ def test_domain_action_execution_routes_without_shell_fallback(client, app, admi
             # SPLIT-001e-1: monkeypatch target moved to the helper module
             # that owns the implementation. Backward-compat wrappers in
             # TaskScopedExecutionService still resolve here at call time.
-            "agent.services._task_scoped_domain_action.build_domain_action_router",
+            "agent.services.task_scoped.domain_action.build_domain_action_router",
             return_value=stub_router,
         ),
         patch("agent.shell.PersistentShell.execute") as shell_execute,
@@ -108,7 +108,7 @@ def test_domain_action_execution_maps_approval_required_to_blocked(client, app, 
     with patch(
         # SPLIT-001e-1: monkeypatch target moved to the helper module
         # that owns the implementation.
-        "agent.services._task_scoped_domain_action.build_domain_action_router",
+        "agent.services.task_scoped.domain_action.build_domain_action_router",
         return_value=stub_router,
     ):
         response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)

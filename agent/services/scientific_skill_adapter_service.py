@@ -85,9 +85,7 @@ class ScientificSkillCatalogResolverPort(Protocol):
 
 
 class ScientificSkillApprovalTaskRequestPort(Protocol):
-    def submit(
-        self, request: ScientificSkillApprovalTaskRequest
-    ) -> ScientificSkillApprovalTaskRequest: ...
+    def submit(self, request: ScientificSkillApprovalTaskRequest) -> ScientificSkillApprovalTaskRequest: ...
 
 
 class ScientificSkillAdapterPort(Protocol):
@@ -149,8 +147,10 @@ class ControlledExecutionSkillAdapter:
             source_references=references,
         )
         submitted = self._request_port.submit(request)
-        if submitted != request or submitted.execution_performed or (
-            submitted.status != ScientificSkillAdapterStatus.APPROVAL_REQUIRED.value
+        if (
+            submitted != request
+            or submitted.execution_performed
+            or (submitted.status != ScientificSkillAdapterStatus.APPROVAL_REQUIRED.value)
         ):
             return ScientificSkillAdapterOutcome.degraded("scientific_skill_adapter_task_request_invalid")
         return ScientificSkillAdapterOutcome(
@@ -192,7 +192,8 @@ class ScientificSkillAdapterService:
 
 
 def _context_projection(
-    *, entry: ScientificSkillCatalogEntry,
+    *,
+    entry: ScientificSkillCatalogEntry,
     catalog: ScientificSkillCatalog,
 ) -> ScientificSkillContextProjection:
     references = _source_references(entry)
@@ -229,12 +230,9 @@ def _request_id(*, entry: ScientificSkillCatalogEntry, catalog: ScientificSkillC
 
 
 def _valid_request(request: object) -> bool:
-    return (
-        isinstance(request, ScientificSkillAdapterRequest)
-        and all(
-            isinstance(value, str) and _NAME.fullmatch(value)
-            for value in (request.catalog_id, request.catalog_version, request.skill_name)
-        )
+    return isinstance(request, ScientificSkillAdapterRequest) and all(
+        isinstance(value, str) and _NAME.fullmatch(value)
+        for value in (request.catalog_id, request.catalog_version, request.skill_name)
     )
 
 

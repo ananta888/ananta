@@ -15,6 +15,7 @@ register and audit. The work itself is delegated to focused collaborators
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import secrets
@@ -65,7 +66,6 @@ from agent.services.source_filesystem_scanner import (
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$")
 
 
@@ -83,17 +83,14 @@ class WorkspaceSnapshotUploadService:
         scanner: ProductionFilesystemSourceScanner | None = None,
         limits: WorkspaceSnapshotLimits | None = None,
         audit_sink: Callable[[str, dict], None] = log_audit,
-        token_factory: Callable[[], str] = (
-            lambda: secrets.token_urlsafe(32)
-        ),
+        token_factory: Callable[[], str] = (lambda: secrets.token_urlsafe(32)),
         filesystem: WorkspaceSnapshotFilesystem | None = None,
         stager: WorkspaceSnapshotStager | None = None,
         revalidator: WorkspaceSnapshotRevalidator | None = None,
     ) -> None:
         self._workspace_root = (
             Path(workspace_root).expanduser()
-            if isinstance(workspace_root, (str, Path))
-            and str(workspace_root).strip()
+            if isinstance(workspace_root, (str, Path)) and str(workspace_root).strip()
             else None
         )
         self._project_access = project_access
@@ -102,9 +99,7 @@ class WorkspaceSnapshotUploadService:
         self._idempotency = idempotency
         self._limits = limits or WorkspaceSnapshotLimits()
         self._audit_sink = audit_sink
-        self._filesystem = filesystem or WorkspaceSnapshotFilesystem(
-            token_factory=token_factory
-        )
+        self._filesystem = filesystem or WorkspaceSnapshotFilesystem(token_factory=token_factory)
         self._stager = stager or WorkspaceSnapshotStager(
             writer=self._filesystem,
             limits=self._limits,
@@ -147,9 +142,7 @@ class WorkspaceSnapshotUploadService:
                 scope=scope,
             ) as locked:
                 project_root, project_fd = locked
-                stage_name, stage_fd = self._filesystem.create_staging(
-                    project_fd
-                )
+                stage_name, stage_fd = self._filesystem.create_staging(project_fd)
                 stage_root = project_root / stage_name
                 published_here = False
                 registered = False
@@ -171,9 +164,7 @@ class WorkspaceSnapshotUploadService:
                         root=stage_root,
                         scope=scope,
                         manifest=manifest,
-                        workspace_id=provisional_workspace_id(
-                            operation_key
-                        ),
+                        workspace_id=provisional_workspace_id(operation_key),
                     )
                     plan_digest = snapshot_plan_digest(
                         scope=scope,
@@ -205,9 +196,7 @@ class WorkspaceSnapshotUploadService:
                             root=project_root / final_name,
                             scope=scope,
                             manifest=manifest,
-                            workspace_id=provisional_workspace_id(
-                                operation_key
-                            ),
+                            workspace_id=provisional_workspace_id(operation_key),
                         )
                     else:
                         self._filesystem.publish_staging(
@@ -221,9 +210,7 @@ class WorkspaceSnapshotUploadService:
                             root=project_root / final_name,
                             scope=scope,
                             manifest=manifest,
-                            workspace_id=provisional_workspace_id(
-                                operation_key
-                            ),
+                            workspace_id=provisional_workspace_id(operation_key),
                         )
                     created = self._register_workspace(
                         principal=principal,
@@ -321,10 +308,7 @@ class WorkspaceSnapshotUploadService:
         tenant_id = str(getattr(principal, "tenant_id", "") or "").strip()
         project_id = str(getattr(principal, "project_id", "") or "").strip()
         subject_id = str(getattr(principal, "subject_id", "") or "").strip()
-        if not all(
-            _OPAQUE_ID.fullmatch(value)
-            for value in (tenant_id, project_id, subject_id)
-        ):
+        if not all(_OPAQUE_ID.fullmatch(value) for value in (tenant_id, project_id, subject_id)):
             raise WorkspaceSnapshotUploadError(
                 "source_control_principal_scope_required",
                 status_code=403,
@@ -365,8 +349,7 @@ class WorkspaceSnapshotUploadService:
             matches = tuple(
                 snapshot
                 for snapshot in snapshots
-                if snapshot.root.parent == project_root
-                and snapshot.root.name == final_name
+                if snapshot.root.parent == project_root and snapshot.root.name == final_name
             )
             if len(matches) != 1:
                 raise WorkspaceSnapshotUploadError(
@@ -377,12 +360,8 @@ class WorkspaceSnapshotUploadService:
                 principal=principal,
                 payload={"folder_handle": matches[0].folder_handle},
             )
-            validation_handle = str(
-                validation.get("validation_handle") or ""
-            )
-            registration_key = "snapshot-reg:" + hashlib.sha256(
-                claim_token.encode("utf-8")
-            ).hexdigest()[:48]
+            validation_handle = str(validation.get("validation_handle") or "")
+            registration_key = "snapshot-reg:" + hashlib.sha256(claim_token.encode("utf-8")).hexdigest()[:48]
             created = self._registrations.create(
                 principal=principal,
                 payload={"validation_handle": validation_handle},
@@ -480,11 +459,7 @@ class WorkspaceSnapshotUploadService:
     @staticmethod
     def _claim_token(claim: object) -> str:
         token = getattr(claim, "claim_token", None)
-        if (
-            getattr(claim, "state", None) != "claimed"
-            or not isinstance(token, str)
-            or not token
-        ):
+        if getattr(claim, "state", None) != "claimed" or not isinstance(token, str) or not token:
             raise WorkspaceSnapshotUploadError(
                 "workspace_snapshot_idempotency_claim_failed",
                 status_code=409,
@@ -521,19 +496,13 @@ class WorkspaceSnapshotUploadService:
         replayed: bool,
     ) -> None:
         safe_reason = (
-            reason_code
-            if re.fullmatch(r"[a-z0-9][a-z0-9._:-]{0,127}", reason_code)
-            else "workspace_snapshot_failed"
+            reason_code if re.fullmatch(r"[a-z0-9][a-z0-9._:-]{0,127}", reason_code) else "workspace_snapshot_failed"
         )
         event = {
             "tenant_id": scope.tenant_id,
             "project_id": scope.project_id,
             "actor_id": scope.owner_id,
-            "workspace_id_digest": (
-                hashlib.sha256(workspace_id.encode("utf-8")).hexdigest()
-                if workspace_id
-                else None
-            ),
+            "workspace_id_digest": (hashlib.sha256(workspace_id.encode("utf-8")).hexdigest() if workspace_id else None),
             "decision": decision,
             "reason_code": safe_reason,
             "file_count": manifest.file_count if manifest else 0,
@@ -546,7 +515,7 @@ class WorkspaceSnapshotUploadService:
                 event,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit: ignored Exception", exc_info=True)
 
 
 __all__ = [

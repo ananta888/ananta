@@ -35,11 +35,17 @@ def _validate_ai_diff_response(payload: dict[str, Any]) -> list[str]:
 
 
 def _mock_ai_response(*, mode: str, envelope: dict[str, Any]) -> dict[str, Any]:
-    refs = [str(item.get("source_ref_id") or "") for item in list(envelope.get("diff_source_refs") or []) if isinstance(item, dict)]
+    refs = [
+        str(item.get("source_ref_id") or "")
+        for item in list(envelope.get("diff_source_refs") or [])
+        if isinstance(item, dict)
+    ]
     summary = f"{mode} analysis prepared for {len(refs)} source(s)"
     findings = ["Diff context analyzed"] if envelope.get("diff_summary") else ["No diff content available"]
     risks = ["Missing source grants were denied"] if envelope.get("denied_context_refs") else []
-    suggested_tests = ["Run targeted unit tests for changed files"] if mode in {"review", "risk", "tests", "patch"} else []
+    suggested_tests = (
+        ["Run targeted unit tests for changed files"] if mode in {"review", "risk", "tests", "patch"} else []
+    )
     patch_suggestions: list[str] = []
     if mode == "patch":
         patch_suggestions = [
@@ -108,9 +114,7 @@ def _llm_ai_response(*, mode: str, envelope: dict[str, Any]) -> dict[str, Any]:
         parsed.setdefault("patch_suggestions", [])
         parsed.setdefault("source_refs", [])
         if "summary" not in parsed:
-            parsed["summary"] = str(
-                parsed.get("message") or parsed.get("description") or f"{mode} analysis"
-            )
+            parsed["summary"] = str(parsed.get("message") or parsed.get("description") or f"{mode} analysis")
         # Coerce list fields to list[str]
         for key in ("findings", "risks", "suggested_tests", "patch_suggestions", "source_refs"):
             val = parsed.get(key)

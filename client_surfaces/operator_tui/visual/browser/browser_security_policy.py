@@ -16,6 +16,7 @@ class BrowserSecurityPolicy:
 
     Temp files are created under temp_root and tracked for cleanup.
     """
+
     allow_remote_urls: bool = False
     allowed_url_schemes: list[str] = field(default_factory=lambda: ["file", "data"])
     temp_root: str = ".ananta/tmp/center-browser"
@@ -50,9 +51,7 @@ class BrowserSecurityPolicy:
             allowed_schemes = {s.lower() for s in self.allowed_url_schemes}
             if scheme in allowed_schemes or "*" in allowed_schemes:
                 return True, "remote URL explicitly allowed"
-            return False, (
-                f"scheme '{scheme}' not in allowed_url_schemes={self.allowed_url_schemes}"
-            )
+            return False, (f"scheme '{scheme}' not in allowed_url_schemes={self.allowed_url_schemes}")
 
         # Remote disabled by default
         if scheme in {"http", "https", "ftp", "ftps"}:

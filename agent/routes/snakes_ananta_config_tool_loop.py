@@ -12,54 +12,29 @@ And can call these tools when it needs more detail:
   - get_hub_policies()          pending policy approvals
   - refresh_ui_guide()          force regenerate docs/ananta-ui-guide.md from source
 """
+
 from __future__ import annotations
 
 import json
 import logging
-import pathlib as _pl
 import re
-import time as _time
 from typing import Any
 
 from agent.services.snake_chat_cancellation import is_chat_cancelled
+from agent.services.ui_guide_maintenance import (
+    REPO_ROOT as _REPO_ROOT,
+)
+from agent.services.ui_guide_maintenance import (
+    UI_GUIDE_PATH as _UI_GUIDE_PATH,
+)
+from agent.services.ui_guide_maintenance import (
+    ensure_ui_guide,
+)
 
 _log = logging.getLogger(__name__)
-_REPO_ROOT = _pl.Path(__file__).parent.parent.parent
-_UI_GUIDE_PATH = _REPO_ROOT / "docs" / "ananta-ui-guide.md"
-_UI_GUIDE_SCRIPT = _REPO_ROOT / "scripts" / "generate_ui_guide.py"
 _MAX_TOOL_RESULT_CHARS = 6000
-_GUIDE_MAX_AGE_SECONDS = 86_400  # regenerate guide if older than 24 h
 
 # ── Guide generation / freshness ──────────────────────────────────────────────
-
-def ensure_ui_guide(force: bool = False) -> str:
-    """Return the UI guide markdown, generating it when missing or stale."""
-    needs_regen = force
-    if not needs_regen:
-        if not _UI_GUIDE_PATH.exists():
-            needs_regen = True
-        else:
-            age = _time.time() - _UI_GUIDE_PATH.stat().st_mtime
-            if age > _GUIDE_MAX_AGE_SECONDS:
-                needs_regen = True
-
-    if needs_regen:
-        try:
-            import subprocess
-            import sys
-            subprocess.run(
-                [sys.executable, str(_UI_GUIDE_SCRIPT)],
-                check=False, timeout=30,
-                cwd=str(_REPO_ROOT),
-            )
-            _log.info("UI guide regenerated: %s", _UI_GUIDE_PATH)
-        except Exception as exc:
-            _log.warning("UI guide generation failed: %s", exc)
-
-    try:
-        return _UI_GUIDE_PATH.read_text(encoding="utf-8")
-    except Exception:
-        return ""
 
 
 # ── Tool schemas ──────────────────────────────────────────────────────────────
@@ -178,6 +153,7 @@ _CONFIG_TOOLS = [
 
 # ── Tool implementations ──────────────────────────────────────────────────────
 
+
 def _grep_ui_search(query: str) -> list[str]:
     """Keyword search over docs/, the UI guide, and Angular routing/component files."""
     results: list[str] = []
@@ -233,8 +209,11 @@ def _grep_ui_search(query: str) -> list[str]:
         text = f.read_text(encoding="utf-8", errors="replace")
         if "data-waypoint" in text and _score(text) > 1:
             # Only include waypoint declarations and matching label/button text
-            lines = [ln.strip() for ln in text.splitlines()
-                     if "data-waypoint" in ln or (any(kw in ln.lower() for kw in keywords) and "waypoint" in text)]
+            lines = [
+                ln.strip()
+                for ln in text.splitlines()
+                if "data-waypoint" in ln or (any(kw in ln.lower() for kw in keywords) and "waypoint" in text)
+            ]
             wp_lines = [ln for ln in lines if "data-waypoint" in ln]
             kw_lines = [ln for ln in lines if "data-waypoint" not in ln][:5]
             combined = wp_lines[:10] + kw_lines
@@ -249,6 +228,7 @@ def _codecompass_search(query: str) -> list[str]:
     results: list[str] = []
     try:
         from agent.services.rag_service import get_rag_service
+
         bundle = get_rag_service().retrieve_context_bundle(
             query,
             max_chunks=6,
@@ -258,8 +238,11 @@ def _codecompass_search(query: str) -> list[str]:
         for chunk in chunks:
             metadata = dict((chunk or {}).get("metadata") or {})
             path = str(
-                metadata.get("file_path") or metadata.get("path")
-                or metadata.get("source_id") or chunk.get("source") or ""
+                metadata.get("file_path")
+                or metadata.get("path")
+                or metadata.get("source_id")
+                or chunk.get("source")
+                or ""
             ).strip()
             # restrict to docs/ and Angular
             if not (path.startswith("docs/") or "frontend-angular" in path or "angular" in path.lower()):
@@ -277,9 +260,7 @@ def _tool_search_ui_docs(query: str) -> str:
     cc_results = _codecompass_search(query)
 
     # deduplicate by source label prefix
-    all_results = grep_results + [r for r in cc_results if not any(
-        r.split("\n")[0] in g for g in grep_results
-    )]
+    all_results = grep_results + [r for r in cc_results if not any(r.split("\n")[0] in g for g in grep_results)]
 
     if not all_results:
         return f"Keine Treffer für '{query}' in UI-Dokumentation und Angular-Dateien."
@@ -289,8 +270,10 @@ def _tool_search_ui_docs(query: str) -> str:
 def _tool_read_ananta_config(section: str = "chat") -> str:
     try:
         import sys
+
         sys.path.insert(0, str(_REPO_ROOT))
         from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
         cfg = get_manager().load()
     except Exception as exc:
         return f"(Fehler beim Laden der Konfiguration: {exc})"
@@ -310,15 +293,19 @@ def _tool_read_ananta_config(section: str = "chat") -> str:
 def _tool_get_hub_workers() -> str:
     try:
         from agent.services.repository_registry import get_repository_registry
+
         agents = get_repository_registry().agent_repo.get_all() or []
-        items = [{
-            "id": str(getattr(a, "name", "") or getattr(a, "url", "") or ""),
-            "url": str(getattr(a, "url", "") or ""),
-            "role": str(getattr(a, "role", "worker") or "worker"),
-            "health": str(getattr(a, "status", "offline") or "offline"),
-            "capabilities": list(getattr(a, "capabilities", None) or []),
-            "last_seen": float(getattr(a, "last_seen", 0.0) or 0.0),
-        } for a in agents]
+        items = [
+            {
+                "id": str(getattr(a, "name", "") or getattr(a, "url", "") or ""),
+                "url": str(getattr(a, "url", "") or ""),
+                "role": str(getattr(a, "role", "worker") or "worker"),
+                "health": str(getattr(a, "status", "offline") or "offline"),
+                "capabilities": list(getattr(a, "capabilities", None) or []),
+                "last_seen": float(getattr(a, "last_seen", 0.0) or 0.0),
+            }
+            for a in agents
+        ]
         return json.dumps({"workers": items, "count": len(items)}, indent=2, ensure_ascii=False)
     except Exception as exc:
         return f"(Fehler beim Laden der Worker: {exc})"
@@ -327,14 +314,18 @@ def _tool_get_hub_workers() -> str:
 def _tool_get_hub_sessions() -> str:
     try:
         from agent.services.repository_registry import get_repository_registry
+
         sessions = get_repository_registry().agent_session_repo.get_all() or []
-        items = [{
-            "id": str(getattr(s, "id", "") or ""),
-            "status": str(getattr(s, "status", "") or ""),
-            "goal_id": str(getattr(s, "goal_id", "") or ""),
-            "worker": str(getattr(s, "worker_url", "") or ""),
-            "created_at": str(getattr(s, "created_at", "") or ""),
-        } for s in sessions[:20]]
+        items = [
+            {
+                "id": str(getattr(s, "id", "") or ""),
+                "status": str(getattr(s, "status", "") or ""),
+                "goal_id": str(getattr(s, "goal_id", "") or ""),
+                "worker": str(getattr(s, "worker_url", "") or ""),
+                "created_at": str(getattr(s, "created_at", "") or ""),
+            }
+            for s in sessions[:20]
+        ]
         return json.dumps({"sessions": items, "count": len(sessions)}, indent=2, ensure_ascii=False)
     except Exception as exc:
         return f"(Fehler beim Laden der Sessions: {exc})"
@@ -343,15 +334,19 @@ def _tool_get_hub_sessions() -> str:
 def _tool_get_hub_policies() -> str:
     try:
         from agent.services.repository_registry import get_repository_registry
+
         policies = get_repository_registry().policy_decision_repo.get_all() or []
         pending = [p for p in policies if str(getattr(p, "status", "") or "") in ("pending", "requested")]
-        items = [{
-            "id": str(getattr(p, "id", "") or ""),
-            "action": str(getattr(p, "action_type", getattr(p, "action", "")) or ""),
-            "status": str(getattr(p, "status", "") or ""),
-            "goal_id": str(getattr(p, "goal_id", "") or ""),
-            "task_id": str(getattr(p, "task_id", "") or ""),
-        } for p in pending[:20]]
+        items = [
+            {
+                "id": str(getattr(p, "id", "") or ""),
+                "action": str(getattr(p, "action_type", getattr(p, "action", "")) or ""),
+                "status": str(getattr(p, "status", "") or ""),
+                "goal_id": str(getattr(p, "goal_id", "") or ""),
+                "task_id": str(getattr(p, "task_id", "") or ""),
+            }
+            for p in pending[:20]
+        ]
         return json.dumps({"pending_policies": items, "count": len(pending)}, indent=2, ensure_ascii=False)
     except Exception as exc:
         return f"(Fehler beim Laden der Policies: {exc})"
@@ -360,13 +355,17 @@ def _tool_get_hub_policies() -> str:
 def _tool_get_team_types() -> str:
     try:
         from agent.services.repository_registry import get_repository_registry
+
         reg = get_repository_registry()
         team_types = reg.team_type_repo.get_all() or []
-        items = [{
-            "id": str(getattr(t, "id", "") or ""),
-            "name": str(getattr(t, "name", "") or ""),
-            "description": str(getattr(t, "description", "") or ""),
-        } for t in team_types]
+        items = [
+            {
+                "id": str(getattr(t, "id", "") or ""),
+                "name": str(getattr(t, "name", "") or ""),
+                "description": str(getattr(t, "description", "") or ""),
+            }
+            for t in team_types
+        ]
         info = (
             "Team-Typen (Basis-Team-Typen) definieren die erlaubten Rollen für Teams und Blueprints. "
             "Ein Blueprint referenziert einen Team-Typ über das Feld 'base_team_type_name'. "
@@ -407,6 +406,7 @@ def _dispatch_tool(name: str, arguments: dict) -> str:
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
+
 def run_ananta_config_tool_loop(
     *,
     messages: list[dict],
@@ -433,6 +433,7 @@ def run_ananta_config_tool_loop(
         (final_answer_text, trace_dict)
     """
     import requests
+
     from agent.llm_integration import _runtime_api_key, _runtime_provider_urls
 
     trace: dict[str, Any] = {
@@ -498,11 +499,13 @@ def run_ananta_config_tool_loop(
             break
 
         # append assistant turn with tool_calls
-        current_messages.append({
-            "role": "assistant",
-            "content": content or None,
-            "tool_calls": tool_calls,
-        })
+        current_messages.append(
+            {
+                "role": "assistant",
+                "content": content or None,
+                "tool_calls": tool_calls,
+            }
+        )
 
         for tc in tool_calls:
             tc_id = tc.get("id") or f"call_{tool_call_count}"
@@ -521,11 +524,13 @@ def run_ananta_config_tool_loop(
             _log.debug("ananta_config_tool: %s(%s)", fn_name, fn_args)
             result = _dispatch_tool(fn_name, fn_args)
 
-            current_messages.append({
-                "role": "tool",
-                "tool_call_id": tc_id,
-                "content": result,
-            })
+            current_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": result,
+                }
+            )
 
         if tool_call_count >= max_tool_calls:
             continue  # next iteration without tools → forces final answer

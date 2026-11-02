@@ -15,7 +15,9 @@ def normalize_channel_name(value: str) -> str:
 
 def validate_pipeline_payload(payload: dict[str, Any]) -> dict[str, Any]:
     channels = [normalize_channel_name(item) for item in list(payload.get("channels") or [])]
-    fallback_order = [normalize_channel_name(item) for item in list(payload.get("fallback_order") or DEFAULT_FALLBACK_ORDER)]
+    fallback_order = [
+        normalize_channel_name(item) for item in list(payload.get("fallback_order") or DEFAULT_FALLBACK_ORDER)
+    ]
     if not channels:
         raise ValueError("retrieval_channels_required")
     if any(channel not in channels for channel in fallback_order):
@@ -24,5 +26,7 @@ def validate_pipeline_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "schema": "retrieval_pipeline_contract.v1",
         "channels": channels,
         "fallback_order": fallback_order,
-        "weights": {normalize_channel_name(key): float(value) for key, value in dict(payload.get("weights") or {}).items()},
+        "weights": {
+            normalize_channel_name(key): float(value) for key, value in dict(payload.get("weights") or {}).items()
+        },
     }

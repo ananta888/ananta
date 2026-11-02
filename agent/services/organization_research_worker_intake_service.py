@@ -24,9 +24,7 @@ _CONTEXT_POLICY_SCHEMA = "organization_research_source_context_policy.v1"
 _DESTINATION_BINDING_SCHEMA = "organization_research_destination_binding.v1"
 _ADMISSION_SCHEMA = "organization_research_worker_admission.v1"
 _DELEGATED_BUNDLE_SCHEMA = "organization_research_delegated_context.v1"
-_REQUIRED_CAPABILITIES = frozenset(
-    {"planning", "research", "source_analysis"}
-)
+_REQUIRED_CAPABILITIES = frozenset({"planning", "research", "source_analysis"})
 _ALLOWED_PAYLOAD_FIELDS = frozenset(
     {
         "id",
@@ -71,9 +69,7 @@ class OrganizationResearchWorkerIntakeService:
     def __init__(
         self,
         *,
-        capability_verifier: (
-            OrganizationResearchDispatchCapabilityVerifier | None
-        ) = None,
+        capability_verifier: (OrganizationResearchDispatchCapabilityVerifier | None) = None,
         session_factory: Callable[[], Session] | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -105,9 +101,7 @@ class OrganizationResearchWorkerIntakeService:
                 worker_url=str(worker_url or "").strip(),
             )
         except OrganizationResearchDispatchCapabilityError as exc:
-            raise OrganizationResearchWorkerIntakeError(
-                exc.reason_code
-            ) from exc
+            raise OrganizationResearchWorkerIntakeError(exc.reason_code) from exc
 
         validated = self._validate_contract(
             raw,
@@ -185,72 +179,38 @@ class OrganizationResearchWorkerIntakeService:
                         priority=str(raw.get("priority") or "High"),
                         team_id=None,
                         goal_id=str(raw.get("goal_id") or "").strip() or None,
-                        goal_trace_id=(
-                            str(raw.get("goal_trace_id") or "").strip()
-                            or None
-                        ),
+                        goal_trace_id=(str(raw.get("goal_trace_id") or "").strip() or None),
                         task_kind="planning_research",
-                        retrieval_intent=str(
-                            raw.get("retrieval_intent") or ""
-                        ).strip()
-                        or None,
-                        required_context_scope=str(
-                            raw.get("required_context_scope") or ""
-                        ).strip()
-                        or None,
-                        preferred_bundle_mode=str(
-                            raw.get("preferred_bundle_mode") or ""
-                        ).strip()
-                        or None,
+                        retrieval_intent=str(raw.get("retrieval_intent") or "").strip() or None,
+                        required_context_scope=str(raw.get("required_context_scope") or "").strip() or None,
+                        preferred_bundle_mode=str(raw.get("preferred_bundle_mode") or "").strip() or None,
                         required_capabilities=sorted(
                             {
                                 str(value).strip()
-                                for value in list(
-                                    raw.get("required_capabilities") or []
-                                )
+                                for value in list(raw.get("required_capabilities") or [])
                                 if str(value).strip()
                             }
                         ),
                         context_bundle_id=clone_id,
                         worker_execution_context=worker_context,
-                        current_worker_job_id=str(
-                            claims.get("worker_job_id") or ""
-                        ),
-                        callback_url=str(raw.get("callback_url") or "").strip()
-                        or None,
-                        callback_token=str(
-                            raw.get("callback_token") or ""
-                        ).strip()
-                        or None,
-                        parent_task_id=str(
-                            raw.get("parent_task_id") or ""
-                        ).strip()
-                        or None,
-                        source_task_id=str(
-                            raw.get("parent_task_id") or ""
-                        ).strip()
-                        or None,
+                        current_worker_job_id=str(claims.get("worker_job_id") or ""),
+                        callback_url=str(raw.get("callback_url") or "").strip() or None,
+                        callback_token=str(raw.get("callback_token") or "").strip() or None,
+                        parent_task_id=str(raw.get("parent_task_id") or "").strip() or None,
+                        source_task_id=str(raw.get("parent_task_id") or "").strip() or None,
                         derivation_reason="hub_organization_planning_research",
                         derivation_depth=1,
                         history=[
                             {
                                 "timestamp": now,
                                 "status": "created",
-                                "event_type": (
-                                    "organization_research_dispatch_admitted"
-                                ),
+                                "event_type": ("organization_research_dispatch_admitted"),
                                 "actor": "hub:delegation",
                                 "details": {
                                     "source": "agent",
-                                    "channel": (
-                                        "hub_organization_research_intake"
-                                    ),
-                                    "parent_task_id": claims[
-                                        "parent_task_id"
-                                    ],
-                                    "worker_job_id": claims[
-                                        "worker_job_id"
-                                    ],
+                                    "channel": ("hub_organization_research_intake"),
+                                    "parent_task_id": claims["parent_task_id"],
+                                    "worker_job_id": claims["worker_job_id"],
                                     "payload_digest": payload_digest,
                                 },
                             }
@@ -278,111 +238,68 @@ class OrganizationResearchWorkerIntakeService:
     ) -> dict[str, Any]:
         task_id = str(payload.get("id") or "").strip()
         assignment_id = str(payload.get("assignment_id") or "").strip()
-        dispatch_lease_id = str(
-            payload.get("dispatch_lease_id") or ""
-        ).strip()
+        dispatch_lease_id = str(payload.get("dispatch_lease_id") or "").strip()
         if (
             payload.get("task_kind") != "planning_research"
             or payload.get("source") != "agent"
             or task_id != assignment_id
             or task_id != str(claims.get("subtask_id") or "")
-            or dispatch_lease_id
-            != str(claims.get("worker_job_id") or "")
+            or dispatch_lease_id != str(claims.get("worker_job_id") or "")
             or not str(payload.get("callback_url") or "").strip()
             or not str(payload.get("callback_token") or "").strip()
         ):
             self._fail("organization_research_dispatch_contract_invalid")
 
         capabilities = {
-            str(value).strip()
-            for value in list(payload.get("required_capabilities") or [])
-            if str(value).strip()
+            str(value).strip() for value in list(payload.get("required_capabilities") or []) if str(value).strip()
         }
         if not _REQUIRED_CAPABILITIES.issubset(capabilities):
-            self._fail(
-                "organization_research_dispatch_capabilities_invalid"
-            )
+            self._fail("organization_research_dispatch_capabilities_invalid")
 
-        worker_context = self._mapping(
-            payload.get("worker_execution_context")
-        )
-        source_policy = self._mapping(
-            worker_context.get("source_context_policy")
-        )
-        source_manifest = self._mapping(
-            worker_context.get("source_context_bundle_manifest")
-        )
-        destination = self._mapping(
-            worker_context.get("research_destination_binding")
-        )
+        worker_context = self._mapping(payload.get("worker_execution_context"))
+        source_policy = self._mapping(worker_context.get("source_context_policy"))
+        source_manifest = self._mapping(worker_context.get("source_context_bundle_manifest"))
+        destination = self._mapping(worker_context.get("research_destination_binding"))
         context_policy = self._mapping(payload.get("context_bundle_policy"))
         origin_bundle_id = str(payload.get("context_bundle_id") or "").strip()
-        origin_bundle_digest = str(
-            source_policy.get("context_bundle_digest") or ""
-        ).strip()
+        origin_bundle_digest = str(source_policy.get("context_bundle_digest") or "").strip()
         if (
             source_policy.get("schema") != _CONTEXT_POLICY_SCHEMA
             or source_policy.get("authority") != "hub"
-            or source_policy.get("mode")
-            != "authoritative_source_catalog_bundle"
+            or source_policy.get("mode") != "authoritative_source_catalog_bundle"
             or source_policy.get("llm_scope") != "local_only"
-            or str(source_policy.get("context_bundle_id") or "")
-            != origin_bundle_id
-            or origin_bundle_id
-            != str(claims.get("context_bundle_id") or "")
-            or origin_bundle_digest
-            != str(
-                claims.get("source_context_bundle_digest") or ""
-            )
+            or str(source_policy.get("context_bundle_id") or "") != origin_bundle_id
+            or origin_bundle_id != str(claims.get("context_bundle_id") or "")
+            or origin_bundle_digest != str(claims.get("source_context_bundle_digest") or "")
         ):
             self._fail("organization_research_dispatch_source_invalid")
         if (
             destination.get("schema") != _DESTINATION_BINDING_SCHEMA
             or destination.get("llm_scope") != "local_only"
             or str(destination.get("worker_url") or "") != worker_url
-            or str(destination.get("binding_digest") or "")
-            != str(claims.get("destination_binding_digest") or "")
-            or self._mapping(
-                context_policy.get("research_destination_binding")
-            )
-            != destination
+            or str(destination.get("binding_digest") or "") != str(claims.get("destination_binding_digest") or "")
+            or self._mapping(context_policy.get("research_destination_binding")) != destination
             or context_policy.get("llm_scope") != "local_only"
-            or context_policy.get("mode")
-            != "authoritative_source_catalog_bundle"
+            or context_policy.get("mode") != "authoritative_source_catalog_bundle"
         ):
-            self._fail(
-                "organization_research_dispatch_destination_invalid"
-            )
+            self._fail("organization_research_dispatch_destination_invalid")
 
-        proposal_binding = self._mapping(
-            worker_context.get("task_proposal_binding")
-        )
-        assignment_binding = self._mapping(
-            worker_context.get("planning_research_assignment")
-        )
+        proposal_binding = self._mapping(worker_context.get("task_proposal_binding"))
+        assignment_binding = self._mapping(worker_context.get("planning_research_assignment"))
         if (
             str(proposal_binding.get("worker_id") or "") != worker_url
             or str(proposal_binding.get("assignment_id") or "") != task_id
-            or str(proposal_binding.get("dispatch_lease_id") or "")
-            != dispatch_lease_id
-            or assignment_binding.get("schema")
-            != "organization_category_research_assignment_binding.v1"
-            or str(assignment_binding.get("assignment_id") or "")
-            != str(claims.get("organization_assignment_id") or "")
-            or str(assignment_binding.get("agent_url") or "")
-            != worker_url
+            or str(proposal_binding.get("dispatch_lease_id") or "") != dispatch_lease_id
+            or assignment_binding.get("schema") != "organization_category_research_assignment_binding.v1"
+            or str(assignment_binding.get("assignment_id") or "") != str(claims.get("organization_assignment_id") or "")
+            or str(assignment_binding.get("agent_url") or "") != worker_url
             or str(assignment_binding.get("organization_id") or "")
             != str(proposal_binding.get("organization_id") or "")
-            or str(assignment_binding.get("unit_id") or "")
-            != str(proposal_binding.get("unit_id") or "")
-            or str(assignment_binding.get("team_id") or "")
-            != str(proposal_binding.get("team_id") or "")
-            or str(assignment_binding.get("role_slot_id") or "")
-            != str(proposal_binding.get("role_slot_id") or "")
+            or str(assignment_binding.get("unit_id") or "") != str(proposal_binding.get("unit_id") or "")
+            or str(assignment_binding.get("team_id") or "") != str(proposal_binding.get("team_id") or "")
+            or str(assignment_binding.get("role_slot_id") or "") != str(proposal_binding.get("role_slot_id") or "")
         ):
-            self._fail(
-                "organization_research_dispatch_assignment_invalid"
-            )
+            self._fail("organization_research_dispatch_assignment_invalid")
 
         context = self._mapping(worker_context.get("context"))
         chunks = context.get("chunks")
@@ -398,31 +315,19 @@ class OrganizationResearchWorkerIntakeService:
         ):
             self._fail("organization_research_dispatch_context_invalid")
         if (
-            source_manifest.get("schema")
-            != "organization_research_context_manifest.v1"
-            or str(source_manifest.get("id") or "")
-            != origin_bundle_id
-            or str(source_manifest.get("task_id") or "")
-            != str(claims.get("parent_task_id") or "")
-            or str(source_manifest.get("bundle_type") or "")
-            != "worker_execution_context"
-            or not str(
-                source_manifest.get("retrieval_run_id") or ""
-            ).strip()
+            source_manifest.get("schema") != "organization_research_context_manifest.v1"
+            or str(source_manifest.get("id") or "") != origin_bundle_id
+            or str(source_manifest.get("task_id") or "") != str(claims.get("parent_task_id") or "")
+            or str(source_manifest.get("bundle_type") or "") != "worker_execution_context"
+            or not str(source_manifest.get("retrieval_run_id") or "").strip()
         ):
-            self._fail(
-                "organization_research_dispatch_context_manifest_invalid"
-            )
+            self._fail("organization_research_dispatch_context_manifest_invalid")
         calculated_origin_digest = context_bundle_integrity_digest(
             SimpleNamespace(
                 id=origin_bundle_id,
-                retrieval_run_id=str(
-                    source_manifest.get("retrieval_run_id") or ""
-                ),
+                retrieval_run_id=str(source_manifest.get("retrieval_run_id") or ""),
                 task_id=str(source_manifest.get("task_id") or ""),
-                bundle_type=str(
-                    source_manifest.get("bundle_type") or ""
-                ),
+                bundle_type=str(source_manifest.get("bundle_type") or ""),
                 context_text=str(context["context_text"]),
                 chunks=list(chunks),
                 token_estimate=int(token_estimate),
@@ -430,9 +335,7 @@ class OrganizationResearchWorkerIntakeService:
             )
         )
         if calculated_origin_digest != origin_bundle_digest:
-            self._fail(
-                "organization_research_dispatch_context_digest_mismatch"
-            )
+            self._fail("organization_research_dispatch_context_digest_mismatch")
         return {
             "task_id": task_id,
             "origin_bundle_id": origin_bundle_id,
@@ -451,30 +354,18 @@ class OrganizationResearchWorkerIntakeService:
         clone_id: str,
         claims: Mapping[str, Any],
     ) -> dict[str, Any]:
-        sanitized = {
-            key: value
-            for key, value in dict(worker_context).items()
-            if key != "context"
-        }
-        sanitized["origin_context_bundle_id"] = str(
-            claims["context_bundle_id"]
-        )
+        sanitized = {key: value for key, value in dict(worker_context).items() if key != "context"}
+        sanitized["origin_context_bundle_id"] = str(claims["context_bundle_id"])
         sanitized["context_bundle_id"] = clone_id
         sanitized["hub_research_dispatch_admission"] = {
             "schema": _ADMISSION_SCHEMA,
             "authority": "hub",
             "parent_task_id": str(claims["parent_task_id"]),
             "worker_job_id": str(claims["worker_job_id"]),
-            "organization_assignment_id": str(
-                claims["organization_assignment_id"]
-            ),
+            "organization_assignment_id": str(claims["organization_assignment_id"]),
             "origin_context_bundle_id": str(claims["context_bundle_id"]),
-            "origin_context_bundle_digest": str(
-                claims["source_context_bundle_digest"]
-            ),
-            "destination_binding_digest": str(
-                claims["destination_binding_digest"]
-            ),
+            "origin_context_bundle_digest": str(claims["source_context_bundle_digest"]),
+            "destination_binding_digest": str(claims["destination_binding_digest"]),
             "payload_digest": str(claims["payload_digest"]),
         }
         return sanitized
@@ -492,18 +383,10 @@ class OrganizationResearchWorkerIntakeService:
                 "authority": "hub",
                 "parent_task_id": str(claims["parent_task_id"]),
                 "worker_job_id": str(claims["worker_job_id"]),
-                "organization_assignment_id": str(
-                    claims["organization_assignment_id"]
-                ),
-                "origin_context_bundle_id": str(
-                    claims["context_bundle_id"]
-                ),
-                "origin_context_bundle_digest": str(
-                    claims["source_context_bundle_digest"]
-                ),
-                "destination_binding_digest": str(
-                    claims["destination_binding_digest"]
-                ),
+                "organization_assignment_id": str(claims["organization_assignment_id"]),
+                "origin_context_bundle_id": str(claims["context_bundle_id"]),
+                "origin_context_bundle_digest": str(claims["source_context_bundle_digest"]),
+                "destination_binding_digest": str(claims["destination_binding_digest"]),
                 "payload_digest": str(claims["payload_digest"]),
             },
         }
@@ -518,26 +401,18 @@ class OrganizationResearchWorkerIntakeService:
         payload_digest: str,
         claims: Mapping[str, Any],
     ) -> bool:
-        dispatch = cls._mapping(
-            dict(clone.bundle_metadata or {}).get("hub_research_dispatch")
-        )
+        dispatch = cls._mapping(dict(clone.bundle_metadata or {}).get("hub_research_dispatch"))
         return bool(
             str(clone.task_id or "") == task_id
             and str(clone.bundle_type or "") == "worker_execution_context"
-            and str(clone.context_text or "")
-            == str(validated["context_text"])
+            and str(clone.context_text or "") == str(validated["context_text"])
             and list(clone.chunks or []) == list(validated["chunks"])
-            and int(clone.token_estimate or 0)
-            == int(validated["token_estimate"])
+            and int(clone.token_estimate or 0) == int(validated["token_estimate"])
             and str(dispatch.get("payload_digest") or "") == payload_digest
-            and str(dispatch.get("origin_context_bundle_id") or "")
-            == str(validated["origin_bundle_id"])
-            and str(dispatch.get("origin_context_bundle_digest") or "")
-            == str(validated["origin_bundle_digest"])
-            and str(dispatch.get("parent_task_id") or "")
-            == str(claims.get("parent_task_id") or "")
-            and str(dispatch.get("worker_job_id") or "")
-            == str(claims.get("worker_job_id") or "")
+            and str(dispatch.get("origin_context_bundle_id") or "") == str(validated["origin_bundle_id"])
+            and str(dispatch.get("origin_context_bundle_digest") or "") == str(validated["origin_bundle_digest"])
+            and str(dispatch.get("parent_task_id") or "") == str(claims.get("parent_task_id") or "")
+            and str(dispatch.get("worker_job_id") or "") == str(claims.get("worker_job_id") or "")
             and str(dispatch.get("organization_assignment_id") or "")
             == str(claims.get("organization_assignment_id") or "")
             and str(dispatch.get("destination_binding_digest") or "")
@@ -553,31 +428,19 @@ class OrganizationResearchWorkerIntakeService:
         clone_id: str,
         claims: Mapping[str, Any],
     ) -> bool:
-        admission = cls._mapping(
-            dict(task.worker_execution_context or {}).get(
-                "hub_research_dispatch_admission"
-            )
-        )
+        admission = cls._mapping(dict(task.worker_execution_context or {}).get("hub_research_dispatch_admission"))
         return bool(
             str(task.task_kind or "") == "planning_research"
             and str(task.context_bundle_id or "") == clone_id
-            and str(task.parent_task_id or "")
-            == str(claims.get("parent_task_id") or "")
-            and str(task.current_worker_job_id or "")
-            == str(claims.get("worker_job_id") or "")
-            and str(admission.get("payload_digest") or "")
-            == payload_digest
-            and str(admission.get("parent_task_id") or "")
-            == str(claims.get("parent_task_id") or "")
-            and str(admission.get("worker_job_id") or "")
-            == str(claims.get("worker_job_id") or "")
+            and str(task.parent_task_id or "") == str(claims.get("parent_task_id") or "")
+            and str(task.current_worker_job_id or "") == str(claims.get("worker_job_id") or "")
+            and str(admission.get("payload_digest") or "") == payload_digest
+            and str(admission.get("parent_task_id") or "") == str(claims.get("parent_task_id") or "")
+            and str(admission.get("worker_job_id") or "") == str(claims.get("worker_job_id") or "")
             and str(admission.get("organization_assignment_id") or "")
             == str(claims.get("organization_assignment_id") or "")
-            and str(admission.get("origin_context_bundle_id") or "")
-            == str(claims.get("context_bundle_id") or "")
-            and str(
-                admission.get("origin_context_bundle_digest") or ""
-            )
+            and str(admission.get("origin_context_bundle_id") or "") == str(claims.get("context_bundle_id") or "")
+            and str(admission.get("origin_context_bundle_digest") or "")
             == str(claims.get("source_context_bundle_digest") or "")
             and str(admission.get("destination_binding_digest") or "")
             == str(claims.get("destination_binding_digest") or "")
@@ -591,9 +454,7 @@ class OrganizationResearchWorkerIntakeService:
         origin_bundle_digest: str,
     ) -> str:
         digest = hashlib.sha256(
-            "\x00".join(
-                (task_id, origin_bundle_id, origin_bundle_digest)
-            ).encode("utf-8")
+            "\x00".join((task_id, origin_bundle_id, origin_bundle_digest)).encode("utf-8")
         ).hexdigest()[:32]
         return f"delegated-context-{digest}"
 
@@ -622,9 +483,7 @@ class OrganizationResearchWorkerIntakeService:
                 "organization_research_dispatch_verification_keyring_required",
                 status_code=503,
             )
-        self._capability_verifier = (
-            OrganizationResearchDispatchCapabilityVerifier(key_ring)
-        )
+        self._capability_verifier = OrganizationResearchDispatchCapabilityVerifier(key_ring)
         return self._capability_verifier
 
     @staticmethod
@@ -638,8 +497,7 @@ class OrganizationResearchWorkerIntakeService:
 _SERVICE: OrganizationResearchWorkerIntakeService | None = None
 
 
-def get_organization_research_worker_intake_service(
-) -> OrganizationResearchWorkerIntakeService:
+def get_organization_research_worker_intake_service() -> OrganizationResearchWorkerIntakeService:
     global _SERVICE
     if _SERVICE is None:
         _SERVICE = OrganizationResearchWorkerIntakeService()

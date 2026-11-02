@@ -16,6 +16,7 @@ Design:
   Existing /tasks/<id>/pause|resume|cancel|retry routes remain untouched (backward compat).
   New /commands route is the unified Command-Contract that Angular and TUI prefer.
 """
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
@@ -38,19 +39,10 @@ def _principal() -> RunControlPrincipal | None:
         return None
     if isinstance(identity, dict):
         subject = identity.get("sub") or identity.get("username") or ""
-        tenant_id = (
-            identity.get("tenant_id")
-            or identity.get("tenant")
-            or identity.get("organization_id")
-            or subject
-        )
+        tenant_id = identity.get("tenant_id") or identity.get("tenant") or identity.get("organization_id") or subject
     else:
         subject = getattr(identity, "username", "") or getattr(identity, "id", "")
-        tenant_id = (
-            getattr(identity, "tenant_id", "")
-            or getattr(identity, "organization_id", "")
-            or subject
-        )
+        tenant_id = getattr(identity, "tenant_id", "") or getattr(identity, "organization_id", "") or subject
     try:
         return RunControlPrincipal.from_values(tenant_id, subject)
     except ValueError:
@@ -70,11 +62,13 @@ def _send_command(task_id: str | None = None, goal_id: str | None = None, run_id
     if not command_type:
         return jsonify({"status": "error", "message": "command_type_required"}), 400
     if command_type not in COMMAND_TYPES:
-        return jsonify({
-            "status": "error",
-            "message": "unknown_command_type",
-            "allowed": sorted(COMMAND_TYPES),
-        }), 400
+        return jsonify(
+            {
+                "status": "error",
+                "message": "unknown_command_type",
+                "allowed": sorted(COMMAND_TYPES),
+            }
+        ), 400
 
     payload = dict(body.get("payload") or {})
     idempotency_key = str(body.get("idempotency_key") or "").strip() or None
@@ -105,29 +99,22 @@ def _send_command(task_id: str | None = None, goal_id: str | None = None, run_id
     http_status = 200
     if cmd.status == "rejected_by_policy":
         try:
-            policy_status = int(
-                cmd.result.get("http_status") or 422
-            )
+            policy_status = int(cmd.result.get("http_status") or 422)
         except (TypeError, ValueError):
             policy_status = 422
-        http_status = (
-            policy_status
-            if 400 <= policy_status < 500
-            else 422
-        )
+        http_status = policy_status if 400 <= policy_status < 500 else 422
     elif cmd.status == "failed":
         http_status = 500
     payload = {"status": "ok", "command": cmd.as_dict()}
     if cmd.status == "rejected_by_policy":
         payload["reason_code"] = str(
-            cmd.result.get("reason_code")
-            or cmd.result.get("error")
-            or "run_command_rejected_by_policy"
+            cmd.result.get("reason_code") or cmd.result.get("error") or "run_command_rejected_by_policy"
         )
     return jsonify(payload), http_status
 
 
 # ── Run-scoped routes (run_id is task_id in practice) ─────────────────────────
+
 
 @run_control_bp.post("/api/runs/<run_id>/commands")
 @check_user_auth
@@ -165,6 +152,7 @@ def all_active_control_states():
 
 
 # ── Task-scoped routes (easy migration from existing task-detail UI) ──────────
+
 
 @run_control_bp.post("/api/tasks/<task_id>/commands")
 @check_user_auth
@@ -211,6 +199,7 @@ def list_task_commands(task_id: str):
 
 # ── Goal-scoped routes ─────────────────────────────────────────────────────────
 
+
 @run_control_bp.post("/api/goals/<goal_id>/commands")
 @check_user_auth
 def goal_commands(goal_id: str):
@@ -234,6 +223,7 @@ def goal_control_state(goal_id: str):
 
 
 # ── Branch management ─────────────────────────────────────────────────────────
+
 
 @run_control_bp.get("/api/tasks/<task_id>/branches")
 @check_user_auth

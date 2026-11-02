@@ -74,4 +74,3 @@ def apply_codecompass_budget(
             "degraded_reason": degraded_reason,
         },
     }
-

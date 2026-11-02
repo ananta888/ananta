@@ -10,7 +10,7 @@ class TriggerRuntimeService:
     """Runtime facade around trigger engine configuration and webhook parsing."""
 
     def _engine(self):
-        from agent.routes.tasks.triggers import trigger_engine
+        from agent.services.autopilot.trigger_engine import trigger_engine
 
         return trigger_engine
 

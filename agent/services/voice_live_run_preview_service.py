@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import time
 from dataclasses import dataclass
@@ -76,9 +77,7 @@ class VoiceLiveRunPreviewService:
         if run_missing != sequence_missing:
             raise VoiceGovernanceError(
                 code="voice_stream.live_preview_binding_incomplete",
-                message=(
-                    "live_run_id and live_run_segment_sequence must be provided together"
-                ),
+                message=("live_run_id and live_run_segment_sequence must be provided together"),
                 status_code=422,
             )
 
@@ -261,7 +260,7 @@ class VoiceLiveRunPreviewService:
             except Exception:
                 # The target is already durable and will be retried by normal
                 # runtime-cleanup maintenance.
-                pass
+                logging.getLogger(__name__).debug("_cleanup: ignored Exception", exc_info=True)
 
         if removed:
             self._audit(

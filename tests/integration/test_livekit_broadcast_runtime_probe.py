@@ -47,12 +47,13 @@ def test_current_static_bindings_accept_hub_capacity_and_layer_policy() -> None:
 
 
 def test_static_layer_policy_rejects_unconditional_or_disabled_dynacast() -> None:
-    assert probe_module._client_stream_policy_bound(
-        "adaptiveStream: true, dynacast: true"
-    ) is False
-    assert probe_module._client_stream_policy_bound(
-        "adaptiveStream: options.layerControlMode === 'adaptive_stream', dynacast: false"
-    ) is False
+    assert probe_module._client_stream_policy_bound("adaptiveStream: true, dynacast: true") is False
+    assert (
+        probe_module._client_stream_policy_bound(
+            "adaptiveStream: options.layerControlMode === 'adaptive_stream', dynacast: false"
+        )
+        is False
+    )
 
 
 def test_mock_only_runtime_claim_cannot_mark_capability_available() -> None:
@@ -135,18 +136,23 @@ def test_cli_writes_blocked_report_and_returns_nonzero_without_runtime(tmp_path:
 
 
 def _valid_spike_report() -> dict[str, object]:
-    peers: list[dict[str, object]] = [{
-        "identity": "publisher",
-        "peer_connections": 1,
-        "local_video_publication_count": 1,
-        "outbound_video_streams": 1,
-        "outbound_video_bytes": 100,
-    }]
-    peers.extend({
-        "identity": f"receiver-{index}",
-        "decoded_samples": 3,
-        "inbound_video_bytes": 100,
-    } for index in range(1, 4))
+    peers: list[dict[str, object]] = [
+        {
+            "identity": "publisher",
+            "peer_connections": 1,
+            "local_video_publication_count": 1,
+            "outbound_video_streams": 1,
+            "outbound_video_bytes": 100,
+        }
+    ]
+    peers.extend(
+        {
+            "identity": f"receiver-{index}",
+            "decoded_samples": 3,
+            "inbound_video_bytes": 100,
+        }
+        for index in range(1, 4)
+    )
     return {
         "schema": "ananta.semantic-sfu-three-peer-spike.v1",
         "release_evidence": False,

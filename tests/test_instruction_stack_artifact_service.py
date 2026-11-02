@@ -79,7 +79,9 @@ def test_assemble_for_task_suppresses_forbidden_profile_layer(app):
                 id="stack-artifact-task-forbidden",
                 title="Forbidden profile test",
                 status="todo",
-                worker_execution_context={"instruction_context": {"owner_username": "stack-user", "profile_id": profile.id}},
+                worker_execution_context={
+                    "instruction_context": {"owner_username": "stack-user", "profile_id": profile.id}
+                },
             )
         )
         assembled = InstructionLayerService().assemble_for_task(

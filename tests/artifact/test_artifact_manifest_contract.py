@@ -1,15 +1,14 @@
 """AFH-T005: ArtifactManifest v1 schema and contract tests."""
+
 from __future__ import annotations
 
 import hashlib
-import json
-import uuid
 from pathlib import Path
 
 import pytest
 
 from agent.services.artifact_manifest_service import get_artifact_manifest_service
-from worker.core.artifact_manifest import build_artifact_entry, build_artifact_manifest, write_manifest, load_manifest
+from worker.core.artifact_manifest import build_artifact_entry, build_artifact_manifest, load_manifest, write_manifest
 
 
 def _sha256(b: bytes) -> str:
@@ -61,8 +60,13 @@ class TestArtifactManifestBuild:
             kind="generated_file",
         )
         manifest = build_artifact_manifest(
-            goal_id="g", task_id="t", execution_id="e", trace_id="tr",
-            workspace_root=fibonacci_workspace, worker_id="w", artifacts=[entry],
+            goal_id="g",
+            task_id="t",
+            execution_id="e",
+            trace_id="tr",
+            workspace_root=fibonacci_workspace,
+            worker_id="w",
+            artifacts=[entry],
         )
         out = tmp_path / "manifest.json"
         write_manifest(manifest, out)
@@ -86,8 +90,13 @@ class TestArtifactManifestBuild:
 
     def test_synthesized_manifest_marked_correctly(self, fibonacci_workspace: Path) -> None:
         manifest = build_artifact_manifest(
-            goal_id="g", task_id="t", execution_id="e", trace_id="tr",
-            workspace_root=fibonacci_workspace, worker_id="hub-synth", artifacts=[],
+            goal_id="g",
+            task_id="t",
+            execution_id="e",
+            trace_id="tr",
+            workspace_root=fibonacci_workspace,
+            worker_id="hub-synth",
+            artifacts=[],
             synthesized=True,
         )
         assert manifest["synthesized"] is True
@@ -97,12 +106,19 @@ class TestArtifactManifestValidation:
     def test_valid_manifest_passes(self, fibonacci_workspace: Path) -> None:
         svc = get_artifact_manifest_service()
         entry = build_artifact_entry(
-            workspace_root=fibonacci_workspace, relative_path="app.py",
-            kind="generated_file", required=True,
+            workspace_root=fibonacci_workspace,
+            relative_path="app.py",
+            kind="generated_file",
+            required=True,
         )
         manifest = build_artifact_manifest(
-            goal_id="g", task_id="t", execution_id="e", trace_id="tr",
-            workspace_root=fibonacci_workspace, worker_id="w", artifacts=[entry],
+            goal_id="g",
+            task_id="t",
+            execution_id="e",
+            trace_id="tr",
+            workspace_root=fibonacci_workspace,
+            worker_id="w",
+            artifacts=[entry],
         )
         result = svc.validate_manifest(manifest, workspace_root=fibonacci_workspace)
         assert result["valid"], f"Valid manifest must pass validation: {result['errors']}"
@@ -111,16 +127,24 @@ class TestArtifactManifestValidation:
         svc = get_artifact_manifest_service()
         manifest = {
             "schema": "artifact_manifest.v1",
-            "manifest_id": "m1", "goal_id": "g", "task_id": "t",
-            "execution_id": "e", "trace_id": "tr",
-            "workspace_root_ref": "ref", "produced_by_worker_id": "w",
-            "produced_at": 1.0, "synthesized": False,
-            "artifacts": [{
-                "artifact_id": "a1", "kind": "generated_file",
-                "relative_path": "app.py",
-                "content_hash": "",  # missing
-                "size_bytes": 0,
-            }],
+            "manifest_id": "m1",
+            "goal_id": "g",
+            "task_id": "t",
+            "execution_id": "e",
+            "trace_id": "tr",
+            "workspace_root_ref": "ref",
+            "produced_by_worker_id": "w",
+            "produced_at": 1.0,
+            "synthesized": False,
+            "artifacts": [
+                {
+                    "artifact_id": "a1",
+                    "kind": "generated_file",
+                    "relative_path": "app.py",
+                    "content_hash": "",  # missing
+                    "size_bytes": 0,
+                }
+            ],
         }
         result = svc.validate_manifest(manifest, workspace_root=fibonacci_workspace)
         assert not result["valid"]
@@ -129,15 +153,24 @@ class TestArtifactManifestValidation:
         svc = get_artifact_manifest_service()
         manifest = {
             "schema": "artifact_manifest.v1",
-            "manifest_id": "m2", "goal_id": "g", "task_id": "t",
-            "execution_id": "e", "trace_id": "tr",
-            "workspace_root_ref": "ref", "produced_by_worker_id": "w",
-            "produced_at": 1.0, "synthesized": False,
-            "artifacts": [{
-                "artifact_id": "a2", "kind": "generated_file",
-                "relative_path": "../../etc/passwd",
-                "content_hash": "a" * 64, "size_bytes": 0,
-            }],
+            "manifest_id": "m2",
+            "goal_id": "g",
+            "task_id": "t",
+            "execution_id": "e",
+            "trace_id": "tr",
+            "workspace_root_ref": "ref",
+            "produced_by_worker_id": "w",
+            "produced_at": 1.0,
+            "synthesized": False,
+            "artifacts": [
+                {
+                    "artifact_id": "a2",
+                    "kind": "generated_file",
+                    "relative_path": "../../etc/passwd",
+                    "content_hash": "a" * 64,
+                    "size_bytes": 0,
+                }
+            ],
         }
         result = svc.validate_manifest(manifest, workspace_root=fibonacci_workspace)
         assert not result["valid"]

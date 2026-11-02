@@ -39,6 +39,8 @@ from agent.services.speech_adaptation_in_memory_adapters import (
 )
 from agent.services.speech_adaptation_job_contract import (
     build_speech_adaptation_job_payload,
+)
+from agent.services.speech_adaptation_job_contract import (
     validate_prelease_bindings as _validate_prelease_bindings,
 )
 from agent.services.speech_adaptation_task_port import SpeechAdaptationTaskPort

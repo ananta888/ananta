@@ -159,9 +159,7 @@ class FasterWhisperBackend(VoiceBackend):
             for segment in raw_segments:
                 if cancellation_token is not None:
                     cancellation_token.raise_if_cancelled()
-                segments_list.append(
-                    self._map_segment(segment, duration_ms=audio.duration_ms)
-                )
+                segments_list.append(self._map_segment(segment, duration_ms=audio.duration_ms))
             segments = tuple(segments_list)
 
         if cancellation_token is not None:

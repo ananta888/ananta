@@ -90,7 +90,10 @@ class KittyRenderer:
         writer=None,
     ) -> list[LogoFrame]:
         count = max(1, min(24, int(frame_count)))
-        return [self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer) for i in range(count)]
+        return [
+            self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer)
+            for i in range(count)
+        ]
 
     def render_pixel_frame(self, frame: PixelFrame) -> bytes:
         return frame.to_png_bytes()
@@ -110,7 +113,5 @@ class KittyRenderer:
         segments: list[str] = []
         for idx, chunk in enumerate(chunks):
             more = 1 if idx < len(chunks) - 1 else 0
-            segments.append(
-                f"\x1b_Ga=T,f=100,t=d,i={self._image_id},p={self._placement_id},q=2,m={more};{chunk}\x1b\\"
-            )
+            segments.append(f"\x1b_Ga=T,f=100,t=d,i={self._image_id},p={self._placement_id},q=2,m={more};{chunk}\x1b\\")
         return "".join(segments)

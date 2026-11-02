@@ -1,35 +1,35 @@
-import pytest
 import time
+
 import jwt
-from agent.config import settings
-from agent.db_models import GoalDB, TaskDB, AgentInfoDB
-from agent.repository import goal_repo, task_repo, policy_decision_repo, verification_record_repo, agent_repo
+import pytest
+
 from agent.common.governance_codes import GovernanceReasonCode
+from agent.config import settings
+from agent.db_models import GoalDB, TaskDB
+from agent.repository import goal_repo, task_repo, verification_record_repo
+
 
 class TestGRMExtended:
     @pytest.fixture
     def user_auth_header(self):
-        payload = {
-            "sub": "testuser",
-            "username": "testuser",
-            "role": "user",
-            "exp": time.time() + 3600
-        }
+        payload = {"sub": "testuser", "username": "testuser", "role": "user", "exp": time.time() + 3600}
         token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
         return {"Authorization": f"Bearer {token}"}
 
     def test_goal_governance_visibility_roles(self, client, admin_auth_header, user_auth_header):
         # 1. Setup Goal and Task
         goal = goal_repo.save(GoalDB(goal="Test Governance Visibility", trace_id="trace-123", status="planned"))
-        task_repo.save(TaskDB(
-            id="task-grm-1",
-            title="Task 1",
-            status="blocked",
-            goal_id=goal.id,
-            goal_trace_id=goal.trace_id,
-            status_reason_code=GovernanceReasonCode.POLICY_VIOLATION.value,
-            status_reason_details={"reason": "test blocking"}
-        ))
+        task_repo.save(
+            TaskDB(
+                id="task-grm-1",
+                title="Task 1",
+                status="blocked",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+                status_reason_code=GovernanceReasonCode.POLICY_VIOLATION.value,
+                status_reason_details={"reason": "test blocking"},
+            )
+        )
 
         # 2. Check as Admin (should see details)
         res_admin = client.get(f"/goals/{goal.id}/governance", headers=admin_auth_header)
@@ -62,7 +62,7 @@ class TestGRMExtended:
                     "actor": "http://worker:5000",
                     "gate_results": {"passed": False},
                     "output": "failure",
-                    "trace_id": "trace-esc"
+                    "trace_id": "trace-esc",
                 },
             )
 

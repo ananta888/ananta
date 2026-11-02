@@ -9,6 +9,7 @@ Provides a single `ToolScopeContract` that merges these sources and exposes
 clean `is_allowed(tool)` / `is_forbidden(tool)` checks used by
 `TaskEnginePolicyGate` and the strict_unknown_tool_policy path.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -37,7 +38,9 @@ class ToolScopeContract:
             allowed = list(ctx.get("allowed_tools") or [])
         else:
             allowed = []
-        forbidden = list(getattr(ctx, "forbidden_tools", None) or ctx.get("forbidden_tools") if isinstance(ctx, dict) else [])
+        forbidden = list(
+            getattr(ctx, "forbidden_tools", None) or ctx.get("forbidden_tools") if isinstance(ctx, dict) else []
+        )
         policy = "closed" if allowed else "open"
         return cls(allowed_tools=_normalize(allowed), forbidden_tools=_normalize(forbidden), policy=policy)
 
@@ -47,7 +50,7 @@ class ToolScopeContract:
         allowed = _normalize(task.get("allowed_tools") or [])
         forbidden = _normalize(task.get("forbidden_tools") or [])
         # capabilities that imply specific tools
-        caps = [str(c).strip().lower() for c in (task.get("required_capabilities") or [])]
+        [str(c).strip().lower() for c in (task.get("required_capabilities") or [])]
         policy = "closed" if allowed else "open"
         return cls(allowed_tools=allowed, forbidden_tools=forbidden, policy=policy)
 
@@ -103,6 +106,7 @@ class ToolScopeContract:
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _normalize(tools: list[Any]) -> list[str]:
     return [str(t).strip().lower() for t in tools if str(t).strip()]

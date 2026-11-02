@@ -148,9 +148,7 @@ def test_caseflow_edge_trace_endpoint_is_owner_bound_and_run_bound() -> None:
     assert allowed.get_json()["edges"][0]["activity_status"] == "active"
     assert cross_tenant.status_code == 404
     assert unknown_run.status_code == 404
-    assert unknown_run.get_json()["data"]["reason_code"] == (
-        "caseflow_workflow_run_not_found"
-    )
+    assert unknown_run.get_json()["data"]["reason_code"] == ("caseflow_workflow_run_not_found")
     assert unauthenticated.status_code == 401
     workflow_route_authorization_service.clear()
 
@@ -183,9 +181,7 @@ def test_caseflow_edge_trace_endpoint_rejects_url_and_unversioned_queries(
 
     assert url_query.status_code == 400
     assert unversioned.status_code == 422
-    assert unversioned.get_json()["data"]["reason_code"] == (
-        "caseflow_edge_trace_query_schema_unsupported"
-    )
+    assert unversioned.get_json()["data"]["reason_code"] == ("caseflow_edge_trace_query_schema_unsupported")
     workflow_route_authorization_service.clear()
 
 
@@ -201,11 +197,13 @@ def test_direct_workflow_request_cannot_assert_hub_edge_catalog() -> None:
     )
     client = app.test_client()
     forged_catalog = build_caseflow_edge_catalog(
-        [{
-            "edge_id": "edge-invented",
-            "source_step_id": "agent-a",
-            "target_step_id": "agent-b",
-        }]
+        [
+            {
+                "edge_id": "edge-invented",
+                "source_step_id": "agent-a",
+                "target_step_id": "agent-b",
+            }
+        ]
     )
 
     response = client.post(

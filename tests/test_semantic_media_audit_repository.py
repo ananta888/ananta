@@ -119,16 +119,22 @@ def test_sql_audit_supports_bounded_scope_and_tenant_erasure(repository) -> None
     service = SemanticMediaAuditService(repository, clock_ms=lambda: NOW)
     _record(service, "scope-delete-a", scope="scope-a")
     _record(service, "scope-delete-b", scope="scope-b")
-    assert repository.delete_scope(
-        tenant_digest=_digest("tenant-a"),
-        scope_digest=_digest("scope-a"),
-        limit=1,
-    ) == 1
-    assert repository.delete_scope(
-        tenant_digest=_digest("tenant-a"),
-        scope_digest=_digest("scope-a"),
-        limit=1,
-    ) == 0
+    assert (
+        repository.delete_scope(
+            tenant_digest=_digest("tenant-a"),
+            scope_digest=_digest("scope-a"),
+            limit=1,
+        )
+        == 1
+    )
+    assert (
+        repository.delete_scope(
+            tenant_digest=_digest("tenant-a"),
+            scope_digest=_digest("scope-a"),
+            limit=1,
+        )
+        == 0
+    )
     assert repository.delete_tenant(tenant_digest=_digest("tenant-a"), limit=1) == 1
 
 

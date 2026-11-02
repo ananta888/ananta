@@ -1,4 +1,5 @@
 """ErrorLookupStrategy — chat_codecompass_error_lookup_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, CodeCompassReadPort, HeuristicStrategyBase
@@ -8,10 +9,23 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _ERROR_KEYWORDS = [
-    "error", "exception", "stacktrace", "stack trace", "caused by",
-    "nullpointerexception", "npe", "classnotfound", "nosuchmethod",
-    "syntaxerror", "typeerror", "valueerror", "runtimeexception",
-    "fail", "crash", "panic", "fatal",
+    "error",
+    "exception",
+    "stacktrace",
+    "stack trace",
+    "caused by",
+    "nullpointerexception",
+    "npe",
+    "classnotfound",
+    "nosuchmethod",
+    "syntaxerror",
+    "typeerror",
+    "valueerror",
+    "runtimeexception",
+    "fail",
+    "crash",
+    "panic",
+    "fatal",
 ]
 _MIN_SCORE = 0.15
 

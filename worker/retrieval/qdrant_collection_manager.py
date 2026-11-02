@@ -49,17 +49,12 @@ class QdrantCollectionManager:
         self._client = client
         self._prefix = str(collection_prefix or "ananta")
         self._clock = clock
-        self._staging_token_factory = staging_token_factory or (
-            lambda: uuid.uuid4().hex
-        )
+        self._staging_token_factory = staging_token_factory or (lambda: uuid.uuid4().hex)
         backend_schema = str(backend_schema_version or "").strip()
         if (
             not backend_schema
             or len(backend_schema.encode("utf-8")) > 128
-            or any(
-                ord(character) < 32 or ord(character) == 127
-                for character in backend_schema
-            )
+            or any(ord(character) < 32 or ord(character) == 127 for character in backend_schema)
         ):
             raise QdrantSchemaError("vector_store_invalid_schema_version")
         self._backend_schema_version = backend_schema
@@ -226,9 +221,7 @@ class QdrantCollectionManager:
         """Validate one already-read manifest and physical collection state."""
 
         found = dict(payload.get("compatibility") or {})
-        found_backend_schema = str(
-            payload.get("backend_schema_version") or ""
-        ).strip()
+        found_backend_schema = str(payload.get("backend_schema_version") or "").strip()
         expected_payload = {
             **expected.as_dict(),
             "backend_schema_version": self._backend_schema_version,

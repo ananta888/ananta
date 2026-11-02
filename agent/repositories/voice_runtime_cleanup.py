@@ -113,11 +113,7 @@ class VoiceRuntimeCleanupRepository:
 
         with Session(engine) as session:
             rows = list(
-                session.exec(
-                    select(VoiceRuntimeCleanupDB).where(
-                        *self._scope_predicates(principal, profile_id)
-                    )
-                ).all()
+                session.exec(select(VoiceRuntimeCleanupDB).where(*self._scope_predicates(principal, profile_id))).all()
             )
             changed = 0
             for row in rows:
@@ -155,10 +151,10 @@ class VoiceRuntimeCleanupRepository:
         bounded_limit = max(1, min(int(limit), 1_000))
         with Session(engine) as session:
             statement = select(
-                    VoiceRuntimeCleanupDB.tenant_id,
-                    VoiceRuntimeCleanupDB.owner_subject,
-                    VoiceRuntimeCleanupDB.profile_id,
-                )
+                VoiceRuntimeCleanupDB.tenant_id,
+                VoiceRuntimeCleanupDB.owner_subject,
+                VoiceRuntimeCleanupDB.profile_id,
+            )
             if not include_provisional:
                 statement = statement.where(VoiceRuntimeCleanupDB.state != "provisional")
             rows = session.exec(

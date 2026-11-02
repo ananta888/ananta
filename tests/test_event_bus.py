@@ -1,9 +1,6 @@
 """Tests for HeuristicEventBus and event source adapters — event_bus.py."""
+
 from __future__ import annotations
-
-import time
-
-import pytest
 
 from agent.services.heuristic_runtime.event_bus import (
     EclipseEventSourceAdapter,
@@ -13,8 +10,8 @@ from agent.services.heuristic_runtime.event_bus import (
     get_event_bus,
 )
 
-
 # ── HeuristicEvent ────────────────────────────────────────────────────────────
+
 
 def test_event_to_dict():
     ev = HeuristicEvent(event_type="focus_change", surface="tui_snake", normalized_value="editor")
@@ -31,6 +28,7 @@ def test_event_normalized_value_truncated():
 
 
 # ── HeuristicEventBus ─────────────────────────────────────────────────────────
+
 
 def test_subscribe_and_receive():
     bus = HeuristicEventBus()
@@ -62,7 +60,10 @@ def test_duplicate_subscribe_ignored():
 
 def test_subscriber_exception_does_not_propagate():
     bus = HeuristicEventBus()
-    def bad_handler(ev): raise RuntimeError("boom")
+
+    def bad_handler(ev):
+        raise RuntimeError("boom")
+
     bus.subscribe(bad_handler)
     bus.publish(HeuristicEvent(event_type="focus_change", surface="tui_snake"))  # must not raise
 
@@ -103,6 +104,7 @@ def test_subscriber_count():
 
 # ── TuiEventSourceAdapter ─────────────────────────────────────────────────────
 
+
 def test_tui_adapter_maps_cursor_move():
     adapter = TuiEventSourceAdapter()
     ev = adapter.adapt({"kind": "cursor_move", "value": "editor", "timestamp": 1.0})
@@ -139,6 +141,7 @@ def test_tui_adapter_returns_none_for_empty_kind():
 
 # ── EclipseEventSourceAdapter ─────────────────────────────────────────────────
 
+
 def test_eclipse_adapter_maps_zone_change():
     adapter = EclipseEventSourceAdapter()
     ev = adapter.adapt({"snakeState": "ZONE_CHANGE", "zone": "editor", "timestamp": 1.0})
@@ -160,6 +163,7 @@ def test_eclipse_adapter_normalized_value_is_zone():
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
+
 
 def test_get_event_bus_returns_same_instance():
     b1 = get_event_bus()

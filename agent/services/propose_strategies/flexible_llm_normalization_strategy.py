@@ -8,13 +8,13 @@ from unittest.mock import Mock
 
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
-from ananta_contracts.model_recovery import metadata_from_llm_error
 from agent.services.model_routing_contract import (
     ModelRoutingContractError,
     build_model_routing_context,
     model_routing_policy_failure_metadata,
 )
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
+from ananta_contracts.model_recovery import metadata_from_llm_error
 from worker.core.propose import ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 

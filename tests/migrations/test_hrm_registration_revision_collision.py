@@ -3,7 +3,6 @@ from pathlib import Path
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

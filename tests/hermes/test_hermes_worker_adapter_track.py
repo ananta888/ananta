@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib import error
 
 import pytest
-from urllib import error
 
 from agent.services.bridge_adapter_registry import BridgeAdapterRegistry
 from agent.services.capability_registry import CapabilityRegistry
@@ -13,15 +13,15 @@ from agent.services.hermes_worker_profile import (
     get_default_hermes_profile,
 )
 from agent.services.tool_routing_service import ToolRoutingService
+from worker.core.context_resolver import ContextBlock, ContextSensitivity
+from worker.core.diagnostics import AuditEmitter
 from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
 from worker.core.hermes_adapter import HermesAdapter
-from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
 from worker.core.hermes_adapter_config import HermesAdapterConfig
+from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
 from worker.core.hermes_http_client import HermesClientConfig, HermesClientError, HermesHttpClient
 from worker.core.hermes_output_parser import parse_hermes_json_output
 from worker.core.hermes_prompting import build_governed_system_prompt
-from worker.core.context_resolver import ContextBlock, ContextSensitivity
-from worker.core.diagnostics import AuditEmitter
 
 
 def _env(**overrides: object) -> ExecutionEnvelope:
@@ -65,7 +65,13 @@ def test_hermes_adapter_config_validation_and_redaction() -> None:
     with pytest.raises(ValueError):
         HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="localhost:3000", default_model="m")
     with pytest.raises(ValueError):
-        HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:3000", default_model="", timeout_seconds=10)
+        HermesAdapterConfig(
+            enabled=True,
+            feature_flag_enabled=True,
+            base_url="http://localhost:3000",
+            default_model="",
+            timeout_seconds=10,
+        )
     with pytest.raises(ValueError):
         HermesAdapterConfig(
             enabled=False,
@@ -172,7 +178,9 @@ def test_tool_router_marks_hermes_disabled_by_feature_flag() -> None:
 
 
 def test_hermes_http_client_maps_transport_errors_and_redacts() -> None:
-    client = HermesHttpClient(config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m"))
+    client = HermesHttpClient(
+        config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m")
+    )
     assert client._map_http_status(401) == "hermes_unauthorized"
     assert client._map_http_status(429) == "hermes_rate_limited"
     assert client._map_http_status(503) == "hermes_server_error"
@@ -181,9 +189,13 @@ def test_hermes_http_client_maps_transport_errors_and_redacts() -> None:
 
 
 def test_hermes_http_client_chat_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    client = HermesHttpClient(config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m"))
+    client = HermesHttpClient(
+        config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m")
+    )
 
-    def _ok(url: str, *, headers: dict[str, str], payload: dict[str, object], timeout_seconds: float) -> dict[str, object]:
+    def _ok(
+        url: str, *, headers: dict[str, str], payload: dict[str, object], timeout_seconds: float
+    ) -> dict[str, object]:
         assert url.endswith("/v1/chat/completions")
         assert headers["Authorization"].startswith("Bearer ")
         assert payload["model"] == "m"
@@ -195,7 +207,9 @@ def test_hermes_http_client_chat_success(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_hermes_http_client_timeout_mapping() -> None:
-    client = HermesHttpClient(config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m"))
+    client = HermesHttpClient(
+        config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m")
+    )
     with patch("worker.core.hermes_http_client.request.urlopen", side_effect=TimeoutError("timeout")):
         with pytest.raises(HermesClientError) as exc:
             client._post_json(
@@ -208,9 +222,14 @@ def test_hermes_http_client_timeout_mapping() -> None:
 
 
 def test_hermes_http_client_http_error_mappings() -> None:
-    client = HermesHttpClient(config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m"))
+    client = HermesHttpClient(
+        config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m")
+    )
     for status, expected in ((401, "hermes_unauthorized"), (429, "hermes_rate_limited"), (503, "hermes_server_error")):
-        with patch("worker.core.hermes_http_client.request.urlopen", side_effect=error.HTTPError("u", status, "x", hdrs=None, fp=None)):
+        with patch(
+            "worker.core.hermes_http_client.request.urlopen",
+            side_effect=error.HTTPError("u", status, "x", hdrs=None, fp=None),
+        ):
             with pytest.raises(HermesClientError) as exc:
                 client._post_json(
                     "http://localhost:9000/v1/chat/completions",
@@ -222,7 +241,9 @@ def test_hermes_http_client_http_error_mappings() -> None:
 
 
 def test_hermes_http_client_connection_error_mapping() -> None:
-    client = HermesHttpClient(config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m"))
+    client = HermesHttpClient(
+        config=HermesClientConfig(base_url="http://localhost:9000", timeout_seconds=1, default_model="m")
+    )
     with patch("worker.core.hermes_http_client.request.urlopen", side_effect=error.URLError("down")):
         with pytest.raises(HermesClientError) as exc:
             client._post_json(
@@ -247,23 +268,49 @@ def test_hermes_health_states_and_redaction() -> None:
     disabled = HermesAdapter(config=HermesAdapterConfig(enabled=False), client=_Client())  # type: ignore[arg-type]
     assert disabled.health()["status"] == "disabled"
 
-    misconfigured = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    misconfigured = HermesAdapter(
+        config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="", default_model="m"),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     assert misconfigured.health()["status"] == "misconfigured"
 
-    ready = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    ready = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     payload = ready.health()
     assert payload["status"] == "ready"
     assert payload["api_key_value"] == "[REDACTED]"
 
-    unauthorized = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client("hermes_unauthorized"))  # type: ignore[arg-type]
+    unauthorized = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client("hermes_unauthorized"),
+    )  # type: ignore[arg-type]
     assert unauthorized.health()["status"] == "unauthorized"
 
-    unavailable = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client("hermes_connection_error"))  # type: ignore[arg-type]
+    unavailable = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client("hermes_connection_error"),
+    )  # type: ignore[arg-type]
     assert unavailable.health()["status"] == "unavailable"
 
 
 def test_model_selection_rules_and_blocking() -> None:
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="default", blocked_models=["blocked"]))
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True,
+            feature_flag_enabled=True,
+            base_url="http://localhost:1",
+            default_model="default",
+            blocked_models=["blocked"],
+        )
+    )
     env_override = _env(model_policy={"preferred_model": "override"})
     sel = adapter._select_model(envelope=env_override, task_kind="plan_only", mode="plan_only")
     assert sel["requested_model"] == "override"
@@ -299,19 +346,28 @@ def test_context_converter_budget_sensitive_and_missing() -> None:
     ]
     result = convert_context_blocks_to_prompt(blocks, max_context_chars=30, allow_sensitive=False)
     assert result.total_chars <= 30
-    assert any(item["reason_code"] in {"sensitive_block_excluded", "truncated_for_budget"} for item in result.skipped + result.truncated)
+    assert any(
+        item["reason_code"] in {"sensitive_block_excluded", "truncated_for_budget"}
+        for item in result.skipped + result.truncated
+    )
     empty = convert_context_blocks_to_prompt([], max_context_chars=10, allow_sensitive=False)
     assert empty.has_required_context is False
 
 
 def test_output_parser_strict_and_unsafe_claims() -> None:
-    ok = parse_hermes_json_output('{"status":"ok","artifact_type":"plan","summary":"s","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}')
+    ok = parse_hermes_json_output(
+        '{"status":"ok","artifact_type":"plan","summary":"s","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+    )
     assert ok.ok is True
-    fenced = parse_hermes_json_output('```json {"status":"ok","artifact_type":"plan","summary":"s","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true} ```')
+    fenced = parse_hermes_json_output(
+        '```json {"status":"ok","artifact_type":"plan","summary":"s","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true} ```'
+    )
     assert fenced.ok is True
     bad = parse_hermes_json_output("done")
     assert bad.ok is False
-    unsafe = parse_hermes_json_output('{"status":"ok","artifact_type":"plan","summary":"modified files","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}')
+    unsafe = parse_hermes_json_output(
+        '{"status":"ok","artifact_type":"plan","summary":"modified files","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+    )
     assert unsafe.ok is False
 
 
@@ -331,7 +387,12 @@ def test_plan_only_success_and_no_mutation_required() -> None:
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     env = _env(capability_grant=CapabilityGrant(capabilities=["planning"]))
     blocks = [ContextBlock("task", "x", "hub", sensitivity=ContextSensitivity.public, content="Need a plan")]
     result = adapter.plan_only(env, context_blocks=blocks)
@@ -355,7 +416,12 @@ def test_review_mode_requires_review_capability_and_preserves_incomplete_warning
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     denied = adapter.review(_env(capability_grant=CapabilityGrant(capabilities=["planning"])))
     assert denied.status.value == "denied"
     env_ok = _env(capability_grant=CapabilityGrant(capabilities=["verify"]))
@@ -425,11 +491,24 @@ def test_summarize_mode_requires_capability_and_redacts_sensitive() -> None:
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     denied = adapter.summarize(_env(capability_grant=CapabilityGrant(capabilities=["planning"])))
     assert denied.status.value == "denied"
     env_ok = _env(capability_grant=CapabilityGrant(capabilities=["planning", "summarize"]))
-    blocks = [ContextBlock("task", "s1", "hub", sensitivity=ContextSensitivity.secret, content="OPENAI_API_KEY=sk-proj-abcdef012345678901234567")]
+    blocks = [
+        ContextBlock(
+            "task",
+            "s1",
+            "hub",
+            sensitivity=ContextSensitivity.secret,
+            content="OPENAI_API_KEY=sk-proj-abcdef012345678901234567",
+        )
+    ]
     ok = adapter.summarize(env_ok, context_blocks=blocks)
     assert ok.status.value in {"degraded", "success"}
     if ok.status.value == "success":
@@ -452,7 +531,12 @@ def test_patch_propose_mode_and_no_workspace_mutation_claim() -> None:
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     env = _env(capability_grant=CapabilityGrant(capabilities=["patch_propose"]))
     result = adapter.patch_propose(env, context_blocks=[ContextBlock("task", "p", "hub", content="Propose patch")])
     assert result.status.value == "success"
@@ -463,12 +547,25 @@ def test_patch_propose_mode_and_no_workspace_mutation_claim() -> None:
 def test_patch_propose_rejects_applied_claim() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices": [{"message": {"content": '{"status":"success","artifact_type":"patch","summary":"applied patch","findings":[],"risks":[],"suggested_tests":[],"confidence":0.6,"requires_approval_for_apply":true,"no_side_effects_claimed":true,"touched_files":["x.py"],"patch_description":"modified files already"}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"patch","summary":"applied patch","findings":[],"risks":[],"suggested_tests":[],"confidence":0.6,"requires_approval_for_apply":true,"no_side_effects_claimed":true,"touched_files":["x.py"],"patch_description":"modified files already"}'
+                        }
+                    }
+                ]
+            }
 
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     env = _env(capability_grant=CapabilityGrant(capabilities=["patch_propose"]))
     result = adapter.patch_propose(env, context_blocks=[ContextBlock("task", "p", "hub", content="patch")])
     assert result.status.value == "failed"
@@ -477,13 +574,29 @@ def test_patch_propose_rejects_applied_claim() -> None:
 def test_research_limited_capability_and_network_policy() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices": [{"message": {"content": '{"status":"success","artifact_type":"research","summary":"R","findings":[],"risks":[],"suggested_tests":[],"confidence":0.6,"requires_approval_for_apply":false,"no_side_effects_claimed":true,"claims":[{"c":"x"}]}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"research","summary":"R","findings":[],"risks":[],"suggested_tests":[],"confidence":0.6,"requires_approval_for_apply":false,"no_side_effects_claimed":true,"claims":[{"c":"x"}]}'
+                        }
+                    }
+                ]
+            }
 
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
-    denied_cap = adapter.research_limited(_env(capability_grant=CapabilityGrant(capabilities=["planning"])), context_blocks=[ContextBlock("task", "r", "hub", content="ctx")])
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
+    denied_cap = adapter.research_limited(
+        _env(capability_grant=CapabilityGrant(capabilities=["planning"])),
+        context_blocks=[ContextBlock("task", "r", "hub", content="ctx")],
+    )
     assert denied_cap.status.value == "denied"
     denied_net = adapter.research_limited(
         _env(capability_grant=CapabilityGrant(capabilities=["research_limited"]), network_scope={"allow_all": True}),
@@ -501,13 +614,29 @@ def test_research_limited_capability_and_network_policy() -> None:
 def test_artifact_mapping_contains_hash_metadata() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices": [{"message": {"content": '{"status":"success","artifact_type":"plan","summary":"Plan","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"plan","summary":"Plan","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                        }
+                    }
+                ]
+            }
 
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
-    res = adapter.plan_only(_env(capability_grant=CapabilityGrant(capabilities=["planning"])), context_blocks=[ContextBlock("task", "h", "hub", content="plan")])
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
+    res = adapter.plan_only(
+        _env(capability_grant=CapabilityGrant(capabilities=["planning"])),
+        context_blocks=[ContextBlock("task", "h", "hub", content="plan")],
+    )
     art = res.artifacts[0]
     assert art.metadata["source"] == "hermes"
     assert art.metadata["content_hash"]
@@ -517,13 +646,29 @@ def test_artifact_mapping_contains_hash_metadata() -> None:
 def test_trace_contains_hashes_and_retry_fields() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices": [{"message": {"content": '{"status":"success","artifact_type":"plan","summary":"Plan","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"plan","summary":"Plan","findings":[],"risks":[],"suggested_tests":[],"confidence":0.8,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                        }
+                    }
+                ]
+            }
 
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
 
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
-    res = adapter.plan_only(_env(capability_grant=CapabilityGrant(capabilities=["planning"])), context_blocks=[ContextBlock("task", "h", "hub", content="plan")])
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
+    res = adapter.plan_only(
+        _env(capability_grant=CapabilityGrant(capabilities=["planning"])),
+        context_blocks=[ContextBlock("task", "h", "hub", content="plan")],
+    )
     events = res.trace_bundle.events
     merged = " ".join(str(e.payload) for e in events)
     assert "prompt_hash" in merged
@@ -534,39 +679,88 @@ def test_worker_result_error_shapes_for_parse_timeout_remote_degraded() -> None:
     class _Timeout:
         def chat_completions(self, **_: object) -> dict[str, object]:
             raise HermesClientError(code="hermes_timeout", detail="t")
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
+
     class _Remote:
         def chat_completions(self, **_: object) -> dict[str, object]:
             raise HermesClientError(code="hermes_server_error", detail="x")
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
+
     class _Parse:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices":[{"message":{"content":"bad"}}]}
+            return {"choices": [{"message": {"content": "bad"}}]}
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
+
     env = _env(capability_grant=CapabilityGrant(capabilities=["planning"]))
-    blocks=[ContextBlock("task","e","hub",content="x")]
-    t = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m", max_retries=0), client=_Timeout())  # type: ignore[arg-type]
+    blocks = [ContextBlock("task", "e", "hub", content="x")]
+    t = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m", max_retries=0
+        ),
+        client=_Timeout(),
+    )  # type: ignore[arg-type]
     assert t.plan_only(env, context_blocks=blocks).status.value == "failed"
-    r = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m", max_retries=0), client=_Remote())  # type: ignore[arg-type]
+    r = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m", max_retries=0
+        ),
+        client=_Remote(),
+    )  # type: ignore[arg-type]
     assert r.plan_only(env, context_blocks=blocks).status.value == "failed"
-    p = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m", strict_json_required=False), client=_Parse())  # type: ignore[arg-type]
+    p = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True,
+            feature_flag_enabled=True,
+            base_url="http://localhost:1",
+            default_model="m",
+            strict_json_required=False,
+        ),
+        client=_Parse(),
+    )  # type: ignore[arg-type]
     assert p.plan_only(env, context_blocks=blocks).status.value == "failed"
-    d = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Parse())  # type: ignore[arg-type]
+    d = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Parse(),
+    )  # type: ignore[arg-type]
     assert d.plan_only(env, context_blocks=[]).status.value == "degraded"
 
 
 def test_audit_events_emitted_for_success_and_denial() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices":[{"message":{"content":'{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                        }
+                    }
+                ]
+            }
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
+
     emitter = AuditEmitter()
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client(), audit_emitter=emitter)  # type: ignore[arg-type]
-    adapter.plan_only(_env(capability_grant=CapabilityGrant(capabilities=["planning"])), context_blocks=[ContextBlock("task","a","hub",content="x")])
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+        audit_emitter=emitter,
+    )  # type: ignore[arg-type]
+    adapter.plan_only(
+        _env(capability_grant=CapabilityGrant(capabilities=["planning"])),
+        context_blocks=[ContextBlock("task", "a", "hub", content="x")],
+    )
     events = emitter.flush()
     assert any(e["event_type"] == "routing_selected" for e in events)
     assert any(e["event_type"] == "provider_call" for e in events)
@@ -576,13 +770,28 @@ def test_audit_events_emitted_for_success_and_denial() -> None:
 def test_cloud_allowed_enforcement_and_classification() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices":[{"message":{"content":'{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"plan","summary":"ok","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                        }
+                    }
+                ]
+            }
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
-    cloud_adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="https://api.hermes.example", default_model="m"), client=_Client())  # type: ignore[arg-type]
+
+    cloud_adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="https://api.hermes.example", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
     denied = cloud_adapter.plan_only(
         _env(capability_grant=CapabilityGrant(capabilities=["planning"]), model_policy={"cloud_allowed": False}),
-        context_blocks=[ContextBlock("task","c","hub",content="x")],
+        context_blocks=[ContextBlock("task", "c", "hub", content="x")],
     )
     assert denied.status.value == "denied"
 
@@ -590,9 +799,27 @@ def test_cloud_allowed_enforcement_and_classification() -> None:
 def test_phase1_tool_autonomy_claim_blocked() -> None:
     class _Client:
         def chat_completions(self, **_: object) -> dict[str, object]:
-            return {"choices":[{"message":{"content":'{"status":"success","artifact_type":"plan","summary":"executed commands and modified files","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'}}]}
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"status":"success","artifact_type":"plan","summary":"executed commands and modified files","findings":[],"risks":[],"suggested_tests":[],"confidence":0.5,"requires_approval_for_apply":false,"no_side_effects_claimed":true}'
+                        }
+                    }
+                ]
+            }
+
         def health(self, **_: object) -> dict[str, object]:
             return {"ok": True}
-    adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"), client=_Client())  # type: ignore[arg-type]
-    res = adapter.plan_only(_env(capability_grant=CapabilityGrant(capabilities=["planning"])), context_blocks=[ContextBlock("task","u","hub",content="x")])
+
+    adapter = HermesAdapter(
+        config=HermesAdapterConfig(
+            enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="m"
+        ),
+        client=_Client(),
+    )  # type: ignore[arg-type]
+    res = adapter.plan_only(
+        _env(capability_grant=CapabilityGrant(capabilities=["planning"])),
+        context_blocks=[ContextBlock("task", "u", "hub", content="x")],
+    )
     assert res.status.value == "failed"

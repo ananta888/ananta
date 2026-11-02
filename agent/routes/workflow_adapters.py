@@ -23,9 +23,7 @@ from agent.services.workflow_adapter_task_queue_service import (
 )
 from agent.services.workflow_runtime.streaming import WorkflowStreamError
 
-workflow_adapters_bp = Blueprint(
-    "workflow_adapters", __name__, url_prefix="/api/workflow_adapters"
-)
+workflow_adapters_bp = Blueprint("workflow_adapters", __name__, url_prefix="/api/workflow_adapters")
 
 _MAX_ADAPTER_COMMAND_BYTES = 64 * 1024
 _MAX_ADAPTER_CANCEL_BYTES = 8 * 1024
@@ -137,9 +135,7 @@ def stream(kind: str):
     response = Response(generate(), mimetype="application/x-ndjson")
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Workflow-Next-Cursor"] = batch.next_cursor
-    response.headers["X-Workflow-Has-More"] = (
-        "true" if batch.has_more else "false"
-    )
+    response.headers["X-Workflow-Has-More"] = "true" if batch.has_more else "false"
     return response
 
 
@@ -184,9 +180,7 @@ def _authorized_control():
     try:
         principal = workflow_principal()
     except ValueError as exc:
-        raise WorkflowAdapterQueueError(
-            "workflow_adapter_principal_required", status_code=401
-        ) from exc
+        raise WorkflowAdapterQueueError("workflow_adapter_principal_required", status_code=401) from exc
     return get_workflow_adapter_control_facade().bind(principal)
 
 
@@ -198,9 +192,7 @@ def _unknown_adapter(kind: str):
     return None
 
 
-def _json_body(
-    *, max_bytes: int, required: bool = True
-) -> tuple[dict[str, Any] | None, object | None]:
+def _json_body(*, max_bytes: int, required: bool = True) -> tuple[dict[str, Any] | None, object | None]:
     content_length = request.content_length
     if content_length is not None and content_length > max_bytes:
         return None, _error("workflow_adapter_payload_too_large", code=413)
@@ -249,11 +241,7 @@ def _unavailable(exc: Exception, *, kind: str, operation: str):
 def _error(reason_code: str, *, code: int, retryable: bool | None = None):
     return api_response(
         status="error",
-        message=(
-            "workflow adapter unavailable"
-            if code >= 500
-            else "workflow adapter request rejected"
-        ),
+        message=("workflow adapter unavailable" if code >= 500 else "workflow adapter request rejected"),
         data={
             "reason_code": str(reason_code),
             "retryable": bool(code >= 500 if retryable is None else retryable),

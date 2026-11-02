@@ -196,10 +196,7 @@ def test_missing_target_module_and_unsupported_composition_are_explicit() -> Non
 def test_analysis_does_not_mutate_reader_payload() -> None:
     payload = _payload()
     original_config = dict(payload.config)
-    original_values = tuple(
-        (tensor.name, tensor.shape, tensor.values)
-        for tensor in payload.tensors
-    )
+    original_values = tuple((tensor.name, tensor.shape, tensor.values) for tensor in payload.tensors)
     analyzer = LoraDeltaAnalyzer(reader=_FixtureReader(payload))
 
     analyzer.analyze(
@@ -209,7 +206,4 @@ def test_analysis_does_not_mutate_reader_payload() -> None:
     )
 
     assert dict(payload.config) == original_config
-    assert tuple(
-        (tensor.name, tensor.shape, tensor.values)
-        for tensor in payload.tensors
-    ) == original_values
+    assert tuple((tensor.name, tensor.shape, tensor.values) for tensor in payload.tensors) == original_values

@@ -6,16 +6,16 @@ Ergänzt human_approval_service.py (WFG-024 / gate-task-level) um
 Gate-Typen auf Run-Ebene. Fehlende oder abgelaufene Approvals
 blockieren HART — kein Fallback auf "allow".
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any
-
 
 # ── Enumerations ──────────────────────────────────────────────────────────────
+
 
 class GateType(str, Enum):
     APPLY_DIFF = "apply_diff"
@@ -45,21 +45,22 @@ class GateDecision(str, Enum):
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ApprovalRequest:
     gate_id: str
     run_id: str
     gate_type: GateType
     risk_level: RiskLevel
-    required_role: str        # "operator" | "maintainer" | "owner"
+    required_role: str  # "operator" | "maintainer" | "owner"
     reason: str
-    artifacts: list[str]      # artifact_ids als Evidence
+    artifacts: list[str]  # artifact_ids als Evidence
     created_at: float
-    expires_at: float         # unix timestamp
+    expires_at: float  # unix timestamp
     decision: GateDecision
     decided_by: str | None
     decided_at: float | None
-    audit_ref: str | None     # Ref auf Audit-Event
+    audit_ref: str | None  # Ref auf Audit-Event
 
 
 # ── Static policy tables ──────────────────────────────────────────────────────
@@ -86,11 +87,13 @@ _RISK_ROLE: dict[RiskLevel, str] = {
 
 # ── Exception ─────────────────────────────────────────────────────────────────
 
+
 class HITLGateError(ValueError):
     """Raised when a gate operation is invalid (e.g. approve on expired gate)."""
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
+
 
 class HITLGateService:
     """Human-in-the-loop Policy Gates.
@@ -151,18 +154,14 @@ class HITLGateService:
         # Gate is PENDING — check expiry before approving.
         if gate.expires_at < time.time():
             gate.decision = GateDecision.EXPIRED
-            raise HITLGateError(
-                f"Gate {gate_id} has expired and cannot be approved."
-            )
+            raise HITLGateError(f"Gate {gate_id} has expired and cannot be approved.")
         gate.decision = GateDecision.APPROVED
         gate.decided_by = decided_by
         gate.decided_at = time.time()
         gate.audit_ref = str(uuid.uuid4())
         return gate
 
-    def reject(
-        self, gate_id: str, *, decided_by: str, reason: str = ""
-    ) -> ApprovalRequest:
+    def reject(self, gate_id: str, *, decided_by: str, reason: str = "") -> ApprovalRequest:
         """Reject a pending gate. Idempotent if already decided."""
         gate = self._get_or_raise(gate_id)
         if gate.decision in (GateDecision.APPROVED, GateDecision.REJECTED):
@@ -207,10 +206,7 @@ class HITLGateService:
 
     def get_pending(self, run_id: str | None = None) -> list[ApprovalRequest]:
         """Return all PENDING gates, optionally filtered by run_id."""
-        result = [
-            g for g in self._gates.values()
-            if g.decision == GateDecision.PENDING
-        ]
+        result = [g for g in self._gates.values() if g.decision == GateDecision.PENDING]
         if run_id is not None:
             result = [g for g in result if g.run_id == run_id]
         return result

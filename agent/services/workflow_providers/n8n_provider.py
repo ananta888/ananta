@@ -30,7 +30,9 @@ class N8nWorkflowProvider:
         headers = {}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
-        resp = requests.post(url, json=request.get("input_payload") or {}, headers=headers, timeout=self.timeout_seconds)
+        resp = requests.post(
+            url, json=request.get("input_payload") or {}, headers=headers, timeout=self.timeout_seconds
+        )
         return {
             "status": "completed" if 200 <= resp.status_code < 300 else "failed",
             "provider": self.provider_id,

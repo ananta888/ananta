@@ -23,13 +23,7 @@ class FileTypeMigrationPlan:
 
     @property
     def affected_format_ids(self) -> tuple[str, ...]:
-        return tuple(
-            sorted(
-                set(self.added_format_ids)
-                | set(self.removed_format_ids)
-                | set(self.changed_format_ids)
-            )
-        )
+        return tuple(sorted(set(self.added_format_ids) | set(self.removed_format_ids) | set(self.changed_format_ids)))
 
     @property
     def requires_migration(self) -> bool:
@@ -107,10 +101,7 @@ def affected_paths(
 def file_type_descriptor_hashes(registry: FileTypeSupportRegistry) -> dict[str, str]:
     """Return stable per-format hashes suitable for persisted cache metadata."""
 
-    raw_by_id = {
-        str(item["format_id"]): item
-        for item in registry.as_dict().get("formats", [])
-    }
+    raw_by_id = {str(item["format_id"]): item for item in registry.as_dict().get("formats", [])}
     return {
         format_id: hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")

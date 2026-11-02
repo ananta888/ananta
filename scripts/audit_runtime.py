@@ -1,8 +1,7 @@
-import os
-import sys
-import subprocess
 import shutil
+import sys
 from pathlib import Path
+
 
 def check_binary(name: str):
     path = shutil.which(name)
@@ -12,6 +11,7 @@ def check_binary(name: str):
     else:
         print(f"❌ {name}: NOT FOUND")
         return False
+
 
 def audit_dependencies():
     print("\n--- Dependency Audit ---")
@@ -23,11 +23,13 @@ def audit_dependencies():
     else:
         print("❌ requirements.txt missing")
 
+
 def audit_binaries():
     print("\n--- Binary Audit ---")
     binaries = ["python", "pip", "ruff", "mypy", "pytest", "docker", "docker-compose", "git"]
     for b in binaries:
         check_binary(b)
+
 
 def audit_python_env():
     print("\n--- Python Environment ---")
@@ -37,12 +39,14 @@ def audit_python_env():
     is_venv = sys.prefix != sys.base_prefix
     print(f"Virtual Env: {'Yes' if is_venv else 'No'} ({sys.prefix})")
 
+
 def main():
     print("=== Ananta Runtime Audit ===")
     audit_python_env()
     audit_binaries()
     audit_dependencies()
     print("\nAudit completed.")
+
 
 if __name__ == "__main__":
     main()

@@ -20,21 +20,29 @@ class LocalNativeArtifactReader:
             raise ValueError("native_artifact_local_reference_invalid")
         artifact = self._load_artifact(reference.removeprefix("artifact://"))
         expected = {
-            "hub_task_id": task["id"], "tenant_id": command.tenant_id, "project_id": task.get("project_id"),
-            "command_digest": native_context_digest(command.to_dict()), "attempt_id": command.attempt_id,
-            "fencing_token": command.fencing_token, "output_name": output_name,
+            "hub_task_id": task["id"],
+            "tenant_id": command.tenant_id,
+            "project_id": task.get("project_id"),
+            "command_digest": native_context_digest(command.to_dict()),
+            "attempt_id": command.attempt_id,
+            "fencing_token": command.fencing_token,
+            "output_name": output_name,
         }
         if (
-            artifact is None or artifact.id != reference.removeprefix("artifact://")
-            or artifact.status != "stored" or not artifact.latest_version_id
+            artifact is None
+            or artifact.id != reference.removeprefix("artifact://")
+            or artifact.status != "stored"
+            or not artifact.latest_version_id
             or native_context_digest((artifact.artifact_metadata or {}).get("native_output_binding"))
             != native_context_digest(expected)
         ):
             raise ValueError("native_artifact_local_binding_invalid")
         version = self._load_version(artifact.latest_version_id)
         if (
-            version is None or version.artifact_id != artifact.id
-            or type(version.size_bytes) is not int or not 0 <= version.size_bytes <= MAX_ARTIFACT_BYTES
+            version is None
+            or version.artifact_id != artifact.id
+            or type(version.size_bytes) is not int
+            or not 0 <= version.size_bytes <= MAX_ARTIFACT_BYTES
             or version.sha256 != artifact.latest_sha256
         ):
             raise ValueError("native_artifact_local_version_invalid")
@@ -74,7 +82,8 @@ class _ConfinedNativeBytes:
                 with os.fdopen(descriptor, "rb") as handle:
                     metadata = os.fstat(handle.fileno())
                     if (
-                        not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                        not stat.S_ISREG(metadata.st_mode)
+                        or metadata.st_nlink != 1
                         or metadata.st_size > MAX_ARTIFACT_BYTES
                     ):
                         raise ValueError("file")

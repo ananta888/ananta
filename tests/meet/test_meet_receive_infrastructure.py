@@ -9,7 +9,7 @@ from tests.meet.meet_receive_infrastructure import private_receive
 
 @pytest.mark.parametrize("source", [None, True, [], {}, "", "desktop", "Camera", "microphone;anything"])
 def test_invalid_source_fails_before_bridge_or_build_access(tmp_path, monkeypatch, source):
-    import tests.meet_companion_build
+    import tests.meet.meet_companion_build
     import tests.meet.meet_receive_infrastructure
 
     launch, build = Mock(), Mock()

@@ -1,4 +1,5 @@
 """ananta share — Rendezvous-Session-Verwaltung über die Hub-API."""
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,7 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Beispiele:\n"
             "  ananta share list\n"
-            "  ananta share create \"Debug Session\"\n"
+            '  ananta share create "Debug Session"\n'
             "  ananta share revoke <session-id>\n\n"
             "Umgebungsvariablen:\n"
             "  ANANTA_BASE_URL    Hub-URL (default: http://localhost:5000)\n"
@@ -56,6 +57,7 @@ def dispatch(argv: Sequence[str]) -> int:
         return 0
 
     from agent.cli.api_client import AnantaApiClient
+
     try:
         client = AnantaApiClient()
     except SystemExit:
@@ -103,6 +105,7 @@ def _cmd_list(client: Any) -> int:
 
 def _cmd_create(client: Any, title: str) -> int:
     import os
+
     body = {
         "title": title,
         "owner_device_fingerprint": os.environ.get("ANANTA_DEVICE_FINGERPRINT", "cli-device"),

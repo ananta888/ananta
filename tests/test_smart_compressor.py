@@ -4,6 +4,7 @@ HCCA-007 — Tests for SmartCompressor.
 SmartCompressor does not exist yet; tests are marked xfail so the
 suite is collectable and will auto-promote once the class is implemented.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,8 +12,8 @@ import json
 import pytest
 
 from agent.services.context_compression.smart_compressor import (
-    SmartCompressor,
     SmartCompressionResult,
+    SmartCompressor,
 )
 
 
@@ -102,9 +103,7 @@ class TestSmartCompressorGeneric:
         original = "\n".join(["word content here for line number " + str(i) for i in range(500)])
         result = compressor.compress(original, content_type="generic")
         compressed = _content(result)
-        assert len(compressed) < len(original), (
-            f"Expected compressed ({len(compressed)}) < original ({len(original)})"
-        )
+        assert len(compressed) < len(original), f"Expected compressed ({len(compressed)}) < original ({len(original)})"
 
     def test_compress_unknown_type_falls_back_to_generic(self, compressor):
         """Unknown content_type → no exception, falls back gracefully."""

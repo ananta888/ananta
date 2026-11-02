@@ -142,9 +142,7 @@ def test_ordered_batch_coalesces_to_one_snapshot_and_advances() -> None:
 def test_gap_requires_authoritative_snapshot_watermark() -> None:
     async def scenario() -> None:
         statuses: list[str] = []
-        transport = ScriptedTransport(
-            _batch(gap=True, snapshot_required=True, latest=7)
-        )
+        transport = ScriptedTransport(_batch(gap=True, snapshot_required=True, latest=7))
 
         async def reload_snapshot() -> int | None:
             return None
@@ -169,9 +167,7 @@ def test_gap_requires_authoritative_snapshot_watermark() -> None:
 def test_gap_advances_only_to_returned_snapshot_watermark() -> None:
     async def scenario() -> None:
         loaded = asyncio.Event()
-        transport = ScriptedTransport(
-            _batch(gap=True, snapshot_required=True, latest=7)
-        )
+        transport = ScriptedTransport(_batch(gap=True, snapshot_required=True, latest=7))
 
         async def reload_snapshot() -> int | None:
             loaded.set()
@@ -235,9 +231,7 @@ def test_static_jwt_401_requires_reauthentication_without_second_request() -> No
     async def scenario() -> None:
         provider = FakeTokenProvider(static=True)
         statuses: list[str] = []
-        transport = ScriptedTransport(
-            KanbanEventTransportError("token_expired", status_code=401)
-        )
+        transport = ScriptedTransport(KanbanEventTransportError("token_expired", status_code=401))
 
         async def reload_snapshot() -> int | None:
             return None

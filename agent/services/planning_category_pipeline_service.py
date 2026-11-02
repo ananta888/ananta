@@ -101,27 +101,21 @@ class PlanningCategoryPipelineService:
             artifact_hashes=runtime_artifact_hashes,
         )
 
-        resolved_tool_run_catalog = [
-            dict(row)
-            for row in list(tool_run_catalog or [])
-            if isinstance(row, Mapping)
-        ]
+        resolved_tool_run_catalog = [dict(row) for row in list(tool_run_catalog or []) if isinstance(row, Mapping)]
         if require_authoritative_task and evidence_context.allowed_run_refs:
             from agent.services.organization_category_run_evidence_service import (
                 OrganizationCategoryRunEvidenceService,
             )
 
-            resolved_tool_run_catalog = (
-                OrganizationCategoryRunEvidenceService().build_catalog(
-                    task_id=task_id,
-                    assignment_id=assignment_id,
-                    dispatch_lease_id=dispatch_lease_id,
-                    worker_id=worker_id,
-                    raw_output=raw_output,
-                    raw_output_digest=str(raw_output_digest or ""),
-                    allowed_run_refs=evidence_context.allowed_run_refs,
-                    runtime_artifact_hashes=runtime_artifact_hashes,
-                )
+            resolved_tool_run_catalog = OrganizationCategoryRunEvidenceService().build_catalog(
+                task_id=task_id,
+                assignment_id=assignment_id,
+                dispatch_lease_id=dispatch_lease_id,
+                worker_id=worker_id,
+                raw_output=raw_output,
+                raw_output_digest=str(raw_output_digest or ""),
+                allowed_run_refs=evidence_context.allowed_run_refs,
+                runtime_artifact_hashes=runtime_artifact_hashes,
             )
 
         candidate, parse_issues = self._parse(raw_output)
@@ -260,10 +254,9 @@ class PlanningCategoryPipelineService:
                         raw_output_digest=str(raw_output_digest or ""),
                     )
                 )
-                if (
-                    (not active_job and not completed_result_recovery)
-                    or str(authoritative_task.status or "") == "completed"
-                ):
+                if (not active_job and not completed_result_recovery) or str(
+                    authoritative_task.status or ""
+                ) == "completed":
                     raise ValueError("category_authoritative_task_lease_inactive")
             revision_number = uow.planning.next_revision_number(artifact_id=artifact_id)
             revision_id = self._revision_id(artifact_id=artifact_id, revision=revision_number, digest=content_digest)
@@ -336,10 +329,8 @@ class PlanningCategoryPipelineService:
                 assignment_task = uow.session.get(TaskDB, assignment_id)
                 if assignment_task is not None:
                     if (
-                        str(assignment_task.parent_task_id or "")
-                        != str(authoritative_task.id or "")
-                        or str(assignment_task.current_worker_job_id or "")
-                        != str(authoritative_job.id or "")
+                        str(assignment_task.parent_task_id or "") != str(authoritative_task.id or "")
+                        or str(assignment_task.current_worker_job_id or "") != str(authoritative_job.id or "")
                         or str(assignment_task.status or "")
                         not in {
                             "todo",
@@ -375,10 +366,8 @@ class PlanningCategoryPipelineService:
                         str(authoritative_job.slot_lease_id),
                     )
                     if slot_lease is None or (
-                        str(slot_lease.parent_task_id or "")
-                        not in {"", str(authoritative_task.id or "")}
-                        or str(slot_lease.worker_job_id or "")
-                        not in {"", str(authoritative_job.id or "")}
+                        str(slot_lease.parent_task_id or "") not in {"", str(authoritative_task.id or "")}
+                        or str(slot_lease.worker_job_id or "") not in {"", str(authoritative_job.id or "")}
                     ):
                         raise ValueError("category_dispatch_slot_lease_invalid")
                     if str(slot_lease.status or "") == "active":
@@ -449,9 +438,7 @@ class PlanningCategoryPipelineService:
             )
         ).all()
         return any(
-            hashlib.sha256(str(row.output or "").encode("utf-8")).hexdigest()
-            == raw_output_digest
-            for row in rows
+            hashlib.sha256(str(row.output or "").encode("utf-8")).hexdigest() == raw_output_digest for row in rows
         )
 
     @staticmethod

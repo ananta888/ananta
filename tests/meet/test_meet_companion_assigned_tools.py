@@ -29,8 +29,13 @@ def test_actual_assigned_tool_round_supplies_verified_sources_to_separate_model_
     @http.app.post("/chat/completions")
     def provider():
         with http.database.connect() as connection:
-            active = connection.execute(select(HubRunEvidenceIdentityDB.__table__).where(
-                HubRunEvidenceIdentityDB.state == "reserved")).mappings().one()
+            active = (
+                connection.execute(
+                    select(HubRunEvidenceIdentityDB.__table__).where(HubRunEvidenceIdentityDB.state == "reserved")
+                )
+                .mappings()
+                .one()
+            )
         assert len(active["source_ids"]) == 2
         calls.append(request.get_json())
         return jsonify(generated())
@@ -75,10 +80,15 @@ for line in sys.stdin.buffer:
         assert dialog.provider.last_completion is None and dialog.receipts.snapshot() == []
     print(json.dumps({'kind':'answer','result':reply}),flush=True)
 """
-        environment = helper.environment | {"MEET_LLM_BACKEND": "openai", "MEET_LLM_MODEL": "synthetic-model",
-            "MEET_LLM_OPENAI_BASE_URL": base, "MEET_LLM_OPENAI_API_KEY": ""}
-        execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", code),
-            environment=environment, ports={"tool": tools, "model": helper})
+        environment = helper.environment | {
+            "MEET_LLM_BACKEND": "openai",
+            "MEET_LLM_MODEL": "synthetic-model",
+            "MEET_LLM_OPENAI_BASE_URL": base,
+            "MEET_LLM_OPENAI_API_KEY": "",
+        }
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-u", "-c", code), environment=environment, ports={"tool": tools, "model": helper}
+        )
         if mode == "installed":
             from worker.meet_media.companion_task_model_selection import assigned_execution
 
@@ -94,8 +104,10 @@ for line in sys.stdin.buffer:
             if mode == "toolbox":
                 assert execution.call("answer", "synthetic", cooperate=lambda: None) == "synthetic source-bound answer"
             else:
-                assert execution.call("answer", "Wie ist die Code-Architektur aufgebaut?",
-                                      cooperate=lambda: None) == "synthetic answer"
+                assert (
+                    execution.call("answer", "Wie ist die Code-Architektur aufgebaut?", cooperate=lambda: None)
+                    == "synthetic answer"
+                )
                 assert execution.call("answer", "Wie hast du diese Antwort erzeugt?", cooperate=lambda: None)
         finally:
             execution.close()

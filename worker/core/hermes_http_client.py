@@ -5,7 +5,6 @@ import socket
 from dataclasses import dataclass
 from typing import Any
 from urllib import error, request
-from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)

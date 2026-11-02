@@ -11,26 +11,46 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Mapping, Protocol
 
+from agent.models.sfu_browser_capability import SfuCapabilityAdmissionScope
 from agent.services.sfu_browser_capability_port import (
     SfuBrowserCapabilityRepositoryPort,
     SfuBrowserCapabilitySnapshot,
 )
-from agent.models.sfu_browser_capability import SfuCapabilityAdmissionScope
-
 
 _PSEUDONYM = re.compile(r"^room-bip_[A-Za-z0-9_-]{22}$")
-_TOP_LEVEL = frozenset({
-    "schema", "schema_version", "capability_version", "tenant_ref", "room_ref",
-    "admission_epoch", "membership_epoch", "browser_instance_pseudonym", "sequence",
-    "issued_at", "ttl_seconds", "pseudonym_rotation_seconds",
-    "capability_bucket_combinations_max", "report_bytes_max", "authorization_effect",
-    "capability_buckets",
-})
-_BUCKET_FIELDS = frozenset({
-    "codec_bucket", "layering_bucket", "encoded_transform_bucket", "decode_bucket", "evidence_bucket",
-})
+_TOP_LEVEL = frozenset(
+    {
+        "schema",
+        "schema_version",
+        "capability_version",
+        "tenant_ref",
+        "room_ref",
+        "admission_epoch",
+        "membership_epoch",
+        "browser_instance_pseudonym",
+        "sequence",
+        "issued_at",
+        "ttl_seconds",
+        "pseudonym_rotation_seconds",
+        "capability_bucket_combinations_max",
+        "report_bytes_max",
+        "authorization_effect",
+        "capability_buckets",
+    }
+)
+_BUCKET_FIELDS = frozenset(
+    {
+        "codec_bucket",
+        "layering_bucket",
+        "encoded_transform_bucket",
+        "decode_bucket",
+        "evidence_bucket",
+    }
+)
 _ENUMS = {
-    "codec_bucket": frozenset({"unknown", "unsupported", "audio_opus", "video_vp8", "video_h264", "video_vp9", "video_av1"}),
+    "codec_bucket": frozenset(
+        {"unknown", "unsupported", "audio_opus", "video_vp8", "video_h264", "video_vp9", "video_av1"}
+    ),
     "layering_bucket": frozenset({"unknown", "unsupported", "simulcast", "svc"}),
     "encoded_transform_bucket": frozenset({"unknown", "unsupported", "available"}),
     "decode_bucket": frozenset({"unknown", "unsupported", "audio_realtime", "video_baseline", "video_enhanced"}),
@@ -44,6 +64,7 @@ class SfuCapabilityAdmissionScopePort(Protocol):
 
 class SfuCapabilityReevaluationPort(Protocol):
     """Hub policy hook. Implementations may only narrow admission/layer state."""
+
     def reevaluate(self, snapshot: SfuBrowserCapabilitySnapshot) -> None: ...
 
 
@@ -66,9 +87,13 @@ class SfuBrowserCapabilityIngestionService:
     REPORT_BYTES_MAX = 2048
     ROOM_CARDINALITY_MAX = 256
 
-    def __init__(self, repository: SfuBrowserCapabilityRepositoryPort, *,
-                 reevaluation: SfuCapabilityReevaluationPort | None = None,
-                 clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        repository: SfuBrowserCapabilityRepositoryPort,
+        *,
+        reevaluation: SfuCapabilityReevaluationPort | None = None,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         self._repository = repository
         self._reevaluation = reevaluation
         self._clock = clock
@@ -88,14 +113,25 @@ class SfuBrowserCapabilityIngestionService:
         digest = hashlib.sha256(_canonical(document)).hexdigest()
         issued_ms = _utc_ms(str(document["issued_at"]))
         candidate = SfuBrowserCapabilitySnapshot(
-            command.scope.tenant_id, command.scope.room_id, pseudonym,
-            command.scope.admission_epoch, command.scope.membership_epoch,
-            int(document["sequence"]), 0, "coarse-v1", _capability_class(normalized),
-            normalized, state, issued_ms + 300_000, digest,
+            command.scope.tenant_id,
+            command.scope.room_id,
+            pseudonym,
+            command.scope.admission_epoch,
+            command.scope.membership_epoch,
+            int(document["sequence"]),
+            0,
+            "coarse-v1",
+            _capability_class(normalized),
+            normalized,
+            state,
+            issued_ms + 300_000,
+            digest,
         )
         result = self._repository.save(
-            candidate, expected_version=command.expected_version,
-            room_cardinality_max=self.ROOM_CARDINALITY_MAX, now_ms=now_ms,
+            candidate,
+            expected_version=command.expected_version,
+            room_cardinality_max=self.ROOM_CARDINALITY_MAX,
+            now_ms=now_ms,
         )
         if result.status in {"saved", "replayed"} and result.snapshot is not None:
             if self._reevaluation is not None:
@@ -110,17 +146,23 @@ class SfuBrowserCapabilityIngestionService:
     def read(self, *, scope: SfuCapabilityAdmissionScope, browser_pseudonym: str) -> SfuBrowserCapabilitySnapshot:
         _validate_pseudonym(browser_pseudonym)
         return self._repository.read(
-            tenant_id=scope.tenant_id, room_id=scope.room_id,
-            browser_pseudonym=browser_pseudonym, admission_epoch=scope.admission_epoch,
-            membership_epoch=scope.membership_epoch, now_ms=int(self._clock() * 1000),
+            tenant_id=scope.tenant_id,
+            room_id=scope.room_id,
+            browser_pseudonym=browser_pseudonym,
+            admission_epoch=scope.admission_epoch,
+            membership_epoch=scope.membership_epoch,
+            now_ms=int(self._clock() * 1000),
         )
 
-    def revoke(self, *, scope: SfuCapabilityAdmissionScope, browser_pseudonym: str,
-               expected_version: int) -> SfuBrowserCapabilitySnapshot | None:
+    def revoke(
+        self, *, scope: SfuCapabilityAdmissionScope, browser_pseudonym: str, expected_version: int
+    ) -> SfuBrowserCapabilitySnapshot | None:
         _validate_pseudonym(browser_pseudonym)
         result = self._repository.revoke(
-            tenant_id=scope.tenant_id, room_id=scope.room_id,
-            browser_pseudonym=browser_pseudonym, expected_version=expected_version,
+            tenant_id=scope.tenant_id,
+            room_id=scope.room_id,
+            browser_pseudonym=browser_pseudonym,
+            expected_version=expected_version,
             now_ms=int(self._clock() * 1000),
         )
         if result.status in {"saved", "replayed"}:
@@ -149,10 +191,14 @@ def _decode(raw: bytes) -> dict:
 
 def _validate_document(value: Mapping[str, object], scope: SfuCapabilityAdmissionScope, now_ms: int) -> None:
     fixed = {
-        "schema": "ananta.browser-media-capability-observation.v1", "schema_version": 1,
-        "capability_version": "coarse-v1", "ttl_seconds": 300,
-        "pseudonym_rotation_seconds": 900, "capability_bucket_combinations_max": 8,
-        "report_bytes_max": 2048, "authorization_effect": "none",
+        "schema": "ananta.browser-media-capability-observation.v1",
+        "schema_version": 1,
+        "capability_version": "coarse-v1",
+        "ttl_seconds": 300,
+        "pseudonym_rotation_seconds": 900,
+        "capability_bucket_combinations_max": 8,
+        "report_bytes_max": 2048,
+        "authorization_effect": "none",
     }
     if any(value.get(key) != expected for key, expected in fixed.items()):
         raise SfuBrowserCapabilityError("sfu_capability_schema_invalid")
@@ -220,7 +266,10 @@ def _canonical(value: object) -> bytes:
 
 
 __all__ = [
-    "SfuBrowserCapabilityCommand", "SfuBrowserCapabilityError",
-    "SfuBrowserCapabilityIngestionService", "SfuCapabilityAdmissionScope",
-    "SfuCapabilityAdmissionScopePort", "SfuCapabilityReevaluationPort",
+    "SfuBrowserCapabilityCommand",
+    "SfuBrowserCapabilityError",
+    "SfuBrowserCapabilityIngestionService",
+    "SfuCapabilityAdmissionScope",
+    "SfuCapabilityAdmissionScopePort",
+    "SfuCapabilityReevaluationPort",
 ]

@@ -65,8 +65,7 @@ def _raw_payload_bytes(path: Path) -> int:
         return sum(
             int(
                 connection.execute(
-                    f"SELECT COALESCE(SUM(LENGTH(CAST(record_json AS BLOB)) + 1), 0) "
-                    f"FROM {table}"
+                    f"SELECT COALESCE(SUM(LENGTH(CAST(record_json AS BLOB)) + 1), 0) FROM {table}"
                 ).fetchone()[0]
             )
             for table in (

@@ -1,4 +1,5 @@
 """HDE-010: tool_proposal.v1 schema validation."""
+
 import pytest
 
 from agent.services.custom_tool_proposal_service import validate_proposal_payload

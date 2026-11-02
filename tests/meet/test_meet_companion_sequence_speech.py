@@ -16,13 +16,19 @@ def setup():
     ports, events = fake_ports(FakeClock())
     media = Mock()
     media.speaking.return_value = [{"synthetic": 1}, {"synthetic": 2}]
-    report = {"schema": "ananta.meet-avatar-sequence-quality.v1", "id": 1,
-        "segments": [{"segment": 0, "expected_start_sample": 0, "observed_played_sample": 0, "drift_us": 0},
-                     {"segment": 1, "expected_start_sample": 220500,
-                      "observed_played_sample": 220941, "drift_us": 20000}],
-        "max_drift_us": 20000, "sync_complete": True}
-    sequence = SimpleNamespace(prepare=Mock(return_value=1), activate=Mock(),
-                               quality=Mock(return_value=report), cancel=Mock())
+    report = {
+        "schema": "ananta.meet-avatar-sequence-quality.v1",
+        "id": 1,
+        "segments": [
+            {"segment": 0, "expected_start_sample": 0, "observed_played_sample": 0, "drift_us": 0},
+            {"segment": 1, "expected_start_sample": 220500, "observed_played_sample": 220941, "drift_us": 20000},
+        ],
+        "max_drift_us": 20000,
+        "sync_complete": True,
+    }
+    sequence = SimpleNamespace(
+        prepare=Mock(return_value=1), activate=Mock(), quality=Mock(return_value=report), cancel=Mock()
+    )
     publication = AssignedCompanionSpeech(controls, media, ports, cooperate=lambda: None, sequence=sequence)
     return publication, sequence, controls, events, report
 
@@ -75,10 +81,12 @@ def test_native_activation_failure_does_not_downgrade_to_host_clip_swaps():
 
 def test_explicit_avatar_retirement_during_prepare_keeps_only_audio_live():
     publication, sequence, controls, events, _report = setup()
+
     def retire(*_args, **kwargs):
         controls.state["controls"]["avatar"] = {"enabled": False, "revision": 2, "since": 2000}
         kwargs["cooperate"]()
         raise ValueError("synthetic_retired_native_preparation")
+
     sequence.prepare.side_effect = retire
     try:
         _generation, result = publication.publish(pcm_bytes(tone(12)))
@@ -92,9 +100,11 @@ def test_explicit_avatar_retirement_during_prepare_keeps_only_audio_live():
 
 def test_global_hub_loss_during_prepare_never_publishes_audio_or_old_video():
     publication, sequence, controls, events, _report = setup()
+
     def revoke(*_args, **kwargs):
         controls.close()
         kwargs["cooperate"]()
+
     sequence.prepare.side_effect = revoke
     with pytest.raises(CompanionControlLost):
         publication.publish(pcm_bytes(tone(12)))

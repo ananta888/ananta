@@ -179,9 +179,7 @@ class RoutedVoiceBackend(VoiceBackend):
                             deadline_monotonic=cancellation_token.deadline_monotonic,
                         ),
                     )
-                elif context and callable(
-                    contextual := getattr(entry.backend, "transcribe_with_context", None)
-                ):
+                elif context and callable(contextual := getattr(entry.backend, "transcribe_with_context", None)):
                     result = contextual(
                         filename=filename,
                         content=content,
@@ -251,9 +249,7 @@ class RoutedVoiceBackend(VoiceBackend):
                     continue
 
     def resource_requirements(self) -> BackendResourceRequirement:
-        requirements = tuple(
-            backend_resource_requirement(entry.backend) for entry in self._entries
-        )
+        requirements = tuple(backend_resource_requirement(entry.backend) for entry in self._entries)
         return BackendResourceRequirement(
             ram_bytes=max((item.ram_bytes for item in requirements), default=0),
             vram_bytes=max((item.vram_bytes for item in requirements), default=0),
@@ -361,9 +357,7 @@ class RoutedVoiceBackendResolver:
         registry: VoiceBackendFactoryRegistry | None = None,
     ) -> None:
         factory_registry = registry or build_default_voice_backend_registry()
-        normalized_ids = tuple(
-            dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids)
-        )
+        normalized_ids = tuple(dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids))
         if not normalized_ids or any(not backend_id for backend_id in normalized_ids):
             raise ValueError("voice backend catalog requires valid backend identifiers")
         entries: dict[str, _BackendEntry] = {}
@@ -395,9 +389,7 @@ class RoutedVoiceBackendResolver:
     def route(self, backend_ids: tuple[str, ...]) -> RoutedVoiceBackend:
         """Return a cached fallback route while retaining shared backend state."""
 
-        normalized_ids = tuple(
-            dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids)
-        )
+        normalized_ids = tuple(dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids))
         if not normalized_ids or any(backend_id not in self._entries for backend_id in normalized_ids):
             unknown = next(
                 (backend_id or "<empty>" for backend_id in normalized_ids if backend_id not in self._entries),
@@ -430,9 +422,7 @@ class RoutedVoiceBackendResolver:
     def catalog(self, backend_ids: tuple[str, ...]) -> VoiceBackendCatalog:
         """Return a read-only readiness view for an explicit policy allowlist."""
 
-        normalized_ids = tuple(
-            dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids)
-        )
+        normalized_ids = tuple(dict.fromkeys(str(backend_id or "").strip().lower() for backend_id in backend_ids))
         if not normalized_ids or any(backend_id not in self._entries for backend_id in normalized_ids):
             unknown = next(
                 (backend_id or "<empty>" for backend_id in normalized_ids if backend_id not in self._entries),

@@ -17,41 +17,61 @@ REQUEST_SCHEMA = "ananta.meet-companion-model-request.v1"
 
 
 def _pin(value):
-    if (not isinstance(value, dict) or set(value) != {"source_id", "binding_digest"}
-            or not isinstance(value["source_id"], str) or not re.fullmatch(r"SRC_[a-f0-9]{32}", value["source_id"])
-            or not isinstance(value["binding_digest"], str)
-            or not re.fullmatch(r"[a-f0-9]{64}", value["binding_digest"])):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"source_id", "binding_digest"}
+        or not isinstance(value["source_id"], str)
+        or not re.fullmatch(r"SRC_[a-f0-9]{32}", value["source_id"])
+        or not isinstance(value["binding_digest"], str)
+        or not re.fullmatch(r"[a-f0-9]{64}", value["binding_digest"])
+    ):
         raise ValueError("meet_companion_model_source_invalid")
 
 
 def _run(value, assignment):
     run = validate_hub_evidence_assignment(value)
-    if (run["task_id"] != assignment["task_id"] or run["assignment_id"] != assignment["runtime_id"]
-            or run["dispatch_lease_id"] != assignment["lease_id"] or run["evidence_scope"] not in {"local", "test"}):
+    if (
+        run["task_id"] != assignment["task_id"]
+        or run["assignment_id"] != assignment["runtime_id"]
+        or run["dispatch_lease_id"] != assignment["lease_id"]
+        or run["evidence_scope"] not in {"local", "test"}
+    ):
         raise ValueError("meet_companion_model_run_invalid")
 
 
 def result_digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
-                                     ensure_ascii=True, allow_nan=False).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    ).hexdigest()
 
 
 def validate_request(value, now):
-    if (not isinstance(value, dict)
-            or set(value) != {"schema", "nonce", "sent_at", "assignment", "action", "payload"}
-            or value["schema"] != REQUEST_SCHEMA or not isinstance(value["nonce"], str)
-            or not re.fullmatch(r"[a-f0-9]{32}", value["nonce"]) or type(value["sent_at"]) is not int
-            or not now - 10 <= value["sent_at"] <= now + 3 or not isinstance(value["assignment"], dict)
-            or not isinstance(value["action"], str) or value["action"] not in {"reserve", "finish"}
-            or not isinstance(value["payload"], dict)):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema", "nonce", "sent_at", "assignment", "action", "payload"}
+        or value["schema"] != REQUEST_SCHEMA
+        or not isinstance(value["nonce"], str)
+        or not re.fullmatch(r"[a-f0-9]{32}", value["nonce"])
+        or type(value["sent_at"]) is not int
+        or not now - 10 <= value["sent_at"] <= now + 3
+        or not isinstance(value["assignment"], dict)
+        or not isinstance(value["action"], str)
+        or value["action"] not in {"reserve", "finish"}
+        or not isinstance(value["payload"], dict)
+    ):
         raise ValueError("meet_companion_model_request_invalid")
     payload = value["payload"]
     if value["action"] == "reserve":
-        if (set(payload) != {"backend", "model", "request", "tool_results"}
-                or not isinstance(payload["backend"], str) or payload["backend"] not in {"ollama", "openai"}
-                or not isinstance(payload["model"], str) or not 1 <= len(payload["model"]) <= 160
-                or not isinstance(payload["request"], dict)
-                or not isinstance(payload["tool_results"], list) or len(payload["tool_results"]) > 16):
+        if (
+            set(payload) != {"backend", "model", "request", "tool_results"}
+            or not isinstance(payload["backend"], str)
+            or payload["backend"] not in {"ollama", "openai"}
+            or not isinstance(payload["model"], str)
+            or not 1 <= len(payload["model"]) <= 160
+            or not isinstance(payload["request"], dict)
+            or not isinstance(payload["tool_results"], list)
+            or len(payload["tool_results"]) > 16
+        ):
             raise ValueError("meet_companion_model_request_invalid")
     else:
         if set(payload) != {"run", "input_source", "result"} or not isinstance(payload["result"], dict):
@@ -64,10 +84,10 @@ def validate_request(value, now):
 def validate_response(value, assignment, action, payload):
     if not isinstance(value, dict):
         raise ValueError("meet_companion_model_response_invalid")
-    fields = ({"schema", "run", "input_source"} if action == "reserve"
-              else {"schema", "run", "result_digest", "sources"})
-    schema = ("ananta.meet-companion-model-reserved.v1" if action == "reserve"
-              else "ananta.meet-companion-model-completed.v1")
+    fields = {"schema", "run", "input_source"} if action == "reserve" else {"schema", "run", "result_digest", "sources"}
+    schema = (
+        "ananta.meet-companion-model-reserved.v1" if action == "reserve" else "ananta.meet-companion-model-completed.v1"
+    )
     if set(value) != fields or value["schema"] != schema:
         raise ValueError("meet_companion_model_response_invalid")
     _run(value["run"], assignment)
@@ -76,8 +96,12 @@ def validate_response(value, assignment, action, payload):
         if value["input_source"]["source_id"] not in value["run"]["source_ids"]:
             raise ValueError("meet_companion_model_input_source_invalid")
     else:
-        if (value["run"] != payload["run"] or value["result_digest"] != result_digest(payload["result"])
-                or not isinstance(value["sources"], list) or len(value["sources"]) != 1):
+        if (
+            value["run"] != payload["run"]
+            or value["result_digest"] != result_digest(payload["result"])
+            or not isinstance(value["sources"], list)
+            or len(value["sources"]) != 1
+        ):
             raise ValueError("meet_companion_model_result_binding_invalid")
         _pin(value["sources"][0])
     return deepcopy(value)
@@ -88,5 +112,6 @@ def request_signature(key, body):
 
 
 def response_signature(key, request_body, response_body):
-    return hmac.new(key, b"ananta.meet-companion-model.response.v1\0" + request_body + b"\0" + response_body,
-                    hashlib.sha256).hexdigest()
+    return hmac.new(
+        key, b"ananta.meet-companion-model.response.v1\0" + request_body + b"\0" + response_body, hashlib.sha256
+    ).hexdigest()

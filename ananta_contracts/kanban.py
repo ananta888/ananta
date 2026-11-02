@@ -9,7 +9,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 KANBAN_SCHEMA_VERSION = "kanban.v1"
 KANBAN_SNAPSHOT_SCHEMA_VERSION = "kanban.snapshot.v1"
 
@@ -30,10 +29,7 @@ class KanbanWriteCommandModel(KanbanContractModel):
             if re.search(r"<\s*/?\s*[a-zA-Z][^>]*>", value):
                 raise ValueError(f"{field_name} must not contain HTML")
             compact = re.sub(r"[\x00-\x20]+", "", value).lower()
-            if any(
-                scheme in compact
-                for scheme in ("javascript:", "vbscript:", "data:text/html", "file:")
-            ):
+            if any(scheme in compact for scheme in ("javascript:", "vbscript:", "data:text/html", "file:")):
                 raise ValueError(f"{field_name} contains an unsafe URL scheme")
             if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", value):
                 raise ValueError(f"{field_name} contains control characters")
@@ -127,9 +123,7 @@ class KanbanCardPage(KanbanContractModel):
 class KanbanSnapshot(KanbanContractModel):
     """Atomic board recovery point paired with the durable event cursor."""
 
-    schema_version: Literal["kanban.snapshot.v1"] = (
-        KANBAN_SNAPSHOT_SCHEMA_VERSION
-    )
+    schema_version: Literal["kanban.snapshot.v1"] = KANBAN_SNAPSHOT_SCHEMA_VERSION
     board: KanbanBoard
     cards: tuple[KanbanCard, ...]
     event_sequence: int = Field(ge=0)

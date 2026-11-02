@@ -1,6 +1,7 @@
 """WS-SYNC-005 + APRL-018: End-to-end flow test — isolated workspaces, artifact injection,
 and composed AGENTS.md / agent-profile.json in OpenCode workspaces.
 """
+
 from __future__ import annotations
 
 import json
@@ -58,7 +59,6 @@ class TestWorkspaceIsolationAndArtifactInjection:
         assert not (ctx2.workspace_dir / "secret.txt").exists(), "No bleed without sync"
 
     def test_artifact_injection_populates_task2_workspace(self, app: Flask):
-        from agent.services.task_artifact_materializer import TaskArtifactMaterializer
         from agent.services.worker_workspace_service import WorkerWorkspaceService
 
         task2 = _make_task("task-2", "goal-abc", "job-2")
@@ -140,11 +140,7 @@ class TestWorkspaceStateSyncRecord:
     def test_sync_record_fields(self):
         from agent.services.task_scoped_execution_service import _build_workspace_state_sync_record
 
-        task = {
-            "worker_execution_context": {
-                "workspace": {"sync_mode": "artifact_hub_sync"}
-            }
-        }
+        task = {"worker_execution_context": {"workspace": {"sync_mode": "artifact_hub_sync"}}}
         manifest = [{"artifact_id": "art-in", "workspace_relative_path": "in.py"}]
         refs = [{"kind": "workspace_file", "artifact_id": "art-out", "workspace_relative_path": "out.py"}]
 
@@ -183,6 +179,7 @@ class TestWorkspaceStateSyncRecord:
 # APRL-018: OpenCode workspace contains composed AGENTS.md + agent-profile.json
 # ---------------------------------------------------------------------------
 
+
 def _make_opencode_task(task_kind: str = "bug_fix") -> dict:
     return {
         "id": "task-aprl-test",
@@ -205,6 +202,7 @@ class TestOpenCodeAgentProfileIntegration:
 
     def _prepare(self, tmp_path: Path, task: dict, app_: Flask):
         from agent.services.worker_workspace_service import WorkerWorkspaceService
+
         svc = WorkerWorkspaceService()
         with app_.app_context():
             with patch.object(svc, "_materialize_predecessor_artifacts", return_value=None):

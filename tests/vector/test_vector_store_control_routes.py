@@ -32,11 +32,7 @@ def _headers(role: str, **claims) -> dict[str, str]:
 
 
 def test_vector_store_control_requires_admin_and_workspace_scope(monkeypatch) -> None:
-    service = SimpleNamespace(
-        submit=lambda **kwargs: (_ for _ in ()).throw(
-            AssertionError("must not submit")
-        )
-    )
+    service = SimpleNamespace(submit=lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not submit")))
     monkeypatch.setattr(
         "agent.routes.vector_store_control.get_vector_index_task_service",
         lambda: service,
@@ -63,28 +59,34 @@ def test_vector_store_control_requires_admin_and_workspace_scope(monkeypatch) ->
 def test_global_admin_submits_typed_trusted_scope(monkeypatch) -> None:
     captured: list[dict] = []
     service = SimpleNamespace(
-        submit=lambda **kwargs: captured.append(kwargs)
-        or {
-            "job_id": "vector-index-a",
-            "status": "queued",
-            "scope": kwargs["trusted_scope"].to_dict(),
-        }
+        submit=lambda **kwargs: (
+            captured.append(kwargs)
+            or {
+                "job_id": "vector-index-a",
+                "status": "queued",
+                "scope": kwargs["trusted_scope"].to_dict(),
+            }
+        )
     )
     monkeypatch.setattr(
         "agent.routes.vector_store_control.get_vector_index_task_service",
         lambda: service,
     )
-    response = _app().test_client().post(
-        "/api/vector-store/index-tasks",
-        json={
-            "operation": "delete",
-            "workspace_id": "workspace-a",
-            "repository_id": "repo-a",
-            "idempotency_key": "request-1234",
-            "payload": {"point_ids": ["1"]},
-            "priority": "critical",
-        },
-        headers=_headers("system_admin"),
+    response = (
+        _app()
+        .test_client()
+        .post(
+            "/api/vector-store/index-tasks",
+            json={
+                "operation": "delete",
+                "workspace_id": "workspace-a",
+                "repository_id": "repo-a",
+                "idempotency_key": "request-1234",
+                "payload": {"point_ids": ["1"]},
+                "priority": "critical",
+            },
+            headers=_headers("system_admin"),
+        )
     )
 
     assert response.status_code == 202
@@ -98,9 +100,7 @@ def test_missing_hub_signing_keyring_is_service_unavailable(
 ) -> None:
     service = SimpleNamespace(
         submit=lambda **_kwargs: (_ for _ in ()).throw(
-            VectorIndexTaskSigningConfigurationError(
-                "vector_index_task_signing_keyring_required"
-            )
+            VectorIndexTaskSigningConfigurationError("vector_index_task_signing_keyring_required")
         )
     )
     monkeypatch.setattr(
@@ -108,22 +108,24 @@ def test_missing_hub_signing_keyring_is_service_unavailable(
         lambda: service,
     )
 
-    response = _app().test_client().post(
-        "/api/vector-store/index-tasks",
-        json={
-            "operation": "delete",
-            "workspace_id": "workspace-a",
-            "repository_id": "repo-a",
-            "idempotency_key": "request-1234",
-            "payload": {"point_ids": ["1"]},
-        },
-        headers=_headers("system_admin"),
+    response = (
+        _app()
+        .test_client()
+        .post(
+            "/api/vector-store/index-tasks",
+            json={
+                "operation": "delete",
+                "workspace_id": "workspace-a",
+                "repository_id": "repo-a",
+                "idempotency_key": "request-1234",
+                "payload": {"point_ids": ["1"]},
+            },
+            headers=_headers("system_admin"),
+        )
     )
 
     assert response.status_code == 503
-    assert response.get_json()["reason_code"] == (
-        "vector_index_task_signing_keyring_required"
-    )
+    assert response.get_json()["reason_code"] == ("vector_index_task_signing_keyring_required")
 
 
 def test_route_rejects_cross_scope_ref_and_legacy_migration_path(
@@ -213,13 +215,9 @@ def test_route_rejects_cross_scope_ref_and_legacy_migration_path(
     )
 
     assert cross_scope.status_code == 400
-    assert cross_scope.get_json()["reason_code"] == (
-        "vector_index_input_ref_scope_mismatch"
-    )
+    assert cross_scope.get_json()["reason_code"] == ("vector_index_input_ref_scope_mismatch")
     assert legacy.status_code == 400
-    assert legacy.get_json()["reason_code"] == (
-        "vector_index_migration_fields_forbidden"
-    )
+    assert legacy.get_json()["reason_code"] == ("vector_index_migration_fields_forbidden")
     assert queue_calls == []
 
 
@@ -256,14 +254,20 @@ def test_cancel_and_retry_enforce_task_workspace_authorization(monkeypatch) -> N
     forbidden_headers = _headers("admin", workspace_id="workspace-b")
     allowed_headers = _headers("admin", workspace_id="workspace-a")
 
-    assert client.post(
-        "/api/vector-store/index-tasks/vector-index-a/cancel",
-        headers=forbidden_headers,
-    ).status_code == 403
-    assert client.post(
-        "/api/vector-store/index-tasks/vector-index-a/retry",
-        headers=forbidden_headers,
-    ).status_code == 403
+    assert (
+        client.post(
+            "/api/vector-store/index-tasks/vector-index-a/cancel",
+            headers=forbidden_headers,
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            "/api/vector-store/index-tasks/vector-index-a/retry",
+            headers=forbidden_headers,
+        ).status_code
+        == 403
+    )
     assert calls == []
 
     cancelled = client.post(
@@ -278,31 +282,29 @@ def test_cancel_and_retry_enforce_task_workspace_authorization(monkeypatch) -> N
     assert cancelled.status_code == 200
     assert retried.status_code == 200
     assert [name for name, _ in calls] == ["cancel", "retry"]
-    assert all(
-        values["actor"] == "operator-a" for _, values in calls
-    )
+    assert all(values["actor"] == "operator-a" for _, values in calls)
 
 
 def test_profile_override_requires_global_admin(monkeypatch) -> None:
     service = SimpleNamespace(
-        set_profile_override=lambda **kwargs: (_ for _ in ()).throw(
-            AssertionError("must not mutate profile override")
-        )
+        set_profile_override=lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not mutate profile override"))
     )
     monkeypatch.setattr(
         "agent.routes.vector_store_control.get_vector_store_rollout_service",
         lambda: service,
     )
-    response = _app().test_client().put(
-        "/api/vector-store/profiles/default/override",
-        json={
-            "override": {"provider": "qdrant"},
-            "expected_revision": 0,
-        },
-        headers=_headers("admin", workspace_id="workspace-a"),
+    response = (
+        _app()
+        .test_client()
+        .put(
+            "/api/vector-store/profiles/default/override",
+            json={
+                "override": {"provider": "qdrant"},
+                "expected_revision": 0,
+            },
+            headers=_headers("admin", workspace_id="workspace-a"),
+        )
     )
 
     assert response.status_code == 403
-    assert response.get_json()["reason_code"] == (
-        "vector_store_global_admin_required"
-    )
+    assert response.get_json()["reason_code"] == ("vector_store_global_admin_required")

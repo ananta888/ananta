@@ -5,32 +5,37 @@ import tempfile
 from pathlib import Path
 
 from agent.services.config_graph_builder_service import ConfigGraphBuilderService
-from agent.services.effective_workflow_resolver import EffectiveWorkflowResolver, SCHEMA
+from agent.services.effective_workflow_resolver import SCHEMA, EffectiveWorkflowResolver
 
 
 def make_graph(path_ai_modes: list[dict] | None = None):
     tmp = Path(tempfile.mkdtemp())
     (tmp / "docs/agent-profiles").mkdir(parents=True)
     (tmp / "AGENTS.md").write_text("# Root\n", encoding="utf-8")
-    (tmp / "docs/agent-profiles/profile-map.json").write_text(json.dumps({
-        "profiles": {
-            "ai_snake_chat": {
-                "agents_file": "",
-                "primary_role": "assistant",
-                "activation": [{"surface": "ai_snake_chat"}],
-                "allowed_task_kinds": ["bugfix", "review"],
-                "code_change_policy": "allow",
-                "context_policy_hint": "full_context",
-            },
-            "worker": {
-                "agents_file": "",
-                "primary_role": "worker",
-                "activation": [],
-                "allowed_task_kinds": ["implementation"],
-                "code_change_policy": "allow",
-            },
-        }
-    }), encoding="utf-8")
+    (tmp / "docs/agent-profiles/profile-map.json").write_text(
+        json.dumps(
+            {
+                "profiles": {
+                    "ai_snake_chat": {
+                        "agents_file": "",
+                        "primary_role": "assistant",
+                        "activation": [{"surface": "ai_snake_chat"}],
+                        "allowed_task_kinds": ["bugfix", "review"],
+                        "code_change_policy": "allow",
+                        "context_policy_hint": "full_context",
+                    },
+                    "worker": {
+                        "agents_file": "",
+                        "primary_role": "worker",
+                        "activation": [],
+                        "allowed_task_kinds": ["implementation"],
+                        "code_change_policy": "allow",
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     cfg: dict = {
         "chat_backend": "ananta-worker",
         "opencode_runtime": {"execution_mode": "live_terminal"},
@@ -134,23 +139,18 @@ def test_missing_tool_policy_is_default_deny_warning() -> None:
 
 def test_hub_worker_slice_keeps_hub_control_plane_boundary() -> None:
     result = resolve()
-    workers = {
-        node_id
-        for node_id, node in result["graph"]["nodes"].items()
-        if node["node_type"] == "worker_instance"
-    }
+    workers = {node_id for node_id, node in result["graph"]["nodes"].items() if node["node_type"] == "worker_instance"}
 
     assert "hub::ananta" in result["graph"]["nodes"]
-    assert not any(
-        edge["source"] in workers and edge["target"] in workers
-        for edge in result["graph"]["edges"]
-    )
+    assert not any(edge["source"] in workers and edge["target"] in workers for edge in result["graph"]["edges"])
 
 
 def test_options_expose_query_dimensions() -> None:
-    graph, cfg = make_graph(path_ai_modes=[
-        {"path_glob": "agent/routes/**", "blocked_ai_modes": ["full_llm"]},
-    ])
+    graph, cfg = make_graph(
+        path_ai_modes=[
+            {"path_glob": "agent/routes/**", "blocked_ai_modes": ["full_llm"]},
+        ]
+    )
 
     options = EffectiveWorkflowResolver().options(
         graph=graph,

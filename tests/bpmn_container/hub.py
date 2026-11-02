@@ -49,12 +49,14 @@ class AcceptanceHub:
         self.agents = agent_repo
         self.app = Flask(__name__)
         self.app.config.update(
-            MAX_CONTENT_LENGTH=262_144, AGENT_CONFIG={}, ROLE='hub',
-            ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True
+            MAX_CONTENT_LENGTH=262_144, AGENT_CONFIG={}, ROLE="hub", ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH=True
         )
-        signing = {"schema": "ananta.workflow-auth-signing-keyring.v1", "algorithm": "ed25519",
-                   "active_key_id": "ephemeral-hub",
-                   "private_keys": {"ephemeral-hub": base64.b64encode(secrets.token_bytes(32)).decode()}}
+        signing = {
+            "schema": "ananta.workflow-auth-signing-keyring.v1",
+            "algorithm": "ed25519",
+            "active_key_id": "ephemeral-hub",
+            "private_keys": {"ephemeral-hub": base64.b64encode(secrets.token_bytes(32)).decode()},
+        }
         signing_path = Path("/sandbox/secrets/hub-signing.json")
         with signing_path.open("x", encoding="utf-8") as output:
             json.dump(signing, output)
@@ -177,7 +179,7 @@ class AcceptanceHub:
             )
 
     def collect(self, *, transform_result=None):
-        from agent.services._task_scoped_forwarding import persist_forwarded_execution
+        from agent.services.task_scoped.forwarding import persist_forwarded_execution
 
         for task_id, future in tuple(self.pending.items()):
             if not future.done():

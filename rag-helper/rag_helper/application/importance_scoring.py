@@ -40,7 +40,9 @@ def compute_importance_score(record: dict) -> float:
     title = str(record.get("title") or record.get("name") or "").lower()
     section_path = " ".join(record.get("section_path", []) or []).lower()
     joined_text = f"{title} {section_path}"
-    if kind == "adoc_section" and any(token in joined_text for token in ("architecture", "overview", "design", "system")):
+    if kind == "adoc_section" and any(
+        token in joined_text for token in ("architecture", "overview", "design", "system")
+    ):
         score += 2.2
 
     if kind == "xsd_complex_type":

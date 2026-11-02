@@ -56,10 +56,7 @@ def _sanitize_evolution_config(value):
             if normalized in {"bearer_token", "token", "secret", "password", "api_key", "apikey"}:
                 sanitized[key] = "***REDACTED***" if item else item
             elif normalized == "headers" and isinstance(item, dict):
-                sanitized[key] = {
-                    str(header_name): "***REDACTED***"
-                    for header_name in item.keys()
-                }
+                sanitized[key] = {str(header_name): "***REDACTED***" for header_name in item.keys()}
             else:
                 sanitized[key] = _sanitize_evolution_config(item)
         return sanitized
@@ -226,7 +223,8 @@ def analyze_task_evolution(task_id: str):
             "summary": result.result.summary,
             "trace_id": (
                 _repos().evolution_run_repo.get_by_id(result.run_id).trace_id
-                if _repos().evolution_run_repo.get_by_id(result.run_id) else None
+                if _repos().evolution_run_repo.get_by_id(result.run_id)
+                else None
             ),
             "provider_metadata": result.result.provider_metadata,
             "review_status": _analysis_review_status(result),

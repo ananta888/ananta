@@ -6,7 +6,7 @@ USER root
 
 ARG ANANTA_RUNTIME_UID=1000
 ARG ANANTA_RUNTIME_GID=1000
-COPY config/cli_backends/pi/package.json config/cli_backends/pi/package-lock.json /opt/ananta/cli-backends/pi/0.85.1/
+COPY worker/cli_backends/pi/package.json worker/cli_backends/pi/package-lock.json /opt/ananta/cli-backends/pi/0.85.1/
 RUN for pi_runtime_identity in "${ANANTA_RUNTIME_UID}" "${ANANTA_RUNTIME_GID}"; do \
       case "${pi_runtime_identity}" in ""|0*|*[!0-9]*) exit 64 ;; esac; \
     done \

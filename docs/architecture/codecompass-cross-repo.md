@@ -17,17 +17,18 @@ Cross-Repo-Analyse wird **explizit konfiguriert**, nicht automatisch entdeckt.
 class RepoBoundary:
     boundary_id: str
     name: str
-    repos: list[RepoRef]          # explizit aufgelistete Repos
+    repos: list[RepoRef]  # explizit aufgelistete Repos
     allowed_cross_repo_edges: list[EdgeType]  # z. B. ["calls", "imports", "subscribes"]
-    permission_scope: str         # Policy-Scope-ID, der Zugriff kontrolliert
+    permission_scope: str  # Policy-Scope-ID, der Zugriff kontrolliert
     created_by: str
     created_at: datetime
+
 
 @dataclass
 class RepoRef:
     repo_id: str
-    local_path: str | None        # lokaler Pfad, falls vorhanden
-    remote_url: str | None        # nur mit expliziter Erlaubnis
+    local_path: str | None  # lokaler Pfad, falls vorhanden
+    remote_url: str | None  # nur mit expliziter Erlaubnis
     access_status: Literal["allowed", "denied", "unknown"]
 ```
 
@@ -46,7 +47,7 @@ class CrossRepoEdge(GraphEdge):
     source_repo_id: str
     target_repo_id: str
     permission_status: Literal["allowed", "denied", "unknown"]
-    boundary_id: str | None       # welche RepoBoundary erlaubt diese Kante
+    boundary_id: str | None  # welche RepoBoundary erlaubt diese Kante
 ```
 
 Kanten mit `permission_status="denied"` werden **nicht** dem Agenten übergeben.
@@ -62,11 +63,11 @@ redigierter Platzhalter-Knoten:
 ```python
 @dataclass
 class RedactedExternalNode:
-    node_id: str                  # z. B. "redacted:repo:payments-service/module:billing"
+    node_id: str  # z. B. "redacted:repo:payments-service/module:billing"
     node_type: NodeType
-    display_name: str             # "REDACTED_EXTERNAL_MODULE"
-    reason: str                   # "access_denied" | "repo_not_configured" | "unknown_repo"
-    source_repo_id: str           # Repo, das auf diesen Knoten referenziert
+    display_name: str  # "REDACTED_EXTERNAL_MODULE"
+    reason: str  # "access_denied" | "repo_not_configured" | "unknown_repo"
+    source_repo_id: str  # Repo, das auf diesen Knoten referenziert
 ```
 
 Regeln:

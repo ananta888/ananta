@@ -20,21 +20,45 @@ from tests.bpmn.test_native_postgres_concurrency import pg_native as pg_native
 
 def seed(native):
     tenant = native.command.tenant_id
-    owner = {'worker_id': 'worker-1', 'worker_url': 'http://worker-1:5000', 'store_binding_id': 'synthetic-store'}
+    owner = {"worker_id": "worker-1", "worker_url": "http://worker-1:5000", "store_binding_id": "synthetic-store"}
     with Session(native.engine) as session, session.begin():
-        for project in ('project-a', 'project-foreign'):
-            session.add(ProjectDB(tenant_id=tenant, project_id=project,
-                name='Synthetic cursor scope', created_by_subject_id='synthetic-owner'))
+        for project in ("project-a", "project-foreign"):
+            session.add(
+                ProjectDB(
+                    tenant_id=tenant,
+                    project_id=project,
+                    name="Synthetic cursor scope",
+                    created_by_subject_id="synthetic-owner",
+                )
+            )
         session.flush()
-        for index, (task_id, project) in enumerate((('cursor-a', 'project-a'), ('cursor-b', 'project-a'),
-                                                   ('cursor-foreign', 'project-foreign'))):
-            session.add(TaskDB(id=task_id, tenant_id=tenant, project_id=project, status='completed'))
-            session.add(NativeDispatchDB(id='journal-' + task_id, task_id=task_id, tenant_id=tenant,
-                binding_digest='a' * 64, command_digest='b' * 64, worker_id=owner['worker_id'],
-                worker_url=owner['worker_url'], assignment_revision=1, claim='synthetic-claim', state='accepted',
-                created_at=100 + index, updated_at=100 + index))
-    return {'tenant_id': tenant, 'project_id': 'project-a', 'owner': owner,
-            'exclude_task_id': 'current-maintenance', 'limit': 1}
+        for index, (task_id, project) in enumerate(
+            (("cursor-a", "project-a"), ("cursor-b", "project-a"), ("cursor-foreign", "project-foreign"))
+        ):
+            session.add(TaskDB(id=task_id, tenant_id=tenant, project_id=project, status="completed"))
+            session.add(
+                NativeDispatchDB(
+                    id="journal-" + task_id,
+                    task_id=task_id,
+                    tenant_id=tenant,
+                    binding_digest="a" * 64,
+                    command_digest="b" * 64,
+                    worker_id=owner["worker_id"],
+                    worker_url=owner["worker_url"],
+                    assignment_revision=1,
+                    claim="synthetic-claim",
+                    state="accepted",
+                    created_at=100 + index,
+                    updated_at=100 + index,
+                )
+            )
+    return {
+        "tenant_id": tenant,
+        "project_id": "project-a",
+        "owner": owner,
+        "exclude_task_id": "current-maintenance",
+        "limit": 1,
+    }
 
 
 def test_postgres_independent_hubs_advance_one_scoped_cursor_without_lost_updates(pg_native):  # noqa: F811
@@ -51,10 +75,10 @@ def test_postgres_independent_hubs_advance_one_scoped_cursor_without_lost_update
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(scan, connections))
-        assert sorted(outcomes) == [('cursor-a',), ('cursor-b',)]
+        assert sorted(outcomes) == [("cursor-a",), ("cursor-b",)]
         with Session(pg_native.engine) as session:
-            row, = session.exec(select(NativeResultRetirementCursorDB)).all()
-            assert row.after_id == 'journal-cursor-b'
+            (row,) = session.exec(select(NativeResultRetirementCursorDB)).all()
+            assert row.after_id == "journal-cursor-b"
     finally:
         for connection in connections:
             connection.dispose()
@@ -65,14 +89,14 @@ def test_postgres_cursor_rollback_preserves_candidate_and_stricter_existing_time
 
     values = seed(pg_native)
     repository = SQLNativeResultRetirementRepository(pg_native.engine)
-    with pytest.raises(RuntimeError, match='synthetic_rollback'):
+    with pytest.raises(RuntimeError, match="synthetic_rollback"):
         with repository.transaction() as session:
             timeout = session.execute(text("SELECT setting FROM pg_settings WHERE name='lock_timeout'")).scalar_one()
-            assert timeout == '1000'
+            assert timeout == "1000"
             timeout = session.execute(text("SELECT setting FROM pg_settings WHERE name='statement_timeout'"))
             timeout = timeout.scalar_one()
-            assert timeout == '5000'
-            assert repository.candidates(session=session, **values) == ('cursor-a',)
-            raise RuntimeError('synthetic_rollback')
+            assert timeout == "5000"
+            assert repository.candidates(session=session, **values) == ("cursor-a",)
+            raise RuntimeError("synthetic_rollback")
     with repository.transaction() as session:
-        assert repository.candidates(session=session, **values) == ('cursor-a',)
+        assert repository.candidates(session=session, **values) == ("cursor-a",)

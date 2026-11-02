@@ -17,6 +17,7 @@ central enforcement hook lives there via ``domain_allowed_write_paths``.
 
 Docs: ``docs/codecompass-runtime-domain-scope.md``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,9 +30,17 @@ DOMAIN_SCOPE_HINT_PREFIX = "domain:"
 
 # Mirror of the retrieval-profile DOMAIN_* constants. Kept as plain strings
 # so this module stays importable without the profile service.
-INTERNAL_RETRIEVAL_DOMAINS: frozenset[str] = frozenset({
-    "codecompass", "ai_snake", "worker", "ananta_game", "operator_tui", "ops", "generic",
-})
+INTERNAL_RETRIEVAL_DOMAINS: frozenset[str] = frozenset(
+    {
+        "codecompass",
+        "ai_snake",
+        "worker",
+        "ananta_game",
+        "operator_tui",
+        "ops",
+        "generic",
+    }
+)
 
 HINT_KIND_NONE = "none"
 HINT_KIND_INTERNAL = "internal"
@@ -65,7 +74,7 @@ def parse_domain_hint(hint: str | None) -> tuple[str, str]:
     if not raw:
         return HINT_KIND_NONE, ""
     if raw.lower().startswith(DOMAIN_SCOPE_HINT_PREFIX):
-        domain_id = raw[len(DOMAIN_SCOPE_HINT_PREFIX):].strip().lower()
+        domain_id = raw[len(DOMAIN_SCOPE_HINT_PREFIX) :].strip().lower()
         return (HINT_KIND_DOMAIN, domain_id) if domain_id else (HINT_KIND_UNKNOWN, raw)
     if raw in INTERNAL_RETRIEVAL_DOMAINS:
         return HINT_KIND_INTERNAL, raw
@@ -303,9 +312,7 @@ def build_approval_requirement(
         "requested_path": violation.requested_path,
         "arguments": dict(arguments or {}),
     }
-    digest = hashlib.sha256(
-        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
         "approval_class": "cross_domain_write",
         "tool_name": tool_name,

@@ -488,8 +488,12 @@ def phase_terminal_focus(
             terminal_snapshot = _inspect_task_detail_live_terminal(session_id, task_id)
             buffer_excerpt = str(terminal_snapshot.get("buffer_excerpt") or "")
             if interactive_launch_mode == "tui":
-                cli_command_visible = cli_command_visible or bool(re.search(r"opencode(\s+run)?", buffer_excerpt, re.IGNORECASE))
-                opencode_user_visible = _opencode_tui_visible(worker_buffer_excerpt) or _opencode_tui_visible(buffer_excerpt)
+                cli_command_visible = cli_command_visible or bool(
+                    re.search(r"opencode(\s+run)?", buffer_excerpt, re.IGNORECASE)
+                )
+                opencode_user_visible = _opencode_tui_visible(worker_buffer_excerpt) or _opencode_tui_visible(
+                    buffer_excerpt
+                )
                 if (
                     (worker_terminal_snapshot.get("opened") and worker_terminal_snapshot.get("connected"))
                     or (terminal_snapshot.get("embedded_visible") and terminal_snapshot.get("connected"))
@@ -523,9 +527,15 @@ def phase_terminal_focus(
             and opencode_user_visible
         )
     else:
-        ok = bool(task_id) and bool(forward_param) and active_terminal_seen and bool(
-            terminal_snapshot.get("embedded_visible")
-        ) and bool(terminal_snapshot.get("connected")) and bool(terminal_snapshot.get("interactive_controls_visible")) and opencode_user_visible
+        ok = (
+            bool(task_id)
+            and bool(forward_param)
+            and active_terminal_seen
+            and bool(terminal_snapshot.get("embedded_visible"))
+            and bool(terminal_snapshot.get("connected"))
+            and bool(terminal_snapshot.get("interactive_controls_visible"))
+            and opencode_user_visible
+        )
     record_step(
         report,
         "terminal",
@@ -603,9 +613,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     args = build_parser().parse_args(argv)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = (
-        Path(args.report_file)
-        if args.report_file
-        else DEFAULT_REPORT_DIR / f"firefox-live-terminal-focus-{ts}.json"
+        Path(args.report_file) if args.report_file else DEFAULT_REPORT_DIR / f"firefox-live-terminal-focus-{ts}.json"
     )
     hard_fail = not args.allow_visible_errors
 
@@ -666,7 +674,9 @@ def main(argv: Optional[List[str]] = None) -> None:
         )
         launch_mode_ok = bool(launch_mode_res.get("ok"))
         print("opencode_interactive_launch_mode", json.dumps(launch_mode_res, ensure_ascii=True), flush=True)
-        record_step(report, "setup", "set_opencode_interactive_launch_mode", time.time(), launch_mode_ok, launch_mode_res)
+        record_step(
+            report, "setup", "set_opencode_interactive_launch_mode", time.time(), launch_mode_ok, launch_mode_res
+        )
         if not launch_mode_ok:
             raise RuntimeError("Failed to switch opencode interactive launch mode")
         _ensure_fresh_scrum_team(session_id, report)
@@ -731,7 +741,9 @@ def main(argv: Optional[List[str]] = None) -> None:
                     admin_user=LOGIN_USER,
                     admin_password=LOGIN_PASS,
                     cleanup_live_prefixes=True,
-                    explicit_targets=report.get("cleanup_targets") if isinstance(report.get("cleanup_targets"), dict) else {},
+                    explicit_targets=report.get("cleanup_targets")
+                    if isinstance(report.get("cleanup_targets"), dict)
+                    else {},
                 )
             except Exception as exc:
                 report["cleanup"] = {"error": str(exc)}

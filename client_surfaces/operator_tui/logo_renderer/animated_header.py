@@ -6,14 +6,14 @@ import time
 from dataclasses import dataclass
 
 from client_surfaces.operator_tui.logo_renderer.animation_loop import AnimationLoop
+from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
+from client_surfaces.operator_tui.logo_renderer.compositor import compose_text_overlay
 from client_surfaces.operator_tui.logo_renderer.detect import (
     detect_terminal_graphics_capabilities,
     is_debug_enabled,
-    select_graphics_backend,
     resolve_renderer,
+    select_graphics_backend,
 )
-from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
-from client_surfaces.operator_tui.logo_renderer.compositor import compose_text_overlay
 from client_surfaces.operator_tui.logo_renderer.frame_cache import LogoFrameCache
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.moderngl_renderer import ModernGLOffscreenRenderer
@@ -113,12 +113,8 @@ def render_header_logo(
     started = time.perf_counter()
     sixel_renderer = _SIXEL_RENDERER
     kitty_renderer = _KITTY_RENDERER
-    sixel_available = sixel_renderer.detect(
-        probe=_build_probe(cols=cols, rows=rows, color=color, env=env)
-    )
-    kitty_available = kitty_renderer.detect(
-        probe=_build_probe(cols=cols, rows=rows, color=color, env=env)
-    )
+    sixel_available = sixel_renderer.detect(probe=_build_probe(cols=cols, rows=rows, color=color, env=env))
+    kitty_available = kitty_renderer.detect(probe=_build_probe(cols=cols, rows=rows, color=color, env=env))
 
     decision = resolve_renderer(env=env, sixel_available=sixel_available, kitty_available=kitty_available)
     if decision.warning and is_debug_enabled(env):
@@ -159,7 +155,12 @@ def render_header_logo(
             x=6,
             y=6,
         )
-        if not frame3d.is_empty and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if not frame3d.is_empty and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             if decision.selected == "kitty":
                 enc_start = time.perf_counter()
                 seq = kitty_renderer.render_pixel_sequence(frame=frame3d, height_cells=rows)
@@ -201,13 +202,34 @@ def render_header_logo(
         # the current header composer is line-based; keep deterministic ANSI layout here.
         frame = kitty_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
         render_ms += (time.perf_counter() - part_start) * 1000.0
-        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             output_ms += (time.perf_counter() - started) * 1000.0
-            _record_metrics(env=env, backend=metrics_backend, render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+            _record_metrics(
+                env=env,
+                backend=metrics_backend,
+                render_ms=render_ms,
+                encode_ms=encode_ms,
+                output_ms=output_ms,
+                frame_width=frame_w,
+                frame_height=frame_h,
+            )
             return stream_frame_sequence(frame_sequence=frame.sequence, rows=rows, hide_cursor=True)
         lines = render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
         output_ms += (time.perf_counter() - started) * 1000.0
-        _record_metrics(env=env, backend=metrics_backend, render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+        _record_metrics(
+            env=env,
+            backend=metrics_backend,
+            render_ms=render_ms,
+            encode_ms=encode_ms,
+            output_ms=output_ms,
+            frame_width=frame_w,
+            frame_height=frame_h,
+        )
         return lines
 
     if decision.selected == "sixel":
@@ -215,13 +237,34 @@ def render_header_logo(
         part_start = time.perf_counter()
         frame = sixel_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
         render_ms += (time.perf_counter() - part_start) * 1000.0
-        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             output_ms += (time.perf_counter() - started) * 1000.0
-            _record_metrics(env=env, backend=metrics_backend, render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+            _record_metrics(
+                env=env,
+                backend=metrics_backend,
+                render_ms=render_ms,
+                encode_ms=encode_ms,
+                output_ms=output_ms,
+                frame_width=frame_w,
+                frame_height=frame_h,
+            )
             return stream_frame_sequence(frame_sequence=frame.sequence, rows=rows, hide_cursor=True)
         lines = render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
         output_ms += (time.perf_counter() - started) * 1000.0
-        _record_metrics(env=env, backend=metrics_backend, render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+        _record_metrics(
+            env=env,
+            backend=metrics_backend,
+            render_ms=render_ms,
+            encode_ms=encode_ms,
+            output_ms=output_ms,
+            frame_width=frame_w,
+            frame_height=frame_h,
+        )
         return lines
 
     if decision.selected == "ansi":
@@ -229,13 +272,23 @@ def render_header_logo(
         # Strip the forced renderer override so select_graphics_backend picks a
         # real text-mode backend rather than echoing the (now-unavailable) renderer.
         _ansi_env = {k: v for k, v in env.items() if k not in ("ANANTA_TUI_LOGO_RENDERER", "ANANTA_TUI_GRAPHICS")}
-        backend_name = select_graphics_backend(env=_ansi_env, capabilities=detect_terminal_graphics_capabilities(_ansi_env))
+        backend_name = select_graphics_backend(
+            env=_ansi_env, capabilities=detect_terminal_graphics_capabilities(_ansi_env)
+        )
         if backend_name == "ascii":
             part_start = time.perf_counter()
             frame = AsciiRenderer().render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
             render_ms += (time.perf_counter() - part_start) * 1000.0
             output_ms += (time.perf_counter() - started) * 1000.0
-            _record_metrics(env=env, backend="ascii", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+            _record_metrics(
+                env=env,
+                backend="ascii",
+                render_ms=render_ms,
+                encode_ms=encode_ms,
+                output_ms=output_ms,
+                frame_width=frame_w,
+                frame_height=frame_h,
+            )
             return list(frame.text_lines) if frame.text_lines else [""]
         part_start = time.perf_counter()
         lines = render_ansi_header_logo(
@@ -247,16 +300,40 @@ def render_header_logo(
         render_ms += (time.perf_counter() - part_start) * 1000.0
         if lines:
             output_ms += (time.perf_counter() - started) * 1000.0
-            _record_metrics(env=env, backend="halfblock", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+            _record_metrics(
+                env=env,
+                backend="halfblock",
+                render_ms=render_ms,
+                encode_ms=encode_ms,
+                output_ms=output_ms,
+                frame_width=frame_w,
+                frame_height=frame_h,
+            )
             return lines
         # All text renderers exhausted; guarantee non-None in ANSI-fallback mode.
         output_ms += (time.perf_counter() - started) * 1000.0
-        _record_metrics(env=env, backend="ansi", render_ms=render_ms, encode_ms=0.0, output_ms=output_ms, frame_width=0, frame_height=0)
+        _record_metrics(
+            env=env,
+            backend="ansi",
+            render_ms=render_ms,
+            encode_ms=0.0,
+            output_ms=output_ms,
+            frame_width=0,
+            frame_height=0,
+        )
         return [""]
 
     lines = render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
     output_ms += (time.perf_counter() - started) * 1000.0
-    _record_metrics(env=env, backend=metrics_backend or "ansi", render_ms=render_ms, encode_ms=encode_ms, output_ms=output_ms, frame_width=frame_w, frame_height=frame_h)
+    _record_metrics(
+        env=env,
+        backend=metrics_backend or "ansi",
+        render_ms=render_ms,
+        encode_ms=encode_ms,
+        output_ms=output_ms,
+        frame_width=frame_w,
+        frame_height=frame_h,
+    )
     return lines
 
 

@@ -7,16 +7,15 @@
 - Notes gehen NIEMALS in Transport-Queue
 - ShareSession-Routing: share_session_id + optionale Payload-Verschlüsselung
 """
+
 from __future__ import annotations
 
-import time
-import uuid
-import urllib.error
-import urllib.request
 import json
 import threading
+import urllib.error
+import urllib.request
+import uuid
 from typing import Any, Callable
-
 
 _POLL_INTERVAL_DEFAULT = 1.0
 _POLL_INTERVAL_MAX = 10.0
@@ -157,13 +156,15 @@ class ChatTransport:
         else:
             return False
 
-        body = json.dumps({
-            "id": str(msg.get("id") or str(uuid.uuid4())),
-            "from_id": str(msg.get("sender_id") or self._snake_id),
-            "channel_type": ch_type,
-            "text": str(msg.get("text") or ""),
-            "visibility": str(msg.get("visibility") or "room"),
-        }).encode()
+        body = json.dumps(
+            {
+                "id": str(msg.get("id") or str(uuid.uuid4())),
+                "from_id": str(msg.get("sender_id") or self._snake_id),
+                "channel_type": ch_type,
+                "text": str(msg.get("text") or ""),
+                "visibility": str(msg.get("visibility") or "room"),
+            }
+        ).encode()
 
         try:
             req = urllib.request.Request(

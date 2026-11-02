@@ -212,9 +212,7 @@ def test_hub_task_port_disables_worker_orchestration() -> None:
 
     queue = _Queue()
     reference = HubModelAnalysisTaskSubmissionPort(queue=queue).submit(_job())
-    context = queue.values["extra_fields"]["worker_execution_context"][
-        "model_intelligence"
-    ]
+    context = queue.values["extra_fields"]["worker_execution_context"]["model_intelligence"]
 
     assert reference.parent_task_id == "task-001"
     assert context["persistence_owner"] == "hub"

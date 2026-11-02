@@ -10,7 +10,7 @@ class JavaRoleDetectionTests(unittest.TestCase):
         roles = detect_type_roles(
             type_name="UserConfig",
             type_kind="class",
-            annotations=["@Configuration", "@FeignClient(name = \"users\")"],
+            annotations=["@Configuration", '@FeignClient(name = "users")'],
             imports=["org.mapstruct.Mapper", "lombok.Data"],
             fields=[],
             methods=[],

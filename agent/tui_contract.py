@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
-
 TuiKey = Literal["up", "down", "enter", "escape"]
 
 
@@ -40,6 +39,7 @@ class TuiPaneState:
             "target_type": self.target_type,
             "entered_at": self.entered_at,
         }
+
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -127,9 +127,11 @@ def reduce_prompt_key(state: TuiPromptState, key: TuiKey) -> TuiPromptResult:
         next_index = min(len(normalized.options) - 1, normalized.selected_index + 1)
     else:
         next_index = normalized.selected_index
-    return TuiPromptResult(state=TuiPromptState(
-        title=normalized.title,
-        options=normalized.options,
-        selected_index=next_index,
-        error=normalized.error,
-    ))
+    return TuiPromptResult(
+        state=TuiPromptState(
+            title=normalized.title,
+            options=normalized.options,
+            selected_index=next_index,
+            error=normalized.error,
+        )
+    )

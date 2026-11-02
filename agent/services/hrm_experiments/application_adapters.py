@@ -45,9 +45,7 @@ class AnantaHrmTaskQueueAdapter:
                     "hrm_experiment",
                     f"hrm_experiment.profile.{profile_id}",
                 ],
-                "worker_execution_context": {
-                    "hrm_experiment": {"run_id": run_id}
-                },
+                "worker_execution_context": {"hrm_experiment": {"run_id": run_id}},
                 "verification_spec": {
                     "schema": "ananta.hrm-experiments.worker-verification.v1",
                     "required_checks": [
@@ -76,9 +74,7 @@ class AnantaHrmTaskQueueAdapter:
 class AnantaHrmExecutionBindingAdapter:
     """Resolve current WorkerJob and slot lease from authoritative Hub state."""
 
-    def resolve(
-        self, *, task_id: str, worker_job_id: str, worker_url: str
-    ) -> HrmExecutionBinding:
+    def resolve(self, *, task_id: str, worker_job_id: str, worker_url: str) -> HrmExecutionBinding:
         from agent.services.repository_registry import get_repository_registry
         from agent.services.task_runtime_service import get_local_task_status
 
@@ -91,8 +87,7 @@ class AnantaHrmExecutionBindingAdapter:
             str(task.get("current_worker_job_id") or "") != worker_job_id
             or str(job.parent_task_id or "") != task_id
             or str(job.worker_url or "").rstrip("/") != normalized_worker_url
-            or str(task.get("assigned_agent_url") or "").rstrip("/")
-            != normalized_worker_url
+            or str(task.get("assigned_agent_url") or "").rstrip("/") != normalized_worker_url
             or str(task.get("task_kind") or "") != "hrm_experiment"
         ):
             raise HrmApplicationError("hrm.execution_binding_mismatch")

@@ -8,6 +8,7 @@ from agent.services.commit_worker_service import CommitWorkerService
 def _mock_run(staged_files, commit_rc=0):
     def side_effect(args, capture_output, text, cwd):
         from unittest.mock import MagicMock
+
         r = MagicMock()
         if any("cached" in a for a in args):
             r.returncode = 0
@@ -18,6 +19,7 @@ def _mock_run(staged_files, commit_rc=0):
             r.stdout = "ok"
             r.stderr = "hook failed" if commit_rc != 0 else ""
         return r
+
     return side_effect
 
 
@@ -71,8 +73,7 @@ def test_scope_mismatch_corrected_from_diff():
 
 
 def test_validator_and_resolver_importable_independently():
-    from agent.services.commit_message_validator import CommitMessageValidator
-    from agent.services.commit_scope_resolver import CommitScopeResolver
+
     v = CommitMessageValidator()
     r = CommitScopeResolver()
     assert v.validate("feat(llm): fix something").valid is True

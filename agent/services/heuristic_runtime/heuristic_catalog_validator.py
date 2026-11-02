@@ -3,6 +3,7 @@
 Validates all .heuristic.json files in a catalog directory against
 heuristic_definition.v1.json. Reports per-file results; never modifies files.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,10 +17,16 @@ import jsonschema
 _SCHEMA_PATH = Path(__file__).parent.parent.parent.parent / "schemas" / "heuristic" / "heuristic_definition.v1.json"
 _FORBIDDEN_CAPS = frozenset({"file_write", "network_access", "secret_access"})
 _SNAKE_DOMAINS = frozenset({"tui_snake", "snake_eclipse", "snake_tui"})
-_SNAKE_FORBIDDEN_CAPS = frozenset({
-    "write_local_notes", "send_to_chat", "read_source_refs",
-    "file_write", "network_access", "secret_access",
-})
+_SNAKE_FORBIDDEN_CAPS = frozenset(
+    {
+        "write_local_notes",
+        "send_to_chat",
+        "read_source_refs",
+        "file_write",
+        "network_access",
+        "secret_access",
+    }
+)
 
 
 @dataclass

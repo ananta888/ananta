@@ -7,16 +7,27 @@ def test_provider_observer_probes_and_caches():
     from agent.services.provider_observer_service import ProviderObserverService
 
     svc = ProviderObserverService()
-    cfg = {"provider_observer_enabled": True, "provider_observer_ttl_seconds": 30, "provider_observer_timeout_seconds": 2}
+    cfg = {
+        "provider_observer_enabled": True,
+        "provider_observer_ttl_seconds": 30,
+        "provider_observer_timeout_seconds": 2,
+    }
     urls = {"ollama": "http://ollama:11434/api/generate", "lmstudio": "http://127.0.0.1:1234/v1"}
 
-    with patch("agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok", "candidate_count": 3}) as p_ollama, patch(
-        "agent.services.provider_observer_service.probe_ollama_activity",
-        return_value={"ok": True, "status": "ok", "active_count": 1},
-    ), patch(
-        "agent.services.provider_observer_service.probe_lmstudio_runtime",
-        return_value={"ok": True, "status": "ok", "candidate_count": 2},
-    ) as p_lm:
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 3},
+        ) as p_ollama,
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_activity",
+            return_value={"ok": True, "status": "ok", "active_count": 1},
+        ),
+        patch(
+            "agent.services.provider_observer_service.probe_lmstudio_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 2},
+        ) as p_lm,
+    ):
         snap1 = svc.snapshot(agent_config=cfg, provider_urls=urls)
         snap2 = svc.snapshot(agent_config=cfg, provider_urls=urls)
 
@@ -34,12 +45,22 @@ def test_provider_observer_force_refresh_bypasses_cache():
     from agent.services.provider_observer_service import ProviderObserverService
 
     svc = ProviderObserverService()
-    cfg = {"provider_observer_enabled": True, "provider_observer_ttl_seconds": 30, "provider_observer_timeout_seconds": 2}
+    cfg = {
+        "provider_observer_enabled": True,
+        "provider_observer_ttl_seconds": 30,
+        "provider_observer_timeout_seconds": 2,
+    }
     urls = {"ollama": "http://ollama:11434/api/generate"}
 
-    with patch("agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok", "candidate_count": 1}) as p_ollama, patch(
-        "agent.services.provider_observer_service.probe_ollama_activity",
-        return_value={"ok": True, "status": "ok", "active_count": 0},
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 1},
+        ) as p_ollama,
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_activity",
+            return_value={"ok": True, "status": "ok", "active_count": 0},
+        ),
     ):
         svc.snapshot(agent_config=cfg, provider_urls=urls)
         svc.snapshot(agent_config=cfg, provider_urls=urls, force_refresh=True)
@@ -57,15 +78,19 @@ def test_autopilot_status_includes_provider_observer(client, admin_auth_header, 
             "lmstudio": "http://127.0.0.1:1234/v1",
         }
 
-    with patch(
-        "agent.services.provider_observer_service.probe_ollama_runtime",
-        return_value={"ok": True, "status": "ok", "candidate_count": 1},
-    ), patch(
-        "agent.services.provider_observer_service.probe_ollama_activity",
-        return_value={"ok": True, "status": "ok", "active_count": 0},
-    ), patch(
-        "agent.services.provider_observer_service.probe_lmstudio_runtime",
-        return_value={"ok": True, "status": "ok", "candidate_count": 1},
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 1},
+        ),
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_activity",
+            return_value={"ok": True, "status": "ok", "active_count": 0},
+        ),
+        patch(
+            "agent.services.provider_observer_service.probe_lmstudio_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 1},
+        ),
     ):
         res = client.get("/tasks/autopilot/status", headers=admin_auth_header)
 
@@ -85,12 +110,15 @@ def test_monitor_providers_live_forces_refresh(client, admin_auth_header, app):
         app.config["AGENT_CONFIG"] = cfg
         app.config["PROVIDER_URLS"] = {"ollama": "http://ollama:11434/api/generate"}
 
-    with patch(
-        "agent.services.provider_observer_service.probe_ollama_runtime",
-        return_value={"ok": True, "status": "ok", "candidate_count": 1},
-    ) as p_ollama, patch(
-        "agent.services.provider_observer_service.probe_ollama_activity",
-        return_value={"ok": True, "status": "ok", "active_count": 0},
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            return_value={"ok": True, "status": "ok", "candidate_count": 1},
+        ) as p_ollama,
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_activity",
+            return_value={"ok": True, "status": "ok", "active_count": 0},
+        ),
     ):
         r1 = client.get("/api/system/monitor/providers/live", headers=admin_auth_header)
         r2 = client.get("/api/system/monitor/providers/live", headers=admin_auth_header)
@@ -110,8 +138,12 @@ def test_provider_observer_endpoint_returns_snapshot(client, admin_auth_header, 
         app.config["AGENT_CONFIG"] = cfg
         app.config["PROVIDER_URLS"] = {"ollama": "http://ollama:11434/api/generate"}
 
-    with patch("agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}), \
-         patch("agent.services.provider_observer_service.probe_ollama_activity", return_value={"ok": True}):
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}
+        ),
+        patch("agent.services.provider_observer_service.probe_ollama_activity", return_value={"ok": True}),
+    ):
         res = client.get("/api/system/provider-observer", headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -156,8 +188,12 @@ def test_provider_observer_force_refresh_allowed_for_admin(client, admin_auth_he
         # Use a distinct URL to avoid cross-test cache pollution from the singleton service
         app.config["PROVIDER_URLS"] = {"ollama": "http://ollama-unique-fr:11434/api/generate"}
 
-    with patch("agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}) as p_ollama, \
-         patch("agent.services.provider_observer_service.probe_ollama_activity", return_value={"ok": True}):
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}
+        ) as p_ollama,
+        patch("agent.services.provider_observer_service.probe_ollama_activity", return_value={"ok": True}),
+    ):
         r1 = client.get("/api/system/provider-observer", headers=admin_auth_header)
         r2 = client.get("/api/system/provider-observer?force_refresh=true", headers=admin_auth_header)
 
@@ -175,8 +211,16 @@ def test_provider_observer_probe_exception_does_not_propagate():
     cfg = {"provider_observer_enabled": True, "provider_observer_ttl_seconds": 1}
     urls = {"ollama": "http://dead-host:11434/api/generate"}
 
-    with patch("agent.services.provider_observer_service.probe_ollama_runtime", side_effect=ConnectionRefusedError("refused")), \
-         patch("agent.services.provider_observer_service.probe_ollama_activity", side_effect=ConnectionRefusedError("refused")):
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            side_effect=ConnectionRefusedError("refused"),
+        ),
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_activity",
+            side_effect=ConnectionRefusedError("refused"),
+        ),
+    ):
         snap = svc.snapshot(agent_config=cfg, provider_urls=urls)
 
     assert snap["enabled"] is True
@@ -186,14 +230,15 @@ def test_provider_observer_probe_exception_does_not_propagate():
 
 
 def test_provider_observer_probe_timeout_does_not_propagate():
-    import socket
     from agent.services.provider_observer_service import ProviderObserverService
 
     svc = ProviderObserverService()
     cfg = {"provider_observer_enabled": True}
     urls = {"lmstudio": "http://dead-host:1234/v1"}
 
-    with patch("agent.services.provider_observer_service.probe_lmstudio_runtime", side_effect=TimeoutError("timed out")):
+    with patch(
+        "agent.services.provider_observer_service.probe_lmstudio_runtime", side_effect=TimeoutError("timed out")
+    ):
         snap = svc.snapshot(agent_config=cfg, provider_urls=urls)
 
     assert snap["providers"]["lmstudio"]["ok"] is False
@@ -218,12 +263,15 @@ def test_provider_observer_total_deadline_skips_remaining_probes():
         time.sleep(0.3)
         return {"ok": False, "status": "timeout"}
 
-    with patch(
-        "agent.services.provider_observer_service.probe_ollama_runtime",
-        side_effect=_consume_budget,
-    ), patch(
-        "agent.services.provider_observer_service.probe_lmstudio_runtime",
-    ) as lmstudio_probe:
+    with (
+        patch(
+            "agent.services.provider_observer_service.probe_ollama_runtime",
+            side_effect=_consume_budget,
+        ),
+        patch(
+            "agent.services.provider_observer_service.probe_lmstudio_runtime",
+        ) as lmstudio_probe,
+    ):
         snapshot = svc.snapshot(agent_config=cfg, provider_urls=urls)
 
     assert snapshot["providers"]["ollama"]["status"] == "timeout"
@@ -256,7 +304,7 @@ def test_autopilot_status_uses_bounded_observer_without_detached_thread(
             },
         }
 
-    with patch("agent.routes.tasks.autopilot.get_provider_observer_service") as observer_factory:
+    with patch("agent.services.autopilot.loop_manager.get_provider_observer_service") as observer_factory:
         observer_factory.return_value.snapshot.side_effect = _bounded_snapshot
         started = time.time()
         res = client.get("/tasks/autopilot/status", headers=admin_auth_header)
@@ -295,13 +343,15 @@ def test_provider_observer_timeout_clamped_to_min():
 class TestProfileAvailabilityValidation:
     def test_unknown_profile_returns_structural_valid(self):
         from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
         result = svc.validate_profile_availability(None)
         assert result["validation_level"] == "structural_valid"
         assert result["errors"] == []
 
     def test_profile_without_provider_returns_structural_valid(self, monkeypatch):
-        from agent.services.config_profile_service import get_config_profile_service, ConfigProfile, _DEFAULT_PROFILES
+        from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
         # opencode_preconfigured has no default_provider in overrides
         result = svc.validate_profile_availability("opencode_preconfigured")
@@ -309,8 +359,10 @@ class TestProfileAvailabilityValidation:
         assert result["errors"] == []
 
     def test_unavailable_provider_warns_when_policy_allows(self, monkeypatch):
-        from agent.services.config_profile_service import get_config_profile_service
         from unittest.mock import Mock
+
+        from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
 
         mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": False, "status": "connection_error"}}}}
@@ -318,16 +370,16 @@ class TestProfileAvailabilityValidation:
             "agent.services.provider_observer_service.ProviderObserverService.snapshot",
             Mock(return_value=mock_snapshot),
         )
-        result = svc.validate_profile_availability(
-            "ananta_ollama_local", block_on_unavailable=False
-        )
+        result = svc.validate_profile_availability("ananta_ollama_local", block_on_unavailable=False)
         assert result["validation_level"] == "provider_unavailable"
         assert len(result["warnings"]) >= 1
         assert result["errors"] == []
 
     def test_unavailable_provider_errors_when_policy_blocks(self, monkeypatch):
-        from agent.services.config_profile_service import get_config_profile_service
         from unittest.mock import Mock
+
+        from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
 
         mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": False, "status": "connection_error"}}}}
@@ -335,16 +387,16 @@ class TestProfileAvailabilityValidation:
             "agent.services.provider_observer_service.ProviderObserverService.snapshot",
             Mock(return_value=mock_snapshot),
         )
-        result = svc.validate_profile_availability(
-            "ananta_ollama_local", block_on_unavailable=True
-        )
+        result = svc.validate_profile_availability("ananta_ollama_local", block_on_unavailable=True)
         assert result["validation_level"] == "provider_unavailable"
         assert len(result["errors"]) >= 1
         assert result["warnings"] == []
 
     def test_available_provider_returns_observable(self, monkeypatch):
-        from agent.services.config_profile_service import get_config_profile_service
         from unittest.mock import Mock
+
+        from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
 
         mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": True, "status": "models_loaded"}}}}
@@ -358,8 +410,10 @@ class TestProfileAvailabilityValidation:
         assert result["warnings"] == []
 
     def test_probe_exception_is_a_warning_not_error(self, monkeypatch):
-        from agent.services.config_profile_service import get_config_profile_service
         from unittest.mock import Mock
+
+        from agent.services.config_profile_service import get_config_profile_service
+
         svc = get_config_profile_service()
 
         monkeypatch.setattr(

@@ -185,9 +185,9 @@ class NativeRunState:
     def from_workflow_state(cls, state: WorkflowState) -> "NativeRunState":
         business = dict(state.business_data)
         runtime = dict(state.runtime_metadata)
-        edge_epoch = runtime.get('bpmn_edge_epoch', 0)
+        edge_epoch = runtime.get("bpmn_edge_epoch", 0)
         if type(edge_epoch) is not int or edge_epoch < 0:
-            raise ValueError('bpmn_edge_epoch_invalid')
+            raise ValueError("bpmn_edge_epoch_invalid")
         return cls(
             status=str(runtime.get("status") or "running"),
             input_data=dict(business.get("input_data") or {}),
@@ -213,8 +213,8 @@ class NativeRunState:
             last_command_fingerprint=str(runtime.get("last_command_fingerprint") or ""),
             bpmn_started_at=runtime.get("bpmn_started_at"),
             bpmn_deadline_at=runtime.get("bpmn_deadline_at"),
-            hub_started_at=runtime.get('hub_started_at'),
-            hub_deadline_at=runtime.get('hub_deadline_at'),
+            hub_started_at=runtime.get("hub_started_at"),
+            hub_deadline_at=runtime.get("hub_deadline_at"),
             bpmn_waits={key: dict(value) for key, value in dict(runtime.get("bpmn_waits") or {}).items()},
             bpmn_applied_wakeups=set(runtime.get("bpmn_applied_wakeups") or ()),
         )
@@ -239,7 +239,7 @@ class NativeRunState:
                 "budget_usage": dict(sorted(self.budget_usage.items())),
                 "event_sequence": self.event_sequence,
                 "plan_revision": self.plan_revision,
-                **({'bpmn_edge_epoch': self.bpmn_edge_epoch} if self.bpmn_edge_epoch else {}),
+                **({"bpmn_edge_epoch": self.bpmn_edge_epoch} if self.bpmn_edge_epoch else {}),
                 "tenant_parallel_limit": self.tenant_parallel_limit,
                 "worker_parallel_limit": self.worker_parallel_limit,
                 "reason_code": self.reason_code,
@@ -259,8 +259,11 @@ class NativeRunState:
                     if self.bpmn_deadline_at is not None
                     else {}
                 ),
-                **({'hub_started_at': self.hub_started_at, 'hub_deadline_at': self.hub_deadline_at}
-                   if self.hub_deadline_at is not None else {}),
+                **(
+                    {"hub_started_at": self.hub_started_at, "hub_deadline_at": self.hub_deadline_at}
+                    if self.hub_deadline_at is not None
+                    else {}
+                ),
             },
             secret_refs=secret_refs,
             artifact_refs=tuple(sorted(set(self.artifact_refs.values()))),

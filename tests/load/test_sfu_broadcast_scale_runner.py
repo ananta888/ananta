@@ -2,7 +2,6 @@ from pathlib import Path
 
 from scripts.sfu_broadcast_advanced_gate import evaluate_external_result, load_advanced_gate_profile
 
-
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / "config/test-profiles/sfu-broadcast/scale.json"
 

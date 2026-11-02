@@ -86,9 +86,7 @@ def _detect_cycles(edges: dict[str, set[str]]) -> list[str]:
                 cycle_nodes = tuple(stack[idx:] + [nxt])
                 if cycle_nodes not in emitted:
                     emitted.add(cycle_nodes)
-                    errors.append(
-                        "circular_cross_track_dependency: " + " -> ".join(cycle_nodes)
-                    )
+                    errors.append("circular_cross_track_dependency: " + " -> ".join(cycle_nodes))
                 continue
             dfs(nxt)
         stack.pop()
@@ -160,8 +158,7 @@ def validate_cross_track_dependencies(*, root_path: Path, track_files: list[str]
                     continue
                 if target_id not in task_index[target_file]:
                     errors.append(
-                        f"missing_target_task_id: {source_ref} -> {target_ref} "
-                        f"({target_id} not found in {target_file})"
+                        f"missing_target_task_id: {source_ref} -> {target_ref} ({target_id} not found in {target_file})"
                     )
                     continue
                 cross_edges.setdefault(source_ref, set()).add(target_ref)
@@ -186,4 +183,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

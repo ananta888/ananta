@@ -512,9 +512,7 @@ def _insert_nodes_idempotently(
                 remaining = missing
 
 
-def _insert_edges_idempotently(
-    session: Session, *, tenant_id: str, rows: Sequence[dict[str, object]]
-) -> None:
+def _insert_edges_idempotently(session: Session, *, tenant_id: str, rows: Sequence[dict[str, object]]) -> None:
     """Insert immutable edges while converging with a concurrent outbox worker."""
 
     for batch in _chunks(rows, 5000):

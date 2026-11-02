@@ -78,10 +78,7 @@ def normalize_model_recovery_error_type(value: Any) -> str:
 
 def is_recoverable_model_error_type(value: Any) -> bool:
     """Deny by default unless a terminal model error is allowlisted."""
-    return (
-        normalize_model_recovery_error_type(value)
-        in RECOVERABLE_TERMINAL_REASONS
-    )
+    return normalize_model_recovery_error_type(value) in RECOVERABLE_TERMINAL_REASONS
 
 
 def _text(value: Any, *, limit: int = _MAX_TEXT) -> str | None:
@@ -149,11 +146,7 @@ def build_model_recovery_signal(
         for item in list(fallback_decisions or [])[-_MAX_DECISIONS:]
         if isinstance(item, Mapping)
     ]
-    calls = [
-        _sanitize_call(item)
-        for item in list(llm_call_profile or [])[-_MAX_CALLS:]
-        if isinstance(item, Mapping)
-    ]
+    calls = [_sanitize_call(item) for item in list(llm_call_profile or [])[-_MAX_CALLS:] if isinstance(item, Mapping)]
     failures: list[dict[str, Any]] = []
     for raw in list(strategy_failures or [])[-_MAX_STRATEGY_FAILURES:]:
         if not isinstance(raw, Mapping):
@@ -165,25 +158,19 @@ def build_model_recovery_signal(
         }
         failures.append({key: value for key, value in item.items() if value is not None})
 
-    normalized_reason = _text(terminal_reason) or (
-        _text(decisions[-1].get("trigger")) if decisions else None
-    ) or (
-        _text(calls[-1].get("error_type")) if calls else None
-    ) or "unknown"
+    normalized_reason = (
+        _text(terminal_reason)
+        or (_text(decisions[-1].get("trigger")) if decisions else None)
+        or (_text(calls[-1].get("error_type")) if calls else None)
+        or "unknown"
+    )
     attempted_profile_ids = list(
-        dict.fromkeys(
-            str(item.get("profile_id"))
-            for item in calls
-            if _text(item.get("profile_id"))
-        )
+        dict.fromkeys(str(item.get("profile_id")) for item in calls if _text(item.get("profile_id")))
     )
     error_types = list(
         dict.fromkeys(
             str(value)
-            for value in (
-                [item.get("error_type") for item in calls]
-                + [item.get("trigger") for item in decisions]
-            )
+            for value in ([item.get("error_type") for item in calls] + [item.get("trigger") for item in decisions])
             if _text(value)
         )
     )
@@ -229,21 +216,13 @@ def sanitize_terminal_model_recovery_signal(
         for item in list(value.get("fallback_decisions") or [])[-_MAX_DECISIONS:]
         if isinstance(item, Mapping)
     ]
-    calls = [
-        dict(item)
-        for item in list(value.get("llm_calls") or [])[-_MAX_CALLS:]
-        if isinstance(item, Mapping)
-    ]
+    calls = [dict(item) for item in list(value.get("llm_calls") or [])[-_MAX_CALLS:] if isinstance(item, Mapping)]
     failures = [
         dict(item)
-        for item in list(value.get("strategy_failures") or [])[
-            -_MAX_STRATEGY_FAILURES:
-        ]
+        for item in list(value.get("strategy_failures") or [])[-_MAX_STRATEGY_FAILURES:]
         if isinstance(item, Mapping)
     ]
-    terminal_reason = normalize_model_recovery_error_type(
-        _text(value.get("terminal_reason")) or "unknown"
-    )
+    terminal_reason = normalize_model_recovery_error_type(_text(value.get("terminal_reason")) or "unknown")
     error_types = {
         normalize_model_recovery_error_type(item)
         for item in list(value.get("error_types") or [])
@@ -262,10 +241,7 @@ def sanitize_terminal_model_recovery_signal(
     error_types.add(terminal_reason)
     if not is_recoverable_model_error_type(terminal_reason):
         return None
-    if any(
-        not is_recoverable_model_error_type(error_type)
-        for error_type in error_types
-    ):
+    if any(not is_recoverable_model_error_type(error_type) for error_type in error_types):
         return None
 
     sanitized = build_model_recovery_signal(
@@ -300,16 +276,8 @@ def sanitize_terminal_model_recovery_signal(
 def metadata_from_llm_error(exc: BaseException) -> dict[str, Any]:
     """Return additive strategy metadata without depending on exception type."""
 
-    profile = [
-        dict(item)
-        for item in list(getattr(exc, "llm_call_profile", []) or [])
-        if isinstance(item, Mapping)
-    ]
-    decisions = [
-        dict(item)
-        for item in list(getattr(exc, "fallback_decisions", []) or [])
-        if isinstance(item, Mapping)
-    ]
+    profile = [dict(item) for item in list(getattr(exc, "llm_call_profile", []) or []) if isinstance(item, Mapping)]
+    decisions = [dict(item) for item in list(getattr(exc, "fallback_decisions", []) or []) if isinstance(item, Mapping)]
     signal = getattr(exc, "model_recovery_signal", None)
     if not isinstance(signal, Mapping):
         signal = build_model_recovery_signal(
@@ -325,9 +293,7 @@ def metadata_from_llm_error(exc: BaseException) -> dict[str, Any]:
         metadata["llm_call_profile"] = profile
     if decisions:
         metadata["fallback_decisions"] = [
-            dict(item)
-            for item in list(signal.get("fallback_decisions") or [])
-            if isinstance(item, Mapping)
+            dict(item) for item in list(signal.get("fallback_decisions") or []) if isinstance(item, Mapping)
         ]
     return metadata
 
@@ -337,11 +303,7 @@ def aggregate_model_recovery_signals(
 ) -> dict[str, Any] | None:
     """Merge strategy-local terminal facts into one bounded orchestration input."""
 
-    valid = [
-        sanitized
-        for item in signals
-        if (sanitized := sanitize_terminal_model_recovery_signal(item)) is not None
-    ]
+    valid = [sanitized for item in signals if (sanitized := sanitize_terminal_model_recovery_signal(item)) is not None]
     if not valid:
         return None
     decisions: list[Mapping[str, Any]] = []
@@ -374,17 +336,10 @@ def aggregate_model_recovery_signals(
         llm_call_profile=calls,
         strategy_failures=failures,
     )
-    attempted = list(
-        dict.fromkeys(
-            attempted_profile_ids
-            + list(aggregated.get("attempted_profile_ids") or [])
-        )
-    )[:32]
+    attempted = list(dict.fromkeys(attempted_profile_ids + list(aggregated.get("attempted_profile_ids") or [])))[:32]
     aggregated["attempted_profile_ids"] = attempted
     aggregated["failed_profile_ids"] = attempted
-    aggregated["error_types"] = sorted(
-        error_types.union(aggregated.get("error_types") or [])
-    )[:32]
+    aggregated["error_types"] = sorted(error_types.union(aggregated.get("error_types") or []))[:32]
     aggregated["attempt_count"] = max(
         int(aggregated.get("attempt_count") or 0),
         attempt_count,

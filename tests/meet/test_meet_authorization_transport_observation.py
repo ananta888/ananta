@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.meet_authorization_transport_observation import observe_authorization_transport
+from tests.meet.meet_authorization_transport_observation import observe_authorization_transport
 
 
 def test_observer_preserves_response_and_bounds_status_only_history(monkeypatch):
@@ -17,8 +17,9 @@ def test_observer_preserves_response_and_bounds_status_only_history(monkeypatch)
     rows = []
     observe_authorization_transport(monkeypatch, rows)
     opener = urllib.request.build_opener()
-    request = urllib.request.Request("https://private.invalid/api/machine/sessions/authorization",
-                                     headers={"Authorization": "Bearer private-token"})
+    request = urllib.request.Request(
+        "https://private.invalid/api/machine/sessions/authorization", headers={"Authorization": "Bearer private-token"}
+    )
     for _ in range(50):
         assert opener.open(request, timeout=3) is response
     assert len(rows) == 32
@@ -36,7 +37,8 @@ def test_observer_preserves_http_exception_without_body_or_url(monkeypatch):
     rows = []
     observe_authorization_transport(monkeypatch, rows)
     with pytest.raises(urllib.error.HTTPError) as captured:
-        urllib.request.build_opener().open(urllib.request.Request(
-            "https://private.invalid/api/machine/sessions/authorization"))
+        urllib.request.build_opener().open(
+            urllib.request.Request("https://private.invalid/api/machine/sessions/authorization")
+        )
     assert captured.value is error
     assert rows == [{"kind": "HTTPError", "status": 429}]

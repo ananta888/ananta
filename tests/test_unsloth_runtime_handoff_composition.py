@@ -194,10 +194,13 @@ def test_rollback_appends_previous_immutable_revision(tmp_path) -> None:
     assert rolled_back.revision == 3
     assert rolled_back.restored_from_revision == 1
     assert rolled_back.manifest["artifact"]["artifact_sha256"] == HASH_A
-    assert [item.operation for item in registry.history(
-        tenant_id="tenant-a",
-        endpoint_id="endpoint-a",
-    )] == ["handoff", "handoff", "rollback"]
+    assert [
+        item.operation
+        for item in registry.history(
+            tenant_id="tenant-a",
+            endpoint_id="endpoint-a",
+        )
+    ] == ["handoff", "handoff", "rollback"]
 
 
 def test_descriptors_reject_direct_provider_targets() -> None:

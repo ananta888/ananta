@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from agent.cli.status_snapshot import (
-    StatusSnapshot,
-    collect_status,
-    format_status_lines,
-    format_status_compact_right,
-    _format_duration,
-    _visible_length,
-    _shorten_path,
-    _repo_relative_path,
     COMPACT_HEADER_LINES,
+    StatusSnapshot,
+    _format_duration,
+    _repo_relative_path,
+    _shorten_path,
+    _visible_length,
+    collect_status,
+    format_status_compact_right,
+    format_status_lines,
 )
 
 

@@ -1,9 +1,8 @@
 """MDP-019 / MIMG-014/015: Tests for image node rasterization and adapter draw."""
+
 from __future__ import annotations
 
 import io
-
-import pytest
 
 from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
 from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
@@ -62,6 +61,7 @@ def _scene_with_diagram_node(fmt: str = "png", data: bytes = _FAKE_PNG) -> Rende
 
 # ── CpuRasterRenderer — diagram_image nodes (MIMG-007 / MDP-010) ──────────────
 
+
 def test_cpu_raster_accepts_diagram_image_node():
     renderer = CpuRasterRenderer(max_width=128, max_height=64)
     scene = _scene_with_diagram_node()
@@ -82,15 +82,19 @@ def test_cpu_raster_invalid_image_data_does_not_crash():
     renderer = CpuRasterRenderer(max_width=128, max_height=64)
     scene = RenderScene(
         scene_type="markdown_mermaid_document",
-        nodes=[{
-            "kind": "diagram_image",
-            "diagram_id": "bad_img",
-            "image_format": "png",
-            "image_data": b"NOT A PNG",
-            "x": 0, "y": 0,
-            "requested_width": 100, "requested_height": 50,
-            "alt_text": "broken",
-        }],
+        nodes=[
+            {
+                "kind": "diagram_image",
+                "diagram_id": "bad_img",
+                "image_format": "png",
+                "image_data": b"NOT A PNG",
+                "x": 0,
+                "y": 0,
+                "requested_width": 100,
+                "requested_height": 50,
+                "alt_text": "broken",
+            }
+        ],
         metadata={"animated": False},
     )
     frame = renderer.render(scene, width=128, height=64, context=RenderContext(now=1.0))
@@ -113,6 +117,7 @@ def test_cpu_raster_existing_label_nodes_still_rendered():
 
 
 # ── Kitty adapter (MIMG-010 / MDP-012) ───────────────────────────────────────
+
 
 def test_kitty_accepts_png_raster_frame():
     adapter = KittyOutputAdapter(supported=True, enabled=True)
@@ -160,6 +165,7 @@ def test_kitty_positions_at_viewport_origin():
 
 # ── Sixel adapter (MIMG-011 / MDP-013) ───────────────────────────────────────
 
+
 def test_sixel_unsupported_returns_drawn_false():
     adapter = SixelOutputAdapter(supported=False)
     out = io.StringIO()
@@ -178,6 +184,7 @@ def test_sixel_no_longer_emits_stub():
 def test_sixel_explicit_degraded_when_encoder_missing():
     """When Pillow is missing, Sixel must report degraded, not fake success."""
     import unittest.mock as mock
+
     adapter = SixelOutputAdapter(supported=True, enabled=True)
     out = io.StringIO()
     with mock.patch.dict("sys.modules", {"PIL": None, "PIL.Image": None}):
@@ -194,9 +201,11 @@ def test_sixel_supported_emits_dcs_and_st():
     out = io.StringIO()
     payload = bytes([200, 100, 50, 255] * 4)  # 2x2 RGBA
     from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame
+
     rgba_frame = RenderFrame(
         frame_type="raster",
-        width=2, height=2,
+        width=2,
+        height=2,
         payload={"pixels": payload, "width": 2, "height": 2, "mode": "RGBA"},
         mime_or_format="application/x-rgba",
         timestamp=1.0,
@@ -219,6 +228,7 @@ def test_sixel_disabled_returns_drawn_false():
 
 
 # ── Full path: scene → raster frame → kitty ───────────────────────────────────
+
 
 def test_cpu_raster_produces_frame_that_kitty_accepts():
     renderer = CpuRasterRenderer(max_width=64, max_height=32)

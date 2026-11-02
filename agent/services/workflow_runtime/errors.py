@@ -21,8 +21,7 @@ class ContractValidationError(ValueError):
 
     def __init__(self, *issues: ContractIssue | str):
         normalized = tuple(
-            issue if isinstance(issue, ContractIssue) else ContractIssue(code=str(issue))
-            for issue in issues
+            issue if isinstance(issue, ContractIssue) else ContractIssue(code=str(issue)) for issue in issues
         )
         self.issues = normalized
         super().__init__(", ".join(issue.code for issue in normalized) or "contract_invalid")
@@ -46,4 +45,3 @@ class SignatureValidationError(WorkflowRuntimeError):
 
 class UnsupportedSchemaVersion(WorkflowRuntimeError):
     """No deterministic migration path exists for a contract version."""
-

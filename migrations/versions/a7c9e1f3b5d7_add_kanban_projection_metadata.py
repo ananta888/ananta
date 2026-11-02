@@ -10,7 +10,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "a7c9e1f3b5d7"
 down_revision: str | None = "e68df4c5b7a9"
 branch_labels: str | Sequence[str] | None = None
@@ -45,4 +44,3 @@ def downgrade() -> None:
     op.drop_index("ix_tasks_kanban_position", table_name="tasks")
     op.drop_column("tasks", "kanban_revision")
     op.drop_column("tasks", "kanban_position")
-

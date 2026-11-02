@@ -8,13 +8,6 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from ananta_contracts.speech_adaptation_primitives import (
-    _artifact_ref,
-    _boolean,
-    canonical_sha256,
-    _closed,
-    _digest,
-    _identifier,
-    _integer,
     MAX_ARTIFACT_BYTES,
     MAX_BATCH_SIZE,
     MAX_CHECKPOINTS,
@@ -24,12 +17,19 @@ from ananta_contracts.speech_adaptation_primitives import (
     MAX_STEPS,
     MAX_VRAM_BYTES,
     MAX_WALL_SECONDS,
-    _number,
-    SpeechAdaptationContractError,
     SUPPORTED_BACKENDS,
     SUPPORTED_DIRECTIONS,
     SUPPORTED_SCENARIOS,
+    SpeechAdaptationContractError,
+    _artifact_ref,
+    _boolean,
+    _closed,
+    _digest,
+    _identifier,
+    _integer,
+    _number,
     _text,
+    canonical_sha256,
 )
 
 

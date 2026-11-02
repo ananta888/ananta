@@ -1,8 +1,7 @@
-import pytest
-from sqlmodel import Session, select
-from agent.db_models import RepairExecutionRecordDB, AgentInfoDB
-from worker.core.runtime_target import WorkerSelectionMode, SelectionDecisionStatus, WorkerKind, WorkerRuntimeKind
+from agent.db_models import AgentInfoDB
 from worker.core.execution_envelope import RepairExecutionResult, RepairResultVerdict
+from worker.core.runtime_target import WorkerKind, WorkerRuntimeKind, WorkerSelectionMode
+
 
 def test_repair_preview_selection_logic(client, admin_token, session):
     """DRR-T050/DRR-T055: Verify that preview returns deterministic selection."""
@@ -14,21 +13,16 @@ def test_repair_preview_selection_logic(client, admin_token, session):
         role="worker",
         status="online",
         capabilities=["patch_apply", "shell_execute"],
-        runtime_targets=[{
-            "runtime_target_id": "test-target",
-            "runtime_kind": "local_process",
-            "health_state": "ready"
-        }]
+        runtime_targets=[
+            {"runtime_target_id": "test-target", "runtime_kind": "local_process", "health_state": "ready"}
+        ],
     )
     session.add(agent)
     session.commit()
 
     preview_payload = {
         "matching_outcome": {"outcome": "matched", "best_problem_class": "python_syntax_error"},
-        "policy": {
-            "mode": "automatic",
-            "required_capabilities": ["patch_apply"]
-        }
+        "policy": {"mode": "automatic", "required_capabilities": ["patch_apply"]},
     }
 
     resp = client.post("/repair/preview", json=preview_payload, headers={"Authorization": f"Bearer {admin_token}"})
@@ -42,6 +36,7 @@ def test_repair_preview_selection_logic(client, admin_token, session):
     assert decision["selected_worker_id"] == "http://test-worker:5000"
     assert decision["selected_runtime_target_id"] == "test-target"
     assert "policy_decision_ref" in decision
+
 
 def test_repair_outcome_persistence_with_selection(session):
     """DRR-T049: Verify that selection metadata is persisted in RepairExecutionRecordDB."""
@@ -60,15 +55,15 @@ def test_repair_outcome_persistence_with_selection(session):
             selected_runtime_kind=WorkerRuntimeKind.local_process,
             selection_mode=WorkerSelectionMode.automatic,
             selection_reason="Test reason",
-            selection_decision_ref="ref-789"
+            selection_decision_ref="ref-789",
         ),
         actual_worker_runtime=SelectedWorkerRuntimeRef(
             selected_worker_id="worker-1",
             selected_worker_kind=WorkerKind.native_ananta_worker,
             selected_runtime_target_id="target-1",
             selected_runtime_kind=WorkerRuntimeKind.local_process,
-            selection_mode=WorkerSelectionMode.automatic
-        )
+            selection_mode=WorkerSelectionMode.automatic,
+        ),
     )
 
     db_record = persist_repair_execution_result(session, result)
@@ -80,6 +75,7 @@ def test_repair_outcome_persistence_with_selection(session):
     assert db_record.selection_decision_ref == "ref-789"
     assert db_record.actual_worker_id == "worker-1"
 
+
 def test_list_candidates_api(client, admin_token, session):
     """DRR-T050: Verify candidates listing API."""
 
@@ -90,19 +86,22 @@ def test_list_candidates_api(client, admin_token, session):
         role="worker",
         status="online",
         capabilities=["repair.execute"],
-        runtime_targets=[{"runtime_target_id": "rt-1", "runtime_kind": "docker_container"}]
+        runtime_targets=[{"runtime_target_id": "rt-1", "runtime_kind": "docker_container"}],
     )
     session.add(agent)
     session.commit()
 
-    resp = client.post("/repair/candidates", json={
-        "policy": {"mode": "automatic", "required_capabilities": ["repair.execute"]}
-    }, headers={"Authorization": f"Bearer {admin_token}"})
+    resp = client.post(
+        "/repair/candidates",
+        json={"policy": {"mode": "automatic", "required_capabilities": ["repair.execute"]}},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
 
     assert resp.status_code == 200
     data = resp.get_json()["data"]
     assert data["candidate_count"] >= 1
     assert any(c["worker_id"] == "http://candidate-worker:5000" for c in data["candidates"])
+
 
 def test_list_runtime_targets_api(client, admin_token):
     """DRR-T050: Verify runtime targets listing API."""

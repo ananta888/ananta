@@ -1,9 +1,9 @@
 """WorldState — versioniert, deterministisch, immutable-apply (SIM-003)."""
+
 from __future__ import annotations
 
 import hashlib
 import json
-from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,27 +16,32 @@ class AgentState:
     location_id: str
     alive: bool = True
     # Survival stats (SIM-008)
-    health: float = 1.0       # 0-1
-    hunger: float = 0.0       # 0-1 (1 = starving)
-    energy: float = 1.0       # 0-1
-    morale: float = 1.0       # 0-1
-    shelter_status: str = "outdoors"   # outdoors | sheltered | imprisoned
+    health: float = 1.0  # 0-1
+    hunger: float = 0.0  # 0-1 (1 = starving)
+    energy: float = 1.0  # 0-1
+    morale: float = 1.0  # 0-1
+    shelter_status: str = "outdoors"  # outdoors | sheltered | imprisoned
     # Resources on person
     inventory: dict[str, float] = field(default_factory=dict)
     # Memory (SIM-014)
     short_term_memory: list[dict[str, Any]] = field(default_factory=list)
     long_term_summary: str = ""
     # Social
-    reputation: float = 0.5   # 0-1
+    reputation: float = 0.5  # 0-1
     profile_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "name": self.name, "role": self.role,
-            "location_id": self.location_id, "alive": self.alive,
-            "health": self.health, "hunger": self.hunger,
-            "energy": self.energy, "morale": self.morale,
+            "id": self.id,
+            "name": self.name,
+            "role": self.role,
+            "location_id": self.location_id,
+            "alive": self.alive,
+            "health": self.health,
+            "hunger": self.hunger,
+            "energy": self.energy,
+            "morale": self.morale,
             "shelter_status": self.shelter_status,
             "inventory": dict(self.inventory),
             "reputation": self.reputation,
@@ -53,28 +58,35 @@ class LocationState:
     name: str
     resources: dict[str, float] = field(default_factory=dict)
     resource_regen: dict[str, float] = field(default_factory=dict)
-    occupants: list[str] = field(default_factory=list)   # agent ids
+    occupants: list[str] = field(default_factory=list)  # agent ids
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name,
-                "resources": dict(self.resources),
-                "occupants": list(self.occupants),
-                "metadata": dict(self.metadata)}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "resources": dict(self.resources),
+            "occupants": list(self.occupants),
+            "metadata": dict(self.metadata),
+        }
 
 
 @dataclass
 class SimEvent:
     tick: int
-    kind: str           # action_executed | action_denied | crime | death | governance | system
+    kind: str  # action_executed | action_denied | crime | death | governance | system
     actor_id: str | None
     description: str
     data: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"tick": self.tick, "kind": self.kind,
-                "actor_id": self.actor_id,
-                "description": self.description, "data": dict(self.data)}
+        return {
+            "tick": self.tick,
+            "kind": self.kind,
+            "actor_id": self.actor_id,
+            "description": self.description,
+            "data": dict(self.data),
+        }
 
 
 @dataclass
@@ -87,22 +99,32 @@ class LawState:
     active: bool = True
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "description": self.description,
-                "forbidden_actions": list(self.forbidden_actions),
-                "penalty": self.penalty, "severity": self.severity, "active": self.active}
+        return {
+            "id": self.id,
+            "description": self.description,
+            "forbidden_actions": list(self.forbidden_actions),
+            "penalty": self.penalty,
+            "severity": self.severity,
+            "active": self.active,
+        }
 
 
 @dataclass
 class InstitutionState:
     id: str
     name: str
-    kind: str       # government | market | court | guild
+    kind: str  # government | market | court | guild
     member_ids: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "kind": self.kind,
-                "member_ids": list(self.member_ids), "metadata": dict(self.metadata)}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "kind": self.kind,
+            "member_ids": list(self.member_ids),
+            "metadata": dict(self.metadata),
+        }
 
 
 class WorldState:
@@ -210,21 +232,27 @@ class WorldState:
 
 # ── RelationshipGraph (SIM-011) ───────────────────────────────────────────────
 
+
 @dataclass
 class Relationship:
     source_id: str
     target_id: str
-    trust: float = 0.0       # -1 to 1
-    fear: float = 0.0        # 0 to 1
+    trust: float = 0.0  # -1 to 1
+    fear: float = 0.0  # 0 to 1
     friendship: float = 0.0  # -1 to 1
-    hostility: float = 0.0   # 0 to 1
+    hostility: float = 0.0  # 0 to 1
     obligation: float = 0.0  # 0 to 1  (debt/favor)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"source_id": self.source_id, "target_id": self.target_id,
-                "trust": self.trust, "fear": self.fear,
-                "friendship": self.friendship, "hostility": self.hostility,
-                "obligation": self.obligation}
+        return {
+            "source_id": self.source_id,
+            "target_id": self.target_id,
+            "trust": self.trust,
+            "fear": self.fear,
+            "friendship": self.friendship,
+            "hostility": self.hostility,
+            "obligation": self.obligation,
+        }
 
 
 class RelationshipGraph:
@@ -245,8 +273,7 @@ class RelationshipGraph:
 
     def visible_to(self, agent_id: str, max_hops: int = 1) -> list[Relationship]:
         """Return relationships involving agent_id (local view)."""
-        return [r for r in self._edges.values()
-                if r.source_id == agent_id or r.target_id == agent_id]
+        return [r for r in self._edges.values() if r.source_id == agent_id or r.target_id == agent_id]
 
     def to_dict(self) -> dict[str, Any]:
         return {"edges": [r.as_dict() for r in self._edges.values()]}
@@ -254,6 +281,6 @@ class RelationshipGraph:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "RelationshipGraph":
         g = cls()
-        for e in (d.get("edges") or []):
+        for e in d.get("edges") or []:
             g._edges[(e["source_id"], e["target_id"])] = Relationship(**e)
         return g

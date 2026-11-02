@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from agent.routes.llm_interceptor_openai_compat import create_interceptor_app
 from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
 from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer
 
@@ -32,7 +33,7 @@ def _cfg_cloud() -> LlmInterceptorConfig:
 def test_prompt_text_cannot_disable_redaction_or_policy():
     injections = _fixture("prompt_injection_samples.json")["cases"]
     server = OpenAICompatInterceptorServer(_cfg_cloud())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat = lambda **_kwargs: {
         "id": "x",
         "object": "chat.completion",
@@ -43,14 +44,16 @@ def test_prompt_text_cannot_disable_redaction_or_policy():
     }
     client = app.test_client()
     for text in injections:
-        resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": text}]})
+        resp = client.post(
+            "/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": text}]}
+        )
         assert resp.status_code in {200, 403}
 
 
 def test_cloud_never_receives_blocked_local_context():
     snippets = _fixture("context_exfiltration_samples.json")["cases"]
     server = OpenAICompatInterceptorServer(_cfg_cloud())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     captured = {}
 
     def _fake_forward_chat(*, payload, envelope=None):
@@ -83,7 +86,7 @@ def test_cloud_never_receives_blocked_local_context():
 def test_provider_key_never_in_response_or_audit_shape():
     samples = _fixture("secret_samples.json")["cases"]
     server = OpenAICompatInterceptorServer(_cfg_cloud())
-    app = server.create_app()
+    app = create_interceptor_app(server)
     server._router.forward_chat = lambda **_kwargs: {
         "id": "x",
         "object": "chat.completion",
@@ -94,8 +97,10 @@ def test_provider_key_never_in_response_or_audit_shape():
     }
     client = app.test_client()
     for item in samples:
-        resp = client.post("/v1/chat/completions", json={"model": "intercepted-coder", "messages": [{"role": "user", "content": item["text"]}]})
+        resp = client.post(
+            "/v1/chat/completions",
+            json={"model": "intercepted-coder", "messages": [{"role": "user", "content": item["text"]}]},
+        )
         data = json.dumps(resp.get_json())
         assert "OPENROUTER_API_KEY" not in data
         assert "Bearer supersecrettoken123" not in data
-

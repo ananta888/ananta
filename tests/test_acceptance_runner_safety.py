@@ -1,14 +1,17 @@
 """ARD-003: Tests for DB reset safety guards in the acceptance runner."""
+
 from __future__ import annotations
 
 import sys
-import types
+
 import pytest
 
 
 def _import_helpers():
     """Import _is_local_base_url and reset_runtime_data without executing __main__ block."""
-    import importlib.util, pathlib
+    import importlib.util
+    import pathlib
+
     mod_name = "first_goal_acceptance_runner"
     if mod_name in sys.modules:
         return sys.modules[mod_name]
@@ -74,6 +77,7 @@ class TestProviderObserverSnapshot:
 
     def test_snapshot_returns_error_fallback_on_connection_failure(self, runner_mod):
         import unittest.mock as mock
+
         runner = mock.Mock()
         runner.base_url = "http://localhost:5000"
         runner.headers = {}
@@ -84,6 +88,7 @@ class TestProviderObserverSnapshot:
 
     def test_snapshot_returns_fallback_on_non_200(self, runner_mod):
         import unittest.mock as mock
+
         runner = mock.Mock()
         runner.base_url = "http://localhost:5000"
         runner.headers = {}
@@ -96,6 +101,7 @@ class TestProviderObserverSnapshot:
 
     def test_snapshot_returns_data_on_200(self, runner_mod):
         import unittest.mock as mock
+
         runner = mock.Mock()
         runner.base_url = "http://localhost:5000"
         runner.headers = {}
@@ -123,7 +129,7 @@ class TestCiSafeMode:
 
     def test_ci_safe_flag_in_argparser(self, runner_mod):
         """--ci-safe must be a recognized CLI argument."""
-        import argparse
+
         # Simulate parsing with --ci-safe
         # We can't call main() directly, so we test via the _CRITERION_STABLE_IDS and RunReport fields
         report = runner_mod.RunReport(run_index=1, ci_safe_mode=True, skipped_checks=["provider_stability"])

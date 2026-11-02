@@ -1,9 +1,9 @@
 """Tests for CaseFlow Core Domain Models (CASECORE-001)."""
+
 from __future__ import annotations
 
-import pytest
+from agent.caseflow.domain import get_case_type, register_case_type
 from agent.caseflow.models import CaseFlowCase, CaseTypeDefinition
-from agent.caseflow.domain import register_case_type, get_case_type, list_case_types
 
 
 class TestCaseFlowCase:

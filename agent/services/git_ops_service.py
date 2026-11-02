@@ -163,11 +163,12 @@ class GitOpsService:
         workspace_id: str | None,
         *,
         remote: str | None = None,
+        branch: str | None = None,
         credential_ref: str | None = None,
         approval_id: str | None = None,
     ) -> OpsActionResult:
         return self._mutations.fetch(
-            workspace_id, remote=remote, credential_ref=credential_ref, approval_id=approval_id
+            workspace_id, remote=remote, branch=branch, credential_ref=credential_ref, approval_id=approval_id
         )
 
     def pull(

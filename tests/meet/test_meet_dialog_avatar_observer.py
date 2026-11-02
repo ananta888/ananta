@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_avatar_observer import DialogAvatarObserver, configure_avatar_speech
-from tests.meet_dialog_interruption import SyntheticToneWorker
+from tests.meet.meet_dialog_avatar_observer import DialogAvatarObserver, configure_avatar_speech
+from tests.meet.meet_dialog_interruption import SyntheticToneWorker
 
 
 def test_explicit_gpu_mode_preserves_the_configured_worker_and_profile():

@@ -8,12 +8,12 @@ import pytest
 
 from agent.auth import resolve_configured_agent_token
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 from agent.services.model_recovery_signal import build_model_recovery_signal
 from agent.services.task_recovery_planning_service import (
     RECOVERY_MATERIALIZE_TOOL,
     TaskRecoveryPlanningService,
 )
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 class _PersistedRecoveryPlanner:
@@ -142,9 +142,7 @@ def _deterministic_child_id(
     node_id: str,
     node_key: str,
 ) -> str:
-    digest = hashlib.sha256(
-        f"{plan_id}\x00{node_id}\x00{node_key}".encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(f"{plan_id}\x00{node_id}\x00{node_key}".encode("utf-8")).hexdigest()
     return f"goal-{digest[:16]}"
 
 
@@ -258,15 +256,12 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
     )
     from agent.services.repository_registry import get_repository_registry
 
-    expect_auto_approval = bool(
-        expect_plan and expect_compaction and expect_segmented_plan
-    )
+    expect_auto_approval = bool(expect_plan and expect_compaction and expect_segmented_plan)
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_can_be_worker", False)
     monkeypatch.setattr(
-        "agent.services.workflow_worker_assignment_runtime"
-        ".bind_dispatched_workflow_task",
+        "agent.services.workflow_worker_assignment_runtime.bind_dispatched_workflow_task",
         lambda **_values: None,
     )
 
@@ -285,23 +280,15 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
             TaskDB(
                 id="task-recovery-flow",
                 title="Implement local model fallback",
-                description=(
-                    "Implement and verify the bounded Phi to Gemma fallback."
-                ),
+                description=("Implement and verify the bounded Phi to Gemma fallback."),
                 status="todo",
                 goal_id=goal.id,
                 goal_trace_id=goal.trace_id,
                 worker_execution_context={
                     "model_routing": {
-                        "preferred_profile_id": (
-                            "local_ollama_phi4_mini"
-                        ),
-                        "fallback_group_id": (
-                            "local_phi_to_gemma_reasoning"
-                        ),
-                        "context_recovery_strategies": list(
-                            recovery_actions
-                        ),
+                        "preferred_profile_id": ("local_ollama_phi4_mini"),
+                        "fallback_group_id": ("local_phi_to_gemma_reasoning"),
+                        "context_recovery_strategies": list(recovery_actions),
                         "require_approval_for_generated_plan": True,
                     }
                 },
@@ -326,6 +313,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
         )
         monkeypatch.setattr(recovery_module, "_service", recovery_service)
         if coordinator_raises:
+
             def raise_coordinator_error(
                 _executor,
                 **_values,
@@ -340,18 +328,10 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
             )
 
         agent_config = dict(app.config.get("AGENT_CONFIG") or {})
-        approval_lifecycle = dict(
-            agent_config.get("approval_lifecycle") or {}
-        )
-        auto_approval_policy = dict(
-            approval_lifecycle.get("auto_approval_policy") or {}
-        )
-        balanced_auto_approval = dict(
-            auto_approval_policy.get("balanced") or {}
-        )
-        balanced_auto_approval["recovery_plan_materialization"] = (
-            expect_auto_approval
-        )
+        approval_lifecycle = dict(agent_config.get("approval_lifecycle") or {})
+        auto_approval_policy = dict(approval_lifecycle.get("auto_approval_policy") or {})
+        balanced_auto_approval = dict(auto_approval_policy.get("balanced") or {})
+        balanced_auto_approval["recovery_plan_materialization"] = expect_auto_approval
         auto_approval_policy["balanced"] = balanced_auto_approval
         approval_lifecycle["auto_approval_policy"] = auto_approval_policy
         agent_config.update(
@@ -379,9 +359,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
                 "state": "exhausted",
                 "terminal": True,
                 "reason_code": "model_fallback_exhausted",
-                "terminal_reason": (
-                    "provider_attempt_plan_sequence_denied"
-                ),
+                "terminal_reason": ("provider_attempt_plan_sequence_denied"),
                 "fallback_decisions": [],
                 "llm_calls": [],
             }
@@ -422,25 +400,17 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
         pending_source = repositories.task_repo.get_by_id(source_task.id)
         if invalid_terminal_signal:
             assert pending_source.status == "waiting_for_review"
-            assert pending_source.status_reason_code == (
-                "invalid_terminal_model_recovery_signal"
-            )
-            assert "model_recovery" not in dict(
-                pending_source.status_reason_details or {}
-            )
+            assert pending_source.status_reason_code == ("invalid_terminal_model_recovery_signal")
+            assert "model_recovery" not in dict(pending_source.status_reason_details or {})
             assert planner.calls == []
-            assert len(
-                repositories.task_repo.get_by_goal_id(goal.id)
-            ) == 1
+            assert len(repositories.task_repo.get_by_goal_id(goal.id)) == 1
             autonomous_loop.tick_once()
             assert len(forwarded) == 1
             return
 
         if coordinator_raises:
             assert pending_source.status == "waiting_for_review"
-            assert pending_source.status_reason_code == (
-                "task_recovery_coordinator_failed"
-            )
+            assert pending_source.status_reason_code == ("task_recovery_coordinator_failed")
             assert planner.calls == []
             autonomous_loop.tick_once()
             assert len(forwarded) == 1
@@ -448,26 +418,14 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
 
         if not expect_plan:
             assert pending_source.status == "waiting_for_review"
-            expected_reason = (
-                "model_recovery_disabled"
-                if not recovery_actions
-                else "model_recovery_stop_selected"
-            )
+            expected_reason = "model_recovery_disabled" if not recovery_actions else "model_recovery_stop_selected"
             assert pending_source.status_reason_code == expected_reason
-            strategy_state = pending_source.status_reason_details[
-                "model_recovery_strategy"
-            ]
+            strategy_state = pending_source.status_reason_details["model_recovery_strategy"]
             assert strategy_state["reason_code"] == expected_reason
-            assert bool(strategy_state["compaction"]) is (
-                expect_compaction
-            )
-            assert "model_recovery" not in dict(
-                pending_source.status_reason_details or {}
-            )
+            assert bool(strategy_state["compaction"]) is (expect_compaction)
+            assert "model_recovery" not in dict(pending_source.status_reason_details or {})
             assert planner.calls == []
-            assert len(
-                repositories.task_repo.get_by_goal_id(goal.id)
-            ) == 1
+            assert len(repositories.task_repo.get_by_goal_id(goal.id)) == 1
             autonomous_loop.tick_once()
             assert len(forwarded) == 1
             return
@@ -479,9 +437,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
         assert plan_id == "recovery-plan-flow"
         assert len(repositories.task_repo.get_by_goal_id(goal.id)) == 1
         assert len(planner.calls) == 1
-        assert planner.calls[0]["mode_data"]["segment_planning"] is (
-            expect_segmented_plan
-        )
+        assert planner.calls[0]["mode_data"]["segment_planning"] is (expect_segmented_plan)
 
         pending_plan = repositories.plan_repo.get_by_id(plan_id)
         assert pending_plan.status == "pending_approval"
@@ -491,39 +447,24 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
             "local_ollama_phi4_mini",
             "local_ollama_gemma4_e4b_reasoning",
         }
-        compaction_status = str(
-            pending_plan.rationale["compaction"].get("status")
-            or ""
-        )
-        assert (
-            compaction_status != "bounded_without_compactor"
-        ) is expect_compaction
+        compaction_status = str(pending_plan.rationale["compaction"].get("status") or "")
+        assert (compaction_status != "bounded_without_compactor") is expect_compaction
         approval = get_approval_request_service().get_request(approval_id)
         assert approval.tool_name == RECOVERY_MATERIALIZE_TOOL
-        assert approval.status == (
-            "granted" if expect_auto_approval else "pending"
-        )
+        assert approval.status == ("granted" if expect_auto_approval else "pending")
         if expect_auto_approval:
             assert approval.decided_by == "auto_policy"
-            assert approval.decision_reason == (
-                "auto_approved:recovery_plan_materialization"
-            )
+            assert approval.decision_reason == ("auto_approved:recovery_plan_materialization")
 
     if expect_auto_approval:
         with app.app_context():
-            reconciliation = (
-                get_approval_request_service()
-                .reconcile_granted_domain_actions()
-            )
+            reconciliation = get_approval_request_service().reconcile_granted_domain_actions()
         assert reconciliation["completed"] == 1
         assert reconciliation["failed"] == 0
     else:
         decision = client.post(
             f"/api/approvals/{approval_id}/decision",
-            headers={
-                "Authorization": "Bearer "
-                + str(resolve_configured_agent_token(app.config) or "")
-            },
+            headers={"Authorization": "Bearer " + str(resolve_configured_agent_token(app.config) or "")},
             json={
                 "decision": "granted",
                 "reason": "approved deterministic recovery plan",
@@ -542,10 +483,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
             )
             for node in nodes
         ]
-        children = [
-            repositories.task_repo.get_by_id(task_id)
-            for task_id in expected_child_ids
-        ]
+        children = [repositories.task_repo.get_by_id(task_id) for task_id in expected_child_ids]
 
         assert all(child is not None for child in children)
         assert [child.status for child in children] == [
@@ -566,14 +504,8 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
         assert children[1].depends_on == [expected_child_ids[0]]
         assert children[2].depends_on == [expected_child_ids[1]]
 
-        materialized_source = repositories.task_repo.get_by_id(
-            source_task.id
-        )
+        materialized_source = repositories.task_repo.get_by_id(source_task.id)
         assert materialized_source.status == "blocked_by_dependency"
         assert materialized_source.depends_on == expected_child_ids
-        assert repositories.plan_repo.get_by_id(plan_id).status == (
-            "materialized"
-        )
-        assert get_approval_request_service().get_request(
-            approval_id
-        ).status == "consumed"
+        assert repositories.plan_repo.get_by_id(plan_id).status == ("materialized")
+        assert get_approval_request_service().get_request(approval_id).status == "consumed"

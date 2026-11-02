@@ -20,7 +20,6 @@ from tests.e2e.mail_ananta_composition_harness import (
 )
 from worker import mail_task_composition
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SECRET_ROOT = ROOT / "tests/fixtures/jmap/secrets"
 PASSWORD_FILE = SECRET_ROOT / "alice-password"
@@ -85,9 +84,7 @@ class StateFailureJmapAdapter(ContractJmapAdapter):
                     ]
                 )
             else:
-                responses.append(
-                    [method, self._method(method, dict(arguments)), call_id]
-                )
+                responses.append([method, self._method(method, dict(arguments)), call_id])
         return self._response(request, {"methodResponses": responses})
 
     def _method(self, method: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
@@ -182,10 +179,7 @@ class StateFailureJmapAdapter(ContractJmapAdapter):
             "oldQueryState": old,
             "newQueryState": new,
             "hasMoreChanges": has_more,
-            "added": [
-                {"id": email_id, "index": index}
-                for index, email_id in enumerate(added)
-            ],
+            "added": [{"id": email_id, "index": index} for index, email_id in enumerate(added)],
             "removed": list(removed),
             "total": 0,
         }
@@ -279,9 +273,7 @@ def test_paginated_changes_then_bounded_cannot_calculate_rebuild(
         assert paged_calls.count("Email/changes") == 2
         assert paged_calls.count("Email/queryChanges") == 2
         assert _provider_ids(harness) == ["E1", "E2", "E3"]
-        assert _checkpoint(
-            harness.data_root / "runtime-state-v1.sqlite3"
-        ) == {
+        assert _checkpoint(harness.data_root / "runtime-state-v1.sqlite3") == {
             "mailbox_state": "mailbox-state-2",
             "email_state": "email-state-3",
             "query_state": "query-state-3",
@@ -345,9 +337,7 @@ def test_crash_rolls_back_and_restart_resumes_without_duplicate_or_state_skip(
         assert crashed["status"] == "failed"
         assert crashed["reason_code"] == "mail_metadata_apply_failed"
         assert _provider_ids(crashing_harness) == ["E1", "E2"]
-        assert _checkpoint(
-            crashing_harness.data_root / "runtime-state-v1.sqlite3"
-        )["revision"] == 1
+        assert _checkpoint(crashing_harness.data_root / "runtime-state-v1.sqlite3")["revision"] == 1
 
         resumed_harness = _harness(tmp_path, intent_hub)
         resumed = resumed_harness.run("sync")
@@ -364,9 +354,7 @@ def test_crash_rolls_back_and_restart_resumes_without_duplicate_or_state_skip(
         "destroyed_count": 0,
         "rebuild_count": 0,
     }
-    assert _checkpoint(
-        resumed_harness.data_root / "runtime-state-v1.sqlite3"
-    ) == {
+    assert _checkpoint(resumed_harness.data_root / "runtime-state-v1.sqlite3") == {
         "mailbox_state": "mailbox-state-2",
         "email_state": "email-state-2",
         "query_state": "query-state-2",
@@ -426,9 +414,7 @@ def test_cas_conflict_fails_without_partial_metadata_and_rolls_back(
     assert conflicted["reason_code"] == "mail_sync_concurrent_update"
     assert conflicted["retryable"] is True
     assert _provider_ids(conflicting_harness) == ["E1", "E2"]
-    checkpoint = _checkpoint(
-        conflicting_harness.data_root / "runtime-state-v1.sqlite3"
-    )
+    checkpoint = _checkpoint(conflicting_harness.data_root / "runtime-state-v1.sqlite3")
     assert checkpoint["revision"] == 2
     assert checkpoint["email_state"] == "email-state-1"
     assert_reference_only_results(

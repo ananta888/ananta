@@ -45,9 +45,7 @@ class VoiceTaskTerminalService:
         normalized_status = normalize_task_status(status)
         recovery_completion = False
         with Session(engine) as session:
-            task = session.exec(
-                select(TaskDB).where(TaskDB.id == task_id)
-            ).first()
+            task = session.exec(select(TaskDB).where(TaskDB.id == task_id)).first()
             if task is None or str(task.task_kind or "") not in _VOICE_TASK_KINDS:
                 return False
             previous_status = str(task.status or "")
@@ -68,19 +66,12 @@ class VoiceTaskTerminalService:
             task_id,
             normalized_status,
             expected_statuses={previous_status},
-            authoritative_predicate=lambda authoritative: (
-                str(authoritative.task_kind or "")
-                in _VOICE_TASK_KINDS
-            ),
+            authoritative_predicate=lambda authoritative: str(authoritative.task_kind or "") in _VOICE_TASK_KINDS,
             event_type=event_type,
             event_actor=event_actor,
             event_details=dict(event_details or {}),
             force=recovery_completion,
-            **{
-                key: value
-                for key, value in fields.items()
-                if key in _MUTABLE_FIELDS
-            },
+            **{key: value for key, value in fields.items() if key in _MUTABLE_FIELDS},
         )
 
 

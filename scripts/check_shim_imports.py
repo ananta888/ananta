@@ -19,6 +19,7 @@ Usage:
                                                    on remaining imports
   python scripts/check_shim_imports.py --json     # JSON output
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,9 +66,7 @@ FROM_SHIM_RE = re.compile(
 )
 # Plain `import team_blueprint_service` (rare) — treat the whole module
 # as a shim hit.
-IMPORT_SHIM_RE = re.compile(
-    r"(?<![\w.])import\s+agent\.services\.team_blueprint_service\b"
-)
+IMPORT_SHIM_RE = re.compile(r"(?<![\w.])import\s+agent\.services\.team_blueprint_service\b")
 
 
 def _iter_python_files() -> list[Path]:
@@ -130,23 +129,27 @@ def scan() -> list[dict]:
                 continue
             # Compute line number
             line_no = text[: match.start()].count("\n") + 1
-            hits.append({
-                "file": rel,
-                "line": line_no,
-                "symbols": recognized,
-                "kind": "from_import",
-            })
+            hits.append(
+                {
+                    "file": rel,
+                    "line": line_no,
+                    "symbols": recognized,
+                    "kind": "from_import",
+                }
+            )
         for match in IMPORT_SHIM_RE.finditer(text):
             # The detector script itself contains the literal module
             # path inside its regex; the earlier path-skip already
             # handled it, so this loop won't see it.
             line_no = text[: match.start()].count("\n") + 1
-            hits.append({
-                "file": rel,
-                "line": line_no,
-                "symbols": ["<module>"],
-                "kind": "import_module",
-            })
+            hits.append(
+                {
+                    "file": rel,
+                    "line": line_no,
+                    "symbols": ["<module>"],
+                    "kind": "import_module",
+                }
+            )
     return hits
 
 

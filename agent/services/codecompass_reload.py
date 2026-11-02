@@ -6,6 +6,7 @@ so this module never touches the filesystem or the LLM.
 
 Contract reference: ``docs/contracts/codecompass-context-reload-request.md``.
 """
+
 from __future__ import annotations
 
 import os

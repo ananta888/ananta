@@ -39,9 +39,13 @@ def test_source_reads_do_not_synchronize_or_mutate_builtins(monkeypatch) -> None
         lambda: SimpleNamespace(list_sources=lambda **_kwargs: []),
     )
 
-    response = _app().test_client().get(
-        "/sources",
-        headers=_headers("user"),
+    response = (
+        _app()
+        .test_client()
+        .get(
+            "/sources",
+            headers=_headers("user"),
+        )
     )
 
     assert response.status_code == 200
@@ -77,10 +81,14 @@ def test_admin_can_run_explicit_builtin_sync(monkeypatch) -> None:
         lambda: 3,
     )
 
-    response = _app().test_client().post(
-        "/sources/actions/sync-builtins",
-        json={},
-        headers=_headers("admin"),
+    response = (
+        _app()
+        .test_client()
+        .post(
+            "/sources/actions/sync-builtins",
+            json={},
+            headers=_headers("admin"),
+        )
     )
 
     assert response.status_code == 200

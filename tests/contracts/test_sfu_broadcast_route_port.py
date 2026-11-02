@@ -21,7 +21,6 @@ from agent.services.sfu_broadcast_route_port import (
     RevokeRoutePortV1,
     RouteKeyV1,
     RouteLayerV1,
-    RouteOperationV1,
     RouteOutcomeV1,
     RoutePresenceV1,
     RouteProjectionV1,
@@ -32,7 +31,6 @@ from agent.services.sfu_broadcast_route_port import (
     UpdateRouteCommandV1,
     UpdateRoutePortV1,
 )
-
 
 NOW_MS = 1_900_000_000_000
 

@@ -228,9 +228,7 @@ class ScientificSkillCatalogEntry:
         ):
             raise ScientificSkillCatalogError("scientific_skill_catalog_entry_policy_invalid")
         if self.status is ScientificSkillCatalogEntryStatus.APPROVED:
-            if not isinstance(self.approval_receipt_digest, str) or not _DIGEST.fullmatch(
-                self.approval_receipt_digest
-            ):
+            if not isinstance(self.approval_receipt_digest, str) or not _DIGEST.fullmatch(self.approval_receipt_digest):
                 raise ScientificSkillCatalogError("scientific_skill_catalog_approval_invalid")
         elif self.approval_receipt_digest is not None:
             raise ScientificSkillCatalogError("scientific_skill_catalog_approval_invalid")
@@ -343,9 +341,7 @@ class ScientificSkillCatalog:
         ):
             raise ScientificSkillCatalogError("scientific_skill_catalog_shape_invalid")
         approved_names = [
-            entry.skill_name
-            for entry in self.entries
-            if entry.status is ScientificSkillCatalogEntryStatus.APPROVED
+            entry.skill_name for entry in self.entries if entry.status is ScientificSkillCatalogEntryStatus.APPROVED
         ]
         if len(set(approved_names)) != len(approved_names):
             raise ScientificSkillCatalogError("scientific_skill_catalog_approved_entry_ambiguous")
@@ -412,7 +408,8 @@ class ScientificSkillCatalogService:
         elif entry.allowed_mode is ScientificSkillOperatingMode.READ_ONLY_RESEARCH:
             if (
                 not set(entry.allowed_tools).issubset({"source_lookup", "artifact_read", "citation_search"})
-                or entry.approval_level not in {
+                or entry.approval_level
+                not in {
                     ScientificSkillApprovalLevel.NONE,
                     ScientificSkillApprovalLevel.SOURCE_ACCESS,
                 }

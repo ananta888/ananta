@@ -15,9 +15,14 @@ ROLES = {role_id: spec["grants"] for role_id, spec in BUILTIN_ROLES.items()}
 ROLES["no-grep"] = {"allow_groups": ["ananta.tool.read.v1"], "deny_operations": ["ananta.tool.repo.grep"]}
 REGISTRY = get_operation_registry_service()
 POLICY = OperationPolicyService(REGISTRY)
-ENFORCED = {"enabled": True, "enforced_transports": ["mcp.tool", "mcp.resource", "ananta.tool"],
-            "allowed_auth_sources": ["user_jwt"], "allow_groups": ["mcp.read.v1"],
-            "require_admin_for_access_classes": ["write", "admin"], "require_approval_for_risks": ["critical"]}
+ENFORCED = {
+    "enabled": True,
+    "enforced_transports": ["mcp.tool", "mcp.resource", "ananta.tool"],
+    "allowed_auth_sources": ["user_jwt"],
+    "allow_groups": ["mcp.read.v1"],
+    "require_admin_for_access_classes": ["write", "admin"],
+    "require_approval_for_risks": ["critical"],
+}
 
 
 def grants(*role_ids):
@@ -33,15 +38,26 @@ def test_worker_tools_are_operations_in_three_groups():
     assert descriptor.transport == "ananta.tool" and descriptor.access_class == "write" and descriptor.side_effecting
 
 
-@pytest.mark.parametrize("role, tool, allowed", [
-    ("viewer", "codecompass.search", True), ("viewer", "test.run", False), ("viewer", "repo.write_file", False),
-    ("developer", "test.run", True), ("developer", "repo.apply_patch", False),
-    ("maintainer", "repo.apply_patch", True), ("admin", "repo.write_file", True),
-    ("no-grep", "codecompass.search", True), ("no-grep", "repo.grep", False),
-])
+@pytest.mark.parametrize(
+    "role, tool, allowed",
+    [
+        ("viewer", "codecompass.search", True),
+        ("viewer", "test.run", False),
+        ("viewer", "repo.write_file", False),
+        ("developer", "test.run", True),
+        ("developer", "repo.apply_patch", False),
+        ("maintainer", "repo.apply_patch", True),
+        ("admin", "repo.write_file", True),
+        ("no-grep", "codecompass.search", True),
+        ("no-grep", "repo.grep", False),
+    ],
+)
 def test_builtin_roles_decide_worker_tools(role, tool, allowed):
-    decision = POLICY.decide(REGISTRY.get(ananta_tool_operation_id(tool)), ENFORCED,
-                             OperationAuthContext(auth_source="user_jwt", grants=grants(role)))
+    decision = POLICY.decide(
+        REGISTRY.get(ananta_tool_operation_id(tool)),
+        ENFORCED,
+        OperationAuthContext(auth_source="user_jwt", grants=grants(role)),
+    )
     assert decision.allowed is allowed, decision
 
 
@@ -54,8 +70,11 @@ def test_without_bound_roles_the_global_policy_decides_as_before():
 
 def test_a_global_deny_beats_every_role_and_a_disabled_operation_stays_disabled():
     denied = {**ENFORCED, "deny_operations": [ananta_tool_operation_id("repo.grep")]}
-    decision = POLICY.decide(REGISTRY.get(ananta_tool_operation_id("repo.grep")), denied,
-                             OperationAuthContext(auth_source="user_jwt", grants=grants("admin")))
+    decision = POLICY.decide(
+        REGISTRY.get(ananta_tool_operation_id("repo.grep")),
+        denied,
+        OperationAuthContext(auth_source="user_jwt", grants=grants("admin")),
+    )
     assert not decision.allowed and decision.reason_code == "operation_explicitly_denied"
 
 

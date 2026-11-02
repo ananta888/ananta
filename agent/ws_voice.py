@@ -220,16 +220,12 @@ class VoiceWebSocketSession:
                 raise HubVoiceStreamError("voice_stream.start_required", "start must be the first message", 409)
             idempotency_key = str(payload.get("idempotency_key") or "").strip()
             if not idempotency_key or len(idempotency_key) > 200:
-                raise HubVoiceStreamError(
-                    "voice_stream.idempotency_required", "start requires an idempotency key", 422
-                )
+                raise HubVoiceStreamError("voice_stream.idempotency_required", "start requires an idempotency key", 422)
             created = self._client.create(
                 {
                     "filename": str(payload.get("filename") or "stream.pcm")[:255],
                     "language": str(payload.get("language") or "")[:32] or None,
-                    "media_type": str(
-                        payload.get("media_type") or "audio/pcm;rate=16000;channels=1"
-                    )[:128],
+                    "media_type": str(payload.get("media_type") or "audio/pcm;rate=16000;channels=1")[:128],
                     "deadline_seconds": payload.get("deadline_seconds"),
                     "profile_id": str(payload.get("profile_id") or "default")[:128],
                 },

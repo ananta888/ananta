@@ -20,7 +20,7 @@ def test_killed_child_leaves_only_parent_owned_scratch_then_task_close_removes_i
     root = Path(scratch.environment["CUDA_CACHE_PATH"])
     temporary = Path(scratch.environment["TMPDIR"])
     marker = temporary / "child-observation.json"
-    code = '''
+    code = """
 import json,sys,tempfile,time
 from pathlib import Path
 sys.stdin.readline()
@@ -29,12 +29,14 @@ with tempfile.TemporaryDirectory(prefix="synthetic-wave-") as directory:
  target.write_bytes(b"synthetic-private-audio")
  (Path(tempfile.gettempdir())/"child-observation.json").write_text(json.dumps(str(target)))
  time.sleep(30)
-'''
+"""
     options = {"command": (sys.executable, "-u", "-c", code), "environment": os.environ | scratch.environment}
     process = CompanionExecutionProcess(**options) if kind == "speech" else CompanionMediaPreparationProcess(**options)
+
     def interrupt():
         if marker.exists():
             raise CompanionSourceInterrupted("synthetic_speech_retired")
+
     try:
         with pytest.raises(CompanionSourceInterrupted):
             if kind == "speech":

@@ -1,4 +1,5 @@
 """X86CC-004: Input taxonomy and X86InputRecord for the x86 extension."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -61,11 +62,15 @@ class X86InputRecord:
         if not self.kind:
             issues.append(x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, "kind is required"))
         elif self.kind not in ALL_INPUT_KINDS:
-            issues.append(x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, f"unknown input kind: {self.kind}", severity="warning"))
+            issues.append(
+                x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, f"unknown input kind: {self.kind}", severity="warning")
+            )
         if not self.architecture:
             issues.append(x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, "architecture is required"))
         if self.bitness not in VALID_BITNESS:
-            issues.append(x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, f"invalid bitness: {self.bitness}", severity="warning"))
+            issues.append(
+                x86_diag_dict(INPUT_CONTEXT_INCOMPLETE, f"invalid bitness: {self.bitness}", severity="warning")
+            )
         return issues
 
     def as_dict(self) -> dict[str, Any]:

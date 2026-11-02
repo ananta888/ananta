@@ -3,6 +3,7 @@
 Each test names the bypass class it prevents.
 Runs without external services or API keys.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -10,16 +11,17 @@ import pytest
 
 def _make_envelope(**kwargs):
     from tests.worker.test_awf_worker_fixup_t031_t045 import _make_envelope as _env
+
     return _env(**kwargs)
 
 
 class TestWorkerSecurityRegression:
-
     def test_policy_missing_denies_execution(self):
         # BYPASS: missing policy → worker executes without classification
         from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         rt = StandaloneRuntime(
             policy_port=_DenyPolicyPort(),
             trace_port=_ListTracePort(),
@@ -44,8 +46,11 @@ class TestWorkerSecurityRegression:
         # BYPASS: shell_execute without approval_ref → PreflightGate must block
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
         from worker.core.preflight import PreflightGate
+
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
+            task_id="t-1",
+            actor_ref="hub",
+            audit_correlation_id="a",
             context_envelope_ref="ctx",
             capability_grant=CapabilityGrant(capabilities=["shell_execute"]),
         )
@@ -56,18 +61,21 @@ class TestWorkerSecurityRegression:
     def test_tool_not_registered_denied(self):
         # BYPASS: calling unregistered tool skips all resource/policy enforcement
         from worker.core.tool_registry import WorkerToolRegistry
+
         reg = WorkerToolRegistry()
         assert reg.is_registered("custom_dangerous_tool") is False
 
     def test_cloud_block_on_confidential_context(self):
         # BYPASS: confidential context leaks to cloud provider
-        from worker.core.context_resolver import (
-            ContextSensitivityFilter, ContextBlock, ContextSensitivity
-        )
+        from worker.core.context_resolver import ContextBlock, ContextSensitivity, ContextSensitivityFilter
+
         f = ContextSensitivityFilter()
         secret_block = ContextBlock(
-            source_type="file", origin_id="creds.json", provenance="p",
-            sensitivity=ContextSensitivity.secret, content="SECRET_TOKEN=abc",
+            source_type="file",
+            origin_id="creds.json",
+            provenance="p",
+            sensitivity=ContextSensitivity.secret,
+            content="SECRET_TOKEN=abc",
         )
         kept, redacted = f.filter_for_cloud([secret_block])
         assert kept == []
@@ -76,6 +84,7 @@ class TestWorkerSecurityRegression:
     def test_memory_redaction_before_persist(self):
         # BYPASS: raw secrets written to memory DB
         from worker.core.redaction import redact_text
+
         raw = "API_KEY=sk-supersecret123"
         redacted = redact_text(raw)
         assert "sk-supersecret123" not in redacted
@@ -91,25 +100,34 @@ class TestWorkerSecurityRegression:
     def test_skill_unsafe_manifest_rejected(self):
         # BYPASS: high-risk shell skill loaded with low risk_class
         from worker.skills.skill_manifest import SkillManifest, validate_skill_manifest
+
         m = SkillManifest(
-            id="evil_skill", version="1.0", name="Evil", description="bad",
-            required_capabilities=[], allowed_tools=["run_shell"],
-            denied_tools=[], risk_class="low",
+            id="evil_skill",
+            version="1.0",
+            name="Evil",
+            description="bad",
+            required_capabilities=[],
+            allowed_tools=["run_shell"],
+            denied_tools=[],
+            risk_class="low",
         )
         errors = validate_skill_manifest(m)
         assert any("risk_class_too_low" in e for e in errors)
 
     def test_skill_disabled_by_default_cannot_run(self):
         # BYPASS: skill auto-enabled and executed before review
+        from tests.worker.test_awf_worker_fixup_t021_t030 import _minimal_manifest
+        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
-        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
-        from tests.worker.test_awf_worker_fixup_t021_t030 import _minimal_manifest
+
         reg = SkillRegistry()
         reg.register(_minimal_manifest())
         runner = SkillRunner(reg)
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
+            task_id="t-1",
+            actor_ref="hub",
+            audit_correlation_id="a",
             context_envelope_ref="ctx",
             capability_grant=CapabilityGrant(capabilities=["skill_execute"]),
         )
@@ -120,16 +138,21 @@ class TestWorkerSecurityRegression:
     def test_unknown_audit_event_raises(self):
         # BYPASS: arbitrary event bypasses audit gate
         from worker.core.audit_events import emit_worker_audit_event
+
         with pytest.raises(ValueError):
             emit_worker_audit_event(event_type="not_a_real_event", task_id="t-1")
 
     def test_code_aware_mode_without_context_denied(self):
         # BYPASS: code-aware mode runs without context ref (no grounding)
         from tests.worker.test_awf_worker_fixup_t001_t010 import (
-            _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort, _todo_contract,
+            _AllowPolicyPort,
+            _ListTracePort,
+            _ManifestArtifactPort,
+            _todo_contract,
         )
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         rt = StandaloneRuntime(
             policy_port=_AllowPolicyPort(),
             trace_port=_ListTracePort(),

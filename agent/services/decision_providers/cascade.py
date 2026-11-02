@@ -69,9 +69,14 @@ class _Thresholds:
 
 
 class CascadeStage:
-    def __init__(self, provider: DecisionProvider, min_confidence: float = 0.9,
-                 question_thresholds: Mapping[str, float] | None = None, *,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        provider: DecisionProvider,
+        min_confidence: float = 0.9,
+        question_thresholds: Mapping[str, float] | None = None,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.provider = provider
         self.stage_id = provider.provider_id
         self._thresholds = _Thresholds(float(min_confidence), dict(question_thresholds or {}))
@@ -117,20 +122,39 @@ def merge_agreeing(results: Sequence[DecisionResult], stage_id: str) -> Decision
     answers = {}
     for key, answer in first.answers.items():
         confidence = min(result.answers[key].confidence for result in results)
-        answers[key] = DecisionAnswer(answer.key, answer.kind, choice=answer.choice, score=answer.score,
-                                      probability=answer.probability, probabilities=dict(answer.probabilities),
-                                      confidence=confidence)
-    usage = DecisionUsage(sum(r.usage.input_tokens for r in results), sum(r.usage.output_tokens for r in results),
-                          round(sum(r.usage.cost_usd for r in results), 9))
-    return DecisionResult(provider_id=stage_id, model="+".join(r.model for r in results), answers=answers,
-                          usage=usage, latency_ms=max(r.latency_ms for r in results),
-                          request_id=",".join(r.request_id for r in results if r.request_id) or None)
+        answers[key] = DecisionAnswer(
+            answer.key,
+            answer.kind,
+            choice=answer.choice,
+            score=answer.score,
+            probability=answer.probability,
+            probabilities=dict(answer.probabilities),
+            confidence=confidence,
+        )
+    usage = DecisionUsage(
+        sum(r.usage.input_tokens for r in results),
+        sum(r.usage.output_tokens for r in results),
+        round(sum(r.usage.cost_usd for r in results), 9),
+    )
+    return DecisionResult(
+        provider_id=stage_id,
+        model="+".join(r.model for r in results),
+        answers=answers,
+        usage=usage,
+        latency_ms=max(r.latency_ms for r in results),
+        request_id=",".join(r.request_id for r in results if r.request_id) or None,
+    )
 
 
 class AgreementStage:
-    def __init__(self, providers: Sequence[DecisionProvider], min_confidence: float = 0.9,
-                 question_thresholds: Mapping[str, float] | None = None, *,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        providers: Sequence[DecisionProvider],
+        min_confidence: float = 0.9,
+        question_thresholds: Mapping[str, float] | None = None,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         if len(providers) < 2:
             raise ValueError("agreement_requires_two_providers")
         self.providers = tuple(providers)
@@ -151,8 +175,15 @@ class AgreementStage:
                 try:
                     results.append(future.result())
                 except DecisionProviderError as error:
-                    return (StageTrace(self.stage_id, "error", f"{provider.provider_id}:{error.reason_code}",
-                                       (self._clock() - started) * 1000.0), None)
+                    return (
+                        StageTrace(
+                            self.stage_id,
+                            "error",
+                            f"{provider.provider_id}:{error.reason_code}",
+                            (self._clock() - started) * 1000.0,
+                        ),
+                        None,
+                    )
         latency = (self._clock() - started) * 1000.0
         lowest = min(self._thresholds.shortfall(request, r)[1] for r in results)
         for question in request.questions:
@@ -187,14 +218,18 @@ class CascadeOutcome:
         return any(stage.outcome == "disagreement" for stage in self.trace)
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"deferred": self.deferred, "decided_by": self.decided_by,
-                "result": self.result.to_mapping() if self.result else None,
-                "trace": [stage.__dict__ for stage in self.trace]}
+        return {
+            "deferred": self.deferred,
+            "decided_by": self.decided_by,
+            "result": self.result.to_mapping() if self.result else None,
+            "trace": [stage.__dict__ for stage in self.trace],
+        }
 
 
 class DecisionCascade:
-    def __init__(self, stages: Sequence[Stage], *, deadline_seconds: float = 30.0,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self, stages: Sequence[Stage], *, deadline_seconds: float = 30.0, clock: Callable[[], float] = time.monotonic
+    ) -> None:
         if not stages:
             raise ValueError("cascade_requires_stages")
         self._stages = tuple(stages)

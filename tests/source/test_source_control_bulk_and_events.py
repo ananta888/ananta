@@ -7,8 +7,8 @@ import pytest
 from agent.services.source_control_bulk_service import (
     BulkAuthorization,
     BulkIdempotencyClaim,
-    BulkTargetCheckpoint,
     BulkTarget,
+    BulkTargetCheckpoint,
     SourceControlBulkError,
     SourceControlBulkService,
 )
@@ -29,11 +29,7 @@ class _Authorization:
     def authorize(self, *, target, **kwargs):
         return BulkAuthorization(
             allowed=target.resource_id != "source-two",
-            reason_code=(
-                "authorized"
-                if target.resource_id != "source-two"
-                else "policy_denied"
-            ),
+            reason_code=("authorized" if target.resource_id != "source-two" else "policy_denied"),
             current_etag=self.etags[target.resource_id],
         )
 
@@ -109,9 +105,7 @@ class _Idempotency:
         self.checkpoints[target_ordinal] = checkpoint
         return checkpoint
 
-    def complete(
-        self, *, idempotency_key, plan_digest, claim_token, result
-    ):
+    def complete(self, *, idempotency_key, plan_digest, claim_token, result):
         self.values[idempotency_key] = {
             "plan_digest": plan_digest,
             "result": result,

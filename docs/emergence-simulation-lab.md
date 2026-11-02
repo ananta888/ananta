@@ -67,9 +67,7 @@ from simulation.engine.batch_runner import BatchRunner
 from simulation.scenarios.standard_scenarios import get_scenario
 from simulation.models.scenario import BudgetConfig
 
-scenario = get_scenario("survival_island").model_copy(
-    update={"budget": BudgetConfig(max_ticks=20)}
-)
+scenario = get_scenario("survival_island").model_copy(update={"budget": BudgetConfig(max_ticks=20)})
 results = BatchRunner().run([scenario])
 print(results[0].report["outcome"])
 ```
@@ -124,8 +122,9 @@ my_scenario = ScenarioConfig(
     name="my_experiment",
     agents=[{"id": "a1", "name": "Alice", "role": "citizen", "location_id": "town"}],
     locations=[{"id": "town", "name": "Town"}],
-    laws=[LawDefinition(id="no_attack", description="No violence",
-                         forbidden_actions=["attack"], penalty="imprisonment")],
+    laws=[
+        LawDefinition(id="no_attack", description="No violence", forbidden_actions=["attack"], penalty="imprisonment")
+    ],
     budget=BudgetConfig(max_ticks=50),
 )
 ```

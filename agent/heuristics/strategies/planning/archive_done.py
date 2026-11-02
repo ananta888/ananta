@@ -1,4 +1,5 @@
 """ArchiveDoneStrategy — planning_archive_done_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, TodoReadPort
@@ -8,8 +9,16 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _ARCHIVE_KEYWORDS = [
-    "archive", "clean", "cleanup", "done", "finished", "completed",
-    "remove", "clear", "tidy", "prune",
+    "archive",
+    "clean",
+    "cleanup",
+    "done",
+    "finished",
+    "completed",
+    "remove",
+    "clear",
+    "tidy",
+    "prune",
 ]
 _MIN_SCORE = 0.1
 

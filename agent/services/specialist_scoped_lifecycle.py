@@ -11,8 +11,10 @@ class HubSpecialistLifecycle:
 
     def active_version(self, base_model: str, *, task_kind: str) -> str | None:
         record = self._registry.resolve_active_adapter(
-            base_model=base_model, task_kind=task_kind,
-            tenant_id=self._principal.tenant_id, owner_subject=self._principal.subject,
+            base_model=base_model,
+            task_kind=task_kind,
+            tenant_id=self._principal.tenant_id,
+            owner_subject=self._principal.subject,
         )
         if record is None:
             return None
@@ -27,7 +29,9 @@ class HubSpecialistLifecycle:
         if record is None or record.task_kinds != [task_kind]:
             raise ValueError("specialist_lifecycle_adapter_scope_invalid")
         _deprecated, target = self._registry.rollback(
-            adapter_id, tenant_id=self._principal.tenant_id, owner_subject=self._principal.subject,
+            adapter_id,
+            tenant_id=self._principal.tenant_id,
+            owner_subject=self._principal.subject,
             expected_version=record.registry_version,
             task_kind=task_kind,
         )

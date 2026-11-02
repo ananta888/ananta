@@ -4,7 +4,6 @@ import shlex
 import subprocess
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "ollama-autoimport.sh"
 
@@ -43,10 +42,7 @@ def _expected_trimmed_name(file_path: str, max_len: int = 80) -> str:
 
 
 def _run_model_name(file_path: str, tmp_path: Path) -> str:
-    command = (
-        f". {shlex.quote(str(SCRIPT_PATH))}; "
-        f"model_name {shlex.quote(file_path)}"
-    )
+    command = f". {shlex.quote(str(SCRIPT_PATH))}; model_name {shlex.quote(file_path)}"
     result = subprocess.run(
         ["bash", "-lc", command],
         check=True,
@@ -239,7 +235,7 @@ def test_import_priority_models_imports_priority_candidates_first(tmp_path: Path
         "OLLAMA_SMOKE_ALIAS_CANDIDATES='model-b,model-c'; "
         "model_exists() { return 1; }; "
         "find_model_file_for_ref() { "
-        "  case \"$1\" in "
+        '  case "$1" in '
         "    model-a) printf '%s\\n' '/models/a.gguf' ;; "
         "    model-b) printf '%s\\n' '/models/b.gguf' ;; "
         "    model-c) printf '%s\\n' '/models/c.gguf' ;; "
@@ -262,7 +258,7 @@ def test_import_seed_models_imports_only_selected_seed_candidates(tmp_path: Path
         "OLLAMA_SMOKE_ALIAS_CANDIDATES='model-c,model-d'; "
         "model_exists() { return 1; }; "
         "find_model_file_for_ref() { "
-        "  case \"$1\" in "
+        '  case "$1" in '
         "    model-a) printf '%s\\n' '/models/a.gguf' ;; "
         "    model-c) printf '%s\\n' '/models/c.gguf' ;; "
         "  esac; "
@@ -281,7 +277,7 @@ def test_autoimport_mode_seed_only_matches_expected_aliases(tmp_path: Path) -> N
     command = (
         f". {shlex.quote(str(SCRIPT_PATH))}; "
         "for mode in seed SEED-ONLY minimal full ''; do "
-        "  OLLAMA_AUTOIMPORT_MODE=\"$mode\"; "
+        '  OLLAMA_AUTOIMPORT_MODE="$mode"; '
         "  if autoimport_mode_is_seed_only; then "
         "    printf 'seed:%s\\n' \"$mode\"; "
         "  else "

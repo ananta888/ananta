@@ -102,10 +102,9 @@ class ControllingRuleCatalog:
             raise BusinessControllingRuleError("controlling_rule_catalog_shape_invalid")
         if not self.approval_limit.is_finite() or self.approval_limit < 0:
             raise BusinessControllingRuleError("controlling_rule_catalog_approval_limit_invalid")
-        if (
-            not self.invoice_similarity_threshold.is_finite()
-            or not Decimal("0.50") <= self.invoice_similarity_threshold < Decimal("1")
-        ):
+        if not self.invoice_similarity_threshold.is_finite() or not Decimal(
+            "0.50"
+        ) <= self.invoice_similarity_threshold < Decimal("1"):
             raise BusinessControllingRuleError("controlling_rule_catalog_similarity_invalid")
         accounts: set[str] = set()
         for account, cost_centers in self.account_cost_center_constraints:
@@ -138,8 +137,7 @@ class ControllingRuleCatalog:
             "allow_zero_amounts": self.allow_zero_amounts,
             "invoice_similarity_threshold": str(self.invoice_similarity_threshold),
             "account_cost_center_constraints": [
-                [account, list(cost_centers)]
-                for account, cost_centers in self.account_cost_center_constraints
+                [account, list(cost_centers)] for account, cost_centers in self.account_cost_center_constraints
             ],
             "enabled_rules": list(self.enabled_rules),
         }
@@ -400,11 +398,7 @@ class BusinessControllingRuleEvaluator:
             cost_center = _text(values.get("cost_center"))
             if not cost_center and "missing_cost_center" in enabled:
                 findings.append(_candidate("missing_cost_center", FindingSeverity.HIGH, locator, {}, record_digest))
-            elif (
-                cost_center
-                and cost_center not in catalog.known_cost_centers
-                and "unknown_cost_center" in enabled
-            ):
+            elif cost_center and cost_center not in catalog.known_cost_centers and "unknown_cost_center" in enabled:
                 findings.append(
                     _candidate(
                         "unknown_cost_center",

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.services import _task_scoped_adapters as adapters
+from agent.services.task_scoped import adapters as adapters
 
 
 def _task(*, bound: bool) -> dict:
@@ -43,9 +43,7 @@ def test_handler_proposal_persistence_respects_hub_worker_boundary(
 
     registry = SimpleNamespace(
         resolve=lambda _task_kind: _Handler(),
-        resolve_descriptor=lambda _task_kind: {
-            "capabilities": ["retrieval", "index_write"]
-        },
+        resolve_descriptor=lambda _task_kind: {"capabilities": ["retrieval", "index_write"]},
     )
     monkeypatch.setattr(adapters, "get_task_handler_registry", lambda: registry)
     monkeypatch.setattr(adapters.settings, "role", role)
@@ -54,9 +52,7 @@ def test_handler_proposal_persistence_respects_hub_worker_boundary(
         "get_core_services",
         lambda: SimpleNamespace(
             task_execution_service=SimpleNamespace(
-                persist_task_proposal_result=lambda **values: (
-                    persist_calls.append(values)
-                )
+                persist_task_proposal_result=lambda **values: persist_calls.append(values)
             )
         ),
     )

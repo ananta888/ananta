@@ -12,6 +12,7 @@ DRR-T028: Negative learning model.
 DRR-T029: Environment similarity query.
 DRR-T009: LLM escalation envelope.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -29,8 +30,8 @@ from worker.repair.repair_procedure_runner import (
     check_unsafe_action_guardrails,
 )
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _make_envelope(
     *,
@@ -59,6 +60,7 @@ def _make_envelope(
 
 # ── DRR-T019: Unsafe action guardrails ────────────────────────────────────────
 
+
 class TestUnsafeActionGuardrails:
     def test_rm_rf_root_is_blocked(self) -> None:
         step = RepairStep(step_id="s1", title="Bad", command_hint="rm -rf /", mutation_candidate=True)
@@ -73,7 +75,9 @@ class TestUnsafeActionGuardrails:
         assert "blocked_mkfs" in reason_code
 
     def test_dd_if_is_blocked(self) -> None:
-        step = RepairStep(step_id="s1", title="Bad", command_hint="dd if=/dev/zero of=/dev/sda", mutation_candidate=True)
+        step = RepairStep(
+            step_id="s1", title="Bad", command_hint="dd if=/dev/zero of=/dev/sda", mutation_candidate=True
+        )
         blocked, reason_code, _ = check_unsafe_action_guardrails(step, command="dd if=/dev/zero of=/dev/sda")
         assert blocked
 
@@ -124,6 +128,7 @@ class TestUnsafeActionGuardrails:
 
 
 # ── DRR-T018: Approval scope binding ──────────────────────────────────────────
+
 
 class TestApprovalScopeBinding:
     def test_mutation_step_denied_without_approval(self) -> None:
@@ -182,6 +187,7 @@ class TestApprovalScopeBinding:
 
 # ── DRR-T020: Dry-run mode ────────────────────────────────────────────────────
 
+
 class TestDryRunMode:
     def test_dry_run_returns_preview_status(self) -> None:
         step = RepairStep(step_id="s1", title="Inspect", mutation_candidate=False, step_type="inspect_state")
@@ -205,6 +211,7 @@ class TestDryRunMode:
 
 
 # ── DRR-T021: Feature flag gating ─────────────────────────────────────────────
+
 
 class TestFeatureFlags:
     def test_execution_disabled_returns_denied(self) -> None:
@@ -231,12 +238,15 @@ class TestFeatureFlags:
         result = runner.run_plan(envelope)
         assert result.status.value == "denied"
         # Feature flag denial is surfaced on the result itself, not in step_results
-        assert "deterministic_repair_execution_disabled" in (result.failed_step_id or "") or \
-               len(result.step_results) == 0 or \
-               result.step_results[0].reason_code == "deterministic_repair_execution_disabled"
+        assert (
+            "deterministic_repair_execution_disabled" in (result.failed_step_id or "")
+            or len(result.step_results) == 0
+            or result.step_results[0].reason_code == "deterministic_repair_execution_disabled"
+        )
 
 
 # ── DRR-T023: Before/after evidence capture ───────────────────────────────────
+
 
 class TestBeforeAfterEvidence:
     def test_before_evidence_captured_for_mutation(self) -> None:
@@ -268,6 +278,7 @@ class TestBeforeAfterEvidence:
 
 
 # ── DRR-T024: Rollback hints ──────────────────────────────────────────────────
+
 
 class TestRollbackHints:
     def test_rollback_hint_propagated_in_step_result(self) -> None:
@@ -308,6 +319,7 @@ class TestRollbackHints:
 
 
 # ── DRR-T025: Outcome classification ─────────────────────────────────────────
+
 
 class TestOutcomeClassification:
     def test_standard_outcome_labels_defined(self) -> None:
@@ -355,6 +367,7 @@ class TestOutcomeClassification:
 
 # ── DRR-T028: Negative learning model ─────────────────────────────────────────
 
+
 class TestNegativeLearningModel:
     def test_negative_learning_from_memory_entries(self) -> None:
         from agent.services.deterministic_repair_path_service import build_negative_learning_model
@@ -390,6 +403,7 @@ class TestNegativeLearningModel:
 
 
 # ── DRR-T029: Environment similarity query ───────────────────────────────────
+
 
 class TestEnvironmentSimilarityQuery:
     def test_exact_match_gets_high_score(self) -> None:
@@ -430,6 +444,7 @@ class TestEnvironmentSimilarityQuery:
 
 
 # ── DRR-T009: LLM escalation envelope ────────────────────────────────────────
+
 
 class TestLLMEscalationEnvelope:
     def test_high_confidence_deterministic_success_does_not_escalate(self) -> None:
@@ -498,6 +513,7 @@ class TestLLMEscalationEnvelope:
 
 # ── DRR-T010: Input validation hardening ──────────────────────────────────────
 
+
 class TestInputValidationHardening:
     def test_malformed_evidence_does_not_crash_normalize(self) -> None:
         from agent.services.deterministic_repair_path_service import normalize_evidence_bundle
@@ -517,8 +533,8 @@ class TestInputValidationHardening:
 
     def test_missing_environment_facts_reduces_confidence(self) -> None:
         from agent.services.deterministic_repair_path_service import (
-            match_failure_signatures,
             build_initial_failure_signature_catalog,
+            match_failure_signatures,
         )
 
         catalog = build_initial_failure_signature_catalog()

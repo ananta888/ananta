@@ -29,9 +29,7 @@ class ModelIntelligenceAlertThresholds:
             (self.cancellation_warning_ratio, self.cancellation_critical_ratio),
         )
         if any(
-            not math.isfinite(warning)
-            or not math.isfinite(critical)
-            or not 0 <= warning < critical <= 1
+            not math.isfinite(warning) or not math.isfinite(critical) or not 0 <= warning < critical <= 1
             for warning, critical in pairs
         ):
             raise ModelIntelligenceAlertError("alert_ratio_threshold_invalid")
@@ -220,11 +218,7 @@ class ModelIntelligenceAlertEvaluator:
                     "critical" if critical else "warning",
                     "worker_crash_count_high",
                     float(snapshot.worker_crashes),
-                    float(
-                        self._thresholds.crash_critical_count
-                        if critical
-                        else self._thresholds.crash_warning_count
-                    ),
+                    float(self._thresholds.crash_critical_count if critical else self._thresholds.crash_warning_count),
                     "failure-scenarios:worker-crash",
                 )
             )

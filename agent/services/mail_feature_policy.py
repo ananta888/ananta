@@ -104,8 +104,7 @@ class MailOperationEvent:
 
 
 class MailOperationObserver(Protocol):
-    def record(self, event: MailOperationEvent) -> None:
-        ...
+    def record(self, event: MailOperationEvent) -> None: ...
 
 
 class MailRuntimeAvailabilityPolicy(Protocol):
@@ -115,8 +114,7 @@ class MailRuntimeAvailabilityPolicy(Protocol):
         account_id: str,
         provider: str,
         operation: str,
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
     def record_success(
         self,
@@ -124,8 +122,7 @@ class MailRuntimeAvailabilityPolicy(Protocol):
         account_id: str,
         provider: str,
         operation: str,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def record_failure(
         self,
@@ -134,8 +131,7 @@ class MailRuntimeAvailabilityPolicy(Protocol):
         provider: str,
         operation: str,
         retryable: bool,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class NullMailOperationObserver:

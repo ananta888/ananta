@@ -63,11 +63,7 @@ def _mapping(value: Any) -> dict[str, Any]:
     if hasattr(value, "model_dump"):
         return dict(value.model_dump())
     if hasattr(value, "__dict__"):
-        return {
-            key: item
-            for key, item in vars(value).items()
-            if not key.startswith("_")
-        }
+        return {key: item for key, item in vars(value).items() if not key.startswith("_")}
     raise MailApplicationError("mail_value_is_not_serializable")
 
 
@@ -97,9 +93,7 @@ _SENSITIVE_FIELDS = {
 def _public_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
-            str(key): _public_value(item)
-            for key, item in value.items()
-            if str(key).lower() not in _SENSITIVE_FIELDS
+            str(key): _public_value(item) for key, item in value.items() if str(key).lower() not in _SENSITIVE_FIELDS
         }
     if isinstance(value, (list, tuple)):
         return [_public_value(item) for item in value]
@@ -134,9 +128,7 @@ class _ExplicitOperatorAccessPolicy:
                 allowed=True,
                 reason_code="mail_operator_explicit_access",
                 policy_decision_ref="policy:mail:operator-explicit:v1",
-                expires_at=(now + timedelta(minutes=5))
-                .isoformat()
-                .replace("+00:00", "Z"),
+                expires_at=(now + timedelta(minutes=5)).isoformat().replace("+00:00", "Z"),
                 nonce=hashlib.sha256(nonce_material.encode("utf-8")).hexdigest(),
             ),
             reason_code="mail_operator_explicit_access",
@@ -203,29 +195,19 @@ class DynamicLegacyMailBridge(NullLegacyMailBridge):
 
     def _store(self) -> Any | None:
         try:
-            module = importlib.import_module(
-                "agent.services.imap_metadata_store_service"
-            )
+            module = importlib.import_module("agent.services.imap_metadata_store_service")
         except ImportError:
             return None
         store_type = getattr(module, "ImapMetadataStore", None)
         if not callable(store_type):
             return None
-        return store_type(
-            store_path=self._repo_root
-            / "data"
-            / "imap"
-            / "mail-metadata.json"
-        )
+        return store_type(store_path=self._repo_root / "data" / "imap" / "mail-metadata.json")
 
     def list_accounts(self) -> Sequence[Mapping[str, Any]]:
         component = self._accounts()
         if component is None:
             return ()
-        return tuple(
-            _mapping(item)
-            for item in component.list_imap_accounts(repo_root=self._repo_root)
-        )
+        return tuple(_mapping(item) for item in component.list_imap_accounts(repo_root=self._repo_root))
 
     def disable_account(self, account_id: str) -> Any:
         component = self._accounts()
@@ -296,10 +278,7 @@ class DynamicLegacyMailBridge(NullLegacyMailBridge):
             if (
                 isinstance(attachment, Mapping)
                 and str(
-                    attachment.get("attachment_id")
-                    or attachment.get("part_id")
-                    or attachment.get("filename")
-                    or ""
+                    attachment.get("attachment_id") or attachment.get("part_id") or attachment.get("filename") or ""
                 )
                 == attachment_id
             ):
@@ -309,10 +288,7 @@ class DynamicLegacyMailBridge(NullLegacyMailBridge):
 
                 return download_attachment_securely(
                     attachment=dict(attachment),
-                    target_dir=self._repo_root
-                    / "data"
-                    / "imap"
-                    / "attachment-downloads",
+                    target_dir=self._repo_root / "data" / "imap" / "attachment-downloads",
                 )
         raise MailApplicationError("mail_attachment_not_cached")
 
@@ -338,9 +314,7 @@ class MailApplicationService:
             policy=_ExplicitOperatorAccessPolicy()
         )
         self._task_service_factory = task_service_factory
-        self._artifacts = artifact_service or MailArtifactService(
-            store_path=Path("data/mail/artifacts-v2.json")
-        )
+        self._artifacts = artifact_service or MailArtifactService(store_path=Path("data/mail/artifacts-v2.json"))
         self._repo_root = Path(repo_root or ".").resolve()
 
     def list_accounts(self) -> list[dict[str, Any]]:
@@ -363,14 +337,8 @@ class MailApplicationService:
             row["requested_protocol"] = account.requested_protocol
             row["resolved_protocol"] = account.resolved_protocol
             row["runtime_phase"] = runtime_payload.get("phase")
-            row["runtime_state"] = (
-                "online"
-                if runtime_payload.get("network_enabled") and account.enabled
-                else "offline"
-            )
-            row["connection_state"] = (
-                "not_connected" if account.enabled else "disabled"
-            )
+            row["runtime_state"] = "online" if runtime_payload.get("network_enabled") and account.enabled else "offline"
+            row["connection_state"] = "not_connected" if account.enabled else "disabled"
             row["circuit_state"] = (
                 circuit.state(
                     account_id=account.account_id,
@@ -410,9 +378,7 @@ class MailApplicationService:
                 row.setdefault("runtime_state", "offline")
                 public.append(row)
         for row in public:
-            row["last_task"] = self._last_task_summary(
-                str(row.get("account_id", ""))
-            )
+            row["last_task"] = self._last_task_summary(str(row.get("account_id", "")))
             last_task = dict(row.get("last_task") or {})
             operation = str(last_task.get("operation") or "")
             status = str(last_task.get("status") or "")
@@ -518,24 +484,18 @@ class MailApplicationService:
 
     def disable_account(self, account_id: str) -> dict[str, Any]:
         try:
-            return _public_mapping(
-                self._accounts.disable_account(account_id).to_dict()
-            )
+            return _public_mapping(self._accounts.disable_account(account_id).to_dict())
         except ValueError as exc:
             if str(exc) != "mail_account_not_found":
                 raise
-            return _public_mapping(
-                _mapping(self._legacy.disable_account(account_id))
-            )
+            return _public_mapping(_mapping(self._legacy.disable_account(account_id)))
 
     def delete_account(self, account_id: str) -> dict[str, Any]:
         account = self._accounts.get_account(account_id)
         if account is not None:
             if account.enabled:
                 raise MailApplicationError("mail_account_v2_disable_required")
-            return _public_mapping(
-                self._accounts.delete_account(account_id).to_dict()
-            )
+            return _public_mapping(self._accounts.delete_account(account_id).to_dict())
         return _public_mapping(_mapping(self._legacy.delete_account(account_id)))
 
     def list_message_metadata(
@@ -555,11 +515,7 @@ class MailApplicationService:
             )
         )
         if account_id:
-            rows = [
-                row
-                for row in rows
-                if str(row.get("account_id", "")) == account_id
-            ]
+            rows = [row for row in rows if str(row.get("account_id", "")) == account_id]
         return rows
 
     def search_message_metadata(
@@ -574,11 +530,9 @@ class MailApplicationService:
         if not needle:
             return rows[: max(0, limit)]
         searchable = ("subject", "from", "from_address", "message_id_header")
-        return [
-            row
-            for row in rows
-            if any(needle in str(row.get(key, "")).casefold() for key in searchable)
-        ][: max(0, limit)]
+        return [row for row in rows if any(needle in str(row.get(key, "")).casefold() for key in searchable)][
+            : max(0, limit)
+        ]
 
     def thread_message_metadata(self, mail_ref_id: str) -> list[dict[str, Any]]:
         rows = self.list_message_metadata()
@@ -597,11 +551,7 @@ class MailApplicationService:
         attachments = self.get_message_metadata(mail_ref_id).get("attachments")
         if not isinstance(attachments, list):
             return []
-        return [
-            _public_mapping(item)
-            for item in attachments
-            if isinstance(item, Mapping)
-        ]
+        return [_public_mapping(item) for item in attachments if isinstance(item, Mapping)]
 
     def get_message_metadata(self, mail_ref_id: str) -> dict[str, Any]:
         for row in self.list_message_metadata():
@@ -617,11 +567,7 @@ class MailApplicationService:
             if isinstance(raw, Mapping):
                 return MailMessageRefV2.from_mapping(raw)
         row = self.get_message_metadata(mail_ref_id)
-        if (
-            str(row.get("protocol") or "") == "imap"
-            and row.get("mailbox")
-            and row.get("uid") is not None
-        ):
+        if str(row.get("protocol") or "") == "imap" and row.get("mailbox") and row.get("uid") is not None:
             return MailMessageRefV2(
                 mail_ref_id=mail_ref_id,
                 account_id=str(row.get("account_id") or ""),
@@ -684,9 +630,7 @@ class MailApplicationService:
             body = dict(cached)
         from agent.services.imap_security_policy_service import redact_mail_content
 
-        redacted = redact_mail_content(
-            str(body.get("text") or body.get("body_text") or "")
-        )
+        redacted = redact_mail_content(str(body.get("text") or body.get("body_text") or ""))
         return {
             **body,
             "text": redacted["text"],
@@ -707,10 +651,7 @@ class MailApplicationService:
             return self._legacy.load_attachment(row, attachment_id)
         stored = self._metadata.get_by_mail_ref_id(mail_ref_id)
         for attachment in dict(stored or {}).get("attachments") or ():
-            if (
-                isinstance(attachment, Mapping)
-                and str(attachment.get("attachment_id", "")) == attachment_id
-            ):
+            if isinstance(attachment, Mapping) and str(attachment.get("attachment_id", "")) == attachment_id:
                 return dict(attachment)
         raise MailApplicationError("mail_attachment_not_cached")
 
@@ -762,20 +703,14 @@ class MailApplicationService:
         access: VerifiedMailContentAccess | None = None,
     ) -> dict[str, Any]:
         ref = dict(message_ref)
-        if (
-            str(ref.get("protocol") or "").lower() == "imap"
-            and ref.get("mailbox")
-            and ref.get("uid") is not None
-        ):
+        if str(ref.get("protocol") or "").lower() == "imap" and ref.get("mailbox") and ref.get("uid") is not None:
             if scope != "metadata_only":
                 if not isinstance(access, VerifiedMailContentAccess):
                     raise PermissionError("verified_mail_content_access_required")
                 if (
                     access.account_id != str(ref.get("account_id") or "")
                     or access.mail_ref_id != str(ref.get("mail_ref_id") or "")
-                    or not access.artifact_ref.startswith(
-                        f"mail://{str(ref.get('mail_ref_id') or '')}"
-                    )
+                    or not access.artifact_ref.startswith(f"mail://{str(ref.get('mail_ref_id') or '')}")
                 ):
                     raise PermissionError("mail_content_artifact_mismatch")
             from agent.services.imap_mail_artifact_service import (
@@ -891,9 +826,7 @@ class MailApplicationService:
         if not account_id:
             return None
         try:
-            task = self._task_service_factory().last_task_for_account(
-                f"mail-account:{account_id}"
-            )
+            task = self._task_service_factory().last_task_for_account(f"mail-account:{account_id}")
         except Exception:
             return None
         return _mapping(task) if task is not None else None
@@ -913,16 +846,10 @@ def get_mail_application_service(
         service = _instances.get(key)
         if service is None:
             service = MailApplicationService(
-                account_service=MailAccountService(
-                    store_path=base / "data" / "mail" / "accounts-v2.json"
-                ),
-                metadata_store=MailMetadataStore(
-                    store_path=base / "data" / "mail" / "metadata-v2.json"
-                ),
+                account_service=MailAccountService(store_path=base / "data" / "mail" / "accounts-v2.json"),
+                metadata_store=MailMetadataStore(store_path=base / "data" / "mail" / "metadata-v2.json"),
                 legacy=DynamicLegacyMailBridge(repo_root=base),
-                artifact_service=MailArtifactService(
-                    store_path=base / "data" / "mail" / "artifacts-v2.json"
-                ),
+                artifact_service=MailArtifactService(store_path=base / "data" / "mail" / "artifacts-v2.json"),
                 repo_root=base,
             )
             _instances[key] = service

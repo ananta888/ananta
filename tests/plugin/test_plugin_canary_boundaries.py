@@ -1,9 +1,10 @@
-import pytest
 from flask import Flask
-from agent.plugin_loader import load_plugins
+
 from agent.config import settings
+from agent.plugin_loader import load_plugins
 from agent.services.evolution import get_evolution_provider_registry
 from agent.services.evolution.models import EvolutionContext
+
 
 def test_canary_plugin_loading_and_execution():
     """
@@ -34,6 +35,7 @@ def test_canary_plugin_loading_and_execution():
         settings.plugins = old_plugins
         settings.plugin_dirs = old_dirs
         registry.clear()
+
 
 def test_canary_plugin_sdk_boundary_enforcement():
     """

@@ -165,9 +165,7 @@ def load_workflow_release_gate_config(
                 evidence_runtime_ids=evidence_runtime_ids,
             )
         )
-    declared_evidence_runtimes = [
-        runtime_id for command in commands for runtime_id in command.evidence_runtime_ids
-    ]
+    declared_evidence_runtimes = [runtime_id for command in commands for runtime_id in command.evidence_runtime_ids]
     if sorted(declared_evidence_runtimes) != sorted(runtimes_raw):
         raise ValueError("workflow_release_gate_evidence_command_matrix_invalid")
     artifact = raw.get("artifact")

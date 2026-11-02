@@ -15,7 +15,6 @@ def exercise_worker_redelivery(app, base, token, orchestrator, xml):
     from agent.db_models.native_dispatch import NativeDispatchDB
     from agent.repository import task_repo
 
-
     containment = exercise_worker_loss(app, base, token, orchestrator, xml)
     with Session(engine) as session:
         journal = session.exec(select(NativeDispatchDB)).one()
@@ -39,8 +38,7 @@ def exercise_worker_redelivery(app, base, token, orchestrator, xml):
         app.config["ANANTA_NATIVE_RESULT_RECOVERY_ENABLED"] = True
     from bpmn_container.full_app import observe_http
 
-    status, tick = observe_http(base, "/tasks/autopilot/tick", payload={},
-                                headers={"Authorization": "Bearer " + token})
+    status, tick = observe_http(base, "/tasks/autopilot/tick", payload={}, headers={"Authorization": "Bearer " + token})
     assert status == 200 and tick["data"]["recovered"] == 1, "redelivery_scheduler_admission_failed"
     assert tick["data"]["dispatched"] == 0, "redelivery_scheduler_reexecuted"
     with app.app_context():
@@ -58,11 +56,20 @@ def exercise_worker_redelivery(app, base, token, orchestrator, xml):
     with Session(engine) as session:
         current = session.get(NativeDispatchDB, journal.id)
         assert current.state == "accepted" and current.claim == journal.claim
-    evidence = app.extensions['bpmn_synthetic_task_evidence'].complete(accepted)
-    assert evidence['run_id'] == containment['hub_registry_worker_run']['run_id'], 'redelivery_registry_run_reissued'
-    return {"passed": True, "containment": containment, "persisted_result_from_original_worker": True,
-            "current_worker_hostname_differs_from_result": True, "workflow_status": "completed",
-            "task_status": "completed", "journal_state": "accepted", "original_dispatch_claim_preserved": True,
-            "scheduler_http_tick": True, "production_release_evidence": False,
-            "hub_receipt_classification": "technical_observation", 'hub_registry_worker_run': evidence,
-            'hub_registry_control_runs': app.extensions['bpmn_synthetic_control_evidence'].observations[request.run_id]}
+    evidence = app.extensions["bpmn_synthetic_task_evidence"].complete(accepted)
+    assert evidence["run_id"] == containment["hub_registry_worker_run"]["run_id"], "redelivery_registry_run_reissued"
+    return {
+        "passed": True,
+        "containment": containment,
+        "persisted_result_from_original_worker": True,
+        "current_worker_hostname_differs_from_result": True,
+        "workflow_status": "completed",
+        "task_status": "completed",
+        "journal_state": "accepted",
+        "original_dispatch_claim_preserved": True,
+        "scheduler_http_tick": True,
+        "production_release_evidence": False,
+        "hub_receipt_classification": "technical_observation",
+        "hub_registry_worker_run": evidence,
+        "hub_registry_control_runs": app.extensions["bpmn_synthetic_control_evidence"].observations[request.run_id],
+    }

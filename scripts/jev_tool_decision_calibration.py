@@ -59,8 +59,10 @@ from scripts.jev_decision_smoke import post as post_json  # noqa: E402
 from worker.meet_media.llm_tools import codecompass_toolbox, leaked_calls  # noqa: E402
 
 DEFAULT_CASES = ROOT / "benchmarks/tiny_tool_router/decision_calibration.v1.json"
-CHAT_SYSTEM = ("Decide how to handle the user's request with the tools below. Call the single best tool, "
-               "or answer directly in one short sentence when no tool is needed.")
+CHAT_SYSTEM = (
+    "Decide how to handle the user's request with the tools below. Call the single best tool, "
+    "or answer directly in one short sentence when no tool is needed."
+)
 
 
 def companion_tools() -> list[dict]:
@@ -87,11 +89,21 @@ def argument_hit(text: Any, terms: list[str]) -> bool:
 
 def chat_choice(url: str, prompt: str, tools: list[dict], model: str, timeout: float) -> tuple[str, str, float]:
     """The first tool the chat path calls (native or leaked as text) and its first argument, or ``none``."""
-    response, seconds = post(url, "/v1/chat/completions", {
-        "model": model, "messages": [{"role": "system", "content": CHAT_SYSTEM}, {"role": "user", "content": prompt}],
-        "tools": tools, "tool_choice": "auto", "max_tokens": 160, "temperature": 0,
-        "reasoning_effort": "none", "chat_template_kwargs": {"enable_thinking": False},
-    }, timeout)
+    response, seconds = post(
+        url,
+        "/v1/chat/completions",
+        {
+            "model": model,
+            "messages": [{"role": "system", "content": CHAT_SYSTEM}, {"role": "user", "content": prompt}],
+            "tools": tools,
+            "tool_choice": "auto",
+            "max_tokens": 160,
+            "temperature": 0,
+            "reasoning_effort": "none",
+            "chat_template_kwargs": {"enable_thinking": False},
+        },
+        timeout,
+    )
     message = ((response.get("choices") or [{}])[0].get("message")) or {}
     calls = message.get("tool_calls") or []
     if calls:
@@ -103,7 +115,7 @@ def chat_choice(url: str, prompt: str, tools: list[dict], model: str, timeout: f
         name = str(function.get("name") or NO_TOOL)
     else:
         leaked = leaked_calls(message.get("content") or "")
-        name, arguments = (leaked[0] if leaked else (NO_TOOL, {}))
+        name, arguments = leaked[0] if leaked else (NO_TOOL, {})
     first = next(iter(arguments.values()), "") if isinstance(arguments, dict) else ""
     return name, first if isinstance(first, str) else json.dumps(first), seconds
 
@@ -119,15 +131,29 @@ def shadow_observations(path: Path) -> list[Observation]:
         if isinstance(record, dict) and record.get("decision") and record.get("actual_first"):
             own = record.get("model_first")
             also = (own,) if own and own not in (NO_TOOL, record["actual_first"]) else ()
-            rows.append(Observation(f"shadow-{number}", str(record["actual_first"]), str(record["decision"]),
-                                    float(record.get("probability") or 0.0), also))
+            rows.append(
+                Observation(
+                    f"shadow-{number}",
+                    str(record["actual_first"]),
+                    str(record["decision"]),
+                    float(record.get("probability") or 0.0),
+                    also,
+                )
+            )
     return rows
 
 
 def latency(values: list[float]) -> dict[str, float]:
     ordered = sorted(values)
-    return {"median": round(statistics.median(ordered), 3), "p90": round(ordered[int(0.9 * (len(ordered) - 1))], 3),
-            "max": round(ordered[-1], 3)} if ordered else {}
+    return (
+        {
+            "median": round(statistics.median(ordered), 3),
+            "p90": round(ordered[int(0.9 * (len(ordered) - 1))], 3),
+            "max": round(ordered[-1], 3),
+        }
+        if ordered
+        else {}
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -138,17 +164,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-precision", type=float, default=0.95)
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--out", type=Path)
-    parser.add_argument("--no-open-field", action="store_true",
-                        help="score the tool only (servers without open fields)")
+    parser.add_argument(
+        "--no-open-field", action="store_true", help="score the tool only (servers without open fields)"
+    )
     parser.add_argument("--compare-chat", action="store_true", help="also run the normal chat tool call")
     parser.add_argument("--from-shadow", type=Path, help="evaluate a companion shadow log instead of scoring")
     args = parser.parse_args(argv)
     if args.from_shadow:
         observations = shadow_observations(args.from_shadow)
-        report = {**calibration_report(observations, target_precision=args.target_precision),
-                  "split": split_report(observations, target_precision=args.target_precision)}
-        return emit(report, args.out, ("total", "accuracy", "expected_calibration_error",
-                                       "recommended_min_confidence"))
+        report = {
+            **calibration_report(observations, target_precision=args.target_precision),
+            "split": split_report(observations, target_precision=args.target_precision),
+        }
+        return emit(report, args.out, ("total", "accuracy", "expected_calibration_error", "recommended_min_confidence"))
 
     tools = companion_tools()
     decision = build_tool_decision_schema(tools, open_field=not args.no_open_field)
@@ -157,8 +185,9 @@ def main(argv: list[str] | None = None) -> int:
     chat_rows = []
     for case in cases:
         expected, also, terms = expectation(case)
-        response, seconds = post(args.url, DECISION_PATH,
-                                 request_body(decision, case["prompt"], model_id=args.model), args.timeout)
+        response, seconds = post(
+            args.url, DECISION_PATH, request_body(decision, case["prompt"], model_id=args.model), args.timeout
+        )
         fields = response["results"][0]["fields"]
         tool = fields[TOOL_FIELD]
         # the confidence the fast path acts on: the tool and its scored required arguments
@@ -166,10 +195,16 @@ def main(argv: list[str] | None = None) -> int:
         observation = Observation(case["id"], expected, str(tool["value"]), confidence, also)
         observations.append(observation)
         seconds_all.append(seconds)
-        row = {"id": case["id"], "value": tool["value"], "probability": confidence,
-               "tool_probability": tool["probability"], "margin": tool.get("margin"),
-               "correct": observation.correct, "seconds": round(seconds, 3),
-               "holdout": is_holdout(case["id"])}
+        row = {
+            "id": case["id"],
+            "value": tool["value"],
+            "probability": confidence,
+            "tool_probability": tool["probability"],
+            "margin": tool.get("margin"),
+            "correct": observation.correct,
+            "seconds": round(seconds, 3),
+            "holdout": is_holdout(case["id"]),
+        }
         text = fields.get(TEXT_FIELD)
         if isinstance(text, dict) and not text.get("skipped"):
             row.update(text=text.get("value"), text_truncated=text.get("truncated"))
@@ -180,22 +215,34 @@ def main(argv: list[str] | None = None) -> int:
         if args.compare_chat:
             name, first, chat_seconds = chat_choice(args.url, case["prompt"], tools, args.model, args.timeout)
             correct = name == expected or name in also
-            chat_rows.append({"id": case["id"], "value": name, "correct": correct, "seconds": round(chat_seconds, 3),
-                              "argument_ok": argument_hit(first, terms) if terms and correct else None})
+            chat_rows.append(
+                {
+                    "id": case["id"],
+                    "value": name,
+                    "correct": correct,
+                    "seconds": round(chat_seconds, 3),
+                    "argument_ok": argument_hit(first, terms) if terms and correct else None,
+                }
+            )
 
     report = {
         **calibration_report(observations, target_precision=args.target_precision),
         "split": split_report(observations, target_precision=args.target_precision),
         # the same, counting only the single label as correct (no defensible alternatives)
-        "split_strict": split_report([Observation(item.case_id, item.expected, item.predicted, item.probability)
-                                      for item in observations], target_precision=args.target_precision),
+        "split_strict": split_report(
+            [Observation(item.case_id, item.expected, item.predicted, item.probability) for item in observations],
+            target_precision=args.target_precision,
+        ),
         "latency_seconds": {"first": round(seconds_all[0], 3), **latency(seconds_all[1:])},
         "cases_files": [str(path) for path in (args.cases or [DEFAULT_CASES])],
         "observations": raw,
     }
     if argument_checks:
-        report["text_argument"] = {"checked": len(argument_checks), "ok": sum(argument_checks),
-                                   "rate": round(sum(argument_checks) / len(argument_checks), 4)}
+        report["text_argument"] = {
+            "checked": len(argument_checks),
+            "ok": sum(argument_checks),
+            "rate": round(sum(argument_checks) / len(argument_checks), 4),
+        }
     if chat_rows:
         checked = [row["argument_ok"] for row in chat_rows if row["argument_ok"] is not None]
         report["chat_baseline"] = {
@@ -204,8 +251,18 @@ def main(argv: list[str] | None = None) -> int:
             "latency_seconds": latency([row["seconds"] for row in chat_rows[1:]]),
             "errors": [row for row in chat_rows if not row["correct"]],
         }
-    return emit(report, args.out, ("total", "accuracy", "expected_calibration_error", "recommended_min_confidence",
-                                   "latency_seconds", "text_argument"))
+    return emit(
+        report,
+        args.out,
+        (
+            "total",
+            "accuracy",
+            "expected_calibration_error",
+            "recommended_min_confidence",
+            "latency_seconds",
+            "text_argument",
+        ),
+    )
 
 
 def emit(report: dict, out: Path | None, keys: tuple[str, ...]) -> int:
@@ -213,13 +270,17 @@ def emit(report: dict, out: Path | None, keys: tuple[str, ...]) -> int:
         out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     summary = {key: report[key] for key in keys if key in report}
     split = report.get("split") or {}
-    summary["split"] = {"recommended_on_validation": split.get("recommended_on_validation"),
-                        "holdout": split.get("holdout")}
+    summary["split"] = {
+        "recommended_on_validation": split.get("recommended_on_validation"),
+        "holdout": split.get("holdout"),
+    }
     if "split_strict" in report:
         strict = report["split_strict"]
-        summary["split_strict"] = {"accuracy_validation": strict["validation"]["accuracy"],
-                                   "recommended_on_validation": strict.get("recommended_on_validation"),
-                                   "holdout": strict.get("holdout")}
+        summary["split_strict"] = {
+            "accuracy_validation": strict["validation"]["accuracy"],
+            "recommended_on_validation": strict.get("recommended_on_validation"),
+            "holdout": strict.get("holdout"),
+        }
     if "chat_baseline" in report:
         summary["chat_baseline"] = {key: value for key, value in report["chat_baseline"].items() if key != "errors"}
     print(json.dumps(summary, ensure_ascii=False))

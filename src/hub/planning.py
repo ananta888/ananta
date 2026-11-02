@@ -1,6 +1,7 @@
-from typing import Optional, Dict
-from .storage import Storage
+from typing import Dict, Optional
+
 from .models import Goal, Plan, PlanNode
+from .storage import Storage
 
 
 class PlanningService:
@@ -11,20 +12,23 @@ class PlanningService:
     """
 
     def __init__(self, storage: Optional[Storage] = None):
-        self.storage = storage or Storage(':memory:')
+        self.storage = storage or Storage(":memory:")
 
-    def plan_from_goal(self, summary: str, source: Optional[str] = None, trace_id: Optional[str] = None, executing_worker=None) -> Plan:
+    def plan_from_goal(
+        self, summary: str, source: Optional[str] = None, trace_id: Optional[str] = None, executing_worker=None
+    ) -> Plan:
         # If execution is performed by a worker (including hub-local), enforce policy/capability checks.
         if executing_worker is not None:
             from .policy import check_execution_allowed
+
             # Require a 'planning' capability for plan generation
-            check_execution_allowed(executing_worker, ['planning'])
+            check_execution_allowed(executing_worker, ["planning"])
 
         goal = Goal(summary=summary, source=source)
         self.storage.create_goal(goal)
-        plan = Plan(goal_id=goal.id, title=(summary or '')[:120], trace_id=trace_id)
+        plan = Plan(goal_id=goal.id, title=(summary or "")[:120], trace_id=trace_id)
         self.storage.create_plan(plan, trace_id=trace_id)
-        sentences = [s.strip() for s in (summary or '').split('.') if s.strip()]
+        sentences = [s.strip() for s in (summary or "").split(".") if s.strip()]
         prev_node = None
         for s in sentences:
             node = PlanNode(plan_id=plan.id, title=s)
@@ -39,9 +43,12 @@ class PlanningService:
 
         Example legacy payloads might contain keys like 'goal', 'prompt' or 'text'.
         """
-        goal_text = legacy_payload.get('goal') or legacy_payload.get('text') or legacy_payload.get('prompt')
+        goal_text = legacy_payload.get("goal") or legacy_payload.get("text") or legacy_payload.get("prompt")
         if not goal_text:
-            raise ValueError('No goal text found in legacy payload')
+            raise ValueError("No goal text found in legacy payload")
         plan = self.plan_from_goal(goal_text)
         nodes = self.storage.get_plan_nodes(plan.id)
-        return {"plan_id": plan.id, "nodes": [{"id": n.id, "title": n.title, "depends_on": n.depends_on} for n in nodes]}
+        return {
+            "plan_id": plan.id,
+            "nodes": [{"id": n.id, "title": n.title, "depends_on": n.depends_on} for n in nodes],
+        }

@@ -1,4 +1,5 @@
 """DSL v2 Evaluation Engine — deterministisch, kein LLM, safe."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,8 +8,10 @@ from typing import Any
 try:
     from agent.services.heuristic_runtime.dsl.expression import evaluate as eval_expr
 except ImportError:
+
     def eval_expr(expr, context):  # type: ignore
         return None
+
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
@@ -30,8 +33,9 @@ class DslEvaluator:
         try:
             return self._do_evaluate(dsl, ctx)
         except Exception as e:
-            return EvalResult(matched=False, score=0.0, action={"kind": "no_action"},
-                            rejected=True, reject_reason=str(e))
+            return EvalResult(
+                matched=False, score=0.0, action={"kind": "no_action"}, rejected=True, reject_reason=str(e)
+            )
 
     def _do_evaluate(self, dsl: dict[str, Any], ctx: DecisionContext) -> EvalResult:
         ctx_dict = ctx.to_dict() if hasattr(ctx, "to_dict") else {}

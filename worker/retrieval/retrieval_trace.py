@@ -24,9 +24,7 @@ def build_retrieval_trace(
 ) -> dict[str, Any]:
     diagnostics = {str(key): dict(value or {}) for key, value in dict(channel_diagnostics or {}).items()}
     enabled_channels = sorted(
-        key
-        for key, value in diagnostics.items()
-        if str((value or {}).get("status") or "").strip().lower() == "ready"
+        key for key, value in diagnostics.items() if str((value or {}).get("status") or "").strip().lower() == "ready"
     )
     degraded_channels = sorted(
         key
@@ -51,7 +49,9 @@ def build_retrieval_trace(
             "manifest_hash": str(manifest_hash or ""),
         }
     )
-    trace_id = f"retrieval-{_stable_hash({'context_hash': context_hash, 'query_original': str(query_original or '')})[:16]}"
+    trace_id = (
+        f"retrieval-{_stable_hash({'context_hash': context_hash, 'query_original': str(query_original or '')})[:16]}"
+    )
     return {
         "trace_id": trace_id,
         "enabled_channels": enabled_channels,
@@ -64,4 +64,3 @@ def build_retrieval_trace(
         "selected_chunk_counts_by_channel": selected_counts,
         "channel_latency_ms": latencies,
     }
-

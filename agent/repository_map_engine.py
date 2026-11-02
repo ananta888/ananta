@@ -27,8 +27,23 @@ from agent.repository_map_path_focus import resolve_path_focus
 from agent.repository_map_tree_sitter import resolve_tree_sitter_parser
 
 _LEGACY_CODE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs",
-    ".cpp", ".c", ".h", ".hpp", ".cs", ".rb", ".php", ".jsonl", ".json",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".java",
+    ".go",
+    ".rs",
+    ".cpp",
+    ".c",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".jsonl",
+    ".json",
 }
 
 
@@ -104,6 +119,7 @@ class RepositoryMapEngine:
         ".ts",
         ".tsx",
     }
+
     def __init__(
         self,
         repo_root: str | Path,
@@ -150,9 +166,7 @@ class RepositoryMapEngine:
         for ext in sorted(cls.CODE_EXTENSIONS):
             ts_lang = cls.TREE_SITTER_LANGUAGE_BY_EXT.get(ext, "")
             resolution = resolve_tree_sitter_parser(ts_lang) if ts_lang else None
-            tree_sitter_available = bool(
-                resolution is not None and resolution.status.available
-            )
+            tree_sitter_available = bool(resolution is not None and resolution.status.available)
             legacy_fallback = "json_keys" if ext in {".json", ".jsonl"} else "regex"
             if ext in {".json", ".jsonl"}:
                 fallback_strategy = "json_keys"
@@ -161,9 +175,7 @@ class RepositoryMapEngine:
             else:
                 fallback_strategy = "none"
             matrix[ext] = {
-                "format_id": (
-                    descriptor_by_extension[ext].format_id if ext in descriptor_by_extension else None
-                ),
+                "format_id": (descriptor_by_extension[ext].format_id if ext in descriptor_by_extension else None),
                 "support_level": (
                     "symbol_index"
                     if ext in descriptor_by_extension
@@ -176,23 +188,13 @@ class RepositoryMapEngine:
                 "known_limits": (
                     list(descriptor_by_extension[ext].known_limits) if ext in descriptor_by_extension else []
                 ),
-                "enabled": (
-                    descriptor_by_extension[ext].enabled if ext in descriptor_by_extension else True
-                ),
+                "enabled": (descriptor_by_extension[ext].enabled if ext in descriptor_by_extension else True),
                 "tree_sitter_language": ts_lang or "",
                 "tree_sitter_configured": bool(ts_lang),
                 "tree_sitter_available": tree_sitter_available,
-                "tree_sitter_strategy": (
-                    resolution.status.strategy if resolution is not None else "none"
-                ),
-                "tree_sitter_diagnostics": (
-                    list(resolution.status.diagnostics) if resolution is not None else []
-                ),
-                "effective_parser": (
-                    resolution.status.strategy
-                    if tree_sitter_available
-                    else fallback_strategy
-                ),
+                "tree_sitter_strategy": (resolution.status.strategy if resolution is not None else "none"),
+                "tree_sitter_diagnostics": (list(resolution.status.diagnostics) if resolution is not None else []),
+                "effective_parser": (resolution.status.strategy if tree_sitter_available else fallback_strategy),
                 "fallback": legacy_fallback,
                 "fallback_strategy": fallback_strategy,
                 "fallback_verified": fallback_strategy != "none",
@@ -275,6 +277,7 @@ class RepositoryMapEngine:
     def _extract_symbols_jsonl(text: str) -> list[str]:
         """Extract top-level keys and short string values from JSON/JSONL as symbols."""
         import json as _json
+
         symbols: list[str] = []
         seen: set[str] = set()
         for line in text.splitlines()[:30]:
@@ -363,9 +366,7 @@ class RepositoryMapEngine:
                     path=rel,
                     started=parse_started,
                     byte_size=stat.st_size,
-                    outcome=(
-                        "failed" if exc.diagnostic_code == "parser_timeout" else "excluded"
-                    ),
+                    outcome=("failed" if exc.diagnostic_code == "parser_timeout" else "excluded"),
                     diagnostics=(exc.diagnostic_code,),
                 )
                 continue
@@ -473,29 +474,103 @@ class RepositoryMapEngine:
             diagnostics=diagnostics,
         )
 
-    _REPO_STOP_TOKENS: frozenset = frozenset({
-        "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer",
-        "mir", "dir", "ihm", "ihr", "uns", "ich", "du", "er", "sie", "wir",
-        "und", "oder", "aber", "nicht", "auch", "noch", "von", "mit", "bei",
-        "aus", "zur", "zum", "ist", "sind", "war", "wird", "hat", "haben",
-        "auf", "in", "an", "zu", "am", "im", "als", "bitte", "mal",
-        "the", "and", "for", "are", "but", "not", "you", "all", "can",
-        "has", "its", "was", "use", "one", "how", "our", "out", "that",
-        "this", "with", "from", "have", "will", "been", "they", "their",
-    })
+    _REPO_STOP_TOKENS: frozenset = frozenset(
+        {
+            "der",
+            "die",
+            "das",
+            "den",
+            "dem",
+            "des",
+            "ein",
+            "eine",
+            "einer",
+            "mir",
+            "dir",
+            "ihm",
+            "ihr",
+            "uns",
+            "ich",
+            "du",
+            "er",
+            "sie",
+            "wir",
+            "und",
+            "oder",
+            "aber",
+            "nicht",
+            "auch",
+            "noch",
+            "von",
+            "mit",
+            "bei",
+            "aus",
+            "zur",
+            "zum",
+            "ist",
+            "sind",
+            "war",
+            "wird",
+            "hat",
+            "haben",
+            "auf",
+            "in",
+            "an",
+            "zu",
+            "am",
+            "im",
+            "als",
+            "bitte",
+            "mal",
+            "the",
+            "and",
+            "for",
+            "are",
+            "but",
+            "not",
+            "you",
+            "all",
+            "can",
+            "has",
+            "its",
+            "was",
+            "use",
+            "one",
+            "how",
+            "our",
+            "out",
+            "that",
+            "this",
+            "with",
+            "from",
+            "have",
+            "will",
+            "been",
+            "they",
+            "their",
+        }
+    )
 
     # Path-parts that mark a file as test material rather than source code.
     # Files under these directories are scored as evidence, not as the primary
     # explanation target — see search() Source-First Selector below.
     _REPO_TEST_PATH_MARKERS: tuple[str, ...] = (
-        "/tests/", "/test/", "/benchmarks/", "/e2e/",
+        "/tests/",
+        "/test/",
+        "/benchmarks/",
+        "/e2e/",
     )
 
     # Frontend test file patterns (Angular/Karma). The dot-prefixed
     # `.spec.` is the convention across frontend-angular/ — those files
     # test Angular components, they are not components themselves.
     _REPO_TEST_FILE_PATTERNS: tuple[str, ...] = (
-        ".spec.", "_spec.py", "test_", "_test.go", "_test.js", "_test.ts",
+        ".spec.",
+        "_spec.py",
+        "test_",
+        "_test.go",
+        "_test.js",
+        "_test.ts",
     )
 
     # Top-level directories that contain Ananta's own implementation.
@@ -513,21 +588,43 @@ class RepositoryMapEngine:
     # integration directory. The set is the union of directories that
     # actually contain Ananta implementation files — see
     # ananta-hybrid-orchestrator source paths.
-    _ANANTA_CORE_DIRS: frozenset = frozenset({
-        "agent", "worker", "services", "frontend-angular",
-        "heuristics", "architektur", "domains", "policies",
-        "schemas", "config", "src", "tools", "rag-helper",
-        "prompts", "migrations", "examples", "experiments",
-        "devtools", "deploy", "docker", "tests",
-    })
+    _ANANTA_CORE_DIRS: frozenset = frozenset(
+        {
+            "agent",
+            "worker",
+            "services",
+            "frontend-angular",
+            "heuristics",
+            "architektur",
+            "domains",
+            "policies",
+            "schemas",
+            "config",
+            "src",
+            "tools",
+            "rag-helper",
+            "prompts",
+            "migrations",
+            "examples",
+            "experiments",
+            "devtools",
+            "deploy",
+            "docker",
+            "tests",
+        }
+    )
     # Top-level directories that contain Ananta's own client surfaces
     # (i.e. things Ananta ships to interact with the user). Files
     # here are also Ananta source, but co-exist with third-party
     # integrations in client_surfaces/. The selector must NOT demote
     # these — only the third-party client_surfaces subdirs.
-    _ANANTA_CLIENT_SURFACE_DIRS: frozenset = frozenset({
-        "operator_tui", "tui_runtime", "common",
-    })
+    _ANANTA_CLIENT_SURFACE_DIRS: frozenset = frozenset(
+        {
+            "operator_tui",
+            "tui_runtime",
+            "common",
+        }
+    )
 
     def search(
         self,
@@ -598,10 +695,8 @@ class RepositoryMapEngine:
         symbol_items = sorted(self._symbol_graph.items())
         if allowed_paths is not None:
             from agent.codecompass.domain_scope import is_path_within
-            symbol_items = [
-                (path, symbols) for path, symbols in symbol_items
-                if is_path_within(path, allowed_paths)
-            ]
+
+            symbol_items = [(path, symbols) for path, symbols in symbol_items if is_path_within(path, allowed_paths)]
         from ananta_codecompass.ranking.graph_features import derive_graph_features
 
         candidate_paths = {path for path, _symbols in symbol_items}
@@ -614,14 +709,15 @@ class RepositoryMapEngine:
                 if target and target != source:
                     edges.append({"source": source, "target": target, "source_ref": f"{source}:import:{imported}"})
         query_tokens = {
-            token.lower() for token in re.findall(r"[A-Za-z0-9_]+", query)
+            token.lower()
+            for token in re.findall(r"[A-Za-z0-9_]+", query)
             if len(token) >= 3 and token.lower() not in self._REPO_STOP_TOKENS
         }
         query_nodes = {
-            path for path, symbols in symbol_items
+            path
+            for path, symbols in symbol_items
             if any(
-                token in path.lower() or any(token in symbol.lower() for symbol in symbols)
-                for token in query_tokens
+                token in path.lower() or any(token in symbol.lower() for symbol in symbols) for token in query_tokens
             )
         }
         graph_features = derive_graph_features(
@@ -655,7 +751,9 @@ class RepositoryMapEngine:
                 profile=profile,
                 allowed_scope_digest=hashlib.sha256(
                     json.dumps(allowed_paths, sort_keys=True).encode("utf-8")
-                ).hexdigest() if allowed_paths is not None else "unrestricted",
+                ).hexdigest()
+                if allowed_paths is not None
+                else "unrestricted",
             ),
             top_k=top_k,
         )
@@ -669,10 +767,7 @@ class RepositoryMapEngine:
             ContextChunk(
                 engine="repository_map",
                 source=item.candidate.path,
-                content=(
-                    f"{item.candidate.path}\nSymbols: "
-                    + ", ".join(item.candidate.symbols[:20])
-                ),
+                content=(f"{item.candidate.path}\nSymbols: " + ", ".join(item.candidate.symbols[:20])),
                 score=item.score * 100.0,
                 metadata={
                     "symbol_count": str(len(item.candidate.symbols)),
@@ -722,10 +817,8 @@ class RepositoryMapEngine:
         symbol_items = list(self._symbol_graph.items())
         if allowed_paths is not None:
             from agent.codecompass.domain_scope import is_path_within
-            symbol_items = [
-                (rel, syms) for rel, syms in symbol_items
-                if is_path_within(rel, allowed_paths)
-            ]
+
+            symbol_items = [(rel, syms) for rel, syms in symbol_items if is_path_within(rel, allowed_paths)]
             if not symbol_items:
                 return []
         tokens = query_tokens(query, self._REPO_STOP_TOKENS)

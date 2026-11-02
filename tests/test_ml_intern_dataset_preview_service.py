@@ -23,25 +23,16 @@ def _catalog(tmp_path: Path) -> MlInternDatasetCatalogService:
 
 
 def _records(count: int) -> list[dict]:
-    return [
-        {"instruction": f"Instruction {index}", "output": f"Output {index}"}
-        for index in range(count)
-    ]
+    return [{"instruction": f"Instruction {index}", "output": f"Output {index}"} for index in range(count)]
 
 
 def test_preview_cursor_pages_records_without_paths_or_cross_tenant_data(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
-    created = catalog.create_from_records(
-        tenant_id="tenant-a", principal_id="alice", records=_records(7), name="Paged"
-    )
-    catalog.validate_dataset(
-        tenant_id="tenant-a", principal_id="alice", dataset_id=created["dataset_id"]
-    )
+    created = catalog.create_from_records(tenant_id="tenant-a", principal_id="alice", records=_records(7), name="Paged")
+    catalog.validate_dataset(tenant_id="tenant-a", principal_id="alice", dataset_id=created["dataset_id"])
     preview = MlInternDatasetPreviewService(catalog)
 
-    first = preview.get_page(
-        tenant_id="tenant-a", principal_id="alice", dataset_id=created["dataset_id"], limit=3
-    )
+    first = preview.get_page(tenant_id="tenant-a", principal_id="alice", dataset_id=created["dataset_id"], limit=3)
     second = preview.get_page(
         tenant_id="tenant-a",
         principal_id="alice",
@@ -64,9 +55,7 @@ def test_preview_cursor_pages_records_without_paths_or_cross_tenant_data(tmp_pat
     assert str(tmp_path) not in str(first)
 
     with pytest.raises(DatasetPreviewError) as exc:
-        preview.get_page(
-            tenant_id="tenant-b", principal_id="alice", dataset_id=created["dataset_id"]
-        )
+        preview.get_page(tenant_id="tenant-b", principal_id="alice", dataset_id=created["dataset_id"])
     assert exc.value.reason_code == "dataset_not_found"
 
 
@@ -88,9 +77,7 @@ def test_preview_redacts_secrets_pii_paths_and_truncates_text(tmp_path: Path) ->
         catalog,
         policy=DatasetPreviewPolicy(max_text_chars=64),
     )
-    page = preview.get_page(
-        tenant_id="t", principal_id="p", dataset_id=created["dataset_id"]
-    )
+    page = preview.get_page(tenant_id="t", principal_id="p", dataset_id=created["dataset_id"])
     serialized = str(page)
     assert "abcdefghijklmnop" not in serialized
     assert "alice@example.test" not in serialized
@@ -102,9 +89,7 @@ def test_preview_redacts_secrets_pii_paths_and_truncates_text(tmp_path: Path) ->
 
 def test_statistics_project_counts_distribution_and_split_sizes(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
-    created = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=_records(5), name="Stats"
-    )
+    created = catalog.create_from_records(tenant_id="t", principal_id="p", records=_records(5), name="Stats")
     stats = MlInternDatasetPreviewService(catalog).get_statistics(
         tenant_id="t", principal_id="p", dataset_id=created["dataset_id"]
     )

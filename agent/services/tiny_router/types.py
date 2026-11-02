@@ -1,4 +1,5 @@
 """Versioned, side-effect-free contracts for tiny action-model routing."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -46,8 +47,13 @@ class TinyActionModelProfile:
     @classmethod
     def from_mapping(cls, row: Mapping[str, Any]) -> "TinyActionModelProfile":
         required = (
-            "profile_id", "model_id", "tier", "adapter", "dialect",
-            "license_id", "source_url",
+            "profile_id",
+            "model_id",
+            "tier",
+            "adapter",
+            "dialect",
+            "license_id",
+            "source_url",
         )
         missing = [key for key in required if not str(row.get(key) or "").strip()]
         if missing:
@@ -61,8 +67,7 @@ class TinyActionModelProfile:
             raise ValueError("profile_positive_limits_required")
         artifact_sha256 = str(row.get("artifact_sha256") or "").strip().lower()
         if artifact_sha256 and (
-            len(artifact_sha256) != 64
-            or any(char not in "0123456789abcdef" for char in artifact_sha256)
+            len(artifact_sha256) != 64 or any(char not in "0123456789abcdef" for char in artifact_sha256)
         ):
             raise ValueError("profile_artifact_sha256_invalid")
         metadata = row.get("metadata") or {}
@@ -191,10 +196,7 @@ class RoutingDecision:
             "schema": ROUTING_DECISION_SCHEMA,
             "status": self.status,
             "reason_code": self.reason_code,
-            "candidate": (
-                self.candidate.as_dict(include_arguments=include_arguments)
-                if self.candidate else None
-            ),
+            "candidate": (self.candidate.as_dict(include_arguments=include_arguments) if self.candidate else None),
             "attempts": [item.as_dict() for item in self.attempts],
             "escalation_tier": self.escalation_tier,
             "elapsed_ms": round(self.elapsed_ms, 3),

@@ -24,8 +24,9 @@ ANSWER_RESERVE_TOKENS = 2048  # compatibility: the output reserve of the 32k pro
 CONDENSED_CHARS = 400
 
 
-def available_chars(*fixed_parts: str, reserve_tokens: int | None = None, cap_chars: int | None = None,
-                    window_tokens: int | None = None) -> int:
+def available_chars(
+    *fixed_parts: str, reserve_tokens: int | None = None, cap_chars: int | None = None, window_tokens: int | None = None
+) -> int:
     """Characters left for the growing parts of a prompt: the effective window minus the answer reserve and the
     safety margin of the central policy (or ``reserve_tokens``) and the ``fixed_parts``."""
     window = int(window_tokens or context_window_tokens())
@@ -48,8 +49,47 @@ def _left_out_notice(count: int) -> str:
     return f"[{count} ältere Einträge ausgelassen, um im Kontextfenster zu bleiben]"
 
 
-def fit_blocks(blocks: Sequence[str], budget_chars: int, *, site: str,
-               condense: Callable[[str], str] = condense_text, **detail: object) -> list[str]:
+def fit_blocks_verified(
+    blocks: Sequence[str],
+    *,
+    budget_chars: int,
+    render: Callable[[list[str]], str],
+    allowed: Callable[[str], bool],
+    site: str,
+    max_rounds: int = 8,
+    shrink_factor: float = 0.7,
+    condense: Callable[[str], str] = condense_text,
+    **detail: object,
+) -> list[str]:
+    """``blocks`` that fit ``budget_chars`` *and* whose rendered prompt ``allowed`` accepts.
+
+    The planner budget counts ~4 chars per token while the prompt budget gate counts with the
+    model tokenizer plus its safety factor, so a prompt the planner judged to fit can still be
+    refused right before the model call -- and that refusal aborts the whole loop instead of
+    shortening the context. The gate is the authority: the budget is shrunk and the blocks
+    refitted until ``allowed(render(blocks))``. Bounded by ``max_rounds``; when nothing is
+    accepted, no evidence is returned rather than a prompt the gate would reject.
+    """
+    remaining = max(0, int(budget_chars))
+    kept: list[str] = []
+    for _ in range(max(1, int(max_rounds))):
+        kept = fit_blocks(blocks, remaining, site=site, condense=condense, **detail)
+        if allowed(render(kept)):
+            return kept
+        if remaining <= 0:
+            break
+        remaining = int(remaining * min(max(float(shrink_factor), 0.1), 1.0))
+    return []
+
+
+def fit_blocks(
+    blocks: Sequence[str],
+    budget_chars: int,
+    *,
+    site: str,
+    condense: Callable[[str], str] = condense_text,
+    **detail: object,
+) -> list[str]:
     """``blocks`` (oldest first) within ``budget_chars``: newest complete, older condensed, oldest left out.
     The notice about left-out blocks counts against the budget too."""
     remaining = int(budget_chars)
@@ -75,6 +115,14 @@ def fit_blocks(blocks: Sequence[str], budget_chars: int, *, site: str,
     if condensed or dropped:
         before = sum(len(block) for block in blocks) // CHARS_PER_TOKEN
         after = sum(len(block) for block in kept) // CHARS_PER_TOKEN
-        record_truncation(site, "condense", before_tokens=before, after_tokens=after,
-                          dropped_items=condensed + dropped, condensed=condensed, left_out=dropped, **detail)
+        record_truncation(
+            site,
+            "condense",
+            before_tokens=before,
+            after_tokens=after,
+            dropped_items=condensed + dropped,
+            condensed=condensed,
+            left_out=dropped,
+            **detail,
+        )
     return kept

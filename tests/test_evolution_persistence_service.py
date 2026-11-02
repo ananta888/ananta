@@ -48,7 +48,11 @@ class ProposalEngine(EvolutionEngine):
                     confidence=0.8,
                     requires_review=True,
                     provider_metadata={"vendor_hint": "queue", "bearer_token": "secret-token"},
-                    raw_payload={"vendor_payload": "kept", "api_key": "secret-key", "url": "http://127.0.0.1:5000/private"},
+                    raw_payload={
+                        "vendor_payload": "kept",
+                        "api_key": "secret-key",
+                        "url": "http://127.0.0.1:5000/private",
+                    },
                 )
             ],
         )

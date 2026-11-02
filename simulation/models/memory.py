@@ -5,22 +5,22 @@ Three tiers:
   short_term  — recent N events (sliding window, included in prompts)
   long_term   — LLM-compressed summary string (updated periodically)
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
 @dataclass
 class MemoryEntry:
     tick: int
-    kind: str       # observation | outcome | social | world
+    kind: str  # observation | outcome | social | world
     content: str
-    importance: float = 0.5   # 0-1; used when pruning
+    importance: float = 0.5  # 0-1; used when pruning
 
     def as_dict(self) -> dict[str, Any]:
-        return {"tick": self.tick, "kind": self.kind,
-                "content": self.content, "importance": self.importance}
+        return {"tick": self.tick, "kind": self.kind, "content": self.content, "importance": self.importance}
 
 
 class AgentMemory:
@@ -29,13 +29,12 @@ class AgentMemory:
     def __init__(self, agent_id: str, short_term_capacity: int = 20) -> None:
         self.agent_id = agent_id
         self.short_term_capacity = short_term_capacity
-        self._perception: list[MemoryEntry] = []       # current tick
-        self._short_term: list[MemoryEntry] = []       # sliding window
+        self._perception: list[MemoryEntry] = []  # current tick
+        self._short_term: list[MemoryEntry] = []  # sliding window
         self.long_term_summary: str = ""
 
     def perceive(self, tick: int, kind: str, content: str, importance: float = 0.5) -> None:
-        self._perception.append(MemoryEntry(tick=tick, kind=kind,
-                                             content=content, importance=importance))
+        self._perception.append(MemoryEntry(tick=tick, kind=kind, content=content, importance=importance))
 
     def flush_perception(self) -> None:
         """Move perception → short_term at end of tick, prune if needed."""
@@ -44,7 +43,7 @@ class AgentMemory:
         if len(self._short_term) > self.short_term_capacity:
             # Keep highest-importance entries; never evict current-tick entries
             evictable = sorted(
-                self._short_term[:-len(self._perception) or None],
+                self._short_term[: -len(self._perception) or None],
                 key=lambda m: m.importance,
             )
             to_drop = len(self._short_term) - self.short_term_capacity

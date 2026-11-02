@@ -1,4 +1,5 @@
 """Worker-side execution port for a Hub-classified profile-routed proposal."""
+
 from __future__ import annotations
 
 from typing import Any, Mapping
@@ -29,9 +30,7 @@ class ProfileRoutedStepProposalService:
         task_kind: str,
         agent_config: Mapping[str, Any],
     ) -> str:
-        return str(self.propose_detailed(
-            prompt, task_kind=task_kind, agent_config=agent_config
-        ).get("content") or "")
+        return str(self.propose_detailed(prompt, task_kind=task_kind, agent_config=agent_config).get("content") or "")
 
     def propose_detailed(
         self,
@@ -41,9 +40,7 @@ class ProfileRoutedStepProposalService:
         agent_config: Mapping[str, Any],
     ) -> dict[str, Any]:
         """Execute text inference and retain the resolved runtime identity."""
-        return self.propose_with_tools(
-            prompt, [], task_kind=task_kind, agent_config=agent_config
-        )
+        return self.propose_with_tools(prompt, [], task_kind=task_kind, agent_config=agent_config)
 
     def propose_with_tools(
         self,
@@ -64,11 +61,7 @@ class ProfileRoutedStepProposalService:
             tools,
             routing_ctx=RoutingContext(
                 task_kind=normalized_kind,
-                model_role=(
-                    "coder"
-                    if normalized_kind in {"coding", "debugging", "repo_analysis"}
-                    else "any"
-                ),
+                model_role=("coder" if normalized_kind in {"coding", "debugging", "repo_analysis"} else "any"),
                 context_text=prompt,
                 allow_cloud=False,
             ),

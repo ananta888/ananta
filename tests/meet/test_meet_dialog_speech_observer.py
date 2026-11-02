@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from agent.services.meet_contract import MeetError
-from tests.meet_dialog_speech_observer import DialogSpeechObserver
+from tests.meet.meet_dialog_speech_observer import DialogSpeechObserver
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
 

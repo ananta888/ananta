@@ -202,8 +202,10 @@ def test_retrieval_service_includes_result_memory_for_neighbor_tasks():
     service._signature = service._config_signature()
 
     with synthetic_memory_access(
-        task_id="task-parent-1", channels=("hub-result-memory",),
-        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+        task_id="task-parent-1",
+        channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,),
+        operations=(MemoryOperation.read,),
     ):
         payload = service.retrieve_context(
             "timeout retry",
@@ -249,8 +251,10 @@ def test_retrieval_service_prefers_structured_result_memory_document():
     service._signature = service._config_signature()
 
     with synthetic_memory_access(
-        task_id="task-parent-1", channels=("hub-result-memory",),
-        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+        task_id="task-parent-1",
+        channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,),
+        operations=(MemoryOperation.read,),
     ):
         payload = service.retrieve_context("parser refactor", task_id="task-parent-1")
 
@@ -304,8 +308,10 @@ def test_retrieval_service_propagates_security_metadata_from_memory_entries():
     service._signature = service._config_signature()
 
     with synthetic_memory_access(
-        task_id="task-sec-1", channels=("hub-result-memory",),
-        scopes=(MemoryScope.task,), operations=(MemoryOperation.read,),
+        task_id="task-sec-1",
+        channels=("hub-result-memory",),
+        scopes=(MemoryScope.task,),
+        operations=(MemoryOperation.read,),
     ):
         payload = service.retrieve_context("security summary", task_id="task-sec-1")
 

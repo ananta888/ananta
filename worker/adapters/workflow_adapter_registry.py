@@ -1,4 +1,5 @@
 """Workflow Adapter Registry — LangChain, LangGraph, n8n, webhook, mock (LCG-005)."""
+
 from __future__ import annotations
 
 import logging
@@ -42,8 +43,10 @@ def _load_defaults() -> None:
 
     try:
         import flask
+
         if flask.has_app_context():
             from flask import current_app
+
             agent_cfg = current_app.config.get("AGENT_CONFIG") or {}
             providers = agent_cfg.get("providers") or {}
             lc_raw = providers.get("langchain")
@@ -51,20 +54,23 @@ def _load_defaults() -> None:
             if isinstance(lc_raw, dict):
                 try:
                     from agent.providers.lc_lg import LangChainProviderConfig
+
                     lc_config = LangChainProviderConfig(**lc_raw)
                 except Exception as exc:
                     logger.warning("langchain provider config invalid, using default_off: %s", exc)
             if isinstance(lg_raw, dict):
                 try:
                     from agent.providers.lc_lg import LangGraphProviderConfig
+
                     lg_config = LangGraphProviderConfig(**lg_raw)
                 except Exception as exc:
                     logger.warning("langgraph provider config invalid, using default_off: %s", exc)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_load_defaults: ignored Exception", exc_info=True)
 
     try:
         from worker.adapters.langchain_adapter import LangChainAdapter
+
         register_adapter(LangChainAdapter(lc_config))
     except ImportError as exc:
         logger.debug("LangChainAdapter not loaded: %s", exc)
@@ -80,9 +86,7 @@ def _load_defaults() -> None:
         except ValueError as exc:
             checkpoint_gateway = None
             logger.error("langgraph Hub checkpoint gateway invalid: %s", exc)
-        register_adapter(
-            LangGraphAdapter(lg_config, checkpoint_gateway=checkpoint_gateway)
-        )
+        register_adapter(LangGraphAdapter(lg_config, checkpoint_gateway=checkpoint_gateway))
     except ImportError as exc:
         logger.debug("LangGraphAdapter not loaded: %s", exc)
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 # The pair report is reused as release evidence for the live speech and peer
 # evidence paths.  Keep its source boundary explicit and reviewable: these are
 # the production layers executed by the Playwright scenario plus the UI/facade

@@ -357,8 +357,7 @@ def evaluate(
     baseline = by_mode["local_only"]
     peer = by_mode["peer_enriched"]
     p95_regression_micros = (
-        (peer.transcript_p95_ms - baseline.transcript_p95_ms) * 1_000_000
-        // max(1, baseline.transcript_p95_ms)
+        (peer.transcript_p95_ms - baseline.transcript_p95_ms) * 1_000_000 // max(1, baseline.transcript_p95_ms)
     )
     reasons: list[str] = []
     if any(row.sample_count < active_policy.minimum_samples_per_mode for row in rows):
@@ -418,7 +417,11 @@ def evaluate_measurement_document(
     rows: list[BenchmarkMode] = []
     for raw in raw_modes:
         if not isinstance(raw, Mapping) or set(raw) != {
-            "mode", "lexical_error_micros", "leakage_events", "transcript_p95_ms", "sample_count"
+            "mode",
+            "lexical_error_micros",
+            "leakage_events",
+            "transcript_p95_ms",
+            "sample_count",
         }:
             raise ProgramEvidenceError("speech_sync_measurement_document_invalid")
         try:

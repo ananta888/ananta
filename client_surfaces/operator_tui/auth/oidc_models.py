@@ -3,6 +3,7 @@
 These models are separate from the Device Flow (oidc_device_flow.py) and
 support authorization_code_pkce flows with loopback callback.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ from dataclasses import dataclass, field
 @dataclass
 class OidcProviderConfig:
     """Configuration for an OIDC provider."""
+
     provider_id: str
     issuer: str
     client_id: str
@@ -26,6 +28,7 @@ class OidcAuthRequest:
     Contains all ephemeral PKCE/state/nonce values for one login attempt.
     Never persisted to disk or logged with token values.
     """
+
     provider_id: str
     state: str
     nonce: str
@@ -53,6 +56,7 @@ class OidcAuthResult:
 
     Token fields are never logged or included in str/repr output.
     """
+
     ok: bool
     access_token: str = ""
     id_token: str = ""

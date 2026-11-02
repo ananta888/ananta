@@ -82,9 +82,9 @@ class PerformanceExperimentOrchestrator:
             profile_id=str(spec.get("profile_id") or "micro_benchmark"),
         )
         trace.append({"step": "baseline", "artifact": baseline})
-        observation = PythonTimeProfilerParser().parse(
-            str(baseline.get("stdout_ref") or "wall_time: 0.0 seconds")
-        ).to_dict()
+        observation = (
+            PythonTimeProfilerParser().parse(str(baseline.get("stdout_ref") or "wall_time: 0.0 seconds")).to_dict()
+        )
         hotspot_report = self._hotspots.resolve_hotspots(profile_observation=observation, workspace_dir=workspace)
         trace.append({"step": "hotspots", "artifact": hotspot_report})
         hypotheses = self._hypotheses.generate(hotspot_report=hotspot_report)

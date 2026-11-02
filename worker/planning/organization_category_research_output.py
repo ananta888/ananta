@@ -71,11 +71,7 @@ def has_dependency_cycle(dependencies: Mapping[str, set[str]]) -> bool:
         ready = {key for key, value in pending.items() if not value}
         if not ready:
             return True
-        pending = {
-            key: value.difference(ready)
-            for key, value in pending.items()
-            if key not in ready
-        }
+        pending = {key: value.difference(ready) for key, value in pending.items() if key not in ready}
     return False
 
 
@@ -133,8 +129,7 @@ def _item_claim(item: Mapping[str, Any], claim_id: str, citation_refs: list[str]
     acceptance = item.get("acceptance_criteria")
     acceptance_basis = str(acceptance[0]).strip() if isinstance(acceptance, list) and acceptance else ""
     claim_text = evidence_summary or (
-        f"Inferred work item: {title}."
-        + (f" Acceptance basis: {acceptance_basis}" if acceptance_basis else "")
+        f"Inferred work item: {title}." + (f" Acceptance basis: {acceptance_basis}" if acceptance_basis else "")
     )
     return {
         "claim_id": claim_id,
@@ -167,9 +162,7 @@ def derive_quality_profile_from_model_evidence(
         if isinstance(item, dict)
     ]
     serialized = json.dumps(candidate, ensure_ascii=False, sort_keys=True)
-    mentioned_source_refs = sorted(
-        set(REFERENCE_TOKEN.findall(serialized)).intersection(prepared.allowed_source_refs)
-    )
+    mentioned_source_refs = sorted(set(REFERENCE_TOKEN.findall(serialized)).intersection(prepared.allowed_source_refs))
     if not items or not mentioned_source_refs:
         return {}
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-
 SECTION_BROWSER_PATHS = {
     "dashboard": "/",
     "goals": "/goals",

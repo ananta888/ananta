@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+
 from agent.services.sfu_broadcast_control_observability import (
     SfuBroadcastControlObservationPort,
     control_observer_or_null,
     observed_control_path,
 )
-
-import hashlib
-import json
-from dataclasses import asdict, dataclass
-
 from agent.services.sfu_broadcast_repository_ports import (
     SfuAtomicGroupProjectionMutation,
     SfuAtomicGroupProjectionRepositoryPort,
@@ -46,16 +45,16 @@ class SfuGroupProjectionService:
     """Maps pure projector output to one atomic repository command."""
 
     def __init__(
-        self, *, repository: SfuAtomicGroupProjectionRepositoryPort,
+        self,
+        *,
+        repository: SfuAtomicGroupProjectionRepositoryPort,
         control_observer: SfuBroadcastControlObservationPort | None = None,
     ) -> None:
         self._repository = repository
         self._control_observer = control_observer_or_null(control_observer)
 
     @observed_control_path("group_projection")
-    def project(
-        self, command: SfuGroupProjectionCommand
-    ) -> SfuProjectionMutationResult[SfuReceiverGroup]:
+    def project(self, command: SfuGroupProjectionCommand) -> SfuProjectionMutationResult[SfuReceiverGroup]:
         expires_at = command.now + command.ttl_seconds
         request_digest = _canonical_digest(
             {
@@ -112,9 +111,7 @@ class SfuGroupProjectionService:
 
 
 def _canonical_digest(value: object) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode()
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 

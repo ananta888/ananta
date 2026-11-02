@@ -14,6 +14,7 @@ Security contract: credential values, secret-looking parameter values,
 query-string tokens and pinData payloads are never emitted. Credentials
 appear only as name/type references.
 """
+
 from __future__ import annotations
 
 import json
@@ -154,7 +155,14 @@ class N8nWorkflowExtractor:
             field_relations.extend(state.field_relations)
             pending_subworkflow_refs.extend(state.subworkflow_refs)
             workflow_ids_by_name[state.workflow_name] = state.workflow_id
-            for key in ("workflow_count", "node_count", "connection_count", "trigger_count", "credential_ref_count", "redacted_value_count"):
+            for key in (
+                "workflow_count",
+                "node_count",
+                "connection_count",
+                "trigger_count",
+                "credential_ref_count",
+                "redacted_value_count",
+            ):
                 totals[key] += state.totals[key]
             for name, count in state.findings.items():
                 findings_totals[name] = findings_totals.get(name, 0) + count
@@ -166,17 +174,21 @@ class N8nWorkflowExtractor:
         for source_node_id, target_name in pending_subworkflow_refs:
             target_workflow_id = workflow_ids_by_name.get(target_name)
             if target_workflow_id:
-                api_relations.append({"from": source_node_id, "to": target_workflow_id, "type": "n8n_invokes_subworkflow"})
+                api_relations.append(
+                    {"from": source_node_id, "to": target_workflow_id, "type": "n8n_invokes_subworkflow"}
+                )
             else:
-                api_relations.append({
-                    "kind": "relation",
-                    "file": rel_path,
-                    "id": f"relation:{safe_id(rel_path, source_node_id, 'n8n_invokes_subworkflow', target_name)}",
-                    "source_id": source_node_id,
-                    "source_kind": "n8n_node",
-                    "relation": "n8n_invokes_subworkflow",
-                    "target": target_name,
-                })
+                api_relations.append(
+                    {
+                        "kind": "relation",
+                        "file": rel_path,
+                        "id": f"relation:{safe_id(rel_path, source_node_id, 'n8n_invokes_subworkflow', target_name)}",
+                        "source_id": source_node_id,
+                        "source_kind": "n8n_node",
+                        "relation": "n8n_invokes_subworkflow",
+                        "target": target_name,
+                    }
+                )
 
         # Priority order matters: compact_relation_records truncates from the
         # end, so connections survive before API relations before data fields.
@@ -277,41 +289,44 @@ class _WorkflowState:
             + (f"Credentials: {compact_list([ref['type'] for ref in credential_refs])}. " if credential_refs else "")
             + (f"Data expressions: {compact_list(expression_refs, 6)}." if expression_refs else "")
         ).strip()
-        compact = (
-            f"n8n node {node_name} ({node_type}) roles {compact_list(role_labels, 3)}"
-            + (f" http {compact_text(http_target, 60)}" if http_target else "")
+        compact = f"n8n node {node_name} ({node_type}) roles {compact_list(role_labels, 3)}" + (
+            f" http {compact_text(http_target, 60)}" if http_target else ""
         )
 
-        self.index_records.append({
-            "kind": "n8n_node",
-            "file": rel_path,
-            "id": node_record_id,
-            "parent_id": self.workflow_id,
-            "node_id": str(node.get("id") or node_name),
-            "name": node_name,
-            "workflow_name": self.workflow_name,
-            "node_type": node_type,
-            "type_version": node.get("typeVersion"),
-            "parameter_keys": parameter_keys,
-            "credential_refs": credential_refs,
-            "expression_refs": expression_refs,
-            "role_labels": role_labels,
-            "summary": f"{node_type} node '{node_name}' in workflow '{self.workflow_name}'",
-            "embedding_text": build_embedding_text(self.extractor.embedding_text_mode, verbose, compact),
-        })
-        self.detail_records.append({
-            "kind": "n8n_node_detail",
-            "file": rel_path,
-            "id": f"n8n_node_detail:{safe_id(rel_path, self.workflow_name, str(node.get('id') or node_name))}",
-            "parent_id": node_record_id,
-            "node_id": str(node.get("id") or node_name),
-            "name": node_name,
-            "node_type": node_type,
-            "parameters_summary": params_summary,
-            "credential_refs": credential_refs,
-            "expression_refs": expression_refs,
-            "position": node.get("position"),
-        })
+        self.index_records.append(
+            {
+                "kind": "n8n_node",
+                "file": rel_path,
+                "id": node_record_id,
+                "parent_id": self.workflow_id,
+                "node_id": str(node.get("id") or node_name),
+                "name": node_name,
+                "workflow_name": self.workflow_name,
+                "node_type": node_type,
+                "type_version": node.get("typeVersion"),
+                "parameter_keys": parameter_keys,
+                "credential_refs": credential_refs,
+                "expression_refs": expression_refs,
+                "role_labels": role_labels,
+                "summary": f"{node_type} node '{node_name}' in workflow '{self.workflow_name}'",
+                "embedding_text": build_embedding_text(self.extractor.embedding_text_mode, verbose, compact),
+            }
+        )
+        self.detail_records.append(
+            {
+                "kind": "n8n_node_detail",
+                "file": rel_path,
+                "id": f"n8n_node_detail:{safe_id(rel_path, self.workflow_name, str(node.get('id') or node_name))}",
+                "parent_id": node_record_id,
+                "node_id": str(node.get("id") or node_name),
+                "name": node_name,
+                "node_type": node_type,
+                "parameters_summary": params_summary,
+                "credential_refs": credential_refs,
+                "expression_refs": expression_refs,
+                "position": node.get("position"),
+            }
+        )
 
     def _summarize_parameters(self, parameters: dict) -> tuple[dict, list[str]]:
         """Redacted, truncated per-key summary plus collected expression refs."""
@@ -366,26 +381,30 @@ class _WorkflowState:
             if record_id is None:
                 record_id = f"n8n_credential_ref:{safe_id(self.rel_path, self.workflow_name, ref['name'], ref['type'])}"
                 self._credential_record_ids[key] = record_id
-                self.index_records.append({
-                    "kind": "n8n_credential_ref",
-                    "file": self.rel_path,
-                    "id": record_id,
-                    "parent_id": self.workflow_id,
-                    "name": ref["name"],
-                    "credential_type": ref["type"],
-                    "summary": f"Credential reference '{ref['name']}' of type {ref['type']}",
-                    "embedding_text": build_embedding_text(
-                        self.extractor.embedding_text_mode,
-                        f"n8n credential reference {ref['name']} of type {ref['type']} in workflow {self.workflow_name}. Values are never exported.",
-                        f"n8n credential {ref['name']} ({ref['type']})",
-                    ),
-                })
+                self.index_records.append(
+                    {
+                        "kind": "n8n_credential_ref",
+                        "file": self.rel_path,
+                        "id": record_id,
+                        "parent_id": self.workflow_id,
+                        "name": ref["name"],
+                        "credential_type": ref["type"],
+                        "summary": f"Credential reference '{ref['name']}' of type {ref['type']}",
+                        "embedding_text": build_embedding_text(
+                            self.extractor.embedding_text_mode,
+                            f"n8n credential reference {ref['name']} of type {ref['type']} in workflow {self.workflow_name}. Values are never exported.",
+                            f"n8n credential {ref['name']} ({ref['type']})",
+                        ),
+                    }
+                )
             self.api_relations.append({"from": node_record_id, "to": record_id, "type": "n8n_uses_credential_ref"})
         return refs
 
     # ── role-driven relations ────────────────────────────────────────────
 
-    def _build_role_relations(self, node_record_id: str, node_type: str, role_labels: list[str], parameters: dict) -> None:
+    def _build_role_relations(
+        self, node_record_id: str, node_type: str, role_labels: list[str], parameters: dict
+    ) -> None:
         if "webhook" in role_labels:
             webhook_path = str(parameters.get("path") or "")
             relation = {"from": self.workflow_id, "to": node_record_id, "type": "n8n_receives_webhook"}
@@ -429,42 +448,50 @@ class _WorkflowState:
         if record_id is None:
             record_id = f"n8n_http_endpoint:{safe_id(self.rel_path, self.workflow_name, url)}"
             self._endpoint_record_ids[url] = record_id
-            self.index_records.append({
-                "kind": "n8n_http_endpoint",
-                "file": self.rel_path,
-                "id": record_id,
-                "parent_id": self.workflow_id,
-                "name": url,
-                "summary": f"External HTTP endpoint {url} used by workflow '{self.workflow_name}'",
-                "embedding_text": build_embedding_text(
-                    self.extractor.embedding_text_mode,
-                    f"External HTTP endpoint {url} called from n8n workflow {self.workflow_name} in {self.rel_path}.",
-                    f"HTTP endpoint {compact_text(url, 80)}",
-                ),
-            })
+            self.index_records.append(
+                {
+                    "kind": "n8n_http_endpoint",
+                    "file": self.rel_path,
+                    "id": record_id,
+                    "parent_id": self.workflow_id,
+                    "name": url,
+                    "summary": f"External HTTP endpoint {url} used by workflow '{self.workflow_name}'",
+                    "embedding_text": build_embedding_text(
+                        self.extractor.embedding_text_mode,
+                        f"External HTTP endpoint {url} called from n8n workflow {self.workflow_name} in {self.rel_path}.",
+                        f"HTTP endpoint {compact_text(url, 80)}",
+                    ),
+                }
+            )
         return record_id
 
-    def _build_field_relations(self, node_record_id: str, role_labels: list[str], expression_refs: list[str], parameters: dict) -> None:
+    def _build_field_relations(
+        self, node_record_id: str, role_labels: list[str], expression_refs: list[str], parameters: dict
+    ) -> None:
         for ref in expression_refs:
             if ref.startswith("$json"):
-                self.field_relations.append({
-                    "from": node_record_id,
-                    "to": self.workflow_id,
-                    "type": "n8n_reads_data_field",
-                    "field": ref,
-                })
+                self.field_relations.append(
+                    {
+                        "from": node_record_id,
+                        "to": self.workflow_id,
+                        "type": "n8n_reads_data_field",
+                        "field": ref,
+                    }
+                )
         assignments = parameters.get("assignments")
         if isinstance(assignments, dict):
             entries = assignments.get("assignments")
             if isinstance(entries, list):
                 for entry in entries:
                     if isinstance(entry, dict) and entry.get("name"):
-                        self.field_relations.append({
-                            "from": node_record_id,
-                            "to": self.workflow_id,
-                            "type": "n8n_writes_data_field",
-                            "field": str(entry["name"]),
-                        })
+                        self.field_relations.append(
+                            {
+                                "from": node_record_id,
+                                "to": self.workflow_id,
+                                "type": "n8n_writes_data_field",
+                                "field": str(entry["name"]),
+                            }
+                        )
 
     # ── connections ──────────────────────────────────────────────────────
 
@@ -522,20 +549,25 @@ class _WorkflowState:
             f"n8n workflow {self.workflow_name}: {self.totals['node_count']} nodes, "
             f"{self.totals['trigger_count']} triggers, findings {compact_list(findings, 3)}"
         )
-        self.index_records.insert(0, {
-            "kind": "n8n_workflow",
-            "file": self.rel_path,
-            "id": self.workflow_id,
-            "name": self.workflow_name,
-            "workflow_name": self.workflow_name,
-            "active": bool(self.workflow.get("active")),
-            "node_count": self.totals["node_count"],
-            "connection_count": self.totals["connection_count"],
-            "trigger_count": self.totals["trigger_count"],
-            "credential_ref_count": self.totals["credential_ref_count"],
-            "tags": [str(tag.get("name") if isinstance(tag, dict) else tag) for tag in (self.workflow.get("tags") or [])],
-            "has_pin_data": has_pin_data,
-            "security_findings": findings,
-            "summary": f"n8n workflow '{self.workflow_name}' with {self.totals['node_count']} nodes",
-            "embedding_text": build_embedding_text(self.extractor.embedding_text_mode, verbose, compact),
-        })
+        self.index_records.insert(
+            0,
+            {
+                "kind": "n8n_workflow",
+                "file": self.rel_path,
+                "id": self.workflow_id,
+                "name": self.workflow_name,
+                "workflow_name": self.workflow_name,
+                "active": bool(self.workflow.get("active")),
+                "node_count": self.totals["node_count"],
+                "connection_count": self.totals["connection_count"],
+                "trigger_count": self.totals["trigger_count"],
+                "credential_ref_count": self.totals["credential_ref_count"],
+                "tags": [
+                    str(tag.get("name") if isinstance(tag, dict) else tag) for tag in (self.workflow.get("tags") or [])
+                ],
+                "has_pin_data": has_pin_data,
+                "security_findings": findings,
+                "summary": f"n8n workflow '{self.workflow_name}' with {self.totals['node_count']} nodes",
+                "embedding_text": build_embedding_text(self.extractor.embedding_text_mode, verbose, compact),
+            },
+        )

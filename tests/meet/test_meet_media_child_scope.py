@@ -6,7 +6,7 @@ import pytest
 
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from agent.services.meet_turn_service import HubMediaTasks
-from tests.meet_dialog_lifecycle_fixture import seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import seed_parent
 from tests.meet.test_meet_dialog_audio import runtime
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.test_meet_media import turn

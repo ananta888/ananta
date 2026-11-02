@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _TERMINAL_STATES = {"complete", "needs_review", "blocked"}
 _VALID_STATES = {
     "propose",
@@ -71,8 +70,14 @@ class ExecutionImprovementLoopService:
         reasons = list(verification_payload.get("failed_reasons") or [])
         if not reasons and verification_payload.get("reason"):
             reasons = [str(verification_payload.get("reason"))]
-        observed_paths = {str(item.get("workspace_relative_path") or item.get("relative_path") or "").strip() for item in observed}
-        expected_paths = {str(item.get("relative_path") or "").strip() for item in expected if str(item.get("relative_path") or "").strip()}
+        observed_paths = {
+            str(item.get("workspace_relative_path") or item.get("relative_path") or "").strip() for item in observed
+        }
+        expected_paths = {
+            str(item.get("relative_path") or "").strip()
+            for item in expected
+            if str(item.get("relative_path") or "").strip()
+        }
         missing_paths = sorted(path for path in expected_paths if path and path not in observed_paths)
         return {
             "schema": "verification_critique.v1",
@@ -91,4 +96,3 @@ _service = ExecutionImprovementLoopService()
 
 def get_execution_improvement_loop_service() -> ExecutionImprovementLoopService:
     return _service
-

@@ -34,10 +34,7 @@ def _contains_sensitive_data(value: Any, *, key: str = "") -> bool:
         if not normalized.endswith(_SAFE_SUFFIXES):
             return True
     if isinstance(value, Mapping):
-        return any(
-            _contains_sensitive_data(item, key=str(item_key))
-            for item_key, item in value.items()
-        )
+        return any(_contains_sensitive_data(item, key=str(item_key)) for item_key, item in value.items())
     if isinstance(value, (list, tuple)):
         return any(_contains_sensitive_data(item) for item in value)
     return isinstance(value, (bytes, bytearray, memoryview))
@@ -224,10 +221,7 @@ class MailWorkerTaskHandler:
             "retry_after_ms": outcome.retry_after_ms,
             "provider": outcome.provider,
             "result_refs": list(outcome.result_refs),
-            "counters": {
-                str(key): int(value)
-                for key, value in dict(outcome.counters or {}).items()
-            },
+            "counters": {str(key): int(value) for key, value in dict(outcome.counters or {}).items()},
             "lease_fencing_token": fencing,
         }
         if _contains_sensitive_data(result):

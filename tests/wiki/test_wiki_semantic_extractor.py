@@ -6,4 +6,3 @@ def test_extract_wiki_semantic_signals_links_and_categories():
     assert "Berlin" in signals["links"]
     assert "A" in signals["links"]
     assert "Deutschland" in signals["categories"]
-

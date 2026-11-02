@@ -89,31 +89,37 @@ def test_cli_is_fully_automatic_and_returns_machine_readable_conflicts(
     assert main([*common, "show"]) == 0
     initial = json.loads(capsys.readouterr().out)
     assert initial["state"]["revision"] == 0
-    assert main(
-        [
-            *common,
-            "global-enable",
-            "--expected-revision",
-            "0",
-            "--actor",
-            "automation",
-            "--reason",
-            "approved-rollout",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                *common,
+                "global-enable",
+                "--expected-revision",
+                "0",
+                "--actor",
+                "automation",
+                "--reason",
+                "approved-rollout",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
-    assert main(
-        [
-            *common,
-            "global-disable",
-            "--expected-revision",
-            "0",
-            "--actor",
-            "automation",
-            "--reason",
-            "stale-emergency-command",
-        ]
-    ) == 2
+    assert (
+        main(
+            [
+                *common,
+                "global-disable",
+                "--expected-revision",
+                "0",
+                "--actor",
+                "automation",
+                "--reason",
+                "stale-emergency-command",
+            ]
+        )
+        == 2
+    )
     conflict = json.loads(capsys.readouterr().out)
     assert conflict == {
         "ok": False,

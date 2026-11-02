@@ -4,14 +4,20 @@ from client_surfaces.operator_tui.ai_snake_context import training_profile_envel
 from client_surfaces.operator_tui.ai_snake_training_store import save_patterns
 
 
-def _pattern(pattern_id: str, *, intent: str, confidence: float, status: str = "active", expires_at: str = "2030-01-01T00:00:00Z") -> dict:
+def _pattern(
+    pattern_id: str, *, intent: str, confidence: float, status: str = "active", expires_at: str = "2030-01-01T00:00:00Z"
+) -> dict:
     return {
         "pattern_id": pattern_id,
         "pattern_type": "sequence_rule",
         "conditions": {"all": [{"field": "recent_event", "op": "contains", "value": "artifact:README.md"}]},
         "predicted_intent": intent,
         "confidence": confidence,
-        "evidence": {"source_event_ids": [f"evt-{pattern_id}"], "sample_size": 1, "counter_refs": [f"counter:{pattern_id}"]},
+        "evidence": {
+            "source_event_ids": [f"evt-{pattern_id}"],
+            "sample_size": 1,
+            "counter_refs": [f"counter:{pattern_id}"],
+        },
         "counters": {"hits": 1, "misses": 0, "positives": 1, "negatives": 0},
         "last_seen_at": "2026-01-01T00:00:00Z",
         "expires_at": expires_at,

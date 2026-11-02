@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-
 JMAP_CORE_CAPABILITY = "urn:ietf:params:jmap:core"
 JMAP_MAIL_CAPABILITY = "urn:ietf:params:jmap:mail"
 
@@ -239,10 +238,7 @@ def normalize_method_calls(
                 arguments[raw_key] = value
                 continue
             argument_name = raw_key[1:]
-            if (
-                not _ARGUMENT_NAME_RE.fullmatch(argument_name)
-                or argument_name in call.arguments
-            ):
+            if not _ARGUMENT_NAME_RE.fullmatch(argument_name) or argument_name in call.arguments:
                 raise JmapContractError("jmap_result_reference_argument_invalid")
             reference = JmapResultReference.from_value(value)
             referenced_position = positions.get(reference.result_of)

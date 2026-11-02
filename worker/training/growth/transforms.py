@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import inspect
 from copy import deepcopy
 from dataclasses import replace
-import inspect
 
 from ananta_contracts.adaptive_growth import SUPPORTED_ARCHITECTURE
 from worker.training.growth.model import build_model

@@ -252,10 +252,7 @@ class SpeechEvidenceRetentionCleanupService:
             root_digest=row.evidence_digest,
             revocation_epoch=int(row.revocation_epoch),
         )
-        active_descendants = any(
-            int(node["depth"]) > 0 and str(node["status"]) == "active"
-            for node in impact.nodes
-        )
+        active_descendants = any(int(node["depth"]) > 0 and str(node["status"]) == "active" for node in impact.nodes)
         if impact.truncated or active_descendants:
             raise SpeechEvidenceCleanupError("speech_cleanup_active_reference_race")
         if impact.impact_digest != row.impact_decision_digest:

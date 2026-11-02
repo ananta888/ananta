@@ -23,14 +23,11 @@ RUNTIME_OPERATIONS_LIST_SCHEMA = "ananta.workflow_runtime_operations_list.v1"
 
 
 class WorkflowRuntimeReadModelRepository(Protocol):
-    def upsert(self, record: WorkflowRuntimeOperationRecord) -> WorkflowRuntimeOperationRecord:
-        ...
+    def upsert(self, record: WorkflowRuntimeOperationRecord) -> WorkflowRuntimeOperationRecord: ...
 
-    def get(self, *, tenant_id: str, run_id: str) -> WorkflowRuntimeOperationRecord | None:
-        ...
+    def get(self, *, tenant_id: str, run_id: str) -> WorkflowRuntimeOperationRecord | None: ...
 
-    def list_for_tenant(self, *, tenant_id: str) -> tuple[WorkflowRuntimeOperationRecord, ...]:
-        ...
+    def list_for_tenant(self, *, tenant_id: str) -> tuple[WorkflowRuntimeOperationRecord, ...]: ...
 
 
 class InMemoryWorkflowRuntimeReadModelRepository:
@@ -48,10 +45,7 @@ class InMemoryWorkflowRuntimeReadModelRepository:
             if current is not None:
                 if validated.source_sequence < current.source_sequence:
                     raise ValueError("runtime_read_model_sequence_regression")
-                if (
-                    validated.source_sequence == current.source_sequence
-                    and validated.updated_at < current.updated_at
-                ):
+                if validated.source_sequence == current.source_sequence and validated.updated_at < current.updated_at:
                     return current
             self._records[key] = validated
             return validated
@@ -159,9 +153,7 @@ class WorkflowRuntimeReadModelService:
         evidence = list(projected_metadata.get("evidence") or [])
         fallbacks = list(projected_metadata.get("fallbacks") or [])
         parity_gaps = list(projected_metadata.get("parity_gaps") or [])
-        semantic_deviations = list(
-            projected_metadata.get("semantic_deviations") or []
-        )
+        semantic_deviations = list(projected_metadata.get("semantic_deviations") or [])
         recovery = dict(projected_metadata.get("recovery") or {})
         capabilities = projected_metadata.get("capabilities") or []
         gates = list(projected_metadata.get("gates") or [])
@@ -189,9 +181,7 @@ class WorkflowRuntimeReadModelService:
                 evidence.extend(list(observed.get("evidence") or []))
                 fallbacks.extend(list(observed.get("fallbacks") or []))
                 parity_gaps.extend(list(observed.get("parity_gaps") or []))
-                semantic_deviations.extend(
-                    list(observed.get("semantic_deviations") or [])
-                )
+                semantic_deviations.extend(list(observed.get("semantic_deviations") or []))
                 if isinstance(observed.get("recovery"), Mapping):
                     recovery.update(dict(observed["recovery"]))
                 cost_micros = max(
@@ -219,9 +209,7 @@ class WorkflowRuntimeReadModelService:
                 latency_ms = max(latency_ms, float(payload.get("latency_ms") or 0.0))
 
         known_gate_ids = {
-            str(item.get("gate_id") or item.get("id") or "")
-            for item in gates
-            if isinstance(item, Mapping)
+            str(item.get("gate_id") or item.get("id") or "") for item in gates if isinstance(item, Mapping)
         }
         for gate_id, approval in projection.approvals.items():
             if gate_id not in known_gate_ids:
@@ -243,9 +231,7 @@ class WorkflowRuntimeReadModelService:
             "gates": gates,
             "evidence": _dedupe_projection_facts(evidence),
             "parity_gaps": _dedupe_projection_facts(parity_gaps),
-            "semantic_deviations": _dedupe_projection_facts(
-                semantic_deviations
-            ),
+            "semantic_deviations": _dedupe_projection_facts(semantic_deviations),
         }
         return self.record_snapshot(payload)
 
@@ -332,8 +318,7 @@ class WorkflowRuntimeReadModelService:
             "latency_p50_ms": percentile(latencies, 0.50),
             "latency_p95_ms": percentile(latencies, 0.95),
             "active_recoveries": sum(
-                str((item.get("recovery") or {}).get("status") or "")
-                in {"active", "running", "retrying", "recovering"}
+                str((item.get("recovery") or {}).get("status") or "") in {"active", "running", "retrying", "recovering"}
                 for item in runs
             ),
             "parity_gap_runs": sum(bool(item.get("parity_gaps") or item.get("semantic_deviations")) for item in runs),
@@ -374,9 +359,7 @@ def get_workflow_runtime_read_model_service() -> WorkflowRuntimeReadModelService
                 SQLAlchemyWorkflowRuntimeReadModelRepository,
             )
 
-            _service = WorkflowRuntimeReadModelService(
-                SQLAlchemyWorkflowRuntimeReadModelRepository(engine)
-            )
+            _service = WorkflowRuntimeReadModelService(SQLAlchemyWorkflowRuntimeReadModelRepository(engine))
     return _service
 
 

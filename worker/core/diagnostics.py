@@ -4,20 +4,22 @@ EW-T052: worker_id, version, runtime_mode, tools, providers, skills, active capa
           policy summary — never secrets.
 EW-T053: Audit event emission for every sensitive step.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ── EW-T052: WorkerDiagnostics ────────────────────────────────────────────────
+
 
 @dataclass
 class WorkerDiagnostics:
     worker_id: str
     version: str
-    runtime_mode: str           # "local", "headless", "development", "ci"
+    runtime_mode: str  # "local", "headless", "development", "ci"
     registered_tools: list[str] = field(default_factory=list)
     registered_providers: list[dict[str, Any]] = field(default_factory=list)
     enabled_skills: list[str] = field(default_factory=list)
@@ -68,21 +70,21 @@ class WorkerDiagnosticsBuilder:
             try:
                 tools = [e["id"] for e in tool_registry.capability_catalog()]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         providers = []
         if provider_registry:
             try:
                 providers = provider_registry.provider_info()  # already safe (no secrets)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         skills = []
         if skill_registry:
             try:
                 skills = [e.manifest.id for e in skill_registry.enabled_skills()]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         active_caps = []
         policy_summary: dict[str, Any] = {}
@@ -96,7 +98,7 @@ class WorkerDiagnosticsBuilder:
                     "denied_operations": envelope.denied_operations,
                 }
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("build: ignored Exception", exc_info=True)
 
         return WorkerDiagnostics(
             worker_id=worker_id,
@@ -115,42 +117,44 @@ class WorkerDiagnosticsBuilder:
 
 # ── EW-T053: AuditEmitter ─────────────────────────────────────────────────────
 
-AUDITABLE_EVENTS = frozenset({
-    "preflight_allow",
-    "preflight_denied",
-    "approval_required",
-    "approval_consumed",
-    "policy_denied",
-    "shell_execute",
-    "patch_apply",
-    "file_write",
-    "memory_write",
-    "subworker_spawn",
-    "cron_schedule",
-    "artifact_publish",
-    "provider_call",
-    "provider_cloud_call",
-    "mcp_call",
-    "context_blocked",
-    "injection_blocked",
-    "capability_snapshot_mismatch",
-    # HF-T016: Hermes-specific adapter event types
-    "adapter_parse_error",
-    "adapter_unsafe_output",
-    "remote_output_invalid",
-    "routing_selected",
-    # DRR-T033: Deterministic repair lifecycle events
-    "repair_signature_matched",
-    "repair_plan_generated",
-    "repair_approval_required",
-    "repair_step_started",
-    "repair_step_completed",
-    "repair_step_denied",
-    "repair_verification_completed",
-    "repair_outcome_persisted",
-    "repair_escalated",
-    "repair_rollback_proposed",
-})
+AUDITABLE_EVENTS = frozenset(
+    {
+        "preflight_allow",
+        "preflight_denied",
+        "approval_required",
+        "approval_consumed",
+        "policy_denied",
+        "shell_execute",
+        "patch_apply",
+        "file_write",
+        "memory_write",
+        "subworker_spawn",
+        "cron_schedule",
+        "artifact_publish",
+        "provider_call",
+        "provider_cloud_call",
+        "mcp_call",
+        "context_blocked",
+        "injection_blocked",
+        "capability_snapshot_mismatch",
+        # HF-T016: Hermes-specific adapter event types
+        "adapter_parse_error",
+        "adapter_unsafe_output",
+        "remote_output_invalid",
+        "routing_selected",
+        # DRR-T033: Deterministic repair lifecycle events
+        "repair_signature_matched",
+        "repair_plan_generated",
+        "repair_approval_required",
+        "repair_step_started",
+        "repair_step_completed",
+        "repair_step_denied",
+        "repair_verification_completed",
+        "repair_outcome_persisted",
+        "repair_escalated",
+        "repair_rollback_proposed",
+    }
+)
 
 
 @dataclass
@@ -232,7 +236,7 @@ class AuditEmitter:
 
     def emit_approval(
         self,
-        action: str,    # "required" or "consumed"
+        action: str,  # "required" or "consumed"
         *,
         correlation_id: str,
         operation: str,
@@ -262,9 +266,16 @@ class AuditEmitter:
 
 # ── AWF-T039: WorkerDiagnosticsReadModel ─────────────────────────────────────
 
-_SENSITIVE_KEY_FRAGMENTS = frozenset({
-    "api_key", "secret", "password", "token", "credential", "private",
-})
+_SENSITIVE_KEY_FRAGMENTS = frozenset(
+    {
+        "api_key",
+        "secret",
+        "password",
+        "token",
+        "credential",
+        "private",
+    }
+)
 
 
 @dataclass
@@ -273,6 +284,7 @@ class WorkerDiagnosticsReadModel:
 
     Never exposes provider keys, raw prompts, or sensitive context.
     """
+
     native_worker_enabled: bool
     worker_profiles: list[str]
     tool_registry_summary: dict[str, Any]
@@ -307,6 +319,7 @@ class WorkerDiagnosticsReadModel:
             elif isinstance(obj, (list, tuple)):
                 return any(_scan(item) for item in obj)
             return False
+
         return _scan(self.as_dict())
 
 
@@ -339,13 +352,23 @@ def build_worker_diagnostics_read_model(
         skill_summary = {"registered_count": 0, "enabled_count": 0, "skill_ids": []}
 
     mem_summary: dict[str, Any] = {
-        k: v for k, v in (memory_policy or {}).items()
-        if k in {"enabled", "redact_before_persist", "default_memory_scope",
-                 "archive_raw_output", "policy_version", "default_ttl_seconds", "retention_class"}
+        k: v
+        for k, v in (memory_policy or {}).items()
+        if k
+        in {
+            "enabled",
+            "redact_before_persist",
+            "default_memory_scope",
+            "archive_raw_output",
+            "policy_version",
+            "default_ttl_seconds",
+            "retention_class",
+        }
     }
 
     ctx_summary: dict[str, Any] = {
-        k: v for k, v in (context_policy or {}).items()
+        k: v
+        for k, v in (context_policy or {}).items()
         if not any(s in str(k).lower() for s in _SENSITIVE_KEY_FRAGMENTS)
     }
 
@@ -374,11 +397,15 @@ def build_worker_diagnostics_read_model(
 
 def _redact_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Remove known-sensitive keys from audit event payload."""
-    sensitive_keys = frozenset({
-        "api_key", "secret", "token", "password", "credential",
-        "private_key", "access_key",
-    })
-    return {
-        k: "[REDACTED]" if k.lower() in sensitive_keys else v
-        for k, v in payload.items()
-    }
+    sensitive_keys = frozenset(
+        {
+            "api_key",
+            "secret",
+            "token",
+            "password",
+            "credential",
+            "private_key",
+            "access_key",
+        }
+    )
+    return {k: "[REDACTED]" if k.lower() in sensitive_keys else v for k, v in payload.items()}

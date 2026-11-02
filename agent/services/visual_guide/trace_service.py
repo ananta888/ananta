@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING
 
 from agent.adapters import visual_guide_route_bridge as _route_bridge

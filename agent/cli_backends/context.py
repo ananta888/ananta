@@ -90,6 +90,52 @@ class CliBackendContext:
             "agent.services.generated_source_line_policy_service", fromlist=["get_generated_source_line_policy_service"]
         ).get_generated_source_line_policy_service()
     )
+    self_development_record_tool_result = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services.self_development.analysis_report", fromlist=["record_tool_result"]
+            ).record_tool_result
+        )
+    )
+    codecompass_ensure_tool_context = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services.codecompass_task_capability", fromlist=["ensure_tool_context"]
+            ).ensure_tool_context
+        )
+    )
+    worker_workspace_align_declared_test_command = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services._worker_workspace_context_writer",
+                fromlist=["_align_declared_test_command"],
+            )._align_declared_test_command
+        )
+    )
+    final_answer_artifact_builder = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services.self_development.final_answer_artifact",
+                fromlist=["build_final_answer_artifact"],
+            ).build_final_answer_artifact
+        )
+    )
+    normalize_test_command = _ServiceProperty(
+        lambda: __import__("agent.services.tools.test_tools", fromlist=["_normalize_command"])._normalize_command
+    )
+    decision_service = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services.decision_providers.service", fromlist=["get_decision_service"]
+            ).get_decision_service
+        )
+    )
+    decision_types = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.decision_providers.types",
+            fromlist=["DecisionQuestion", "DecisionRequest"],
+        )
+    )
     worker_workspace_service = _ServiceProperty(
         lambda: __import__(
             "agent.services.worker_workspace_service", fromlist=["get_worker_workspace_service"]
@@ -118,6 +164,11 @@ class CliBackendContext:
     codecompass_task_capability = _ServiceProperty(
         lambda: __import__("agent.services.codecompass_task_capability", fromlist=["issue_task_capability"])
     )
+    codecompass_retrieval_capability = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.codecompass_retrieval_capability_service", fromlist=["verify_retrieval_capability"]
+        )
+    )
     ananta_tool_executor = _ServiceProperty(
         lambda: __import__("agent.services.tools", fromlist=["execute_ananta_tool"]).execute_ananta_tool
     )
@@ -125,9 +176,9 @@ class CliBackendContext:
         lambda: __import__("agent.services.tools._evidence", fromlist=["build_tool_result"]).build_tool_result
     )
     workspace_path_resolver = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]
-        ).resolve_workspace_path
+        lambda: (
+            __import__("agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]).resolve_workspace_path
+        )
     )
     workspace_path_error_type = _ServiceProperty(
         lambda: __import__("agent.services.tools.repo_tools", fromlist=["WorkspacePathError"]).WorkspacePathError
@@ -145,16 +196,20 @@ class CliBackendContext:
         ).TokenBudgetService()
     )
     terminal_bridge_factory = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.terminal_bridge",
-            fromlist=["build_terminal_bridge"],
-        ).build_terminal_bridge
+        lambda: (
+            __import__(
+                "agent.services.terminal_bridge",
+                fromlist=["build_terminal_bridge"],
+            ).build_terminal_bridge
+        )
     )
     model_inventory_snapshot_factory = _ServiceProperty(
-        lambda: __import__(
-            "agent.services.model_inventory_service",
-            fromlist=["ModelInventorySnapshot"],
-        ).ModelInventorySnapshot
+        lambda: (
+            __import__(
+                "agent.services.model_inventory_service",
+                fromlist=["ModelInventorySnapshot"],
+            ).ModelInventorySnapshot
+        )
     )
     lmstudio_request_registry_helpers = _ServiceProperty(
         lambda: __import__(

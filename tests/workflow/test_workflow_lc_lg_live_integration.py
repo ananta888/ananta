@@ -6,6 +6,7 @@ These tests require a running Ollama instance. They are marked
 Run with:
     ANANTA_OLLAMA_URL=http://localhost:11434 pytest tests/workflow/test_workflow_lc_lg_live_integration.py -m integration
 """
+
 from __future__ import annotations
 
 import os
@@ -16,8 +17,8 @@ from agent.providers.lc_lg import LangChainProviderConfig, LangGraphProviderConf
 from worker.adapters.langchain_adapter import LangChainAdapter
 from worker.adapters.langgraph_adapter import LangGraphAdapter
 
-
 # ── Skip fixture ───────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True, scope="module")
 def require_ollama_url():

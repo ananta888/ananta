@@ -197,11 +197,7 @@ class AnantaWebcrawlerProviderConfig:
             reason="webcrawler_supports_models_endpoint_invalid",
         )
         model_semantics = str(raw.get("model_semantics") or "profile_name").strip()
-        if enabled and (
-            not supports_streaming
-            or not supports_models
-            or model_semantics != "profile_name"
-        ):
+        if enabled and (not supports_streaming or not supports_models or model_semantics != "profile_name"):
             raise WebcrawlerConfigError("webcrawler_openai_contract_invalid")
 
         return cls(

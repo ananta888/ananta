@@ -8,6 +8,7 @@ Safety property: ``strict_coverage_gating`` is listed in ``SAFETY_ON``
 and cannot be disabled via environment — flipping it off would allow
 non-authoritative RIG data to be treated as authoritative.
 """
+
 from __future__ import annotations
 
 GROUP = "rig"

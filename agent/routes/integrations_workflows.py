@@ -38,13 +38,16 @@ def workflow_callback() -> tuple:
         log_audit("workflow_callback_rejected", {"provider": provider, "correlation_id": correlation_id})
         return api_response(status="error", message="invalid_signature", code=401)
 
-    log_audit("workflow_callback_received", {
-        "provider": provider,
-        "correlation_id": correlation_id,
-        "task_id": payload.get("task_id"),
-        "goal_id": payload.get("goal_id"),
-        "trace_id": payload.get("trace_id"),
-    })
+    log_audit(
+        "workflow_callback_received",
+        {
+            "provider": provider,
+            "correlation_id": correlation_id,
+            "task_id": payload.get("task_id"),
+            "goal_id": payload.get("goal_id"),
+            "trace_id": payload.get("trace_id"),
+        },
+    )
     results = current_app.config.setdefault("WORKFLOW_CALLBACK_RESULTS", [])
     if isinstance(results, list):
         results.append(

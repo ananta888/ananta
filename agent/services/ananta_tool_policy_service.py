@@ -15,6 +15,7 @@ capabilities and the propose-only rule for OpenCode/Aider/Codex from
 ``ToolRoutingService`` are enforced here so the worker cannot bypass
 them (AWTCL-006 acceptance criteria).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -97,8 +98,13 @@ class AnantaToolPolicyService:
         allowed, rule_id = grants.allows(operation_id, get_operation_registry_service().groups_for(operation_id))
         if allowed:
             return None
-        return ToolPolicyDecision(decision=DECISION_POLICY_BLOCKED, reason="role_denied", rule_id=rule_id,
-                                  risk_class=spec.risk_class, tool_name=name)
+        return ToolPolicyDecision(
+            decision=DECISION_POLICY_BLOCKED,
+            reason="role_denied",
+            rule_id=rule_id,
+            risk_class=spec.risk_class,
+            tool_name=name,
+        )
 
     def evaluate(
         self,
@@ -191,8 +197,10 @@ class AnantaToolPolicyService:
                     tool_name=name,
                 )
             legacy_approval = name in {str(item or "").strip() for item in list(approvals or [])}
-            if spec.policy_requirements.get("requires_approval") and not legacy_approval and not self._has_request_grant(
-                tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
+            if (
+                spec.policy_requirements.get("requires_approval")
+                and not legacy_approval
+                and not self._has_request_grant(tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id)
             ):
                 return ToolPolicyDecision(
                     decision=DECISION_APPROVAL_REQUIRED,
@@ -222,8 +230,10 @@ class AnantaToolPolicyService:
                     tool_name=name,
                 )
             legacy_approval = name in {str(item or "").strip() for item in list(approvals or [])}
-            if spec.policy_requirements.get("requires_approval") and not legacy_approval and not self._has_request_grant(
-                tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id
+            if (
+                spec.policy_requirements.get("requires_approval")
+                and not legacy_approval
+                and not self._has_request_grant(tool_name=name, arguments=arguments, task_id=task_id, goal_id=goal_id)
             ):
                 return ToolPolicyDecision(
                     decision=DECISION_APPROVAL_REQUIRED,

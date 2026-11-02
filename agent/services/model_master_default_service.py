@@ -11,6 +11,7 @@ Resolution order within this service:
 The returned profile has profile_id="_global_master_default" and is used
 only at rank "global_master_default" in ModelProfileResolver.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,7 +76,9 @@ class ModelMasterDefaultService:
 
         logger.debug(
             "model_master_default: synthesised profile provider=%s model=%s source=%s",
-            effective_provider, effective_model, self._source_label(),
+            effective_provider,
+            effective_model,
+            self._source_label(),
         )
         return profile
 

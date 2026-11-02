@@ -1,8 +1,11 @@
 from agent.services.augment.retrieval_benchmark import (
-    RetrievalBenchmarkRunner, RetrievalMode, GoldSet, RetrievedResult,
-    DiscardedResult, DiscardReason
+    DiscardedResult,
+    DiscardReason,
+    GoldSet,
+    RetrievalBenchmarkRunner,
+    RetrievalMode,
+    RetrievedResult,
 )
-import pytest
 
 
 def _gold(files=["src/auth.py", "src/user.py"]):
@@ -53,8 +56,9 @@ def test_to_cli_text_contains_query():
 
 def test_discarded_appear_in_cli_text():
     runner = _runner()
-    discarded = [DiscardedResult(path=".env", score=0.9, provider="cc",
-                                 reason=DiscardReason.DENIED_PATH, detail="secret file")]
+    discarded = [
+        DiscardedResult(path=".env", score=0.9, provider="cc", reason=DiscardReason.DENIED_PATH, detail="secret file")
+    ]
     report = runner.make_audit_report(query="q", provider="cc", mode="cc", retrieved=[], discarded=discarded)
     text = report.to_cli_text()
     assert "denied_path" in text

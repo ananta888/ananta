@@ -62,9 +62,7 @@ class ModelIntelligenceReportSection:
                 "report_section_status_invalid",
                 "report section status is invalid",
             )
-        if self.reason_code is not None and (
-            not self.reason_code or len(self.reason_code) > 128
-        ):
+        if self.reason_code is not None and (not self.reason_code or len(self.reason_code) > 128):
             raise ModelIntelligenceReportError(
                 "report_section_reason_invalid",
                 "report section reason code is invalid",
@@ -130,10 +128,7 @@ class ModelIntelligenceReportService:
         payload = {
             "model_identity": _redact_json(model_identity),
             "schema": REPORT_SCHEMA,
-            "sections": [
-                section.to_dict()
-                for section in sorted(sections, key=lambda item: item.name)
-            ],
+            "sections": [section.to_dict() for section in sorted(sections, key=lambda item: item.name)],
             "tool_versions": _canonical_tool_versions(tool_versions),
         }
         canonical_json = _canonical_json_bytes(payload) + b"\n"
@@ -227,12 +222,7 @@ def _canonical_tool_versions(value: Mapping[str, str]) -> dict[str, str]:
     for raw_name, raw_version in value.items():
         name = str(raw_name).strip()
         version = str(raw_version).strip()
-        if (
-            not name
-            or len(name) > 128
-            or not version
-            or len(version) > 256
-        ):
+        if not name or len(name) > 128 or not version or len(version) > 256:
             raise ModelIntelligenceReportError(
                 "report_tool_version_invalid",
                 "tool version entry is invalid",
@@ -265,11 +255,7 @@ def _redact_json(value: Any, *, depth: int = 0) -> Any:
                     "report payload contains an invalid key",
                 )
             normalized_key = re.sub(r"[^a-z0-9]+", "_", raw_key.lower()).strip("_")
-            result[raw_key] = (
-                _REDACTED
-                if normalized_key in _SENSITIVE_KEYS
-                else _redact_json(child, depth=depth + 1)
-            )
+            result[raw_key] = _REDACTED if normalized_key in _SENSITIVE_KEYS else _redact_json(child, depth=depth + 1)
         return {key: result[key] for key in sorted(result)}
     if isinstance(value, (list, tuple)):
         if len(value) > 100_000:
@@ -287,7 +273,8 @@ def _redact_json(value: Any, *, depth: int = 0) -> Any:
 def _validate_report_payload(payload: Any) -> None:
     if (
         not isinstance(payload, dict)
-        or set(payload) != {
+        or set(payload)
+        != {
             "model_identity",
             "schema",
             "sections",
@@ -319,11 +306,7 @@ def _validate_report_payload(payload: Any) -> None:
             or not _SECTION_NAME.fullmatch(section["name"])
             or section["status"] not in SECTION_STATUSES
             or (
-                "reason_code" in section
-                and (
-                    not isinstance(section["reason_code"], str)
-                    or not section["reason_code"]
-                )
+                "reason_code" in section and (not isinstance(section["reason_code"], str) or not section["reason_code"])
             )
         ):
             raise ModelIntelligenceReportError(

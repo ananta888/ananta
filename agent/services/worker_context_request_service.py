@@ -1,4 +1,5 @@
 """Safe fulfillment for WorkerContextRequest-style file reads."""
+
 from __future__ import annotations
 
 from pathlib import Path

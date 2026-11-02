@@ -25,39 +25,70 @@ def build_policy_setup(monkeypatch):
     command = task_command(context)
     task = {"tenant_id": command.tenant_id, "project_id": "project-1"}
     document = {
-        "schema": "ananta.context-access-policy.v1", "policy_id": "policy-1", "scope": "project",
+        "schema": "ananta.context-access-policy.v1",
+        "policy_id": "policy-1",
+        "scope": "project",
         "defaults": {"send_allowed": False},
-        "rules": [{
-            "id": "public-code", "description": "Explicit public CodeCompass context",
-            "source_types": ["codecompass_code"], "sensitivity": "public", "send_allowed": True,
-            "cloud_allowed": False, "external_worker_allowed": False,
-        }],
+        "rules": [
+            {
+                "id": "public-code",
+                "description": "Explicit public CodeCompass context",
+                "source_types": ["codecompass_code"],
+                "sensitivity": "public",
+                "send_allowed": True,
+                "cloud_allowed": False,
+                "external_worker_allowed": False,
+            }
+        ],
     }
     snapshot = ContextPolicyVersion(
-        "policy-1", 1, task["tenant_id"], task["project_id"], "active", document,
-        derive_context_policy_digest(document), "a" * 64, "synthetic-hub", "2026-01-01T00:00:00Z",
+        "policy-1",
+        1,
+        task["tenant_id"],
+        task["project_id"],
+        "active",
+        document,
+        derive_context_policy_digest(document),
+        "a" * 64,
+        "synthetic-hub",
+        "2026-01-01T00:00:00Z",
     )
     destination = DestinationDescriptor.create(
-        worker_id="worker-1", worker_kind="native", runtime_id="native-pi", runtime_kind="docker",
-        provider_id="ollama", model_id="selected-model", model_class="general",
-        provider_location=ProviderLocation.LOCAL_CONTAINER, data_residency="local",
+        worker_id="worker-1",
+        worker_kind="native",
+        runtime_id="native-pi",
+        runtime_kind="docker",
+        provider_id="ollama",
+        model_id="selected-model",
+        model_class="general",
+        provider_location=ProviderLocation.LOCAL_CONTAINER,
+        data_residency="local",
     )
     bundle = {
         "context_text": "unapproved assembled text must not be loaded",
-        "chunks": [{
-            "source_ref": "docs/public/example.py", "source_type": "codecompass_code",
-            "sensitivity": "public", "content": "def example(): return 1",
-        }],
-        "bundle_metadata": {"native_context_access": {
-            "policy_id": "policy-1", "destination_id": destination.destination_id,
-            "provider_endpoint_identity": command.provider_binding.endpoint_identity,
-        }},
+        "chunks": [
+            {
+                "source_ref": "docs/public/example.py",
+                "source_type": "codecompass_code",
+                "sensitivity": "public",
+                "content": "def example(): return 1",
+            }
+        ],
+        "bundle_metadata": {
+            "native_context_access": {
+                "policy_id": "policy-1",
+                "destination_id": destination.destination_id,
+                "provider_endpoint_identity": command.provider_binding.endpoint_identity,
+            }
+        },
     }
     policies, destinations = Mock(), Mock()
     policies.active.return_value, destinations.get.return_value = snapshot, destination
     domain = domain_module.ContextAccessPolicyService()
     service = NativeContextPolicyService(
-        policies=policies, destinations=destinations, blocks=NativeContextBlockProjector(domain),
+        policies=policies,
+        destinations=destinations,
+        blocks=NativeContextBlockProjector(domain),
     )
     return service, task, bundle, command, policies, destinations, domain
 
@@ -78,7 +109,9 @@ def update_document(setup, mutate):
     document = copy.deepcopy(snapshot.document)
     mutate(document)
     policies.active.return_value = replace(
-        snapshot, document=document, policy_digest=derive_context_policy_digest(document),
+        snapshot,
+        document=document,
+        policy_digest=derive_context_policy_digest(document),
     )
 
 
@@ -88,7 +121,9 @@ def test_active_project_policy_and_hub_destination_allow_only_selected_chunks(po
     assert json.loads(value.content) == [{"source_ref": "docs/public/example.py", "content": "def example(): return 1"}]
     assert policy_setup[2] == before and "unapproved assembled" not in value.content
     assert policy_setup[4].active.call_args.kwargs == {
-        "tenant_id": "tenant-1", "project_id": "project-1", "policy_id": "policy-1",
+        "tenant_id": "tenant-1",
+        "project_id": "project-1",
+        "policy_id": "policy-1",
     }
     assert policy_setup[5].get.call_args.kwargs["project_id"] == "project-1"
 
@@ -101,7 +136,8 @@ def test_missing_revoked_or_mismatched_active_policy_blocks_context(policy_setup
         policies.active.return_value = None
     else:
         field = {"revoked": "state", "tenant": "tenant_id", "project": "project_id", "digest": "policy_digest"}.get(
-            mutation, mutation,
+            mutation,
+            mutation,
         )
         value = "revoked" if mutation == "revoked" else "b" * 64 if mutation == "digest" else "foreign"
         policies.active.return_value = replace(snapshot, **{field: value})
@@ -128,8 +164,9 @@ def test_foreign_or_changed_destination_never_becomes_a_worker_model_choice(poli
         project(policy_setup)
 
 
-@pytest.mark.parametrize("location", [ProviderLocation.PRIVATE_NETWORK, ProviderLocation.TENANT_REGION,
-                                     ProviderLocation.EXTERNAL_REGION])
+@pytest.mark.parametrize(
+    "location", [ProviderLocation.PRIVATE_NETWORK, ProviderLocation.TENANT_REGION, ProviderLocation.EXTERNAL_REGION]
+)
 def test_nonlocal_source_control_locations_do_not_fall_back_to_local(policy_setup, location):
     destinations = policy_setup[5]
     values = destinations.get.return_value.model_dump(exclude={"schema_version", "authority", "destination_id"})
@@ -169,9 +206,11 @@ def test_pending_or_malformed_policy_never_implicitly_grants_send(policy_setup, 
             rule["source_types"] = ["future-source"]
         else:
             rule["allowed_model_scopes"] = "local_model"
+
     update_document(policy_setup, mutate)
     with pytest.raises(
-        ValueError, match="native_context_(approval_required|send_grant_required|policy_document_invalid)",
+        ValueError,
+        match="native_context_(approval_required|send_grant_required|policy_document_invalid)",
     ):
         project(policy_setup)
 
@@ -202,15 +241,24 @@ def test_non_grant_domain_receipt_never_passes_through_original_text(policy_setu
         project(policy_setup)
 
 
-@pytest.mark.parametrize("engine,source_type", [
-    ("codecompass_fts", "codecompass_code"), ("codecompass_graph", "codecompass_graph"),
-    ("repository_map", "local_file"),
-])
+@pytest.mark.parametrize(
+    "engine,source_type",
+    [
+        ("codecompass_fts", "codecompass_code"),
+        ("codecompass_graph", "codecompass_graph"),
+        ("repository_map", "local_file"),
+    ],
+)
 def test_actual_persisted_retrieval_chunk_shape_is_classified_and_projected(policy_setup, engine, source_type):
-    policy_setup[2]["chunks"] = [{
-        "engine": engine, "source": "docs/public/example.py", "content": "def example(): return 1",
-        "score": 0.9, "metadata": {"record_id": "synthetic-record", "file": "docs/public/example.py"},
-    }]
+    policy_setup[2]["chunks"] = [
+        {
+            "engine": engine,
+            "source": "docs/public/example.py",
+            "content": "def example(): return 1",
+            "score": 0.9,
+            "metadata": {"record_id": "synthetic-record", "file": "docs/public/example.py"},
+        }
+    ]
     update_document(policy_setup, lambda doc: doc["rules"][0].update(source_types=[source_type]))
     assert "def example(): return 1" in project(policy_setup).content
 

@@ -38,10 +38,15 @@ class ToolAction:
         return self.fusion_group is not None and self.idempotent and self.side_effect_free
 
     def to_mapping(self) -> dict:
-        return {"action_id": self.action_id, "tool": self.tool,
-                "arguments": [[key, value] for key, value in self.arguments],
-                "idempotent": self.idempotent, "side_effect_free": self.side_effect_free,
-                "fusion_group": self.fusion_group, "cost_ms": self.cost_ms}
+        return {
+            "action_id": self.action_id,
+            "tool": self.tool,
+            "arguments": [[key, value] for key, value in self.arguments],
+            "idempotent": self.idempotent,
+            "side_effect_free": self.side_effect_free,
+            "fusion_group": self.fusion_group,
+            "cost_ms": self.cost_ms,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,9 +58,13 @@ class FusedAction:
     retry_policy: str = "whole_group"
 
     def to_mapping(self) -> dict:
-        return {"fusion_id": self.fusion_id, "group": self.group,
-                "members": [member.to_mapping() for member in self.members],
-                "atomic": self.atomic, "retry_policy": self.retry_policy}
+        return {
+            "fusion_id": self.fusion_id,
+            "group": self.group,
+            "members": [member.to_mapping() for member in self.members],
+            "atomic": self.atomic,
+            "retry_policy": self.retry_policy,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,14 +100,17 @@ class ActionFuser:
             group = action.fusion_group
             members = [action]
             cursor = index + 1
-            while (cursor < total and actions[cursor].fusable and actions[cursor].fusion_group == group):
+            while cursor < total and actions[cursor].fusable and actions[cursor].fusion_group == group:
                 members.append(actions[cursor])
                 cursor += 1
             if len(members) == 1:
                 steps.append(action)
             else:
-                steps.append(FusedAction(fusion_id=content_digest([m.to_mapping() for m in members]), group=group,
-                                         members=tuple(members)))
+                steps.append(
+                    FusedAction(
+                        fusion_id=content_digest([m.to_mapping() for m in members]), group=group, members=tuple(members)
+                    )
+                )
             index = cursor
         return FusionPlan(tuple(steps))
 
@@ -106,10 +118,13 @@ class ActionFuser:
     def measure(plan: FusionPlan) -> dict:
         unfused_calls = len(plan.flat_actions())
         fused_calls = len(plan.steps)
-        return {"unfused_calls": unfused_calls, "fused_calls": fused_calls,
-                "saved_calls": unfused_calls - fused_calls,
-                "unfused_cost_ms": sum(action.cost_ms for action in plan.flat_actions()),
-                "fused_cost_ms": sum(action.cost_ms for action in plan.flat_actions())}
+        return {
+            "unfused_calls": unfused_calls,
+            "fused_calls": fused_calls,
+            "saved_calls": unfused_calls - fused_calls,
+            "unfused_cost_ms": sum(action.cost_ms for action in plan.flat_actions()),
+            "fused_cost_ms": sum(action.cost_ms for action in plan.flat_actions()),
+        }
 
     @staticmethod
     def is_semantically_equivalent(original: Sequence[ToolAction], plan: FusionPlan) -> bool:

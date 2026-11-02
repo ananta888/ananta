@@ -1,40 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import sys
-import time
-from importlib import reload
-from argparse import Namespace
 from pathlib import Path
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
@@ -53,7 +26,6 @@ def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
     assert off_game.get("ui_steering") is False
     assert off_game.get("free_mode") is False
     assert off_game.get("tutorial_mode") is not None  # restored to env default
-
 
 
 def test_snake_access_command_updates_remote_permission_levels() -> None:
@@ -78,7 +50,6 @@ def test_snake_access_command_updates_remote_permission_levels() -> None:
     assert dict(snakes.get("s2") or {}).get("access_level") == "full"
 
 
-
 def test_snake_message_style_and_color_can_cycle() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
     tui = InteractiveOperatorTui(state)
@@ -91,7 +62,6 @@ def test_snake_message_style_and_color_can_cycle() -> None:
 
     assert before.get("message_style") != after.get("message_style")
     assert before.get("snake_color") != after.get("snake_color")
-
 
 
 def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
@@ -123,7 +93,6 @@ def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
     assert (tui.state.header_logo_game or {}).get("active") is True
 
 
-
 def test_snake_tick_keeps_manual_ui_state_stable() -> None:
     game = {
         "active": True,
@@ -144,12 +113,13 @@ def test_snake_tick_keeps_manual_ui_state_stable() -> None:
         header_logo_game=game,
     )
     tui = InteractiveOperatorTui(state)
-    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.NAVIGATION, section_id="tasks", selected_index=3)
+    tui.state = tui.state.with_updates(
+        header_logo_game=game, focus=FocusPane.NAVIGATION, section_id="tasks", selected_index=3
+    )
     tui._tick_header_snake()
     assert tui.state.focus is FocusPane.NAVIGATION
     assert tui.state.section_id == "tasks"
     assert tui.state.selected_index == 3
-
 
 
 def test_snake_does_not_switch_to_detail_by_position() -> None:
@@ -176,7 +146,6 @@ def test_snake_does_not_switch_to_detail_by_position() -> None:
     assert tui.state.section_id == "dashboard"
 
 
-
 def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
     game = {
         "active": True,
@@ -198,7 +167,6 @@ def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
 
     assert tui._try_header_snake_direction((0, 1)) is True
     assert (tui.state.header_logo_game or {}).get("next_direction") == (0, 1)
-
 
 
 def test_snake_wraps_at_screen_border_and_stays_alive() -> None:
@@ -228,7 +196,6 @@ def test_snake_wraps_at_screen_border_and_stays_alive() -> None:
     assert snake and snake[0][0] != 119
 
 
-
 def test_snake_no_longer_selects_sections_from_screen_regions() -> None:
     game = {
         "active": True,
@@ -252,7 +219,6 @@ def test_snake_no_longer_selects_sections_from_screen_regions() -> None:
 
     assert tui.state.section_id == "dashboard"
     assert tui.state.focus is FocusPane.HEADER
-
 
 
 def test_snake_message_can_be_saved_to_config(tmp_path, monkeypatch) -> None:
@@ -284,7 +250,6 @@ def test_snake_message_can_be_saved_to_config(tmp_path, monkeypatch) -> None:
     assert (tui.state.header_logo_game or {}).get("tutorial_user_feed") == "Hallo Snake"
 
 
-
 def test_snake_message_template_command_updates_prompt_template(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     game = {
@@ -309,7 +274,6 @@ def test_snake_message_template_command_updates_prompt_template(tmp_path, monkey
     g = tui.state.header_logo_game or {}
     assert "Explain zone={contact_zone}" in str(g.get("tutorial_prompt_template") or "")
     assert "template set" in str(g.get("message") or "")
-
 
 
 def test_snake_message_mode_typing_and_backspace() -> None:
@@ -338,7 +302,6 @@ def test_snake_message_mode_typing_and_backspace() -> None:
     assert g.get("message_draft") == "A"
 
 
-
 def test_snake_message_mode_accepts_command_bound_letters() -> None:
     game = {
         "active": True,
@@ -365,7 +328,6 @@ def test_snake_message_mode_accepts_command_bound_letters() -> None:
     assert g.get("message_draft") == "em"
 
 
-
 def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = ["abcdefghij" + " " * 30] + [" " * 40] * 19
@@ -387,7 +349,6 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
     assert plain[5] == "f"
 
 
-
 def test_snake_message_effect_is_disabled_by_default(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = [" " * 40] * 20
@@ -405,7 +366,6 @@ def test_snake_message_effect_is_disabled_by_default(monkeypatch) -> None:
     plain = "\n".join(re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", row) for row in out)
 
     assert "SHOULD_NOT_RENDER" not in plain
-
 
 
 def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
@@ -445,7 +405,6 @@ def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatc
     assert "\x1b[48;2;212;176;255m" in out[1]
 
 
-
 def test_snake_tick_populates_local_snapshot_for_collab_state() -> None:
     game = {
         "active": True,
@@ -470,11 +429,10 @@ def test_snake_tick_populates_local_snapshot_for_collab_state() -> None:
 
     tui._tick_header_snake()
 
-    snakes = ((tui.state.header_logo_game or {}).get("snakes") or {})
+    snakes = (tui.state.header_logo_game or {}).get("snakes") or {}
     local = snakes.get("s1") if isinstance(snakes, dict) else None
     assert isinstance(local, dict)
     assert local.get("local") is True
-
 
 
 def test_fullscreen_snake_overlay_preserves_header_and_footer_rows() -> None:
@@ -494,7 +452,6 @@ def test_fullscreen_snake_overlay_preserves_header_and_footer_rows() -> None:
     assert "focus=" in plain_lines[-3]
     assert plain_lines[-1].startswith("[Ctrl+W]")
     assert "ACTIVE:" not in "\n".join(plain_lines[:8])
-
 
 
 def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
@@ -520,7 +477,6 @@ def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -
     assert g.get("message") == "bcd"
 
 
-
 def test_snake_copy_preserves_newlines_unchanged(monkeypatch) -> None:
     game = {
         "active": True,
@@ -541,7 +497,6 @@ def test_snake_copy_preserves_newlines_unchanged(monkeypatch) -> None:
 
     copied = str((tui.state.header_logo_game or {}).get("clipboard") or "")
     assert copied == "ab\ncd"
-
 
 
 def test_snake_frame_mode_collects_multiple_regions_and_copy(monkeypatch) -> None:
@@ -582,7 +537,6 @@ def test_snake_frame_mode_collects_multiple_regions_and_copy(monkeypatch) -> Non
     assert copied
 
 
-
 def test_snake_clear_visual_marks_resets_all_selection_state() -> None:
     game = {
         "active": True,
@@ -618,7 +572,6 @@ def test_snake_clear_visual_marks_resets_all_selection_state() -> None:
     assert (snakes.get("s2") or {}).get("mark_cells") == []
 
 
-
 def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
     game = {
         "active": True,
@@ -645,7 +598,6 @@ def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
     tui._snake_replace_selection()
 
     assert tui.state.command_line == "aZZdef"
-
 
 
 def test_snake_immediate_brake_sets_velocity_zero() -> None:
@@ -677,7 +629,6 @@ def test_snake_immediate_brake_sets_velocity_zero() -> None:
     assert g.get("accum_y") == 0.0
 
 
-
 def test_snake_hover_selection_uses_delay_before_selecting_nav() -> None:
     game = {
         "active": True,
@@ -701,4 +652,3 @@ def test_snake_hover_selection_uses_delay_before_selecting_nav() -> None:
     assert s1.focus is FocusPane.HEADER
     assert s2.focus is FocusPane.HEADER
     assert s3.focus is FocusPane.NAVIGATION
-

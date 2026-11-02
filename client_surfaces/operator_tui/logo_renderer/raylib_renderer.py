@@ -35,7 +35,13 @@ class RaylibPrototypeRenderer:
         self._draw_orbit(draw=draw, width=width, height=height, t=float(config.t))
         return PixelFrame.from_image(
             img,
-            metadata={"renderer": self.name, "scene": config.scene, "ok": True, "offscreen": True, "fallback_sw": not self.is_available()},
+            metadata={
+                "renderer": self.name,
+                "scene": config.scene,
+                "ok": True,
+                "offscreen": True,
+                "fallback_sw": not self.is_available(),
+            },
         )
 
     def _draw_orbit(self, *, draw, width: int, height: int, t: float) -> None:
@@ -45,4 +51,6 @@ class RaylibPrototypeRenderer:
         draw.ellipse((cx - r, cy - r // 3, cx + r, cy + r // 3), outline=(90, 110, 150, 180), width=2)
         px = cx + int(math.cos(t * 2.2) * r * 0.9)
         py = cy + int(math.sin(t * 2.2) * r * 0.28)
-        draw.ellipse((px - 16, py - 16, px + 16, py + 16), fill=(95, 205, 140, 240), outline=(200, 255, 220, 255), width=2)
+        draw.ellipse(
+            (px - 16, py - 16, px + 16, py + 16), fill=(95, 205, 140, 240), outline=(200, 255, 220, 255), width=2
+        )

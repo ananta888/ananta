@@ -1,4 +1,4 @@
-from agent.routes.tasks.autopilot_guardrails import (
+from agent.services.autopilot.guardrails import (
     resolve_resilience_config,
 )
 

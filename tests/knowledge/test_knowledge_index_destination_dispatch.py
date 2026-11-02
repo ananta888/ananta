@@ -45,10 +45,7 @@ class _Catalog:
             (
                 record
                 for record in self.records
-                if all(
-                    getattr(record, key) == value
-                    for key, value in coordinates.items()
-                )
+                if all(getattr(record, key) == value for key, value in coordinates.items())
             ),
             None,
         )
@@ -155,8 +152,7 @@ class _Consumptions:
         self.receipt_calls.append(kwargs)
         return bool(
             kwargs["expected_policy_version"] == self.policy_version
-            and kwargs["consumption_digest"]
-            == self.consumption_digest
+            and kwargs["consumption_digest"] == self.consumption_digest
         )
 
 
@@ -186,9 +182,7 @@ def _selection(model_id):
 
 
 def _composition():
-    destinations = SourceDestinationResolutionService(
-        _Catalog([_record("model-a"), _record("model-b")])
-    )
+    destinations = SourceDestinationResolutionService(_Catalog([_record("model-a"), _record("model-b")]))
     preview = destinations.resolve(_selection("model-a"))
     grant = SourceAccessGrant.create(
         version=1,
@@ -217,9 +211,7 @@ def _composition():
             "destination_id": preview.descriptor.destination_id,
             "destination_digest": preview.destination_digest,
             "source_access_grant_id": grant.grant_id,
-            "source_access_grant_digest": (
-                source_access_grant_digest(grant)
-            ),
+            "source_access_grant_digest": (source_access_grant_digest(grant)),
         },
         "assignment": {
             "assignment_id": "assignment-index-01",
@@ -227,9 +219,7 @@ def _composition():
             "lease_id": "lease-index-01",
             "lease_generation": 1,
             "lease_issued_epoch_ms": 1_000,
-            "lease_expires_epoch_ms": int(
-                (NOW + timedelta(minutes=4)).timestamp() * 1000
-            ),
+            "lease_expires_epoch_ms": int((NOW + timedelta(minutes=4)).timestamp() * 1000),
         },
         "resources": {"max_runtime_seconds": 60},
         "file_manifest": {
@@ -260,9 +250,7 @@ def _composition():
         grants=grant_resolver,
         consumptions=consumptions,
         signer=HubSourceAccessManifestSigner(signing_key),
-        manifest_verifier=WorkerSourceAccessManifestVerifier(
-            {signing_key.key_id: signing_key.secret}
-        ),
+        manifest_verifier=WorkerSourceAccessManifestVerifier({signing_key.key_id: signing_key.secret}),
         consumption_receipts=consumptions,
     )
     service = KnowledgeIndexJobService(
@@ -285,19 +273,11 @@ def test_preview_destination_is_re_resolved_and_bound_at_dispatch() -> None:
         dispatch_phase="execute",
     )
 
-    manifest = context["knowledge_index_job"][
-        "source_access_enforcement_manifest"
-    ]
-    assert manifest["destination_digest"] == (
-        context["knowledge_index_job"]["authority_binding"][
-            "destination_digest"
-        ]
-    )
+    manifest = context["knowledge_index_job"]["source_access_enforcement_manifest"]
+    assert manifest["destination_digest"] == (context["knowledge_index_job"]["authority_binding"]["destination_digest"])
     assert manifest["assignment_id"] == "assignment-index-01"
     assert manifest["lease_id"] == "lease-index-01"
-    assert manifest["content_manifest_id"] == (
-        context["knowledge_index_job"]["file_manifest"]["manifest_id"]
-    )
+    assert manifest["content_manifest_id"] == (context["knowledge_index_job"]["file_manifest"]["manifest_id"])
     assert len(consumptions.calls) == 1
 
 
@@ -311,9 +291,7 @@ def test_proposal_withholds_source_capability_and_execute_claim() -> None:
         dispatch_phase="propose",
     )
 
-    assert "source_access_enforcement_manifest" not in context[
-        "knowledge_index_job"
-    ]
+    assert "source_access_enforcement_manifest" not in context["knowledge_index_job"]
     assert consumptions.calls == []
     assert service._execution_binding_service.claim_calls == []
 
@@ -325,9 +303,7 @@ def test_short_execute_window_rejects_before_capability_side_effects() -> None:
     binding_gate.envelope["assignment"]["lease_expires_epoch_ms"] = int(
         (NOW + timedelta(seconds=89)).timestamp() * 1000
     )
-    repository.task["worker_execution_context"]["knowledge_index_job"] = (
-        dict(binding_gate.envelope)
-    )
+    repository.task["worker_execution_context"]["knowledge_index_job"] = dict(binding_gate.envelope)
 
     with pytest.raises(
         ValueError,
@@ -396,12 +372,8 @@ def test_tampered_persisted_dispatch_manifest_is_rejected() -> None:
         destination_selection=selection,
         dispatch_phase="execute",
     )
-    persisted_job = service._repository().task["worker_execution_context"][
-        "knowledge_index_job"
-    ]
-    persisted_job["source_access_enforcement_manifest"]["signature"] = (
-        "v1.source-access-test." + "0" * 64
-    )
+    persisted_job = service._repository().task["worker_execution_context"]["knowledge_index_job"]
+    persisted_job["source_access_enforcement_manifest"]["signature"] = "v1.source-access-test." + "0" * 64
 
     with pytest.raises(
         ValueError,
@@ -456,9 +428,10 @@ def test_manifest_save_crash_recovers_only_the_exact_consumption() -> None:
         dispatch_phase="execute",
     )
 
-    assert recovered["knowledge_index_job"][
-        "source_access_enforcement_manifest"
-    ]["binding_digest"] == consumptions.consumption_digest
+    assert (
+        recovered["knowledge_index_job"]["source_access_enforcement_manifest"]["binding_digest"]
+        == consumptions.consumption_digest
+    )
     assert len(consumptions.calls) == 2
     assert len(consumptions.receipt_calls) == 1
 
@@ -486,9 +459,7 @@ def test_rotated_previous_manifest_key_remains_verifiable() -> None:
     rotated_service = KnowledgeIndexJobService(
         task_repository=service._repository(),
         execution_binding_service=service._execution_binding_service,
-        destination_resolution_service=(
-            service._destination_resolution_service
-        ),
+        destination_resolution_service=(service._destination_resolution_service),
         source_access_enforcement_service=SourceAccessEnforcementService(
             grants=previous._grants,
             consumptions=consumptions,

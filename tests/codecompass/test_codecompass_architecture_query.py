@@ -82,9 +82,26 @@ def test_seed_ambiguity_yields_multiple_candidates_and_warning(tmp_path):
     graph_store = CodeCompassGraphStore(index_path=tmp_path / "cc_graph_index.json")
     graph_store.rebuild_from_output_records(
         records=[
-            {"id": "a:Dup", "kind": "java_type", "name": "Dup", "file": "src/a/Dup.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"id": "b:Dup", "kind": "java_type", "name": "Dup", "file": "src/b/Dup.java", "_provenance": {"output_kind": "graph_nodes"}},
-            {"source": "a:Dup", "target": "b:Dup", "type": "field_type_uses", "_provenance": {"output_kind": "graph_edges"}},
+            {
+                "id": "a:Dup",
+                "kind": "java_type",
+                "name": "Dup",
+                "file": "src/a/Dup.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "id": "b:Dup",
+                "kind": "java_type",
+                "name": "Dup",
+                "file": "src/b/Dup.java",
+                "_provenance": {"output_kind": "graph_nodes"},
+            },
+            {
+                "source": "a:Dup",
+                "target": "b:Dup",
+                "type": "field_type_uses",
+                "_provenance": {"output_kind": "graph_edges"},
+            },
         ],
         manifest_hash="mh-dup",
     )
@@ -112,13 +129,17 @@ def test_seed_fts_fallback_resolves_via_record_id(store):
 
 
 def test_ranking_shorter_paths_win_at_equal_confidence():
-    short = score_evidence_path([
-        {"edge_type": "field_type_uses", "confidence": 0.9},
-    ])
-    long = score_evidence_path([
-        {"edge_type": "field_type_uses", "confidence": 0.9},
-        {"edge_type": "field_type_uses", "confidence": 0.9},
-    ])
+    short = score_evidence_path(
+        [
+            {"edge_type": "field_type_uses", "confidence": 0.9},
+        ]
+    )
+    long = score_evidence_path(
+        [
+            {"edge_type": "field_type_uses", "confidence": 0.9},
+            {"edge_type": "field_type_uses", "confidence": 0.9},
+        ]
+    )
     assert short > long
 
 
@@ -256,7 +277,9 @@ def test_dto_impact_finds_dependents_with_roles_depths_and_evidence(store):
 
 
 def test_controller_test_coverage_classifies_direct_endpoint_and_indirect_tests(store):
-    payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", direction="both")
+    payload = run_architecture_query(
+        store=store, query_type="controller-test-coverage", seed="UserController", direction="both"
+    )
 
     # direct controller test is recognized
     direct = _result_by_node(payload, _CONTROLLER_TEST_ID)
@@ -283,7 +306,9 @@ def test_controller_test_coverage_classifies_direct_endpoint_and_indirect_tests(
 
 
 def test_controller_test_coverage_depth_three_is_supported_and_diagnosed(store):
-    payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", depth=3, direction="both")
+    payload = run_architecture_query(
+        store=store, query_type="controller-test-coverage", seed="UserController", depth=3, direction="both"
+    )
     assert payload["diagnostics"]["depth_used"] == 3
 
 
@@ -361,12 +386,22 @@ def test_service_dependency_chain_marks_dependencies_roles_boundary_and_cycles(s
 
 
 def test_role_classification_prefers_explicit_role_labels():
-    node = {"name": "Whatever", "kind": "java_type", "file": "src/x.java", "source_record": {"role_labels": ["service"]}}
+    node = {
+        "name": "Whatever",
+        "kind": "java_type",
+        "file": "src/x.java",
+        "source_record": {"role_labels": ["service"]},
+    }
     assert classify_result_role(node) == "service"
 
 
 def test_role_classification_detects_tests_before_labels():
-    node = {"name": "UserControllerTest", "kind": "java_type", "file": "src/test/java/UserControllerTest.java", "source_record": {"role_labels": ["controller"]}}
+    node = {
+        "name": "UserControllerTest",
+        "kind": "java_type",
+        "file": "src/test/java/UserControllerTest.java",
+        "source_record": {"role_labels": ["controller"]},
+    }
     assert classify_result_role(node) == "test"
 
 
@@ -400,11 +435,28 @@ def test_markdown_handoff_renders_empty_results_as_not_proven(store):
 
 
 def test_role_classification_annotation_and_name_heuristics():
-    assert classify_result_role({"name": "X", "kind": "java_type", "file": "s.java", "source_record": {"annotations": ["@RestController"]}}) == "controller"
-    assert classify_result_role({"name": "AccountRepository", "kind": "java_type", "file": "s.java", "source_record": {}}) == "repository"
-    assert classify_result_role({"name": "PriceMapper", "kind": "java_type", "file": "s.java", "source_record": {}}) == "mapper"
-    assert classify_result_role({"name": "BillingServiceImpl", "kind": "java_type", "file": "s.java", "source_record": {}}) == "service"
-    assert classify_result_role({"name": "AppConfig", "kind": "java_type", "file": "s.java", "source_record": {}}) == "config"
+    assert (
+        classify_result_role(
+            {"name": "X", "kind": "java_type", "file": "s.java", "source_record": {"annotations": ["@RestController"]}}
+        )
+        == "controller"
+    )
+    assert (
+        classify_result_role({"name": "AccountRepository", "kind": "java_type", "file": "s.java", "source_record": {}})
+        == "repository"
+    )
+    assert (
+        classify_result_role({"name": "PriceMapper", "kind": "java_type", "file": "s.java", "source_record": {}})
+        == "mapper"
+    )
+    assert (
+        classify_result_role({"name": "BillingServiceImpl", "kind": "java_type", "file": "s.java", "source_record": {}})
+        == "service"
+    )
+    assert (
+        classify_result_role({"name": "AppConfig", "kind": "java_type", "file": "s.java", "source_record": {}})
+        == "config"
+    )
 
 
 # --- CCAQE-015: security-edge provenance + enforcement_scope ---

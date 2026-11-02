@@ -4,6 +4,7 @@ SandboxBackend Protocol, FakeSandbox (in-memory stub for tests),
 and SandboxAuditService. Keine Produktions-Sandbox-Implementierung hier —
 nur das Port-Interface und der Test-Stub.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,11 +17,12 @@ from typing import Any, Protocol, runtime_checkable
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SandboxConfig:
     max_cpu_seconds: int = 30
     max_memory_mb: int = 512
-    network: str = "none"   # "none" | "restricted" | "allowed"
+    network: str = "none"  # "none" | "restricted" | "allowed"
     allowed_paths: list[str] = field(default_factory=list)
     env_allowlist: list[str] = field(default_factory=lambda: ["PATH", "HOME", "LANG"])
     working_dir: str = "/workspace"
@@ -34,14 +36,14 @@ class ExecResult:
     timeout: bool
     duration_ms: int
     sandbox_id: str
-    cmd_hash: str      # sha256[:16] of JSON-serialised command list
+    cmd_hash: str  # sha256[:16] of JSON-serialised command list
 
 
 @dataclass
 class FileDiff:
     path: str
-    status: str             # "added" | "modified" | "deleted"
-    diff_text: str | None   # unified diff or None for binary
+    status: str  # "added" | "modified" | "deleted"
+    diff_text: str | None  # unified diff or None for binary
 
 
 # ── Protocol ──────────────────────────────────────────────────────────────────
@@ -77,6 +79,7 @@ class SandboxBackend(Protocol):
 
 # ── FakeSandbox ───────────────────────────────────────────────────────────────
 
+
 class FakeSandbox:
     """In-memory sandbox for tests. Never executes real commands.
 
@@ -108,9 +111,7 @@ class FakeSandbox:
         if state["stopped"] or state["frozen"] or state["terminated"]:
             raise RuntimeError("sandbox_execution_fenced")
         cmd_hash = hashlib.sha256(json.dumps(cmd).encode()).hexdigest()[:16]
-        self._exec_log.append(
-            {"sandbox_id": sandbox_id, "cmd": cmd, "timeout": timeout}
-        )
+        self._exec_log.append({"sandbox_id": sandbox_id, "cmd": cmd, "timeout": timeout})
         return ExecResult(
             stdout=f"fake_output_for_{cmd[0]}",
             stderr="",
@@ -173,6 +174,7 @@ class FakeSandbox:
 
 
 # ── Audit service ─────────────────────────────────────────────────────────────
+
 
 class SandboxAuditService:
     """Audit helper for sandbox actions.

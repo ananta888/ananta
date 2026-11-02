@@ -26,6 +26,7 @@ Topological order is computed via Kahn's algorithm and exposed via
 topological_order() so the planner (WFG-007) does not have to
 re-implement the DAG walk.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,7 +37,6 @@ from sqlmodel import Session, select
 
 from agent.db_models import BlueprintWorkflowStepDB, TeamBlueprintDB
 from agent.services.workflow_settings import get_workflow_settings
-
 
 log = logging.getLogger(__name__)
 
@@ -113,9 +113,7 @@ class WorkflowDefinitionService:
         )
         return rows
 
-    def get_steps(
-        self, session: Session, blueprint_id: str
-    ) -> list[BlueprintWorkflowStepDB]:
+    def get_steps(self, session: Session, blueprint_id: str) -> list[BlueprintWorkflowStepDB]:
         """Return the workflow steps for a blueprint, sorted by sort_order."""
         stmt = (
             select(BlueprintWorkflowStepDB)
@@ -124,9 +122,7 @@ class WorkflowDefinitionService:
         )
         return list(session.exec(stmt).all())
 
-    def topological_order(
-        self, steps: Sequence[BlueprintWorkflowStepDB]
-    ) -> list[BlueprintWorkflowStepDB]:
+    def topological_order(self, steps: Sequence[BlueprintWorkflowStepDB]) -> list[BlueprintWorkflowStepDB]:
         """Return steps in topological order, rooted at dependencies-empty.
 
         Kahn's algorithm; raises WorkflowDefinitionError on a cycle.
@@ -142,15 +138,11 @@ class WorkflowDefinitionService:
         for step in steps:
             for dep in step.depends_on:
                 if dep not in index:
-                    raise WorkflowDefinitionError(
-                        f"step {step.step_id!r} depends on unknown step {dep!r}"
-                    )
+                    raise WorkflowDefinitionError(f"step {step.step_id!r} depends on unknown step {dep!r}")
                 in_degree[step.step_id] += 1
                 edges[dep].append(step.step_id)
 
-        queue: deque[str] = deque(
-            sid for sid, deg in in_degree.items() if deg == 0
-        )
+        queue: deque[str] = deque(sid for sid, deg in in_degree.items() if deg == 0)
         ordered_ids: list[str] = []
         while queue:
             sid = queue.popleft()
@@ -161,9 +153,7 @@ class WorkflowDefinitionService:
                     queue.append(succ)
 
         if len(ordered_ids) != len(steps):
-            raise WorkflowDefinitionError(
-                f"workflow DAG has a cycle; reached {len(ordered_ids)} of {len(steps)} steps"
-            )
+            raise WorkflowDefinitionError(f"workflow DAG has a cycle; reached {len(ordered_ids)} of {len(steps)} steps")
         return [index[sid] for sid in ordered_ids]
 
     # ── internal helpers ────────────────────────────────────────────
@@ -171,51 +161,36 @@ class WorkflowDefinitionService:
     def _delete_steps(self, session: Session, blueprint_id: str) -> None:
         existing = list(
             session.exec(
-                select(BlueprintWorkflowStepDB).where(
-                    BlueprintWorkflowStepDB.blueprint_id == blueprint_id
-                )
+                select(BlueprintWorkflowStepDB).where(BlueprintWorkflowStepDB.blueprint_id == blueprint_id)
             ).all()
         )
         for row in existing:
             session.delete(row)
         session.flush()
 
-    def _extract_steps(
-        self, workflow_block: dict, blueprint_name: str
-    ) -> list[dict]:
+    def _extract_steps(self, workflow_block: dict, blueprint_name: str) -> list[dict]:
         steps = workflow_block.get("steps")
         if not isinstance(steps, list) or not steps:
-            raise WorkflowDefinitionError(
-                f"blueprint {blueprint_name!r}: workflow block has no steps"
-            )
+            raise WorkflowDefinitionError(f"blueprint {blueprint_name!r}: workflow block has no steps")
         seen_ids: set[str] = set()
         for step in steps:
             sid = step.get("id")
             if not isinstance(sid, str) or not sid:
-                raise WorkflowDefinitionError(
-                    f"blueprint {blueprint_name!r}: step missing 'id'"
-                )
+                raise WorkflowDefinitionError(f"blueprint {blueprint_name!r}: step missing 'id'")
             if sid in seen_ids:
-                raise WorkflowDefinitionError(
-                    f"blueprint {blueprint_name!r}: duplicate step id {sid!r}"
-                )
+                raise WorkflowDefinitionError(f"blueprint {blueprint_name!r}: duplicate step id {sid!r}")
             seen_ids.add(sid)
             if not isinstance(step.get("role"), str):
-                raise WorkflowDefinitionError(
-                    f"blueprint {blueprint_name!r}: step {sid!r} missing 'role'"
-                )
+                raise WorkflowDefinitionError(f"blueprint {blueprint_name!r}: step {sid!r} missing 'role'")
         return steps
 
-    def _defensive_dag_check(
-        self, steps: Iterable[dict], blueprint_name: str
-    ) -> None:
+    def _defensive_dag_check(self, steps: Iterable[dict], blueprint_name: str) -> None:
         ids = {s["id"] for s in steps}
         for step in steps:
             for dep in step.get("depends_on", []):
                 if dep not in ids:
                     raise WorkflowDefinitionError(
-                        f"blueprint {blueprint_name!r}: step {step['id']!r} "
-                        f"depends on unknown step {dep!r}"
+                        f"blueprint {blueprint_name!r}: step {step['id']!r} depends on unknown step {dep!r}"
                     )
 
     # ── WFG-008: default-gate insertion ────────────────────────────────
@@ -256,34 +231,36 @@ class WorkflowDefinitionService:
 
         if settings is None:
             from agent.services.workflow_settings import get_workflow_settings
+
             settings = get_workflow_settings()
 
         planner_candidates = {
-            "planner", "planning", "plan", "architect", "spec",
+            "planner",
+            "planning",
+            "plan",
+            "architect",
+            "spec",
         }
         developer_candidates = {
-            "developer", "dev", "coding", "implementer", "engineer",
+            "developer",
+            "dev",
+            "coding",
+            "implementer",
+            "engineer",
         }
 
         planner_steps = [
-            s for s in steps
-            if (s.get("role") or "").strip().lower() in planner_candidates
-            and not s.get("gate", False)
+            s for s in steps if (s.get("role") or "").strip().lower() in planner_candidates and not s.get("gate", False)
         ]
-        developer_steps = [
-            s for s in steps
-            if (s.get("role") or "").strip().lower() in developer_candidates
-        ]
+        developer_steps = [s for s in steps if (s.get("role") or "").strip().lower() in developer_candidates]
         if not planner_steps or not developer_steps:
             return steps
 
         # Find handoffs: a developer step that depends on a planner step
         # directly and has no gate between them.
         planner_ids = {s["id"] for s in planner_steps}
-        developer_ids = {s["id"] for s in developer_steps}
-        existing_gate_ids = {
-            s["id"] for s in steps if s.get("gate", False)
-        }
+        {s["id"] for s in developer_steps}
+        existing_gate_ids = {s["id"] for s in steps if s.get("gate", False)}
 
         # Build mutable working copy with stable indexes
         out: list[dict] = [dict(s) for s in steps]
@@ -303,9 +280,7 @@ class WorkflowDefinitionService:
                 continue
 
             new_gate_id = self._next_default_gate_id(by_id)
-            default_failure_policy = self._resolve_default_failure_policy(
-                steps, settings
-            )
+            default_failure_policy = self._resolve_default_failure_policy(steps, settings)
             new_gate: dict = {
                 "id": new_gate_id,
                 "role": "Reviewer",
@@ -347,10 +322,7 @@ class WorkflowDefinitionService:
                 deps = list(step.get("depends_on") or [])
                 if not deps or not any(d in planner_deps_for_this_gate for d in deps):
                     continue
-                rewired = [
-                    gate["id"] if d in planner_deps_for_this_gate else d
-                    for d in deps
-                ]
+                rewired = [gate["id"] if d in planner_deps_for_this_gate else d for d in deps]
                 step["depends_on"] = rewired
 
         # Renumber sort_order to keep the contract that sort_order is

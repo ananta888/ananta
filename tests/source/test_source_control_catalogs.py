@@ -7,7 +7,6 @@ from agent.services.source_control_catalogs import (
     SourceControlReadCatalogService,
 )
 
-
 _TENANT = "tenant-catalog"
 _PROJECT = "project-catalog"
 
@@ -125,9 +124,7 @@ def test_workspace_catalog_is_scoped_read_only_and_hides_roots() -> None:
         filters={},
     )
 
-    assert [item["workspace_id"] for item in page["items"]] == [
-        "workspace_main"
-    ]
+    assert [item["workspace_id"] for item in page["items"]] == ["workspace_main"]
     assert page["capabilities"] == {
         "read_only": True,
         "selection_mode": "server_ids_only",
@@ -176,9 +173,7 @@ def test_index_profile_catalog_exposes_only_server_profiles() -> None:
         filters={"source": "notebook"},
     )
 
-    assert [item["profile_id"] for item in page["items"]] == [
-        "profile_notebook"
-    ]
+    assert [item["profile_id"] for item in page["items"]] == ["profile_notebook"]
     item = page["items"][0]
     assert item["capabilities"]["selection_only"] is True
     assert item["capabilities"]["config_path_exposed"] is False

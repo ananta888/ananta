@@ -1,13 +1,10 @@
 """Tests for agent/services/context_providers/context_item_normalizer.py (AUG-002)."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.context_providers.context_item_normalizer import (
-    MAX_ITEMS,
     MAX_SNIPPET_CHARS,
     ContextItemNormalizer,
-    FakeContextProvider,
     _safe_int,
 )
 from agent.services.context_providers.context_provider_port import (
@@ -37,6 +34,7 @@ def _make_raw(**kwargs) -> dict:
 
 
 # ── normalize_item ────────────────────────────────────────────────────────────
+
 
 class TestNormalizeItem:
     def setup_method(self):
@@ -143,6 +141,7 @@ class TestNormalizeItem:
 
 # ── apply_path_filter ─────────────────────────────────────────────────────────
 
+
 class TestApplyPathFilter:
     def setup_method(self):
         self.normalizer = ContextItemNormalizer()
@@ -190,6 +189,7 @@ class TestApplyPathFilter:
 
 # ── truncate_snippet ──────────────────────────────────────────────────────────
 
+
 class TestTruncateSnippet:
     def setup_method(self):
         self.normalizer = ContextItemNormalizer()
@@ -217,6 +217,7 @@ class TestTruncateSnippet:
 
 
 # ── redact_sensitive_content ──────────────────────────────────────────────────
+
 
 class TestRedactSensitiveContent:
     def setup_method(self):
@@ -256,6 +257,7 @@ class TestRedactSensitiveContent:
 
 # ── build_item_id ─────────────────────────────────────────────────────────────
 
+
 class TestBuildItemId:
     def setup_method(self):
         self.normalizer = ContextItemNormalizer()
@@ -282,16 +284,26 @@ class TestBuildItemId:
 
 # ── deduplicate ───────────────────────────────────────────────────────────────
 
+
 class TestDeduplicate:
     def setup_method(self):
         self.normalizer = ContextItemNormalizer()
 
     def _make_item(self, item_id: str, provider: str, path: str, line_start: int | None, score: float) -> ContextItem:
         return ContextItem(
-            item_id=item_id, provider=provider, path=path, symbol=None,
-            line_start=line_start, line_end=None, snippet="code",
-            score=score, reason="", source_kind="keyword",
-            redaction_state="clean", warnings=[], correlation_id=None,
+            item_id=item_id,
+            provider=provider,
+            path=path,
+            symbol=None,
+            line_start=line_start,
+            line_end=None,
+            snippet="code",
+            score=score,
+            reason="",
+            source_kind="keyword",
+            redaction_state="clean",
+            warnings=[],
+            correlation_id=None,
         )
 
     def test_deduplicates_same_path_line(self):
@@ -313,16 +325,26 @@ class TestDeduplicate:
 
 # ── sort_by_score ─────────────────────────────────────────────────────────────
 
+
 class TestSortByScore:
     def setup_method(self):
         self.normalizer = ContextItemNormalizer()
 
     def _make_item(self, score: float) -> ContextItem:
         return ContextItem(
-            item_id="id", provider="fake", path="a.py", symbol=None,
-            line_start=1, line_end=None, snippet="code",
-            score=score, reason="", source_kind="keyword",
-            redaction_state="clean", warnings=[], correlation_id=None,
+            item_id="id",
+            provider="fake",
+            path="a.py",
+            symbol=None,
+            line_start=1,
+            line_end=None,
+            snippet="code",
+            score=score,
+            reason="",
+            source_kind="keyword",
+            redaction_state="clean",
+            warnings=[],
+            correlation_id=None,
         )
 
     def test_descending_order(self):
@@ -342,6 +364,7 @@ class TestSortByScore:
 
 # ── _safe_int ─────────────────────────────────────────────────────────────────
 
+
 class TestSafeInt:
     def test_int_value(self):
         assert _safe_int(10) == 10
@@ -360,6 +383,7 @@ class TestSafeInt:
 
 
 # ── redaction_state in normalized items ───────────────────────────────────────
+
 
 class TestRedactionStateInNormalizedItems:
     def setup_method(self):

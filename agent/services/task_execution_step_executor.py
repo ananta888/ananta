@@ -13,29 +13,32 @@ from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.mutation_gate_service import get_mutation_gate_service
-from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
+from agent.services.shell_command_policy import ShellCommandAnalyzer
 from agent.services.task_execution_context_builder import (
     LocalExecutionResult,
     approval_call_identity,
     is_non_fatal_tool_error,
-    is_recoverable_missing_binary_failure,
     loop_signature,
     normalize_runtime_tool_calls,
     resolve_loop_trace_id,
+)
+from agent.services.task_execution_policy_service import (
+    resolve_task_scope_allowed_tools,
+    validate_task_scoped_tool_calls,
 )
 from agent.services.task_execution_result_handler import (
     _append_approval_block_history,
     _append_guardrail_block_history,
     _enforce_worker_execution_contract_tool_classes,
     _enter_pending_approval,
-    _execute_shell_command_with_policy,
-)
-from agent.services.task_execution_policy_service import (
-    resolve_task_scope_allowed_tools,
-    validate_task_scoped_tool_calls,
 )
 from agent.services.tool_intent_resolver import ToolIntentResolver
-from agent.tool_guardrails import ToolGuardrailDecision, estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
+from agent.tool_guardrails import (
+    ToolGuardrailDecision,
+    estimate_text_tokens,
+    estimate_tool_calls_tokens,
+    evaluate_tool_call_guardrails,
+)
 from agent.tools import registry as tool_registry
 
 
@@ -78,7 +81,11 @@ def run_preflight_guards(
                 "required_confirmation_level": approval_payload.get("required_confirmation_level"),
             },
         )
-    if approval_payload.get("classification") == "blocked" and approval_payload.get("enforced") and not _chain_preflight_deferred:
+    if (
+        approval_payload.get("classification") == "blocked"
+        and approval_payload.get("enforced")
+        and not _chain_preflight_deferred
+    ):
         if tid:
             _append_approval_block_history(
                 tid=tid,
@@ -89,7 +96,11 @@ def run_preflight_guards(
             )
         raise ToolGuardrailError(
             details={
-                "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                "blocked_tools": [
+                    str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip()
+                    for item in list(tool_calls or [])
+                    if isinstance(item, dict)
+                ],
                 "blocked_reasons": [approval_payload.get("reason_code")],
                 "approval": approval_payload,
             }
@@ -123,7 +134,11 @@ def run_preflight_guards(
         if pending_state != "auto_granted":
             raise ToolGuardrailError(
                 details={
-                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_tools": [
+                        str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip()
+                        for item in list(tool_calls or [])
+                        if isinstance(item, dict)
+                    ],
                     "blocked_reasons": [approval_payload.get("reason_code")],
                     "approval": approval_payload,
                 }
@@ -234,7 +249,10 @@ def run_preflight_guards(
                     "governance_mode": (mutation_payload.get("approval_scope") or {}).get("governance_mode"),
                 },
                 pipeline=pipeline,
-                target_fingerprint=str((mutation_payload.get("normalized_target") or {}).get("target_fingerprint") or "") or None,
+                target_fingerprint=str(
+                    (mutation_payload.get("normalized_target") or {}).get("target_fingerprint") or ""
+                )
+                or None,
             )
             if pending_state == "pending":
                 return pending_result
@@ -244,7 +262,11 @@ def run_preflight_guards(
         if not _mutation_auto_granted:
             raise ToolGuardrailError(
                 details={
-                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_tools": [
+                        str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip()
+                        for item in list(tool_calls or [])
+                        if isinstance(item, dict)
+                    ],
                     "blocked_reasons": [mutation_payload.get("reason_code")],
                     "mutation_gate": mutation_payload,
                 }
@@ -366,16 +388,20 @@ def execute_tool_calls(
                 "risk_level": normalized_risk.risk_level,
             }
         )
-    normalized_mutation = get_mutation_gate_service().evaluate(
-        command=command,
-        tool_calls=normalized_tool_calls,
-        task=effective_task,
-        agent_cfg=guard_cfg,
-        approval_decision=normalized_approval_payload,
-        risk_decision=normalized_risk,
-        trace_id=loop_trace_id,
-        actor="system",
-    ).as_dict()
+    normalized_mutation = (
+        get_mutation_gate_service()
+        .evaluate(
+            command=command,
+            tool_calls=normalized_tool_calls,
+            task=effective_task,
+            agent_cfg=guard_cfg,
+            approval_decision=normalized_approval_payload,
+            risk_decision=normalized_risk,
+            trace_id=loop_trace_id,
+            actor="system",
+        )
+        .as_dict()
+    )
     get_execution_audit_service().emit(
         operation_type="mutation_gate_decision",
         outcome=str(normalized_mutation.get("classification") or "unknown"),
@@ -532,16 +558,19 @@ def execute_tool_calls(
             task_kind=str(effective_task.get("task_kind") or ""),
         )
         if _compaction.compaction_ratio < 1.0:
-            log_audit("tool_output_compacted", {
-                "tool": name,
-                "task_id": tid,
-                "input_chars": _compaction.input_chars,
-                "output_chars": _compaction.output_chars,
-                "compaction_ratio": _compaction.compaction_ratio,
-                "applied_rule_ids": _compaction.applied_rule_ids,
-                "preserved_signal_count": len(_compaction.preserved_signals),
-                "original_ref": _compaction.original_ref,
-            })
+            log_audit(
+                "tool_output_compacted",
+                {
+                    "tool": name,
+                    "task_id": tid,
+                    "input_chars": _compaction.input_chars,
+                    "output_chars": _compaction.output_chars,
+                    "compaction_ratio": _compaction.compaction_ratio,
+                    "applied_rule_ids": _compaction.applied_rule_ids,
+                    "preserved_signal_count": len(_compaction.preserved_signals),
+                    "original_ref": _compaction.original_ref,
+                },
+            )
         output_parts.append(_compaction.compacted_text)
         from agent.services.doom_loop_service import get_doom_loop_service
 
@@ -559,4 +588,3 @@ def execute_tool_calls(
         )
 
     return output_parts, loop_signals, overall_exit_code
-

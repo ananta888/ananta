@@ -62,7 +62,9 @@ def contains_secret_key(name: str) -> bool:
     return any(part in key for part in _SECRET_KEY_PARTS)
 
 
-def resolve_session_auth_token(base_url: str, *, auth_mode: str, auth_token: str | None, timeout_seconds: float) -> str | None:
+def resolve_session_auth_token(
+    base_url: str, *, auth_mode: str, auth_token: str | None, timeout_seconds: float
+) -> str | None:
     if auth_token:
         return _clean_text(auth_token, max_chars=400) or None
     mode = _clean_text(auth_mode or "session_token", max_chars=40).lower()
@@ -74,16 +76,10 @@ def resolve_session_auth_token(base_url: str, *, auth_mode: str, auth_token: str
         return env_token
 
     username = _clean_text(
-        os.environ.get("ANANTA_USER")
-        or os.environ.get("INITIAL_ADMIN_USER")
-        or "admin",
+        os.environ.get("ANANTA_USER") or os.environ.get("INITIAL_ADMIN_USER") or "admin",
         max_chars=120,
     )
-    password = str(
-        os.environ.get("ANANTA_PASSWORD")
-        or os.environ.get("INITIAL_ADMIN_PASSWORD")
-        or "admin"
-    )
+    password = str(os.environ.get("ANANTA_PASSWORD") or os.environ.get("INITIAL_ADMIN_PASSWORD") or "admin")
     request = urllib.request.Request(
         f"{_normalize_base_url(base_url)}/login",
         data=json.dumps({"username": username, "password": password}).encode("utf-8"),

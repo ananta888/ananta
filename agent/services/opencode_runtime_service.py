@@ -212,7 +212,9 @@ class OpencodeRuntimeService:
         ):
             return deepcopy(runtime_meta)
 
-        title = str(metadata.get("scope_key") or session.get("conversation_id") or session.get("id") or "OpenCode Session").strip()
+        title = str(
+            metadata.get("scope_key") or session.get("conversation_id") or session.get("id") or "OpenCode Session"
+        ).strip()
         created = self._http_json(
             f"{server['server_url']}/session",
             method="POST",
@@ -238,10 +240,12 @@ class OpencodeRuntimeService:
             metadata_updates={"opencode_runtime": runtime_meta},
         )
         if updated:
-            runtime_meta = ((updated.get("metadata") or {}).get("opencode_runtime") or runtime_meta)
+            runtime_meta = (updated.get("metadata") or {}).get("opencode_runtime") or runtime_meta
         return deepcopy(runtime_meta)
 
-    def run_session_turn(self, session: dict, *, prompt: str, timeout: int = 60, model: str | None = None) -> tuple[int, str, str]:
+    def run_session_turn(
+        self, session: dict, *, prompt: str, timeout: int = 60, model: str | None = None
+    ) -> tuple[int, str, str]:
         runtime_meta = self.ensure_session_runtime(session, model=model)
         session_id = str(runtime_meta.get("native_session_id") or "").strip()
         server_url = str(runtime_meta.get("server_url") or "").strip()

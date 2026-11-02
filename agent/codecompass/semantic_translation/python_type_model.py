@@ -54,7 +54,13 @@ def infer_type_from_default(default_node: ast.expr | None) -> TypeAnnotation:
     raw = ast.unparse(default_node)
     if isinstance(default_node, ast.Constant):
         if default_node.value is None:
-            return TypeAnnotation(raw="None", confidence="inferred_from_default", none_model="default_none", is_optional=True, source="default")
+            return TypeAnnotation(
+                raw="None",
+                confidence="inferred_from_default",
+                none_model="default_none",
+                is_optional=True,
+                source="default",
+            )
         if isinstance(default_node.value, bool):
             return TypeAnnotation(raw="bool", confidence="inferred_from_default", source="default")
         if isinstance(default_node.value, int):
@@ -72,48 +78,97 @@ def infer_type_from_default(default_node: ast.expr | None) -> TypeAnnotation:
     if isinstance(default_node, ast.Set):
         return TypeAnnotation(raw="set", confidence="inferred_from_default", collection_kind="set", source="default")
     if isinstance(default_node, ast.Tuple):
-        return TypeAnnotation(raw="tuple", confidence="inferred_from_default", collection_kind="tuple", source="default")
+        return TypeAnnotation(
+            raw="tuple", confidence="inferred_from_default", collection_kind="tuple", source="default"
+        )
     return TypeAnnotation(raw=raw, confidence="dynamic", source="default", warnings=("dynamic_default_value",))
 
 
 def _classify_type(raw: str, *, source: str = "annotation") -> TypeAnnotation:
     stripped = raw.strip()
     if stripped in ("None", "type[None]"):
-        return TypeAnnotation(raw=stripped, confidence="annotated", none_model="none_literal", is_optional=True, source=source)
+        return TypeAnnotation(
+            raw=stripped, confidence="annotated", none_model="none_literal", is_optional=True, source=source
+        )
     if stripped.startswith("Optional[") and stripped.endswith("]"):
         inner = stripped[9:-1].strip()
-        return TypeAnnotation(raw=stripped, confidence="annotated", none_model="optional_type", is_optional=True, element_type=inner, source=source)
+        return TypeAnnotation(
+            raw=stripped,
+            confidence="annotated",
+            none_model="optional_type",
+            is_optional=True,
+            element_type=inner,
+            source=source,
+        )
     if " | " in stripped:
         parts = [p.strip() for p in stripped.split(" | ")]
         non_none = [p for p in parts if p != "None"]
         if "None" in parts and len(non_none) == 1:
-            return TypeAnnotation(raw=stripped, confidence="annotated", none_model="optional_type", is_optional=True, element_type=non_none[0], source=source)
-        return TypeAnnotation(raw=stripped, confidence="annotated", source=source, warnings=("union_type_requires_review",))
+            return TypeAnnotation(
+                raw=stripped,
+                confidence="annotated",
+                none_model="optional_type",
+                is_optional=True,
+                element_type=non_none[0],
+                source=source,
+            )
+        return TypeAnnotation(
+            raw=stripped, confidence="annotated", source=source, warnings=("union_type_requires_review",)
+        )
     if stripped.startswith("Union[") and stripped.endswith("]"):
         inner = stripped[6:-1]
         parts = [p.strip() for p in inner.split(",")]
         non_none = [p for p in parts if p != "None"]
         if "None" in parts and len(non_none) == 1:
-            return TypeAnnotation(raw=stripped, confidence="annotated", none_model="optional_type", is_optional=True, element_type=non_none[0], source=source)
-        return TypeAnnotation(raw=stripped, confidence="annotated", source=source, warnings=("union_type_requires_review",))
-    for collection_prefix, kind in [("list[", "list"), ("List[", "list"), ("set[", "set"), ("Set[", "set"), ("frozenset[", "frozenset"), ("FrozenSet[", "frozenset")]:
+            return TypeAnnotation(
+                raw=stripped,
+                confidence="annotated",
+                none_model="optional_type",
+                is_optional=True,
+                element_type=non_none[0],
+                source=source,
+            )
+        return TypeAnnotation(
+            raw=stripped, confidence="annotated", source=source, warnings=("union_type_requires_review",)
+        )
+    for collection_prefix, kind in [
+        ("list[", "list"),
+        ("List[", "list"),
+        ("set[", "set"),
+        ("Set[", "set"),
+        ("frozenset[", "frozenset"),
+        ("FrozenSet[", "frozenset"),
+    ]:
         if stripped.startswith(collection_prefix) and stripped.endswith("]"):
-            inner = stripped[len(collection_prefix):-1].strip()
-            return TypeAnnotation(raw=stripped, confidence="annotated", collection_kind=kind, element_type=inner, source=source)
+            inner = stripped[len(collection_prefix) : -1].strip()
+            return TypeAnnotation(
+                raw=stripped, confidence="annotated", collection_kind=kind, element_type=inner, source=source
+            )
     for prefix in ("dict[", "Dict["):
         if stripped.startswith(prefix) and stripped.endswith("]"):
-            inner = stripped[len(prefix):-1]
+            inner = stripped[len(prefix) : -1]
             parts = _split_generic_args(inner)
             if len(parts) == 2:
-                return TypeAnnotation(raw=stripped, confidence="annotated", collection_kind="dict", key_type=parts[0].strip(), value_type=parts[1].strip(), source=source)
+                return TypeAnnotation(
+                    raw=stripped,
+                    confidence="annotated",
+                    collection_kind="dict",
+                    key_type=parts[0].strip(),
+                    value_type=parts[1].strip(),
+                    source=source,
+                )
     for prefix in ("tuple[", "Tuple["):
         if stripped.startswith(prefix) and stripped.endswith("]"):
-            inner = stripped[len(prefix):-1]
-            return TypeAnnotation(raw=stripped, confidence="annotated", collection_kind="tuple", element_type=inner, source=source)
+            inner = stripped[len(prefix) : -1]
+            return TypeAnnotation(
+                raw=stripped, confidence="annotated", collection_kind="tuple", element_type=inner, source=source
+            )
     if stripped in ("Any", "typing.Any"):
         return TypeAnnotation(raw=stripped, confidence="dynamic", source=source, warnings=("any_type_requires_review",))
     if not stripped or stripped.startswith("Callable") or stripped.startswith("Protocol"):
-        return TypeAnnotation(raw=stripped, confidence="unknown", source=source, warnings=("complex_type_requires_review",))
+        return TypeAnnotation(
+            raw=stripped, confidence="unknown", source=source, warnings=("complex_type_requires_review",)
+        )
     return TypeAnnotation(raw=stripped, confidence="annotated", source=source)
 
 

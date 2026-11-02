@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.chat_memory import (
     ChatMemoryContext,
     MemoryTurn,
@@ -14,15 +12,7 @@ from client_surfaces.operator_tui.chat_memory import (
 
 
 def _game_with_messages(messages: list[dict]) -> dict:
-    return {
-        "chat_state": {
-            "channels": {
-                "ai:tutor": {
-                    "messages": messages
-                }
-            }
-        }
-    }
+    return {"chat_state": {"channels": {"ai:tutor": {"messages": messages}}}}
 
 
 def _msg(kind: str, text: str) -> dict:
@@ -31,16 +21,19 @@ def _msg(kind: str, text: str) -> dict:
 
 # ── Recent Turns ──────────────────────────────────────────────────────────────
 
+
 def test_extract_empty_game():
     ctx = extract_memory_context({})
     assert ctx.recent_turns == []
 
 
 def test_extract_basic_turns():
-    game = _game_with_messages([
-        _msg("user", "Was ist Ananta?"),
-        _msg("ai", "Ananta ist ein autonomes System."),
-    ])
+    game = _game_with_messages(
+        [
+            _msg("user", "Was ist Ananta?"),
+            _msg("ai", "Ananta ist ein autonomes System."),
+        ]
+    )
     ctx = extract_memory_context(game)
     assert len(ctx.recent_turns) == 2
     assert ctx.recent_turns[0].role == "user"
@@ -48,11 +41,13 @@ def test_extract_basic_turns():
 
 
 def test_extract_deduplicates_current_question():
-    game = _game_with_messages([
-        _msg("user", "Was ist Ananta?"),
-        _msg("ai", "Ein System."),
-        _msg("user", "Wie funktioniert es?"),
-    ])
+    game = _game_with_messages(
+        [
+            _msg("user", "Was ist Ananta?"),
+            _msg("ai", "Ein System."),
+            _msg("user", "Wie funktioniert es?"),
+        ]
+    )
     ctx = extract_memory_context(game, current_question="Wie funktioniert es?")
     users = [t for t in ctx.recent_turns if t.role == "user"]
     assert all("Wie funktioniert" not in t.content for t in users)
@@ -78,11 +73,13 @@ def test_extract_respects_char_budget():
 
 
 def test_extract_excludes_control_messages_by_default():
-    game = _game_with_messages([
-        _msg("control", "System message"),
-        _msg("user", "User question"),
-        _msg("ai", "AI answer"),
-    ])
+    game = _game_with_messages(
+        [
+            _msg("control", "System message"),
+            _msg("user", "User question"),
+            _msg("ai", "AI answer"),
+        ]
+    )
     ctx = extract_memory_context(game, include_control=False)
     roles = {t.role for t in ctx.recent_turns}
     assert "control" not in roles
@@ -107,6 +104,7 @@ def test_serializable():
 
 
 # ── Rolling Summary ───────────────────────────────────────────────────────────
+
 
 def test_rolling_summary_empty_initially():
     assert get_rolling_summary({}) == ""
@@ -149,6 +147,7 @@ def test_update_rolling_summary_no_crash_on_empty():
 
 
 # ── Memory Settings ───────────────────────────────────────────────────────────
+
 
 def test_resolve_memory_settings_defaults():
     s = resolve_memory_settings({})

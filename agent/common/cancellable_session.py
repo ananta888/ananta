@@ -12,7 +12,6 @@ import socket
 import threading
 from typing import Any
 
-import requests
 from requests.adapters import HTTPAdapter
 from requests.sessions import Session as _Session  # the class itself (tests replace ``requests.Session``)
 from urllib3.connection import HTTPConnection, HTTPSConnection

@@ -39,11 +39,11 @@ class KnowledgeIndexManifestIdentityResolver:
         for index in indices:
             metadata = dict(getattr(index, "index_metadata", None) or {})
             nested = dict(metadata.get("codecompass_snapshot_manifest") or {})
-            revision = str(
-                metadata.get("codecompass_snapshot_revision")
-                or nested.get("snapshot_revision")
-                or ""
-            ).strip().lower()
+            revision = (
+                str(metadata.get("codecompass_snapshot_revision") or nested.get("snapshot_revision") or "")
+                .strip()
+                .lower()
+            )
             if _is_sha256(revision):
                 return {
                     "state": "current",
@@ -80,12 +80,16 @@ class KnowledgeIndexManifestIdentityResolver:
         if not isinstance(payload, dict):
             return None
         nested = dict(payload.get("codecompass_snapshot_manifest") or payload.get("snapshot_manifest") or {})
-        revision = str(
-            payload.get("codecompass_snapshot_revision")
-            or payload.get("snapshot_revision")
-            or nested.get("snapshot_revision")
-            or ""
-        ).strip().lower()
+        revision = (
+            str(
+                payload.get("codecompass_snapshot_revision")
+                or payload.get("snapshot_revision")
+                or nested.get("snapshot_revision")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         if not _is_sha256(revision):
             return None
         return {

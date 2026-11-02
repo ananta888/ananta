@@ -120,15 +120,17 @@ def test_unsloth_loader_loads_adapter_directory_through_patched_runtime(tmp_path
 
     model, _tokenizer = UnslothAdapterModelLoader(_FastLanguageModel).load(context, _Torch())
 
-    assert _FastLanguageModel.calls == [{
-        "model_name": str(adapter_path),
-        "max_seq_length": 128,
-        "load_in_4bit": True,
-        "load_in_8bit": False,
-        "load_in_16bit": False,
-        "local_files_only": True,
-        "trust_remote_code": False,
-    }]
+    assert _FastLanguageModel.calls == [
+        {
+            "model_name": str(adapter_path),
+            "max_seq_length": 128,
+            "load_in_4bit": True,
+            "load_in_8bit": False,
+            "load_in_16bit": False,
+            "local_files_only": True,
+            "trust_remote_code": False,
+        }
+    ]
     assert _FastLanguageModel.inference_models == [model]
 
 

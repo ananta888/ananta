@@ -7,7 +7,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
-from ananta_contracts.model_recovery import metadata_from_llm_error
 from agent.services.model_routing_contract import (
     ModelRoutingContractError,
     build_model_routing_context,
@@ -16,6 +15,7 @@ from agent.services.model_routing_contract import (
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
+from ananta_contracts.model_recovery import metadata_from_llm_error
 from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 

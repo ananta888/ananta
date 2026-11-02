@@ -54,9 +54,7 @@ class LiveKitProbe:
     def collect(self) -> dict[str, float | int | bool | None]:
         health = self._read(self._config.health_url, accept="text/plain")
         metrics = self._read(self._config.metrics_url, accept="text/plain")
-        values: dict[str, float | int | bool | None] = {
-            target: None for target in self._METRICS.values()
-        }
+        values: dict[str, float | int | bool | None] = {target: None for target in self._METRICS.values()}
         for raw in metrics.decode("ascii").splitlines():
             line = raw.strip()
             if not line or line.startswith("#") or "{" in line or "}" in line:
@@ -86,4 +84,3 @@ class LiveKitProbe:
 
 
 __all__ = ["LiveKitProbe", "LiveKitProbeConfig", "LiveKitProbeError"]
-

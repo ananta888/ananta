@@ -32,7 +32,6 @@ from ananta_contracts.source_control import (
     SourceRevision,
 )
 
-
 _MEDIA_TYPES = frozenset({"text/plain", "text/markdown"})
 _SOURCE_TYPES = frozenset({"direct_text", "notebook"})
 _CELL_TYPES = frozenset({"markdown", "code"})
@@ -48,9 +47,7 @@ class SourceControlContentAdmissionError(ValueError):
 
 
 class ContentIdempotencyPort(Protocol):
-    def claim(
-        self, *, idempotency_key: str, plan_digest: str
-    ) -> object: ...
+    def claim(self, *, idempotency_key: str, plan_digest: str) -> object: ...
 
     def complete(
         self,
@@ -79,11 +76,7 @@ class _NormalizedContent:
 
     @property
     def connector_type(self) -> ConnectorType:
-        return (
-            ConnectorType.OPEN_NOTEBOOK
-            if self.source_type == "notebook"
-            else ConnectorType.LOCAL_DUMP
-        )
+        return ConnectorType.OPEN_NOTEBOOK if self.source_type == "notebook" else ConnectorType.LOCAL_DUMP
 
     def preview(self) -> dict[str, object]:
         return {
@@ -183,9 +176,7 @@ class SourceControlContentAdmissionService:
                 content=normalized,
             )
             if recovered is None:
-                raise SourceControlContentAdmissionError(
-                    "content_admission_in_progress", status_code=409
-                )
+                raise SourceControlContentAdmissionError("content_admission_in_progress", status_code=409)
             self._idempotency.complete(
                 idempotency_key=operation_key,
                 plan_digest=request_digest,
@@ -220,34 +211,22 @@ class SourceControlContentAdmissionService:
             "sensitivity",
             "dry_run",
         }
-        expected = (
-            common | {"content", "media_type"}
-            if source_type == "direct_text"
-            else common | {"notebook"}
-        )
+        expected = common | {"content", "media_type"} if source_type == "direct_text" else common | {"notebook"}
         if (
             source_type not in _SOURCE_TYPES
             or set(payload) != expected
             or payload.get("dry_run") is not expected_dry_run
         ):
-            raise SourceControlContentAdmissionError(
-                "content_admission_request_invalid"
-            )
+            raise SourceControlContentAdmissionError("content_admission_request_invalid")
         if str(payload.get("project_id") or "") != authoritative_project_id:
-            raise SourceControlContentAdmissionError(
-                "source_control_project_scope_mismatch", status_code=403
-            )
+            raise SourceControlContentAdmissionError("source_control_project_scope_mismatch", status_code=403)
         display_name = str(payload.get("display_name") or "").strip()
         if not 1 <= len(display_name) <= 200:
-            raise SourceControlContentAdmissionError(
-                "content_display_name_invalid"
-            )
+            raise SourceControlContentAdmissionError("content_display_name_invalid")
         try:
             sensitivity = Sensitivity(str(payload.get("sensitivity") or ""))
         except ValueError as exc:
-            raise SourceControlContentAdmissionError(
-                "content_sensitivity_invalid"
-            ) from exc
+            raise SourceControlContentAdmissionError("content_sensitivity_invalid") from exc
         if source_type == "direct_text":
             (
                 normalized_content,
@@ -269,13 +248,9 @@ class SourceControlContentAdmissionService:
             ensure_ascii=False,
         )
         encoded = canonical_json.encode("utf-8")
-        maximum = int(
-            getattr(settings, "codecompass_max_file_bytes", 16 * 1024 * 1024)
-        )
+        maximum = int(getattr(settings, "codecompass_max_file_bytes", 16 * 1024 * 1024))
         if not encoded or len(encoded) > maximum:
-            raise SourceControlContentAdmissionError(
-                "content_size_budget_exceeded"
-            )
+            raise SourceControlContentAdmissionError("content_size_budget_exceeded")
         manifest_digest = hashlib.sha256(encoded).hexdigest()
         revision_digest = _digest(
             {
@@ -305,19 +280,11 @@ class SourceControlContentAdmissionService:
             ),
         )
 
-    def _direct_text(
-        self, payload: Mapping[str, object]
-    ) -> tuple[Mapping[str, object], str, int, int]:
+    def _direct_text(self, payload: Mapping[str, object]) -> tuple[Mapping[str, object], str, int, int]:
         media_type = str(payload.get("media_type") or "").strip().lower()
         content = payload.get("content")
-        if (
-            media_type not in _MEDIA_TYPES
-            or not isinstance(content, str)
-            or not content.strip()
-        ):
-            raise SourceControlContentAdmissionError(
-                "direct_text_content_invalid"
-            )
+        if media_type not in _MEDIA_TYPES or not isinstance(content, str) or not content.strip():
+            raise SourceControlContentAdmissionError("direct_text_content_invalid")
         self._require_safe_text(content)
         return (
             {"content": content, "media_type": media_type},
@@ -326,25 +293,14 @@ class SourceControlContentAdmissionService:
             0,
         )
 
-    def _notebook(
-        self, payload: Mapping[str, object]
-    ) -> tuple[Mapping[str, object], str, int, int]:
+    def _notebook(self, payload: Mapping[str, object]) -> tuple[Mapping[str, object], str, int, int]:
         notebook = payload.get("notebook")
         if not isinstance(notebook, Mapping) or set(notebook) != {"cells"}:
-            raise SourceControlContentAdmissionError(
-                "notebook_document_invalid"
-            )
+            raise SourceControlContentAdmissionError("notebook_document_invalid")
         cells = notebook.get("cells")
-        maximum_cells = int(
-            getattr(settings, "codecompass_max_notebook_cells", 1_000)
-        )
-        if (
-            not isinstance(cells, list)
-            or not 1 <= len(cells) <= maximum_cells
-        ):
-            raise SourceControlContentAdmissionError(
-                "notebook_cell_budget_exceeded"
-            )
+        maximum_cells = int(getattr(settings, "codecompass_max_notebook_cells", 1_000))
+        if not isinstance(cells, list) or not 1 <= len(cells) <= maximum_cells:
+            raise SourceControlContentAdmissionError("notebook_cell_budget_exceeded")
         maximum_cell_chars = int(
             getattr(
                 settings,
@@ -362,13 +318,8 @@ class SourceControlContentAdmissionService:
         normalized_cells: list[dict[str, object]] = []
         output_bytes = 0
         for raw_cell in cells:
-            if (
-                not isinstance(raw_cell, Mapping)
-                or set(raw_cell) != {"cell_type", "source", "outputs"}
-            ):
-                raise SourceControlContentAdmissionError(
-                    "notebook_cell_invalid"
-                )
+            if not isinstance(raw_cell, Mapping) or set(raw_cell) != {"cell_type", "source", "outputs"}:
+                raise SourceControlContentAdmissionError("notebook_cell_invalid")
             cell_type = str(raw_cell.get("cell_type") or "")
             source = raw_cell.get("source")
             outputs = raw_cell.get("outputs")
@@ -379,36 +330,21 @@ class SourceControlContentAdmissionService:
                 or not isinstance(outputs, list)
                 or (cell_type == "markdown" and outputs)
             ):
-                raise SourceControlContentAdmissionError(
-                    "notebook_cell_invalid"
-                )
+                raise SourceControlContentAdmissionError("notebook_cell_invalid")
             self._require_safe_text(source)
             normalized_outputs: list[dict[str, str]] = []
             for raw_output in outputs:
-                if (
-                    not isinstance(raw_output, Mapping)
-                    or set(raw_output) != {"output_type", "text"}
-                ):
-                    raise SourceControlContentAdmissionError(
-                        "notebook_binary_output_forbidden"
-                    )
+                if not isinstance(raw_output, Mapping) or set(raw_output) != {"output_type", "text"}:
+                    raise SourceControlContentAdmissionError("notebook_binary_output_forbidden")
                 output_type = str(raw_output.get("output_type") or "")
                 text = raw_output.get("text")
-                if output_type not in _OUTPUT_TYPES or not isinstance(
-                    text, str
-                ):
-                    raise SourceControlContentAdmissionError(
-                        "notebook_output_invalid"
-                    )
+                if output_type not in _OUTPUT_TYPES or not isinstance(text, str):
+                    raise SourceControlContentAdmissionError("notebook_output_invalid")
                 self._require_safe_text(text)
                 output_bytes += len(text.encode("utf-8"))
                 if output_bytes > maximum_output_bytes:
-                    raise SourceControlContentAdmissionError(
-                        "notebook_output_budget_exceeded"
-                    )
-                normalized_outputs.append(
-                    {"output_type": output_type, "text": text}
-                )
+                    raise SourceControlContentAdmissionError("notebook_output_budget_exceeded")
+                normalized_outputs.append({"output_type": output_type, "text": text})
             normalized_cells.append(
                 {
                     "cell_type": cell_type,
@@ -425,14 +361,10 @@ class SourceControlContentAdmissionService:
 
     def _require_safe_text(self, value: str) -> None:
         if _CONTROL_CHARACTERS.search(value):
-            raise SourceControlContentAdmissionError(
-                "binary_content_forbidden"
-            )
+            raise SourceControlContentAdmissionError("binary_content_forbidden")
         result = self._secrets.scan_and_redact_text(value)
         if not result.clean:
-            raise SourceControlContentAdmissionError(
-                "secret_content_forbidden"
-            )
+            raise SourceControlContentAdmissionError("secret_content_forbidden")
 
     def _contracts(
         self,
@@ -441,9 +373,7 @@ class SourceControlContentAdmissionService:
         actor_id: str,
         content: _NormalizedContent,
     ) -> tuple[SourceConnection, SourceRevision]:
-        captured_at = datetime.fromtimestamp(
-            float(self._clock()), tz=timezone.utc
-        )
+        captured_at = datetime.fromtimestamp(float(self._clock()), tz=timezone.utc)
         connection = SourceConnection.create(
             tenant_id=tenant_id,
             project_id=content.project_id,
@@ -480,9 +410,7 @@ class SourceControlContentAdmissionService:
     ) -> dict[str, object]:
         now = float(self._clock())
         with Session(self._engine) as db:
-            existing_connection = db.get(
-                SourceConnectionDB, connection.connection_id
-            )
+            existing_connection = db.get(SourceConnectionDB, connection.connection_id)
             if existing_connection is None:
                 db.add(
                     SourceConnectionDB(
@@ -491,9 +419,7 @@ class SourceControlContentAdmissionService:
                         project_id=connection.project_id,
                         owner_id=connection.owner_id,
                         connector_type=connection.connector_type.value,
-                        connection_identity_digest=(
-                            connection.connection_identity_digest
-                        ),
+                        connection_identity_digest=(connection.connection_identity_digest),
                         display_name=connection.display_name,
                         sensitivity=connection.sensitivity.value,
                         state=connection.state.value,
@@ -502,15 +428,9 @@ class SourceControlContentAdmissionService:
                         updated_at_epoch=now,
                     )
                 )
-            elif not self._connection_matches(
-                existing_connection, connection
-            ):
-                raise SourceControlContentAdmissionError(
-                    "content_connection_conflict", status_code=409
-                )
-            existing_revision = db.get(
-                SourceRevisionDB, revision.source_revision_id
-            )
+            elif not self._connection_matches(existing_connection, connection):
+                raise SourceControlContentAdmissionError("content_connection_conflict", status_code=409)
+            existing_revision = db.get(SourceRevisionDB, revision.source_revision_id)
             if existing_revision is None:
                 db.add(
                     SourceRevisionDB(
@@ -524,20 +444,14 @@ class SourceControlContentAdmissionService:
                         revision_token=revision.revision_token,
                         revision_digest=revision.revision_digest,
                         content_manifest_id=revision.content_manifest_id,
-                        content_manifest_digest=(
-                            revision.content_manifest_digest
-                        ),
+                        content_manifest_digest=(revision.content_manifest_digest),
                         admission_state=revision.admission_state.value,
                         captured_at_epoch=revision.captured_at.timestamp(),
                     )
                 )
             elif not self._revision_matches(existing_revision, revision):
-                raise SourceControlContentAdmissionError(
-                    "content_revision_conflict", status_code=409
-                )
-            existing_content = db.get(
-                SourceControlContentDB, revision.source_revision_id
-            )
+                raise SourceControlContentAdmissionError("content_revision_conflict", status_code=409)
+            existing_content = db.get(SourceControlContentDB, revision.source_revision_id)
             if existing_content is None:
                 db.add(
                     SourceControlContentDB(
@@ -558,24 +472,16 @@ class SourceControlContentAdmissionService:
                     )
                 )
             elif (
-                existing_content.manifest_digest
-                != content.manifest_digest
-                or existing_content.normalized_content_json
-                != content.canonical_json
+                existing_content.manifest_digest != content.manifest_digest
+                or existing_content.normalized_content_json != content.canonical_json
             ):
-                raise SourceControlContentAdmissionError(
-                    "content_payload_conflict", status_code=409
-                )
+                raise SourceControlContentAdmissionError("content_payload_conflict", status_code=409)
             try:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                raise SourceControlContentAdmissionError(
-                    "content_admission_conflict", status_code=409
-                ) from None
-        return self._result(
-            connection=connection, revision=revision, content=content
-        )
+                raise SourceControlContentAdmissionError("content_admission_conflict", status_code=409) from None
+        return self._result(connection=connection, revision=revision, content=content)
 
     def _recover(
         self,
@@ -585,57 +491,40 @@ class SourceControlContentAdmissionService:
         content: _NormalizedContent,
     ) -> dict[str, object] | None:
         with Session(self._engine) as db:
-            connection_row = db.get(
-                SourceConnectionDB, connection.connection_id
-            )
-            revision_row = db.get(
-                SourceRevisionDB, revision.source_revision_id
-            )
-            content_row = db.get(
-                SourceControlContentDB, revision.source_revision_id
-            )
+            connection_row = db.get(SourceConnectionDB, connection.connection_id)
+            revision_row = db.get(SourceRevisionDB, revision.source_revision_id)
+            content_row = db.get(SourceControlContentDB, revision.source_revision_id)
             if (
                 connection_row is None
                 or revision_row is None
                 or content_row is None
-                or not self._connection_matches(
-                    connection_row, connection
-                )
+                or not self._connection_matches(connection_row, connection)
                 or not self._revision_matches(revision_row, revision)
                 or content_row.manifest_digest != content.manifest_digest
-                or content_row.normalized_content_json
-                != content.canonical_json
+                or content_row.normalized_content_json != content.canonical_json
             ):
                 return None
-        return self._result(
-            connection=connection, revision=revision, content=content
-        )
+        return self._result(connection=connection, revision=revision, content=content)
 
     @staticmethod
-    def _connection_matches(
-        row: SourceConnectionDB, value: SourceConnection
-    ) -> bool:
+    def _connection_matches(row: SourceConnectionDB, value: SourceConnection) -> bool:
         return (
             row.tenant_id == value.tenant_id
             and row.project_id == value.project_id
             and row.owner_id == value.owner_id
             and row.connector_type == value.connector_type.value
-            and row.connection_identity_digest
-            == value.connection_identity_digest
+            and row.connection_identity_digest == value.connection_identity_digest
         )
 
     @staticmethod
-    def _revision_matches(
-        row: SourceRevisionDB, value: SourceRevision
-    ) -> bool:
+    def _revision_matches(row: SourceRevisionDB, value: SourceRevision) -> bool:
         return (
             row.connection_id == value.connection_id
             and row.tenant_id == value.tenant_id
             and row.project_id == value.project_id
             and row.owner_id == value.owner_id
             and row.revision_digest == value.revision_digest
-            and row.content_manifest_digest
-            == value.content_manifest_digest
+            and row.content_manifest_digest == value.content_manifest_digest
             and row.admission_state == "admitted"
         )
 
@@ -664,12 +553,8 @@ def _digest(value: object) -> str:
     ).hexdigest()
 
 
-def _operation_key(
-    *, tenant_id: str, project_id: str, idempotency_key: str
-) -> str:
-    return "content:" + hashlib.sha256(
-        f"{tenant_id}\0{project_id}\0{idempotency_key}".encode("utf-8")
-    ).hexdigest()
+def _operation_key(*, tenant_id: str, project_id: str, idempotency_key: str) -> str:
+    return "content:" + hashlib.sha256(f"{tenant_id}\0{project_id}\0{idempotency_key}".encode("utf-8")).hexdigest()
 
 
 __all__ = [

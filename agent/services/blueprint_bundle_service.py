@@ -5,12 +5,12 @@ from dataclasses import dataclass
 
 from agent.db_models import TeamBlueprintDB, TeamDB
 from agent.models import (
+    BlueprintArtifactDefinition,
     BlueprintBundleDefinition,
     BlueprintBundleMemberAssignment,
     BlueprintBundleRoleDefinition,
     BlueprintBundleTeamDefinition,
     BlueprintBundleTemplate,
-    BlueprintArtifactDefinition,
     TeamBlueprintBundle,
 )
 
@@ -72,7 +72,15 @@ def validate_bundle_mode_and_parts(mode: str, parts: list[str]) -> list[dict]:
     return errors
 
 
-def export_blueprint_bundle(repos, blueprint: TeamBlueprintDB, *, team: TeamDB | None = None, include_members: bool = False, mode: str = "full", parts: list[str] | None = None) -> dict:
+def export_blueprint_bundle(
+    repos,
+    blueprint: TeamBlueprintDB,
+    *,
+    team: TeamDB | None = None,
+    include_members: bool = False,
+    mode: str = "full",
+    parts: list[str] | None = None,
+) -> dict:
     normalized_mode = normalize_bundle_mode(mode)
     base_parts = ["blueprint", "templates"]
     if team is not None:
@@ -98,7 +106,9 @@ def export_blueprint_bundle(repos, blueprint: TeamBlueprintDB, *, team: TeamDB |
                 BlueprintBundleRoleDefinition(
                     name=role.name,
                     description=role.description,
-                    template_name=repos.template_repo.get_by_id(role.template_id).name if role.template_id and repos.template_repo.get_by_id(role.template_id) else None,
+                    template_name=repos.template_repo.get_by_id(role.template_id).name
+                    if role.template_id and repos.template_repo.get_by_id(role.template_id)
+                    else None,
                     sort_order=role.sort_order,
                     is_required=role.is_required,
                     config=role.config or {},
@@ -133,8 +143,12 @@ def export_blueprint_bundle(repos, blueprint: TeamBlueprintDB, *, team: TeamDB |
             blueprint_role_by_id = {role.id: role for role in blueprint_roles}
             for member in team_members:
                 role = role_by_id.get(member.role_id)
-                blueprint_role = blueprint_role_by_id.get(member.blueprint_role_id) if member.blueprint_role_id else None
-                template = repos.template_repo.get_by_id(member.custom_template_id) if member.custom_template_id else None
+                blueprint_role = (
+                    blueprint_role_by_id.get(member.blueprint_role_id) if member.blueprint_role_id else None
+                )
+                template = (
+                    repos.template_repo.get_by_id(member.custom_template_id) if member.custom_template_id else None
+                )
                 if template:
                     referenced_template_ids.add(template.id)
                 members.append(
@@ -539,6 +553,7 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
             )
         if worker_selection is not None:
             from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+
             _, err = WorkerSelectionPolicyService().validate_or_error({"worker_selection": worker_selection})
             if err:
                 errors.append(
@@ -550,7 +565,7 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
                 )
         if runtime_target is not None:
             if not isinstance(runtime_target, dict):
-                 errors.append(
+                errors.append(
                     {
                         "type": "validation",
                         "message": "blueprint_role_runtime_target_invalid",
@@ -559,6 +574,7 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
                 )
             else:
                 from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+
                 try:
                     WorkerRuntimeTargetService().from_config(runtime_target)
                 except Exception as exc:
@@ -608,7 +624,9 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
     return errors
 
 
-def _validate_team_bundle_definition(repos, bundle: TeamBlueprintBundle, bundled_templates_by_name: dict[str, BlueprintBundleTemplate]) -> list[dict]:
+def _validate_team_bundle_definition(
+    repos, bundle: TeamBlueprintBundle, bundled_templates_by_name: dict[str, BlueprintBundleTemplate]
+) -> list[dict]:
     errors: list[dict] = []
     team = bundle.team
     if team is None:
@@ -626,7 +644,9 @@ def _validate_team_bundle_definition(repos, bundle: TeamBlueprintBundle, bundled
                 "details": {"blueprint_name": blueprint_name},
             }
         )
-    team_type_name = (team.team_type_name or (bundle.blueprint.base_team_type_name if bundle.blueprint else "") or "").strip()
+    team_type_name = (
+        team.team_type_name or (bundle.blueprint.base_team_type_name if bundle.blueprint else "") or ""
+    ).strip()
     if team_type_name and repos.team_type_repo.get_by_name(team_type_name) is None:
         errors.append(
             {
@@ -654,7 +674,10 @@ def _validate_team_bundle_definition(repos, bundle: TeamBlueprintBundle, bundled
             )
             continue
         normalized_template_name = template_name.strip().lower()
-        if normalized_template_name not in bundled_templates_by_name and repos.template_repo.get_by_name(template_name.strip()) is None:
+        if (
+            normalized_template_name not in bundled_templates_by_name
+            and repos.template_repo.get_by_name(template_name.strip()) is None
+        ):
             errors.append(
                 {
                     "type": "validation",
@@ -682,18 +705,27 @@ def _validate_team_bundle_definition(repos, bundle: TeamBlueprintBundle, bundled
                 )
             if member.custom_template_name:
                 normalized_template_name = member.custom_template_name.strip().lower()
-                if normalized_template_name not in bundled_templates_by_name and repos.template_repo.get_by_name(member.custom_template_name.strip()) is None:
+                if (
+                    normalized_template_name not in bundled_templates_by_name
+                    and repos.template_repo.get_by_name(member.custom_template_name.strip()) is None
+                ):
                     errors.append(
                         {
                             "type": "validation",
                             "message": "template_not_found",
-                            "details": {"template_name": member.custom_template_name.strip(), "agent_url": member.agent_url},
+                            "details": {
+                                "template_name": member.custom_template_name.strip(),
+                                "agent_url": member.agent_url,
+                            },
                         }
                     )
         if bundle.blueprint is not None:
             blueprint_role_names = {role.name.strip().lower() for role in bundle.blueprint.roles}
             for member in team.members:
-                if member.blueprint_role_name and member.blueprint_role_name.strip().lower() not in blueprint_role_names:
+                if (
+                    member.blueprint_role_name
+                    and member.blueprint_role_name.strip().lower() not in blueprint_role_names
+                ):
                     errors.append(
                         {
                             "type": "validation",
@@ -714,7 +746,9 @@ def _existing_blueprint_payload(repos, blueprint: TeamBlueprintDB) -> dict:
             {
                 "name": role.name,
                 "description": role.description,
-                "template_name": repos.template_repo.get_by_id(role.template_id).name if role.template_id and repos.template_repo.get_by_id(role.template_id) else None,
+                "template_name": repos.template_repo.get_by_id(role.template_id).name
+                if role.template_id and repos.template_repo.get_by_id(role.template_id)
+                else None,
                 "sort_order": role.sort_order,
                 "is_required": role.is_required,
                 "config": role.config or {},
@@ -775,7 +809,9 @@ def _existing_team_payload(repos, team: TeamDB) -> dict:
     normalized_members = []
     for member in members:
         role = repos.role_repo.get_by_id(member.role_id)
-        blueprint_role = repos.blueprint_role_repo.get_by_id(member.blueprint_role_id) if member.blueprint_role_id else None
+        blueprint_role = (
+            repos.blueprint_role_repo.get_by_id(member.blueprint_role_id) if member.blueprint_role_id else None
+        )
         template = repos.template_repo.get_by_id(member.custom_template_id) if member.custom_template_id else None
         normalized_members.append(
             {
@@ -796,7 +832,9 @@ def _existing_team_payload(repos, team: TeamDB) -> dict:
     }
 
 
-def _incoming_team_payload(team: BlueprintBundleTeamDefinition, *, blueprint_name: str | None, include_members: bool) -> dict:
+def _incoming_team_payload(
+    team: BlueprintBundleTeamDefinition, *, blueprint_name: str | None, include_members: bool
+) -> dict:
     normalized_members = [
         {
             "agent_url": member.agent_url,

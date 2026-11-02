@@ -23,18 +23,18 @@ from pathlib import Path
 
 import pytest
 
+from agent.services.pattern_artifact_service import (
+    PatternArtifactService,
+    make_plan_hash,
+)
+from agent.services.pattern_gate_service import PatternGateService
+from agent.services.pattern_proposal_normalizer import get_pattern_proposal_normalizer
+from agent.services.pattern_registry import get_registry
 from agent.services.pattern_template_renderer import (
     PatternTemplateRenderer,
     RenderError,
     TemplateFile,
 )
-from agent.services.pattern_gate_service import PatternGateService
-from agent.services.pattern_artifact_service import (
-    PatternArtifactService,
-    make_plan_hash,
-)
-from agent.services.pattern_proposal_normalizer import get_pattern_proposal_normalizer
-from agent.services.pattern_registry import get_registry
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES_ROOT = ROOT / "config" / "patterns" / "templates"
@@ -44,6 +44,7 @@ TEMPLATES_ROOT = ROOT / "config" / "patterns" / "templates"
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_templates(pattern_id: str, language: str) -> list[TemplateFile]:
     """Load template files from the catalog entry for a given pattern."""
     registry = get_registry()
@@ -51,15 +52,17 @@ def _load_templates(pattern_id: str, language: str) -> list[TemplateFile]:
     if entry is None:
         pytest.skip(f"pattern {pattern_id!r} not in registry — skipping demo")
     templates = []
-    for t in (entry.get("templates") or []):
+    for t in entry.get("templates") or []:
         path = ROOT / str(t.get("path") or "")
         if not path.exists():
             pytest.skip(f"template file missing: {t.get('path')}")
-        templates.append(TemplateFile(
-            template_name=str(t.get("name") or ""),
-            output_path=path.name.replace(".tmpl", ""),
-            content=path.read_text(encoding="utf-8"),
-        ))
+        templates.append(
+            TemplateFile(
+                template_name=str(t.get("name") or ""),
+                output_path=path.name.replace(".tmpl", ""),
+                content=path.read_text(encoding="utf-8"),
+            )
+        )
     return templates
 
 
@@ -72,8 +75,9 @@ def _assert_manifest_stable(
     """AC2: Render twice and assert byte-identical manifest hash."""
     m1 = renderer.render(pattern_plan=plan, templates=templates, target_root=str(tmp_path / "run1"))
     m2 = renderer.render(pattern_plan=plan, templates=templates, target_root=str(tmp_path / "run2"))
-    assert m1.manifest_sha256 == m2.manifest_sha256, \
+    assert m1.manifest_sha256 == m2.manifest_sha256, (
         f"Render is not deterministic: {m1.manifest_sha256!r} != {m2.manifest_sha256!r}"
+    )
     return m1
 
 
@@ -81,15 +85,12 @@ def _assert_manifest_stable(
 # PAT-021 AC1 — Proposal normalization (simulates worker PatternPlan submission)
 # ---------------------------------------------------------------------------
 
+
 class TestAC1ProposalNormalization:
     def test_valid_python_strategy_proposal_accepted(self):
         normalizer = get_pattern_proposal_normalizer()
         registry = get_registry()
-        catalogue_ids = {
-            str(e.get("pattern_id") or "")
-            for e in registry.list()
-            if isinstance(e, dict)
-        }
+        catalogue_ids = {str(e.get("pattern_id") or "") for e in registry.list() if isinstance(e, dict)}
         proposal = normalizer.normalize(
             proposal={
                 "pattern_id": "python.strategy",
@@ -106,11 +107,7 @@ class TestAC1ProposalNormalization:
     def test_valid_java_strategy_proposal_accepted(self):
         normalizer = get_pattern_proposal_normalizer()
         registry = get_registry()
-        catalogue_ids = {
-            str(e.get("pattern_id") or "")
-            for e in registry.list()
-            if isinstance(e, dict)
-        }
+        catalogue_ids = {str(e.get("pattern_id") or "") for e in registry.list() if isinstance(e, dict)}
         proposal = normalizer.normalize(
             proposal={
                 "pattern_id": "java.strategy",
@@ -125,11 +122,7 @@ class TestAC1ProposalNormalization:
     def test_valid_ts_strategy_proposal_accepted(self):
         normalizer = get_pattern_proposal_normalizer()
         registry = get_registry()
-        catalogue_ids = {
-            str(e.get("pattern_id") or "")
-            for e in registry.list()
-            if isinstance(e, dict)
-        }
+        catalogue_ids = {str(e.get("pattern_id") or "") for e in registry.list() if isinstance(e, dict)}
         proposal = normalizer.normalize(
             proposal={
                 "pattern_id": "ts.strategy",
@@ -146,6 +139,7 @@ class TestAC1ProposalNormalization:
 # PAT-021 AC2 + AC4 — Deterministic render + structural test check
 # ---------------------------------------------------------------------------
 
+
 class TestAC2DeterministicRender:
     def test_python_strategy_renders_deterministically(self, tmp_path: Path):
         renderer = PatternTemplateRenderer()
@@ -160,11 +154,7 @@ class TestAC2DeterministicRender:
         assert len(manifest.files) > 0
         paths = [f.output_path for f in manifest.files]
         # AC4: at least one test file is present and non-empty
-        test_files = [
-            (tmp_path / "run1" / p).read_text()
-            for p in paths
-            if "test" in p.lower()
-        ]
+        test_files = [(tmp_path / "run1" / p).read_text() for p in paths if "test" in p.lower()]
         assert test_files, "No test file generated"
         assert any(text.strip() for text in test_files), "Test file is empty"
 
@@ -195,6 +185,7 @@ class TestAC2DeterministicRender:
 # PAT-021 AC3 — Pattern gate passes on rendered output
 # ---------------------------------------------------------------------------
 
+
 class TestAC3GateChecks:
     def test_python_strategy_gate_passes_on_rendered_output(self, tmp_path: Path):
         renderer = PatternTemplateRenderer()
@@ -217,9 +208,8 @@ class TestAC3GateChecks:
             workspace_root=output_dir,
             require_tests=True,
         )
-        assert result.passed, (
-            f"Gate failed: {result.failed_checks}\n"
-            + "\n".join(f"  {d.name}: {d.message}" for d in result.details if not d.passed)
+        assert result.passed, f"Gate failed: {result.failed_checks}\n" + "\n".join(
+            f"  {d.name}: {d.message}" for d in result.details if not d.passed
         )
 
     def test_java_strategy_gate_passes_on_rendered_output(self, tmp_path: Path):
@@ -249,6 +239,7 @@ class TestAC3GateChecks:
 # PAT-021 AC5 — Artifact record with hashes
 # ---------------------------------------------------------------------------
 
+
 class TestAC5ArtifactRecord:
     def test_artifact_record_created_with_hashes(self, tmp_path: Path):
         renderer = PatternTemplateRenderer()
@@ -263,9 +254,7 @@ class TestAC5ArtifactRecord:
             templates=templates,
             target_root=str(output_dir),
         )
-        plan_hash = make_plan_hash(
-            "python.strategy", "python", {"context_class": "Payment"}
-        )
+        plan_hash = make_plan_hash("python.strategy", "python", {"context_class": "Payment"})
         svc = PatternArtifactService(artifacts_root=tmp_path / "artifacts")
         record = svc.record(
             pattern_id="python.strategy",
@@ -296,6 +285,7 @@ class TestAC5ArtifactRecord:
 # ---------------------------------------------------------------------------
 # PAT-021 AC6 — Error cases abort cleanly
 # ---------------------------------------------------------------------------
+
 
 class TestAC6ErrorCases:
     def test_unknown_pattern_id_rejected_by_normalizer(self):

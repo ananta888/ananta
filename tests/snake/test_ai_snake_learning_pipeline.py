@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 
-from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, compact_event_log, mine_patterns_from_events
+from client_surfaces.operator_tui.ai_snake_learning import (
+    apply_prediction_feedback,
+    compact_event_log,
+    mine_patterns_from_events,
+)
 from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
 
 
@@ -81,7 +85,11 @@ def test_prediction_feedback_updates_pattern_confidence() -> None:
         "conditions": {"all": [{"field": "recent_event", "op": "contains", "value": "artifact:README.md"}]},
         "predicted_intent": "artifact_explain",
         "confidence": 0.5,
-        "evidence": {"source_event_ids": ["evt-1", "evt-2", "evt-3"], "sample_size": 3, "counter_refs": ["counter:pat-artifact-x"]},
+        "evidence": {
+            "source_event_ids": ["evt-1", "evt-2", "evt-3"],
+            "sample_size": 3,
+            "counter_refs": ["counter:pat-artifact-x"],
+        },
         "counters": {"hits": 3, "misses": 0, "positives": 3, "negatives": 0},
         "last_seen_at": "2026-01-01T00:00:00Z",
         "expires_at": "2026-02-01T00:00:00Z",
@@ -128,12 +136,42 @@ def test_compact_event_log_creates_backup_and_limits_size(tmp_path) -> None:
 def test_private_notes_content_not_written_into_pattern_evidence() -> None:
     secret = "super-secret-note-content"
     events = [
-        {"event_id": "evt-1", "event_type": "section_change", "normalized_value": "notes", "refs": {"section_ref": "section:notes"}},
-        {"event_id": "evt-2", "event_type": "notes_state", "normalized_value": "notes_active", "refs": {"section_ref": "section:notes"}},
-        {"event_id": "evt-3", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
-        {"event_id": "evt-4", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
-        {"event_id": "evt-5", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
-        {"event_id": "evt-6", "event_type": "custom:note_raw", "normalized_value": secret, "refs": {"section_ref": "section:notes"}},
+        {
+            "event_id": "evt-1",
+            "event_type": "section_change",
+            "normalized_value": "notes",
+            "refs": {"section_ref": "section:notes"},
+        },
+        {
+            "event_id": "evt-2",
+            "event_type": "notes_state",
+            "normalized_value": "notes_active",
+            "refs": {"section_ref": "section:notes"},
+        },
+        {
+            "event_id": "evt-3",
+            "event_type": "artifact_selected",
+            "normalized_value": "README.md",
+            "refs": {"artifact_ref": "README.md"},
+        },
+        {
+            "event_id": "evt-4",
+            "event_type": "artifact_selected",
+            "normalized_value": "README.md",
+            "refs": {"artifact_ref": "README.md"},
+        },
+        {
+            "event_id": "evt-5",
+            "event_type": "artifact_selected",
+            "normalized_value": "README.md",
+            "refs": {"artifact_ref": "README.md"},
+        },
+        {
+            "event_id": "evt-6",
+            "event_type": "custom:note_raw",
+            "normalized_value": secret,
+            "refs": {"section_ref": "section:notes"},
+        },
     ]
     patterns = mine_patterns_from_events(events=events, min_cases=3)
     dumped = json.dumps(patterns, ensure_ascii=False)

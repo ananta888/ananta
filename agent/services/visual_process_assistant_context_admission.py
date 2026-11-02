@@ -168,9 +168,7 @@ class VisualProcessAssistantContextAdmission:
             source_allowlist_version=allowlist_version,
             prompt_version=PROMPT_VERSION,
             runtime_overlay=(
-                dict(body.get("runtime_overlay") or {})
-                if isinstance(body.get("runtime_overlay"), Mapping)
-                else None
+                dict(body.get("runtime_overlay") or {}) if isinstance(body.get("runtime_overlay"), Mapping) else None
             ),
             validation_issues=[
                 dict(item) for item in list(body.get("validation_issues") or []) if isinstance(item, Mapping)

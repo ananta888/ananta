@@ -19,20 +19,17 @@ Contains: _update_demo_remote_snakes, _apply_snake_hover_selection_delay,
           _compute_control_boxes, _box_hit_target, _ensure_snake_escape_gaps,
           _compute_snake_escape_gaps, _spawn_snake_food
 """
+
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
 from client_runtime import process
-from prompt_toolkit.formatted_text import ANSI
-
 from client_surfaces.operator_tui import _snake_ops_tutor
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
@@ -204,6 +201,7 @@ class SnakeOpsMixin:
         # Trigger AI explanation for the marked region when tutorial AI is active
         if bool(game.get("active")) and bool(game.get("tutorial_mode")) and cells:
             import time as _time
+
             now = _time.monotonic()
             # Extract readable text from the selected region
             lines = self._snake_render_plain_lines()
@@ -216,7 +214,7 @@ class SnakeOpsMixin:
                     row_text = lines[row_y]
                     xs = sorted(set(rows[row_y]))
                     if xs:
-                        chunk = row_text[xs[0]: min(len(row_text), xs[-1] + 1)].strip()
+                        chunk = row_text[xs[0] : min(len(row_text), xs[-1] + 1)].strip()
                         if chunk:
                             excerpts.append(chunk)
             excerpt = " | ".join(excerpts)[:200]
@@ -228,8 +226,16 @@ class SnakeOpsMixin:
             chat_raw = game.get("artifact_chat_state")
             chat = dict(chat_raw) if isinstance(chat_raw, dict) else {}
             messages = [dict(m) for m in (chat.get("messages") or []) if isinstance(m, dict)]
-            messages.append({"at": float(now), "source": "system", "text": f"Markierung: {excerpt[:80] or '(Bereich)'}"})
-            chat["active_target"] = {"label": excerpt[:40] or "Markierung", "section_id": str(self.state.section_id or ""), "kind": "selection", "path": "", "id": "selection"}
+            messages.append(
+                {"at": float(now), "source": "system", "text": f"Markierung: {excerpt[:80] or '(Bereich)'}"}
+            )
+            chat["active_target"] = {
+                "label": excerpt[:40] or "Markierung",
+                "section_id": str(self.state.section_id or ""),
+                "kind": "selection",
+                "path": "",
+                "id": "selection",
+            }
             chat["messages"] = messages[-8:]
             game["artifact_chat_state"] = chat
             # Force immediate AI tip on next tick
@@ -260,7 +266,9 @@ class SnakeOpsMixin:
         game["selection_frame_anchor"] = head
         if not isinstance(game.get("selection_regions"), list):
             game["selection_regions"] = []
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: an (X setzt Rahmen)"))
+        self._set_state(
+            self.state.with_updates(header_logo_game=game, status_message="snake frame: an (X setzt Rahmen)")
+        )
 
     def _snake_clear_visual_marks(self) -> None:
         game = dict(self.state.header_logo_game or {})
@@ -290,7 +298,9 @@ class SnakeOpsMixin:
         anchor_raw = game.get("selection_frame_anchor")
         if not isinstance(anchor_raw, (list, tuple)) or len(anchor_raw) != 2:
             game["selection_frame_anchor"] = head
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: anchor gesetzt"))
+            self._set_state(
+                self.state.with_updates(header_logo_game=game, status_message="snake frame: anchor gesetzt")
+            )
             return
         ax, ay = int(anchor_raw[0]), int(anchor_raw[1])
         hx, hy = head
@@ -298,11 +308,7 @@ class SnakeOpsMixin:
         min_y, max_y = sorted((ay, hy))
         region_cells = [(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)]
         existing_raw = game.get("selection_cells") or []
-        existing = {
-            (int(c[0]), int(c[1]))
-            for c in existing_raw
-            if isinstance(c, (list, tuple)) and len(c) == 2
-        }
+        existing = {(int(c[0]), int(c[1])) for c in existing_raw if isinstance(c, (list, tuple)) and len(c) == 2}
         existing.update(region_cells)
         game["selection_cells"] = sorted(existing)
         regions_raw = game.get("selection_regions")
@@ -326,7 +332,9 @@ class SnakeOpsMixin:
             game["free_mode"] = False
         temp_state = self.state.with_updates(header_logo_game=game)
         size = shutil.get_terminal_size((120, 32))
-        rendered = render_operator_shell(temp_state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
+        rendered = render_operator_shell(
+            temp_state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash
+        )
         return [_ANSI_STRIP.sub("", line) for line in rendered.splitlines()]
 
     def _snake_copy_selection(self) -> None:
@@ -368,7 +376,7 @@ class SnakeOpsMixin:
             # Last resort: scan all channels in chat_state for latest AI message
             chat = game.get("chat_state") if isinstance(game.get("chat_state"), dict) else {}
             channels = chat.get("channels") or {} if isinstance(chat, dict) else {}
-            for channel in (channels.values() if isinstance(channels, dict) else []):
+            for channel in channels.values() if isinstance(channels, dict) else []:
                 if not isinstance(channel, dict):
                     continue
                 for msg in reversed(list(channel.get("messages") or [])):
@@ -476,11 +484,7 @@ class SnakeOpsMixin:
             return
 
         cells_raw = game.get("selection_cells") or []
-        cells = [
-            (int(c[0]), int(c[1]))
-            for c in cells_raw
-            if isinstance(c, (list, tuple)) and len(c) == 2
-        ]
+        cells = [(int(c[0]), int(c[1])) for c in cells_raw if isinstance(c, (list, tuple)) and len(c) == 2]
         if not cells:
             game["_copy_status_message"] = "snake copy: keine auswahl"
             return
@@ -569,13 +573,11 @@ class SnakeOpsMixin:
     def _snake_replace_selection(self) -> None:
         game = dict(self.state.header_logo_game or {})
         cells_raw = game.get("selection_cells") or []
-        cells = [
-            (int(c[0]), int(c[1]))
-            for c in cells_raw
-            if isinstance(c, (list, tuple)) and len(c) == 2
-        ]
+        cells = [(int(c[0]), int(c[1])) for c in cells_raw if isinstance(c, (list, tuple)) and len(c) == 2]
         if not cells:
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake replace: keine auswahl"))
+            self._set_state(
+                self.state.with_updates(header_logo_game=game, status_message="snake replace: keine auswahl")
+            )
             return
         if self.state.mode is not OperatorMode.COMMAND:
             self._set_state(
@@ -647,7 +649,9 @@ class SnakeOpsMixin:
             return
         game["message_mode"] = True
         game["message_draft"] = str(game.get("message", ""))
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: eingeben + Enter speichern"))
+        self._set_state(
+            self.state.with_updates(header_logo_game=game, status_message="snake message: eingeben + Enter speichern")
+        )
 
     def _snake_message_append(self, text: str) -> None:
         game = dict(self.state.header_logo_game or {})
@@ -692,7 +696,11 @@ class SnakeOpsMixin:
             if message:
                 target = str(game.get("tutorial_ai_contact_zone") or self.state.section_id or "content")
                 history_raw = game.get("tutorial_propose_history")
-                history = [dict(item) for item in history_raw if isinstance(item, dict)] if isinstance(history_raw, list) else []
+                history = (
+                    [dict(item) for item in history_raw if isinstance(item, dict)]
+                    if isinstance(history_raw, list)
+                    else []
+                )
                 history.append(
                     {
                         "at": float(time.monotonic()),
@@ -913,6 +921,7 @@ class SnakeOpsMixin:
             return snake[-1] if snake else (0, 0)
         idx = (seed * 17 + board_w * 13 + board_h * 7) % len(free)
         return free[idx]
+
     def _disable_visual_ai_snake_runtime(self, game: dict[str, object]) -> None:
         snakes_raw = game.get("snakes")
         if isinstance(snakes_raw, dict):

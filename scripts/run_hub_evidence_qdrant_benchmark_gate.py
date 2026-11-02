@@ -75,10 +75,7 @@ def sha256_file(path: Path) -> str:
 
 
 def source_manifest(root: Path = ROOT) -> dict[str, Any]:
-    entries = [
-        {"path": value, "sha256": sha256_file((root / value).resolve(strict=True))}
-        for value in SOURCE_PATHS
-    ]
+    entries = [{"path": value, "sha256": sha256_file((root / value).resolve(strict=True))} for value in SOURCE_PATHS]
     return {"entries": entries, "digest": canonical_evidence_digest(entries)}
 
 
@@ -219,9 +216,7 @@ def project_benchmark_artifact(artifact: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def projection_passed(
-    projection: Mapping[str, Any], *, profile: str, revision: str
-) -> bool:
+def projection_passed(projection: Mapping[str, Any], *, profile: str, revision: str) -> bool:
     custom = dict(projection.get("custom") or {})
     memory = dict(projection.get("memory") or {})
     software = dict(projection.get("software_fingerprint") or {})
@@ -240,8 +235,7 @@ def projection_passed(
         and custom.get("warmup_runs") == 2
         and custom.get("measurement_runs") == 5
         and custom.get("backend_recommendation") in {"json", "qdrant"}
-        and custom.get("recommendation_basis")
-        == "complete_non_inconclusive_profile"
+        and custom.get("recommendation_basis") == "complete_non_inconclusive_profile"
         and isinstance(custom.get("evaluations"), Mapping)
         and all(
             isinstance(row, Mapping) and row.get("status") == "passed"
@@ -257,9 +251,7 @@ def _prepare_database(database_url: str) -> str:
         "",
         ":memory:",
     }:
-        Path(parsed.database).expanduser().resolve().parent.mkdir(
-            parents=True, exist_ok=True
-        )
+        Path(parsed.database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     return database_url
 
 
@@ -387,8 +379,7 @@ def execute_gate(
         projection = project_benchmark_artifact(artifact)
         immutable_inputs_unchanged = bool(
             source_manifest()["digest"] == manifest["digest"]
-            and sha256_file(ROOT / PROFILE_PATH)
-            == execution_profile["profile_document_sha256"]
+            and sha256_file(ROOT / PROFILE_PATH) == execution_profile["profile_document_sha256"]
             and sha256_file(tls_ca_cert_file.resolve(strict=True)) == ca_digest
             and hmac.compare_digest(read_secret(api_key_file), api_key)
             and container_image_reference(container) == QDRANT_IMAGE_REFERENCE
@@ -439,9 +430,7 @@ def execute_gate(
         "production_release_eligible": False,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report, 0 if report["status"] == "passed" else 1
 
 
@@ -450,17 +439,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", choices=sorted(ALLOWED_PROFILES), default="small")
     parser.add_argument("--qdrant-url", default="https://localhost:6333")
     parser.add_argument("--container", default="ananta-qdrant-reference-qdrant-1")
-    parser.add_argument(
-        "--api-key-file", type=Path, default=ROOT / "config/secrets/qdrant-api-key"
-    )
+    parser.add_argument("--api-key-file", type=Path, default=ROOT / "config/secrets/qdrant-api-key")
     parser.add_argument(
         "--tls-ca-cert-file",
         type=Path,
         default=ROOT / "config/secrets/qdrant-tls-ca.pem",
     )
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "artifacts/qdrant-benchmark-hub-evidence.json"
-    )
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/qdrant-benchmark-hub-evidence.json")
     parser.add_argument(
         "--database-url",
         default=f"sqlite:///{ROOT / 'data/hub-evidence-qdrant-benchmark.sqlite3'}",
@@ -481,11 +466,7 @@ def main() -> int:
         database_url=args.database_url,
         timeout_seconds=args.timeout_seconds,
     )
-    print(
-        json.dumps(
-            {"status": report["status"], "run_id": report["run_id"]}, sort_keys=True
-        )
-    )
+    print(json.dumps({"status": report["status"], "run_id": report["run_id"]}, sort_keys=True))
     return returncode
 
 

@@ -13,7 +13,9 @@ def _strip_html(value: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _split_with_budget(text: str, *, target_words: int = 1000, min_words: int = 800, max_words: int = 1600) -> list[str]:
+def _split_with_budget(
+    text: str, *, target_words: int = 1000, min_words: int = 800, max_words: int = 1600
+) -> list[str]:
     words = str(text or "").split()
     if not words:
         return []
@@ -87,4 +89,3 @@ def ingest_keycloak_pages(
                 }
             )
     return chunks
-

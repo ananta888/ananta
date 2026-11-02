@@ -16,13 +16,13 @@ from agent.services.codecompass_agentic_retrieval_contract import (
     MODE_GRAPH,
     MODE_HYBRID,
     MODE_VECTOR,
+    REASON_INVALID_SIGNALS,
+    REASON_UNKNOWN_MODE,
     SIGNAL_EXACT,
     SIGNAL_GRAPH,
     SIGNAL_VECTOR,
     VALID_SIGNALS,
     AgenticRetrievalContractError,
-    REASON_INVALID_SIGNALS,
-    REASON_UNKNOWN_MODE,
 )
 
 _SYMBOL_RE = re.compile(

@@ -99,13 +99,9 @@ def normalize_trusted_private_origins(
     """Normalize explicit internal origins without inferring network trust."""
 
     normalized_allowed = frozenset(normalize_allowed_origins(allowed_origins))
-    normalized = tuple(
-        sorted({normalize_endpoint(value).origin for value in values})
-    )
+    normalized = tuple(sorted({normalize_endpoint(value).origin for value in values}))
     if not set(normalized).issubset(normalized_allowed):
-        raise VectorStoreEndpointPolicyError(
-            "vector_store_trusted_private_origin_not_allowlisted"
-        )
+        raise VectorStoreEndpointPolicyError("vector_store_trusted_private_origin_not_allowlisted")
     return normalized
 
 
@@ -125,17 +121,11 @@ def validate_endpoint_access(
     )
     if endpoint.origin not in normalized_allowed:
         raise VectorStoreEndpointPolicyError("vector_store_endpoint_not_allowlisted")
-    if (
-        not endpoint.local
-        and endpoint.origin not in normalized_trusted
-        and not bool(external_calls_allowed)
-    ):
+    if not endpoint.local and endpoint.origin not in normalized_trusted and not bool(external_calls_allowed):
         raise VectorStoreEndpointPolicyError("vector_store_external_calls_not_allowed")
     if not endpoint.local and not endpoint.secure:
         reason = (
-            "vector_store_remote_rest_tls_required"
-            if transport == "rest"
-            else "vector_store_remote_grpc_tls_required"
+            "vector_store_remote_rest_tls_required" if transport == "rest" else "vector_store_remote_grpc_tls_required"
         )
         raise VectorStoreEndpointPolicyError(reason)
     return endpoint
@@ -197,9 +187,7 @@ class EnvFileSecretResolver:
         self._maximum_bytes = max(1, int(maximum_bytes))
         if not self._allowed_roots:
             raise ValueError("vector_store_secret_roots_required")
-        if not self._allowed_env_names or any(
-            not _ENV_NAME.fullmatch(name) for name in self._allowed_env_names
-        ):
+        if not self._allowed_env_names or any(not _ENV_NAME.fullmatch(name) for name in self._allowed_env_names):
             raise ValueError("vector_store_secret_env_names_required")
 
     def resolve(self, reference: SecretReference) -> str:

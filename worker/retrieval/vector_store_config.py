@@ -269,9 +269,7 @@ class QdrantEndpointConfig:
             try:
                 parsed_ca_ref = SecretReference.parse(self.tls_ca_cert_ref)
                 if parsed_ca_ref.scheme != "secretfile":
-                    raise VectorStoreEndpointPolicyError(
-                        "qdrant_tls_ca_cert_ref_must_be_secretfile"
-                    )
+                    raise VectorStoreEndpointPolicyError("qdrant_tls_ca_cert_ref_must_be_secretfile")
                 tls_ca_cert_ref = parsed_ca_ref.as_uri()
             except VectorStoreEndpointPolicyError as exc:
                 raise VectorStoreConfigError(
@@ -358,11 +356,7 @@ class QdrantEndpointConfig:
             request_timeout = _strict_timeout(request_timeout)
         if legacy_timeout is not None:
             legacy_timeout = _strict_timeout(legacy_timeout)
-        if (
-            request_timeout is not None
-            and legacy_timeout is not None
-            and request_timeout != legacy_timeout
-        ):
+        if request_timeout is not None and legacy_timeout is not None and request_timeout != legacy_timeout:
             raise VectorStoreConfigError(
                 "vector_store_invalid_timeout",
                 cause_reason="conflicting_qdrant_request_timeout",
@@ -390,11 +384,7 @@ class QdrantEndpointConfig:
             rest_url=str(payload.get("rest_url") or payload.get("url") or "http://localhost:6333"),
             grpc_url=str(payload["grpc_url"]) if payload.get("grpc_url") else None,
             api_key_ref=str(api_key_ref) if api_key_ref else None,
-            tls_ca_cert_ref=(
-                str(payload["tls_ca_cert_ref"])
-                if payload.get("tls_ca_cert_ref")
-                else None
-            ),
+            tls_ca_cert_ref=(str(payload["tls_ca_cert_ref"]) if payload.get("tls_ca_cert_ref") else None),
             allowed_origins=allowed_origins,
             trusted_private_origins=trusted_private_origins,
             external_calls_allowed=payload.get("external_calls_allowed", False),
@@ -453,9 +443,7 @@ class QdrantVectorStoreConfig:
                 "vector_store_invalid_collection",
                 cause_reason="unsupported_qdrant_rebuild_strategy",
             )
-        if not isinstance(self.schema_version, str) or not _SCHEMA_VERSION.fullmatch(
-            self.schema_version
-        ):
+        if not isinstance(self.schema_version, str) or not _SCHEMA_VERSION.fullmatch(self.schema_version):
             raise VectorStoreConfigError(
                 "vector_store_invalid_collection",
                 cause_reason="invalid_qdrant_schema_version",

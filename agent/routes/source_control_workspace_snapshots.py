@@ -27,12 +27,8 @@ from agent.services.source_control_workspace_snapshot_service import (
     WorkspaceSnapshotUploadService,
 )
 
-
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
-_MAX_MULTIPART_OVERHEAD = (
-    MAX_SNAPSHOT_FILES * (MAX_SNAPSHOT_RELATIVE_PATH_BYTES + 1024)
-    + 64 * 1024
-)
+_MAX_MULTIPART_OVERHEAD = MAX_SNAPSHOT_FILES * (MAX_SNAPSHOT_RELATIVE_PATH_BYTES + 1024) + 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -90,8 +86,7 @@ def _require_bounded_multipart() -> None:
         )
     if (
         request.content_length is not None
-        and request.content_length
-        > MAX_SNAPSHOT_TOTAL_BYTES + _MAX_MULTIPART_OVERHEAD
+        and request.content_length > MAX_SNAPSHOT_TOTAL_BYTES + _MAX_MULTIPART_OVERHEAD
     ):
         raise WorkspaceSnapshotUploadError(
             "workspace_snapshot_request_too_large",
@@ -102,9 +97,7 @@ def _require_bounded_multipart() -> None:
         or len(request.form.getlist("display_name")) != 1
         or set(request.files) != {"files"}
     ):
-        raise WorkspaceSnapshotUploadError(
-            "workspace_snapshot_multipart_fields_invalid"
-        )
+        raise WorkspaceSnapshotUploadError("workspace_snapshot_multipart_fields_invalid")
 
 
 def _access_guard(function: Callable):
@@ -138,19 +131,12 @@ def _access_guard(function: Callable):
 
 
 def _project_principal():
-    if (
-        set(request.args) != {"project_id"}
-        or len(request.args.getlist("project_id")) != 1
-    ):
+    if set(request.args) != {"project_id"} or len(request.args.getlist("project_id")) != 1:
         raise SourceControlProjectScopeError(
-            "project_id_required"
-            if "project_id" not in request.args
-            else "query_fields_forbidden",
+            "project_id_required" if "project_id" not in request.args else "query_fields_forbidden",
             status_code=400,
         )
-    return bind_source_control_project_selector(
-        str(request.args.get("project_id") or "")
-    )
+    return bind_source_control_project_selector(str(request.args.get("project_id") or ""))
 
 
 def _scoped_principal():

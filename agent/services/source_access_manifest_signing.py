@@ -8,12 +8,9 @@ import re
 from dataclasses import dataclass
 from typing import Mapping
 
-
 _KEY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
-_SIGNATURE = re.compile(
-    r"^v1\.([A-Za-z0-9][A-Za-z0-9._:-]{0,63})\.([0-9a-f]{64})$"
-)
+_SIGNATURE = re.compile(r"^v1\.([A-Za-z0-9][A-Za-z0-9._:-]{0,63})\.([0-9a-f]{64})$")
 
 
 class SourceAccessManifestSigningError(ValueError):
@@ -29,15 +26,10 @@ class SourceAccessSigningKey:
         if not _KEY_ID.fullmatch(self.key_id):
             raise SourceAccessManifestSigningError("signing_key_id_invalid")
         if not isinstance(self.secret, bytes) or len(self.secret) < 32:
-            raise SourceAccessManifestSigningError(
-                "signing_key_material_invalid"
-            )
+            raise SourceAccessManifestSigningError("signing_key_material_invalid")
 
     def __repr__(self) -> str:
-        return (
-            "SourceAccessSigningKey("
-            f"key_id={self.key_id!r}, secret=<redacted>)"
-        )
+        return f"SourceAccessSigningKey(key_id={self.key_id!r}, secret=<redacted>)"
 
 
 class HubSourceAccessManifestSigner:
@@ -127,8 +119,7 @@ class WorkerSourceAccessManifestVerifier:
         if set(manifest) != expected_fields:
             return False
         if (
-            manifest.get("schema")
-            != "ananta.source-control.enforcement-manifest.v1"
+            manifest.get("schema") != "ananta.source-control.enforcement-manifest.v1"
             or manifest.get("authority") != "hub"
         ):
             return False
@@ -136,44 +127,26 @@ class WorkerSourceAccessManifestVerifier:
             request = SourceAccessRequest(
                 tenant_id=str(manifest["tenant_id"]),
                 project_id=str(manifest["project_id"]),
-                source_revision_id=str(
-                    manifest["source_revision_id"]
-                ),
-                source_revision_digest=str(
-                    manifest["source_revision_digest"]
-                ),
+                source_revision_id=str(manifest["source_revision_id"]),
+                source_revision_digest=str(manifest["source_revision_digest"]),
                 destination_id=str(manifest["destination_id"]),
-                destination_digest=str(
-                    manifest["destination_digest"]
-                ),
-                source_access_grant_id=str(
-                    manifest["source_access_grant_id"]
-                ),
-                source_access_grant_digest=str(
-                    manifest["source_access_grant_digest"]
-                ),
+                destination_digest=str(manifest["destination_digest"]),
+                source_access_grant_id=str(manifest["source_access_grant_id"]),
+                source_access_grant_digest=str(manifest["source_access_grant_digest"]),
                 operation=GrantOperation(str(manifest["operation"])),
-                transformation=GrantTransformation(
-                    str(manifest["transformation"])
-                ),
+                transformation=GrantTransformation(str(manifest["transformation"])),
                 purpose=str(manifest["purpose"]),
                 policy_version=str(manifest["policy_version"]),
                 policy_digest=str(manifest["policy_digest"]),
                 manifest_id=str(manifest["content_manifest_id"]),
-                manifest_digest=str(
-                    manifest["content_manifest_digest"]
-                ),
+                manifest_digest=str(manifest["content_manifest_digest"]),
                 assignment_id=str(manifest["assignment_id"]),
                 lease_id=str(manifest["lease_id"]),
             )
         except (KeyError, TypeError, ValueError):
             return False
         expiry = manifest.get("grant_expires_at_epoch_ms")
-        if (
-            isinstance(expiry, bool)
-            or not isinstance(expiry, int)
-            or expiry <= 0
-        ):
+        if isinstance(expiry, bool) or not isinstance(expiry, int) or expiry <= 0:
             return False
         actual_digest = source_access_binding_digest(
             request,

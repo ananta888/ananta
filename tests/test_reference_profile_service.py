@@ -148,4 +148,6 @@ def test_governance_contract_exposes_influence_boundaries_and_quality_rules():
 
     assert contract["version"] == "v1"
     assert "policy_override" in contract["influence_boundaries"]["influence_forbidden"]
-    assert contract["source_quality_rules"]["starter_profiles_quality"]["ref.java.keycloak"]["limits_acknowledged"] is True
+    assert (
+        contract["source_quality_rules"]["starter_profiles_quality"]["ref.java.keycloak"]["limits_acknowledged"] is True
+    )

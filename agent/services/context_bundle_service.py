@@ -62,8 +62,12 @@ def normalize_context_bundle_policy_config(cfg: dict | None) -> dict:
     for key in _CONTEXT_BUNDLE_DEFAULTS:
         if key in raw and raw[key] is not None:
             result[key] = raw[key]
-    result["compact_max_chunks"] = _normalize_positive_int(result.get("compact_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["compact_max_chunks"])
-    result["standard_max_chunks"] = _normalize_positive_int(result.get("standard_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["standard_max_chunks"])
+    result["compact_max_chunks"] = _normalize_positive_int(
+        result.get("compact_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["compact_max_chunks"]
+    )
+    result["standard_max_chunks"] = _normalize_positive_int(
+        result.get("standard_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["standard_max_chunks"]
+    )
     return result
 
 
@@ -74,8 +78,10 @@ def resolve_context_bundle_policy(cfg: dict | None) -> dict:
     policy = normalize_context_bundle_policy_config(cfg)
     mode = str(policy.get("mode") or "standard")
     budgets = context_budgets()
-    by_mode = {name: _bundle_budget(name, policy.get(f"{name}_budget_tokens"), budgets)
-               for name in ("compact", "standard", "full")}
+    by_mode = {
+        name: _bundle_budget(name, policy.get(f"{name}_budget_tokens"), budgets)
+        for name in ("compact", "standard", "full")
+    }
     if mode not in by_mode:
         mode = "standard"
     max_chunks = {"compact": policy["compact_max_chunks"], "full": None}.get(mode, policy["standard_max_chunks"])
@@ -151,9 +157,14 @@ Output ONLY valid JSON matching schema."""
             has_memory = has_memory or memory
         dropped = len(chunks) - len(kept)
         if dropped:
-            record_truncation("context_bundle", "drop_items",
-                              before_tokens=sum(estimate_tokens(text_of(c)) for c in chunks), after_tokens=used,
-                              dropped_items=dropped, budget_tokens=budget_tokens)
+            record_truncation(
+                "context_bundle",
+                "drop_items",
+                before_tokens=sum(estimate_tokens(text_of(c)) for c in chunks),
+                after_tokens=used,
+                dropped_items=dropped,
+                budget_tokens=budget_tokens,
+            )
         return kept, dropped
 
     @staticmethod
@@ -240,17 +251,19 @@ Output ONLY valid JSON matching schema."""
             mt_chunks_allowed = []
             for entry in filtered_mt:
                 meta = dict(entry.get("metadata") or {})
-                mt_chunks_allowed.append({
-                    "chunk_id": str(meta.get("chunk_id") or ""),
-                    "source_id": entry.get("source"),
-                    "label": str(meta.get("label") or ""),
-                    "content": str(entry.get("content") or ""),
-                    "sensitivity": str(meta.get("sensitivity") or ""),
-                    "score": float(entry.get("score") or 0.0),
-                    "trust": "untrusted",
-                    "scope": str(meta.get("scope") or ""),
-                    "provenance_ref": str(meta.get("provenance_ref") or ""),
-                })
+                mt_chunks_allowed.append(
+                    {
+                        "chunk_id": str(meta.get("chunk_id") or ""),
+                        "source_id": entry.get("source"),
+                        "label": str(meta.get("label") or ""),
+                        "content": str(entry.get("content") or ""),
+                        "sensitivity": str(meta.get("sensitivity") or ""),
+                        "score": float(entry.get("score") or 0.0),
+                        "trust": "untrusted",
+                        "scope": str(meta.get("scope") or ""),
+                        "provenance_ref": str(meta.get("provenance_ref") or ""),
+                    }
+                )
             summary_node = getattr(memory_tree_retrieval_result, "summary_node", None)
             memory_tree_view = {
                 "scope": getattr(memory_tree_retrieval_result, "scope", "any"),
@@ -268,7 +281,9 @@ Output ONLY valid JSON matching schema."""
                     "leaf_count": summary_node.leaf_count,
                     "trust": "untrusted",
                     "provenance_refs": list(summary_node.provenance_refs),
-                } if summary_node else None,
+                }
+                if summary_node
+                else None,
             }
 
         retrieval_trace = dict((context_payload or {}).get("retrieval_trace") or {})
@@ -316,12 +331,21 @@ Output ONLY valid JSON matching schema."""
 
         budgets = context_budgets()
         # never more than the effective window leaves for material (explicit budgets included)
-        effective_budget = (budgets.clamp_tokens(total_budget_tokens) if total_budget_tokens
-                            else budgets.bundle_tokens(str(policy_mode or "standard")))
+        effective_budget = (
+            budgets.clamp_tokens(total_budget_tokens)
+            if total_budget_tokens
+            else budgets.bundle_tokens(str(policy_mode or "standard"))
+        )
         filtered, budget_dropped = ContextBundler._within_token_budget(filtered, effective_budget)
         bundle_strategy = "minimal" if policy_mode == "compact" else ("deep" if policy_mode == "full" else "balanced")
-        explainability_level = "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
-        chunk_text_style = "compressed_snippets" if policy_mode == "compact" else ("detailed_context" if policy_mode == "full" else "balanced_snippets")
+        explainability_level = (
+            "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
+        )
+        chunk_text_style = (
+            "compressed_snippets"
+            if policy_mode == "compact"
+            else ("detailed_context" if policy_mode == "full" else "balanced_snippets")
+        )
         engines = sorted({str(chunk.get("engine") or "unknown") for chunk in filtered})
         text_context = (context_payload or {}).get("context_text")
         text_tokens = int((context_payload or {}).get("token_estimate") or 0)
@@ -356,7 +380,9 @@ Output ONLY valid JSON matching schema."""
                 "bundle_strategy": bundle_strategy,
                 "explainability_level": explainability_level,
                 "chunk_text_style": chunk_text_style,
-                "source_prioritization_rules": ["repo_first" if "architecture" not in effective_intent else "wiki_first"],
+                "source_prioritization_rules": [
+                    "repo_first" if "architecture" not in effective_intent else "wiki_first"
+                ],
                 "default_deny": llm_scope in {"external_cloud_allowed", "trusted_private_cloud"},
                 "llm_scope": llm_scope,
                 "retrieval_policy_filter": "retrieval_policy_filter.v1",
@@ -414,8 +440,12 @@ Output ONLY valid JSON matching schema."""
                 "downgraded_count": int(policy_filter_meta.get("downgraded_count") or 0),
                 "denied_by_reason": dict(policy_filter_meta.get("denied_by_reason") or {}),
                 "downgraded_by_reason": dict(policy_filter_meta.get("downgraded_by_reason") or {}),
-                "source_class_contributions_before": dict(policy_filter_meta.get("source_class_contributions_before") or {}),
-                "source_class_contributions_after": dict(policy_filter_meta.get("source_class_contributions_after") or {}),
+                "source_class_contributions_before": dict(
+                    policy_filter_meta.get("source_class_contributions_before") or {}
+                ),
+                "source_class_contributions_after": dict(
+                    policy_filter_meta.get("source_class_contributions_after") or {}
+                ),
                 "segregation": dict(policy_filter_meta.get("segregation") or {}),
                 "decisions": list(policy_filter_meta.get("decisions") or []),
                 # OHA-014: separate memory_tree counts
@@ -522,8 +552,7 @@ pip install fastapi
                 )
             elif intent == "architecture_overview":
                 rule += (
-                    "\nRegel: Erkläre die Architektur auf Basis der aufgeführten Quellen. "
-                    "Nenne konkrete Komponenten."
+                    "\nRegel: Erkläre die Architektur auf Basis der aufgeführten Quellen. Nenne konkrete Komponenten."
                 )
 
             context_block = "\n".join(context_lines).strip()

@@ -8,9 +8,7 @@ from worker.retrieval.vector_store_contract import VectorStoreError
 
 def ensure_current_schema(connection) -> str:
     apply_schema(connection)
-    rows = connection.execute(
-        "SELECT schema_version FROM snapshot_meta LIMIT 1"
-    ).fetchall()
+    rows = connection.execute("SELECT schema_version FROM snapshot_meta LIMIT 1").fetchall()
     if not rows:
         return SCHEMA_VERSION
     current = str(rows[0][0] or "")

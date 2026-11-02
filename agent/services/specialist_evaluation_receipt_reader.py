@@ -16,14 +16,22 @@ class SpecialistReceiptRepositoryPort(SpecialistEvaluationJobPort, Protocol):
 
 class SpecialistEvaluationReceiptReader:
     def __init__(
-        self, *, repository: SpecialistReceiptRepositoryPort, predictions: SpecialistEvaluationPredictionsPort,
+        self,
+        *,
+        repository: SpecialistReceiptRepositoryPort,
+        predictions: SpecialistEvaluationPredictionsPort,
     ):
         self._repository = repository
         self._predictions = predictions
 
     def read(
-        self, principal: MlInternTrainingPrincipal, receipt: SpecialistEvaluationReceipt,
-        *, partition: str | None = None, manifest_digest: str | None = None, holdout_digest: str | None = None,
+        self,
+        principal: MlInternTrainingPrincipal,
+        receipt: SpecialistEvaluationReceipt,
+        *,
+        partition: str | None = None,
+        manifest_digest: str | None = None,
+        holdout_digest: str | None = None,
     ) -> SpecialistPredictionOutputs:
         self._require_current(principal, receipt)
         self._require_purpose(principal, receipt, partition, manifest_digest, holdout_digest)
@@ -36,13 +44,19 @@ class SpecialistEvaluationReceiptReader:
     def _require_purpose(self, principal, receipt, partition, manifest_digest, holdout_digest):
         if partition is None and manifest_digest is None and holdout_digest is None:
             return
-        expected = evaluation_dataset_purpose({
-            "execution_purpose": "specialist_evaluation", "evaluation_partition": partition,
-            "specialist_manifest_digest": manifest_digest, "holdout_digest": holdout_digest,
-        })
+        expected = evaluation_dataset_purpose(
+            {
+                "execution_purpose": "specialist_evaluation",
+                "evaluation_partition": partition,
+                "specialist_manifest_digest": manifest_digest,
+                "holdout_digest": holdout_digest,
+            }
+        )
         dataset = self._repository.get_dataset(principal, receipt.dataset_id)
         if (
-            dataset is None or dataset.tenant_id != principal.tenant_id or dataset.owner_subject != principal.subject
+            dataset is None
+            or dataset.tenant_id != principal.tenant_id
+            or dataset.owner_subject != principal.subject
             or dataset.version != receipt.dataset_version
             or evaluation_dataset_purpose(dataset.split_manifest or {}) != expected
         ):

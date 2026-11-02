@@ -331,9 +331,7 @@ def test_bound_index_submission_keeps_scope_and_access_intent_hub_owned() -> Non
             return {
                 "hub_task_id": "hub-task-example",
                 "source_revision_id": kwargs["source_revision_id"],
-                "source_revision_digest": kwargs[
-                    "source_revision_digest"
-                ],
+                "source_revision_digest": kwargs["source_revision_digest"],
                 "admission_digest": "1" * 64,
                 "policy_snapshot_id": "policy-example-v1",
                 "policy_snapshot_digest": "2" * 64,

@@ -43,10 +43,7 @@ def initialize_peer_overlay(app: Flask) -> PeerOverlayWiringStatus:
                 legacy_data_enabled=legacy_data_enabled,
             )
             cost_budgets_path = Path(
-                str(
-                    app.config.get("ANANTA_PEER_OVERLAY_COST_BUDGETS_PATH")
-                    or settings.peer_overlay_cost_budgets_path
-                )
+                str(app.config.get("ANANTA_PEER_OVERLAY_COST_BUDGETS_PATH") or settings.peer_overlay_cost_budgets_path)
             )
             cost_policy = PeerOverlayCostAdmissionPolicy.from_mapping(
                 json.loads(cost_budgets_path.read_text(encoding="utf-8"))

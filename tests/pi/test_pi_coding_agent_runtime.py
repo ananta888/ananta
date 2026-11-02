@@ -30,8 +30,15 @@ def test_pi_sdk_uses_absolute_node_and_sibling_pinned_sdk(package):
     assert argv[2] == str(root / "dist" / "index.js")
 
 
-@pytest.mark.parametrize("metadata", [[], {}, {"name": "another-package", "version": "0.85.1"},
-                                     {"name": "@earendil-works/pi-coding-agent", "version": "0.85.2"}])
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        [],
+        {},
+        {"name": "another-package", "version": "0.85.1"},
+        {"name": "@earendil-works/pi-coding-agent", "version": "0.85.2"},
+    ],
+)
 def test_pi_sdk_rejects_changed_package_identity(package, metadata):
     root, binary = package
     (root / "package.json").write_text(json.dumps(metadata))
@@ -56,19 +63,28 @@ def test_pi_sdk_missing_node_is_bounded_error(package, monkeypatch):
         pi_sdk_command(str(package[1]))
 
 
-@pytest.mark.parametrize("changes,reason", [
-    ({"client_id": "other"}, "pi_target_unsupported"),
-    ({"model": "--help"}, "pi_model_invalid"), ({"model": "bad\nmodel"}, "pi_model_invalid"),
-    ({"base_url": "file:///secret"}, "pi_endpoint_invalid"),
-    ({"base_url": "http://host:bad/v1"}, "pi_endpoint_invalid"),
-    ({"base_url": "http://host/v1?secret=x"}, "pi_endpoint_invalid"),
-    ({"base_url": "http://host/v1#fragment"}, "pi_endpoint_invalid"),
-    ({"provider_id": "openrouter"}, "pi_endpoint_invalid"),
-    ({"api_key": "line\nbreak"}, "pi_auth_required"),
-])
+@pytest.mark.parametrize(
+    "changes,reason",
+    [
+        ({"client_id": "other"}, "pi_target_unsupported"),
+        ({"model": "--help"}, "pi_model_invalid"),
+        ({"model": "bad\nmodel"}, "pi_model_invalid"),
+        ({"base_url": "file:///secret"}, "pi_endpoint_invalid"),
+        ({"base_url": "http://host:bad/v1"}, "pi_endpoint_invalid"),
+        ({"base_url": "http://host/v1?secret=x"}, "pi_endpoint_invalid"),
+        ({"base_url": "http://host/v1#fragment"}, "pi_endpoint_invalid"),
+        ({"provider_id": "openrouter"}, "pi_endpoint_invalid"),
+        ({"api_key": "line\nbreak"}, "pi_auth_required"),
+    ],
+)
 def test_pi_target_rejects_unclosed_endpoint_model_or_credentials(changes, reason):
     target = CodingAgentInferenceTarget(
-        client_id="pi", provider_id="ollama", model="selected", cli_model="selected",
-        base_url="http://model-worker:11434/v1", target_kind="local_openai", api_key="synthetic",
+        client_id="pi",
+        provider_id="ollama",
+        model="selected",
+        cli_model="selected",
+        base_url="http://model-worker:11434/v1",
+        target_kind="local_openai",
+        api_key="synthetic",
     )
     assert validate_pi_target(replace(target, **changes)) == reason

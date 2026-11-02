@@ -1,13 +1,11 @@
 """Tests für DSL Security — Capability-Checks (T05.05)."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.heuristic_runtime.dsl.security import (
-    check_dsl_capabilities,
-    CapabilityCheckResult,
-    _SNAKE_FORBIDDEN_CAPABILITIES,
     _SNAKE_ALLOWED_CAPABILITIES,
+    _SNAKE_FORBIDDEN_CAPABILITIES,
+    check_dsl_capabilities,
 )
 
 
@@ -92,8 +90,6 @@ class TestDslSecurity:
             assert not result.passed, f"Cap '{cap}' should be forbidden"
 
     def test_multiple_violations_reported(self):
-        result = check_dsl_capabilities(
-            _dsl_with_caps("network_access", "file_write"), domain="tui_snake"
-        )
+        result = check_dsl_capabilities(_dsl_with_caps("network_access", "file_write"), domain="tui_snake")
         assert not result.passed
         assert len(result.violations) >= 2

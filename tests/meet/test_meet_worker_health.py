@@ -125,9 +125,8 @@ def test_image_healthcheck_and_compose_quota_keep_existing_container_boundaries(
     root = Path(__file__).resolve().parents[2]
     dockerfile = (root / "docker/meet-media/Dockerfile").read_text()
     assert (
-        'HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 '
-        'CMD ["python", "-m", "worker.meet_media.health"]'
-        in dockerfile
+        "HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 "
+        'CMD ["python", "-m", "worker.meet_media.health"]' in dockerfile
     )
     assert "COPY worker/meet_media /app/worker/meet_media" in dockerfile
     service = yaml.safe_load((root / "docker-compose.meet-media.yml").read_text())["services"]["meet-media-worker"]

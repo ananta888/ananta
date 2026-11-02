@@ -1,4 +1,5 @@
 """AFH-T016: ArtifactReconciliationService dry-run and apply tests."""
+
 from __future__ import annotations
 
 import hashlib
@@ -41,8 +42,13 @@ def _setup_workspace_with_manifest(workspace: Path, execution_id: str = "exec-1"
         for i, (name, content) in enumerate(files.items())
     ]
     manifest = build_artifact_manifest(
-        goal_id="g1", task_id="t1", execution_id=execution_id, trace_id="tr-1",
-        workspace_root=workspace, worker_id="w1", artifacts=artifacts,
+        goal_id="g1",
+        task_id="t1",
+        execution_id=execution_id,
+        trace_id="tr-1",
+        workspace_root=workspace,
+        worker_id="w1",
+        artifacts=artifacts,
     )
     manifest_dir = workspace / ".ananta" / "handoff" / execution_id
     manifest_dir.mkdir(parents=True)
@@ -56,7 +62,10 @@ class TestArtifactReconciliationService:
         _setup_workspace_with_manifest(workspace)
         svc = get_artifact_reconciliation_service()
         result = svc.dry_run(
-            task_id="t1", goal_id="g1", execution_id="exec-1", trace_id="tr-1",
+            task_id="t1",
+            goal_id="g1",
+            execution_id="exec-1",
+            trace_id="tr-1",
             workspace_root=workspace,
             manifest_relative_path=".ananta/handoff/exec-1/artifact_manifest.v1.json",
         )
@@ -70,7 +79,10 @@ class TestArtifactReconciliationService:
         svc = get_artifact_reconciliation_service()
         with pytest.raises(ValueError, match="actor"):
             svc.apply(
-                task_id="t1", goal_id="g1", execution_id="exec-1", trace_id="tr-1",
+                task_id="t1",
+                goal_id="g1",
+                execution_id="exec-1",
+                trace_id="tr-1",
                 workspace_root=workspace,
                 manifest_relative_path=".ananta/handoff/exec-1/artifact_manifest.v1.json",
                 actor="",
@@ -82,7 +94,10 @@ class TestArtifactReconciliationService:
         svc = get_artifact_reconciliation_service()
         with pytest.raises(ValueError, match="reason"):
             svc.apply(
-                task_id="t1", goal_id="g1", execution_id="exec-1", trace_id="tr-1",
+                task_id="t1",
+                goal_id="g1",
+                execution_id="exec-1",
+                trace_id="tr-1",
                 workspace_root=workspace,
                 manifest_relative_path=".ananta/handoff/exec-1/artifact_manifest.v1.json",
                 actor="admin",
@@ -92,7 +107,10 @@ class TestArtifactReconciliationService:
     def test_apply_rejects_invalid_path(self, workspace: Path) -> None:
         svc = get_artifact_reconciliation_service()
         result = svc.apply(
-            task_id="t1", goal_id="g1", execution_id="exec-x", trace_id="tr-1",
+            task_id="t1",
+            goal_id="g1",
+            execution_id="exec-x",
+            trace_id="tr-1",
             workspace_root=workspace,
             manifest_relative_path="../outside/manifest.json",
             actor="admin",
@@ -113,15 +131,8 @@ class TestArtifactReconciliationService:
             worker_execution_context={},
         )
         monkeypatch.setattr(
-            (
-                "agent.services.artifact_reconciliation_service."
-                "get_repository_registry"
-            ),
-            lambda: SimpleNamespace(
-                task_repo=SimpleNamespace(
-                    get_by_id=lambda _task_id: task
-                )
-            ),
+            ("agent.services.artifact_reconciliation_service.get_repository_registry"),
+            lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
         )
 
         with pytest.raises(
@@ -134,10 +145,7 @@ class TestArtifactReconciliationService:
                 execution_id="exec-vector",
                 trace_id="trace-vector",
                 workspace_root=workspace,
-                manifest_relative_path=(
-                    ".ananta/handoff/exec-vector/"
-                    "artifact_manifest.v1.json"
-                ),
+                manifest_relative_path=(".ananta/handoff/exec-vector/artifact_manifest.v1.json"),
                 actor="admin",
                 reason="generic reconciliation attempt",
             )

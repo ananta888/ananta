@@ -295,8 +295,7 @@ def test_impact_and_tombstone_cover_every_transitive_artifact_kind() -> None:
     ]
     nodes = [SpeechLineageNode("evidence", record.content_digest, consent_id=consent.consent_id)]
     nodes.extend(
-        SpeechLineageNode(kind, digest(f"{prefix}-{kind}"), consent_id=consent.consent_id)
-        for kind in kinds[1:]
+        SpeechLineageNode(kind, digest(f"{prefix}-{kind}"), consent_id=consent.consent_id) for kind in kinds[1:]
     )
     get_ml_intern_speech_lineage_service().publish(
         principal(prefix),

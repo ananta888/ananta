@@ -49,4 +49,3 @@ def test_citation_formatter_handles_missing_optional_fields() -> None:
     rendered = format_citation(descriptor=descriptor, snapshot=None, output_format="short")
     assert rendered["short"]
     assert rendered["rendered"] == rendered["short"]
-

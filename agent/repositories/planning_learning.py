@@ -34,7 +34,9 @@ class PlanningRunRepository:
 
     def get_recent(self, limit: int = 100) -> list[PlanningRunDB]:
         with Session(engine) as session:
-            statement = select(PlanningRunDB).order_by(PlanningRunDB.created_at.desc()).limit(max(1, min(int(limit), 1000)))
+            statement = (
+                select(PlanningRunDB).order_by(PlanningRunDB.created_at.desc()).limit(max(1, min(int(limit), 1000)))
+            )
             return session.exec(statement).all()
 
     def save(self, run: PlanningRunDB) -> PlanningRunDB:
@@ -55,7 +57,7 @@ class PlanningPromptVersionRepository:
         with Session(engine) as session:
             statement = (
                 select(PlanningPromptVersionDB)
-                .where(PlanningPromptVersionDB.enabled == True)
+                .where(PlanningPromptVersionDB.enabled)
                 .order_by(PlanningPromptVersionDB.updated_at.desc())
             )
             return session.exec(statement).all()
@@ -74,7 +76,7 @@ class PlanningModelProfileRepository:
         with Session(engine) as session:
             statement = (
                 select(PlanningModelProfileDB)
-                .where(PlanningModelProfileDB.enabled == True)
+                .where(PlanningModelProfileDB.enabled)
                 .order_by(PlanningModelProfileDB.updated_at.desc())
             )
             return session.exec(statement).all()

@@ -29,9 +29,7 @@ def calculate_recovery_materialization_inputs_digest(
         "team_id": str(getattr(goal, "team_id", "") or ""),
         "mode": str(getattr(goal, "mode", "") or ""),
         "mode_data": _mapping(getattr(goal, "mode_data", None)),
-        "execution_preferences": _mapping(
-            getattr(goal, "execution_preferences", None)
-        ),
+        "execution_preferences": _mapping(getattr(goal, "execution_preferences", None)),
     }
     encoded = json.dumps(
         payload,
@@ -53,9 +51,7 @@ def calculate_recovery_plan_digest(plan: Any, nodes: list[Any]) -> str:
         "goal_id": str(getattr(plan, "goal_id", "") or ""),
         "trace_id": str(getattr(plan, "trace_id", "") or ""),
         "team_id": str(rationale.get("team_id") or ""),
-        "materialization_inputs_digest": str(
-            rationale.get("materialization_inputs_digest") or ""
-        ),
+        "materialization_inputs_digest": str(rationale.get("materialization_inputs_digest") or ""),
         "planning_mode": str(getattr(plan, "planning_mode", "") or ""),
         "nodes": [
             {
@@ -65,15 +61,10 @@ def calculate_recovery_plan_digest(plan: Any, nodes: list[Any]) -> str:
                 "description": str(getattr(node, "description", "") or ""),
                 "priority": str(getattr(node, "priority", "") or ""),
                 "position": int(getattr(node, "position", 0) or 0),
-                "depends_on": [
-                    str(value)
-                    for value in list(getattr(node, "depends_on", None) or [])
-                ],
+                "depends_on": [str(value) for value in list(getattr(node, "depends_on", None) or [])],
                 "editable": bool(getattr(node, "editable", True)),
                 "rationale": _mapping(getattr(node, "rationale", None)),
-                "verification_spec": _mapping(
-                    getattr(node, "verification_spec", None)
-                ),
+                "verification_spec": _mapping(getattr(node, "verification_spec", None)),
             }
             for node in sorted(
                 list(nodes or []),
@@ -100,69 +91,29 @@ def calculate_recovery_task_payload_digest(task: Any) -> str:
         "schema": "ananta.recovery_task_payload_digest.v1",
         "id": str(getattr(task, "id", "") or ""),
         "title": str(getattr(task, "title", "") or ""),
-        "description": str(
-            getattr(task, "description", "") or ""
-        ),
+        "description": str(getattr(task, "description", "") or ""),
         "priority": str(getattr(task, "priority", "") or ""),
         "goal_id": str(getattr(task, "goal_id", "") or ""),
         "plan_id": str(getattr(task, "plan_id", "") or ""),
-        "plan_node_id": str(
-            getattr(task, "plan_node_id", "") or ""
-        ),
-        "parent_task_id": str(
-            getattr(task, "parent_task_id", "") or ""
-        ),
-        "source_task_id": str(
-            getattr(task, "source_task_id", "") or ""
-        ),
+        "plan_node_id": str(getattr(task, "plan_node_id", "") or ""),
+        "parent_task_id": str(getattr(task, "parent_task_id", "") or ""),
+        "source_task_id": str(getattr(task, "source_task_id", "") or ""),
         "team_id": str(getattr(task, "team_id", "") or ""),
-        "derivation_reason": str(
-            getattr(task, "derivation_reason", "") or ""
-        ),
-        "derivation_depth": int(
-            getattr(task, "derivation_depth", 0) or 0
-        ),
+        "derivation_reason": str(getattr(task, "derivation_reason", "") or ""),
+        "derivation_depth": int(getattr(task, "derivation_depth", 0) or 0),
         "task_kind": str(getattr(task, "task_kind", "") or ""),
-        "retrieval_intent": str(
-            getattr(task, "retrieval_intent", "") or ""
-        ),
-        "required_context_scope": str(
-            getattr(task, "required_context_scope", "") or ""
-        ),
-        "preferred_bundle_mode": str(
-            getattr(task, "preferred_bundle_mode", "") or ""
-        ),
-        "required_capabilities": [
-            str(value)
-            for value in list(
-                getattr(task, "required_capabilities", None) or []
-            )
-        ],
-        "context_bundle_id": str(
-            getattr(task, "context_bundle_id", "") or ""
-        ),
-        "worker_execution_context": _mapping(
-            getattr(task, "worker_execution_context", None)
-        ),
-        "worker_execution_contract": _mapping(
-            getattr(task, "worker_execution_contract", None)
-        ),
+        "retrieval_intent": str(getattr(task, "retrieval_intent", "") or ""),
+        "required_context_scope": str(getattr(task, "required_context_scope", "") or ""),
+        "preferred_bundle_mode": str(getattr(task, "preferred_bundle_mode", "") or ""),
+        "required_capabilities": [str(value) for value in list(getattr(task, "required_capabilities", None) or [])],
+        "context_bundle_id": str(getattr(task, "context_bundle_id", "") or ""),
+        "worker_execution_context": _mapping(getattr(task, "worker_execution_context", None)),
+        "worker_execution_contract": _mapping(getattr(task, "worker_execution_contract", None)),
         "expected_artifacts": [
-            dict(value)
-            for value in list(
-                getattr(task, "expected_artifacts", None) or []
-            )
-            if isinstance(value, dict)
+            dict(value) for value in list(getattr(task, "expected_artifacts", None) or []) if isinstance(value, dict)
         ],
-        "verification_spec": _mapping(
-            getattr(task, "verification_spec", None)
-        ),
-        "depends_on": [
-            str(value)
-            for value in list(
-                getattr(task, "depends_on", None) or []
-            )
-        ],
+        "verification_spec": _mapping(getattr(task, "verification_spec", None)),
+        "depends_on": [str(value) for value in list(getattr(task, "depends_on", None) or [])],
     }
     encoded = json.dumps(
         payload,
@@ -182,13 +133,7 @@ def build_recovery_dependency_binding(
     """Bind the source's complete dependency list at materialization time."""
 
     def ordered_unique(values: list[str] | tuple[str, ...]) -> list[str]:
-        return list(
-            dict.fromkeys(
-                str(value or "").strip()
-                for value in values
-                if str(value or "").strip()
-            )
-        )
+        return list(dict.fromkeys(str(value or "").strip() for value in values if str(value or "").strip()))
 
     normalized_source_id = str(source_task_id or "").strip()
     preexisting = ordered_unique(preexisting_dependency_ids)

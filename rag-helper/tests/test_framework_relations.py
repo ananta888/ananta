@@ -17,7 +17,7 @@ class FrameworkRelationTests(unittest.TestCase):
             type_name="User",
             field={
                 "type": "Order",
-                "annotations": ["@Autowired", "@ManyToOne", "@JoinColumn(name=\"order_id\")"],
+                "annotations": ["@Autowired", "@ManyToOne", '@JoinColumn(name="order_id")'],
                 "declarators": ["order"],
                 "resolved_types": ["demo.Order"],
             },

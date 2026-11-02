@@ -60,11 +60,7 @@ def test_template_planning_strategy_uses_blueprint_adapter_when_catalog_has_no_m
     strategy = TemplatePlanningStrategy(enabled=True)
     strategy._catalog = _CatalogStub({})
     strategy._blueprint_adapter = _AdapterStub(
-        {
-            "Please use TDD blueprint": [
-                {"title": "BP", "description": "desc", "priority": "Medium", "depends_on": []}
-            ]
-        }
+        {"Please use TDD blueprint": [{"title": "BP", "description": "desc", "priority": "Medium", "depends_on": []}]}
     )
 
     result = strategy.execute(_PlannerStub(), goal="Please use TDD blueprint", context=None)
@@ -151,7 +147,7 @@ def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverag
         )
     assert result is not None
     assert planner.calls == 2
-    texts = [f"{s.get('title','')} {s.get('description','')}".lower() for s in result.subtasks]
+    texts = [f"{s.get('title', '')} {s.get('description', '')}".lower() for s in result.subtasks]
     assert any(("datei" in t) or ("readme" in t) or ("src" in t) for t in texts)
     assert any(("test" in t) or ("pytest" in t) for t in texts)
 
@@ -327,7 +323,6 @@ def test_llm_planning_strategy_uses_truncation_repair_prompt(app) -> None:
             },
         )
 
-
     class _DisabledHub:
         def resolve_copilot_config(self):
             return {"enabled": False, "supports_planning": False, "active": False}
@@ -353,4 +348,7 @@ def test_llm_planning_strategy_uses_truncation_repair_prompt(app) -> None:
     assert result is not None
     assert planner.calls == 3
     assert any("abgeschnitten" in prompt.lower() for prompt in planner.prompts[1:])
-    assert any("prefer json" in prompt.lower() or "structured and parseable" in prompt.lower() for prompt in planner.prompts[1:])
+    assert any(
+        "prefer json" in prompt.lower() or "structured and parseable" in prompt.lower()
+        for prompt in planner.prompts[1:]
+    )

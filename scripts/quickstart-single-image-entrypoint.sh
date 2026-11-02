@@ -72,7 +72,14 @@ run_explicit_db_migrations_if_configured() {
 }
 
 run_hub() {
+  local agent_count
   require_openai_key_if_needed
+  # ANANTA_AGENT_COUNT is a worker-container setting; a global value (e.g. a shared
+  # .env) must never crash or fan out the control plane.
+  agent_count="$(validate_agent_count)"
+  if (( agent_count > 1 )); then
+    log "ANANTA_AGENT_COUNT=${agent_count} applies to worker containers; the hub runs a single process."
+  fi
   export ROLE=hub
   export PORT="${PORT:-5000}"
   log "Starting hub on port ${PORT}"
@@ -81,14 +88,85 @@ run_hub() {
   exec python -m agent.ai_agent
 }
 
+validate_agent_count() {
+  local raw count
+  raw="$(normalize_lower "${ANANTA_AGENT_COUNT:-1}")"
+  if ! [[ "$raw" =~ ^[0-9]+$ ]]; then
+    error_exit "ANANTA_AGENT_COUNT must be a positive integer (got '${ANANTA_AGENT_COUNT}')."
+  fi
+  count=$((10#$raw))
+  if (( count < 1 || count > 16 )); then
+    error_exit "ANANTA_AGENT_COUNT must be between 1 and 16 (got ${count})."
+  fi
+  printf '%s\n' "$count"
+}
+
+worker_port_for_index() {
+  printf '%s\n' "$(($1 + $2 - 1))"
+}
+
+worker_name_for_index() {
+  if (( $2 == 1 )); then
+    printf '%s\n' "$1"
+  else
+    printf '%s\n' "$1-$2"
+  fi
+}
+
+worker_url_for_index() {
+  local url="$1" port="$2"
+  if [[ "$url" =~ ^(https?://[^/:]+):[0-9]+$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}:${port}"
+  else
+    error_exit "AGENT_URL must end in ':<port>' when ANANTA_AGENT_COUNT > 1 (got '${url}')."
+  fi
+}
+
 run_worker() {
+  local count i port agent_name agent_url agent_data_dir exit_code
+  local -a agent_env
   require_openai_key_if_needed
+  count="$(validate_agent_count)"
   export ROLE=worker
   export PORT="${PORT:-5000}"
-  log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
+  if (( count == 1 )); then
+    log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
+    prepare_runtime_directories
+    run_db_migrations_if_enabled
+    exec python -m agent.ai_agent
+  fi
+  if [[ -z "${AGENT_URL:-}" ]]; then
+    error_exit "AGENT_URL is required when ANANTA_AGENT_COUNT > 1 (it must end in ':<port>')."
+  fi
+  log "Starting ${count} worker agents on ports ${PORT}..$((PORT + count - 1))"
   prepare_runtime_directories
   run_db_migrations_if_enabled
-  exec python -m agent.ai_agent
+
+  trap cleanup_children INT TERM
+  for (( i = 1; i <= count; i++ )); do
+    port="$(worker_port_for_index "$PORT" "$i")"
+    agent_name="$(worker_name_for_index "${AGENT_NAME:-worker}" "$i")"
+    agent_url="$(worker_url_for_index "$AGENT_URL" "$port")"
+    agent_data_dir="${DATA_DIR:-data}/agent-${i}"
+    mkdir -p "$agent_data_dir"
+    agent_env=(
+      ROLE=worker
+      PORT="$port"
+      AGENT_NAME="$agent_name"
+      AGENT_URL="$agent_url"
+      DATA_DIR="$agent_data_dir"
+    )
+    if [[ -n "${ANANTA_KNOWLEDGE_INDEX_WORKER_ID:-}" ]]; then
+      agent_env+=(ANANTA_KNOWLEDGE_INDEX_WORKER_ID="$agent_name")
+    fi
+    start_prefixed "worker-${i}" env "${agent_env[@]}" python -m agent.ai_agent
+  done
+
+  wait -n "${CHILD_PIDS[@]}"
+  exit_code=$?
+  cleanup_children
+  wait || true
+  exit "$exit_code"
 }
 
 run_frontend() {

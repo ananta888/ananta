@@ -14,6 +14,7 @@ Auth (``check_auth``) and the ``exposure_policy.vision_decision`` policy run bef
 again right before an action executes. A decision value never grants a permission. Audit events carry
 metadata only (field names, actions, rules, scores, error codes, usage, timings).
 """
+
 from __future__ import annotations
 
 import os
@@ -190,12 +191,16 @@ def vision_decision():
     if not isinstance(task_id, str) or not task_id.strip():
         return _error(422, "vision_decision.task_required", "task is required")
     if not isinstance(text, str) or len(text) > MAX_TEXT_CHARS:
-        return _error(422, "vision_decision.invalid_text", f"text must be a string of at most {MAX_TEXT_CHARS} characters")
+        return _error(
+            422, "vision_decision.invalid_text", f"text must be a string of at most {MAX_TEXT_CHARS} characters"
+        )
     config = runtime.provider.config
     principal = _principal()
     try:
         deadline = _deadline_seconds()
-        images = decode_data_uri_images(body.get("images"), max_media=config.max_media, max_image_bytes=config.max_image_bytes)
+        images = decode_data_uri_images(
+            body.get("images"), max_media=config.max_media, max_image_bytes=config.max_image_bytes
+        )
         result = run_vision_decision(
             runtime,
             task_id=task_id.strip(),
@@ -220,7 +225,13 @@ def vision_decision():
         return api_response(
             status="error",
             code=result.status_code,
-            data={**data, "error": {"code": f"vision_decision.{data.get('error_code')}", "message": "image rejected before upload"}},
+            data={
+                **data,
+                "error": {
+                    "code": f"vision_decision.{data.get('error_code')}",
+                    "message": "image rejected before upload",
+                },
+            },
         )
     return api_response(data=data)
 
@@ -238,7 +249,11 @@ def confirm_vision_decision():
     body = _json_body()
     if body is None:
         return _error(400, "validation.invalid_json", "JSON object body is required")
-    confirmation_id, action_type, confirmed = body.get("confirmation_id"), body.get("action_type"), body.get("confirmed")
+    confirmation_id, action_type, confirmed = (
+        body.get("confirmation_id"),
+        body.get("action_type"),
+        body.get("confirmed"),
+    )
     if not isinstance(confirmation_id, str) or not confirmation_id.strip() or len(confirmation_id) > 128:
         return _error(422, "validation.confirmation_id", "confirmation_id is required")
     if not isinstance(action_type, str) or not action_type.strip() or len(action_type) > 128:
@@ -261,7 +276,10 @@ def confirm_vision_decision():
         CONFIRM_ROUTE,
         "confirm",
         execution.executed,
-        {"confirmed": confirmed, "execution": {"status": "executed" if execution.executed else "denied", "error_code": execution.error_code}},
+        {
+            "confirmed": confirmed,
+            "execution": {"status": "executed" if execution.executed else "denied", "error_code": execution.error_code},
+        },
     )
     data = {"execution": execution.as_response(), "audit_id": audit_id, "grants_permission": False}
     if execution.executed or execution.error_code == "confirmation.rejected":
@@ -269,7 +287,10 @@ def confirm_vision_decision():
     return api_response(
         status="error",
         code=410 if execution.error_code == "confirmation.expired" else 403,
-        data={**data, "error": {"code": execution.error_code, "message": "vision confirmation denied", "retriable": False}},
+        data={
+            **data,
+            "error": {"code": execution.error_code, "message": "vision confirmation denied", "retriable": False},
+        },
     )
 
 
@@ -316,5 +337,12 @@ def resolve_vision_escalation():
     return api_response(
         status="error",
         code=result.status_code,
-        data={**data, "error": {"code": data.get("error_code"), "message": "vision escalation resolution denied", "retriable": False}},
+        data={
+            **data,
+            "error": {
+                "code": data.get("error_code"),
+                "message": "vision escalation resolution denied",
+                "retriable": False,
+            },
+        },
     )

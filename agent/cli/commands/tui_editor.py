@@ -1,4 +1,5 @@
 """ananta tui --open / --tool — embedded editor and TUI tool launcher."""
+
 from __future__ import annotations
 
 import argparse
@@ -23,11 +24,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     group = p.add_mutually_exclusive_group(required=True)
     group.add_argument("--open", metavar="FILE", dest="open_file", help="File to open in the resolved editor.")
-    group.add_argument("--tool", metavar="TOOL_ID", dest="tool_id", help="TUI tool profile to launch (e.g. git_ui, file_manager).")
-    p.add_argument("--with", metavar="EDITOR", dest="with_editor", default=None, help="Override editor for this open action (must be in allowed_tools).")
+    group.add_argument(
+        "--tool", metavar="TOOL_ID", dest="tool_id", help="TUI tool profile to launch (e.g. git_ui, file_manager)."
+    )
+    p.add_argument(
+        "--with",
+        metavar="EDITOR",
+        dest="with_editor",
+        default=None,
+        help="Override editor for this open action (must be in allowed_tools).",
+    )
     p.add_argument("--readonly", action="store_true", help="Open file in read-only mode where supported.")
     p.add_argument("--workspace", metavar="DIR", default=None, help="Workspace root (default: current directory).")
-    p.add_argument("--target", metavar="TYPE", default="worker", choices=["worker", "hub", "hub_as_worker"], help="Target type (default: worker).")
+    p.add_argument(
+        "--target",
+        metavar="TYPE",
+        default="worker",
+        choices=["worker", "hub", "hub_as_worker"],
+        help="Target type (default: worker).",
+    )
     return p
 
 
@@ -81,8 +96,8 @@ def _open_file(
     readonly: bool,
     exec_fn: Callable[[list[str]], None],
 ) -> int:
-    from agent.services.workspace_path_validator import WorkspacePathValidator
     from agent.services.editor_resolver import get_editor_resolver
+    from agent.services.workspace_path_validator import WorkspacePathValidator
 
     validator = WorkspacePathValidator(workspace)
     path_result = validator.validate(file_path)

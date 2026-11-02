@@ -123,8 +123,7 @@ class CodeCompassSiraEvaluationGate:
             raise ValueError("sira_evaluation_policy_invalid")
         protected = tuple(sorted({item.strip() for item in protected_value if item.strip()}))
         efficiency = {
-            str(key): _nonnegative(value, f"efficiency_budgets.{key}")
-            for key, value in efficiency_value.items()
+            str(key): _nonnegative(value, f"efficiency_budgets.{key}") for key, value in efficiency_value.items()
         }
         if not protected or not efficiency:
             raise ValueError("sira_evaluation_policy_invalid")

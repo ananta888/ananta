@@ -246,9 +246,7 @@ def _execute_hub_voice_request(
                     claim=claim,
                     delegation=None,
                     effective_configuration=(
-                        dict(effective_configuration)
-                        if isinstance(effective_configuration, Mapping)
-                        else {}
+                        dict(effective_configuration) if isinstance(effective_configuration, Mapping) else {}
                     ),
                 )
             if completion_fence is not None:
@@ -363,9 +361,7 @@ def _execute_hub_voice_request(
             claim=claim,
             delegation=delegation,
             effective_configuration=(
-                dict(effective_configuration)
-                if isinstance(effective_configuration, Mapping)
-                else {}
+                dict(effective_configuration) if isinstance(effective_configuration, Mapping) else {}
             ),
         )
     except Exception as exc:

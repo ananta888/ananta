@@ -73,9 +73,7 @@ class ScopedGitAuthorizationRegistry(HubGitAuthorizationRegistryPort):
         with self._lock:
             current = self._records.get(key)
             if current is None:
-                raise HubGitAuthorizationRegistryError(
-                    "git_authorization_not_found"
-                )
+                raise HubGitAuthorizationRegistryError("git_authorization_not_found")
             self._records[key] = replace(
                 current,
                 authorization_state=authorization_state,
@@ -95,11 +93,8 @@ class ScopedGitAuthorizationRegistry(HubGitAuthorizationRegistryPort):
                 sorted(
                     (
                         value
-                        for (tenant, project, owner, _, _), value
-                        in self._records.items()
-                        if tenant == tenant_id
-                        and project == project_id
-                        and (owner_id is None or owner == owner_id)
+                        for (tenant, project, owner, _, _), value in self._records.items()
+                        if tenant == tenant_id and project == project_id and (owner_id is None or owner == owner_id)
                     ),
                     key=lambda value: value.connection_ref,
                 )

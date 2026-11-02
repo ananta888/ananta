@@ -48,4 +48,3 @@ def test_metrics_failure_emits_bounded_unknown_instead_of_healthy_capacity():
     assert document["capacity"]["receiver_limit"] is None
     assert document["proof"] is None
     assert sink.documents == [document]
-

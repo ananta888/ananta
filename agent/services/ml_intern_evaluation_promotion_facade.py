@@ -28,14 +28,20 @@ from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 class EvaluationPromotionGuardPort(Protocol):
     def require(
-        self, principal: MlInternTrainingPrincipal, record: AdapterRecord, *, expected_revision: int,
+        self,
+        principal: MlInternTrainingPrincipal,
+        record: AdapterRecord,
+        *,
+        expected_revision: int,
     ) -> None: ...
 
 
 class EvaluationPromotionReadPort(Protocol):
     def get(self, principal: MlInternTrainingPrincipal, evaluation_id: str) -> dict[str, Any]: ...
     def get_promotion_evidence(
-        self, principal: MlInternTrainingPrincipal, evaluation_id: str,
+        self,
+        principal: MlInternTrainingPrincipal,
+        evaluation_id: str,
     ) -> dict[str, Any]: ...
 
 
@@ -56,9 +62,13 @@ class MlInternEvaluationPromotionFacade:
     ) -> None:
         self._evaluations = evaluations
         self._registry = registry
-        self._evidence = evidence_registry if evidence_registry is not None else ProvidedEvidenceRegistry(
-            source_ids=trusted_source_ids,
-            run_ids=trusted_run_ids,
+        self._evidence = (
+            evidence_registry
+            if evidence_registry is not None
+            else ProvidedEvidenceRegistry(
+                source_ids=trusted_source_ids,
+                run_ids=trusted_run_ids,
+            )
         )
         self._audit_sink = audit_sink
         self._storage_references = storage_references
@@ -90,18 +100,12 @@ class MlInternEvaluationPromotionFacade:
             artifact_sha256=str(evidence.get("artifact_sha256") or ""),
             dataset_hash=str(evidence.get("dataset_hash") or ""),
             state="passed" if evaluation.get("passed") is True else "failed",
-            metrics={
-                "aggregate_score": float(
-                    evaluation.get("aggregate_score") or 0.0
-                )
-            },
+            metrics={"aggregate_score": float(evaluation.get("aggregate_score") or 0.0)},
             source_ids=tuple(evidence.get("source_ids") or ()),
             run_ids=tuple(evidence.get("run_ids") or ()),
             job_id=str(evidence.get("job_id") or ""),
             attempt_id=str(evidence.get("attempt_id") or ""),
-            fencing_token_digest=str(
-                evidence.get("fencing_token_digest") or ""
-            ),
+            fencing_token_digest=str(evidence.get("fencing_token_digest") or ""),
             base_model_id=str(evidence.get("base_model_id") or ""),
             base_model_sha256=str(evidence.get("base_model_sha256") or ""),
             adapter_id=str(evidence.get("adapter_id") or ""),
@@ -127,7 +131,9 @@ class MlInternEvaluationPromotionFacade:
             storage_references=self._storage_references,
             promotion_precondition=(
                 lambda: self._promotion_guard.require(principal, record, expected_revision=expected_revision)
-            ) if self._promotion_guard is not None else None,
+            )
+            if self._promotion_guard is not None
+            else None,
         )
         request = PromotionRequest(
             tenant_id=principal.tenant_id,
@@ -172,10 +178,7 @@ class _SingleEvaluationCatalog:
         tenant_id: str,
         evaluation_id: str,
     ) -> EvaluationSnapshot | None:
-        if (
-            tenant_id != self._snapshot.tenant_id
-            or evaluation_id != self._snapshot.evaluation_id
-        ):
+        if tenant_id != self._snapshot.tenant_id or evaluation_id != self._snapshot.evaluation_id:
             return None
         return self._snapshot
 
@@ -222,10 +225,13 @@ class _RegistryPromotionPort:
         if self._promotion_guard is not None:
             if self._expected_record is None:
                 raise PromotionGateError(
-                    "promotion_guard_record_missing", "Promotion guard requires a registry record.",
+                    "promotion_guard_record_missing",
+                    "Promotion guard requires a registry record.",
                 )
             self._promotion_guard.require(
-                self._principal, self._expected_record, expected_revision=expected_revision,
+                self._principal,
+                self._expected_record,
+                expected_revision=expected_revision,
             )
         self.record, self.replayed = self._registry.promote_evaluated(
             artifact_id,

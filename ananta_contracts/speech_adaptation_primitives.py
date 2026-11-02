@@ -8,7 +8,6 @@ import math
 import re
 from typing import Any, Mapping
 
-
 CONTRACT_VERSION = "ananta.speech-adaptation.v1"
 TRAIN_JOB_TYPE = "speech_adaptation_train"
 RESULT_TYPE = "speech_adaptation_result"

@@ -30,7 +30,7 @@ ARGUMENT_DOCS: dict[str, dict[str, str]] = {
     "codecompass.plan_context": {
         "query": "What the code change or question is about.",
         "intent": "Editor planning mode; when set, registry_version, node_kind and backend_contract or symbols are "
-                  "required too.",
+        "required too.",
         "detail_level": "'preview' (metadata only), 'selected' or 'conversation' (default).",
         "registry_version": "Required with intent: version of the node registry.",
         "node_kind": "Required with intent: kind of the selected node.",
@@ -46,7 +46,7 @@ ARGUMENT_DOCS: dict[str, dict[str, str]] = {
         "query": "The task or question the context is for.",
         "task_kind": "Free label, e.g. 'bugfix', 'review'; shapes the context hints.",
         "mode": "'compact' (about 4k tokens), 'balanced' (default, 12k) or 'deep' (32k; needs working_files or "
-                "domain_scope).",
+        "domain_scope).",
         "working_files": "Workspace paths to put first.",
         "domain_hint": "Topic that biases the search and the domain map.",
         "domain_scope": "Domain the context is limited to; also allows mode 'deep'.",
@@ -103,7 +103,7 @@ ARGUMENT_DOCS: dict[str, dict[str, str]] = {
         "node": "Graph node id (file path or symbol) to expand from.",
         "seeds": "Alternative start nodes; only the first is used.",
         "profile": "Expansion size: 'bugfix_local' (default, depth 2, 20 nodes), 'refactor_navigation' (3, 30), "
-                   "'architecture_review' (3, 40) or 'config_integration' (2, 24).",
+        "'architecture_review' (3, 40) or 'config_integration' (2, 24).",
         "depth": "Ignored; use profile.",
         "max_depth": "Ignored; use profile.",
         "limit": "Ignored; use profile.",

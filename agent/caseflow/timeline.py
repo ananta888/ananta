@@ -1,12 +1,13 @@
 """CaseFlow Timeline — event-sourcing-light for case history."""
+
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
-
 
 EVENT_TYPES = [
     "case_created",
@@ -51,6 +52,7 @@ def append_event(
     if db_session is not None:
         try:
             from agent.db_models.caseflow import CaseEventDB
+
             db_event = CaseEventDB(
                 id=event.id,
                 case_id=event.case_id,
@@ -66,7 +68,7 @@ def append_event(
             db_session.add(db_event)
             db_session.commit()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("append_event: ignored Exception", exc_info=True)
     else:
         _events.append(event)
     return event

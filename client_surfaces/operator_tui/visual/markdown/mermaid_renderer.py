@@ -28,17 +28,34 @@ def _check_mmdc() -> str | None:
 def _check_playwright() -> bool:
     try:
         import importlib.util
+
         return importlib.util.find_spec("playwright") is not None
     except Exception:
         return False
 
 
-_KNOWN_DIAGRAM_TYPES = frozenset({
-    "flowchart", "graph", "sequencediagram", "classdiagram", "statediagram",
-    "erdiagram", "journey", "gantt", "pie", "requirementdiagram",
-    "gitgraph", "mindmap", "timeline", "quadrantchart", "xychart-beta",
-    "sankey-beta", "block-beta", "architecture-beta",
-})
+_KNOWN_DIAGRAM_TYPES = frozenset(
+    {
+        "flowchart",
+        "graph",
+        "sequencediagram",
+        "classdiagram",
+        "statediagram",
+        "erdiagram",
+        "journey",
+        "gantt",
+        "pie",
+        "requirementdiagram",
+        "gitgraph",
+        "mindmap",
+        "timeline",
+        "quadrantchart",
+        "xychart-beta",
+        "sankey-beta",
+        "block-beta",
+        "architecture-beta",
+    }
+)
 
 
 def _has_diagram_type(source: str) -> bool:
@@ -60,21 +77,26 @@ def _auto_fix_source(source: str) -> str | None:
 
     # Fix "flowchart direction=TB" or "flowchart dir=LR" → "flowchart TB"
     fixed = re.sub(
-        r'^(flowchart|graph)\s+(?:direction=|dir=)(\w+).*$',
+        r"^(flowchart|graph)\s+(?:direction=|dir=)(\w+).*$",
         lambda m: f"{m.group(1)} {m.group(2).upper()}",
-        fixed, flags=re.MULTILINE | re.IGNORECASE,
+        fixed,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
     # Fix "flowchart direction LR" → "flowchart LR"
-    fixed = re.sub(r'^(flowchart|graph)\s+direction\s+(\w+)', r'\1 \2', fixed, flags=re.MULTILINE | re.IGNORECASE)
+    fixed = re.sub(r"^(flowchart|graph)\s+direction\s+(\w+)", r"\1 \2", fixed, flags=re.MULTILINE | re.IGNORECASE)
     # Remove unsupported attributes like nameLabel="..." from first line
-    fixed = re.sub(r'^(flowchart|graph\s+\w+).*?(nameLabel|title|config)\s*=\s*"[^"]*".*$',
-                   r'\1', fixed, flags=re.MULTILINE | re.IGNORECASE)
+    fixed = re.sub(
+        r'^(flowchart|graph\s+\w+).*?(nameLabel|title|config)\s*=\s*"[^"]*".*$',
+        r"\1",
+        fixed,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
     # Fix invalid arrow syntax "-- Yes::>" → "-- Yes -->"
-    fixed = re.sub(r'--\s*(\w[^:>]*?)::>', r'-- \1 -->', fixed)
+    fixed = re.sub(r"--\s*(\w[^:>]*?)::>", r"-- \1 -->", fixed)
     # Fix " : wenn yes" style labels (invalid) → strip them
-    fixed = re.sub(r'\s+:\s+\w.*$', '', fixed, flags=re.MULTILINE)
+    fixed = re.sub(r"\s+:\s+\w.*$", "", fixed, flags=re.MULTILINE)
     # Strip lines that are clearly non-Mermaid (HTML comments, XML tags)
-    lines_out = [l for l in fixed.splitlines() if not re.match(r'^\s*(<[^>]+>|<!--)', l)]
+    lines_out = [l for l in fixed.splitlines() if not re.match(r"^\s*(<[^>]+>|<!--)", l)]
     fixed = "\n".join(lines_out)
 
     # If still no diagram type, prepend flowchart TD
@@ -135,7 +157,9 @@ class MermaidCliBackend:
                     )
                 raw_err = proc.stderr.decode(errors="replace").strip() or "mmdc exited non-zero"
                 return MermaidRenderResult(
-                    success=False, image_data=None, image_format="",
+                    success=False,
+                    image_data=None,
+                    image_format="",
                     fallback_text=source,
                     reason=_compact_error(raw_err),
                     reason_code="MMDC_RENDER_FAILED",
@@ -145,7 +169,9 @@ class MermaidCliBackend:
             except process.TimeoutExpired:
                 elapsed_ms = (time.perf_counter() - start) * 1000.0
                 return MermaidRenderResult(
-                    success=False, image_data=None, image_format="",
+                    success=False,
+                    image_data=None,
+                    image_format="",
                     fallback_text=source,
                     reason=f"timeout nach {timeout_seconds:.0f}s",
                     reason_code="MMDC_TIMEOUT",
@@ -155,7 +181,9 @@ class MermaidCliBackend:
             except Exception as exc:
                 elapsed_ms = (time.perf_counter() - start) * 1000.0
                 return MermaidRenderResult(
-                    success=False, image_data=None, image_format="",
+                    success=False,
+                    image_data=None,
+                    image_format="",
                     fallback_text=source,
                     reason=_compact_error(str(exc)),
                     reason_code="MMDC_EXEC_ERROR",
@@ -171,12 +199,18 @@ class MermaidCliBackend:
         width: int = 1280,
         height: int = 720,
     ) -> MermaidRenderResult:
-        start = time.perf_counter()
+        time.perf_counter()
         mmdc = _check_mmdc()
         if not mmdc:
             return MermaidRenderResult(
-                success=False, image_data=None, image_format="",
-                fallback_text=source, reason="mmdc nicht im PATH", reason_code="MMD_NOT_FOUND", backend_used=self.name, duration_ms=0.0,
+                success=False,
+                image_data=None,
+                image_format="",
+                fallback_text=source,
+                reason="mmdc nicht im PATH",
+                reason_code="MMD_NOT_FOUND",
+                backend_used=self.name,
+                duration_ms=0.0,
             )
         # First attempt with original source
         result = self._run_mmdc(source, mmdc, timeout_seconds=timeout_seconds, width=width, height=height)

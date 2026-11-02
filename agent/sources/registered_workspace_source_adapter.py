@@ -19,7 +19,6 @@ from agent.sources.source_connectors import (
     SourceRevisionResolution,
 )
 
-
 _CONNECTOR_TYPES = frozenset({"registered_workspace", "local_directory"})
 _HOST_PATH_KEYS = frozenset(
     {
@@ -52,9 +51,7 @@ def _relative_path_is_valid(value: str) -> bool:
     if "\x00" in raw or "\\" in raw:
         return False
     path = PurePosixPath(raw)
-    return not path.is_absolute() and all(
-        part not in {"", ".."} for part in path.parts
-    )
+    return not path.is_absolute() and all(part not in {"", ".."} for part in path.parts)
 
 
 class RegisteredWorkspaceSourceAdapter:
@@ -76,19 +73,14 @@ class RegisteredWorkspaceSourceAdapter:
         errors: list[str] = []
         if not str(descriptor.get("source_id") or "").strip():
             errors.append("source_id_required")
-        if (
-            str(descriptor.get("source_type") or "").strip().lower()
-            != self.connector_type
-        ):
+        if str(descriptor.get("source_type") or "").strip().lower() != self.connector_type:
             errors.append("connector_type_mismatch")
         for name in ("tenant_id", "project_id", "workspace_id"):
             if not str(descriptor.get(name) or "").strip():
                 errors.append(f"{name}_required")
         if _contains_host_path(descriptor):
             errors.append("workspace_host_path_forbidden")
-        if not _relative_path_is_valid(
-            str(descriptor.get("relative_path") or ".")
-        ):
+        if not _relative_path_is_valid(str(descriptor.get("relative_path") or ".")):
             errors.append("workspace_relative_path_invalid")
         return tuple(dict.fromkeys(errors))
 
@@ -161,9 +153,7 @@ class RegisteredWorkspaceSourceAdapter:
                 tenant_id=str(descriptor.get("tenant_id") or "").strip(),
                 project_id=str(descriptor.get("project_id") or "").strip(),
                 workspace_id=str(descriptor.get("workspace_id") or "").strip(),
-                relative_path=str(
-                    descriptor.get("relative_path") or "."
-                ).strip(),
+                relative_path=str(descriptor.get("relative_path") or ".").strip(),
             )
         except RegisteredWorkspaceError as exc:
             raise SourceConnectorError(exc.reason_code) from None

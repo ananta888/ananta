@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.chat_memory import ChatMemoryContext, MemoryTurn
 from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder, PromptBuildResult
 
@@ -22,7 +20,12 @@ def _mem(
     )
 
 
-def _build(question: str = "Was ist Ananta?", depth: str = "overview", memory: ChatMemoryContext | None = None, budget: int = 3000) -> PromptBuildResult:
+def _build(
+    question: str = "Was ist Ananta?",
+    depth: str = "overview",
+    memory: ChatMemoryContext | None = None,
+    budget: int = 3000,
+) -> PromptBuildResult:
     return ChatPromptBuilder(
         question=question,
         depth=depth,
@@ -32,6 +35,7 @@ def _build(question: str = "Was ist Ananta?", depth: str = "overview", memory: C
 
 
 # ── Messages format (LMStudio/local) ─────────────────────────────────────────
+
 
 def test_messages_contain_system_and_user():
     result = _build()
@@ -63,6 +67,7 @@ def test_messages_trim_turns_by_char_budget():
 
 # ── Prompt text (propose/worker) ──────────────────────────────────────────────
 
+
 def test_prompt_text_contains_question():
     result = _build(question="Wie funktioniert das?")
     assert "Wie funktioniert das?" in result.prompt_text
@@ -81,6 +86,7 @@ def test_prompt_text_contains_recent_turns():
 
 
 # ── Worker v2 payload ─────────────────────────────────────────────────────────
+
 
 def test_worker_v2_payload_contains_question():
     result = _build(question="Test?")
@@ -110,6 +116,7 @@ def test_worker_v2_disabling_summary_produces_empty_summary():
 
 # ── Budget policy and section ordering ───────────────────────────────────────
 
+
 def test_active_target_included_first():
     mem = _mem(active="import. file context")
     result = _build(memory=mem)
@@ -136,6 +143,7 @@ def test_budget_limits_total_context():
 
 # ── Depth instructions ────────────────────────────────────────────────────────
 
+
 def test_depth_overview_in_prompt():
     result = _build(depth="overview")
     system = next(m["content"] for m in result.messages if m["role"] == "system")
@@ -149,6 +157,7 @@ def test_depth_expert_in_prompt():
 
 
 # ── Codecompass/RAG ───────────────────────────────────────────────────────────
+
 
 def test_codecompass_included_when_budget_allows():
     mem = _mem(codecompass=["code ref 1", "code ref 2"])

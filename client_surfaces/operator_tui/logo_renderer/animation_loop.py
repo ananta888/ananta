@@ -54,4 +54,6 @@ class AnimationLoop:
             self._skipped_frames += 1
         elif total < budget * 0.6 and self._current_fps < self._target_fps:
             self._current_fps = min(self._target_fps, self._current_fps + 1)
-        return FrameTiming(render_ms=float(render_ms), encode_ms=float(encode_ms), output_ms=float(output_ms), total_ms=total)
+        return FrameTiming(
+            render_ms=float(render_ms), encode_ms=float(encode_ms), output_ms=float(output_ms), total_ms=total
+        )

@@ -1,4 +1,5 @@
 """HDE-022: diagnostics/API for direct execution and custom tools."""
+
 import pytest
 
 from agent.services.dynamic_tool_registry_service import DynamicToolRegistryService
@@ -92,8 +93,8 @@ def test_admin_can_disable_and_enable(client, admin_auth_header, dynamic_registr
 
 
 def test_proposal_creation_is_open_but_inert(client, user_auth_header, tmp_path, monkeypatch, dynamic_registry):
-    from agent.services.custom_tool_proposal_service import CustomToolProposalService
     import agent.services.custom_tool_proposal_service as proposal_module
+    from agent.services.custom_tool_proposal_service import CustomToolProposalService
 
     monkeypatch.setattr(proposal_module, "custom_tool_proposal_service", CustomToolProposalService(tmp_path / "p"))
     payload = {
@@ -123,11 +124,9 @@ def test_proposal_creation_is_open_but_inert(client, user_auth_header, tmp_path,
 
 
 def test_invalid_proposal_returns_400(client, user_auth_header, tmp_path, monkeypatch):
-    from agent.services.custom_tool_proposal_service import CustomToolProposalService
     import agent.services.custom_tool_proposal_service as proposal_module
+    from agent.services.custom_tool_proposal_service import CustomToolProposalService
 
     monkeypatch.setattr(proposal_module, "custom_tool_proposal_service", CustomToolProposalService(tmp_path / "p"))
-    response = client.post(
-        "/api/custom-tools/proposals", headers=user_auth_header, json={"name": "evil"}
-    )
+    response = client.post("/api/custom-tools/proposals", headers=user_auth_header, json={"name": "evil"})
     assert response.status_code == 400

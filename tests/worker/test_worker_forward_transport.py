@@ -49,9 +49,7 @@ def test_governed_deadline_never_downgrades_to_legacy_forwarder():
             "/tasks/v2/step/execute",
             {"task_id": "v2"},
             token="token",
-            transport_deadline=(
-                WorkerTransportDeadline.after_seconds(60)
-            ),
+            transport_deadline=(WorkerTransportDeadline.after_seconds(60)),
         )
 
     assert called is False

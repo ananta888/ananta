@@ -62,7 +62,18 @@ from .snakes_chat_helpers import (
     _trace_feature_enabled,
     _with_answer_budget_instruction,
 )
+from .snakes_chat_provider import (  # historical names of this module
+    _resolve_ai_snake_chat_provider,
+    _resolve_central_ai_snake_model,
+)
 from .snakes_chat_reply_runner import _SNAKE_CHAT_PROMPT, SnakeChatReplyRunner
+from .snakes_chat_reply_spawner import (
+    _background_threads_disabled,
+    _chat_reply_runner,
+    _snake_ui_state,
+    _spawn_ai_chat_reply,
+)
+from .snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
 from .snakes_execution_session_helpers import (
     normalize_client_context_history as _normalize_client_context_history,
 )
@@ -129,19 +140,6 @@ from .snakes_worker_routing import (
     snake_profile_routing_enabled,
 )
 
-from .snakes_chat_provider import (  # historical names of this module
-    _resolve_ai_snake_chat_provider,
-    _resolve_central_ai_snake_model,
-)
-from .snakes_chat_reply_spawner import (
-    _background_threads_disabled,
-    _chat_reply_runner,
-    _snake_ui_state,
-    _spawn_ai_chat_reply,
-)
-from .snakes_execution_dependencies import SNAKE_EXECUTION_DEPENDENCIES
-
-
 # ── Route endpoints ────────────────────────────────────────────────────────────
 
 
@@ -171,9 +169,7 @@ def chat_send(snake_id: str):
     if channel_type in {"room", "direct"} and not client_session_id:
         return jsonify({"error": "chat_session_required", "error_code": "chat_session_required"}), 400
     session_snapshot = (
-        dependencies.owned_chat_session_snapshot(client_session_id, principal)
-        if client_session_id
-        else None
+        dependencies.owned_chat_session_snapshot(client_session_id, principal) if client_session_id else None
     )
     if client_session_id and session_snapshot is None:
         return jsonify({"error": "chat_session_not_found", "error_code": "chat_session_not_found"}), 404
@@ -196,7 +192,9 @@ def chat_send(snake_id: str):
             _snake_ui_state[snake_id] = {
                 **existing,
                 "route": str((ui_context or {}).get("route") or existing.get("route") or ""),
-                "visible_waypoints": list((ui_context or {}).get("visible_waypoints") or existing.get("visible_waypoints") or [])[:30],
+                "visible_waypoints": list(
+                    (ui_context or {}).get("visible_waypoints") or existing.get("visible_waypoints") or []
+                )[:30],
                 "ui_snapshot": _ui_snap,
                 "updated_at": time.time(),
             }
@@ -255,9 +253,7 @@ def chat_send(snake_id: str):
 
     # Backend-side guard: ananta-visual is a read-only log.
     # Only browser-side [ui-tick] and [region-explain] system messages are allowed.
-    _allowed_visual = visibility == "system" and (
-        text.startswith("[ui-tick]") or text.startswith("[region-explain]")
-    )
+    _allowed_visual = visibility == "system" and (text.startswith("[ui-tick]") or text.startswith("[region-explain]"))
     if client_session_id == "ananta-visual" and not _allowed_visual:
         return jsonify({"error": "ananta-visual ist eine Read-only-Log-Session"}), 403
 
@@ -357,11 +353,7 @@ def chat_receive(snake_id: str):
         for m in _chat_messages.get(snake_id, [])
         if float(m.get("created_at") or 0) > since and _message_is_visible(m)
     ]
-    room = [
-        m for m in _room_messages
-        if float(m.get("created_at") or 0) > since
-        and _message_is_visible(m)
-    ]
+    room = [m for m in _room_messages if float(m.get("created_at") or 0) > since and _message_is_visible(m)]
 
     all_msgs = sorted(direct + room, key=lambda m: float(m.get("created_at") or 0))
 
@@ -651,7 +643,7 @@ def snake_ask():
 
     rag_trace: dict[str, Any] = {}
     domain_scope_info: dict[str, Any] = {}
-    context = str(body.get("context") or "").strip()[:limits.context_chars]
+    context = str(body.get("context") or "").strip()[: limits.context_chars]
     if context:
         grounded_prompt = f"{question}\n\nKontext:\n{context}"
         rag_trace["source"] = "client_provided"
@@ -733,7 +725,9 @@ def snake_ask():
                     file_names = ", ".join(str(p).split("/")[-1] for p in _avail[:6])
                     if len(_avail) > 6:
                         file_names += f" +{len(_avail) - 6}"
-                    summary = f"rag_iterative: {_tc_made} Tool-Calls, {len(_avail)} Dateien verfügbar" + (f" ({file_names})" if file_names else "")
+                    summary = f"rag_iterative: {_tc_made} Tool-Calls, {len(_avail)} Dateien verfügbar" + (
+                        f" ({file_names})" if file_names else ""
+                    )
                 else:
                     batches_done = worker_trace.get("batches_completed", 0)
                     files_found = worker_trace.get("files_resolved", 0)
@@ -741,7 +735,9 @@ def snake_ask():
                     file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
                     if len(file_list) > 6:
                         file_names += f" +{len(file_list) - 6}"
-                    summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
+                    summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (
+                        f" ({file_names})" if file_names else ""
+                    )
                 answer = _fit_answer_to_chars(
                     answer,
                     limit=limits.answer_chars,
@@ -751,12 +747,19 @@ def snake_ask():
                     overflow_policy=limits.answer_overflow_policy,
                     never_truncate=limits.never_truncate_answers,
                 )
-                resp: dict[str, Any] = {"answer": answer, "path": "rag_iterative", "context_summary": summary, **domain_scope_info}
+                resp: dict[str, Any] = {
+                    "answer": answer,
+                    "path": "rag_iterative",
+                    "context_summary": summary,
+                    **domain_scope_info,
+                }
                 if debug:
                     resp["trace"] = {"worker": worker_trace}
                 return jsonify(resp), 200
         elif _is_full_scan_intent(question, "", _eff_cfg):
-            answer, worker_trace = dependencies.worker_chat_full_scan(question, provider=provider, model=model, limits=limits, cancel_key="snake_ask")
+            answer, worker_trace = dependencies.worker_chat_full_scan(
+                question, provider=provider, model=model, limits=limits, cancel_key="snake_ask"
+            )
             if answer:
                 files_found = worker_trace.get("files_found", 0)
                 batches_done = worker_trace.get("batches_completed", 0)
@@ -770,7 +773,12 @@ def snake_ask():
                     overflow_policy=limits.answer_overflow_policy,
                     never_truncate=limits.never_truncate_answers,
                 )
-                resp: dict[str, Any] = {"answer": answer, "path": "full_scan", "context_summary": summary, **domain_scope_info}
+                resp: dict[str, Any] = {
+                    "answer": answer,
+                    "path": "full_scan",
+                    "context_summary": summary,
+                    **domain_scope_info,
+                }
                 if debug:
                     resp["trace"] = {"rag": rag_trace, "worker": worker_trace}
                 elif retrieval_config_overrides and isinstance(rag_trace.get("retrieval_profile"), dict):
@@ -784,7 +792,9 @@ def snake_ask():
         model,
         provider=provider,
         limits=limits,
-        retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
+        retrieval_profile_trace=rag_trace.get("retrieval_profile")
+        if isinstance(rag_trace.get("retrieval_profile"), dict)
+        else None,
         allow_profile_routing=request_model is None,
         worker_picker=dependencies.pick_worker_for_ask,
         model_resolver=dependencies.resolve_lmstudio_model_for_worker,

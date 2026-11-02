@@ -18,14 +18,22 @@ def test_source_schemas_validate_examples() -> None:
     snapshot_validator = _validator(Path("schemas/sources/source_snapshot.v1.json"))
     reference_validator = _validator(Path("schemas/sources/source_reference.v1.json"))
 
-    eclipse_platform = json.loads(Path("sources/eclipse/eclipse-platform.source_descriptor.json").read_text(encoding="utf-8"))
-    eclipse_jdt = json.loads(Path("sources/eclipse/eclipse-jdt-core.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_platform = json.loads(
+        Path("sources/eclipse/eclipse-platform.source_descriptor.json").read_text(encoding="utf-8")
+    )
+    eclipse_jdt = json.loads(
+        Path("sources/eclipse/eclipse-jdt-core.source_descriptor.json").read_text(encoding="utf-8")
+    )
     eclipse_pde = json.loads(Path("sources/eclipse/eclipse-pde.source_descriptor.json").read_text(encoding="utf-8"))
     eclipse_swt = json.loads(Path("sources/eclipse/eclipse-swt.source_descriptor.json").read_text(encoding="utf-8"))
-    eclipse_equinox = json.loads(Path("sources/eclipse/eclipse-equinox.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_equinox = json.loads(
+        Path("sources/eclipse/eclipse-equinox.source_descriptor.json").read_text(encoding="utf-8")
+    )
     keycloak = json.loads(Path("sources/keycloak/source_descriptor.json").read_text(encoding="utf-8"))
     wikipedia = json.loads(Path("sources/wikipedia/source_descriptor.json").read_text(encoding="utf-8"))
-    source_pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    source_pack = json.loads(
+        Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8")
+    )
     assert list(descriptor_validator.iter_errors(eclipse_platform)) == []
     assert list(descriptor_validator.iter_errors(eclipse_jdt)) == []
     assert list(descriptor_validator.iter_errors(eclipse_pde)) == []
@@ -49,7 +57,7 @@ def test_source_schemas_validate_examples() -> None:
         "status": "indexed",
         "reason_code": "",
         "human_message": "",
-        "extensions": {}
+        "extensions": {},
     }
     assert list(snapshot_validator.iter_errors(snapshot)) == []
 
@@ -62,7 +70,7 @@ def test_source_schemas_validate_examples() -> None:
         "title": "Keycloak Documentation",
         "license_ref": "license_unknown",
         "retrieved_at": "2026-05-26T00:00:00Z",
-        "attribution_text": "Keycloak docs citation"
+        "attribution_text": "Keycloak docs citation",
     }
     assert list(reference_validator.iter_errors(reference)) == []
 
@@ -82,13 +90,15 @@ def test_source_reference_requires_source_and_snapshot_ids() -> None:
         "canonical_url": "https://example.com",
         "title": "Example",
         "license_ref": "CC BY-SA",
-        "retrieved_at": "2026-05-26T00:00:00Z"
+        "retrieved_at": "2026-05-26T00:00:00Z",
     }
     assert list(reference_validator.iter_errors(payload))
 
 
 def test_default_source_pack_descriptor_references_are_local_and_unique() -> None:
-    source_pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    source_pack = json.loads(
+        Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8")
+    )
     rows = [dict(item) for item in list(source_pack.get("sources") or []) if isinstance(item, dict)]
     source_ids = [str(item.get("source_id") or "") for item in rows if str(item.get("source_id") or "").strip()]
     assert len(source_ids) == len(set(source_ids))

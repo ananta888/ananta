@@ -18,6 +18,7 @@ Verwendung:
   # Vorschau (kein echtes Indexieren, max 200 Artikel):
   python -m tools.wiki_ingest --dump /pfad/... --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,8 +40,12 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--source-id", default="", help="Source-ID (default: aus Dateiname)")
     p.add_argument("--language", default="de", help="Sprache (default: de)")
     p.add_argument("--profile", default="default", help="Knowledge-Index-Profil")
-    p.add_argument("--codecompass-prerender", action="store_true", default=True,
-                   help="CodeCompass-Vorrendering aktivieren (default: an)")
+    p.add_argument(
+        "--codecompass-prerender",
+        action="store_true",
+        default=True,
+        help="CodeCompass-Vorrendering aktivieren (default: an)",
+    )
     p.add_argument("--no-codecompass-prerender", dest="codecompass_prerender", action="store_false")
     p.add_argument("--strict", action="store_true", help="Strikter Modus: Fehler abbrechen")
     p.add_argument("--dry-run", action="store_true", help="Nur parsen, nicht indexieren (max 200 Artikel)")
@@ -149,6 +154,7 @@ def _run_url(args: argparse.Namespace) -> None:
 
 def _poll_job(job_svc, job_id: str) -> None:
     import time as _time
+
     while True:
         job = job_svc.get_job(job_id)
         if not job:

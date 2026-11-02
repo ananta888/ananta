@@ -164,14 +164,16 @@ def meet_client(runtime, monkeypatch):
     monkeypatch.setattr(
         auth,
         "_validate_user_jwt",
-        lambda token: {
-            "sub": "alice",
-            "tenant_id": "tenant-a",
-            "project_id": "project-a",
-            "role": "user",
-        }
-        if token == "test-user"
-        else None,
+        lambda token: (
+            {
+                "sub": "alice",
+                "tenant_id": "tenant-a",
+                "project_id": "project-a",
+                "role": "user",
+            }
+            if token == "test-user"
+            else None
+        ),
     )
     monkeypatch.setattr(auth, "_user_token_allows_current_request", lambda payload: True)
     return app.test_client(), app

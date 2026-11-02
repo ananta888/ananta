@@ -6,9 +6,8 @@ Revises: 7e2b0d3f5a8c
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "2f7b9d1e3a5c"
 down_revision = "7e2b0d3f5a8c"
@@ -43,9 +42,16 @@ def upgrade() -> None:
             sa.Column("metrics_json", sa.Text(), nullable=False),
             sa.Column("created_at_epoch", sa.Float(), nullable=False),
             sa.UniqueConstraint(
-                "tenant_id", "project_id", "owner_id", "connector_type",
-                "source_id", "connection_ref", "repository_key",
-                "requested_ref", "commit_sha", "source_revision_digest",
+                "tenant_id",
+                "project_id",
+                "owner_id",
+                "connector_type",
+                "source_id",
+                "connection_ref",
+                "repository_key",
+                "requested_ref",
+                "commit_sha",
+                "source_revision_digest",
                 name="uq_remote_source_payload_coordinates",
             ),
         )

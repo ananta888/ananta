@@ -85,4 +85,3 @@ class CoturnAggregateCollector:
                 raise CoturnCollectionError("coturn_metric_value_invalid")
             result[target] = int(value)
         return result
-

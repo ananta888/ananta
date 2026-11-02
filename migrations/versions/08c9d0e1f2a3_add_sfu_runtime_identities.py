@@ -122,9 +122,7 @@ def upgrade() -> None:
             sa.Column("response_json", sa.JSON(), nullable=False),
             sa.Column("audited_at", sa.Float(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "actor", "idempotency_key_digest", name="uq_sfu_runtime_mutation_actor_idempotency"
-            ),
+            sa.UniqueConstraint("actor", "idempotency_key_digest", name="uq_sfu_runtime_mutation_actor_idempotency"),
         )
         for column in (
             "identity_id",
@@ -154,9 +152,7 @@ def upgrade() -> None:
             sa.Column("version", sa.Integer(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "actor", "source_digest", "window_started_at", name="uq_sfu_runtime_enrollment_bucket"
-            ),
+            sa.UniqueConstraint("actor", "source_digest", "window_started_at", name="uq_sfu_runtime_enrollment_bucket"),
         )
         for column in ("actor", "source_digest", "window_started_at"):
             op.create_index(

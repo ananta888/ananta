@@ -15,8 +15,9 @@ from tests.test_memory_tree_store_service import store as store  # noqa: F401
 def seed(store):
     chunk, _ = store.ingest_chunk(source_id="source", source_type="doc", label="leaf", content="private canary")
     store.update_lifecycle(chunk.id, "sealed")
-    store.upsert_node(node_type="source", label="source:source", summary="derived private canary",
-                      child_chunk_ids=[chunk.id])
+    store.upsert_node(
+        node_type="source", label="source:source", summary="derived private canary", child_chunk_ids=[chunk.id]
+    )
     return chunk
 
 
@@ -60,8 +61,9 @@ def test_foreign_namespace_and_missing_update_grant_cannot_change_state(store): 
     service = MemoryQuarantineService(store)
     with synthetic_memory_access(task_id="foreign", channels=("hub-memory-tree",), scopes=(MemoryScope.task,)):
         assert service.quarantine(chunk.id, reason_code="suspected_injection") is False
-    with synthetic_memory_access(channels=("hub-memory-tree",), scopes=(MemoryScope.task,),
-                                 operations=(MemoryOperation.read,)):
+    with synthetic_memory_access(
+        channels=("hub-memory-tree",), scopes=(MemoryScope.task,), operations=(MemoryOperation.read,)
+    ):
         with pytest.raises(MemoryAccessError):
             service.quarantine(chunk.id, reason_code="suspected_injection")
     assert len(events()) == 0
@@ -102,7 +104,10 @@ def test_actual_retrieval_hides_quarantined_derivation_and_preserves_other_sourc
 
 def test_admission_cannot_supply_a_quarantine_release_record(store):  # noqa: F811
     chunk, _ = store.ingest_chunk(
-        source_id="source", source_type="doc", label="leaf", content="fact",
+        source_id="source",
+        source_type="doc",
+        label="leaf",
+        content="fact",
         metadata={"memory_quarantine": {"prior_lifecycle": "sealed", "schema": "ananta.memory-quarantine.v1"}},
     )
     assert "memory_quarantine" not in chunk.chunk_metadata

@@ -41,9 +41,7 @@ class Ports:
 
     def issue(self, request, binding, epochs, ttl_seconds, operation_id):
         self.events.append("token")
-        return SfuScopedAdmissionToken(
-            "token-1", binding, epochs, self.clock.now + ttl_seconds
-        )
+        return SfuScopedAdmissionToken("token-1", binding, epochs, self.clock.now + ttl_seconds)
 
     def activate(self, request, token, operation_id):
         self.events.append("activate")
@@ -115,9 +113,7 @@ def test_revoke_rekey_token_and_route_are_strictly_ordered_and_fenced():
 
     replay = service.start(request())
     assert replay == completed
-    stale = SfuRuntimeActivationAck(
-        True, binding("cluster-a"), request().current_epochs, "stale_ack"
-    )
+    stale = SfuRuntimeActivationAck(True, binding("cluster-a"), request().current_epochs, "stale_ack")
     assert service.ack_is_current(request(), completed, stale) is False
 
 

@@ -23,7 +23,7 @@ def detect_carbonyl_browser(
     Returns:
         ViewCapabilityReport with view_id="carbonyl_browser".
     """
-    binary = (config_path.strip() or carbonyl_binary.strip() or "carbonyl")
+    binary = config_path.strip() or carbonyl_binary.strip() or "carbonyl"
 
     # Try explicit absolute path first
     if os.path.isabs(binary):

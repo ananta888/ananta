@@ -1,10 +1,9 @@
 """CRG-010: graph-diff tests."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
 
 from worker.retrieval.codecompass_graph_diff import (
     GRAPH_DIFF_VERSION,
@@ -23,24 +22,34 @@ def _store_with(tmp_path: Path, name: str, records: list[dict]) -> CodeCompassGr
 
 def _records_a() -> list[dict]:
     return [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "symbol_function:f:a:f1", "kind": "symbol_function",
-         "name": "f1", "file": "a.py"},
-        {"_provenance": {"output_kind": "graph_edges"},
-         "source": "symbol_function:f:a:f1", "target": "f:a",
-         "type": "calls", "confidence": 1.0},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "symbol_function:f:a:f1",
+            "kind": "symbol_function",
+            "name": "f1",
+            "file": "a.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_edges"},
+            "source": "symbol_function:f:a:f1",
+            "target": "f:a",
+            "type": "calls",
+            "confidence": 1.0,
+        },
     ]
 
 
 def _records_b_added_node() -> list[dict]:
     return _records_a() + [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "symbol_function:f:b:f2", "kind": "symbol_function",
-         "name": "f2", "file": "b.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "symbol_function:f:b:f2",
+            "kind": "symbol_function",
+            "name": "f2",
+            "file": "b.py",
+        },
     ]
 
 
@@ -49,25 +58,29 @@ def _records_b_removed_node() -> list[dict]:
     becomes a dangling reference and is dropped by the store (no
     endpoints)."""
     return [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
     ]
 
 
 def _records_b_changed_confidence() -> list[dict]:
     return [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "symbol_function:f:a:f1", "kind": "symbol_function",
-         "name": "f1", "file": "a.py"},
-        {"_provenance": {"output_kind": "graph_edges"},
-         "source": "symbol_function:f:a:f1", "target": "f:a",
-         "type": "calls", "confidence": 0.5},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
+        {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "symbol_function:f:a:f1",
+            "kind": "symbol_function",
+            "name": "f1",
+            "file": "a.py",
+        },
+        {
+            "_provenance": {"output_kind": "graph_edges"},
+            "source": "symbol_function:f:a:f1",
+            "target": "f:a",
+            "type": "calls",
+            "confidence": 0.5,
+        },
     ]
 
 

@@ -50,9 +50,7 @@ class RequestsOpenRouterModelsClient:
                 stream=True,
             )
             if response.status_code != 200:
-                raise RuntimeError(
-                    f"provider_openrouter_http_{int(response.status_code)}"
-                )
+                raise RuntimeError(f"provider_openrouter_http_{int(response.status_code)}")
             chunks: list[bytes] = []
             size = 0
             for chunk in response.iter_content(chunk_size=64 * 1024):
@@ -60,15 +58,11 @@ class RequestsOpenRouterModelsClient:
                 if size > _MAX_RESPONSE_BYTES:
                     raise RuntimeError("provider_openrouter_response_too_large")
                 chunks.append(chunk)
-            payload = response.json() if not chunks else json.loads(
-                b"".join(chunks).decode("utf-8")
-            )
+            payload = response.json() if not chunks else json.loads(b"".join(chunks).decode("utf-8"))
         except RuntimeError:
             raise
         except Exception as exc:
-            raise RuntimeError(
-                f"provider_openrouter_request_failed:{type(exc).__name__}"
-            ) from exc
+            raise RuntimeError(f"provider_openrouter_request_failed:{type(exc).__name__}") from exc
         data = payload.get("data") if isinstance(payload, Mapping) else None
         if not isinstance(data, list):
             raise RuntimeError("provider_openrouter_payload_invalid")
@@ -96,23 +90,17 @@ class OpenRouterModelInventoryAdapter:
         if not api_key:
             raise RuntimeError("provider_openrouter_credentials_unavailable")
         rows = self._client.list_models(api_key=api_key)
-        return ModelInventorySnapshot(models=tuple(
-            descriptor for row in rows
-            if (descriptor := self._descriptor(row)) is not None
-        ))
+        return ModelInventorySnapshot(
+            models=tuple(descriptor for row in rows if (descriptor := self._descriptor(row)) is not None)
+        )
 
-    def _descriptor(
-        self, row: Mapping[str, Any]
-    ) -> ModelInventoryDescriptor | None:
+    def _descriptor(self, row: Mapping[str, Any]) -> ModelInventoryDescriptor | None:
         model_id = str(row.get("id") or "").strip()
         if not model_id:
             return None
         architecture = row.get("architecture")
         architecture = architecture if isinstance(architecture, Mapping) else {}
-        supported = {
-            str(value or "").strip().lower()
-            for value in (row.get("supported_parameters") or ())
-        }
+        supported = {str(value or "").strip().lower() for value in (row.get("supported_parameters") or ())}
         inputs = self._modalities(architecture.get("input_modalities"))
         outputs = self._modalities(architecture.get("output_modalities"))
         capabilities = {
@@ -133,12 +121,14 @@ class OpenRouterModelInventoryAdapter:
         ):
             normalized = str(value or "").strip()
             if normalized:
-                facts.append(ModelMetadataFact(
-                    fact_id=fact_id,
-                    value=normalized[:512],
-                    evidence=ModelMetadataEvidence.DETECTED,
-                    source_id=self.source_id,
-                ))
+                facts.append(
+                    ModelMetadataFact(
+                        fact_id=fact_id,
+                        value=normalized[:512],
+                        evidence=ModelMetadataEvidence.DETECTED,
+                        source_id=self.source_id,
+                    )
+                )
         pricing = row.get("pricing")
         pricing = pricing if isinstance(pricing, Mapping) else {}
         return ModelInventoryDescriptor(
@@ -159,12 +149,15 @@ class OpenRouterModelInventoryAdapter:
             output_modalities=outputs,
             price_input_per_million=self._per_million(pricing.get("prompt")),
             price_output_per_million=self._per_million(pricing.get("completion")),
-            capabilities=tuple(ModelCapabilityClaim(
-                capability_id=capability,
-                value="supported" if enabled else "unknown",
-                evidence=ModelMetadataEvidence.DETECTED,
-                source_id=self.source_id,
-            ) for capability, enabled in sorted(capabilities.items())),
+            capabilities=tuple(
+                ModelCapabilityClaim(
+                    capability_id=capability,
+                    value="supported" if enabled else "unknown",
+                    evidence=ModelMetadataEvidence.DETECTED,
+                    source_id=self.source_id,
+                )
+                for capability, enabled in sorted(capabilities.items())
+            ),
             metadata_facts=tuple(facts),
         )
 
@@ -172,10 +165,7 @@ class OpenRouterModelInventoryAdapter:
     def _modalities(value: Any) -> tuple[str, ...]:
         if not isinstance(value, (list, tuple)):
             return ()
-        return tuple(
-            str(item).strip().lower() for item in value
-            if str(item or "").strip()
-        )
+        return tuple(str(item).strip().lower() for item in value if str(item or "").strip())
 
     @staticmethod
     def _positive_int(value: Any) -> int | None:
@@ -195,6 +185,7 @@ class OpenRouterModelInventoryAdapter:
 
 
 __all__ = [
-    "OpenRouterModelInventoryAdapter", "OpenRouterModelsClientPort",
+    "OpenRouterModelInventoryAdapter",
+    "OpenRouterModelsClientPort",
     "RequestsOpenRouterModelsClient",
 ]

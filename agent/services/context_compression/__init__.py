@@ -24,34 +24,35 @@ Public API surface:
     QualityGuard                — post-compression quality validation
     QualityResult               — quality check result
 """
+
 from __future__ import annotations
 
 from agent.services.context_compression.adapter import (
-    ContextCompressionAdapter,
     CompressionRequest,
     CompressionResult,
+    ContextCompressionAdapter,
     build_compression_adapter,
 )
-from agent.services.context_compression.policy_engine import (
-    CompressionPolicyEngine,
-    CompressionPolicy,
-)
-from agent.services.context_compression.token_estimator import (
-    TokenEstimator,
-    TokenMetrics,
-)
 from agent.services.context_compression.ccr_store import (
-    CCRStore,
     CCREntry,
+    CCRStore,
+)
+from agent.services.context_compression.policy_engine import (
+    CompressionPolicy,
+    CompressionPolicyEngine,
+)
+from agent.services.context_compression.quality_guard import (
+    QualityGuard,
+    QualityResult,
 )
 from agent.services.context_compression.secret_redactor import (
     SecretRedactor,
     SensitivityLabel,
 )
 from agent.services.context_compression.smart_compressor import SmartCompressor
-from agent.services.context_compression.quality_guard import (
-    QualityGuard,
-    QualityResult,
+from agent.services.context_compression.token_estimator import (
+    TokenEstimator,
+    TokenMetrics,
 )
 
 __all__ = [

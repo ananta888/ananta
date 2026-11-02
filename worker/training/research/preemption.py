@@ -31,10 +31,7 @@ class PreemptionController:
         self._requested = True
 
     def install(self) -> Callable[[], None]:
-        previous = {
-            signum: signal.getsignal(signum)
-            for signum in (signal.SIGTERM, signal.SIGUSR1)
-        }
+        previous = {signum: signal.getsignal(signum) for signum in (signal.SIGTERM, signal.SIGUSR1)}
 
         def handler(_signum, _frame) -> None:
             self.request()

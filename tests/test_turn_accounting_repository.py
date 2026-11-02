@@ -2,7 +2,7 @@ import json
 
 import pytest
 from sqlalchemy import create_engine
-from sqlmodel import SQLModel, Session, select
+from sqlmodel import Session, SQLModel, select
 
 from agent.db_models.turn_accounting import (
     TurnAccountingLedgerDB,
@@ -64,19 +64,13 @@ def test_sql_accounting_survives_restart_and_fences_replay_gap_and_regression(tm
         clock=lambda: 1400,
     )
     assert restarted.ingest(_event()).replayed
-    gap = restarted.ingest(
-        _event(3, TurnAccountingCounters(2, 3, 50, 100, 4, 5, 1, 1))
-    )
+    gap = restarted.ingest(_event(3, TurnAccountingCounters(2, 3, 50, 100, 4, 5, 1, 1)))
     assert "turn_accounting_sequence_gap_estimated" in gap.record.reason_codes
     assert "turn_accounting_counter_regression_estimated" in gap.record.reason_codes
-    restart = restarted.ingest(
-        _event(1, event_id="event-restart", turn_runtime_epoch="runtime-2")
-    )
+    restart = restarted.ingest(_event(1, event_id="event-restart", turn_runtime_epoch="runtime-2"))
     assert "turn_accounting_runtime_restart_estimated" in restart.record.reason_codes
     with pytest.raises(TurnAccountingError, match="sequence_stale"):
-        restarted.ingest(
-            _event(1, event_id="event-stale", turn_runtime_epoch="runtime-2")
-        )
+        restarted.ingest(_event(1, event_id="event-stale", turn_runtime_epoch="runtime-2"))
 
 
 def test_sql_accounting_is_scoped_content_free_paginated_and_purged(tmp_path):

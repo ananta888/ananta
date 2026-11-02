@@ -43,9 +43,7 @@ class GrantMutationReceipts:
     ) -> tuple[str, str]:
         key = str(idempotency_key or "").strip()
         if not key or len(key) > 255:
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_key_required", status_code=428
-            )
+            raise SourceControlGrantAdminError("grant_idempotency_key_required", status_code=428)
         request_digest = digest(
             {
                 "schema": "ananta.source-control.grant-mutation.v1",
@@ -66,31 +64,21 @@ class GrantMutationReceipts:
         )
         return operation_key, request_digest
 
-    def replay(
-        self, *, operation_key: str, request_digest: str
-    ) -> GrantView | None:
+    def replay(self, *, operation_key: str, request_digest: str) -> GrantView | None:
         with Session(self._engine) as db:
             receipt = db.get(SourceControlOperationDB, operation_key)
         if receipt is None:
             return None
         if receipt.request_digest != request_digest:
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_key_conflict", status_code=409
-            )
+            raise SourceControlGrantAdminError("grant_idempotency_key_conflict", status_code=409)
         if receipt.state != "completed" or not receipt.result_json:
-            raise SourceControlGrantAdminError(
-                "grant_mutation_in_progress", status_code=409
-            )
+            raise SourceControlGrantAdminError("grant_mutation_in_progress", status_code=409)
         try:
             payload = json.loads(receipt.result_json)
         except (TypeError, ValueError) as exc:
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_result_invalid", status_code=500
-            ) from exc
+            raise SourceControlGrantAdminError("grant_idempotency_result_invalid", status_code=500) from exc
         if not isinstance(payload, Mapping):
-            raise SourceControlGrantAdminError(
-                "grant_idempotency_result_invalid", status_code=500
-            )
+            raise SourceControlGrantAdminError("grant_idempotency_result_invalid", status_code=500)
         return GrantView.from_dict(payload)
 
 

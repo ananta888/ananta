@@ -4,10 +4,9 @@ Revision ID: e5a7b9d1f3c6
 Revises: d4f6a8c0e2b6
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy import inspect
-
 
 revision = "e5a7b9d1f3c6"
 down_revision = "d4f6a8c0e2b6"
@@ -32,7 +31,10 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(
-                "tenant_id", "owner_subject", "operation", "key_digest",
+                "tenant_id",
+                "owner_subject",
+                "operation",
+                "key_digest",
                 name="uq_hrm_idempotency_receipt_scope",
             ),
         )

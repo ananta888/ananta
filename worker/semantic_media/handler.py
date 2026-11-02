@@ -66,9 +66,8 @@ class SemanticComputeWorkerHandler:
         artifact = self._executor.execute(task, stopped)
         if stopped():
             raise SemanticComputeWorkerError("execution_authority_lost")
-        if (
-            not isinstance(artifact.content, bytes)
-            or len(artifact.content) > int(task.resource_budget["artifact_bytes"])
+        if not isinstance(artifact.content, bytes) or len(artifact.content) > int(
+            task.resource_budget["artifact_bytes"]
         ):
             raise SemanticComputeWorkerError("artifact_budget_exceeded")
         # The Hub-selected publisher target receives all fencing bindings.
@@ -103,6 +102,10 @@ class SemanticComputeWorkerHandler:
 
 
 __all__ = [
-    "ArtifactPublisherPort", "LeaseGuardPort", "SemanticComputeWorkerError",
-    "SemanticComputeWorkerHandler", "SemanticExecutorPort", "WorkerArtifact",
+    "ArtifactPublisherPort",
+    "LeaseGuardPort",
+    "SemanticComputeWorkerError",
+    "SemanticComputeWorkerHandler",
+    "SemanticExecutorPort",
+    "WorkerArtifact",
 ]

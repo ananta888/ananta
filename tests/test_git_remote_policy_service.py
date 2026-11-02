@@ -110,13 +110,9 @@ class _ActiveCredentialStatus:
 
 
 def test_policy_accepts_repository_bound_percent_encoded_secret_reference() -> None:
-    reference = (
-        "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
-    )
+    reference = "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
 
-    authorized = _policy(
-        credential_status=_ActiveCredentialStatus()
-    ).authorize(_request(credential_ref=reference))
+    authorized = _policy(credential_status=_ActiveCredentialStatus()).authorize(_request(credential_ref=reference))
 
     assert authorized.credential_ref == reference
 
@@ -132,21 +128,15 @@ def test_policy_accepts_repository_bound_percent_encoded_secret_reference() -> N
 def test_policy_rejects_malformed_or_oversized_secret_reference(
     reference: str,
 ) -> None:
-    with pytest.raises(
-        GitRemotePolicyError, match="git_credential_reference_invalid"
-    ):
-        _policy(credential_status=_ActiveCredentialStatus()).authorize(
-            _request(credential_ref=reference)
-        )
+    with pytest.raises(GitRemotePolicyError, match="git_credential_reference_invalid"):
+        _policy(credential_status=_ActiveCredentialStatus()).authorize(_request(credential_ref=reference))
 
 
 def test_policy_denies_revoked_vault_credential_reference() -> None:
     policy = _policy(credential_status=_RevokedCredentialStatus())
 
     with pytest.raises(GitRemotePolicyError, match="git_credential_revoked"):
-        policy.authorize(
-            _request(credential_ref="vault://git/acme-read-token")
-        )
+        policy.authorize(_request(credential_ref="vault://git/acme-read-token"))
 
 
 def test_policy_returns_only_reference_and_credential_free_url() -> None:
@@ -162,9 +152,7 @@ def test_workspace_git_policy_failure_is_typed_and_creates_no_workspace(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
-    service = WorkspaceGitService(
-        remote_policy=_policy(resolver=lambda _host, _port: ("127.0.0.1",))
-    )
+    service = WorkspaceGitService(remote_policy=_policy(resolver=lambda _host, _port: ("127.0.0.1",)))
 
     with pytest.raises(WorkspaceGitInitError) as raised:
         service.init_workspace(
@@ -256,15 +244,9 @@ def test_https_git_cli_is_pinned_without_credential_reference() -> None:
     )
     rendered = "\n".join(arguments)
 
-    assert (
-        f"http.curloptResolve=git.example.com:443:{_PUBLIC_ADDRESS}"
-        in arguments
-    )
+    assert f"http.curloptResolve=git.example.com:443:{_PUBLIC_ADDRESS}" in arguments
     assert "http.sslVerify=true" in arguments
-    assert (
-        "remote.origin.url="
-        "https://git.example.com/acme/repository.git"
-    ) in arguments
+    assert ("remote.origin.url=https://git.example.com/acme/repository.git") in arguments
     assert credential_ref not in rendered
 
 

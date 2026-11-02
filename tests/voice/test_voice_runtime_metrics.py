@@ -73,10 +73,7 @@ def test_metrics_endpoint_requires_the_internal_service_identity() -> None:
     assert authorized.status_code == 200
     payload = authorized.get_data(as_text=True)
     assert "voice_runtime_requests_total" in payload
-    assert (
-        'voice_runtime_privacy_state{store_audio_effective="false",store_audio_requested="true"} 1.0'
-        in payload
-    )
+    assert 'voice_runtime_privacy_state{store_audio_effective="false",store_audio_requested="true"} 1.0' in payload
 
 
 def test_batch_metrics_and_trace_are_correlated_without_content_labels() -> None:
@@ -104,10 +101,7 @@ def test_batch_metrics_and_trace_are_correlated_without_content_labels() -> None
 
     payload = _scrape(client)
     assert 'voice_runtime_requests_total{operation="transcribe",outcome="succeeded"} 1.0' in payload
-    assert (
-        'voice_runtime_backend_calls_total{backend="mock",operation="transcribe",outcome="succeeded"} 1.0'
-        in payload
-    )
+    assert 'voice_runtime_backend_calls_total{backend="mock",operation="transcribe",outcome="succeeded"} 1.0' in payload
     assert secret_filename not in payload
     assert secret_audio.decode() not in payload
     assert request_id not in payload
@@ -184,9 +178,7 @@ def test_candidate_queue_backend_and_fusion_metrics_are_bounded() -> None:
     payload = metrics.render().decode("utf-8")
     assert 'voice_runtime_queue_wait_seconds_count{outcome="acquired",surface="candidate_dispatch"} 1.0' in payload
     assert 'voice_runtime_candidates_total{backend="mock",outcome="succeeded"} 1.0' in payload
-    assert (
-        'voice_runtime_fusions_total{outcome="succeeded",strategy="deterministic_consensus"} 1.0' in payload
-    )
+    assert 'voice_runtime_fusions_total{outcome="succeeded",strategy="deterministic_consensus"} 1.0' in payload
     assert 'voice_runtime_backend_calls_total{backend="other",operation="candidate",outcome="other"} 1.0' in payload
     assert "sensitive transcript" not in payload
     assert "sensitive-filename" not in payload

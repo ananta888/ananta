@@ -288,10 +288,7 @@ class CodeCompassAgenticRetrievalService:
             and self._hit_matches_scope(item, scope)
         ]
         graph_channel = signal_to_channel(SIGNAL_GRAPH)
-        if (
-            SIGNAL_GRAPH in plan["signals"]
-            and channel_results.get(graph_channel)
-        ):
+        if SIGNAL_GRAPH in plan["signals"] and channel_results.get(graph_channel):
             # Preserve one bounded structural result when graph retrieval was
             # requested and succeeded. Exact evidence remains first, while the
             # merger can no longer silently erase the entire graph channel.
@@ -307,29 +304,26 @@ class CodeCompassAgenticRetrievalService:
                 existing_graph_positions = []
             selected_paths = {str(item.get("path") or "") for item in selected}
             novel_graph_hits = [
-                item
-                for item in channel_results[graph_channel]
-                if str(item.get("path") or "") not in selected_paths
+                item for item in channel_results[graph_channel] if str(item.get("path") or "") not in selected_paths
             ]
-            if not any(
-                item.get("channel") == graph_channel
-                or graph_channel in dict(item.get("channel_contributions") or {})
-                for item in selected[:2]
-            ) and novel_graph_hits:
+            if (
+                not any(
+                    item.get("channel") == graph_channel
+                    or graph_channel in dict(item.get("channel_contributions") or {})
+                    for item in selected[:2]
+                )
+                and novel_graph_hits
+            ):
                 graph_hit = max(
                     novel_graph_hits,
                     key=lambda item: float(item.get("score") or 0.0),
                 )
                 selected.insert(min(1, len(selected)), graph_hit)
             elif not any(
-                item.get("channel") == graph_channel
-                or graph_channel in dict(item.get("channel_contributions") or {})
+                item.get("channel") == graph_channel or graph_channel in dict(item.get("channel_contributions") or {})
                 for item in selected[:2]
             ):
-                graph_by_path = {
-                    str(item.get("path") or ""): item
-                    for item in channel_results[graph_channel]
-                }
+                graph_by_path = {str(item.get("path") or ""): item for item in channel_results[graph_channel]}
                 for item in selected:
                     graph_hit = graph_by_path.get(str(item.get("path") or ""))
                     if graph_hit is None:
@@ -460,12 +454,7 @@ class CodeCompassAgenticRetrievalService:
             row.get("path") or row.get("source") or metadata.get("repo_relative_path") or metadata.get("file")
         )
         record_id = str(
-            row.get("id")
-            or row.get("record_id")
-            or metadata.get("record_id")
-            or row.get("content_hash")
-            or path
-            or ""
+            row.get("id") or row.get("record_id") or metadata.get("record_id") or row.get("content_hash") or path or ""
         )
         return {
             "path": path,
@@ -568,9 +557,7 @@ class CodeCompassAgenticRetrievalService:
                 "excerpt": excerpt,
                 "symbol": str(item.get("symbol_name") or ""),
                 "kind": str(metadata.get("record_kind") or signals[0]),
-                "verification_status": (
-                    "verified" if metadata.get("source_id_verified") else "unverified"
-                ),
+                "verification_status": ("verified" if metadata.get("source_id_verified") else "unverified"),
                 "source": str(item.get("channel") or item.get("source") or signals[0]),
                 "truncated": False,
             }
@@ -620,12 +607,17 @@ class CodeCompassAgenticRetrievalService:
                 plan=plan,
             )
         used_chars, used_tokens = usage(evidence)
-        return evidence, truncated, continuation, {
-            "used_chars": used_chars,
-            "used_tokens": used_tokens,
-            "token_estimator": getattr(self._token_estimator, "__name__", "injected"),
-            "truncation_reason": "+".join(sorted(truncation_reasons)),
-        }
+        return (
+            evidence,
+            truncated,
+            continuation,
+            {
+                "used_chars": used_chars,
+                "used_tokens": used_tokens,
+                "token_estimator": getattr(self._token_estimator, "__name__", "injected"),
+                "truncation_reason": "+".join(sorted(truncation_reasons)),
+            },
+        )
 
     @staticmethod
     def _signals_for_item(item: Mapping[str, Any]) -> list[str]:
@@ -767,17 +759,11 @@ class CodeCompassAgenticRetrievalService:
             "source_scope": str(capability.get("source_scope") or ""),
             "revision": str(capability.get("revision") or ""),
             "allowed_paths": [
-                _normalize_path(item)
-                for item in list(capability.get("allowed_paths") or [])
-                if _normalize_path(item)
+                _normalize_path(item) for item in list(capability.get("allowed_paths") or []) if _normalize_path(item)
             ],
             "allowed_index_ids": tuple(
                 sorted(
-                    {
-                        str(item).strip()
-                        for item in list(capability.get("allowed_index_ids") or [])
-                        if str(item).strip()
-                    }
+                    {str(item).strip() for item in list(capability.get("allowed_index_ids") or []) if str(item).strip()}
                 )
             ),
             "subject_id": str(capability.get("subject_id") or ""),
@@ -859,9 +845,7 @@ class CodeCompassAgenticRetrievalService:
             raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE)
         source_scopes = {source_scope}
         allowed_index_ids = {
-            str(item)
-            for item in list(scope.get("allowed_index_ids") or [])
-            if str(item).strip()
+            str(item) for item in list(scope.get("allowed_index_ids") or []) if str(item).strip()
         } or None
         return get_knowledge_index_retrieval_service().search_records(
             query,

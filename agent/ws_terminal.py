@@ -180,9 +180,7 @@ def _authenticate_terminal_token(
     the terminal path.
     """
 
-    file_managed = bool(
-        str(app_config.get("AGENT_TOKEN_FILE") or os.environ.get("AGENT_TOKEN_FILE") or "").strip()
-    )
+    file_managed = bool(str(app_config.get("AGENT_TOKEN_FILE") or os.environ.get("AGENT_TOKEN_FILE") or "").strip())
     try:
         configured_agent_token = resolve_configured_agent_token(app_config)
     except AgentTokenConfigurationError:
@@ -342,9 +340,9 @@ def _attach_token_ws_session(ws: Any, token: str, app: Any) -> None:
     """Handle WSS connection authenticated via a short-lived attach token."""
     from agent.db_models import TerminalEventDB
     from agent.services.repository_registry import get_repository_registry
+    from agent.services.terminal_recording_service import redact_secrets
     from agent.services.terminal_session_service import get_terminal_session_service
     from agent.services.tmux_backend import TmuxBackendError, get_tmux_session_backend
-    from agent.services.terminal_recording_service import redact_secrets
 
     svc = get_terminal_session_service()
     resolved = svc.resolve_attach_token(token)
@@ -416,10 +414,14 @@ def _attach_token_ws_session(ws: Any, token: str, app: Any) -> None:
             time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
             now = time.monotonic()
             if max_lifetime > 0 and now - started_at >= max_lifetime:
-                _send_event(ws, "error", {"message": "terminal_session_closed", "details": "terminal_max_lifetime_exceeded"})
+                _send_event(
+                    ws, "error", {"message": "terminal_session_closed", "details": "terminal_max_lifetime_exceeded"}
+                )
                 break
             if idle_timeout > 0 and now - last_activity >= idle_timeout:
-                _send_event(ws, "error", {"message": "terminal_session_closed", "details": "terminal_idle_timeout_exceeded"})
+                _send_event(
+                    ws, "error", {"message": "terminal_session_closed", "details": "terminal_idle_timeout_exceeded"}
+                )
                 break
             try:
                 raw = backend.capture_output(session_name=tmux_name, lines=50)
@@ -497,13 +499,13 @@ class _InputPreviewLog:
             if not match:
                 break
             line = self._buffer[: match.start()]
-            self._buffer = self._buffer[match.end():]
+            self._buffer = self._buffer[match.end() :]
             self._append(line, partial=False)
         if force and self._buffer.strip():
             self._append(self._buffer, partial=True)
             self._buffer = ""
         elif not force and len(self._buffer) > self._MAX_BUFFER_CHARS:
-            self._append(self._buffer[-self._PARTIAL_TAIL_CHARS:], partial=True)
+            self._append(self._buffer[-self._PARTIAL_TAIL_CHARS :], partial=True)
             self._buffer = ""
 
 

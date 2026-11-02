@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from typing import Iterable, Mapping, Protocol
 
@@ -159,7 +160,7 @@ class SpeechReconciliationScheduler:
                                 reason_code="speech_reconciliation_dispatch_failed",
                             )
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("schedule: ignored Exception", exc_info=True)
                     self._leases.revoke(
                         lease.lease_id,
                         reason_code="speech_reconciliation_dispatch_failed",

@@ -81,32 +81,21 @@ class RecoveryDispatchLeaseSettlement:
         Must run under the task mutation lock held by ``result_guard``.
         """
 
-        latest = repos.task_repo.get_by_id(
-            str(task_id or "")
-        )
+        latest = repos.task_repo.get_by_id(str(task_id or ""))
         exit_binding = lease_binding(
             latest,
             token=token,
             phase=phase,
             decision=bound,
             allowed_states={"worker_admitted"},
-            worker_url=(
-                str(worker_url or "").strip().rstrip("/")
-                if worker_url is not None
-                else None
-            ),
+            worker_url=(str(worker_url or "").strip().rstrip("/") if worker_url is not None else None),
             request_fingerprint=request_fingerprint,
         )
         if not exit_binding.allowed:
-            raise RuntimeError(
-                "recovery_result_lease_changed_before_commit:"
-                + exit_binding.reason_code
-            )
+            raise RuntimeError("recovery_result_lease_changed_before_commit:" + exit_binding.reason_code)
 
         committed = _task_copy(latest)
-        old_status = str(
-            _value(latest, "status") or ""
-        ).strip().lower()
+        old_status = str(_value(latest, "status") or "").strip().lower()
         accepted_status = old_status
         if phase == "execute":
             accepted_status = validated_result_candidate(
@@ -114,20 +103,14 @@ class RecoveryDispatchLeaseSettlement:
                 phase=phase,
             )
             setattr(committed, "status", accepted_status)
-            if (
-                accepted_status == "verification_failed"
-                and hasattr(
-                    committed,
-                    "status_reason_code",
-                )
+            if accepted_status == "verification_failed" and hasattr(
+                committed,
+                "status_reason_code",
             ):
                 setattr(
                     committed,
                     "status_reason_code",
-                    (
-                        "recovery_result_"
-                        "verification_failed"
-                    ),
+                    ("recovery_result_verification_failed"),
                 )
 
         committed_lease = self._stage_result_acceptance(
@@ -141,31 +124,20 @@ class RecoveryDispatchLeaseSettlement:
                 authorize_recovery_result_commit_write,
             )
 
-            commit_authority = (
-                authorize_recovery_result_commit_write(
-                    task_id=str(task_id or ""),
-                    lease=committed_lease,
-                )
+            commit_authority = authorize_recovery_result_commit_write(
+                task_id=str(task_id or ""),
+                lease=committed_lease,
             )
         with commit_authority:
-            persisted = repos.task_repo.save(
-                committed
-            )
-        persisted = (
-            persisted
-            or repos.task_repo.get_by_id(
-                str(task_id or "")
-            )
-        )
+            persisted = repos.task_repo.save(committed)
+        persisted = persisted or repos.task_repo.get_by_id(str(task_id or ""))
         if not self._result_commit_persisted(
             persisted,
             phase=phase,
             accepted_status=accepted_status,
             committed_lease=committed_lease,
         ):
-            raise RuntimeError(
-                "recovery_result_commit_rejected"
-            )
+            raise RuntimeError("recovery_result_commit_rejected")
         return old_status, accepted_status
 
     @staticmethod
@@ -175,41 +147,19 @@ class RecoveryDispatchLeaseSettlement:
         phase: str,
         accepted_status: str,
     ) -> dict[str, Any]:
-        committed_details = _mapping(
-            _value(committed, "status_reason_details")
-        )
-        committed_lease = _mapping(
-            committed_details.get(
-                "recovery_dispatch_lease"
-            )
-        )
+        committed_details = _mapping(_value(committed, "status_reason_details"))
+        committed_lease = _mapping(committed_details.get("recovery_dispatch_lease"))
         committed_lease["state"] = "result_accepted"
         committed_lease["accepted_at"] = time.time()
-        committed_lease["accepted_result_phase"] = (
-            phase
-        )
-        committed_lease["accepted_result_status"] = (
-            accepted_status
-        )
-        committed_lease["accepted_result_terminal"] = (
-            accepted_status in TERMINAL_TASK_STATUSES
-        )
+        committed_lease["accepted_result_phase"] = phase
+        committed_lease["accepted_result_status"] = accepted_status
+        committed_lease["accepted_result_terminal"] = accepted_status in TERMINAL_TASK_STATUSES
         if phase == "execute":
-            result_candidate = _mapping(
-                committed_details.get(
-                    "recovery_result_candidate"
-                )
-            )
+            result_candidate = _mapping(committed_details.get("recovery_result_candidate"))
             result_candidate["state"] = "accepted"
-            result_candidate["accepted_at"] = (
-                committed_lease["accepted_at"]
-            )
-            committed_details[
-                "recovery_result_candidate"
-            ] = result_candidate
-        committed_details[
-            "recovery_dispatch_lease"
-        ] = committed_lease
+            result_candidate["accepted_at"] = committed_lease["accepted_at"]
+            committed_details["recovery_result_candidate"] = result_candidate
+        committed_details["recovery_dispatch_lease"] = committed_lease
         setattr(
             committed,
             "status_reason_details",
@@ -231,9 +181,7 @@ class RecoveryDispatchLeaseSettlement:
                     "status": accepted_status,
                 },
             )
-        committed_lease["accepted_result_digest"] = (
-            recovery_accepted_result_digest(committed)
-        )
+        committed_lease["accepted_result_digest"] = recovery_accepted_result_digest(committed)
         return committed_lease
 
     @staticmethod
@@ -250,67 +198,24 @@ class RecoveryDispatchLeaseSettlement:
                 "status_reason_details",
             )
         )
-        persisted_lease = _mapping(
-            persisted_details.get(
-                "recovery_dispatch_lease"
-            )
-        )
-        persisted_status = str(
-            _value(persisted, "status") or ""
-        ).strip().lower()
+        persisted_lease = _mapping(persisted_details.get("recovery_dispatch_lease"))
+        persisted_status = str(_value(persisted, "status") or "").strip().lower()
         return not (
-            str(persisted_lease.get("state") or "")
-            != "result_accepted"
-            or str(
-                persisted_lease.get(
-                    "accepted_result_phase"
-                )
-                or ""
-            )
-            != phase
-            or str(
-                persisted_lease.get(
-                    "accepted_result_status"
-                )
-                or ""
-            )
-            != accepted_status
-            or persisted_lease.get(
-                "accepted_result_terminal"
-            )
-            is not (
-                accepted_status
-                in TERMINAL_TASK_STATUSES
-            )
+            str(persisted_lease.get("state") or "") != "result_accepted"
+            or str(persisted_lease.get("accepted_result_phase") or "") != phase
+            or str(persisted_lease.get("accepted_result_status") or "") != accepted_status
+            or persisted_lease.get("accepted_result_terminal") is not (accepted_status in TERMINAL_TASK_STATUSES)
             or not hmac.compare_digest(
-                str(
-                    persisted_lease.get(
-                        "accepted_result_digest"
-                    )
-                    or ""
-                ),
-                str(
-                    committed_lease.get(
-                        "accepted_result_digest"
-                    )
-                    or ""
-                ),
+                str(persisted_lease.get("accepted_result_digest") or ""),
+                str(committed_lease.get("accepted_result_digest") or ""),
             )
             or (
                 phase == "execute"
                 and (
-                    persisted_status
-                    != accepted_status
+                    persisted_status != accepted_status
                     or not hmac.compare_digest(
-                        str(
-                            persisted_lease.get(
-                                "accepted_result_digest"
-                            )
-                            or ""
-                        ),
-                        recovery_accepted_result_digest(
-                            persisted
-                        ),
+                        str(persisted_lease.get("accepted_result_digest") or ""),
+                        recovery_accepted_result_digest(persisted),
                     )
                 )
             )
@@ -327,8 +232,7 @@ class RecoveryDispatchLeaseSettlement:
 
         if (
             status_transition is not None
-            and status_transition[0]
-            != status_transition[1]
+            and status_transition[0] != status_transition[1]
             and self._post_commit_enabled()
         ):
             from agent.services.task_runtime_service import (
@@ -373,9 +277,7 @@ class RecoveryDispatchLeaseSettlement:
         task = repos.task_repo.get_by_id(normalized_task_id)
         if not is_recovery_child(task):
             return False
-        details = _mapping(
-            _value(task, "status_reason_details")
-        )
+        details = _mapping(_value(task, "status_reason_details"))
         lease = _mapping(details.get("recovery_dispatch_lease"))
         if str(lease.get("state") or "") in IN_FLIGHT_LEASE_STATES:
             return (
@@ -387,27 +289,16 @@ class RecoveryDispatchLeaseSettlement:
                 )
                 == "cancelled"
             )
-        previous_status = str(
-            _value(task, "status") or ""
-        ).strip().lower()
-        if (
-            not previous_status
-            or previous_status in TERMINAL_TASK_STATUSES
-        ):
+        previous_status = str(_value(task, "status") or "").strip().lower()
+        if not previous_status or previous_status in TERMINAL_TASK_STATUSES:
             return False
         cancelled_at = time.time()
         marker = {
             "schema": "ananta.recovery_child_cancellation.v1",
             "task_id": normalized_task_id,
-            "source_task_id": str(
-                _value(task, "source_task_id") or ""
-            ).strip(),
-            "goal_id": str(
-                _value(task, "goal_id") or ""
-            ).strip(),
-            "plan_id": str(
-                _value(task, "plan_id") or ""
-            ).strip(),
+            "source_task_id": str(_value(task, "source_task_id") or "").strip(),
+            "goal_id": str(_value(task, "goal_id") or "").strip(),
+            "plan_id": str(_value(task, "plan_id") or "").strip(),
             "previous_status": previous_status,
             "target_status": "cancelled",
             "reason_code": normalized_reason,
@@ -438,9 +329,7 @@ class RecoveryDispatchLeaseSettlement:
             )
 
     def _owner_lock_ids(self, task: Any, task_id: str) -> set[str]:
-        source_task_id = str(
-            _value(task, "source_task_id") or ""
-        ).strip()
+        source_task_id = str(_value(task, "source_task_id") or "").strip()
         lock_ids = {str(task_id or "")}
         if source_task_id:
             lock_ids.add(source_task_id)
@@ -463,22 +352,12 @@ class RecoveryDispatchLeaseSettlement:
         with self._lock_port().mutation_locks(lock_ids) as acquired:
             if not acquired:
                 return False
-            authoritative = repos.task_repo.get_by_id(
-                str(task_id or "")
-            )
+            authoritative = repos.task_repo.get_by_id(str(task_id or ""))
             if authoritative is None:
                 return False
-            details = _mapping(
-                _value(authoritative, "status_reason_details")
-            )
-            lease = _mapping(
-                details.get("recovery_dispatch_lease")
-            )
-            if (
-                not lease
-                or str(lease.get("state") or "")
-                not in IN_FLIGHT_LEASE_STATES
-            ):
+            details = _mapping(_value(authoritative, "status_reason_details"))
+            lease = _mapping(details.get("recovery_dispatch_lease"))
+            if not lease or str(lease.get("state") or "") not in IN_FLIGHT_LEASE_STATES:
                 return False
             if accepted_terminal_result_is_proven(
                 authoritative,
@@ -486,9 +365,7 @@ class RecoveryDispatchLeaseSettlement:
             ):
                 return False
             try:
-                expected_revision = int(
-                    lease.get("revision")
-                ) + 1
+                expected_revision = int(lease.get("revision")) + 1
             except (TypeError, ValueError):
                 return False
             normalized_reason = str(reason_code or "")[:160]
@@ -518,12 +395,7 @@ class RecoveryDispatchLeaseSettlement:
                 current_lease=previous_lease,
                 proposed_lease=lease,
             ):
-                persisted = (
-                    repos.task_repo.save(authoritative)
-                    or repos.task_repo.get_by_id(
-                        str(task_id or "")
-                    )
-                )
+                persisted = repos.task_repo.save(authoritative) or repos.task_repo.get_by_id(str(task_id or ""))
             persisted_lease = _mapping(
                 _mapping(
                     _value(
@@ -533,22 +405,13 @@ class RecoveryDispatchLeaseSettlement:
                 ).get("recovery_dispatch_lease")
             )
             try:
-                persisted_revision = int(
-                    persisted_lease.get("revision") or 0
-                )
+                persisted_revision = int(persisted_lease.get("revision") or 0)
             except (TypeError, ValueError):
                 return False
             return bool(
-                str(persisted_lease.get("state") or "")
-                == "revoked"
+                str(persisted_lease.get("state") or "") == "revoked"
                 and persisted_revision == expected_revision
-                and str(
-                    persisted_lease.get(
-                        "revocation_reason"
-                    )
-                    or ""
-                )
-                == normalized_reason
+                and str(persisted_lease.get("revocation_reason") or "") == normalized_reason
             )
 
     def abort_dispatch_lease(
@@ -572,30 +435,17 @@ class RecoveryDispatchLeaseSettlement:
         with self._lock_port().mutation_locks(lock_ids) as acquired:
             if not acquired:
                 return ""
-            authoritative = repos.task_repo.get_by_id(
-                str(task_id or "")
-            )
-            current_status = str(
-                _value(authoritative, "status") or ""
-            ).strip().lower()
-            details = _mapping(
-                _value(authoritative, "status_reason_details")
-            )
-            lease = _mapping(
-                details.get("recovery_dispatch_lease")
-            )
-            if (
-                current_status in TERMINAL_TASK_STATUSES
-                and accepted_terminal_result_is_proven(
-                    authoritative,
-                    lease,
-                )
+            authoritative = repos.task_repo.get_by_id(str(task_id or ""))
+            current_status = str(_value(authoritative, "status") or "").strip().lower()
+            details = _mapping(_value(authoritative, "status_reason_details"))
+            lease = _mapping(details.get("recovery_dispatch_lease"))
+            if current_status in TERMINAL_TASK_STATUSES and accepted_terminal_result_is_proven(
+                authoritative,
+                lease,
             ):
                 return current_status
 
-            inconsistent_terminal = (
-                current_status in TERMINAL_TASK_STATUSES
-            )
+            inconsistent_terminal = current_status in TERMINAL_TASK_STATUSES
             final_status = (
                 "verification_failed"
                 if current_status == "completed"
@@ -621,18 +471,14 @@ class RecoveryDispatchLeaseSettlement:
                 committed_lease=committed_lease,
                 final_status=final_status,
             )
-            final_status = str(
-                _value(persisted, "status") or final_status
-            ).strip().lower()
+            final_status = str(_value(persisted, "status") or final_status).strip().lower()
             if not self._abort_persisted(
                 persisted,
                 committed=committed,
                 committed_lease=committed_lease,
                 final_status=final_status,
             ):
-                raise RuntimeError(
-                    "recovery_dispatch_abort_commit_rejected"
-                )
+                raise RuntimeError("recovery_dispatch_abort_commit_rejected")
             status_transition = (current_status, final_status)
 
         self._notify_abort(task_id, status_transition)
@@ -649,12 +495,8 @@ class RecoveryDispatchLeaseSettlement:
         current_status: str,
         lease: dict[str, Any],
     ) -> dict[str, Any]:
-        committed_details = _mapping(
-            _value(committed, "status_reason_details")
-        )
-        committed_lease = _mapping(
-            committed_details.get("recovery_dispatch_lease")
-        )
+        committed_details = _mapping(_value(committed, "status_reason_details"))
+        committed_lease = _mapping(committed_details.get("recovery_dispatch_lease"))
         if committed_lease:
             committed_lease.update(
                 {
@@ -665,15 +507,10 @@ class RecoveryDispatchLeaseSettlement:
                         if inconsistent_terminal
                         else str(reason_code or "")[:160]
                     ),
-                    "revision": int(
-                        committed_lease.get("revision") or 0
-                    )
-                    + 1,
+                    "revision": int(committed_lease.get("revision") or 0) + 1,
                 }
             )
-            committed_details[
-                "recovery_dispatch_lease"
-            ] = committed_lease
+            committed_details["recovery_dispatch_lease"] = committed_lease
         setattr(
             committed,
             "status_reason_details",
@@ -686,11 +523,7 @@ class RecoveryDispatchLeaseSettlement:
             setattr(
                 committed,
                 "status_reason_code",
-                (
-                    "recovery_result_verification_failed"
-                    if inconsistent_terminal
-                    else str(reason_code or "")[:160]
-                ),
+                ("recovery_result_verification_failed" if inconsistent_terminal else str(reason_code or "")[:160]),
             )
         if hasattr(committed, "updated_at"):
             setattr(committed, "updated_at", time.time())
@@ -701,9 +534,7 @@ class RecoveryDispatchLeaseSettlement:
         append_task_history_event(
             committed,
             event_type=(
-                "recovery_result_acceptance_inconsistent"
-                if inconsistent_terminal
-                else "recovery_dispatch_aborted"
+                "recovery_result_acceptance_inconsistent" if inconsistent_terminal else "recovery_dispatch_aborted"
             ),
             actor="autopilot_tick",
             details={
@@ -727,8 +558,7 @@ class RecoveryDispatchLeaseSettlement:
         requires_abort_authority = bool(
             final_status in TERMINAL_TASK_STATUSES
             and committed_lease
-            and str(committed_lease.get("state") or "")
-            == "revoked"
+            and str(committed_lease.get("state") or "") == "revoked"
         )
         from agent.common.recovery_dispatch_invalidation_write_boundary import (
             authorize_recovery_dispatch_invalidation_write,
@@ -750,9 +580,7 @@ class RecoveryDispatchLeaseSettlement:
                     proposed_lease=committed_lease,
                     target_status=final_status,
                 ):
-                    persisted = repos.task_repo.save(
-                        committed
-                    )
+                    persisted = repos.task_repo.save(committed)
             else:
                 persisted = repos.task_repo.save(committed)
         return persisted
@@ -774,35 +602,17 @@ class RecoveryDispatchLeaseSettlement:
             ).get("recovery_dispatch_lease")
         )
         try:
-            persisted_revision = int(
-                persisted_lease.get("revision") or -1
-            )
-            committed_revision = int(
-                committed_lease.get("revision") or -2
-            )
+            persisted_revision = int(persisted_lease.get("revision") or -1)
+            committed_revision = int(committed_lease.get("revision") or -2)
         except (TypeError, ValueError):
             persisted_revision = -1
             committed_revision = -2
         return not (
-            final_status
-            != str(
-                _value(committed, "status") or ""
-            ).strip().lower()
-            or str(persisted_lease.get("state") or "")
-            != "revoked"
+            final_status != str(_value(committed, "status") or "").strip().lower()
+            or str(persisted_lease.get("state") or "") != "revoked"
             or persisted_revision != committed_revision
-            or str(
-                persisted_lease.get(
-                    "revocation_reason"
-                )
-                or ""
-            )
-            != str(
-                committed_lease.get(
-                    "revocation_reason"
-                )
-                or ""
-            )
+            or str(persisted_lease.get("revocation_reason") or "")
+            != str(committed_lease.get("revocation_reason") or "")
         )
 
     def _notify_abort(
@@ -825,8 +635,7 @@ class RecoveryDispatchLeaseSettlement:
                     old_status=status_transition[0],
                     event_type=(
                         "recovery_result_acceptance_inconsistent"
-                        if status_transition[0]
-                        in TERMINAL_TASK_STATUSES
+                        if status_transition[0] in TERMINAL_TASK_STATUSES
                         else "recovery_dispatch_aborted"
                     ),
                     force=True,

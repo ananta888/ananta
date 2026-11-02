@@ -18,9 +18,7 @@ class DendriticMemoryArtifactService:
         self._root.mkdir(parents=True, exist_ok=True)
         self._max_pack_bytes = max_pack_bytes
 
-    def put(
-        self, *, manifest: DendriticMemoryPackManifestV1, files: Mapping[str, bytes]
-    ) -> dict[str, Any]:
+    def put(self, *, manifest: DendriticMemoryPackManifestV1, files: Mapping[str, bytes]) -> dict[str, Any]:
         expected = {str(item["name"]): dict(item) for item in manifest.files}
         if set(files) != set(expected):
             raise ValueError("dendritic_artifact_file_set_mismatch")

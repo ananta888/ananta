@@ -156,9 +156,7 @@ def test_execution_plan_rejects_non_allowlisted_model_routing_metadata() -> None
         ),
     )
 
-    assert "model_routing_field_not_allowed" in {
-        issue.code for issue in plan.validate()
-    }
+    assert "model_routing_field_not_allowed" in {issue.code for issue in plan.validate()}
 
 
 def test_execution_plan_loader_sanitizes_unknown_model_routing_fields() -> None:
@@ -171,10 +169,7 @@ def test_execution_plan_loader_sanitizes_unknown_model_routing_fields() -> None:
     restored = ExecutionPlan.from_mapping(payload)
 
     assert restored.nodes[0].metadata["model_routing"]["preferred_profile_id"] == "local-phi"
-    assert (
-        "unknown_runtime_field"
-        not in restored.nodes[0].metadata["model_routing"]
-    )
+    assert "unknown_runtime_field" not in restored.nodes[0].metadata["model_routing"]
 
 
 def test_legacy_request_execution_budget_is_explicit_and_bounded() -> None:

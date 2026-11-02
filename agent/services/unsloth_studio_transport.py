@@ -65,7 +65,6 @@ _FORBIDDEN_REQUEST_HEADERS = frozenset(
 _IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 
 
-
 class DeadlineDnsResolver:
     """Bound DNS lookups without allowing timed-out calls to exhaust threads."""
 
@@ -96,9 +95,7 @@ class DeadlineDnsResolver:
 
         def run_lookup() -> None:
             try:
-                result_queue.put_nowait(
-                    (True, tuple(str(value) for value in self._lookup(host, port)))
-                )
+                result_queue.put_nowait((True, tuple(str(value) for value in self._lookup(host, port))))
             except Exception as exc:
                 result_queue.put_nowait((False, exc))
             finally:
@@ -166,9 +163,7 @@ class UnslothStudioEndpointPolicy:
         deadline: float | None = None,
     ) -> ValidatedJmapEndpoint:
         effective_deadline = (
-            float(deadline)
-            if deadline is not None
-            else self._clock() + self._default_dns_timeout_seconds
+            float(deadline) if deadline is not None else self._clock() + self._default_dns_timeout_seconds
         )
         shared_policy = JmapEndpointPolicy(
             config=self._shared_config,
@@ -181,9 +176,7 @@ class UnslothStudioEndpointPolicy:
         try:
             endpoint = shared_policy.validate_initial(url, purpose="api")
         except JmapEndpointPolicyError as exc:
-            raise UnslothStudioTransportError(
-                exc.reason_code.replace("jmap_", "unsloth_studio_", 1)
-            ) from exc
+            raise UnslothStudioTransportError(exc.reason_code.replace("jmap_", "unsloth_studio_", 1)) from exc
         if endpoint.host not in self._allowed_hosts:
             raise UnslothStudioTransportError("unsloth_studio_host_not_allowlisted")
         addresses = tuple(ipaddress.ip_address(value) for value in endpoint.addresses)
@@ -191,9 +184,7 @@ class UnslothStudioEndpointPolicy:
             any(address in network for network in self._allowed_networks) for address in addresses
         ):
             raise UnslothStudioTransportError("unsloth_studio_ip_not_allowlisted")
-        if endpoint.scheme != "https" and not (
-            endpoint.local and self._allow_plaintext_internal
-        ):
+        if endpoint.scheme != "https" and not (endpoint.local and self._allow_plaintext_internal):
             raise UnslothStudioTransportError("unsloth_studio_tls_required")
         return endpoint
 
@@ -234,9 +225,7 @@ class PinnedUnslothStudioHttpAdapter:
             connection.request(request.method, target, body=request.body, headers=headers)
             _set_socket_timeout(pinned_socket, deadline, self._clock)
             response = connection.getresponse()
-            response_headers = {
-                str(key).lower(): str(value) for key, value in response.getheaders()
-            }
+            response_headers = {str(key).lower(): str(value) for key, value in response.getheaders()}
             body = _read_bounded_response(
                 response,
                 headers=response_headers,
@@ -258,9 +247,7 @@ class PinnedUnslothStudioHttpAdapter:
                 retryable=True,
             ) from exc
         except ssl.SSLCertVerificationError as exc:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_tls_verification_failed"
-            ) from exc
+            raise UnslothStudioTransportError("unsloth_studio_tls_verification_failed") from exc
         except ssl.SSLError as exc:
             raise UnslothStudioTransportError("unsloth_studio_tls_failed") from exc
         except (OSError, http.client.HTTPException) as exc:
@@ -364,20 +351,14 @@ class UnslothStudioTransport:
             request_headers["Content-Type"] = "application/json"
         if idempotency_key is not None:
             if _IDEMPOTENCY_KEY_RE.fullmatch(str(idempotency_key)) is None:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_idempotency_key_invalid"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_idempotency_key_invalid")
             request_headers["Idempotency-Key"] = str(idempotency_key)
 
         deadline = self._clock() + float(self._config.total_timeout_seconds)
         if service_bearer_secret_ref is not None:
             if not (path == "/mcp" or path.startswith("/mcp/")):
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_service_bearer_scope_invalid"
-                )
-            access_token = self._resolve_service_bearer(
-                service_bearer_secret_ref
-            )
+                raise UnslothStudioTransportError("unsloth_studio_service_bearer_scope_invalid")
+            access_token = self._resolve_service_bearer(service_bearer_secret_ref)
             jwt_authentication = False
         else:
             access_token = self._authenticated_access_token(deadline)
@@ -387,13 +368,9 @@ class UnslothStudioTransport:
         while True:
             endpoint = self._policy.validate(url, deadline=deadline)
             if endpoint.origin != self._base_endpoint.origin:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_origin_changed"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_origin_changed")
             attempt_headers = dict(request_headers)
-            attempt_headers["Authorization"] = (
-                f"Bearer {access_token}"
-            )
+            attempt_headers["Authorization"] = f"Bearer {access_token}"
             try:
                 response = self._adapter.send(
                     UnslothStudioHttpRequest(
@@ -407,9 +384,7 @@ class UnslothStudioTransport:
                             _remaining(deadline, self._clock),
                         ),
                         total_timeout_seconds=_remaining(deadline, self._clock),
-                        maximum_decompressed_bytes=int(
-                            self._config.maximum_response_bytes
-                        ),
+                        maximum_decompressed_bytes=int(self._config.maximum_response_bytes),
                     )
                 )
             except UnslothStudioTransportError as exc:
@@ -420,9 +395,7 @@ class UnslothStudioTransport:
                 raise
 
             if 300 <= response.status_code < 400:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_redirect_forbidden"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_redirect_forbidden")
             if response.status_code in _RETRYABLE_STATUSES:
                 if self._may_retry(upper_method, attempt, True):
                     self._sleep_before_retry(deadline)
@@ -440,60 +413,36 @@ class UnslothStudioTransport:
                     )
                     authentication_retried = True
                     continue
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_authentication_failed"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_authentication_failed")
             if response.status_code == 403:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_authorization_failed"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_authorization_failed")
             if not 200 <= response.status_code < 300:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_upstream_rejected"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_upstream_rejected")
             if response_headers is not None:
                 response_headers.clear()
-                response_headers.update(
-                    {
-                        str(name).lower(): str(value)
-                        for name, value in response.headers.items()
-                    }
-                )
+                response_headers.update({str(name).lower(): str(value) for name, value in response.headers.items()})
             if not response.body:
                 return {}
-            content_type = (
-                str(response.headers.get("content-type") or "")
-                .split(";", 1)[0]
-                .strip()
-                .lower()
-            )
+            content_type = str(response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
             if content_type not in {
                 "application/json",
                 "application/problem+json",
                 "text/event-stream",
             }:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_content_type_invalid"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_content_type_invalid")
             try:
                 decoded = (
                     _decode_sse_json(response.body)
                     if content_type == "text/event-stream"
                     else json.loads(
                         response.body.decode("utf-8"),
-                        object_pairs_hook=(
-                            _reject_duplicate_json_members
-                        ),
+                        object_pairs_hook=(_reject_duplicate_json_members),
                     )
                 )
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_json_invalid"
-                ) from exc
+                raise UnslothStudioTransportError("unsloth_studio_response_json_invalid") from exc
             if not isinstance(decoded, Mapping):
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_object_required"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_object_required")
             return dict(decoded)
 
     def probe(self) -> Mapping[str, Any]:
@@ -516,16 +465,10 @@ class UnslothStudioTransport:
                 "reason_code": None,
             }
         except IncompatibleUnslothStudioContract as exc:
-            raise UnslothStudioTransportError(
-                "incompatible_upstream_contract"
-            ) from exc
+            raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
         except UnslothStudioTransportError as exc:
-            if exc.reason_code.startswith(
-                "unsloth_studio_response_"
-            ):
-                raise UnslothStudioTransportError(
-                    "incompatible_upstream_contract"
-                ) from exc
+            if exc.reason_code.startswith("unsloth_studio_response_"):
+                raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
             raise
 
     def _build_url(self, path: str) -> str:
@@ -541,9 +484,7 @@ class UnslothStudioTransport:
         ):
             raise UnslothStudioTransportError("unsloth_studio_path_invalid")
         decoded_path = unquote(parsed.path)
-        if "\\" in decoded_path or any(
-            segment in {".", ".."} for segment in decoded_path.split("/")
-        ):
+        if "\\" in decoded_path or any(segment in {".", ".."} for segment in decoded_path.split("/")):
             raise UnslothStudioTransportError("unsloth_studio_path_invalid")
         return f"{self._base_url}/{raw.lstrip('/')}"
 
@@ -561,28 +502,20 @@ class UnslothStudioTransport:
                 or "\r" in raw_value
                 or "\n" in raw_value
             ):
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_request_header_forbidden"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_request_header_forbidden")
             normalized[name] = raw_value
         return normalized
 
     def _resolve_service_bearer(self, reference: str) -> str:
         reference = str(reference or "").strip()
         if not reference:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_service_bearer_secret_ref_required"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_service_bearer_secret_ref_required")
         try:
             value = self._secret_resolver.resolve(reference)
         except OpaqueSecretReferenceError as exc:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_service_bearer_secret_unavailable"
-            ) from exc
+            raise UnslothStudioTransportError("unsloth_studio_service_bearer_secret_unavailable") from exc
         if len(value) < 16 or len(value) > 4096 or "\r" in value or "\n" in value:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_service_bearer_secret_invalid"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_service_bearer_secret_invalid")
         return value
 
     def _authenticated_access_token(self, deadline: float) -> str:
@@ -599,10 +532,7 @@ class UnslothStudioTransport:
         deadline: float,
     ) -> str:
         with self._session_lock:
-            if (
-                self._access_token is not None
-                and self._access_token != failed_access_token
-            ):
+            if self._access_token is not None and self._access_token != failed_access_token:
                 return self._access_token
             if self._refresh_token is not None:
                 try:
@@ -619,18 +549,12 @@ class UnslothStudioTransport:
                 except IncompatibleUnslothStudioContract as exc:
                     self._access_token = None
                     self._refresh_token = None
-                    raise UnslothStudioTransportError(
-                        "incompatible_upstream_contract"
-                    ) from exc
+                    raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
                 except UnslothStudioTransportError as exc:
-                    if exc.reason_code.startswith(
-                        "unsloth_studio_response_"
-                    ):
+                    if exc.reason_code.startswith("unsloth_studio_response_"):
                         self._access_token = None
                         self._refresh_token = None
-                        raise UnslothStudioTransportError(
-                            "incompatible_upstream_contract"
-                        ) from exc
+                        raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
                     if exc.reason_code != "unsloth_studio_authentication_failed":
                         raise
             self._login_locked(deadline)
@@ -639,21 +563,11 @@ class UnslothStudioTransport:
 
     def _login_locked(self, deadline: float) -> None:
         try:
-            password = self._secret_resolver.resolve(
-                self._config.credential_secret_ref
-            )
+            password = self._secret_resolver.resolve(self._config.credential_secret_ref)
         except OpaqueSecretReferenceError as exc:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_credentials_unavailable"
-            ) from exc
-        if (
-            not 8 <= len(password) <= 1024
-            or "\r" in password
-            or "\n" in password
-        ):
-            raise UnslothStudioTransportError(
-                "unsloth_studio_credentials_invalid"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_credentials_unavailable") from exc
+        if not 8 <= len(password) <= 1024 or "\r" in password or "\n" in password:
+            raise UnslothStudioTransportError("unsloth_studio_credentials_invalid")
         try:
             token = validate_studio_token(
                 self._auth_exchange(
@@ -663,16 +577,10 @@ class UnslothStudioTransport:
                 )
             )
         except IncompatibleUnslothStudioContract as exc:
-            raise UnslothStudioTransportError(
-                "incompatible_upstream_contract"
-            ) from exc
+            raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
         except UnslothStudioTransportError as exc:
-            if exc.reason_code.startswith(
-                "unsloth_studio_response_"
-            ):
-                raise UnslothStudioTransportError(
-                    "incompatible_upstream_contract"
-                ) from exc
+            if exc.reason_code.startswith("unsloth_studio_response_"):
+                raise UnslothStudioTransportError("incompatible_upstream_contract") from exc
             raise
         self._accept_token_locked(token)
 
@@ -680,9 +588,7 @@ class UnslothStudioTransport:
         if token.get("must_change_password") is not False:
             self._access_token = None
             self._refresh_token = None
-            raise UnslothStudioTransportError(
-                "unsloth_studio_password_change_required"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_password_change_required")
         self._access_token = str(token["access_token"])
         self._refresh_token = str(token["refresh_token"])
 
@@ -721,58 +627,37 @@ class UnslothStudioTransport:
                     _remaining(deadline, self._clock),
                 ),
                 total_timeout_seconds=_remaining(deadline, self._clock),
-                maximum_decompressed_bytes=int(
-                    self._config.maximum_response_bytes
-                ),
+                maximum_decompressed_bytes=int(self._config.maximum_response_bytes),
             )
         )
         if 300 <= response.status_code < 400:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_redirect_forbidden"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_redirect_forbidden")
         if response.status_code == 401:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_authentication_failed"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_authentication_failed")
         if response.status_code == 429 or response.status_code in _RETRYABLE_STATUSES:
             raise UnslothStudioTransportError(
                 "unsloth_studio_upstream_unavailable",
                 retryable=True,
             )
         if not 200 <= response.status_code < 300:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_upstream_rejected"
-            )
-        content_type = (
-            str(response.headers.get("content-type") or "")
-            .split(";", 1)[0]
-            .strip()
-            .lower()
-        )
+            raise UnslothStudioTransportError("unsloth_studio_upstream_rejected")
+        content_type = str(response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
         if content_type != "application/json":
-            raise UnslothStudioTransportError(
-                "unsloth_studio_response_content_type_invalid"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_response_content_type_invalid")
         try:
             decoded = json.loads(
                 response.body.decode("utf-8"),
                 object_pairs_hook=_reject_duplicate_json_members,
             )
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-            raise UnslothStudioTransportError(
-                "unsloth_studio_response_json_invalid"
-            ) from exc
+            raise UnslothStudioTransportError("unsloth_studio_response_json_invalid") from exc
         if not isinstance(decoded, Mapping):
-            raise UnslothStudioTransportError(
-                "unsloth_studio_response_object_required"
-            )
+            raise UnslothStudioTransportError("unsloth_studio_response_object_required")
         return dict(decoded)
 
     def _may_retry(self, method: str, attempt: int, retryable: bool) -> bool:
         return bool(
-            retryable
-            and method in _IDEMPOTENT_METHODS
-            and attempt < int(self._config.maximum_idempotent_retries)
+            retryable and method in _IDEMPOTENT_METHODS and attempt < int(self._config.maximum_idempotent_retries)
         )
 
     def _sleep_before_retry(self, deadline: float) -> None:
@@ -794,9 +679,7 @@ def _normalize_host(value: str) -> str:
 
 def _system_dns_lookup(host: str, port: int) -> tuple[str, ...]:
     rows = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    return tuple(
-        sorted({str(row[4][0]).split("%", 1)[0] for row in rows})
-    )
+    return tuple(sorted({str(row[4][0]).split("%", 1)[0] for row in rows}))
 
 
 def _assert_request_matches_endpoint(request: UnslothStudioHttpRequest) -> None:
@@ -805,9 +688,7 @@ def _assert_request_matches_endpoint(request: UnslothStudioHttpRequest) -> None:
         host = _normalize_host(str(parsed.hostname or ""))
         port = int(parsed.port or (443 if parsed.scheme.lower() == "https" else 80))
     except (UnicodeError, ValueError) as exc:
-        raise UnslothStudioTransportError(
-            "unsloth_studio_validated_endpoint_mismatch"
-        ) from exc
+        raise UnslothStudioTransportError("unsloth_studio_validated_endpoint_mismatch") from exc
     endpoint = request.endpoint
     if (
         request.url != endpoint.url
@@ -815,9 +696,7 @@ def _assert_request_matches_endpoint(request: UnslothStudioHttpRequest) -> None:
         or port != endpoint.port
         or parsed.scheme.lower() != endpoint.scheme
     ):
-        raise UnslothStudioTransportError(
-            "unsloth_studio_validated_endpoint_mismatch"
-        )
+        raise UnslothStudioTransportError("unsloth_studio_validated_endpoint_mismatch")
 
 
 def _host_header(endpoint: ValidatedJmapEndpoint) -> str:
@@ -860,16 +739,12 @@ def _read_bounded_response(
 ) -> bytes:
     encoding = str(headers.get("content-encoding") or "identity").strip().lower()
     if encoding not in {"", "identity", "gzip"}:
-        raise UnslothStudioTransportError(
-            "unsloth_studio_response_encoding_forbidden"
-        )
+        raise UnslothStudioTransportError("unsloth_studio_response_encoding_forbidden")
     declared = str(headers.get("content-length") or "").strip()
     if encoding in {"", "identity"} and declared:
         try:
             if int(declared) > maximum_bytes:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_too_large"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_too_large")
         except ValueError:
             pass
     output = bytearray()
@@ -887,28 +762,18 @@ def _read_bounded_response(
                 expanded = decompressor.decompress(chunk, remaining + 1)
                 output.extend(expanded)
                 if decompressor.unconsumed_tail:
-                    raise UnslothStudioTransportError(
-                        "unsloth_studio_response_too_large"
-                    )
+                    raise UnslothStudioTransportError("unsloth_studio_response_too_large")
             if len(output) > maximum_bytes:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_too_large"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_too_large")
         if decompressor is not None:
             remaining = maximum_bytes - len(output)
             output.extend(decompressor.flush(remaining + 1))
             if not decompressor.eof:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_encoding_invalid"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_encoding_invalid")
             if len(output) > maximum_bytes:
-                raise UnslothStudioTransportError(
-                    "unsloth_studio_response_too_large"
-                )
+                raise UnslothStudioTransportError("unsloth_studio_response_too_large")
     except zlib.error as exc:
-        raise UnslothStudioTransportError(
-            "unsloth_studio_response_encoding_invalid"
-        ) from exc
+        raise UnslothStudioTransportError("unsloth_studio_response_encoding_invalid") from exc
     return bytes(output)
 
 
@@ -916,11 +781,7 @@ def _decode_sse_json(body: bytes) -> Mapping[str, Any]:
     text = body.decode("utf-8")
     messages: list[Mapping[str, Any]] = []
     for event in re.split(r"\r?\n\r?\n", text):
-        data = "\n".join(
-            line[5:].lstrip()
-            for line in event.splitlines()
-            if line.startswith("data:")
-        )
+        data = "\n".join(line[5:].lstrip() for line in event.splitlines() if line.startswith("data:"))
         if not data or data == "[DONE]":
             continue
         decoded = json.loads(

@@ -5,11 +5,10 @@ Covers:
 - VisualGuideAction priority ordering
 - VisualGuideTraceEvent serialization
 """
+
 from __future__ import annotations
 
 import time
-
-import pytest
 
 from agent.services.visual_guide.models import (
     VisualGuideAction,
@@ -18,10 +17,10 @@ from agent.services.visual_guide.models import (
     VisualGuideTraceEvent,
 )
 
-
 # ---------------------------------------------------------------------------
 # VisualGuideRequest
 # ---------------------------------------------------------------------------
+
 
 class TestVisualGuideRequest:
     def test_to_dict_clamps_snapshot_to_500_chars(self):
@@ -57,14 +56,14 @@ class TestVisualGuideRequest:
     def test_to_dict_contains_required_keys(self):
         req = VisualGuideRequest(snake_id="s", trigger_type="ui_tick", route="/chats")
         d = req.to_dict()
-        for key in ("request_id", "snake_id", "trigger_type", "route", "snapshot",
-                    "region_steps_count", "created_at"):
+        for key in ("request_id", "snake_id", "trigger_type", "route", "snapshot", "region_steps_count", "created_at"):
             assert key in d
 
 
 # ---------------------------------------------------------------------------
 # VisualGuideDecision
 # ---------------------------------------------------------------------------
+
 
 class TestVisualGuideDecision:
     def test_to_dict_strategy_suppressed(self):
@@ -83,6 +82,7 @@ class TestVisualGuideDecision:
 # ---------------------------------------------------------------------------
 # VisualGuideAction — priority ordering
 # ---------------------------------------------------------------------------
+
 
 class TestVisualGuideAction:
     def test_default_priority_is_5(self):
@@ -135,6 +135,7 @@ class TestVisualGuideAction:
 # VisualGuideTraceEvent — serialization
 # ---------------------------------------------------------------------------
 
+
 class TestVisualGuideTraceEvent:
     def test_to_dict_contains_all_keys(self):
         evt = VisualGuideTraceEvent(
@@ -160,9 +161,16 @@ class TestVisualGuideTraceEvent:
 
     def test_all_event_types_serialize(self):
         event_types = [
-            "request_received", "snapshot_normalized", "delta_computed",
-            "decision_started", "model_invoked", "action_generated",
-            "action_sent", "fallback_used", "suppressed_by_rate_limit", "error",
+            "request_received",
+            "snapshot_normalized",
+            "delta_computed",
+            "decision_started",
+            "model_invoked",
+            "action_generated",
+            "action_sent",
+            "fallback_used",
+            "suppressed_by_rate_limit",
+            "error",
         ]
         for evt_type in event_types:
             evt = VisualGuideTraceEvent(event=evt_type, request_id="r")

@@ -17,34 +17,61 @@ from agent.services.sfu_audience_policy_compiler import (
 
 class Reads:
     def __init__(self):
-        self.parent = AudienceParentSnapshot(
-            "tenant-a", "room-a", "publication-a", True, True, 3, 4, 5, 2_000
-        )
+        self.parent = AudienceParentSnapshot("tenant-a", "room-a", "publication-a", True, True, 3, 4, 5, 2_000)
         self.grants = {
             "publisher-a": AudienceGrantSnapshot(
-                "tenant-a", "room-a", "publisher-a", "publisher", True,
-                ("publication-a", "publication-b"), (), 3, 4, 2_000,
+                "tenant-a",
+                "room-a",
+                "publisher-a",
+                "publisher",
+                True,
+                ("publication-a", "publication-b"),
+                (),
+                3,
+                4,
+                2_000,
             ),
             "receiver-a": AudienceGrantSnapshot(
-                "tenant-a", "room-a", "receiver-a", "viewer", True, (),
-                ("publication-a",), 3, 4, 2_000,
+                "tenant-a",
+                "room-a",
+                "receiver-a",
+                "viewer",
+                True,
+                (),
+                ("publication-a",),
+                3,
+                4,
+                2_000,
             ),
             "receiver-b": AudienceGrantSnapshot(
-                "tenant-a", "room-a", "receiver-b", "subscriber", True, (),
-                ("publication-a",), 3, 4, 2_000,
+                "tenant-a",
+                "room-a",
+                "receiver-b",
+                "subscriber",
+                True,
+                (),
+                ("publication-a",),
+                3,
+                4,
+                2_000,
             ),
         }
         self.consents = {
             receiver: AudienceConsentSnapshot(
-                "tenant-a", "room-a", receiver, "publication-a",
-                ("receive",), ("team",), False, 2_000, 4,
+                "tenant-a",
+                "room-a",
+                receiver,
+                "publication-a",
+                ("receive",),
+                ("team",),
+                False,
+                2_000,
+                4,
             )
             for receiver in ("receiver-a", "receiver-b")
         }
         self.capabilities = {
-            receiver: AudienceCapabilitySnapshot(
-                "tenant-a", "room-a", receiver, ("audio", "video"), True, False, 5
-            )
+            receiver: AudienceCapabilitySnapshot("tenant-a", "room-a", receiver, ("audio", "video"), True, False, 5)
             for receiver in ("receiver-a", "receiver-b")
         }
 
@@ -63,15 +90,24 @@ class Reads:
 
 def request(receivers=("receiver-b", "receiver-a")):
     return AudienceCompileRequest(
-        "tenant-a", "room-a", "publication-a", "publisher-a", tuple(receivers),
-        "team", "receive", "video", True, 3, 4, 5, 1_000,
+        "tenant-a",
+        "room-a",
+        "publication-a",
+        "publisher-a",
+        tuple(receivers),
+        "team",
+        "receive",
+        "video",
+        True,
+        3,
+        4,
+        5,
+        1_000,
     )
 
 
 def compiler(reads):
-    return SfuAudiencePolicyCompiler(
-        parents=reads, grants=reads, consents=reads, capabilities=reads
-    )
+    return SfuAudiencePolicyCompiler(parents=reads, grants=reads, consents=reads, capabilities=reads)
 
 
 def test_intersection_is_receive_only_sorted_and_deterministic() -> None:
@@ -88,12 +124,34 @@ def test_intersection_is_receive_only_sorted_and_deterministic() -> None:
     [
         (lambda r: setattr(r, "parent", None), AudienceReasonCode.PARENT_MISSING),
         (lambda r: setattr(r, "parent", replace(r.parent, complete=False)), AudienceReasonCode.PARENT_INCOMPLETE),
-        (lambda r: r.grants.__setitem__("receiver-a", replace(r.grants["receiver-a"], role="unknown")), AudienceReasonCode.UNKNOWN_ROLE),
-        (lambda r: r.grants.__setitem__("receiver-a", replace(r.grants["receiver-a"], subscribe_publication_refs=())), AudienceReasonCode.SUBSCRIBE_GRANT_MISSING),
-        (lambda r: r.consents.__setitem__("receiver-a", replace(r.consents["receiver-a"], revoked=True)), AudienceReasonCode.CONSENT_REVOKED),
-        (lambda r: r.consents.__setitem__("receiver-a", replace(r.consents["receiver-a"], valid_until_ms=999)), AudienceReasonCode.CONSENT_STALE),
-        (lambda r: r.capabilities.__setitem__("receiver-a", replace(r.capabilities["receiver-a"], e2ee=False)), AudienceReasonCode.E2EE_CAPABILITY_MISSING),
-        (lambda r: r.capabilities.__setitem__("receiver-a", replace(r.capabilities["receiver-a"], contradictory=True)), AudienceReasonCode.CAPABILITY_CONFLICT),
+        (
+            lambda r: r.grants.__setitem__("receiver-a", replace(r.grants["receiver-a"], role="unknown")),
+            AudienceReasonCode.UNKNOWN_ROLE,
+        ),
+        (
+            lambda r: r.grants.__setitem__(
+                "receiver-a", replace(r.grants["receiver-a"], subscribe_publication_refs=())
+            ),
+            AudienceReasonCode.SUBSCRIBE_GRANT_MISSING,
+        ),
+        (
+            lambda r: r.consents.__setitem__("receiver-a", replace(r.consents["receiver-a"], revoked=True)),
+            AudienceReasonCode.CONSENT_REVOKED,
+        ),
+        (
+            lambda r: r.consents.__setitem__("receiver-a", replace(r.consents["receiver-a"], valid_until_ms=999)),
+            AudienceReasonCode.CONSENT_STALE,
+        ),
+        (
+            lambda r: r.capabilities.__setitem__("receiver-a", replace(r.capabilities["receiver-a"], e2ee=False)),
+            AudienceReasonCode.E2EE_CAPABILITY_MISSING,
+        ),
+        (
+            lambda r: r.capabilities.__setitem__(
+                "receiver-a", replace(r.capabilities["receiver-a"], contradictory=True)
+            ),
+            AudienceReasonCode.CAPABILITY_CONFLICT,
+        ),
     ],
 )
 def test_default_deny_reason_table(mutation, reason) -> None:
@@ -120,6 +178,4 @@ def test_cross_tenant_multiple_publications_and_consent_revoke_do_not_expand() -
 def test_duplicate_receivers_fail_closed() -> None:
     projection = compiler(Reads()).compile(request(("receiver-a", "receiver-a")))
     assert projection.receiver_refs == ()
-    assert {item.reason_code for item in projection.decisions} == {
-        AudienceReasonCode.DUPLICATE_RECEIVER
-    }
+    assert {item.reason_code for item in projection.decisions} == {AudienceReasonCode.DUPLICATE_RECEIVER}

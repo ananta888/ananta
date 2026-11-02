@@ -20,17 +20,15 @@ Decision rationale (from the todo's decision_trigger):
   4. It matches the documented CLIProxyAPI profile name in
      docs/integrations/cliproxyapi.md.
 """
+
 from __future__ import annotations
-
-from pathlib import Path
-
-import pytest
 
 
 def _make_preflight_callable(agent_cfg: dict, provider_urls: dict | None = None):
     """Import the preflight function and bind AGENT_CONFIG / PROVIDER_URLS
     via a minimal Flask app context (no DB, no startup)."""
     from flask import Flask
+
     app = Flask(__name__)
     app.config["AGENT_CONFIG"] = agent_cfg
     app.config["PROVIDER_URLS"] = provider_urls or {}
@@ -40,6 +38,7 @@ def _make_preflight_callable(agent_cfg: dict, provider_urls: dict | None = None)
 
 def test_preflight_cliproxyapi_appears_with_display_name():
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     agent_cfg = {
         "default_provider": "cliproxyapi",
         "local_openai_backends": [
@@ -70,6 +69,7 @@ def test_preflight_unconfigured_cliproxyapi_is_silent():
     """A user who has not configured cliproxyapi must not see a
     warning or error in the preflight."""
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     app, ctx_fn = _make_preflight_callable({})
     with ctx_fn():
         result = get_cli_backend_preflight()
@@ -82,6 +82,7 @@ def test_preflight_lmstudio_entry_unchanged():
     """Adding cliproxyapi's display_name must not affect LM Studio
     preflight entries. Their display_name is None (or absent)."""
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     agent_cfg = {
         "default_provider": "cliproxyapi",
         "local_openai_backends": [
@@ -112,6 +113,7 @@ def test_preflight_ollama_entry_unchanged():
     its display_name field is None (not 'CLI Proxy API').
     """
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     agent_cfg = {
         "local_openai_backends": [
             {
@@ -123,7 +125,8 @@ def test_preflight_ollama_entry_unchanged():
         ],
     }
     app, ctx_fn = _make_preflight_callable(
-        agent_cfg, provider_urls={"ollama": "http://localhost:11434/v1"},
+        agent_cfg,
+        provider_urls={"ollama": "http://localhost:11434/v1"},
     )
     with ctx_fn():
         result = get_cli_backend_preflight()
@@ -138,6 +141,7 @@ def test_preflight_cliproxyapi_case_insensitive_id():
     """'CLIPROXYAPI' (uppercase) and 'cliproxyapi' both get the
     display_name — matching the local_openai_backends dedup behaviour."""
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     agent_cfg = {
         "default_provider": "cliproxyapi",
         "local_openai_backends": [
@@ -161,6 +165,7 @@ def test_preflight_cliproxyapi_case_insensitive_id():
 def test_preflight_cliproxyapi_required_fields_present():
     """All required preflight fields are exposed for cliproxyapi."""
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     agent_cfg = {
         "local_openai_backends": [
             {
@@ -176,8 +181,7 @@ def test_preflight_cliproxyapi_required_fields_present():
         result = get_cli_backend_preflight()
     local = result["providers"]["local_openai"]
     entry = next(e for e in local if e["provider"] == "cliproxyapi")
-    required = {"provider", "name", "base_url", "supports_tool_calls",
-                "provider_type", "display_name"}
+    required = {"provider", "name", "base_url", "supports_tool_calls", "provider_type", "display_name"}
     assert required.issubset(set(entry.keys()))
 
 
@@ -187,20 +191,16 @@ def test_preflight_no_false_warning_for_cliproxyapi():
     preflight output (other than as part of a generic CLI-backend
     capability)."""
     from agent.cli_backends.routing import get_cli_backend_preflight
+
     app, ctx_fn = _make_preflight_callable({})
     with ctx_fn():
         result = get_cli_backend_preflight()
     # No warnings in the local_openai section for missing cliproxyapi.
     local = result["providers"]["local_openai"]
-    assert local == [] or all(
-        "cliproxyapi" not in str(e.get("warnings") or [])
-        for e in local
-    )
+    assert local == [] or all("cliproxyapi" not in str(e.get("warnings") or []) for e in local)
     # And nothing in the top-level warnings references cliproxyapi.
     flat = json.dumps(result)
-    assert "cliproxyapi" not in flat or "cliproxyapi" in {
-        e.get("provider") for e in local
-    }
+    assert "cliproxyapi" not in flat or "cliproxyapi" in {e.get("provider") for e in local}
 
 
 import json

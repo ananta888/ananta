@@ -2,6 +2,7 @@
 
 Shadow Runner berechnet Entscheidungen parallel, schreibt sie NICHT in sichtbare Snake-Bewegung.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +15,7 @@ _log = logging.getLogger(__name__)
 try:
     from agent.services.heuristic_runtime.dsl.evaluator import DslEvaluator
     from agent.services.heuristic_runtime.dsl.validator import DslValidator
+
     _RUNTIME_AVAILABLE = True
 except ImportError:
     _RUNTIME_AVAILABLE = False
@@ -96,8 +98,10 @@ class HeuristicExperimentRunner:
         if not _RUNTIME_AVAILABLE or self._evaluator is None:
             return ShadowRunResult(
                 heuristic_id=heuristic_id,
-                shadow_action="no_action", shadow_confidence=0.0,
-                active_action=active_result.action_kind, active_confidence=active_result.confidence,
+                shadow_action="no_action",
+                shadow_confidence=0.0,
+                active_action=active_result.action_kind,
+                active_confidence=active_result.confidence,
             )
 
         try:
@@ -122,9 +126,7 @@ class HeuristicExperimentRunner:
 
         # Report aktualisieren
         if experiment_id not in self._reports:
-            self._reports[experiment_id] = ExperimentReport(
-                experiment_id=experiment_id, heuristic_id=heuristic_id
-            )
+            self._reports[experiment_id] = ExperimentReport(experiment_id=experiment_id, heuristic_id=heuristic_id)
         report = self._reports[experiment_id]
         report.total_ticks += 1
         if target_match:

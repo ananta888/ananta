@@ -2,7 +2,7 @@
 
 import time
 
-BROWSER_PROGRESS_INTERVAL_SECONDS = .1
+BROWSER_PROGRESS_INTERVAL_SECONDS = 0.1
 
 
 class CompanionBrowserProgress:

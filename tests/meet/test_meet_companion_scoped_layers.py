@@ -25,14 +25,19 @@ def layers(hub, tmp_path, monkeypatch):
 
     old_files = {"worker/visible.py": "old", "secret/private.py": "old secret"}
     publish_base(tmp_path, old_files)
-    new = manifest({"worker/visible.py": "new", "worker/added.py": "added",
-                    "worker-secret/sibling.py": "sibling", "secret/private.py": "new secret"})
+    new = manifest(
+        {
+            "worker/visible.py": "new",
+            "worker/added.py": "added",
+            "worker-secret/sibling.py": "sibling",
+            "secret/private.py": "new secret",
+        }
+    )
     snapshots = SnapshotManifestStore(tmp_path)
     snapshots.put(new)
     heads = LayerHeadRegistry(tmp_path)
     heads.create_head("foreign", layer_id="f" * 64, snapshot_revision="f" * 64)
-    metadata = {"codecompass_layer_head": {"schema": "ananta.codecompass_layer_pointer.v1",
-                                         "profile_id": PROFILE}}
+    metadata = {"codecompass_layer_head": {"schema": "ananta.codecompass_layer_pointer.v1", "profile_id": PROFILE}}
     pointer = SimpleNamespace(id=pointer_index_id(PROFILE), status="completed", index_metadata=metadata)
     lookups = []
 
@@ -41,8 +46,9 @@ def layers(hub, tmp_path, monkeypatch):
         return pointer if identity == pointer.id else None
 
     indices = SimpleNamespace(get_by_id=get_index)
-    monkeypatch.setattr(repository_registry, "get_repository_registry",
-                        lambda: SimpleNamespace(knowledge_index_repo=indices))
+    monkeypatch.setattr(
+        repository_registry, "get_repository_registry", lambda: SimpleNamespace(knowledge_index_repo=indices)
+    )
     query = CodeCompassLayerQueryBackend(layers=ArtifactLayerStore(tmp_path), heads=heads, snapshots=snapshots)
     hub.app.extensions["codecompass_layer_service"] = CodeCompassLayerService(query)
     hub.service.execution.registry = get_mcp_registry_service()
@@ -53,8 +59,9 @@ def layers(hub, tmp_path, monkeypatch):
 
 def call(f, name, arguments):
     f.sequence = getattr(f, "sequence", 0) + 1
-    return post(f.hub, f.hub.request | {"nonce": f"{f.sequence:032x}",
-        "tool": "codecompass." + name, "arguments": arguments})[1]
+    return post(
+        f.hub, f.hub.request | {"nonce": f"{f.sequence:032x}", "tool": "codecompass." + name, "arguments": arguments}
+    )[1]
 
 
 def test_actual_head_handler_lists_only_authorized_pointer_and_excludes_foreign_profile(layers):
@@ -68,8 +75,15 @@ def test_actual_head_handler_lists_only_authorized_pointer_and_excludes_foreign_
 
 
 def test_actual_plan_uses_immutable_hub_snapshot_and_only_permitted_changes(layers):
-    response = call(layers, "layers_plan", {"old_manifest": {},
-        "new_manifest": {"snapshot_revision": layers.new["snapshot_revision"]}, "profile_id": PROFILE})
+    response = call(
+        layers,
+        "layers_plan",
+        {
+            "old_manifest": {},
+            "new_manifest": {"snapshot_revision": layers.new["snapshot_revision"]},
+            "profile_id": PROFILE,
+        },
+    )
     assert response.status_code == 200, response.get_json()
     text = response.get_json()["text"]
     assert "worker/visible.py" in text and "worker/added.py" in text
@@ -79,8 +93,11 @@ def test_actual_plan_uses_immutable_hub_snapshot_and_only_permitted_changes(laye
 
 @pytest.mark.parametrize("change", ["manifest", "profile", "pointer", "tenant_scope"])
 def test_model_cannot_replace_hub_manifest_pointer_or_scope(layers, change):
-    args = {"old_manifest": {}, "new_manifest": {"snapshot_revision": layers.new["snapshot_revision"]},
-            "profile_id": PROFILE}
+    args = {
+        "old_manifest": {},
+        "new_manifest": {"snapshot_revision": layers.new["snapshot_revision"]},
+        "profile_id": PROFILE,
+    }
     if change == "manifest":
         args["new_manifest"] = layers.new | {"files": []}
     elif change == "profile":
@@ -102,8 +119,9 @@ def test_head_change_during_plan_cannot_return_mixed_generation(layers, monkeypa
 
     def changed(identity):
         layer = original(identity)
-        result = layers.heads.update_head(PROFILE, expected_generation=1, new_layer_id=identity,
-                                         snapshot_revision=layers.new["snapshot_revision"])
+        result = layers.heads.update_head(
+            PROFILE, expected_generation=1, new_layer_id=identity, snapshot_revision=layers.new["snapshot_revision"]
+        )
         assert result.success
         return layer
 

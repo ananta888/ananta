@@ -36,19 +36,32 @@ class AssignedCompanionToolClient:
         deadline = min(self.deadline, started + 20)
         if started >= deadline:
             raise ValueError("meet_companion_assignment_expired")
-        raw = encode({"schema": REQUEST_SCHEMA, "nonce": secrets.token_hex(16), "sent_at": int(self.clock()),
-                      "assignment": deepcopy(self._assignment), "tool": tool, "arguments": deepcopy(arguments)})
+        raw = encode(
+            {
+                "schema": REQUEST_SCHEMA,
+                "nonce": secrets.token_hex(16),
+                "sent_at": int(self.clock()),
+                "assignment": deepcopy(self._assignment),
+                "tool": tool,
+                "arguments": deepcopy(arguments),
+            }
+        )
         if len(raw) > MAX_REQUEST_BYTES:
             raise ValueError("meet_companion_task_tool_request_oversize")
-        request = urllib.request.Request(self.endpoint, raw, headers={"Content-Type": "application/json",
-                                                                  SIGNATURE_HEADER: request_signature(self.key, raw)})
+        request = urllib.request.Request(
+            self.endpoint,
+            raw,
+            headers={"Content-Type": "application/json", SIGNATURE_HEADER: request_signature(self.key, raw)},
+        )
         try:
             with self.opener.open(request, timeout=deadline - started) as response:
                 body = read_bounded(response, maximum=MAX_RESPONSE_BYTES, deadline=deadline)
                 supplied = response.headers.get(SIGNATURE_HEADER, "")
-            if (not re.fullmatch(r"[a-f0-9]{64}", supplied)
-                    or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
-                    or self.monotonic() >= deadline):
+            if (
+                not re.fullmatch(r"[a-f0-9]{64}", supplied)
+                or not hmac.compare_digest(supplied, response_signature(self.key, raw, body))
+                or self.monotonic() >= deadline
+            ):
                 raise ValueError()
             return validate_response(parse(body), self._assignment, tool)
         except (OSError, urllib.error.URLError, ValueError, TypeError):

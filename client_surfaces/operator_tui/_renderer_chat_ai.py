@@ -10,49 +10,36 @@ so existing imports keep working.
 
 from __future__ import annotations
 
-import os
 import re
 import time
-from textwrap import shorten
 from typing import TYPE_CHECKING
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
-from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
-from client_surfaces.operator_tui.keybindings_config import display_for_action, shortcut_tokens_for_area
-from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_filter_options, ai_snake_config_items, chat_model_option_label
 from client_surfaces.operator_tui.chat_long_message import (
     compact_chat_message_text,
-    get_render_mode,
-    is_showing_chat_long_message,
-    long_message_history_rows,
     should_use_middle_view_for_message,
 )
-from client_surfaces.operator_tui.chat_state import get_active_channel
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import grouped_audit_items, audit_nav_items
-from client_surfaces.operator_tui.template_nav import grouped_template_items, template_nav_items
-from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
-from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator, render_scrollbar_column
+from client_surfaces.operator_tui.keybindings_config import display_for_action
+from client_surfaces.operator_tui.models import OperatorState
+from client_surfaces.operator_tui.scroll.scrollbar_renderer import minimal_scroll_indicator
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
-
-
-
+    pass
 
 
 # === Cross-module imports (resolve symbols from other sub-modules) ===
-from client_surfaces.operator_tui import _renderer_utils as _ru_x
-from client_surfaces.operator_tui._renderer_utils import (_overlay_at_visible_col, _snake_palette, _chat_channel_label)
+from client_surfaces.operator_tui._renderer_utils import (
+    _chat_channel_label,
+    _inline_input_with_cursor,
+    _overlay_at_visible_col,
+    _snake_palette,
+)
+
 # === Module-level state (constants) ===
 
 # === Functions extracted from the original renderer.py ===
+
 
 def _is_chat_ask_mode(game: dict) -> bool:
     """True when the chat panel has an active :ask question (waiting or answered).
@@ -61,7 +48,6 @@ def _is_chat_ask_mode(game: dict) -> bool:
     of going through the visual viewport (compressed tree, narrow wrap).
     """
     return bool(str(game.get("tutor_ask_question") or "").strip())
-
 
 
 def _participant_color(game: dict[str, object], *, sender_id: str, sender_kind: str) -> tuple[int, int, int]:
@@ -79,7 +65,6 @@ def _participant_color(game: dict[str, object], *, sender_id: str, sender_kind: 
     return _snake_palette("cyan")["head"]
 
 
-
 def _participant_label(game: dict[str, object], sender_id: str, *, fallback: str) -> str:
     if sender_id == "s-ai":
         return "AI-snake"
@@ -93,13 +78,11 @@ def _participant_label(game: dict[str, object], sender_id: str, *, fallback: str
     return fallback
 
 
-
 def _plain_channel_selector(active_ch_id: str) -> str:
     labels = []
     for cid, label in [("room:main", "#room"), ("ai:tutor", "AI"), ("notes:self", "notes")]:
         labels.append(f"[{label}]" if cid == active_ch_id else label)
     return " ".join(labels)
-
 
 
 def _wrap_plain(text: str, width: int) -> list[str]:
@@ -119,7 +102,6 @@ def _wrap_plain(text: str, width: int) -> list[str]:
     return rows
 
 
-
 def _chat_msg_timestamp(msg: dict[str, object]) -> str:
     created_at = msg.get("created_at")
     if not isinstance(created_at, (int, float)):
@@ -128,7 +110,6 @@ def _chat_msg_timestamp(msg: dict[str, object]) -> str:
         return time.strftime("%H:%M", time.localtime(float(created_at)))
     except (OverflowError, OSError, ValueError):
         return "--:--"
-
 
 
 def _chat_timeout_progress_text(game: dict[str, object]) -> str:
@@ -145,7 +126,6 @@ def _chat_timeout_progress_text(game: dict[str, object]) -> str:
     return f"(AI schreibt... timeout in {remaining:0.1f}s [{progress}%])"
 
 
-
 def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, width: int) -> list[str]:
     """Compact bottom-right artifact-chat overlay.
 
@@ -154,6 +134,7 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     This lets the user see AI explanations without having to enter snake mode.
     """
     from client_surfaces.operator_tui import _renderer_snake_overlay as _rso_lazy
+
     _overlay_fullscreen_snake = _rso_lazy._overlay_fullscreen_snake
     game = state.header_logo_game or {}
     if bool(game.get("free_mode")):
@@ -176,7 +157,8 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     unread_count = 0
     active_session_name = ""
     try:
-        from client_surfaces.operator_tui.chat_state import get_chat_state, get_active_session
+        from client_surfaces.operator_tui.chat_state import get_active_session, get_chat_state
+
         chat_state = get_chat_state(dict(game))
         active_ch_id = str(chat_state.get("active_channel") or "ai:tutor")
         ch = (chat_state.get("channels") or {}).get(active_ch_id) or {}
@@ -212,7 +194,7 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
         label = str(active_dict.get("label") or active_dict.get("path") or "Artefakt")
     else:
         label = active_ch_id
-    label = label[:max(4, panel_width - 14)]
+    label = label[: max(4, panel_width - 14)]
 
     # How many rows can we show? reserve last 2 rows for status/command
     max_rows = min(3 if ultra_compact else 12, len(lines) - 3)
@@ -230,13 +212,13 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     else:
         llm_label = "○ kein LLM" if not llm_status else "○ lokal"
     unread_label = f" +{unread_count}" if unread_count else ""
-    panel.append(
-        f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}{unread_label} · {llm_label}\x1b[0m"
-    )
+    panel.append(f"\x1b[38;2;{hcol[0]};{hcol[1]};{hcol[2]}m AI · {label}{unread_label} · {llm_label}\x1b[0m")
     active_label = _chat_channel_label(active_ch_id)
     active_col = "\x1b[1;38;2;100;180;255m"
     focus_note = " INPUT" if focus_active else ""
-    sess_prefix = f"\x1b[38;2;100;220;180m[{active_session_name}]\x1b[1;38;2;100;180;255m " if active_session_name else ""
+    sess_prefix = (
+        f"\x1b[38;2;100;220;180m[{active_session_name}]\x1b[1;38;2;100;180;255m " if active_session_name else ""
+    )
     panel.append(f"{active_col}{sess_prefix}ACTIVE: {active_label}{focus_note}\x1b[0m")
     panel.append("\x1b[38;2;60;60;80m" + "─" * panel_width + "\x1b[0m")
     if chat_panel_open and not ultra_compact:
@@ -291,7 +273,6 @@ def _overlay_artifact_chat_compact(lines: list[str], state: OperatorState, *, wi
     return out
 
 
-
 def _compact_channel_selector(active_ch_id: str, width: int) -> str:
     parts: list[str] = []
     for cid, label in [("room:main", "#room"), ("ai:tutor", "AI"), ("notes:self", "notes")]:
@@ -303,7 +284,6 @@ def _compact_channel_selector(active_ch_id: str, width: int) -> str:
     if len(_ANSI_STRIP.sub("", raw)) <= width:
         return raw
     return raw[:width]
-
 
 
 def _overlay_snake_chat_panel(
@@ -329,8 +309,8 @@ def _overlay_snake_chat_panel(
     ch = channels.get(active_ch_id) or {}
     ch_type_raw = ch.get("channel_type") or "room"
     ch_type = str(getattr(ch_type_raw, "value", ch_type_raw))
-    display_name = str(ch.get("display_name") or active_ch_id)
-    unread_total = sum(int(c.get("unread") or 0) for c in channels.values())
+    str(ch.get("display_name") or active_ch_id)
+    sum(int(c.get("unread") or 0) for c in channels.values())
     chat_focus = bool(chat.get("chat_focus"))
     ai_typing = bool(chat.get("ai_typing"))
 
@@ -361,7 +341,7 @@ def _overlay_snake_chat_panel(
     panel_lines.append("CHAT User↔Snake " + " ".join(channel_labels))
     panel_lines.append(
         f"\x1b[38;2;90;90;90mbackend={str(game.get('chat_backend') or 'ananta-worker')} "
-        f"model={str(game.get('chat_backend_model') or '-')[:max(4, panel_width - 22)]}\x1b[0m"
+        f"model={str(game.get('chat_backend_model') or '-')[: max(4, panel_width - 22)]}\x1b[0m"
     )
     panel_lines.append(
         f"\x1b[38;2;90;90;90m{display_for_action('cycle_focus_or_channel', 'Ctrl+W')}=Kanal "
@@ -383,9 +363,7 @@ def _overlay_snake_chat_panel(
             f"\x1b[38;2;120;120;120mMit {display_for_action('toggle_chat_panel', 'Ctrl+G')} wieder aktivieren.\x1b[0m"
         )
         panel_lines.append("─" * panel_width)
-        panel_lines.append(
-            f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m"
-        )
+        panel_lines.append(f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m")
         divider_col = split_col
         for row_idx_offset, pline in enumerate(panel_lines):
             row_idx = ai_rows + row_idx_offset
@@ -460,7 +438,7 @@ def _overlay_snake_chat_panel(
         start = max(0, total - available_rows - scroll_offset)
     else:
         start = max(0, total - available_rows)
-    visible_msgs = rendered[start:start + available_rows]
+    visible_msgs = rendered[start : start + available_rows]
     # Scrollbar indicator: append compact indicator when scrolled away from bottom
     if total > available_rows and scroll_offset > 0:
         max_s = max(0, total - available_rows)
@@ -484,9 +462,7 @@ def _overlay_snake_chat_panel(
         input_line = f"\x1b[38;2;200;200;80m{prompt}\x1b[0m {visible}"
         panel_lines.append(input_line)
     else:
-        panel_lines.append(
-            f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m"
-        )
+        panel_lines.append(f"\x1b[38;2;80;80;80m[{display_for_action('chat_focus', 'Ctrl+E')}] chat focus\x1b[0m")
 
     # Render panel lines into right column starting at ai_rows
     divider_col = split_col
@@ -505,7 +481,6 @@ def _overlay_snake_chat_panel(
             out[row_idx] = _overlay_at_visible_col(out[row_idx], pcol, padded)
 
     return out
-
 
 
 def _overlay_snake_chat_unread(
@@ -535,6 +510,3 @@ def _overlay_snake_chat_unread(
     pcol = split_col + 2
     out[last_row] = _overlay_at_visible_col(out[last_row], pcol, text)
     return out
-
-
-

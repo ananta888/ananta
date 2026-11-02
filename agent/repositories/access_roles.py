@@ -84,8 +84,9 @@ class AccessRoleRepository:
             latest = session.exec(
                 select(AccessPolicyRevisionDB.revision).order_by(AccessPolicyRevisionDB.revision.desc()).limit(1)
             ).first()
-            revision = AccessPolicyRevisionDB(revision=int(latest or 0) + 1, snapshot=snapshot, actor=actor,
-                                              reason=reason)
+            revision = AccessPolicyRevisionDB(
+                revision=int(latest or 0) + 1, snapshot=snapshot, actor=actor, reason=reason
+            )
             session.add(revision)
             session.commit()
             session.refresh(revision)
@@ -93,9 +94,11 @@ class AccessRoleRepository:
 
     def list_revisions(self, limit: int = 50) -> list[AccessPolicyRevisionDB]:
         with Session(self._engine) as session:
-            return list(session.exec(
-                select(AccessPolicyRevisionDB).order_by(AccessPolicyRevisionDB.revision.desc()).limit(limit)
-            ).all())
+            return list(
+                session.exec(
+                    select(AccessPolicyRevisionDB).order_by(AccessPolicyRevisionDB.revision.desc()).limit(limit)
+                ).all()
+            )
 
     def get_revision(self, revision: int) -> AccessPolicyRevisionDB | None:
         with Session(self._engine) as session:

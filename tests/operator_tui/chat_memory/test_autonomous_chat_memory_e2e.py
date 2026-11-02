@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from unittest.mock import patch
-
 from client_surfaces.operator_tui.chat_memory import (
     ChatMemoryContext,
     MemoryTurn,
     extract_memory_context,
-    update_rolling_summary,
-    resolve_memory_settings,
     get_rolling_summary,
+    resolve_memory_settings,
+    update_rolling_summary,
 )
 from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
 
@@ -18,10 +16,7 @@ def _game_with_turns(turns: list[tuple[str, str]]) -> dict:
         "chat_state": {
             "channels": {
                 "ai:tutor": {
-                    "messages": [
-                        {"sender_kind": "user" if r == "user" else "ai", "text": c}
-                        for r, c in turns
-                    ]
+                    "messages": [{"sender_kind": "user" if r == "user" else "ai", "text": c} for r, c in turns]
                 }
             }
         }
@@ -29,10 +24,12 @@ def _game_with_turns(turns: list[tuple[str, str]]) -> dict:
 
 
 def test_second_question_sees_prior_fact():
-    game = _game_with_turns([
-        ("user", "Das Projekt heißt Marvin."),
-        ("assistant", "Verstanden, Marvin notiert."),
-    ])
+    game = _game_with_turns(
+        [
+            ("user", "Das Projekt heißt Marvin."),
+            ("assistant", "Verstanden, Marvin notiert."),
+        ]
+    )
     ctx = extract_memory_context(game, current_question="Wie heißt das Projekt?")
     contents = " ".join(t.content for t in ctx.recent_turns)
     assert "Marvin" in contents
@@ -46,10 +43,12 @@ def test_rolling_summary_carries_earlier_fact():
 
 
 def test_prompt_builder_includes_prior_fact_in_system():
-    game = _game_with_turns([
-        ("user", "Das Projekt heißt Marvin."),
-        ("assistant", "Marvin ist registriert."),
-    ])
+    game = _game_with_turns(
+        [
+            ("user", "Das Projekt heißt Marvin."),
+            ("assistant", "Marvin ist registriert."),
+        ]
+    )
     ctx = extract_memory_context(game, current_question="Wer ist Marvin?")
     result = ChatPromptBuilder(question="Wer ist Marvin?", depth="overview", memory=ctx).build()
     full_prompt = " ".join(m["content"] for m in result.messages)

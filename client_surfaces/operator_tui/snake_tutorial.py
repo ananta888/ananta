@@ -3,6 +3,7 @@
 Tutorials are defined as YAML files in the tutorials/ directory.
 Each tutorial has steps with completion events that the TUI fires.
 """
+
 from __future__ import annotations
 
 import time
@@ -11,6 +12,7 @@ from typing import Any
 
 try:
     import yaml as _yaml
+
     _HAS_YAML = True
 except ImportError:
     _HAS_YAML = False
@@ -18,12 +20,23 @@ except ImportError:
 
 _TUTORIALS_DIR = Path(__file__).parent / "tutorials"
 
-_COMPLETION_EVENTS = frozenset({
-    "any_key", "navigation_moved", "section_changed", "section_visited",
-    "refresh_triggered", "command_executed", "snake_activated",
-    "snake_deactivated", "snake_moved", "snake_paused", "snake_color_changed",
-    "tutorial_toggled", "ask_command_used",
-})
+_COMPLETION_EVENTS = frozenset(
+    {
+        "any_key",
+        "navigation_moved",
+        "section_changed",
+        "section_visited",
+        "refresh_triggered",
+        "command_executed",
+        "snake_activated",
+        "snake_deactivated",
+        "snake_moved",
+        "snake_paused",
+        "snake_color_changed",
+        "tutorial_toggled",
+        "ask_command_used",
+    }
+)
 
 
 # ── loading ───────────────────────────────────────────────────────────────────
@@ -57,14 +70,16 @@ def load_tutorial(name: str) -> dict[str, Any] | None:
     for step in data["steps"]:
         if not isinstance(step, dict) or not step.get("id"):
             continue
-        steps.append({
-            "id": str(step["id"]),
-            "title": str(step.get("title") or step["id"]),
-            "task": str(step.get("task") or ""),
-            "hint": str(step.get("hint") or ""),
-            "completion_event": str(step.get("completion_event") or "any_key"),
-            "section": step.get("section"),
-        })
+        steps.append(
+            {
+                "id": str(step["id"]),
+                "title": str(step.get("title") or step["id"]),
+                "task": str(step.get("task") or ""),
+                "hint": str(step.get("hint") or ""),
+                "completion_event": str(step.get("completion_event") or "any_key"),
+                "section": step.get("section"),
+            }
+        )
     return {
         "name": name,
         "title": str(data["title"]),
@@ -82,12 +97,14 @@ def list_tutorials() -> list[dict[str, Any]]:
     for path in sorted(_TUTORIALS_DIR.glob("*.yaml")):
         t = load_tutorial(path.stem)
         if t is not None:
-            result.append({
-                "name": t["name"],
-                "title": t["title"],
-                "description": t["description"],
-                "step_count": t["step_count"],
-            })
+            result.append(
+                {
+                    "name": t["name"],
+                    "title": t["title"],
+                    "description": t["description"],
+                    "step_count": t["step_count"],
+                }
+            )
     return result
 
 

@@ -6,14 +6,14 @@ Tests:
 - Server stops after first callback
 - Timeout returns error result
 """
+
 from __future__ import annotations
 
 import threading
 import time
 import unittest
-import urllib.request
 import urllib.parse
-
+import urllib.request
 
 from client_surfaces.operator_tui.auth.loopback_callback_server import LoopbackCallbackServer
 
@@ -130,7 +130,7 @@ class TestServerStopsAfterCallback(unittest.TestCase):
 
         t = threading.Thread(target=_send, daemon=True)
         t.start()
-        result = server.wait_for_callback()
+        server.wait_for_callback()
         t.join(timeout=2)
 
         # After callback, httpd should be None

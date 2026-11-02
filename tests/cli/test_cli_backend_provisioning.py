@@ -39,9 +39,7 @@ def test_provisioner_installs_only_pinned_catalog_package(tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("backend", ["claude_code", "pi"])
-def test_worker_provision_route_executes_allowlisted_installer(
-    client, admin_auth_header, monkeypatch, backend
-):
+def test_worker_provision_route_executes_allowlisted_installer(client, admin_auth_header, monkeypatch, backend):
     provisioner = MagicMock()
     provisioner.install.return_value = {
         "backend": "claude_code",
@@ -68,9 +66,7 @@ def test_worker_provision_route_executes_allowlisted_installer(
 
 
 @pytest.mark.parametrize("backend", ["codex", "pi"])
-def test_hub_provision_route_forwards_only_to_registered_worker(
-    client, admin_auth_header, monkeypatch, backend
-):
+def test_hub_provision_route_forwards_only_to_registered_worker(client, admin_auth_header, monkeypatch, backend):
     worker = SimpleNamespace(
         name="alpha",
         url="http://worker-alpha:5000",
@@ -113,9 +109,7 @@ def test_hub_provision_route_forwards_only_to_registered_worker(
 
 
 @pytest.mark.parametrize("backend", ["codex", "pi"])
-def test_hub_provision_route_rejects_unknown_worker(
-    client, admin_auth_header, monkeypatch, backend
-):
+def test_hub_provision_route_rejects_unknown_worker(client, admin_auth_header, monkeypatch, backend):
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr("agent.routes.sgpt._registered_worker", lambda _url: None)
 
@@ -129,9 +123,7 @@ def test_hub_provision_route_rejects_unknown_worker(
     assert response.json["message"] == "registered_worker_required"
 
 
-def test_hub_routes_cli_diagnose_to_selected_worker(
-    client, admin_auth_header, monkeypatch
-):
+def test_hub_routes_cli_diagnose_to_selected_worker(client, admin_auth_header, monkeypatch):
     worker = SimpleNamespace(
         name="ananta-worker-1",
         url="http://worker-alpha:5000",
@@ -152,9 +144,7 @@ def test_hub_routes_cli_diagnose_to_selected_worker(
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr(
         "agent.routes.sgpt._registered_worker",
-        lambda *args, **kwargs: (
-            worker if kwargs.get("worker_name") == worker.name else None
-        ),
+        lambda *args, **kwargs: worker if kwargs.get("worker_name") == worker.name else None,
     )
     monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
 
@@ -176,9 +166,7 @@ def test_hub_routes_cli_diagnose_to_selected_worker(
     )
 
 
-def test_hub_routes_account_login_start_to_selected_worker(
-    app, client, admin_auth_header, monkeypatch
-):
+def test_hub_routes_account_login_start_to_selected_worker(app, client, admin_auth_header, monkeypatch):
     worker = SimpleNamespace(
         name="ananta-worker-1",
         url="http://worker-alpha:5000",
@@ -204,9 +192,7 @@ def test_hub_routes_account_login_start_to_selected_worker(
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr(
         "agent.routes.sgpt._registered_worker",
-        lambda *args, **kwargs: (
-            worker if kwargs.get("worker_name") == worker.name else None
-        ),
+        lambda *args, **kwargs: worker if kwargs.get("worker_name") == worker.name else None,
     )
     monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
 
@@ -234,9 +220,7 @@ def test_hub_routes_account_login_start_to_selected_worker(
     ]
 
 
-def test_hub_syncs_allowlisted_claude_config_before_worker_test(
-    app, client, admin_auth_header, monkeypatch
-):
+def test_hub_syncs_allowlisted_claude_config_before_worker_test(app, client, admin_auth_header, monkeypatch):
     worker = SimpleNamespace(
         name="ananta-worker-2",
         url="http://worker-beta:5000",
@@ -272,9 +256,7 @@ def test_hub_syncs_allowlisted_claude_config_before_worker_test(
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr(
         "agent.routes.sgpt._registered_worker",
-        lambda *args, **kwargs: (
-            worker if kwargs.get("worker_name") == worker.name else None
-        ),
+        lambda *args, **kwargs: worker if kwargs.get("worker_name") == worker.name else None,
     )
     monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
 
@@ -304,9 +286,7 @@ def test_hub_syncs_allowlisted_claude_config_before_worker_test(
     )
 
 
-def test_worker_starts_account_login_session(
-    client, admin_auth_header, monkeypatch
-):
+def test_worker_starts_account_login_session(client, admin_auth_header, monkeypatch):
     service = MagicMock()
     service.start.return_value = {
         "backend": "claude_code",
@@ -333,11 +313,6 @@ def test_worker_starts_account_login_session(
 
 
 def test_quickstart_image_uses_worker_persistent_cli_backend_directory():
-    dockerfile = (
-        ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama"
-    ).read_text(encoding="utf-8")
+    dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama").read_text(encoding="utf-8")
 
-    assert (
-        "ANANTA_CLI_BACKENDS_DIR=/app/data/home/.local/share/ananta/cli-backends"
-        in dockerfile
-    )
+    assert "ANANTA_CLI_BACKENDS_DIR=/app/data/home/.local/share/ananta/cli-backends" in dockerfile

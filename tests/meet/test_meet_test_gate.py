@@ -214,8 +214,7 @@ def test_executor_timeout_terminates_only_its_owned_process_group(tmp_path, monk
 def test_executor_success_stops_an_owned_term_ignoring_descendant(tmp_path):
     log = tmp_path / "owned-process.log"
     child = (
-        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
-        "print('ready', flush=True); time.sleep(30)"
+        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready', flush=True); time.sleep(30)"
     )
     parent = (
         "import os,subprocess,sys; "
@@ -226,6 +225,7 @@ def test_executor_success_stops_an_owned_term_ignoring_descendant(tmp_path):
     try:
         assert execute([sys.executable, "-c", parent], {}, log, root=tmp_path, timeout=5) == 0
         pid, group = map(int, log.read_text().split())
+
         # A dead child can briefly remain a zombie under an external PID 1.
         # It cannot execute, hold media or run cleanup callbacks in that state.
         def running():

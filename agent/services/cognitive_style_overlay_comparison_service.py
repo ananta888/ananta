@@ -34,26 +34,33 @@ class CognitiveStyleOverlayComparisonService:
         }
         if baseline is None or calibrated is None or overlay is None:
             return StyleOverlayComparisonReport(
-                **common, comparable=False,
+                **common,
+                comparable=False,
                 reason_codes=("style_overlay_comparison_input_missing",),
             )
-        context = lambda item: (
-            item.model_profile_id, item.model_revision, item.quantization,
-            item.runtime, item.backend_id, item.tool_mode, item.sampling_digest,
-            item.benchmark_revision, item.prompt_digest,
-        )
+
+        def context(item):
+            return (
+                item.model_profile_id,
+                item.model_revision,
+                item.quantization,
+                item.runtime,
+                item.backend_id,
+                item.tool_mode,
+                item.sampling_digest,
+                item.benchmark_revision,
+                item.prompt_digest,
+            )
+
         if context(baseline) != context(calibrated):
             return StyleOverlayComparisonReport(
-                **common, comparable=False,
+                **common,
+                comparable=False,
                 reason_codes=("style_overlay_measurement_context_mismatch",),
             )
         deltas = {
-            name: round(
-                getattr(calibrated.scores, name) - getattr(baseline.scores, name), 6
-            )
-            for name in (
-                "rule_correctness", "truth_exploration", "initiative_assertiveness"
-            )
+            name: round(getattr(calibrated.scores, name) - getattr(baseline.scores, name), 6)
+            for name in ("rule_correctness", "truth_exploration", "initiative_assertiveness")
         }
         improved = tuple(name for name in overlay.reinforces if deltas[name] > 0)
         regressed = tuple(name for name in overlay.reinforces if deltas[name] < 0)

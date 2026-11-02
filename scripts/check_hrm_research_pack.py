@@ -10,7 +10,6 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-
 ROOT = Path(__file__).resolve().parents[1]
 TODO_PATH = ROOT / "todos" / "archiv" / "todo.hrm-experiment-reasoning-workbench.json"
 PACK_PATH = ROOT / "docs" / "research" / "hrm" / "decision-pack.v1.json"

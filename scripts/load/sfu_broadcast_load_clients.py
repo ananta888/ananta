@@ -51,9 +51,7 @@ class ExternalProcessLoadClientAdapter:
             raise SfuBroadcastGateError("load_client_result_symlink_forbidden")
         self.result_path.unlink(missing_ok=True)
         environment = dict(os.environ)
-        environment["ANANTA_SFU_BROADCAST_GATE_PLAN"] = json.dumps(
-            plan, sort_keys=True, separators=(",", ":")
-        )
+        environment["ANANTA_SFU_BROADCAST_GATE_PLAN"] = json.dumps(plan, sort_keys=True, separators=(",", ":"))
         environment["ANANTA_SFU_BROADCAST_RESULT_PATH"] = str(self.result_path)
         command_result = run_bounded_command(
             tuple(self.command),

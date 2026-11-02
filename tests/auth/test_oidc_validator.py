@@ -23,8 +23,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from agent.services import oidc_settings, oidc_validator
 
-
 # --- helpers --------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def rsa_keys():
@@ -130,6 +130,7 @@ def _make_token(rsa_keys, *, claims: dict[str, Any], audience: str | None = None
 
 
 # --- tests ----------------------------------------------------------------
+
 
 def test_disabled_returns_none(enabled_oidc_config, rsa_keys):
     oidc_settings.settings.oidc_enabled = False

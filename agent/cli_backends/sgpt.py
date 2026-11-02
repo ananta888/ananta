@@ -8,10 +8,20 @@ import subprocess
 import sys
 import time
 
-from agent.config import settings
+from agent.cli_backends.architecture_scan import (
+    _MAX_LINE_WINDOW,
+    _bounded_worker_int,
+    _build_iteration_prompt,
+    _format_block_header,
+    _is_architecture_full_scan_context,
+    _load_source_file_batches,
+    _read_research_context,
+    _resolve_repo_root,
+    _run_architecture_full_scan,
+    _window_worker_chars,
+)
 from agent.cli_backends.budget import check_prompt_budget, prompt_token_limit
 from agent.cli_backends.coding_agent_profiles import run_profile_coding_agent
-from agent.research_backend import is_research_backend, run_research_backend_command
 from agent.cli_backends.helpers import (
     _get_agent_config,
     _get_runtime_default_provider,
@@ -20,26 +30,6 @@ from agent.cli_backends.helpers import (
     _normalize_ollama_openai_base_url,
     _normalize_openai_base_url,
     _resolve_profile_api_key,
-)
-from agent.cli_backends.semaphore import (
-    _BACKEND_SEMAPHORES,
-    _SemaphoreTicket,
-    _acquire_backend_permit,
-    _get_backend_semaphore,
-)
-from agent.cli_backends.routing import (
-    PROFILE_CLI_BACKENDS,
-    SUPPORTED_CLI_BACKENDS,
-    CLI_BACKEND_INSTALL_HINTS,
-    CLI_BACKEND_VERIFY_COMMANDS,
-    CLI_BACKEND_CAPABILITIES,
-    _BACKEND_RUNTIME,
-    _choose_candidates,
-    get_cli_backend_capabilities,
-    get_cli_backend_preflight,
-    get_cli_backend_runtime_status,
-    get_research_backend_preflight,
-    normalize_backend_flags,
 )
 from agent.cli_backends.opencode import (
     resolve_codex_runtime_config,
@@ -50,23 +40,39 @@ from agent.cli_backends.opencode import (
     run_mistral_code_command,
     run_opencode_command,
 )
-from agent.cli_backends.architecture_scan import (
-    _MAX_LINE_WINDOW,
-    _bounded_worker_int,
-    _build_iteration_prompt,
-    _window_worker_chars,
-    _format_block_header,
-    _is_architecture_full_scan_context,
-    _load_source_file_batches,
-    _read_research_context,
-    _resolve_repo_root,
-    _run_architecture_full_scan,
+from agent.cli_backends.routing import (
+    _BACKEND_RUNTIME,
+    CLI_BACKEND_CAPABILITIES,
+    CLI_BACKEND_INSTALL_HINTS,
+    CLI_BACKEND_VERIFY_COMMANDS,
+    PROFILE_CLI_BACKENDS,
+    SUPPORTED_CLI_BACKENDS,
+    _choose_candidates,
+    get_cli_backend_capabilities,
+    get_cli_backend_preflight,
+    get_cli_backend_runtime_status,
+    get_research_backend_preflight,
+    normalize_backend_flags,
 )
-from agent.llm_integration_ollama import probe_ollama_runtime, resolve_ollama_model
+from agent.cli_backends.semaphore import (
+    _BACKEND_SEMAPHORES,
+    _acquire_backend_permit,
+    _get_backend_semaphore,
+    _SemaphoreTicket,
+)
+from agent.config import settings
 from agent.llm_integration_lmstudio import probe_lmstudio_runtime
+from agent.llm_integration_ollama import probe_ollama_runtime, resolve_ollama_model
 from agent.local_llm_backends import resolve_local_openai_backend
+from agent.research_backend import is_research_backend, run_research_backend_command
 
 log = logging.getLogger(__name__)
+
+
+def _log_cli_failure(message: str, *args) -> None:
+    cli_log = logging.getLogger("ananta.worker.cli")
+    cli_log.disabled = False
+    cli_log.warning(message, *args)
 
 
 def run_sgpt_command(
@@ -80,6 +86,7 @@ def run_sgpt_command(
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
     Gibt (returncode, stdout, stderr) zurück.
     """
+    log.disabled = False
     budget_error = check_prompt_budget(
         prompt,
         max_tokens=prompt_token_limit("sgpt"),
@@ -164,9 +171,25 @@ def run_sgpt_command(
                 timeout=timeout,
                 cwd=cwd,
             )
+            combined = (result.stdout or "") + (result.stderr or "")
+            failed = result.returncode != 0 or any(
+                marker in combined
+                for marker in ("loop_aborted", "worker_proposal_failed", "file_not_found", "Traceback")
+            )
+            if failed:
+                _log_cli_failure(
+                    "SGPT subprocess rc=%s stdout_tail=%s stderr_tail=%s",
+                    result.returncode,
+                    (result.stdout or "")[-2000:],
+                    (result.stderr or "")[-2000:],
+                )
             return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("SGPT Timeout")
+        except subprocess.TimeoutExpired as timeout_error:
+            _log_cli_failure(
+                "SGPT Timeout stdout_tail=%s stderr_tail=%s",
+                str(timeout_error.stdout or "")[-2000:],
+                str(timeout_error.stderr or "")[-2000:],
+            )
             return -1, "", "Timeout"
         except Exception as e:
             log.exception(f"SGPT Fehler: {e}")
@@ -185,9 +208,10 @@ def _run_ananta_worker_iterative(
     max_iterations: int = 8,
 ) -> tuple[int, str, str]:
     """Iterative execution loop for ananta-worker."""
-    # AWWPI-013/014: workspace mutation loop takes precedence when enabled and
-    # the resolved mutation mode is not read_only. Falls back to the batch loop
-    # on any setup error so existing behavior never breaks.
+    # Required analysis must never fall back to a loop without that prerequisite.
+    analysis_required = (_get_agent_config().get("ananta_worker_workspace_mutation") or {}).get(
+        "require_code_analysis"
+    ) is True
     try:
         from agent.cli_backends.workspace_mutation import (
             get_workspace_mutation_config,
@@ -195,6 +219,7 @@ def _run_ananta_worker_iterative(
         )
 
         mutation_cfg = get_workspace_mutation_config(workdir)
+        analysis_required = analysis_required or mutation_cfg.get("require_code_analysis") is True
         if (
             mutation_cfg.get("enabled")
             and workdir
@@ -206,9 +231,14 @@ def _run_ananta_worker_iterative(
                 options=options,
                 timeout=timeout,
                 model=model,
-                config=mutation_cfg,
+                config={**mutation_cfg, "return_executable_proposal": True},
             )
+        if analysis_required:
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_unavailable"}', ""
     except Exception:
+        if analysis_required:
+            log.exception("required workspace analysis loop unavailable")
+            return 1, '{"kind":"loop_aborted","reason":"required_code_analysis_loop_failed"}', ""
         log.warning("workspace mutation loop unavailable, falling back", exc_info=True)
 
     # AWTCL-010/011: hub-controlled tool loop behind a feature flag; the
@@ -230,12 +260,18 @@ def _run_ananta_worker_iterative(
         log.warning("tool loop unavailable, falling back to batch loop", exc_info=True)
 
     files_per_batch = _bounded_worker_int("ananta_worker_context_files_per_batch", files_per_batch, 1, 20)
-    per_file_chars = _window_worker_chars("ananta_worker_context_per_file_chars", share="worker_file",
-                                          legacy="worker_file_chars", lo=500, hi=40_000)
+    per_file_chars = _window_worker_chars(
+        "ananta_worker_context_per_file_chars", share="worker_file", legacy="worker_file_chars", lo=500, hi=40_000
+    )
     max_iterations = _bounded_worker_int("ananta_worker_context_max_iterations", max_iterations, 1, 32)
     context_lines = _bounded_worker_int("ananta_worker_context_line_window", 5, 0, _MAX_LINE_WINDOW)
-    max_snippet_chars = _window_worker_chars("ananta_worker_context_max_snippet_chars", share="worker_snippet",
-                                             legacy="worker_snippet_chars", lo=200, hi=40_000)
+    max_snippet_chars = _window_worker_chars(
+        "ananta_worker_context_max_snippet_chars",
+        share="worker_snippet",
+        legacy="worker_snippet_chars",
+        lo=200,
+        hi=40_000,
+    )
     research_context = _read_research_context(workdir)
     if workdir and _is_architecture_full_scan_context(research_context):
         return _run_architecture_full_scan(
@@ -349,6 +385,8 @@ def run_llm_cli_command(
     Führt den konfigurierten CLI-Backend-Aufruf aus.
     Rückgabe: (returncode, stdout, stderr, backend_used)
     """
+    log.disabled = False
+    log.info("cli_dispatch requested=%s role=%s workdir=%s", backend, getattr(settings, "role", ""), workdir)
     requested = (backend or "ananta-worker").strip().lower()
     candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 

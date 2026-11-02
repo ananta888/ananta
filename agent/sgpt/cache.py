@@ -20,8 +20,9 @@ class Cache:
         from agent.adapters.namespace_memory_cache import NamespaceMemoryCache
         from agent.services.memory_storage_boundary import MemoryStorageBoundary
 
-        self._storage = NamespaceMemoryCache(cache_path, boundary=MemoryStorageBoundary("hub-context-cache"),
-                                              max_entries=max(1, min(length, 4096)))
+        self._storage = NamespaceMemoryCache(
+            cache_path, boundary=MemoryStorageBoundary("hub-context-cache"), max_entries=max(1, min(length, 4096))
+        )
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """
@@ -33,8 +34,10 @@ class Cache:
 
         def wrapper(*args: Any, **kwargs: Any) -> Generator[str, None, None]:
             caching = bool(kwargs.pop("caching", False))
-            key = md5(json.dumps((func.__module__, func.__qualname__, args[1:], kwargs)).encode("utf-8"),
-                      usedforsecurity=False).hexdigest()
+            key = md5(
+                json.dumps((func.__module__, func.__qualname__, args[1:], kwargs)).encode("utf-8"),
+                usedforsecurity=False,
+            ).hexdigest()
             cached = self._storage.get(key) if caching else None
             if isinstance(cached, str):
                 yield cached

@@ -56,10 +56,22 @@ def test_type_mapping_registry_covers_required_java_types():
     registry = TypeMappingRegistry()
 
     assert registry.map_type("UUID", source_language="java", target_language="typescript")["target_type"] == "string"
-    assert registry.map_type("Optional<String>", source_language="java", target_language="typescript")["target_type"] == "string | undefined"
-    assert registry.map_type("List<UUID>", source_language="java", target_language="typescript")["target_type"] == "string[]"
-    assert registry.map_type("Map<String, Long>", source_language="java", target_language="kotlin")["target_type"] == "Map<String, Long>"
-    assert registry.map_type("BigDecimal", source_language="java", target_language="typescript")["lossiness"] == "policy_guarded"
+    assert (
+        registry.map_type("Optional<String>", source_language="java", target_language="typescript")["target_type"]
+        == "string | undefined"
+    )
+    assert (
+        registry.map_type("List<UUID>", source_language="java", target_language="typescript")["target_type"]
+        == "string[]"
+    )
+    assert (
+        registry.map_type("Map<String, Long>", source_language="java", target_language="kotlin")["target_type"]
+        == "Map<String, Long>"
+    )
+    assert (
+        registry.map_type("BigDecimal", source_language="java", target_language="typescript")["lossiness"]
+        == "policy_guarded"
+    )
     assert registry.map_type("Custom", source_language="java", target_language="typescript")["status"] == "needs_review"
 
 
@@ -68,8 +80,18 @@ def test_expression_registry_maps_safe_subset_and_guards_equals():
 
     assert registry.map_java_expression('"x"', target_language="typescript")["status"] == "ok"
     assert registry.map_java_expression("name", target_language="typescript")["rule_id"] == "expr.property_access.v1"
-    assert registry.map_java_expression("a.equals(b)", target_language="typescript", nullability="unknown_nullability")["status"] == "needs_review"
-    assert registry.map_java_expression("a.equals(b)", target_language="typescript", nullability="non_null")["target_expression"] == "a === b"
+    assert (
+        registry.map_java_expression("a.equals(b)", target_language="typescript", nullability="unknown_nullability")[
+            "status"
+        ]
+        == "needs_review"
+    )
+    assert (
+        registry.map_java_expression("a.equals(b)", target_language="typescript", nullability="non_null")[
+            "target_expression"
+        ]
+        == "a === b"
+    )
 
 
 def test_nullability_model_separates_optional_absence_from_null():
@@ -128,7 +150,9 @@ def test_graph_store_degrades_for_missing_semantic_index(tmp_path):
 def test_transform_and_verifier_for_record_and_enum():
     engine = DeterministicTransformEngine()
     source = "public record UserDto(UUID id, String name, Optional<String> email) {}"
-    artifact = engine.transform(TransformRequest(source_path="src/UserDto.java", source_code=source, target_language="typescript"))
+    artifact = engine.transform(
+        TransformRequest(source_path="src/UserDto.java", source_code=source, target_language="typescript")
+    )
     verification = SemanticTranslationVerifier().verify(
         source_path="src/UserDto.java",
         source_code=source,
@@ -195,7 +219,9 @@ def test_transform_and_verifier_use_bounded_semantic_execution_port():
 
 def test_verifier_detects_missing_property_and_wrong_type():
     source = "public record UserDto(UUID id, String name) {}"
-    artifact = DeterministicTransformEngine().transform(TransformRequest(source_path="src/UserDto.java", source_code=source, target_language="typescript"))
+    artifact = DeterministicTransformEngine().transform(
+        TransformRequest(source_path="src/UserDto.java", source_code=source, target_language="typescript")
+    )
     result = SemanticTranslationVerifier().verify(
         source_path="src/UserDto.java",
         source_code=source,
@@ -366,7 +392,20 @@ def test_transform_artifact_has_mandatory_fields_and_stable_hashes():
     a1 = engine.transform(TransformRequest(source_path="Foo.java", source_code=source, target_language="typescript"))
     a2 = engine.transform(TransformRequest(source_path="Foo.java", source_code=source, target_language="typescript"))
 
-    for field in ("schema", "kind", "artifact_id", "source_path", "target_language", "source_hash", "target_hash", "target_code", "status", "rule_ids", "warnings", "created_at"):
+    for field in (
+        "schema",
+        "kind",
+        "artifact_id",
+        "source_path",
+        "target_language",
+        "source_hash",
+        "target_hash",
+        "target_code",
+        "status",
+        "rule_ids",
+        "warnings",
+        "created_at",
+    ):
         assert field in a1, f"mandatory field missing: {field}"
 
     assert a1["source_hash"] == a2["source_hash"]
@@ -377,7 +416,9 @@ def test_transform_artifact_has_mandatory_fields_and_stable_hashes():
 def test_verifier_redacts_sensitive_terms_in_target():
     source = "public record Credentials(String username, String password) {}"
     engine = DeterministicTransformEngine()
-    artifact = engine.transform(TransformRequest(source_path="Cred.java", source_code=source, target_language="typescript"))
+    artifact = engine.transform(
+        TransformRequest(source_path="Cred.java", source_code=source, target_language="typescript")
+    )
     result = SemanticTranslationVerifier().verify(
         source_path="Cred.java",
         source_code=source,
@@ -396,6 +437,7 @@ def test_setup_index_semantic_build_function_produces_summary(tmp_path, monkeypa
 
     sys.path.insert(0, str(Path("scripts").resolve()))
     import scripts.setup_codecompass_index as idx_module
+
     records, summary = idx_module._build_semantic_translation_records([java_file], root=tmp_path)
 
     assert summary["enabled"] is True

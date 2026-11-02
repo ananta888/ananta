@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -79,8 +80,7 @@ class PlanningPromptRegistry:
         if preferred_id:
             for item in candidates:
                 if (
-                    str(item.id or "").strip() == preferred_id
-                    or str(item.version or "").strip() == preferred_id
+                    str(item.id or "").strip() == preferred_id or str(item.version or "").strip() == preferred_id
                 ) and bool(item.enabled):
                     selected = item
                     break
@@ -99,7 +99,10 @@ class PlanningPromptRegistry:
         if selected is None:
             # fallback generic+lang, then generic+de
             for item in candidates:
-                if str(item.mode or "").strip() == str(mode or "generic") and str(item.language or "").strip().lower() == lang:
+                if (
+                    str(item.mode or "").strip() == str(mode or "generic")
+                    and str(item.language or "").strip().lower() == lang
+                ):
                     selected = item
                     break
             if selected is None:
@@ -110,6 +113,7 @@ class PlanningPromptRegistry:
         if selected is None:
             try:
                 from agent.services.system_prompt_catalog import get_system_prompt
+
                 template = get_system_prompt("system.planning_registry_fallback", "")
             except Exception:
                 template = ""
@@ -151,8 +155,9 @@ class PlanningPromptRegistry:
         )
         opt_steps: list[dict] = []
         try:
-            from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service
             import hashlib as _hl
+
+            from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service
 
             _input_hash = _hl.sha256(rendered.encode("utf-8", errors="replace")).hexdigest()
             rendered, _style = get_planning_prompt_optimizer_service().optimize(
@@ -161,15 +166,17 @@ class PlanningPromptRegistry:
                 behavior_profile=behavior_profile,
             )
             _output_hash = _hl.sha256(rendered.encode("utf-8", errors="replace")).hexdigest()
-            opt_steps.append({
-                "name": "planning_prompt_optimizer",
-                "style": _style,
-                "changed": _input_hash != _output_hash,
-                "input_hash": _input_hash,
-                "output_hash": _output_hash,
-            })
+            opt_steps.append(
+                {
+                    "name": "planning_prompt_optimizer",
+                    "style": _style,
+                    "changed": _input_hash != _output_hash,
+                    "input_hash": _input_hash,
+                    "output_hash": _output_hash,
+                }
+            )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("resolve: ignored Exception", exc_info=True)
         return ResolvedPlanningPrompt(
             prompt_version_id=str(selected.id),
             version=str(selected.version),

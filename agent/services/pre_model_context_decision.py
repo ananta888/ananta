@@ -10,18 +10,18 @@ No-LLM answers must:
 - Never make negative claims if no evidence is present.
 - Not be generated when ``allow_no_llm_answers=False``.
 """
+
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.pre_model_context_config import (
     DETERMINISTIC_TASK_KINDS,
     HIGH_EVIDENCE_TASK_KINDS,
-    TASK_GENERIC_CHAT,
     TASK_ARCHITECTURE,
     TASK_EXPLANATION,
+    TASK_GENERIC_CHAT,
 )
 
 ANSWER_FILE_LIST = "file_list"
@@ -154,13 +154,8 @@ class DeterministicDecisionEngine:
 
     # ── Answer builders ───────────────────────────────────────────────────────
 
-    def _answer_navigation(
-        self, task_text: str, candidates: list[dict[str, Any]]
-    ) -> DeterministicAnswer:
-        evidence = [
-            {"path": c.get("path", ""), "score": c.get("embedding_score", 0.0)}
-            for c in candidates[:10]
-        ]
+    def _answer_navigation(self, task_text: str, candidates: list[dict[str, Any]]) -> DeterministicAnswer:
+        evidence = [{"path": c.get("path", ""), "score": c.get("embedding_score", 0.0)} for c in candidates[:10]]
         paths = [c.get("path", "") for c in candidates[:10]]
         text = "Gefundene Dateien:\n" + "\n".join(f"- {p}" for p in paths if p)
         return DeterministicAnswer(
@@ -170,10 +165,7 @@ class DeterministicDecisionEngine:
         )
 
     def _answer_file_list(self, candidates: list[dict[str, Any]]) -> DeterministicAnswer:
-        evidence = [
-            {"path": c.get("path", ""), "score": c.get("embedding_score", 0.0)}
-            for c in candidates[:20]
-        ]
+        evidence = [{"path": c.get("path", ""), "score": c.get("embedding_score", 0.0)} for c in candidates[:20]]
         paths = [c.get("path", "") for c in candidates[:20]]
         text = "Relevante Dateien:\n" + "\n".join(f"- {p}" for p in paths if p)
         return DeterministicAnswer(
@@ -182,32 +174,21 @@ class DeterministicDecisionEngine:
             evidence=evidence,
         )
 
-    def _answer_symbol(
-        self, task_text: str, candidates: list[dict[str, Any]]
-    ) -> DeterministicAnswer:
+    def _answer_symbol(self, task_text: str, candidates: list[dict[str, Any]]) -> DeterministicAnswer:
         evidence = []
         for c in candidates[:15]:
-            for sym in (c.get("symbols") or []):
+            for sym in c.get("symbols") or []:
                 evidence.append({"path": c.get("path", ""), "symbol": sym})
-        text = "Symbol-Fundstellen:\n" + "\n".join(
-            f"- {e['symbol']} in {e['path']}" for e in evidence[:15]
-        )
+        text = "Symbol-Fundstellen:\n" + "\n".join(f"- {e['symbol']} in {e['path']}" for e in evidence[:15])
         return DeterministicAnswer(
             answer_type=ANSWER_SYMBOL_LOCATIONS,
             text=text,
             evidence=evidence[:15],
         )
 
-    def _answer_grep(
-        self, task_text: str, candidates: list[dict[str, Any]]
-    ) -> DeterministicAnswer:
-        evidence = [
-            {"path": c.get("path", ""), "excerpt": (c.get("excerpt") or "")[:200]}
-            for c in candidates[:10]
-        ]
-        text = "Treffer:\n" + "\n".join(
-            f"- {e['path']}: {e['excerpt'][:80]}" for e in evidence
-        )
+    def _answer_grep(self, task_text: str, candidates: list[dict[str, Any]]) -> DeterministicAnswer:
+        evidence = [{"path": c.get("path", ""), "excerpt": (c.get("excerpt") or "")[:200]} for c in candidates[:10]]
+        text = "Treffer:\n" + "\n".join(f"- {e['path']}: {e['excerpt'][:80]}" for e in evidence)
         return DeterministicAnswer(
             answer_type=ANSWER_GREP_MATCHES,
             text=text,
@@ -217,16 +198,39 @@ class DeterministicDecisionEngine:
 
 def _is_symbol_query(text: str) -> bool:
     low = text.lower()
-    return any(kw in low for kw in (
-        "wo wird", "where is", "where does", "wo ist die funktion",
-        "symbol", "class", "klasse", "function", "funktion", "method", "methode",
-        "definiert", "defined", "declared", "deklariert",
-    ))
+    return any(
+        kw in low
+        for kw in (
+            "wo wird",
+            "where is",
+            "where does",
+            "wo ist die funktion",
+            "symbol",
+            "class",
+            "klasse",
+            "function",
+            "funktion",
+            "method",
+            "methode",
+            "definiert",
+            "defined",
+            "declared",
+            "deklariert",
+        )
+    )
 
 
 def _is_grep_query(text: str) -> bool:
     low = text.lower()
-    return any(kw in low for kw in (
-        "grep", "suche nach", "search for", "alle vorkommen", "all occurrences",
-        "find all", "finde alle",
-    ))
+    return any(
+        kw in low
+        for kw in (
+            "grep",
+            "suche nach",
+            "search for",
+            "alle vorkommen",
+            "all occurrences",
+            "find all",
+            "finde alle",
+        )
+    )

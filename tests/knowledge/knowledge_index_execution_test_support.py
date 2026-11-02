@@ -61,9 +61,7 @@ def build_execution_job(
                 artifact_id="artifact-payload-001",
                 sha256="5" * 64,
                 size_bytes=256,
-                media_type=(
-                    "application/vnd.ananta.knowledge-index-job+json"
-                ),
+                media_type=("application/vnd.ananta.knowledge-index-job+json"),
                 encoding="json",
             )
         )
@@ -96,9 +94,7 @@ def build_execution_task(
     )
     envelope = job.to_wire()
     if include_manifest:
-        envelope["source_access_enforcement_manifest"] = {
-            "schema": "test-enforcement-manifest"
-        }
+        envelope["source_access_enforcement_manifest"] = {"schema": "test-enforcement-manifest"}
     return {
         "id": job.job_id,
         "task_kind": "codecompass_index_build",

@@ -168,9 +168,7 @@ class ResearchTrainingRecipeService:
         }
 
     @staticmethod
-    def _hardware_fit(
-        value: Mapping[str, Any], required_vram: int, world_size: int
-    ) -> dict[str, Any]:
+    def _hardware_fit(value: Mapping[str, Any], required_vram: int, world_size: int) -> dict[str, Any]:
         if set(value) != {"profile_id", "gpu_count", "vram_bytes_per_gpu", "throughput_flops"}:
             raise ValueError("research_hardware_profile_fields_invalid")
         profile_id = str(value["profile_id"])

@@ -47,11 +47,9 @@ class _StaticCapabilityPort:
 
 
 def _install(client, *, enabled: bool, worker: bool = False) -> None:
-    client.application.extensions[HRM_CONTROL_PLANE_EXTENSION] = (
-        HrmExperimentControlPlaneService(
-            feature_enabled=enabled,
-            worker_capabilities=_StaticCapabilityPort() if worker else None,
-        )
+    client.application.extensions[HRM_CONTROL_PLANE_EXTENSION] = HrmExperimentControlPlaneService(
+        feature_enabled=enabled,
+        worker_capabilities=_StaticCapabilityPort() if worker else None,
     )
 
 

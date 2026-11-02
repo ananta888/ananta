@@ -130,8 +130,7 @@ class TestValidateCoupling(unittest.TestCase):
         payload = {
             "schema": EXPECTED_COUPLING_SCHEMA,
             "pairs": [
-                {"source": "alpha", "target": "beta", "edge_count": 5,
-                 "edge_type_counts": {"field_type_uses": 5}},
+                {"source": "alpha", "target": "beta", "edge_count": 5, "edge_type_counts": {"field_type_uses": 5}},
             ],
         }
         result = validate_coupling_payload(payload)
@@ -141,10 +140,8 @@ class TestValidateCoupling(unittest.TestCase):
         payload = {
             "schema": EXPECTED_COUPLING_SCHEMA,
             "pairs": [
-                {"source": "alpha", "target": "beta", "edge_count": 5,
-                 "edge_type_counts": {}},
-                {"source": "alpha", "target": "beta", "edge_count": 1,
-                 "edge_type_counts": {}},
+                {"source": "alpha", "target": "beta", "edge_count": 5, "edge_type_counts": {}},
+                {"source": "alpha", "target": "beta", "edge_count": 1, "edge_type_counts": {}},
             ],
         }
         result = validate_coupling_payload(payload)
@@ -191,10 +188,7 @@ class TestValidateFile(unittest.TestCase):
                 json.dumps(
                     {
                         "schema": EXPECTED_COUPLING_SCHEMA,
-                        "pairs": [
-                            {"source": "a", "target": "b", "edge_count": 1,
-                             "edge_type_counts": {}}
-                        ],
+                        "pairs": [{"source": "a", "target": "b", "edge_count": 1, "edge_type_counts": {}}],
                     }
                 )
             )

@@ -44,16 +44,29 @@ def test_native_result_admission_commits_receipt_with_task(native, mode):
     assert receipt["authority"]["assignment_revision"] == 1
     assert native.repository.get_by_id(task.id).verification_status == task.verification_status
     queue = AnantaHubTaskQueueAdapter(task_queue=None, task_repository=native.repository, task_runtime=None)
-    assert queue.poll(
-        tenant_id=task.tenant_id, run_id=native.command.run_id, hub_task_ids=(task.id,),
-    )[0].status == "completed"
+    assert (
+        queue.poll(
+            tenant_id=task.tenant_id,
+            run_id=native.command.run_id,
+            hub_task_ids=(task.id,),
+        )[0].status
+        == "completed"
+    )
 
 
-@pytest.mark.parametrize("field,value", [
-    ("attempt_id", "foreign-attempt"), ("fencing_token", 99), ("fencing_token", True),
-    ("hub_task_id", "foreign-task"), ("node_id", "foreign-node"), ("tenant_id", "foreign-tenant"),
-    ("budget_usage", {"tokens": float("nan")}), ("output_data", {"secret": "must-not-persist"}),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("attempt_id", "foreign-attempt"),
+        ("fencing_token", 99),
+        ("fencing_token", True),
+        ("hub_task_id", "foreign-task"),
+        ("node_id", "foreign-node"),
+        ("tenant_id", "foreign-tenant"),
+        ("budget_usage", {"tokens": float("nan")}),
+        ("output_data", {"secret": "must-not-persist"}),
+    ],
+)
 @pytest.mark.parametrize("mode", ["save", "cas"])
 def test_hostile_worker_result_never_mutates_task(native, field, value, mode):
     nested = native.response["workflow_adapter_verification"]["workflow_adapter_task_result"]["adapter_result"]
@@ -65,13 +78,16 @@ def test_hostile_worker_result_never_mutates_task(native, field, value, mode):
     assert stored.status == "in_progress" and not stored.verification_status and stored.last_output is None
 
 
-@pytest.mark.parametrize("model,field,value", [
-    (WorkflowExecutionOwnershipDB, "attempt_id", "new-attempt"),
-    (WorkflowExecutionOwnershipDB, "fencing_token", 2),
-    (WorkflowExecutionOwnershipDB, "lease_expires_at", 1),
-    (WorkflowWorkerAssignmentDB, "worker_id", "foreign-worker"),
-    (WorkflowWorkerAssignmentDB, "hub_task_id", "foreign-task"),
-])
+@pytest.mark.parametrize(
+    "model,field,value",
+    [
+        (WorkflowExecutionOwnershipDB, "attempt_id", "new-attempt"),
+        (WorkflowExecutionOwnershipDB, "fencing_token", 2),
+        (WorkflowExecutionOwnershipDB, "lease_expires_at", 1),
+        (WorkflowWorkerAssignmentDB, "worker_id", "foreign-worker"),
+        (WorkflowWorkerAssignmentDB, "hub_task_id", "foreign-task"),
+    ],
+)
 def test_stale_authority_rolls_back_task_result(native, model, field, value):
     with Session(native.engine) as session:
         row = session.exec(select(model)).one()
@@ -116,7 +132,9 @@ def test_uncomposed_repository_cannot_accept_native_result(native):
 def test_forwarding_rejects_conflicting_witness_before_projection(native):
     task = native.repository.get_by_id(native.task_id)
     validate_forwarded_native_result(
-        task_id=task.id, dispatched_task=task.model_dump(), response=native.response,
+        task_id=task.id,
+        dispatched_task=task.model_dump(),
+        response=native.response,
         load_task=native.repository.get_by_id,
     )
     response = copy.deepcopy(native.response)
@@ -124,7 +142,9 @@ def test_forwarding_rejects_conflicting_witness_before_projection(native):
     nested["verification"]["native_node_result"]["attempt_id"] = "unassigned"
     with pytest.raises(ValueError):
         validate_forwarded_native_result(
-            task_id=task.id, dispatched_task=task.model_dump(), response=response,
+            task_id=task.id,
+            dispatched_task=task.model_dump(),
+            response=response,
             load_task=native.repository.get_by_id,
         )
     assert native.repository.get_by_id(task.id).status == "in_progress"
@@ -134,7 +154,8 @@ def test_production_composition_applies_generic_native_admission(native, monkeyp
     from agent.repository import _HubTaskCompletionPolicy
 
     monkeypatch.setattr(
-        "agent.services.workflow_hub_task_gateway_runtime.get_workflow_authorization_key_ring", lambda: native.keys,
+        "agent.services.workflow_hub_task_gateway_runtime.get_workflow_authorization_key_ring",
+        lambda: native.keys,
     )
     native.repository = TaskRepository(completion_policy=_HubTaskCompletionPolicy())
     assert complete(native).verification_status[NATIVE_RESULT_RECEIPT]["authority"]["worker_id"] == "worker-1"

@@ -31,9 +31,7 @@ def test_native_langchain_and_mcp_adapters_share_the_descriptor_contract() -> No
             },
         }
     )
-    native = AdaptedToolDescriptorRegistry(
-        [NativeAnantaToolCatalogSource(AnantaToolRegistryService())]
-    )
+    native = AdaptedToolDescriptorRegistry([NativeAnantaToolCatalogSource(AnantaToolRegistryService())])
     langchain = AdaptedToolDescriptorRegistry([LangChainBuiltinToolCatalogSource()])
     mcp_registry = AdaptedToolDescriptorRegistry([MCPToolCatalogSource(mcp)])
 
@@ -46,21 +44,22 @@ def test_native_langchain_and_mcp_adapters_share_the_descriptor_contract() -> No
         assert descriptor is not None
         assert descriptor.policy_scopes
         assert descriptor.side_effect_class == "read"
-        assert registry.validate_invocation(
-            ToolInvocationEnvelope(
-                execution_id="attempt-1",
-                tool_id=tool_id,
-                arguments=arguments,
+        assert (
+            registry.validate_invocation(
+                ToolInvocationEnvelope(
+                    execution_id="attempt-1",
+                    tool_id=tool_id,
+                    arguments=arguments,
+                )
             )
-        ) == []
+            == []
+        )
 
 
 def test_every_adapter_rejects_argument_schema_evasion_and_extra_fields() -> None:
     registries = (
         (
-            AdaptedToolDescriptorRegistry(
-                [NativeAnantaToolCatalogSource(AnantaToolRegistryService())]
-            ),
+            AdaptedToolDescriptorRegistry([NativeAnantaToolCatalogSource(AnantaToolRegistryService())]),
             "repo.list_files",
         ),
         (

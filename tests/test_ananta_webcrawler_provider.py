@@ -279,16 +279,9 @@ def test_worker_registry_and_dispatch_use_trusted_hub_config(mock_webcrawler_url
     registry = get_ananta_tool_registry_service()
     assert registry.get_tool("webcrawler.list_profiles") is not None
     assert registry.get_tool("webcrawler.run_profile") is not None
+    assert get_ananta_tool_policy_service().evaluate(tool_name="webcrawler.run_profile").decision == DECISION_ALLOW
     assert (
-        get_ananta_tool_policy_service()
-        .evaluate(tool_name="webcrawler.run_profile")
-        .decision
-        == DECISION_ALLOW
-    )
-    assert (
-        get_ananta_tool_policy_service()
-        .evaluate(tool_name="webcrawler.publish_profile")
-        .decision
+        get_ananta_tool_policy_service().evaluate(tool_name="webcrawler.publish_profile").decision
         == DECISION_APPROVAL_REQUIRED
     )
 

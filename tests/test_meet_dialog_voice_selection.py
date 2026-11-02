@@ -68,7 +68,11 @@ def test_voice_selection_is_passive_once_only_and_preserves_other_sources(app, e
         )
         after = stored(case)
         assert after["voice_selection"] == voice_selection()
-        assert after["controls"]["speech"] == {"enabled": enabled, "revision": 2, "since": (case.fixture.now + 1) * 1000}
+        assert after["controls"]["speech"] == {
+            "enabled": enabled,
+            "revision": 2,
+            "since": (case.fixture.now + 1) * 1000,
+        }
         assert all(after["controls"][key] == before["controls"][key] for key in ("chat", "avatar", "screen", "audio"))
         assert after["avatar_selection"] == before["avatar_selection"]
         case.profiles.select.assert_called_once_with(case.principal, "project", PIN, "publish")

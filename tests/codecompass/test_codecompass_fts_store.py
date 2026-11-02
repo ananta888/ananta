@@ -56,4 +56,3 @@ def test_codecompass_fts_store_supports_rebuild_and_exact_boost(tmp_path):
     assert len(rows) == 2
     assert rows[0]["record_id"] == "r1"
     assert rows[0]["boost_breakdown"]["exact_symbol_or_path_hit"] is True
-

@@ -1,4 +1,5 @@
 """DuplicateFailureGroupingStrategy — helpcenter_duplicate_failure_grouping_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, CodeCompassReadPort, HeuristicStrategyBase
@@ -8,8 +9,16 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _DUPLICATE_KEYWORDS = [
-    "duplicate", "same", "similar", "again", "already", "recur",
-    "repeated", "flaky", "intermittent", "known issue",
+    "duplicate",
+    "same",
+    "similar",
+    "again",
+    "already",
+    "recur",
+    "repeated",
+    "flaky",
+    "intermittent",
+    "known issue",
 ]
 _MIN_SCORE = 0.1
 

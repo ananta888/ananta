@@ -34,9 +34,10 @@ def test_codecompass_fts_engine_returns_contextchunk_compatible_records(tmp_path
         retrieval_cache_state="cache-state-1",
     )
     engine = CodeCompassFtsEngine(store=store)
-    chunks = engine.search(query="retryTimeout PaymentService", top_k=3, task_kind="bugfix", retrieval_intent="exact_symbol")
+    chunks = engine.search(
+        query="retryTimeout PaymentService", top_k=3, task_kind="bugfix", retrieval_intent="exact_symbol"
+    )
     assert chunks
     assert chunks[0]["engine"] == "codecompass_fts"
     assert chunks[0]["metadata"]["bm25_score"] >= 0.0
     assert "field_boost_breakdown" in chunks[0]["metadata"]
-

@@ -41,9 +41,7 @@ SOURCE_PATHS = (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--registry-db", type=Path, default=ROOT / "data/peer-overlay-churn-evidence.sqlite3")
-    parser.add_argument(
-        "--report", type=Path, default=ROOT / "artifacts/test-gates/peer-overlay-churn.json"
-    )
+    parser.add_argument("--report", type=Path, default=ROOT / "artifacts/test-gates/peer-overlay-churn.json")
     args = parser.parse_args()
     environment = host_environment(frontend=FRONTEND)
     profile = {
@@ -77,9 +75,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="ananta-peer-churn-") as measurement_dir:
             child_environment.update(
                 {
-                    "ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(
-                        reservation.assignment, sort_keys=True
-                    ),
+                    "ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(reservation.assignment, sort_keys=True),
                     "ANANTA_PEER_CHURN_MEASUREMENT_DIR": measurement_dir,
                 }
             )
@@ -95,14 +91,11 @@ def main() -> int:
                 )
             exit_code = completed.returncode
             measurements = [
-                json.loads(path.read_text(encoding="utf-8"))
-                for path in sorted(Path(measurement_dir).glob("*.json"))
+                json.loads(path.read_text(encoding="utf-8")) for path in sorted(Path(measurement_dir).glob("*.json"))
             ]
     except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
         failure_reason = str(exc).split(":", 1)[0][:120] or type(exc).__name__
-    dependency_claims = {
-        name: _dependency_claim(report) for name, report in dependencies.items()
-    }
+    dependency_claims = {name: _dependency_claim(report) for name, report in dependencies.items()}
     succeeded = (
         not failure_reason
         and exit_code == 0
@@ -167,9 +160,7 @@ def _dependency_claim(report: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _measurements_complete(
-    measurements: list[dict[str, Any]], bounds: Mapping[str, int]
-) -> bool:
+def _measurements_complete(measurements: list[dict[str, Any]], bounds: Mapping[str, int]) -> bool:
     if {row.get("engine") for row in measurements} != EXPECTED_ENGINES:
         return False
     for row in measurements:
@@ -183,8 +174,7 @@ def _measurements_complete(
             "iceRestart": "ice_restart",
         }
         if any(
-            name not in scenarios
-            or int(scenarios[name].get("recoveryMs", bounds[bound] + 1)) > bounds[bound]
+            name not in scenarios or int(scenarios[name].get("recoveryMs", bounds[bound] + 1)) > bounds[bound]
             for name, bound in checks.items()
         ):
             return False

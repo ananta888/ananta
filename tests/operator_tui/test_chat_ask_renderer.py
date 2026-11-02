@@ -11,11 +11,10 @@ Abgedeckte Szenarien:
 - Scroll-Indicator erscheint bei langer Antwort
 - Frage + Antwort über Ananta/CodeCompass sind vollständig enthalten
 """
+
 from __future__ import annotations
 
 import re
-
-import pytest
 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import (
@@ -74,6 +73,7 @@ def _render(game: dict, width: int = 88, height: int = 30) -> list[str]:
 # is_chat_ask_mode
 # ---------------------------------------------------------------------------
 
+
 def test_is_chat_ask_mode_true_when_question_set():
     assert _is_chat_ask_mode({"tutor_ask_question": "Was ist CodeCompass?"}) is True
 
@@ -88,9 +88,7 @@ def test_is_chat_ask_mode_false_when_empty():
 # Basis: Frage + Antwort vollständig sichtbar
 # ---------------------------------------------------------------------------
 
-CODECOMPASS_QUESTION = (
-    "Was ist CodeCompass und wie haengt es mit dem snake/ask propose flow zusammen?"
-)
+CODECOMPASS_QUESTION = "Was ist CodeCompass und wie haengt es mit dem snake/ask propose flow zusammen?"
 CODECOMPASS_ANSWER = (
     "CodeCompass ist der Retrieval-Service in Ananta. "
     "Er liefert beim snake/ask-Propose-Flow relevante Dateipfade und Symbole.\n\n"
@@ -130,6 +128,7 @@ def test_question_echo_is_first_body_line():
 # Streaming partial hat Vorrang
 # ---------------------------------------------------------------------------
 
+
 def test_streaming_partial_takes_precedence_over_history():
     game = _make_game(
         CODECOMPASS_QUESTION,
@@ -156,6 +155,7 @@ def test_streaming_partial_rendered_in_middle_pane():
 # Warte-Zustand (Frage gestellt, noch keine Antwort)
 # ---------------------------------------------------------------------------
 
+
 def test_waiting_state_shows_waiting_indicator():
     game = _make_game(CODECOMPASS_QUESTION, answer=None)
     lines = _render(game, width=88, height=20)
@@ -174,9 +174,7 @@ def test_waiting_state_still_shows_question_echo():
 # Chrome-Fixierung beim Scrollen
 # ---------------------------------------------------------------------------
 
-LONG_ANSWER = "\n".join(
-    [f"Zeile {i:02d}: " + "X" * 40 for i in range(60)]
-)
+LONG_ANSWER = "\n".join([f"Zeile {i:02d}: " + "X" * 40 for i in range(60)])
 
 
 def test_chrome_stays_fixed_when_scrolled():
@@ -190,9 +188,7 @@ def test_chrome_stays_fixed_when_scrolled():
     chrome_start = lines_start[:4]
     chrome_scrolled = lines_scrolled[:4]
     assert chrome_start == chrome_scrolled, (
-        f"Chrome muss beim Scrollen fixiert bleiben.\n"
-        f"Start:    {chrome_start}\n"
-        f"Scrolled: {chrome_scrolled}"
+        f"Chrome muss beim Scrollen fixiert bleiben.\nStart:    {chrome_start}\nScrolled: {chrome_scrolled}"
     )
 
 
@@ -211,6 +207,7 @@ def test_body_content_changes_when_scrolled():
 # ---------------------------------------------------------------------------
 # Scroll-Indicator
 # ---------------------------------------------------------------------------
+
 
 def test_scroll_indicator_appears_for_long_answer():
     game = _make_game(CODECOMPASS_QUESTION, LONG_ANSWER, scroll_offset=0)
@@ -245,6 +242,7 @@ def test_no_scroll_indicator_when_answer_fits():
 # height=None (kein Limit)
 # ---------------------------------------------------------------------------
 
+
 def test_no_height_limit_returns_full_content():
     game = _make_game(CODECOMPASS_QUESTION, LONG_ANSWER)
     state = OperatorState(
@@ -264,6 +262,7 @@ def test_no_height_limit_returns_full_content():
 # _copy_ask_answer_to_game: stale mouse_selection_range must not affect :ask copy
 # ---------------------------------------------------------------------------
 
+
 class _MinimalCopyHost:
     """Minimal stub to exercise _copy_ask_answer_to_game and _clear_selection_state."""
 
@@ -276,6 +275,7 @@ class _MinimalCopyHost:
     _last_clipboard: str = ""
 
     from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
+
     _copy_ask_answer_to_game = SnakeOpsMixin._copy_ask_answer_to_game
     _clear_selection_state = SnakeOpsMixin._clear_selection_state
 
@@ -322,9 +322,7 @@ def test_copy_ask_answer_preserves_spaces():
     game["tutor_ask_answer"] = answer
     host = _MinimalCopyHost()
     host._copy_ask_answer_to_game(game)
-    assert "CodeCompass ist der Retrieval-Service" in host._last_clipboard, (
-        "Spaces must be preserved in clipboard text"
-    )
+    assert "CodeCompass ist der Retrieval-Service" in host._last_clipboard, "Spaces must be preserved in clipboard text"
     assert "CodeCompassist" not in host._last_clipboard
 
 

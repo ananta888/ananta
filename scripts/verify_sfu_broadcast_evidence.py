@@ -110,8 +110,7 @@ class Ed25519AttestationVerifier:
         self._trusted_keys = {
             str(key["key_id"]): (str(key["public_key_path"]), str(key["public_key_sha256"]))
             for key in trusted_keys
-            if isinstance(key, Mapping)
-            and {"key_id", "public_key_path", "public_key_sha256"}.issubset(key)
+            if isinstance(key, Mapping) and {"key_id", "public_key_path", "public_key_sha256"}.issubset(key)
         }
 
     def verify(self, payload: bytes, *, key_id: str, signature: str) -> bool:

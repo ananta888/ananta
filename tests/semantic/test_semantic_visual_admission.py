@@ -10,9 +10,7 @@ class Gate:
         self.passed = passed
 
     def current(self):
-        return VisualReleaseEvidence(
-            self.passed, True, "semantic-visual-release-gate/1.0.0", "a" * 64
-        )
+        return VisualReleaseEvidence(self.passed, True, "semantic-visual-release-gate/1.0.0", "a" * 64)
 
 
 class Sfu:
@@ -25,11 +23,18 @@ class Sfu:
 
 def request(**patch):
     values = {
-        "session_id": "session", "epoch": 1, "now_ms": 1000,
-        "capture_flag": True, "sfu_flag": True, "consent_active": True,
-        "contract_id": "contract", "contract_expires_at_ms": 2000,
-        "lease_id": "lease", "lease_expires_at_ms": 2000,
-        "quality_report_id": "quality", "quality_report_expires_at_ms": 2000,
+        "session_id": "session",
+        "epoch": 1,
+        "now_ms": 1000,
+        "capture_flag": True,
+        "sfu_flag": True,
+        "consent_active": True,
+        "contract_id": "contract",
+        "contract_expires_at_ms": 2000,
+        "lease_id": "lease",
+        "lease_expires_at_ms": 2000,
+        "quality_report_id": "quality",
+        "quality_report_expires_at_ms": 2000,
     }
     values.update(patch)
     return VisualAdmissionRequest(**values)
@@ -54,8 +59,11 @@ def test_hub_admission_requires_release_sfu_consent_contract_lease_and_quality()
 def test_missing_authority_only_falls_back_affected_semantic_path() -> None:
     service = SemanticVisualAdmissionService(release_gate=Gate(), sfu_admission=Sfu())
     for patch in (
-        {"capture_flag": False}, {"consent_active": False}, {"contract_id": None},
-        {"lease_id": None}, {"quality_report_id": None},
+        {"capture_flag": False},
+        {"consent_active": False},
+        {"contract_id": None},
+        {"lease_id": None},
+        {"quality_report_id": None},
     ):
         decision = service.admit(request(**patch))
         assert decision.delivery_mode == "ordinary"

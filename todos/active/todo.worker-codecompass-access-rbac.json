@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-27",
-  "updated_at": "2026-09-28",
+  "updated_at": "2026-10-17",
   "owner": "Peter Stuiber / Ananta",
   "track": "worker_codecompass_access_rbac",
   "title": "Worker-Zugriff auf CodeCompass (Hub fuehrt aus / Hub delegiert) mit rollenbasierten Rechten",
@@ -96,7 +96,8 @@
       "title": "Weg B: Hub delegiert (Standard)",
       "task_ids": [
         "WCRB-009",
-        "WCRB-010"
+        "WCRB-010",
+        "WCRB-013"
       ],
       "status": "done"
     },
@@ -105,7 +106,8 @@
       "title": "Konfiguration und Konsolidierung",
       "task_ids": [
         "WCRB-011",
-        "WCRB-012"
+        "WCRB-012",
+        "WCRB-014"
       ],
       "status": "done"
     }
@@ -396,6 +398,54 @@
         "838364af4: Worker-Allowlist mit klaren Rollen (search, search_symbols, get_file_context, plan_context, Architektur); retrieve und resolve_context per Alias auf search (nur akzeptierte Argumente); live: 20 Tools",
         "Jev-Abdeckung nicht neu gemessen: es gibt keinen gelabelten Datensatz fuer die Worker-Tools (Kalibrierung lief ueber den Companion-Toolset)"
       ]
+    },
+    {
+      "id": "WCRB-013",
+      "milestone_id": "WCRB-M4",
+      "title": "Weg B: Retrieval-Outputs fuer Worker (Endpunkt + lokaler Abruf)",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "WCRB-010"
+      ],
+      "implementation": [
+        "Worker-authentifizierter Hub-Endpunkt GET /api/codecompass/worker-index-artifacts/<knowledge_index_id>/<role> liefert index/details/relations eines in allowed_index_ids der signierten Capability enthaltenen Index; Pfad stammt aus dem Index-Record, Digest im X-Artifact-SHA256-Header.",
+        "WorkerIndexArtifactMaterializer holt einen fehlenden Output in den zugelassenen Pfad im eigenen knowledge_indices-Root und prueft den angekuendigten Digest; KnowledgeIndexRetrievalService materialisiert lazy in _ranked_candidates."
+      ],
+      "acceptance_criteria": [
+        "ein Worker ohne eigenes Index-Output-Volume stellt die Retrieval-Records aus dem Hub bereit und laeuft danach Retrieval lokal.",
+        "Index, Rolle, Worker, Task und Digest bleiben gebunden; fremde/fehlende Capability, fremde Index-ID oder fehlender Output werden abgelehnt (fail-closed)."
+      ],
+      "evidence": [
+        "23fe2ade6: agent/routes/codecompass_worker_artifacts.get_worker_index_artifact (+ _verified_capability), locate_admitted_index_output, WorkerIndexArtifactMaterializer/index_output_materializer/try_materialize_index_outputs in agent/services/codecompass_worker_artifacts.py, lazy Materialisierung in knowledge_index_retrieval_service._ranked_candidates; docs/worker-codecompass-access-rbac.md; tests/codecompass/test_codecompass_worker_artifacts.py (23)",
+        "Live 2026-10-17 auf beta (eigenes data-Volume, Index-Output fehlt lokal): index.jsonl 96.494.174 B ueber die neue Route vom Hub geholt, Digest-Header verifiziert; anschliessend plan_context auf beta -> 8 nichtleere location_refs, keine Warnungen (Capability audience http://ai-agent-beta:5000)."
+      ]
+    },
+    {
+      "id": "WCRB-014",
+      "milestone_id": "WCRB-M5",
+      "title": "Retrieval-Header vor dem Parsen indizierter Quellen entfernen",
+      "type": "bugfix",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "WCRB-010"
+      ],
+      "implementation": [
+        "Der beim Indexbau vorangestellte Retrieval-Header (# <pfad>, optional # Themen:) ist reine Annotationszeile und darf den semantischen Parser nicht erreichen; strip_index_header entfernt ihn vor emit_graph_records und liefert content_line_offset."
+      ],
+      "acceptance_criteria": [
+        "Sprachdateien werden mit ihrer echten ersten Zeile geparst; der Header erscheint nicht als Syntaxfehler und die gemeldeten Diagnosen enthalten keine Header-Fehlinterpretationen mehr."
+      ],
+      "evidence": [
+        "bd7c65aae: agent/codecompass/index_header.strip_index_header(content, path) -> (content, line_offset), Aufruf vor emit_graph_records in worker/retrieval/repository_codecompass_bridge.py, Alias in knowledge_index_result_projection, Re-Export in knowledge_index_retrieval_service; tests/codecompass/test_codecompass_index_header.py (4) und Regression in tests/test_repository_codecompass_bridge.py",
+        "Live 2026-10-17 nach Re-Index 899893ea: alle 149 Java-Dateien parsen mit 0 Diagnosen (3194 Knoten / 3093 Kanten); zuvor fielen 137/137 Java-Dateien auf den Regex-Fallback zurueck."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -409,25 +459,25 @@
     "WCRB-011"
   ],
   "tasks_status_summary": {
-    "total": 12,
+    "total": 14,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 12
+      "done": 14
     },
     "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 8,
-      "P1": 3,
+      "P0": 9,
+      "P1": 4,
       "P2": 1,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
-      "medium": 2,
-      "high": 8,
+      "medium": 3,
+      "high": 9,
       "critical": 1
     },
     "critical_path": {
@@ -450,7 +500,7 @@
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 12,
+    "done": 14,
     "milestones_done": 6,
     "milestones_total": 6
   },
@@ -466,13 +516,17 @@
     "Hub-Tool-Gateway (A), Capability-Dispatch und Graph-Cache (B), Umschalter",
     "Doku docs/worker-codecompass-access-rbac.md"
   ],
-  "summary_notes": [],
+  "summary_notes": [
+    "2026-10-17: WCRB-013 ergaenzt. Der Delegationspfad lieferte nur Graph-Artefakte (WCRB-010); einem Worker ohne eigenes Index-Output-Volume fehlten die Retrieval-Records, sodass plan_context leer blieb. Der Hub serviert index/details/relations jetzt ueber /api/codecompass/worker-index-artifacts/<id>/<role> an die signierte, auf den Worker adressierte Capability; live auf beta verifiziert (96 MB index.jsonl geholt, plan_context -> 8 nichtleere location_refs).",
+    "2026-10-17: WCRB-014 ergaenzt. Der beim Indexbau vorangestellte Retrieval-Header wurde vom semantischen Parser als Quellzeile gelesen und liess Java-Dateien auf den Regex-Fallback fallen. strip_index_header entfernt ihn vor emit_graph_records; nach Re-Index parsen 149/149 Java-Dateien mit 0 Diagnosen.",
+    "Der WCRB-Track dokumentiert ausschliesslich Worker-Zugriff/RBAC. Autopilot-Laufzeitkorrekturen (Fehlschlag-Erkennung, Re-Arm-Watchdog) gehoeren in den Track self-development-success-rate-improvement."
+  ],
   "tasks_type_summary": {
-    "total": 12,
+    "total": 14,
     "by_type": {
       "bugfix": {
-        "total": 1,
-        "done": 1,
+        "total": 2,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
         "todo": 0,
@@ -483,7 +537,7 @@
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         }
       },
       "architecture": {
@@ -503,8 +557,8 @@
         }
       },
       "feature": {
-        "total": 8,
-        "done": 8,
+        "total": 9,
+        "done": 9,
         "partial": 0,
         "blocked": 0,
         "todo": 0,
@@ -515,7 +569,7 @@
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 8
+          "done": 9
         }
       },
       "security": {

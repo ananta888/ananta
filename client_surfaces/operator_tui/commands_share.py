@@ -2,6 +2,7 @@
 
 Extracted from client_surfaces/operator_tui/commands.py (SPLIT-002).
 """
+
 from __future__ import annotations
 
 from client_surfaces.operator_tui.models import CommandResult, OperatorMode, OperatorState
@@ -12,7 +13,9 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "status":
         return CommandResult(
-            state.with_updates(mode=OperatorMode.NORMAL, command_line="", section_id="share", status_message="share status"),
+            state.with_updates(
+                mode=OperatorMode.NORMAL, command_line="", section_id="share", status_message="share status"
+            ),
             "share status",
         )
 
@@ -25,6 +28,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "debug":
         import os as _os
+
         game = dict(state.header_logo_game or {})
         endpoint = str(state.endpoint or "")
         oidc_token = str(game.get("oidc_token") or "")
@@ -40,8 +44,14 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
         if not hub_raw:
             try:
                 from client_surfaces.operator_tui.app import _load_env_file
+
                 _env = _load_env_file()
-                hub_raw = _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or _env.get("INITIAL_ADMIN_PASSWORD") or ""
+                hub_raw = (
+                    _env.get("ANANTA_AUTH_TOKEN")
+                    or _env.get("ANANTA_PASSWORD")
+                    or _env.get("INITIAL_ADMIN_PASSWORD")
+                    or ""
+                )
             except Exception:
                 pass
         parts = [
@@ -71,7 +81,7 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "create":
         title = " ".join(args[1:]).strip() or "Shared Session"
-        from client_surfaces.operator_tui.share_menu import share_section_lines
+
         game = dict(state.header_logo_game or {})
         game["share_pending_action"] = {"action": "create", "title": title}
         game["share_status_message"] = f"Session '{title}' wird erstellt…"
@@ -117,7 +127,8 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     if sub == "key":
         key_sub = args[1].lower() if len(args) >= 2 else "show"
-        from client_surfaces.operator_tui.device_keys import get_device_key_manager, DeviceKeyError
+        from client_surfaces.operator_tui.device_keys import DeviceKeyError, get_device_key_manager
+
         mgr = get_device_key_manager()
         if key_sub == "generate":
             if mgr.key_exists():
@@ -150,12 +161,16 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
     if sub == "view":
         view_sub = args[1].lower() if len(args) >= 2 else ""
         if view_sub not in ("on", "off"):
-            return CommandResult(state.with_updates(status_message=":share view on|off"), ":share view on|off", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=":share view on|off"), ":share view on|off", handled=False
+            )
         enabled = view_sub == "on"
         game = dict(state.header_logo_game or {})
         session = dict(game.get("share_active_session") or {})
         if not session:
-            return CommandResult(state.with_updates(status_message="Keine aktive Share-Session"), "no active session", handled=False)
+            return CommandResult(
+                state.with_updates(status_message="Keine aktive Share-Session"), "no active session", handled=False
+            )
         game["share_pending_action"] = {"action": "set_view", "view_tui": enabled}
         msg = "TUI-View-Share aktiviert" if enabled else "TUI-View-Share deaktiviert"
         game["share_status_message"] = f"{msg} (wird angewendet…)"
@@ -180,4 +195,3 @@ def _handle_share_command(args: list[str], state: OperatorState) -> CommandResul
 
     msg = "share: status | list | create [title] | invite | join <code> | key generate|show|rotate | view on|off | stop"
     return CommandResult(state.with_updates(status_message=msg), msg, handled=False)
-

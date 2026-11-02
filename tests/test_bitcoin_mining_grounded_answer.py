@@ -135,8 +135,18 @@ def test_bitcoin_claim_type_mismatch_is_rejected_deterministically() -> None:
     }
 
     svc = CitationVerificationService()
-    res_src = svc.verify(task_id=task_id, answer_payload=wrong_src_claim, source_catalog=_source_catalog(task_id), tool_run_catalog=[run_entry])
-    res_run = svc.verify(task_id=task_id, answer_payload=wrong_run_claim, source_catalog=_source_catalog(task_id), tool_run_catalog=[run_entry])
+    res_src = svc.verify(
+        task_id=task_id,
+        answer_payload=wrong_src_claim,
+        source_catalog=_source_catalog(task_id),
+        tool_run_catalog=[run_entry],
+    )
+    res_run = svc.verify(
+        task_id=task_id,
+        answer_payload=wrong_run_claim,
+        source_catalog=_source_catalog(task_id),
+        tool_run_catalog=[run_entry],
+    )
 
     assert res_src["status"] == "failed_source_type_mismatch"
     assert res_run["status"] == "failed_source_type_mismatch"
@@ -181,8 +191,15 @@ def test_bitcoin_tool_result_requires_existing_run_and_matching_hash_nonce() -> 
     }
 
     svc = CitationVerificationService()
-    res_missing = svc.verify(task_id=task_id, answer_payload=missing_run_answer, source_catalog=_source_catalog(task_id), tool_run_catalog=[])
-    res_mismatch = svc.verify(task_id=task_id, answer_payload=mismatch_answer, source_catalog=_source_catalog(task_id), tool_run_catalog=[run_entry])
+    res_missing = svc.verify(
+        task_id=task_id, answer_payload=missing_run_answer, source_catalog=_source_catalog(task_id), tool_run_catalog=[]
+    )
+    res_mismatch = svc.verify(
+        task_id=task_id,
+        answer_payload=mismatch_answer,
+        source_catalog=_source_catalog(task_id),
+        tool_run_catalog=[run_entry],
+    )
 
     assert res_missing["status"] == "failed_unknown_source"
     assert res_mismatch["status"] == "failed_tool_evidence_mismatch"

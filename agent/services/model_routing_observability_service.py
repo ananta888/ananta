@@ -31,19 +31,14 @@ class ModelRoutingUsageProjection:
         if not route.executable or not route.resolved_profile_id:
             return
         key = (route.consumer_id, route.resolved_profile_id)
-        fallback = bool(
-            route.candidate_profile_ids
-            and route.candidate_profile_ids[0] != route.resolved_profile_id
-        )
+        fallback = bool(route.candidate_profile_ids and route.candidate_profile_ids[0] != route.resolved_profile_id)
         with self._lock:
             self._counts[key] += 1
             self._fallbacks[key] += int(fallback)
             self._last_used[key] = _now()
         from agent import metrics
 
-        metrics.MODEL_ROUTING_DECISIONS_TOTAL.labels(
-            outcome="fallback" if fallback else "primary"
-        ).inc()
+        metrics.MODEL_ROUTING_DECISIONS_TOTAL.labels(outcome="fallback" if fallback else "primary").inc()
 
     def read(self) -> tuple[ModelRoutingUsageAggregate, ...]:
         with self._lock:
@@ -74,51 +69,68 @@ class ModelRoutingDiagnosticsService:
         routes = tuple(effective_routes)
         known_consumers = {item.consumer_id for item in consumer_values}
         known_profiles = set(known_profile_ids)
-        known_models = {
-            (item.provider_id, item.model_id) for item in catalog.models
-        }
+        known_models = {(item.provider_id, item.model_id) for item in catalog.models}
         issues: list[ModelRoutingDiagnosticIssue] = []
         for assignment in configuration.assignments:
             key = f"{assignment.consumer_id}:{assignment.scope}:{assignment.scope_id}"
             if assignment.consumer_id not in known_consumers:
-                issues.append(ModelRoutingDiagnosticIssue(
-                    severity="error", reason_code="consumer_unresolved", reference=key,
-                ))
+                issues.append(
+                    ModelRoutingDiagnosticIssue(
+                        severity="error",
+                        reason_code="consumer_unresolved",
+                        reference=key,
+                    )
+                )
             elif assignment.mode == "profile" and assignment.profile_id not in known_profiles:
-                issues.append(ModelRoutingDiagnosticIssue(
-                    severity="error", reason_code="profile_unresolved", reference=key,
-                ))
-            elif assignment.mode == "model" and (
-                assignment.provider_id, assignment.model_id
-            ) not in known_models:
-                issues.append(ModelRoutingDiagnosticIssue(
-                    severity="warning", reason_code="model_unresolved", reference=key,
-                ))
+                issues.append(
+                    ModelRoutingDiagnosticIssue(
+                        severity="error",
+                        reason_code="profile_unresolved",
+                        reference=key,
+                    )
+                )
+            elif assignment.mode == "model" and (assignment.provider_id, assignment.model_id) not in known_models:
+                issues.append(
+                    ModelRoutingDiagnosticIssue(
+                        severity="warning",
+                        reason_code="model_unresolved",
+                        reference=key,
+                    )
+                )
         for group in configuration.fallback_groups:
             for candidate in group.candidates:
                 if candidate.profile_id not in known_profiles:
-                    issues.append(ModelRoutingDiagnosticIssue(
-                        severity="error",
-                        reason_code="fallback_profile_unresolved",
-                        reference=f"{group.group_id}:{candidate.profile_id}",
-                    ))
+                    issues.append(
+                        ModelRoutingDiagnosticIssue(
+                            severity="error",
+                            reason_code="fallback_profile_unresolved",
+                            reference=f"{group.group_id}:{candidate.profile_id}",
+                        )
+                    )
         for source in catalog.sources:
             if source.status in {"degraded", "unavailable", "stale"}:
-                issues.append(ModelRoutingDiagnosticIssue(
-                    severity="warning",
-                    reason_code=f"inventory_source_{source.status}",
-                    reference=source.source_id,
-                ))
+                issues.append(
+                    ModelRoutingDiagnosticIssue(
+                        severity="warning",
+                        reason_code=f"inventory_source_{source.status}",
+                        reference=source.source_id,
+                    )
+                )
         for route in routes:
             if not route.executable:
-                issues.append(ModelRoutingDiagnosticIssue(
-                    severity="warning",
-                    reason_code="effective_route_not_executable",
-                    reference=route.consumer_id,
-                ))
+                issues.append(
+                    ModelRoutingDiagnosticIssue(
+                        severity="warning",
+                        reason_code="effective_route_not_executable",
+                        reference=route.consumer_id,
+                    )
+                )
         unresolved = sum(
-            item.reason_code in {
-                "consumer_unresolved", "profile_unresolved", "model_unresolved",
+            item.reason_code
+            in {
+                "consumer_unresolved",
+                "profile_unresolved",
+                "model_unresolved",
                 "fallback_profile_unresolved",
             }
             for item in issues
@@ -150,6 +162,7 @@ def _now() -> str:
 
 
 __all__ = [
-    "ModelRoutingDiagnosticsService", "ModelRoutingUsageProjection",
+    "ModelRoutingDiagnosticsService",
+    "ModelRoutingUsageProjection",
     "get_model_routing_usage_projection",
 ]

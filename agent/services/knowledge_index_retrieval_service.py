@@ -65,14 +65,10 @@ class KnowledgeIndexRetrievalService:
     ) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
         self._knowledge_link_repository = knowledge_link_repository or knowledge_link_repo
-        self._consumption_policy = (
-            consumption_policy or get_knowledge_index_consumption_policy()
-        )
+        self._consumption_policy = consumption_policy or get_knowledge_index_consumption_policy()
         self._records: KnowledgeIndexRecordSource = record_source or KnowledgeIndexRecordReader()
         if record_ranking is None:
-            registry = file_type_registry or load_file_type_support_registry(
-                Path(__file__).resolve().parents[2]
-            )
+            registry = file_type_registry or load_file_type_support_registry(Path(__file__).resolve().parents[2])
             record_ranking = KnowledgeIndexRecordScorer(FileTypeClassifier(registry))
         self._ranking: KnowledgeIndexRecordRanking = record_ranking
         self._manifest_identity: KnowledgeIndexManifestIdentitySource = (
@@ -138,10 +134,7 @@ class KnowledgeIndexRetrievalService:
         }
         for knowledge_index in self._iter_completed_indices():
             scope = (
-                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
-                .strip()
-                .lower()
-                or "artifact"
+                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
             )
             if scope not in by_scope:
                 by_scope[scope] = {
@@ -249,30 +242,22 @@ class KnowledgeIndexRetrievalService:
                 "workspace_id": getattr(knowledge_index, "workspace_id", ""),
                 "repository_id": getattr(knowledge_index, "repository_id", ""),
                 "revision": (
-                    getattr(knowledge_index, "revision", "")
-                    or getattr(knowledge_index, "source_revision", "")
+                    getattr(knowledge_index, "revision", "") or getattr(knowledge_index, "source_revision", "")
                 ),
             }
             if any(
-                str(observed_scope.get(field) or "")
-                and str(observed_scope.get(field)) != str(expected)
+                str(observed_scope.get(field) or "") and str(observed_scope.get(field)) != str(expected)
                 for field, expected in expected_scope.items()
                 if field in observed_scope and str(expected or "")
             ):
                 continue
             source_scope = (
-                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
-                .strip()
-                .lower()
-                or "artifact"
+                str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
             )
             if source_scopes is not None and source_scope not in source_scopes:
                 continue
             artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
-            if artifact_ids is not None and (
-                source_scope != "artifact"
-                or artifact_id not in artifact_ids
-            ):
+            if artifact_ids is not None and (source_scope != "artifact" or artifact_id not in artifact_ids):
                 # An artifact allow-list is a strict capability boundary. It
                 # must never degrade into a filter that admits every other
                 # source scope (repo, wiki, registered workspace, ...).
@@ -290,19 +275,22 @@ class KnowledgeIndexRetrievalService:
                     continue
                 output_dir = Path(output_dir_raw)
                 if not output_dir.exists():
-                    continue
+                    # A delegated worker's data root does not hold the Hub-owned
+                    # index (WCRB-013): fetch the granted index's retrieval outputs
+                    # once, then read them locally. On the Hub this is a no-op.
+                    from agent.services.codecompass_worker_artifacts import (
+                        try_materialize_index_outputs,
+                    )
+
+                    if not try_materialize_index_outputs(knowledge_index):
+                        continue
                 output_records = list(self._records.iter_output_records(output_dir))
             duplicate_ids = self._ranking.duplicate_candidate_ids(output_records)
             for filename, record in output_records:
                 if record_predicate is not None and not record_predicate(record):
                     continue
                 display_path = self._records.display_path(record)
-                source = str(
-                    display_path
-                    or record.get("id")
-                    or artifact_id
-                    or "knowledge-index"
-                )
+                source = str(display_path or record.get("id") or artifact_id or "knowledge-index")
                 record_text = self._records.record_text(record)
                 if not record_text:
                     continue
@@ -351,9 +339,9 @@ class KnowledgeIndexRetrievalService:
                     # CCSH-010: line-range metadata — use from record if present, else mark unknown
                     "start_line": record.get("start_line"),
                     "end_line": record.get("end_line"),
-                    "line_range_status": "available" if (
-                        record.get("start_line") is not None and record.get("end_line") is not None
-                    ) else "unknown",
+                    "line_range_status": "available"
+                    if (record.get("start_line") is not None and record.get("end_line") is not None)
+                    else "unknown",
                     "repo_relative_path": str(record.get("path") or record.get("file") or "").strip() or None,
                     # Citable file path, also when the record keeps it only in
                     # ``metadata.relative_path`` (records ingestion). Display
@@ -375,22 +363,24 @@ class KnowledgeIndexRetrievalService:
                     "line_start": record.get("line_start", record.get("start_line")),
                     "line_end": record.get("line_end", record.get("end_line")),
                 }
-                candidates.append((
-                    ContextChunk(
-                        engine="knowledge_index",
-                        source=source,
-                        content=record_text,
-                        score=score,
-                        metadata=normalize_chunk_metadata(
+                candidates.append(
+                    (
+                        ContextChunk(
                             engine="knowledge_index",
                             source=source,
                             content=record_text,
-                            metadata=raw_metadata,
-                            verified_source_ids=(),
+                            score=score,
+                            metadata=normalize_chunk_metadata(
+                                engine="knowledge_index",
+                                source=source,
+                                content=record_text,
+                                metadata=raw_metadata,
+                                verified_source_ids=(),
+                            ),
                         ),
-                    ),
-                    record,
-                ))
+                        record,
+                    )
+                )
         return sorted(
             candidates,
             key=lambda item: (-item[0].score, item[0].engine, item[0].source, item[0].content[:80]),

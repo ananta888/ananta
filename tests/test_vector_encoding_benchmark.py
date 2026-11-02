@@ -8,6 +8,7 @@ These tests act as measurable quality gates:
 
 Test vectors are reproducible: random.Random(42).gauss(0, 1), then L2-normalized.
 """
+
 from __future__ import annotations
 
 import math
@@ -26,6 +27,7 @@ DIMS = 384  # all-MiniLM-L6-v2 dimensions
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_test_vector(dims: int = DIMS, seed: int = 42) -> list[float]:
     """L2-normalized Gaussian random vector, fully reproducible."""
@@ -65,6 +67,7 @@ def _encode_decode(mode: str, vector: list[float]) -> tuple[list[float], float]:
 # Compression ratio gates
 # ---------------------------------------------------------------------------
 
+
 def test_float16_compression_ratio_vs_float32():
     """float16 must achieve ~2x compression vs float32."""
     vector = _make_test_vector()
@@ -101,6 +104,7 @@ def test_turboquant_mse_compression_ratio():
 # Precision / max_abs_error gates
 # ---------------------------------------------------------------------------
 
+
 def test_float16_max_abs_error_within_tolerance():
     """float16 max_abs_error must be < 0.001 for a normalized unit vector."""
     encoder = _make_encoder("float16")
@@ -122,6 +126,7 @@ def test_int8_max_abs_error_within_tolerance():
 # ---------------------------------------------------------------------------
 # Cosine similarity preservation gates
 # ---------------------------------------------------------------------------
+
 
 def test_int8_cosine_similarity_preserved():
     """Cosine similarity between original and int8-decoded vector must be ≥ 0.99."""
@@ -169,6 +174,7 @@ def test_benchmark_all_modes_encode_decode_roundtrip(mode):
 # mode=off is lossless
 # ---------------------------------------------------------------------------
 
+
 def test_encoding_mode_off_is_lossless():
     """mode=off stores values as float32 binary; diagnostics must report max_abs_error=0.0
     (no additional quantization beyond float32 precision) and the decoded vector must
@@ -187,6 +193,4 @@ def test_encoding_mode_off_is_lossless():
     assert len(decoded) == DIMS
     for orig, dec in zip(vector, decoded, strict=False):
         diff = abs(orig - dec)
-        assert diff < 1e-6, (
-            f"mode=off value diverges beyond float32 precision: orig={orig}, decoded={dec}, diff={diff}"
-        )
+        assert diff < 1e-6, f"mode=off value diverges beyond float32 precision: orig={orig}, decoded={dec}, diff={diff}"

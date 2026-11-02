@@ -1,4 +1,5 @@
 """SelectedArtifactFirstStrategy — chat_codecompass_selected_artifact_first."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, CodeCompassReadPort, HeuristicStrategyBase

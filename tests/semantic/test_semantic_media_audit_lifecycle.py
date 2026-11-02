@@ -103,9 +103,7 @@ def test_http_export_and_erasure_are_separate_role_scoped_workflows() -> None:
     app.register_blueprint(semantic_media_debug_bp)
     app.register_blueprint(semantic_media_privacy_bp)
     app.extensions["semantic_media_audit_recorder"] = recorder
-    app.extensions["semantic_media_debug_read_model"] = SemanticMediaDebugReadModel(
-        repository, clock_ms=lambda: NOW
-    )
+    app.extensions["semantic_media_debug_read_model"] = SemanticMediaDebugReadModel(repository, clock_ms=lambda: NOW)
     app.extensions["semantic_media_audit_lifecycle_service"] = SemanticMediaAuditLifecycleService(
         repository, clock_ms=lambda: NOW
     )
@@ -120,18 +118,24 @@ def test_http_export_and_erasure_are_separate_role_scoped_workflows() -> None:
     )
     assert exported.status_code == 200
     assert exported.json["data"]["event_count"] == 1
-    assert client.delete(
-        "/v1/semantic-media/privacy/audit-scope",
-        json={"scope": scope},
-        headers={"Authorization": f"Bearer {auditor}"},
-    ).status_code == 403
+    assert (
+        client.delete(
+            "/v1/semantic-media/privacy/audit-scope",
+            json={"scope": scope},
+            headers={"Authorization": f"Bearer {auditor}"},
+        ).status_code
+        == 403
+    )
     erased = client.delete(
         "/v1/semantic-media/privacy/audit-scope",
         json={"scope": scope},
         headers={"Authorization": f"Bearer {privacy}"},
     )
     assert erased.status_code == 200 and erased.json["data"]["deleted_event_count"] == 1
-    assert client.post(
-        "/v1/semantic-media/debug/events",
-        headers={"Authorization": f"Bearer {auditor}"},
-    ).status_code == 405
+    assert (
+        client.post(
+            "/v1/semantic-media/debug/events",
+            headers={"Authorization": f"Bearer {auditor}"},
+        ).status_code
+        == 405
+    )

@@ -101,10 +101,44 @@ def test_summary_engine_derives_milestone_status_and_progress() -> None:
 def test_summary_engine_handles_mixed_statuses_and_reports_breakdowns() -> None:
     payload = _fixture_payload()
     payload["tasks"] = [
-        {"id": "T1", "title": "Done", "status": "done", "priority": "P1", "risk": "high", "type": "backend", "acceptance_criteria": ["ok"]},
-        {"id": "T2", "title": "Todo", "status": "todo", "priority": "P2", "risk": "low", "type": "docs", "acceptance_criteria": ["ok"]},
-        {"id": "T3", "title": "Blocked", "status": "blocked", "priority": "P1", "risk": "medium", "type": "test", "acceptance_criteria": ["ok"], "progress_percent": 30},
-        {"id": "T4", "title": "Partial", "status": "partial", "priority": "P3", "risk": "medium", "type": "backend", "acceptance_criteria": ["ok"], "progress_percent": 60},
+        {
+            "id": "T1",
+            "title": "Done",
+            "status": "done",
+            "priority": "P1",
+            "risk": "high",
+            "type": "backend",
+            "acceptance_criteria": ["ok"],
+        },
+        {
+            "id": "T2",
+            "title": "Todo",
+            "status": "todo",
+            "priority": "P2",
+            "risk": "low",
+            "type": "docs",
+            "acceptance_criteria": ["ok"],
+        },
+        {
+            "id": "T3",
+            "title": "Blocked",
+            "status": "blocked",
+            "priority": "P1",
+            "risk": "medium",
+            "type": "test",
+            "acceptance_criteria": ["ok"],
+            "progress_percent": 30,
+        },
+        {
+            "id": "T4",
+            "title": "Partial",
+            "status": "partial",
+            "priority": "P3",
+            "risk": "medium",
+            "type": "backend",
+            "acceptance_criteria": ["ok"],
+            "progress_percent": 60,
+        },
     ]
     payload["critical_path_tasks"] = ["T1", "T4"]
     payload["milestones"] = [{"id": "M1", "title": "M1", "task_ids": ["T1", "T2", "T3", "T4"], "status": "todo"}]

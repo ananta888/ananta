@@ -238,9 +238,7 @@ class NativeGraphRunLifecycle:
             checkpoint=checkpoint,
         )
 
-    def verify_checkpoint(
-        self, checkpoint: SignedCheckpoint, plan: ExecutionPlan, request: NativeGraphRequest
-    ) -> None:
+    def verify_checkpoint(self, checkpoint: SignedCheckpoint, plan: ExecutionPlan, request: NativeGraphRequest) -> None:
         self._checkpoints.verify(
             checkpoint=checkpoint,
             plan=plan,

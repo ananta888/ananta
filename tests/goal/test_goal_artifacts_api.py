@@ -110,7 +110,9 @@ def _provenance_payload(
     }
 
 
-def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
     from agent.config import settings
 
@@ -131,7 +133,9 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
     assert grant.json["data"]["grant_id"] == "grant-1"
 
     usage = service.record_usage(goal_id="goal-1", usage=_usage_payload())
-    service.record_output_artifact(goal_id="goal-1", output_artifact=_output_payload(goal_id="goal-1", usage_refs=[usage["usage_id"]]))
+    service.record_output_artifact(
+        goal_id="goal-1", output_artifact=_output_payload(goal_id="goal-1", usage_refs=[usage["usage_id"]])
+    )
 
     sources = client.get("/goals/goal-1/artifacts/sources", headers=admin_auth_header)
     assert sources.status_code == 200
@@ -163,7 +167,9 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
     assert invalid.status_code == 404
 
 
-def test_goal_artifacts_api_rejects_invalid_grant_payload(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_goal_artifacts_api_rejects_invalid_grant_payload(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
@@ -245,15 +251,11 @@ def test_goal_artifact_reads_hide_system_artifacts_and_linked_provenance(
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     monkeypatch.setattr("agent.routes.goal_artifacts._goal_exists", lambda _goal_id: True)
     goal_id = "goal-system-artifact-visibility"
-    public = artifact_repo.save(
-        ArtifactDB(id="goal-public-artifact", artifact_metadata={})
-    )
+    public = artifact_repo.save(ArtifactDB(id="goal-public-artifact", artifact_metadata={}))
     hidden = artifact_repo.save(
         ArtifactDB(
             id="goal-hidden-index-output",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_worker_output"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_worker_output"},
         )
     )
     service = GoalArtifactService()
@@ -331,15 +333,9 @@ def test_goal_artifact_reads_hide_system_artifacts_and_linked_provenance(
 
     assert graph_response.status_code == 200
     graph = graph_response.json["data"]
-    assert [row["grant_id"] for row in graph["source_grants"]] == [
-        "grant-public"
-    ]
-    assert [row["usage_id"] for row in graph["source_usages"]] == [
-        "usage-public"
-    ]
-    assert [row["output_artifact_id"] for row in graph["output_artifacts"]] == [
-        "out-public"
-    ]
+    assert [row["grant_id"] for row in graph["source_grants"]] == ["grant-public"]
+    assert [row["usage_id"] for row in graph["source_usages"]] == ["usage-public"]
+    assert [row["output_artifact_id"] for row in graph["output_artifacts"]] == ["out-public"]
     assert all("hidden" not in json.dumps(edge) for edge in graph["edges"])
     assert "provenance-hidden" not in json.dumps(graph["extensions"])
 

@@ -99,9 +99,7 @@ class TestBuildDescriptorMismatches(unittest.TestCase):
 
     def test_descriptor_for_missing_cluster_warns(self) -> None:
         candidates = [_make_candidate("alpha", "alpha/")]
-        descriptors = {
-            "ghost": _make_descriptor("ghost", ["ghost/"], descriptor_path="/p/ghost/domain.json")
-        }
+        descriptors = {"ghost": _make_descriptor("ghost", ["ghost/"], descriptor_path="/p/ghost/domain.json")}
         warnings = build_descriptor_mismatches(descriptors, candidates)
         self.assertEqual(len(warnings), 1)
         self.assertEqual(warnings[0]["source_domain"], "ghost")
@@ -122,9 +120,7 @@ class TestApplyDescriptorSignal(unittest.TestCase):
         descriptors = {"alpha": _make_descriptor("alpha", ["alpha/"])}
         apply_descriptor_signal([candidate], descriptors)
         self.assertIsNotNone(candidate.evidence["descriptor_signal"])
-        self.assertEqual(
-            candidate.evidence["descriptor_signal"]["code_paths"], ["alpha/"]
-        )
+        self.assertEqual(candidate.evidence["descriptor_signal"]["code_paths"], ["alpha/"])
 
     def test_unknown_descriptor_does_not_mutate(self) -> None:
         candidate = _make_candidate("alpha", "alpha/")

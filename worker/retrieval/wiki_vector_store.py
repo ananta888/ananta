@@ -32,9 +32,7 @@ WIKI_VECTOR_PAYLOAD_SCHEMA = "ananta.wiki_vector_payload.v1"
 WIKI_VECTOR_DOMAIN = "wiki"
 WIKI_EMBEDDING_PROFILE = "wiki_embedding_text.v1"
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_SENSITIVE_FIELDS = frozenset(
-    {"api_key", "authorization", "embedding", "vector", "embedding_text"}
-)
+_SENSITIVE_FIELDS = frozenset({"api_key", "authorization", "embedding", "vector", "embedding_text"})
 _RESERVED_PAYLOAD_FIELDS = frozenset(
     {
         "record_id",
@@ -59,13 +57,9 @@ class WikiVectorStoreConfig:
     retrieval_cache_state: str = ""
     manifest_hash: str = ""
     qdrant: QdrantVectorStoreConfig | None = None
-    availability: AvailabilityPolicy = field(
-        default_factory=AvailabilityPolicy
-    )
+    availability: AvailabilityPolicy = field(default_factory=AvailabilityPolicy)
     json: JsonVectorStoreConfig = field(
-        default_factory=lambda: JsonVectorStoreConfig(
-            index_path=Path(".rag/wiki/vector_index.json")
-        )
+        default_factory=lambda: JsonVectorStoreConfig(index_path=Path(".rag/wiki/vector_index.json"))
     )
     expected_compatibility: CompatibilitySpec | None = None
 
@@ -98,12 +92,9 @@ class WikiVectorStoreConfig:
             raise ValueError("wiki_vector_availability_policy_invalid")
         if not isinstance(self.json, JsonVectorStoreConfig):
             raise ValueError("wiki_vector_json_config_invalid")
-        if (
-            self.expected_compatibility is not None
-            and not isinstance(
-                self.expected_compatibility,
-                CompatibilitySpec,
-            )
+        if self.expected_compatibility is not None and not isinstance(
+            self.expected_compatibility,
+            CompatibilitySpec,
         ):
             raise ValueError("wiki_vector_compatibility_invalid")
         object.__setattr__(self, "provider", provider)
@@ -137,9 +128,7 @@ class WikiVectorStoreConfig:
         }
         unknown_fields = sorted(set(payload) - allowed_fields)
         if unknown_fields:
-            raise ValueError(
-                f"wiki_vector_config_fields_unknown:{','.join(unknown_fields)}"
-            )
+            raise ValueError(f"wiki_vector_config_fields_unknown:{','.join(unknown_fields)}")
         qdrant_payload = payload.get("qdrant")
         qdrant = (
             qdrant_payload
@@ -150,9 +139,7 @@ class WikiVectorStoreConfig:
                 else None
             )
         )
-        compatibility_payload = payload.get(
-            "expected_compatibility"
-        )
+        compatibility_payload = payload.get("expected_compatibility")
         expected_compatibility = (
             compatibility_payload
             if isinstance(
@@ -160,9 +147,7 @@ class WikiVectorStoreConfig:
                 CompatibilitySpec,
             )
             else (
-                CompatibilitySpec(**dict(compatibility_payload))
-                if isinstance(compatibility_payload, Mapping)
-                else None
+                CompatibilitySpec(**dict(compatibility_payload)) if isinstance(compatibility_payload, Mapping) else None
             )
         )
         availability_payload = payload.get("availability")
@@ -181,18 +166,14 @@ class WikiVectorStoreConfig:
             json_payload
             if isinstance(json_payload, JsonVectorStoreConfig)
             else JsonVectorStoreConfig(
-                index_path=Path(
-                    dict(json_payload or {}).get("index_path")
-                    or ".rag/wiki/vector_index.json"
-                )
+                index_path=Path(dict(json_payload or {}).get("index_path") or ".rag/wiki/vector_index.json")
             )
         )
         return cls(
             provider=str(payload.get("provider") or "json"),
             qdrant_enabled=payload.get("qdrant_enabled", False),
             collection_prefix=str(
-                payload.get("collection_prefix")
-                or (qdrant.collection_prefix if qdrant else "ananta-wiki")
+                payload.get("collection_prefix") or (qdrant.collection_prefix if qdrant else "ananta-wiki")
             ),
             workspace_id=str(payload.get("workspace_id") or "wiki-local"),
             source_id=str(payload.get("source_id") or "wiki"),
@@ -215,10 +196,7 @@ class WikiVectorStoreConfig:
 
     def collection_scope(self) -> str:
         digest = hashlib.sha256(
-            (
-                f"{self.workspace_id}:{self.source_id}:"
-                f"{self.profile_name}:{WIKI_VECTOR_DOMAIN}"
-            ).encode("utf-8")
+            (f"{self.workspace_id}:{self.source_id}:{self.profile_name}:{WIKI_VECTOR_DOMAIN}").encode("utf-8")
         ).hexdigest()[:16]
         return f"{self.collection_prefix}-{digest}"
 
@@ -309,11 +287,7 @@ class WikiVectorPayloadAdapter:
             kind=str(record.get("kind") or "wiki_section_chunk"),
             file=str(record.get("file") or ""),
             parent_id=str(record.get("parent_id") or ""),
-            role_labels=tuple(
-                str(item)
-                for item in list(record.get("role_labels") or ())
-                if str(item).strip()
-            ),
+            role_labels=tuple(str(item) for item in list(record.get("role_labels") or ()) if str(item).strip()),
             importance_score=float(record.get("importance_score") or 0.0),
             source_scope=WIKI_VECTOR_DOMAIN,
             workspace_id=self._config.workspace_id,
@@ -481,9 +455,7 @@ class WikiPreparedVectorBackend:
             model=str(getattr(embedding_provider, "model_version", "unknown")),
             profile=WIKI_EMBEDDING_PROFILE,
             encoding="float32",
-            config_hash=hashlib.sha256(
-                str(retrieval_cache_state or "").encode("utf-8")
-            ).hexdigest()[:24],
+            config_hash=hashlib.sha256(str(retrieval_cache_state or "").encode("utf-8")).hexdigest()[:24],
             schema_version=WIKI_VECTOR_PAYLOAD_SCHEMA,
             manifest_hash=str(manifest_hash or ""),
         )
@@ -494,12 +466,8 @@ class WikiPreparedVectorBackend:
     ) -> CompatibilitySpec:
         expected = self._config.expected_compatibility
         if expected is not None:
-            current_dimensions = int(
-                getattr(embedding_provider, "dimensions", 0) or 0
-            )
-            current_provider = str(
-                getattr(embedding_provider, "provider_id", "unknown")
-            )
+            current_dimensions = int(getattr(embedding_provider, "dimensions", 0) or 0)
+            current_provider = str(getattr(embedding_provider, "provider_id", "unknown"))
             current_model = str(
                 getattr(
                     embedding_provider,
@@ -518,24 +486,16 @@ class WikiPreparedVectorBackend:
             if expected.schema_version != WIKI_VECTOR_PAYLOAD_SCHEMA:
                 raise ValueError("migration_required")
             return expected
-        configured = bool(
-            self._config.retrieval_cache_state and self._config.manifest_hash
-        )
+        configured = bool(self._config.retrieval_cache_state and self._config.manifest_hash)
         if configured:
             return self._compatibility(
                 embedding_provider,
                 retrieval_cache_state=self._config.retrieval_cache_state,
                 manifest_hash=self._config.manifest_hash,
             )
-        current_dimensions = int(
-            getattr(embedding_provider, "dimensions", 0) or 0
-        )
-        current_provider = str(
-            getattr(embedding_provider, "provider_id", "unknown")
-        )
-        current_model = str(
-            getattr(embedding_provider, "model_version", "unknown")
-        )
+        current_dimensions = int(getattr(embedding_provider, "dimensions", 0) or 0)
+        current_provider = str(getattr(embedding_provider, "provider_id", "unknown"))
+        current_model = str(getattr(embedding_provider, "model_version", "unknown"))
         known = self._last_compatibility
         if (
             known is not None
@@ -634,8 +594,7 @@ class WikiVectorStore:
                 {
                     key: value
                     for key, value in metadata.items()
-                    if str(key).lower()
-                    not in _SENSITIVE_FIELDS | _RESERVED_PAYLOAD_FIELDS
+                    if str(key).lower() not in _SENSITIVE_FIELDS | _RESERVED_PAYLOAD_FIELDS
                 }
             )
             payload["payload_schema"] = WIKI_VECTOR_PAYLOAD_SCHEMA
@@ -661,14 +620,10 @@ class WikiVectorStore:
         if self.config.provider == "json":
             if index_path is None:
                 raise ValueError("wiki_vector_index_path_required")
-            json_config = JsonVectorStoreConfig(
-                index_path=Path(index_path)
-            )
+            json_config = JsonVectorStoreConfig(index_path=Path(index_path))
         else:
             json_config = (
-                JsonVectorStoreConfig(index_path=Path(index_path))
-                if index_path is not None
-                else self.config.json
+                JsonVectorStoreConfig(index_path=Path(index_path)) if index_path is not None else self.config.json
             )
         if self.config.qdrant is None:
             if self.config.provider == "qdrant":

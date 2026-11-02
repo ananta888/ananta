@@ -135,9 +135,7 @@ class SemanticSfuGroupKeyService:
             hashlib.sha256(f"in-memory:{self._hub_id}".encode()).hexdigest(),
             key_id="sfu-group-key-test-v1",
         )
-        self._repository = repository or InMemorySfuBroadcastGroupKeyRepository(
-            self._secret_envelope
-        )
+        self._repository = repository or InMemorySfuBroadcastGroupKeyRepository(self._secret_envelope)
         self._lock = threading.RLock()
 
     def configure_audit(self, audit: SemanticMediaAuditPort) -> None:
@@ -194,22 +192,26 @@ class SemanticSfuGroupKeyService:
         with self._lock:
             self._prune(now_ms)
             cached = self._receipt(
-                tenant_id, session_id, actor_id, "prepare", idempotency_key,
-                request_digest, now_ms,
+                tenant_id,
+                session_id,
+                actor_id,
+                "prepare",
+                idempotency_key,
+                request_digest,
+                now_ms,
             )
             if cached is not None:
                 return cached
             current_epoch = self._epochs.current_epoch("room", room_id)
-            latest_state = self._repository.latest(
-                tenant_id=tenant_id, session_id=session_id, room_id=room_id
-            )
+            latest_state = self._repository.latest(tenant_id=tenant_id, session_id=session_id, room_id=room_id)
             latest = (
                 (
                     int(latest_state.authorization.membership_epoch or 0),
                     latest_state.authorization.member_ids,
                     latest_state.authorization.epoch,
                 )
-                if latest_state is not None else None
+                if latest_state is not None
+                else None
             )
             if current_epoch is None:
                 previous_epoch = 0
@@ -278,8 +280,14 @@ class SemanticSfuGroupKeyService:
                 fencing_token=signed.epoch,
             )
             receipt = self._new_receipt(
-                tenant_id, session_id, actor_id, "prepare", idempotency_key,
-                request_digest, result, signed.expires_at_ms,
+                tenant_id,
+                session_id,
+                actor_id,
+                "prepare",
+                idempotency_key,
+                request_digest,
+                result,
+                signed.expires_at_ms,
             )
             try:
                 saved = self._repository.create_epoch(state, receipt, now_ms=now_ms)
@@ -349,17 +357,20 @@ class SemanticSfuGroupKeyService:
             request_digest = _digest(canonical)
             now_ms = int(self._clock() * 1000)
             cached = self._receipt(
-                tenant_id, state.session_id, actor_id, "deliver", idempotency_key,
-                request_digest, now_ms,
+                tenant_id,
+                state.session_id,
+                actor_id,
+                "deliver",
+                idempotency_key,
+                request_digest,
+                now_ms,
             )
             if cached is not None:
                 return cached
             writes = tuple(
                 SfuGroupKeyPackageWrite(
                     recipient_id=package["recipient_id"],
-                    recipient_digest=self._subject_digest(
-                        tenant_id, state.session_id, package["recipient_id"]
-                    ),
+                    recipient_digest=self._subject_digest(tenant_id, state.session_id, package["recipient_id"]),
                     package_ref=package["package_ref"],
                     opaque_package=base64.b64decode(package["opaque_package_b64"], validate=True),
                     package_digest=package["package_digest"],
@@ -374,8 +385,14 @@ class SemanticSfuGroupKeyService:
                 "pending_member_ids": [],
             }
             receipt = self._new_receipt(
-                tenant_id, state.session_id, actor_id, "deliver", idempotency_key,
-                request_digest, result, state.authorization.expires_at_ms,
+                tenant_id,
+                state.session_id,
+                actor_id,
+                "deliver",
+                idempotency_key,
+                request_digest,
+                result,
+                state.authorization.expires_at_ms,
             )
             try:
                 saved = self._repository.deliver(
@@ -407,9 +424,7 @@ class SemanticSfuGroupKeyService:
         self._require_member(tenant_id, normalized_session, actor_id, epoch)
         try:
             page = None
-            for recipient_digest in self._subject_digest_candidates(
-                tenant_id, normalized_session, actor_id
-            ):
+            for recipient_digest in self._subject_digest_candidates(tenant_id, normalized_session, actor_id):
                 candidate_page = self._repository.read_for_recipient(
                     tenant_id=tenant_id,
                     session_id=normalized_session,
@@ -426,17 +441,20 @@ class SemanticSfuGroupKeyService:
                 raise SfuGroupKeyError("sfu_group_package_recipient_mismatch", 403)
         except SfuBroadcastGroupKeyRepositoryError as exc:
             raise SfuGroupKeyError(exc.reason_code, 503) from exc
-        packages = [{
-            "kind": "sfu_group_key_package",
-            "authorization": asdict(item.authorization),
-            "package_ref": item.package_ref,
-            "publisher_id": item.publisher_id,
-            "recipient_id": actor_id,
-            "membership_epoch": item.authorization.membership_epoch,
-            "opaque_package_b64": base64.b64encode(item.opaque_package).decode("ascii"),
-            "package_digest": item.package_digest,
-            "expires_at_ms": item.expires_at_ms,
-        } for item in page.items]
+        packages = [
+            {
+                "kind": "sfu_group_key_package",
+                "authorization": asdict(item.authorization),
+                "package_ref": item.package_ref,
+                "publisher_id": item.publisher_id,
+                "recipient_id": actor_id,
+                "membership_epoch": item.authorization.membership_epoch,
+                "opaque_package_b64": base64.b64encode(item.opaque_package).decode("ascii"),
+                "package_digest": item.package_digest,
+                "expires_at_ms": item.expires_at_ms,
+            }
+            for item in page.items
+        ]
         return {"ok": True, "packages": packages, "cursor": page.next_cursor}
 
     @observed_control_path("key_delivery")
@@ -467,9 +485,7 @@ class SemanticSfuGroupKeyService:
             ):
                 raise SfuGroupKeyError("sfu_group_package_recipient_mismatch", 403)
             result = None
-            for recipient_digest in self._subject_digest_candidates(
-                tenant_id, state.session_id, actor_id
-            ):
+            for recipient_digest in self._subject_digest_candidates(tenant_id, state.session_id, actor_id):
                 candidate_result = self._repository.acknowledge(
                     tenant_id=tenant_id,
                     authorization_id=normalized_auth,
@@ -553,8 +569,14 @@ class SemanticSfuGroupKeyService:
         }
 
     def _receipt(
-        self, tenant: str, session: str, actor: str, operation: str,
-        key: str, digest: str, now_ms: int,
+        self,
+        tenant: str,
+        session: str,
+        actor: str,
+        operation: str,
+        key: str,
+        digest: str,
+        now_ms: int,
     ) -> dict[str, Any] | None:
         found = self._repository.receipt(
             tenant_id=tenant,
@@ -570,8 +592,15 @@ class SemanticSfuGroupKeyService:
         return json.loads(json.dumps(found.result))
 
     def _new_receipt(
-        self, tenant: str, session: str, actor: str, operation: str,
-        key: str, digest: str, result: dict[str, Any], expires_at_ms: int,
+        self,
+        tenant: str,
+        session: str,
+        actor: str,
+        operation: str,
+        key: str,
+        digest: str,
+        result: dict[str, Any],
+        expires_at_ms: int,
     ) -> SfuGroupKeyReceipt:
         return SfuGroupKeyReceipt(
             tenant_id=tenant,
@@ -584,13 +613,9 @@ class SemanticSfuGroupKeyService:
         )
 
     def _subject_digest(self, tenant: str, session: str, actor: str) -> str:
-        return self._secret_envelope.blind(
-            purpose="sfu-group-key-subject", scope=f"{tenant}:{session}", value=actor
-        )
+        return self._secret_envelope.blind(purpose="sfu-group-key-subject", scope=f"{tenant}:{session}", value=actor)
 
-    def _subject_digest_candidates(
-        self, tenant: str, session: str, actor: str
-    ) -> tuple[str, ...]:
+    def _subject_digest_candidates(self, tenant: str, session: str, actor: str) -> tuple[str, ...]:
         return tuple(
             candidate.digest
             for candidate in self._secret_envelope.blind_candidates(
@@ -601,9 +626,7 @@ class SemanticSfuGroupKeyService:
         )
 
     def _idempotency_digest(self, tenant: str, operation: str, key: str) -> str:
-        return self._secret_envelope.blind(
-            purpose=f"sfu-group-key-idempotency:{operation}", scope=tenant, value=key
-        )
+        return self._secret_envelope.blind(purpose=f"sfu-group-key-idempotency:{operation}", scope=tenant, value=key)
 
     def _prune(self, now_ms: int) -> None:
         try:
@@ -730,9 +753,7 @@ def get_semantic_sfu_group_key_service() -> SemanticSfuGroupKeyService:
                     hub_key_id=f"hub-ed25519:{hashlib.sha256(public_key.encode()).hexdigest()[:16]}",
                     epoch_repository=WebrtcEpochRepository(),
                 )
-                envelope = derive_sfu_hub_envelope(
-                    str(settings.secret_key), key_id="sfu-group-key-v1"
-                )
+                envelope = derive_sfu_hub_envelope(str(settings.secret_key), key_id="sfu-group-key-v1")
                 _SERVICE = SemanticSfuGroupKeyService(
                     membership=membership,
                     publications=get_semantic_sfu_admission_service(),

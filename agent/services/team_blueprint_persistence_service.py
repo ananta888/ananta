@@ -6,6 +6,7 @@ Owns no template/role bootstrap and no team instantiation.
 Migrated from team_blueprint_service.py (WFG-029 split) without
 behaviour change.
 """
+
 from __future__ import annotations
 
 import time
@@ -55,7 +56,9 @@ def persist_blueprint_children(
             session.add(blueprint)
         session.commit()
         persisted_roles = session.exec(
-            select(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint_id).order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+            select(BlueprintRoleDB)
+            .where(BlueprintRoleDB.blueprint_id == blueprint_id)
+            .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
         ).all()
         persisted_artifacts = session.exec(
             select(BlueprintArtifactDB)
@@ -72,7 +75,9 @@ def persist_blueprint_children_in_session(
     artifact_definitions: list[BlueprintArtifactDefinition] | None,
 ) -> PersistBlueprintChildrenResult:
     existing_roles = session.exec(
-        select(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint_id).order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+        select(BlueprintRoleDB)
+        .where(BlueprintRoleDB.blueprint_id == blueprint_id)
+        .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
     ).all()
     existing_artifacts = session.exec(
         select(BlueprintArtifactDB)
@@ -151,7 +156,9 @@ def persist_blueprint_children_in_session(
             if artifact is None:
                 artifact = BlueprintArtifactDB(blueprint_id=blueprint_id)
                 changed = True
-                changes["artifacts"]["created"].append({"title": artifact_def.title.strip(), "kind": artifact_def.kind.strip()})
+                changes["artifacts"]["created"].append(
+                    {"title": artifact_def.title.strip(), "kind": artifact_def.kind.strip()}
+                )
             artifact_title = artifact_def.title.strip()
             artifact_kind = artifact_def.kind.strip()
             artifact_payload = dict(artifact_def.payload or {})
@@ -188,19 +195,25 @@ def persist_blueprint_children_in_session(
         for existing_artifact in existing_artifacts:
             if existing_artifact.id not in retained_artifact_ids:
                 changed = True
-                changes["artifacts"]["deleted"].append({"title": existing_artifact.title, "kind": existing_artifact.kind})
+                changes["artifacts"]["deleted"].append(
+                    {"title": existing_artifact.title, "kind": existing_artifact.kind}
+                )
                 session.delete(existing_artifact)
 
     session.flush()
     persisted_roles = session.exec(
-        select(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint_id).order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+        select(BlueprintRoleDB)
+        .where(BlueprintRoleDB.blueprint_id == blueprint_id)
+        .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
     ).all()
     persisted_artifacts = session.exec(
         select(BlueprintArtifactDB)
         .where(BlueprintArtifactDB.blueprint_id == blueprint_id)
         .order_by(BlueprintArtifactDB.sort_order.asc(), BlueprintArtifactDB.title.asc())
     ).all()
-    return PersistBlueprintChildrenResult(roles=persisted_roles, artifacts=persisted_artifacts, changed=changed, changes=changes)
+    return PersistBlueprintChildrenResult(
+        roles=persisted_roles, artifacts=persisted_artifacts, changed=changed, changes=changes
+    )
 
 
 def save_blueprint(
@@ -252,7 +265,9 @@ def save_blueprint(
         session.commit()
         session.refresh(blueprint)
         persisted_roles = session.exec(
-            select(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint.id).order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+            select(BlueprintRoleDB)
+            .where(BlueprintRoleDB.blueprint_id == blueprint.id)
+            .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
         ).all()
         persisted_artifacts = session.exec(
             select(BlueprintArtifactDB)
@@ -305,6 +320,7 @@ def _workflow_from_db(blueprint: TeamBlueprintDB) -> dict | None:
 
     from agent.database import engine
     from agent.db_models import BlueprintWorkflowStepDB
+
     with Session(engine) as session:
         rows = list(
             session.exec(

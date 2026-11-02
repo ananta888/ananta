@@ -6,18 +6,17 @@ import secrets
 import time
 from typing import Callable, Protocol, runtime_checkable
 
-from agent.services.sfu_broadcast_data_port import AuthorizedSfuDataAudienceV1
-from agent.services.sfu_hub_secret_envelope import (
-    SfuHubSecretEnvelopeError,
-    SfuHubSecretEnvelopePort,
-)
 from agent.models.sfu_vendor_identity import (
     SfuVendorDestinationBinding,
     SfuVendorIdentityBinding,
     SfuVendorIdentityError,
     SfuVendorIdentityMutationResult,
 )
-
+from agent.services.sfu_broadcast_data_port import AuthorizedSfuDataAudienceV1
+from agent.services.sfu_hub_secret_envelope import (
+    SfuHubSecretEnvelopeError,
+    SfuHubSecretEnvelopePort,
+)
 
 MAX_VENDOR_IDENTITY_TTL_SECONDS = 3600
 MAX_DESTINATION_TTL_SECONDS = 300
@@ -26,29 +25,49 @@ MAX_DESTINATION_TTL_SECONDS = 300
 @runtime_checkable
 class SfuVendorIdentityRepositoryPort(Protocol):
     def active_for_membership(
-        self, *, tenant_id: str, room_id: str, membership_digest: str,
-        membership_epoch: int, identity_epoch: int,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        membership_digest: str,
+        membership_epoch: int,
+        identity_epoch: int,
         membership_digest_candidates: tuple[str, ...] = (),
         membership_digest_key_id: str | None = None,
     ) -> SfuVendorIdentityBinding | None: ...
 
-    def get_identity(self, *, tenant_id: str, room_id: str, identity_handle: str) -> SfuVendorIdentityBinding | None: ...
+    def get_identity(
+        self, *, tenant_id: str, room_id: str, identity_handle: str
+    ) -> SfuVendorIdentityBinding | None: ...
 
     def save_identity(
-        self, binding: SfuVendorIdentityBinding, *, expected_version: int,
+        self,
+        binding: SfuVendorIdentityBinding,
+        *,
+        expected_version: int,
     ) -> SfuVendorIdentityMutationResult: ...
 
     def save_destination(
-        self, binding: SfuVendorDestinationBinding,
+        self,
+        binding: SfuVendorDestinationBinding,
     ) -> SfuVendorIdentityMutationResult: ...
 
     def get_destination(
-        self, *, tenant_id: str, room_id: str, destination_handle: str,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        destination_handle: str,
     ) -> SfuVendorDestinationBinding | None: ...
 
     def revoke_scope(
-        self, *, tenant_id: str, room_id: str, now: float,
-        membership_digest: str | None = None, before_membership_epoch: int | None = None,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        now: float,
+        membership_digest: str | None = None,
+        before_membership_epoch: int | None = None,
         minimum_fencing_token: int,
     ) -> int: ...
 
@@ -169,8 +188,11 @@ class SfuVendorIdentityService:
         if binding.sealed_membership is None:
             raise SfuVendorIdentityError("sfu_vendor_identity_revoked", 410)
         aad = _identity_aad(
-            binding.identity_handle, binding.tenant_id, binding.room_id,
-            binding.membership_epoch, binding.identity_epoch,
+            binding.identity_handle,
+            binding.tenant_id,
+            binding.room_id,
+            binding.membership_epoch,
+            binding.identity_epoch,
         )
         try:
             raw = self._envelope.open(
@@ -200,11 +222,16 @@ class SfuVendorIdentityService:
         ttl_seconds: int = 60,
     ) -> SfuVendorDestinationBinding:
         identity = self._active_identity(
-            tenant_id=tenant_id, room_id=room_id, identity_handle=identity_handle,
-            membership_epoch=membership_epoch, identity_epoch=identity_epoch,
+            tenant_id=tenant_id,
+            room_id=room_id,
+            identity_handle=identity_handle,
+            membership_epoch=membership_epoch,
+            identity_epoch=identity_epoch,
         )
         for value, label in (
-            (route_ref, "route_ref"), (publication_ref, "publication_ref"), (audience_ref, "audience_ref")
+            (route_ref, "route_ref"),
+            (publication_ref, "publication_ref"),
+            (audience_ref, "audience_ref"),
         ):
             _identifier(value, label)
         _epochs(route_epoch, key_epoch, fencing_token)
@@ -259,20 +286,29 @@ class SfuVendorIdentityService:
             self._intent_digest("route", tenant_id, room_id, route_ref),
             self._intent_digest("publication", tenant_id, room_id, publication_ref),
             self._intent_digest("audience", tenant_id, room_id, audience_ref),
-            membership_epoch, route_epoch, key_epoch, fencing_token,
+            membership_epoch,
+            route_epoch,
+            key_epoch,
+            fencing_token,
         )
-        actual = None if destination is None else (
-            destination.route_digest, destination.publication_digest, destination.audience_digest,
-            destination.membership_epoch, destination.route_epoch, destination.key_epoch,
-            destination.fencing_token,
+        actual = (
+            None
+            if destination is None
+            else (
+                destination.route_digest,
+                destination.publication_digest,
+                destination.audience_digest,
+                destination.membership_epoch,
+                destination.route_epoch,
+                destination.key_epoch,
+                destination.fencing_token,
+            )
         )
-        if (
-            destination is None or destination.status != "active" or destination.expires_at <= now
-            or actual != expected
-        ):
+        if destination is None or destination.status != "active" or destination.expires_at <= now or actual != expected:
             raise SfuVendorIdentityError("sfu_destination_authorization_stale", 403)
         identity = self._active_identity(
-            tenant_id=tenant_id, room_id=room_id,
+            tenant_id=tenant_id,
+            room_id=room_id,
             identity_handle=destination.identity_handle,
             membership_epoch=destination.membership_epoch,
             identity_epoch=destination.identity_epoch,
@@ -294,15 +330,25 @@ class SfuVendorIdentityService:
         fencing_token: int,
         expires_at_ms: int,
     ) -> AuthorizedSfuDataAudienceV1:
-        identities = tuple(sorted({
-            self.resolve_destination(
-                tenant_id=tenant_id, room_id=room_id, destination_handle=handle,
-                route_ref=route_ref, publication_ref=publication_ref, audience_ref=audience_ref,
-                membership_epoch=membership_epoch, route_epoch=route_epoch,
-                key_epoch=key_epoch, fencing_token=fencing_token,
+        identities = tuple(
+            sorted(
+                {
+                    self.resolve_destination(
+                        tenant_id=tenant_id,
+                        room_id=room_id,
+                        destination_handle=handle,
+                        route_ref=route_ref,
+                        publication_ref=publication_ref,
+                        audience_ref=audience_ref,
+                        membership_epoch=membership_epoch,
+                        route_epoch=route_epoch,
+                        key_epoch=key_epoch,
+                        fencing_token=fencing_token,
+                    )
+                    for handle in destination_handles
+                }
             )
-            for handle in destination_handles
-        }))
+        )
         if len(identities) != len(destination_handles):
             raise SfuVendorIdentityError("sfu_destination_identity_duplicate")
         return AuthorizedSfuDataAudienceV1(
@@ -319,38 +365,56 @@ class SfuVendorIdentityService:
         )
 
     def revoke_membership(
-        self, *, tenant_id: str, room_id: str, membership_ref: str,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        membership_ref: str,
         fencing_token: int,
     ) -> int:
         return self._repository.revoke_scope(
-            tenant_id=tenant_id, room_id=room_id,
+            tenant_id=tenant_id,
+            room_id=room_id,
             membership_digest=self._membership_digest(tenant_id, room_id, membership_ref),
-            now=float(self._clock()), minimum_fencing_token=fencing_token,
+            now=float(self._clock()),
+            minimum_fencing_token=fencing_token,
         )
 
     def revoke_room_before_epoch(
-        self, *, tenant_id: str, room_id: str, membership_epoch: int,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        membership_epoch: int,
         fencing_token: int,
     ) -> int:
         return self._repository.revoke_scope(
-            tenant_id=tenant_id, room_id=room_id,
+            tenant_id=tenant_id,
+            room_id=room_id,
             before_membership_epoch=membership_epoch,
-            now=float(self._clock()), minimum_fencing_token=fencing_token,
+            now=float(self._clock()),
+            minimum_fencing_token=fencing_token,
         )
 
     def purge_expired(self, *, limit: int = 200) -> int:
         return self._repository.purge_expired(now=float(self._clock()), limit=limit)
 
     def _active_identity(
-        self, *, tenant_id: str, room_id: str, identity_handle: str,
-        membership_epoch: int, identity_epoch: int,
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        identity_handle: str,
+        membership_epoch: int,
+        identity_epoch: int,
     ) -> SfuVendorIdentityBinding:
-        binding = self._repository.get_identity(
-            tenant_id=tenant_id, room_id=room_id, identity_handle=identity_handle
-        )
+        binding = self._repository.get_identity(tenant_id=tenant_id, room_id=room_id, identity_handle=identity_handle)
         if (
-            binding is None or binding.status != "active" or binding.expires_at <= float(self._clock())
-            or binding.membership_epoch != membership_epoch or binding.identity_epoch != identity_epoch
+            binding is None
+            or binding.status != "active"
+            or binding.expires_at <= float(self._clock())
+            or binding.membership_epoch != membership_epoch
+            or binding.identity_epoch != identity_epoch
         ):
             raise SfuVendorIdentityError("sfu_vendor_identity_stale", 403)
         return binding
@@ -361,9 +425,7 @@ class SfuVendorIdentityService:
         )
 
     def _intent_digest(self, purpose: str, tenant_id: str, room_id: str, value: str) -> str:
-        return self._envelope.blind(
-            purpose=f"sfu-destination-{purpose}", scope=f"{tenant_id}:{room_id}", value=value
-        )
+        return self._envelope.blind(purpose=f"sfu-destination-{purpose}", scope=f"{tenant_id}:{room_id}", value=value)
 
 
 def _identity_aad(handle: str, tenant: str, room: str, membership_epoch: int, identity_epoch: int) -> bytes:
@@ -377,7 +439,8 @@ def _scope(tenant_id: str, room_id: str) -> None:
 
 def _identifier(value: object, label: str) -> str:
     if (
-        not isinstance(value, str) or not 1 <= len(value) <= 128
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 128
         or not value[0].isalnum()
         or any(not (character.isalnum() or character in "._:-") for character in value)
     ):

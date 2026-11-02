@@ -61,7 +61,11 @@ def trak(handler, count):
 
 def mp4(frames=36, *, tracks=None, mdat=b"\x00" * 128):
     tracks = [trak(b"vide", frames)] if tracks is None else tracks
-    return box(b"ftyp", b"isom\x00\x00\x02\x00isomiso2avc1mp41") + box(b"moov", box(b"mvhd") + b"".join(tracks)) + box(b"mdat", mdat)
+    return (
+        box(b"ftyp", b"isom\x00\x00\x02\x00isomiso2avc1mp41")
+        + box(b"moov", box(b"mvhd") + b"".join(tracks))
+        + box(b"mdat", mdat)
+    )
 
 
 class FakeRenderer:
@@ -117,10 +121,17 @@ def test_lipsync_client_sends_the_configured_portrait_to_the_service(tmp_path, m
 
     def renderer(portrait_png, wav, *, base_url, timeout):
         sent.append(portrait_png)
-        return {"mp4": b"\x00\x00\x00\x18ftypisom" + b"\x00" * 16, "frames": 12, "seconds": 0.1, "face_method": "dwpose"}
+        return {
+            "mp4": b"\x00\x00\x00\x18ftypisom" + b"\x00" * 16,
+            "frames": 12,
+            "seconds": 0.1,
+            "face_method": "dwpose",
+        }
 
     logs = []
-    client = LipSyncClient(load_portrait(portrait_path()), base_url="http://svc:8189", renderer=renderer, log=logs.append)
+    client = LipSyncClient(
+        load_portrait(portrait_path()), base_url="http://svc:8189", renderer=renderer, log=logs.append
+    )
     tone = (32767 * 0.3 * np.sin(np.arange(SPEECH_RATE) / 20.0)).astype("<i2").tobytes()
     assert client.clip(tone)["frames"] == 12
     assert sent == [portrait] and any("face_method=dwpose" in line for line in logs)
@@ -155,8 +166,12 @@ def test_load_idle_clip_is_a_looping_contract_payload(tmp_path):
     path.write_bytes(data)
     payload = load_idle_clip(path)
     assert payload == {
-        "mp4": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest(), "frames": 36,
-        "repeatMode": "loop", "originKind": "generated", "classification": "synthetic",
+        "mp4": base64.b64encode(data).decode(),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "frames": 36,
+        "repeatMode": "loop",
+        "originKind": "generated",
+        "classification": "synthetic",
     }
 
 

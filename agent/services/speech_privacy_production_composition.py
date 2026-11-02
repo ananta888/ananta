@@ -774,9 +774,7 @@ def assert_speech_privacy_production_composition() -> None:
 
     if PRODUCTION_SPEECH_PRIVACY_PHASES != SPEECH_DATA_PHASES or len(SPEECH_DATA_PHASES) != 11:
         raise SpeechPrivacyLifecycleError("speech_privacy_product_phase_wiring_incomplete")
-    service = build_speech_privacy_lifecycle_service(
-        VoicePrincipal("speech-privacy-gate", "hub-composition-probe")
-    )
+    service = build_speech_privacy_lifecycle_service(VoicePrincipal("speech-privacy-gate", "hub-composition-probe"))
     if not isinstance(service, SpeechPrivacyLifecycleService):
         raise SpeechPrivacyLifecycleError("speech_privacy_product_composition_missing")
 

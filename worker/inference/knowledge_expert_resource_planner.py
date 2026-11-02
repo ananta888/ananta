@@ -53,14 +53,8 @@ class KnowledgeExpertResourcePlanner:
             disk_capacity_bytes,
             warm_cache_experts,
         )
-        if any(
-            isinstance(value, bool)
-            or not isinstance(value, int)
-            or value < 0
-            for value in values
-        ) or any(
-            isinstance(size, bool) or not isinstance(size, int) or size < 1
-            for size in adapter_sizes
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values) or any(
+            isinstance(size, bool) or not isinstance(size, int) or size < 1 for size in adapter_sizes
         ):
             raise ValueError("knowledge_expert_resource_input_invalid")
         ordered = tuple(sorted((int(size) for size in adapter_sizes)))

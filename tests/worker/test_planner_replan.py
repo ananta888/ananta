@@ -9,4 +9,3 @@ def test_replan_triggers_are_profile_aware_and_bounded() -> None:
     assert allowed["replan"] is True
     assert exhausted["replan"] is False
     assert exhausted["reason"] == "replan_budget_exhausted"
-

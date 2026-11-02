@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
-import threading
 from typing import Protocol
 
 
@@ -46,11 +46,7 @@ class BoundedHttpRequestMetrics(HttpRequestMetricsPort):
         if normalized_method not in cls._METHODS:
             normalized_method = "OTHER"
         normalized_status = int(status_code)
-        status_family = (
-            f"{normalized_status // 100}xx"
-            if 100 <= normalized_status <= 599
-            else "other"
-        )
+        status_family = f"{normalized_status // 100}xx" if 100 <= normalized_status <= 599 else "other"
         if status_family not in cls._STATUS_FAMILIES:
             status_family = "other"
         return normalized_method, status_family

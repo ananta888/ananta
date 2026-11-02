@@ -176,9 +176,7 @@ class LangGraphLegacyNodeMixin:
                 "graph_id": state.graph_id,
                 "provider_context": provider_context,
                 "provider_contexts_by_profile_id": provider_contexts,
-                "model_routing": (execution_payload or {}).get(
-                    "model_routing"
-                ),
+                "model_routing": (execution_payload or {}).get("model_routing"),
             },
             budget=budget,
             model_provider_ref=model_ref,
@@ -258,21 +256,13 @@ class LangGraphLegacyNodeMixin:
         )
         for raw_profile_id, raw_context in raw.items():
             profile_id = str(raw_profile_id or "").strip()
-            if (
-                not profile_id
-                or len(profile_id) > 256
-                or "\x00" in profile_id
-                or not isinstance(raw_context, dict)
-            ):
+            if not profile_id or len(profile_id) > 256 or "\x00" in profile_id or not isinstance(raw_context, dict):
                 raise WorkerError(
                     "provider_profile_contexts_invalid",
                     "Hub profile contexts contain an invalid binding.",
                 )
             context = dict(raw_context)
-            if any(
-                context.get(field) != primary.get(field)
-                for field in scope_fields
-            ):
+            if any(context.get(field) != primary.get(field) for field in scope_fields):
                 raise WorkerError(
                     "provider_profile_context_scope_mismatch",
                     "Hub profile context does not match the primary delegation.",
@@ -355,15 +345,9 @@ class LangGraphLegacyNodeMixin:
                 arguments=dict(arguments),
                 authorization_envelope=dict(authorization_envelope),
                 allowed_policy_scopes=tuple(
-                    str(item)
-                    for item in payload.get("allowed_policy_scopes", ())
-                    if str(item).strip()
+                    str(item) for item in payload.get("allowed_policy_scopes", ()) if str(item).strip()
                 ),
-                secret_refs=tuple(
-                    str(item)
-                    for item in payload.get("secret_refs", ())
-                    if str(item).strip()
-                ),
+                secret_refs=tuple(str(item) for item in payload.get("secret_refs", ()) if str(item).strip()),
                 approval_ref=(str(payload["approval_ref"]) if payload.get("approval_ref") is not None else None),
                 hub_task_id=state.task_id,
             )
@@ -657,7 +641,6 @@ class LangGraphLegacyNodeMixin:
                 }
             )
         return steps
-
 
 
 __all__ = ["LangGraphLegacyNodeMixin", "LangGraphState"]

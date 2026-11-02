@@ -45,19 +45,14 @@ class RecoveryTrustedLocalArtifactAdapter:
         from agent.config import settings
 
         executor_id = str(settings.agent_name or "").strip()
-        executor_url = str(
-            settings.agent_url
-            or f"http://localhost:{settings.port}"
-        ).strip().rstrip("/")
+        executor_url = str(settings.agent_url or f"http://localhost:{settings.port}").strip().rstrip("/")
         if (
             str(settings.role or "").strip().lower() != "hub"
             or not bool(settings.hub_can_be_worker)
             or not executor_id
             or not executor_url
         ):
-            raise RecoveryTrustedLocalArtifactError(
-                "recovery_artifact_trusted_local_authority_denied"
-            )
+            raise RecoveryTrustedLocalArtifactError("recovery_artifact_trusted_local_authority_denied")
         try:
             built = self._manifest_service().build(
                 task=task,
@@ -83,12 +78,9 @@ class RecoveryTrustedLocalArtifactAdapter:
         except Exception as exc:
             if isinstance(exc, RecoveryTrustedLocalArtifactError):
                 raise
-            reason_code = str(
-                getattr(exc, "reason_code", "") or str(exc)
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or str(exc))
             raise RecoveryTrustedLocalArtifactError(
-                reason_code
-                or "recovery_artifact_trusted_local_materialization_failed"
+                reason_code or "recovery_artifact_trusted_local_materialization_failed"
             ) from exc
 
     def _manifest_service(self) -> Any:
@@ -113,9 +105,7 @@ class RecoveryTrustedLocalArtifactAdapter:
 _ADAPTER = RecoveryTrustedLocalArtifactAdapter()
 
 
-def get_recovery_trusted_local_artifact_adapter() -> (
-    RecoveryTrustedLocalArtifactAdapter
-):
+def get_recovery_trusted_local_artifact_adapter() -> RecoveryTrustedLocalArtifactAdapter:
     return _ADAPTER
 
 

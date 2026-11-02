@@ -44,9 +44,7 @@ from agent.services.workflow_runtime.streaming import (
 )
 
 WORKFLOW_ADAPTER_COMMAND_SCHEMA = "ananta.workflow-adapter-command.v1"
-WORKFLOW_ADAPTER_STREAM_DESCRIPTOR_SCHEMA = (
-    "ananta.workflow-adapter-stream-descriptor.v1"
-)
+WORKFLOW_ADAPTER_STREAM_DESCRIPTOR_SCHEMA = "ananta.workflow-adapter-stream-descriptor.v1"
 
 _CONTROL_FIELDS = frozenset(
     {
@@ -101,29 +99,18 @@ class WorkflowAdapterCommand:
     ) -> "WorkflowAdapterCommand":
         schema = str(raw.get("schema") or "")
         if schema and schema != WORKFLOW_ADAPTER_COMMAND_SCHEMA:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_command_schema_unsupported", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_command_schema_unsupported", status_code=422)
         if str(kind or "").strip().lower() != "langgraph":
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_kind_unsupported", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_kind_unsupported", status_code=422)
         task_type = _identifier(raw.get("task_type"), "workflow_adapter_task_type_invalid")
         client_task_id = str(raw.get("task_id") or "").strip()
         idempotency_key = str(
-            header_idempotency_key
-            or raw.get("idempotency_key")
-            or client_task_id
-            or f"request-{uuid.uuid4().hex}"
+            header_idempotency_key or raw.get("idempotency_key") or client_task_id or f"request-{uuid.uuid4().hex}"
         ).strip()
         if not idempotency_key or len(idempotency_key) > 256 or "\x00" in idempotency_key:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_idempotency_key_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_idempotency_key_invalid", status_code=422)
         identity_digest = hashlib.sha256(
-            "\x00".join(
-                (principal.tenant_id, principal.subject, idempotency_key, command)
-            ).encode("utf-8")
+            "\x00".join((principal.tenant_id, principal.subject, idempotency_key, command)).encode("utf-8")
         ).hexdigest()[:24]
         workflow_id = _identifier(
             raw.get("workflow_id") or f"wf-adapter-{identity_digest}",
@@ -147,26 +134,16 @@ class WorkflowAdapterCommand:
         )
         explicit_payload = raw.get("payload")
         if explicit_payload is not None and not isinstance(explicit_payload, Mapping):
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_payload_invalid", status_code=422
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_payload_invalid", status_code=422)
         # Legacy callers placed graph fields next to task_type.  Keep them as
         # an additive compatibility projection while control fields stay
         # server-bound and cannot be shadowed from payload.
-        payload = {
-            str(key): value
-            for key, value in raw.items()
-            if str(key) not in _CONTROL_FIELDS
-        }
+        payload = {str(key): value for key, value in raw.items() if str(key) not in _CONTROL_FIELDS}
         for key, value in dict(explicit_payload or {}).items():
             if str(key) in payload and payload[str(key)] != value:
-                raise WorkflowAdapterQueueError(
-                    "workflow_adapter_payload_field_conflict", status_code=422
-                )
+                raise WorkflowAdapterQueueError("workflow_adapter_payload_field_conflict", status_code=422)
             payload[str(key)] = value
-        allowed_tools = _bounded_strings(
-            raw.get("allowed_tools"), "workflow_adapter_allowed_tools_invalid"
-        )
+        allowed_tools = _bounded_strings(raw.get("allowed_tools"), "workflow_adapter_allowed_tools_invalid")
         allowed_artifacts = _bounded_strings(
             raw.get("allowed_artifacts"),
             "workflow_adapter_allowed_artifacts_invalid",
@@ -174,9 +151,7 @@ class WorkflowAdapterCommand:
         model_routing: ModelRoutingConfig | None = None
         if raw.get("model_routing") is not None:
             try:
-                model_routing = ModelRoutingConfig.assert_runtime_mapping(
-                    raw.get("model_routing")
-                )
+                model_routing = ModelRoutingConfig.assert_runtime_mapping(raw.get("model_routing"))
             except (ModelRoutingContractError, ValueError) as exc:
                 raise WorkflowAdapterQueueError(
                     "workflow_adapter_model_routing_invalid",
@@ -188,9 +163,7 @@ class WorkflowAdapterCommand:
             max_cost_micros = int(raw.get("max_cost_micros") or 0)
             ttl = float(raw.get("authorization_ttl_seconds") or 1800.0)
         except (TypeError, ValueError) as exc:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_budget_invalid", status_code=422
-            ) from exc
+            raise WorkflowAdapterQueueError("workflow_adapter_budget_invalid", status_code=422) from exc
         return cls(
             workflow_id=workflow_id,
             run_id=run_id,
@@ -220,17 +193,11 @@ class WorkflowAdapterControlFacade:
         provider_decisions: WorkflowProviderDecisionPort | None = None,
     ) -> None:
         self._queue = queue
-        self._provider_decisions = (
-            provider_decisions or build_workflow_provider_decision_service()
-        )
+        self._provider_decisions = provider_decisions or build_workflow_provider_decision_service()
 
-    def bind(
-        self, principal: WorkflowRoutePrincipal
-    ) -> "AuthorizedWorkflowAdapterControl":
+    def bind(self, principal: WorkflowRoutePrincipal) -> "AuthorizedWorkflowAdapterControl":
         if not principal.tenant_id or not principal.subject:
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_principal_required", status_code=401
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_principal_required", status_code=401)
         return AuthorizedWorkflowAdapterControl(
             queue=self._queue,
             provider_decisions=self._provider_decisions,
@@ -285,15 +252,9 @@ class AuthorizedWorkflowAdapterControl:
                         "required_capabilities": [
                             f"workflow.adapter.{kind}",
                         ],
-                        "side_effect_class": (
-                            "read" if command == "dry_run" else "idempotent_write"
-                        ),
+                        "side_effect_class": ("read" if command == "dry_run" else "idempotent_write"),
                         **(
-                            {
-                                "model_routing": (
-                                    request.model_routing.as_metadata()
-                                )
-                            }
+                            {"model_routing": (request.model_routing.as_metadata())}
                             if request.model_routing is not None
                             else {}
                         ),
@@ -324,9 +285,7 @@ class AuthorizedWorkflowAdapterControl:
             ),
         )
         compiled_node = plan.nodes[0]
-        compiled_routing = trusted_model_routing_from_metadata(
-            compiled_node.metadata
-        )
+        compiled_routing = trusted_model_routing_from_metadata(compiled_node.metadata)
         provider_decision = self._provider_decisions.decide(
             WorkflowProviderRequirement(
                 tenant_id=self._principal.tenant_id,
@@ -335,16 +294,13 @@ class AuthorizedWorkflowAdapterControl:
                 task_type=request.task_type,
                 runtime_kind=str(kind).lower(),
                 requires_provider=str(command).lower() == "execute",
-                required_capabilities=tuple(
-                    compiled_node.required_capabilities
-                ),
+                required_capabilities=tuple(compiled_node.required_capabilities),
                 model_routing=compiled_routing,
             )
         )
         if str(command).lower() == "execute" and provider_decision.binding is None:
             raise WorkflowAdapterQueueError(
-                "workflow_adapter_provider_selection_unavailable:"
-                f"{provider_decision.reason_code}",
+                f"workflow_adapter_provider_selection_unavailable:{provider_decision.reason_code}",
                 status_code=503,
             )
         receipt = self._queue.submit(
@@ -372,17 +328,9 @@ class AuthorizedWorkflowAdapterControl:
                 provider_decision_reason=provider_decision.reason_code,
                 primary_profile_id=provider_decision.primary_profile_id,
                 provider_profile_bindings=provider_decision.profile_bindings,
-                provider_attempt_plan=(
-                    provider_decision.profile_attempt_plan
-                ),
-                provider_maximum_attempts=(
-                    provider_decision.maximum_provider_attempts
-                ),
-                model_routing=(
-                    compiled_routing.as_metadata()
-                    if compiled_routing is not None
-                    else {}
-                ),
+                provider_attempt_plan=(provider_decision.profile_attempt_plan),
+                provider_maximum_attempts=(provider_decision.maximum_provider_attempts),
+                model_routing=(compiled_routing.as_metadata() if compiled_routing is not None else {}),
             )
         )
         payload = receipt.to_dict()
@@ -392,14 +340,8 @@ class AuthorizedWorkflowAdapterControl:
                 "plan_hash": plan.plan_hash,
                 "policy_version": plan.policy_version,
                 "control_path": "hub_task_queue",
-                "poll_url": (
-                    f"/api/workflow_adapters/{kind}/operations/"
-                    f"{receipt.hub_task_id}"
-                ),
-                "cancel_url": (
-                    f"/api/workflow_adapters/{kind}/operations/"
-                    f"{receipt.hub_task_id}/cancel"
-                ),
+                "poll_url": (f"/api/workflow_adapters/{kind}/operations/{receipt.hub_task_id}"),
+                "cancel_url": (f"/api/workflow_adapters/{kind}/operations/{receipt.hub_task_id}/cancel"),
                 "stream": self._stream_descriptor(
                     kind=str(kind).lower(),
                     hub_task_id=receipt.hub_task_id,
@@ -423,9 +365,7 @@ class AuthorizedWorkflowAdapterControl:
         )
         return payload
 
-    def cancel(
-        self, *, kind: str, hub_task_id: str, reason: str
-    ) -> dict[str, Any]:
+    def cancel(self, *, kind: str, hub_task_id: str, reason: str) -> dict[str, Any]:
         payload = self._queue.cancel(
             tenant_id=self._principal.tenant_id,
             subject_id=self._principal.subject,
@@ -435,9 +375,7 @@ class AuthorizedWorkflowAdapterControl:
         self._assert_kind(payload, kind)
         return payload
 
-    def stream(
-        self, *, kind: str, body: Mapping[str, Any]
-    ) -> WorkflowStreamBatch:
+    def stream(self, *, kind: str, body: Mapping[str, Any]) -> WorkflowStreamBatch:
         allowed = {
             "schema",
             "hub_task_id",
@@ -450,9 +388,7 @@ class AuthorizedWorkflowAdapterControl:
         }
         if set(body) - allowed:
             raise WorkflowStreamError("workflow_stream_unknown_field")
-        hub_task_id = str(
-            body.get("hub_task_id") or body.get("operation_id") or ""
-        ).strip()
+        hub_task_id = str(body.get("hub_task_id") or body.get("operation_id") or "").strip()
         if not hub_task_id:
             raise WorkflowStreamError("workflow_adapter_stream_task_id_required")
         status = self.status(kind=kind, hub_task_id=hub_task_id)
@@ -480,14 +416,10 @@ class AuthorizedWorkflowAdapterControl:
     @staticmethod
     def _assert_kind(payload: Mapping[str, Any], kind: str) -> None:
         if str(payload.get("adapter_kind") or "") != str(kind).strip().lower():
-            raise WorkflowAdapterQueueError(
-                "workflow_adapter_task_not_found", status_code=404
-            )
+            raise WorkflowAdapterQueueError("workflow_adapter_task_not_found", status_code=404)
 
     @staticmethod
-    def _stream_descriptor(
-        *, kind: str, hub_task_id: str, workflow_id: str
-    ) -> dict[str, Any]:
+    def _stream_descriptor(*, kind: str, hub_task_id: str, workflow_id: str) -> dict[str, Any]:
         return {
             "schema": WORKFLOW_ADAPTER_STREAM_DESCRIPTOR_SCHEMA,
             "transport": "ndjson_post",
@@ -528,9 +460,7 @@ def get_workflow_adapter_control_facade() -> Any:
                 get_workflow_backend_control_facade,
             )
 
-            _facade = UnifiedWorkflowAdapterControlFacade(
-                get_workflow_backend_control_facade()
-            )
+            _facade = UnifiedWorkflowAdapterControlFacade(get_workflow_backend_control_facade())
     return _facade
 
 
@@ -547,9 +477,7 @@ def _identifier(value: object, reason_code: str) -> str:
         or len(text) > 256
         or "\x00" in text
         or any(
-            character
-            not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/-"
-            for character in text
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:/-" for character in text
         )
     ):
         raise WorkflowAdapterQueueError(reason_code, status_code=422)

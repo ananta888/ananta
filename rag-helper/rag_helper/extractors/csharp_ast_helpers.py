@@ -3,13 +3,12 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from rag_helper.extractors.java_ast_helpers import make_relation
 from rag_helper.extractors.csharp_type_resolution import uniq_keep_order
 from rag_helper.utils.text_normalization import normalize_ws
 
 
 def node_text(src: bytes, node) -> str:
-    return src[node.start_byte:node.end_byte].decode("utf-8", errors="ignore")
+    return src[node.start_byte : node.end_byte].decode("utf-8", errors="ignore")
 
 
 def first_child_of_type(node, typ: str):
@@ -128,15 +127,17 @@ def extract_field(node, src: bytes) -> list[dict[str, Any]]:
         name_node = declarator.child_by_field_name("name")
         initializer = declarator.child_by_field_name("value")
         name = node_text(src, name_node).strip() if name_node is not None else normalize_ws(node_text(src, declarator))
-        fields.append({
-            "name": name,
-            "type": field_type,
-            "initializer": normalize_ws(node_text(src, initializer)) if initializer is not None else None,
-            "modifiers": modifiers,
-            "attributes": attributes,
-            "documentation": documentation,
-            "documentation_summary": extract_xml_documentation_summary(documentation),
-        })
+        fields.append(
+            {
+                "name": name,
+                "type": field_type,
+                "initializer": normalize_ws(node_text(src, initializer)) if initializer is not None else None,
+                "modifiers": modifiers,
+                "attributes": attributes,
+                "documentation": documentation,
+                "documentation_summary": extract_xml_documentation_summary(documentation),
+            }
+        )
     return fields
 
 

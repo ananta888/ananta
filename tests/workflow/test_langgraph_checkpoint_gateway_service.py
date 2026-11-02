@@ -142,9 +142,7 @@ def test_authenticated_langgraph_worker_must_own_checkpoint_lease(
             authenticated_worker_url="http://worker-b:5000",
         )
     assert foreign.value.status_code == 403
-    assert foreign.value.reason_code == (
-        "langgraph_checkpoint_authenticated_owner_mismatch"
-    )
+    assert foreign.value.reason_code == ("langgraph_checkpoint_authenticated_owner_mismatch")
 
 
 def _put(service, binding: dict, checkpoint_id: str, revision: int, **checkpoint_values):

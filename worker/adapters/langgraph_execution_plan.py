@@ -179,11 +179,7 @@ class LangGraphExecutionPlanResult:
 
     @property
     def node_results(self) -> dict[str, Any]:
-        return {
-            record.node_id: record.value
-            for record in self.records
-            if record.status == "completed"
-        }
+        return {record.node_id: record.value for record in self.records if record.status == "completed"}
 
     @property
     def artifacts(self) -> dict[str, Any]:
@@ -197,11 +193,7 @@ class LangGraphExecutionPlanResult:
 
     @property
     def failed_nodes(self) -> dict[str, str]:
-        return {
-            record.node_id: record.reason_code
-            for record in self.records
-            if record.status == "failed"
-        }
+        return {record.node_id: record.reason_code for record in self.records if record.status == "failed"}
 
     def canonical_trace(self) -> tuple[dict[str, Any], ...]:
         """Stable trace: concurrency completion order is intentionally excluded."""
@@ -213,10 +205,7 @@ class LangGraphExecutionPlanResult:
                 "limits": self.limits.to_dict(),
             }
         ]
-        events.extend(
-            {"event": "workflow.approval.granted", "gate_id": gate_id}
-            for gate_id in self.approved_gates
-        )
+        events.extend({"event": "workflow.approval.granted", "gate_id": gate_id} for gate_id in self.approved_gates)
         records = {record.node_id: record for record in self.records}
         for index, batch in enumerate(self.batches):
             events.append(
@@ -507,9 +496,7 @@ class LangGraphExecutionPlanRuntime:
         def invoke(state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
             records = _record_map(state.get("records") or ())
             if cancelled():
-                return _state_update(
-                    LangGraphPlanNodeRecord(node.node_id, "cancelled", reason_code="cancel_requested")
-                )
+                return _state_update(LangGraphPlanNodeRecord(node.node_id, "cancelled", reason_code="cancel_requested"))
             if node.gate_id and node.gate_id not in approved_gates:
                 return _state_update(
                     LangGraphPlanNodeRecord(
@@ -521,13 +508,9 @@ class LangGraphExecutionPlanRuntime:
 
             route = self._route(node, incoming, records, state.get("workflow_input") or {})
             if route[0] is None:
-                return _state_update(
-                    LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=route[1])
-                )
+                return _state_update(LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=route[1]))
             if route[0] is False:
-                return _state_update(
-                    LangGraphPlanNodeRecord(node.node_id, "skipped", reason_code="route_not_selected")
-                )
+                return _state_update(LangGraphPlanNodeRecord(node.node_id, "skipped", reason_code="route_not_selected"))
             if node.node_type == "merge":
                 return _state_update(self._merge_node(node, incoming, records))
             if node.node_type == "component":
@@ -543,8 +526,7 @@ class LangGraphExecutionPlanRuntime:
                 sorted(
                     edge.source
                     for edge in incoming
-                    if edge.source in records
-                    and records[edge.source].status in {"blocked", "cancelled", "failed"}
+                    if edge.source in records and records[edge.source].status in {"blocked", "cancelled", "failed"}
                 )
             )
             if upstream_failed:
@@ -586,9 +568,7 @@ class LangGraphExecutionPlanRuntime:
                     )
                 budget_reason = _node_budget_violation(node, plan, outcome)
                 if budget_reason:
-                    return _state_update(
-                        LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=budget_reason)
-                    )
+                    return _state_update(LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=budget_reason))
                 validate_compiled_component_output(node, outcome.value)
                 artifacts = _bind_declared_artifacts(node, outcome)
                 return _state_update(
@@ -602,9 +582,7 @@ class LangGraphExecutionPlanRuntime:
                     )
                 )
             except WorkerError as exc:
-                return _state_update(
-                    LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=exc.reason_code)
-                )
+                return _state_update(LangGraphPlanNodeRecord(node.node_id, "failed", reason_code=exc.reason_code))
             except ValueError as exc:
                 return _state_update(
                     LangGraphPlanNodeRecord(
@@ -636,9 +614,7 @@ class LangGraphExecutionPlanRuntime:
         context = {
             "input": dict(workflow_input),
             "results": {
-                node_id: record.value
-                for node_id, record in sorted(records.items())
-                if record.status == "completed"
+                node_id: record.value for node_id, record in sorted(records.items()) if record.status == "completed"
             },
             "status": "running",
         }
@@ -667,9 +643,7 @@ class LangGraphExecutionPlanRuntime:
             [
                 BranchResult(
                     node_id=edge.source,
-                    status=(
-                        "completed" if records[edge.source].status == "completed" else "failed"
-                    ),
+                    status=("completed" if records[edge.source].status == "completed" else "failed"),
                     value=records[edge.source].value,
                     reason_code=records[edge.source].reason_code,
                 )
@@ -723,8 +697,7 @@ def _incoming_edges(plan: ExecutionPlan) -> dict[str, tuple[Any, ...]]:
     for edge in plan.edges:
         values[edge.target].append(edge)
     return {
-        node_id: tuple(sorted(edges, key=lambda item: (item.source, item.target)))
-        for node_id, edges in values.items()
+        node_id: tuple(sorted(edges, key=lambda item: (item.source, item.target))) for node_id, edges in values.items()
     }
 
 
@@ -849,10 +822,7 @@ def _terminal_status(
         record
         for record in records
         if record.status == "failed"
-        and not (
-            record.node_id in tolerated
-            and node_map[record.node_id].metadata.get("failure_policy") == "continue"
-        )
+        and not (record.node_id in tolerated and node_map[record.node_id].metadata.get("failure_policy") == "continue")
     ]
     if failures:
         merge_failure = next(

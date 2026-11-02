@@ -14,6 +14,7 @@ Directions (RAG_QUERY_TRANSLATION_DIRECTIONS, comma-separated):
   en_to_de           — English query → German documentation terms
   mixed_code_query   — detect mixed DE+code queries and preserve code tokens
 """
+
 from __future__ import annotations
 
 import re
@@ -179,10 +180,10 @@ _EN_TO_DE_MAP: dict[str, str] = {
 _CODE_TOKEN_PATTERN = re.compile(
     r"(?:"
     r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+"  # dotted.path
-    r"|[A-Za-z_][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+"              # snake_case
-    r"|[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+"                        # CamelCase
-    r"|[A-Z]{2,}(?:_[A-Z0-9]+)+"                              # ENV_VAR
-    r"|\.[A-Za-z]{1,6}"                                        # .py .json .md
+    r"|[A-Za-z_][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+"  # snake_case
+    r"|[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+"  # CamelCase
+    r"|[A-Z]{2,}(?:_[A-Z0-9]+)+"  # ENV_VAR
+    r"|\.[A-Za-z]{1,6}"  # .py .json .md
     r")"
 )
 
@@ -220,7 +221,7 @@ def _keyword_de_to_en(query: str) -> str | None:
             hit = True
 
     for de_word, en_tokens in _DE_TO_EN_NOUN_MAP.items():
-        if re.search(r'\b' + re.escape(de_word) + r'\b', q_lower):
+        if re.search(r"\b" + re.escape(de_word) + r"\b", q_lower):
             parts.extend(en_tokens.split())
             hit = True
 
@@ -243,7 +244,7 @@ def _keyword_en_to_de(query: str) -> str | None:
 
     hit = False
     for en_word, de_tokens in _EN_TO_DE_MAP.items():
-        if re.search(r'\b' + re.escape(en_word) + r'\b', q_lower):
+        if re.search(r"\b" + re.escape(en_word) + r"\b", q_lower):
             parts.extend(de_tokens.split())
             hit = True
 
@@ -272,7 +273,7 @@ def _mixed_code_query_expansion(query: str) -> str | None:
             parts.extend(en_tokens.split())
 
     for de_word, en_tokens in _DE_TO_EN_NOUN_MAP.items():
-        if re.search(r'\b' + re.escape(de_word) + r'\b', q_lower):
+        if re.search(r"\b" + re.escape(de_word) + r"\b", q_lower):
             parts.extend(en_tokens.split())
 
     if len(parts) <= len(code_tokens):
@@ -286,6 +287,7 @@ def _mixed_code_query_expansion(query: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def normalize_query(
     query: str,
@@ -354,6 +356,7 @@ def normalize_query_from_settings(query: str) -> list[str]:
     """Convenience wrapper that reads mode and directions from agent settings."""
     try:
         from agent.config import settings
+
         mode = str(getattr(settings, "rag_query_normalize_mode", "keyword") or "keyword")
         directions = str(getattr(settings, "rag_query_translation_directions", "de_to_en") or "de_to_en")
     except Exception:

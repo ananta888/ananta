@@ -136,8 +136,10 @@ def validate_mail_message_ref(payload: Mapping[str, Any]) -> list[dict[str, str]
 
 
 def stable_mail_ref_id(*, account_id: str, protocol: str, stable_identity: Mapping[str, Any] | str) -> str:
-    identity = stable_identity if isinstance(stable_identity, str) else json.dumps(
-        dict(stable_identity), ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    identity = (
+        stable_identity
+        if isinstance(stable_identity, str)
+        else json.dumps(dict(stable_identity), ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     )
     material = f"{str(account_id).strip()}|{str(protocol).strip().lower()}|{identity}"
     return f"mailref-{uuid.uuid5(_MAIL_REF_NAMESPACE, material).hex}"

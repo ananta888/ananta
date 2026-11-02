@@ -48,4 +48,3 @@ class OpenGlOffscreenRenderer:
                 "opengl_plugin": True,
             },
         )
-

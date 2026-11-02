@@ -7,6 +7,7 @@ Usage:
 
 Exits 0 on success, non-zero on failures.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,7 +64,6 @@ def main() -> int:
         decision = evaluate(parsed, config=cfg)
 
         if not decision.allowed():
-            marker = {"status": "denied", "action_id": decision.action_id, "reason": decision.reason}
             if expect_denied:
                 print(f"  [{step_id}] PASS (expected deny) — {cmd!r}: {decision.reason}")
                 passed += 1

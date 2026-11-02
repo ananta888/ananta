@@ -114,9 +114,7 @@ class InMemorySemanticMediaAuditRepository:
         if not selected:
             return 0
         self._events = [row for row in self._events if row.event_id not in selected]
-        self._by_idempotency = {
-            key: row for key, row in self._by_idempotency.items() if row.event_id not in selected
-        }
+        self._by_idempotency = {key: row for key, row in self._by_idempotency.items() if row.event_id not in selected}
         return len(selected)
 
 
@@ -337,11 +335,14 @@ class SemanticMediaAuditRecorder:
         if not 8 <= len(key) <= 4096 or any(character.isspace() for character in key):
             raise SemanticMediaAuditError("audit_idempotency_key_invalid")
         if len(key) > 256:
-            key = "audit-command:" + hmac.new(
-                self._digest_key,
-                f"idempotency\0{key}".encode("utf-8"),
-                hashlib.sha256,
-            ).hexdigest()
+            key = (
+                "audit-command:"
+                + hmac.new(
+                    self._digest_key,
+                    f"idempotency\0{key}".encode("utf-8"),
+                    hashlib.sha256,
+                ).hexdigest()
+            )
         return self._service.prepare_transition(
             idempotency_key=key,
             tenant_digest=self.digest("tenant", tenant_id),

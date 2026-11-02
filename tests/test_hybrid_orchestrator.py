@@ -340,9 +340,7 @@ def test_get_relevant_context_uses_normalizer(tmp_path: Path, monkeypatch) -> No
         return original_fn(q)
 
     monkeypatch.setattr(rag_query_normalizer, "normalize_query_from_settings", _tracking)
-    monkeypatch.setattr(
-        hybrid_orchestrator, "normalize_query_from_settings", _tracking
-    )
+    monkeypatch.setattr(hybrid_orchestrator, "normalize_query_from_settings", _tracking)
 
     (tmp_path / "module.py").write_text("def process_task(): pass\n", encoding="utf-8")
     orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[], max_context_chars=500)

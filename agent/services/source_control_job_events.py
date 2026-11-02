@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _EVENT_TYPES = frozenset(
     {
@@ -61,9 +60,7 @@ class SourceControlJobEvent:
             raise SourceControlJobEventError("sequence_invalid")
         if self.event_type not in _EVENT_TYPES:
             raise SourceControlJobEventError("event_type_invalid")
-        if self.reason_code is not None and not _OPAQUE_ID.fullmatch(
-            self.reason_code
-        ):
+        if self.reason_code is not None and not _OPAQUE_ID.fullmatch(self.reason_code):
             raise SourceControlJobEventError("reason_code_invalid")
 
     def to_public_dict(self) -> dict[str, object]:
@@ -123,11 +120,7 @@ class SourceControlJobEventService:
         )
         previous = after_sequence
         for event in events:
-            if (
-                event.tenant_id != tenant_id
-                or event.project_id != project_id
-                or event.sequence <= previous
-            ):
+            if event.tenant_id != tenant_id or event.project_id != project_id or event.sequence <= previous:
                 raise SourceControlJobEventError("event_scope_or_sequence_invalid")
             previous = event.sequence
         return {

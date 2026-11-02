@@ -102,9 +102,7 @@ def test_receipt_ledger_parallel_claim_has_one_winner() -> None:
         outcomes = list(executor.map(lambda _index: invoke(), range(2)))
 
     assert len([value for value in outcomes if isinstance(value, dict)]) == 1
-    assert [value for value in outcomes if isinstance(value, str)] == [
-        "knowledge_index_worker_dispatch_result_pending"
-    ]
+    assert [value for value in outcomes if isinstance(value, str)] == ["knowledge_index_worker_dispatch_result_pending"]
 
 
 def test_receipt_ledger_replays_exact_durable_terminal_result() -> None:
@@ -143,10 +141,12 @@ def test_receipt_ledger_replays_exact_durable_terminal_result() -> None:
     assert completed["result_payload"] == result_payload
     assert completed["result_digest"] == replayed["result_digest"]
     assert replayed["result_payload"] == result_payload
-    assert set(ledger.get_receipt(
-        worker_id=binding["worker_id"],
-        job_id=binding["job_id"],
-    )) == {
+    assert set(
+        ledger.get_receipt(
+            worker_id=binding["worker_id"],
+            job_id=binding["job_id"],
+        )
+    ) == {
         "schema",
         "job_id",
         "phase",
@@ -195,9 +195,7 @@ def test_receipt_ledger_rejects_different_result_or_binding() -> None:
         ValueError,
         match="knowledge_index_worker_dispatch_binding_conflict",
     ):
-        ledger.claim(
-            **_claim(manifest_binding_digest="d" * 64)
-        )
+        ledger.claim(**_claim(manifest_binding_digest="d" * 64))
 
 
 @pytest.mark.parametrize(

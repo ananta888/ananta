@@ -6,8 +6,7 @@ from pathlib import Path
 from agent.services.imap_account_service import create_imap_account
 from agent.services.imap_metadata_store_service import ImapMetadataStore
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.models import OperatorState
-from client_surfaces.operator_tui.models import PanelState
+from client_surfaces.operator_tui.models import OperatorState, PanelState
 from client_surfaces.operator_tui.renderer import render_operator_shell
 
 
@@ -66,13 +65,17 @@ def test_mail_view_renders_empty_and_filled_mailbox(monkeypatch, tmp_path: Path)
     opened_empty = execute_command(":mail", _state())
     payload_empty = json.loads(opened_empty.message)
     assert payload_empty["mail_mode"] is True
-    rendered_empty = render_operator_shell(opened_empty.state.with_updates(section_id="artifacts"), width=180, height=44)
+    rendered_empty = render_operator_shell(
+        opened_empty.state.with_updates(section_id="artifacts"), width=180, height=44
+    )
     assert "Mail" in rendered_empty
     assert "no mail messages" in rendered_empty
 
     _insert_messages(tmp_path, account_id=str(account.get("account_id") or ""), count=2)
     opened_filled = execute_command(":mail", opened_empty.state)
-    rendered_filled = render_operator_shell(opened_filled.state.with_updates(section_id="artifacts"), width=180, height=44)
+    rendered_filled = render_operator_shell(
+        opened_filled.state.with_updates(section_id="artifacts"), width=180, height=44
+    )
     assert "Mailbox list" in rendered_filled
     assert "Subject 1" in rendered_filled
     assert "Attachments:" in rendered_filled

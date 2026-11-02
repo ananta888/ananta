@@ -22,9 +22,7 @@ class _Repository:
     def __init__(self, envelope: dict) -> None:
         self._task = {
             "id": envelope["job_id"],
-            "worker_execution_context": {
-                "knowledge_index_job": deepcopy(envelope)
-            },
+            "worker_execution_context": {"knowledge_index_job": deepcopy(envelope)},
         }
 
     def get_by_id(self, task_id: str):
@@ -58,9 +56,7 @@ def _references() -> list[dict]:
         {
             **common,
             "artifact_id": "artifact-graph",
-            "media_type": (
-                "application/vnd.ananta.codecompass-graph-index+json"
-            ),
+            "media_type": ("application/vnd.ananta.codecompass-graph-index+json"),
             "role": "graph_index",
             "filename": "cc_graph_index.json",
             "artifact_schema": "codecompass_graph_index.v1",
@@ -68,9 +64,7 @@ def _references() -> list[dict]:
         {
             **common,
             "artifact_id": "artifact-metrics",
-            "media_type": (
-                "application/vnd.ananta.codecompass-graph-visual-metrics+json"
-            ),
+            "media_type": ("application/vnd.ananta.codecompass-graph-visual-metrics+json"),
             "role": "graph_visual_metrics",
             "filename": "cc_graph_index.visual_metrics.json",
             "artifact_schema": "graph_visual_metrics.v1",

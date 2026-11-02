@@ -97,18 +97,8 @@ class ModelSummary(_ClosedContract):
     @field_validator("capabilities")
     @classmethod
     def _validate_capabilities(cls, values: tuple[str, ...]) -> tuple[str, ...]:
-        normalized = tuple(
-            sorted(
-                {
-                    str(value).strip().lower()
-                    for value in values
-                    if str(value).strip()
-                }
-            )
-        )
-        if len(normalized) > 64 or any(
-            not _CAPABILITY.fullmatch(value) for value in normalized
-        ):
+        normalized = tuple(sorted({str(value).strip().lower() for value in values if str(value).strip()}))
+        if len(normalized) > 64 or any(not _CAPABILITY.fullmatch(value) for value in normalized):
             raise ValueError("model_catalog_capabilities_invalid")
         return normalized
 
@@ -236,9 +226,7 @@ class ModelDefaultSelection(_ClosedContract):
 
 
 class ModelDefaultSelectionCommand(_ClosedContract):
-    schema_version: Literal[
-        "ananta.model-default-selection-command.v1"
-    ] = Field(
+    schema_version: Literal["ananta.model-default-selection-command.v1"] = Field(
         validation_alias="schema",
         serialization_alias="schema",
     )
@@ -364,9 +352,7 @@ class ModelInventoryDescriptor(_ClosedContract):
     @classmethod
     def _inventory_identifiers(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(sorted(set(values)))
-        if len(normalized) > 256 or any(
-            not _IDENTIFIER.fullmatch(value) for value in normalized
-        ):
+        if len(normalized) > 256 or any(not _IDENTIFIER.fullmatch(value) for value in normalized):
             raise ValueError("model_inventory_identifiers_invalid")
         return normalized
 
@@ -374,9 +360,7 @@ class ModelInventoryDescriptor(_ClosedContract):
     @classmethod
     def _inventory_modalities(cls, values: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(sorted({str(value).strip().lower() for value in values}))
-        if len(normalized) > 32 or any(
-            not _CAPABILITY.fullmatch(value) for value in normalized
-        ):
+        if len(normalized) > 32 or any(not _CAPABILITY.fullmatch(value) for value in normalized):
             raise ValueError("model_inventory_modalities_invalid")
         return normalized
 

@@ -115,18 +115,14 @@ class ExistingContextPolicyPreviewAdapter:
             source_revision_id=source_revision_id,
         )
         if source is None:
-            raise ContextPolicyLifecycleError(
-                "source_revision_not_found"
-            )
+            raise ContextPolicyLifecycleError("source_revision_not_found")
         destination = self._destinations.resolve(
             tenant_id=tenant_id,
             project_id=project_id,
             destination_id=destination_id,
         )
         if destination is None:
-            raise ContextPolicyLifecycleError(
-                "destination_not_found"
-            )
+            raise ContextPolicyLifecycleError("destination_not_found")
         try:
             policy = _domain_policy(policy_document)
             context = build_destination_context(
@@ -135,9 +131,7 @@ class ExistingContextPolicyPreviewAdapter:
                 runtime_target_id=str(destination["runtime_id"]),
                 runtime_kind=str(destination["runtime_kind"]),
                 provider_id=str(destination["provider_id"]),
-                provider_location=str(
-                    destination["provider_location"]
-                ),
+                provider_location=str(destination["provider_location"]),
                 model_id=str(destination["model_id"]),
                 requested_operation=_requested_operation(operation),
             )
@@ -150,13 +144,9 @@ class ExistingContextPolicyPreviewAdapter:
                 context,
             )
         except (KeyError, TypeError, ValueError) as exc:
-            raise ContextPolicyLifecycleError(
-                "policy_preview_input_invalid"
-            ) from exc
+            raise ContextPolicyLifecycleError("policy_preview_input_invalid") from exc
         raw_decision = getattr(decision, "decision", "deny")
-        decision_value = str(
-            getattr(raw_decision, "value", raw_decision)
-        )
+        decision_value = str(getattr(raw_decision, "value", raw_decision))
         raw_reason = getattr(decision, "reason_code", None)
         reason = str(getattr(raw_reason, "value", raw_reason or ""))
         matched = getattr(decision, "matched_rule_ids", None)
@@ -165,19 +155,13 @@ class ExistingContextPolicyPreviewAdapter:
             matched = (matched_rule,) if matched_rule else ()
         elif isinstance(matched, str):
             matched = (matched,)
-        approval = (
-            "required"
-            if decision_value == "approval_required"
-            else None
-        )
+        approval = "required" if decision_value == "approval_required" else None
         return ContextPolicyPreview(
             decision=decision_value,
             reason_codes=(reason,) if reason else (),
             matched_rule_path=tuple(str(item) for item in matched),
             approval_requirement=approval,
-            policy_digest=derive_context_policy_digest(
-                policy_document
-            ),
+            policy_digest=derive_context_policy_digest(policy_document),
         )
 
 
@@ -281,9 +265,7 @@ class RequiredIdempotencyContextPolicyLifecycleService:
     def _now(self) -> str:
         value = str(self._clock() or "")
         if not value:
-            raise ContextPolicyLifecycleError(
-                "policy_clock_invalid"
-            )
+            raise ContextPolicyLifecycleError("policy_clock_invalid")
         return value
 
 
@@ -319,11 +301,7 @@ def build_persistent_context_policy_lifecycle(
 def _domain_policy(
     document: Mapping[str, Any],
 ) -> ContextAccessPolicy:
-    rules = [
-        ContextAccessRule(**dict(raw))
-        for raw in list(document.get("rules") or [])
-        if isinstance(raw, Mapping)
-    ]
+    rules = [ContextAccessRule(**dict(raw)) for raw in list(document.get("rules") or []) if isinstance(raw, Mapping)]
     if len(rules) != len(list(document.get("rules") or [])):
         raise ValueError("policy_rules_invalid")
     return ContextAccessPolicy(
@@ -347,9 +325,7 @@ def _requested_operation(
     try:
         return mapping[operation]
     except KeyError as exc:
-        raise ContextPolicyLifecycleError(
-            "policy_operation_not_supported"
-        ) from exc
+        raise ContextPolicyLifecycleError("policy_operation_not_supported") from exc
 
 
 def _diagnostic_rule_id(message: str) -> str | None:
@@ -363,9 +339,7 @@ def _diagnostic_rule_id(message: str) -> str | None:
 def _required_key(value: str) -> str:
     key = str(value or "").strip()
     if not key:
-        raise ContextPolicyLifecycleError(
-            "policy_idempotency_key_required"
-        )
+        raise ContextPolicyLifecycleError("policy_idempotency_key_required")
     return key
 
 

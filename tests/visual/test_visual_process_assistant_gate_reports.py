@@ -156,9 +156,7 @@ def test_committed_reports_are_deterministic_and_runtime_grounding_stays_fail_cl
         "feature_flag_rollback": "passed",
     }
     assert functional["reason_codes"] == []
-    authority = next(
-        item for item in functional["suites"] if item["suite_id"] == "grounded_source_authority_positive"
-    )
+    authority = next(item for item in functional["suites"] if item["suite_id"] == "grounded_source_authority_positive")
     assert authority["authority_scope"] == "isolated_hub_preauthorized_test_policy"
     assert authority["production_grounding_released"] is False
     assert functional["policy"]["runtime_source_authority_required"] is True

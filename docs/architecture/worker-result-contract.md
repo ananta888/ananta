@@ -13,17 +13,18 @@ Plain text-only responses are not accepted for task execution endpoints.
 ```python
 # Canonical Pydantic model — see worker/core/execution_envelope.py (EW-T007)
 
+
 class WorkerResult(BaseModel):
     task_id: str
-    status: WorkerResultStatus          # see status vocabulary below
-    summary: str                        # human-readable; max 500 chars
-    artifacts: list[ArtifactRef]        # all meaningful outputs
-    trace_bundle: TraceBundle           # always present, even on denial/error
-    policy_observations: list[str]      # reason codes from preflight and execution
-    follow_up_tasks: list[FollowUpTask] # proposed follow-ups (Hub decides whether to create)
-    warnings: list[str]                 # non-fatal issues observed
+    status: WorkerResultStatus  # see status vocabulary below
+    summary: str  # human-readable; max 500 chars
+    artifacts: list[ArtifactRef]  # all meaningful outputs
+    trace_bundle: TraceBundle  # always present, even on denial/error
+    policy_observations: list[str]  # reason codes from preflight and execution
+    follow_up_tasks: list[FollowUpTask]  # proposed follow-ups (Hub decides whether to create)
+    warnings: list[str]  # non-fatal issues observed
     degraded_state: DegradedState | None
-    no_side_effects_confirmed: bool     # True only when worker is certain no mutation occurred
+    no_side_effects_confirmed: bool  # True only when worker is certain no mutation occurred
 ```
 
 ---
@@ -49,8 +50,8 @@ class WorkerResult(BaseModel):
 ```python
 class ArtifactRef(BaseModel):
     artifact_id: str
-    kind: str            # e.g. "patch", "plan", "command_output", "test_result"
-    provenance: str      # task_id + step that produced it
+    kind: str  # e.g. "patch", "plan", "command_output", "test_result"
+    provenance: str  # task_id + step that produced it
     summary: str | None
 ```
 
@@ -59,18 +60,18 @@ class ArtifactRef(BaseModel):
 ```python
 class TraceBundle(BaseModel):
     correlation_id: str
-    capability_snapshot_hash: str   # must match CapabilityGrant.snapshot_hash
-    events: list[TraceEvent]        # ordered; append-only during execution
+    capability_snapshot_hash: str  # must match CapabilityGrant.snapshot_hash
+    events: list[TraceEvent]  # ordered; append-only during execution
 ```
 
 ### TraceEvent
 
 ```python
 class TraceEvent(BaseModel):
-    ts: float           # epoch seconds
-    event_type: str     # e.g. "preflight_allow", "tool_call", "model_call", "denied"
+    ts: float  # epoch seconds
+    event_type: str  # e.g. "preflight_allow", "tool_call", "model_call", "denied"
     reason_code: str | None
-    payload: dict       # tool_id / model / operation / etc.
+    payload: dict  # tool_id / model / operation / etc.
 ```
 
 ### DegradedState
@@ -88,7 +89,7 @@ class DegradedState(BaseModel):
 class FollowUpTask(BaseModel):
     title: str
     description: str
-    capability_hint: str | None   # capability class the follow-up will need
+    capability_hint: str | None  # capability class the follow-up will need
 ```
 
 ---

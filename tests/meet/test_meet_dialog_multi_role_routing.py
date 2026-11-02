@@ -13,8 +13,8 @@ from agent.services.meet_dialog_publishers import MeetDialogPublishers
 from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
 from agent.services.meet_organization_principal_preflight import MeetOrganizationPrincipalPreflight
 from agent.services.meet_role_assignment import MeetRoleAssignments
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER
-from tests.meet_multi_role_fixture import PARENTS, SECOND_PUBLISHER, seed_multi_role_parents
+from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER
+from tests.meet.meet_multi_role_fixture import PARENTS, SECOND_PUBLISHER, seed_multi_role_parents
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 
 pytestmark = pytest.mark.timeout(45)

@@ -18,11 +18,11 @@ def project_graph(records: Mapping[str, Any] | None = None, *, nodes=None, edges
         if not node_id:
             continue
         projected_by_id[node_id] = {
-                "id": node_id,
-                "path": str(item.get("path") or item.get("file") or ""),
-                "kind": str(item.get("kind") or item.get("type") or "unknown"),
-                "title": str(item.get("title") or item.get("name") or node_id),
-            }
+            "id": node_id,
+            "path": str(item.get("path") or item.get("file") or ""),
+            "kind": str(item.get("kind") or item.get("type") or "unknown"),
+            "title": str(item.get("title") or item.get("name") or node_id),
+        }
     projected_nodes = list(projected_by_id.values())
     projected_nodes.sort(key=lambda item: item["id"])
     known = {item["id"] for item in projected_nodes}
@@ -41,8 +41,7 @@ def project_graph(records: Mapping[str, Any] | None = None, *, nodes=None, edges
         adjacency[source].add(target)
         incoming[target].add(source)
     projected_edges = [
-        {"source": source, "target": target, "relation": relation}
-        for source, target, relation in sorted(edge_set)
+        {"source": source, "target": target, "relation": relation} for source, target, relation in sorted(edge_set)
     ]
     return {
         "nodes": projected_nodes,

@@ -96,9 +96,7 @@ def provenance_coverage(*, total_tokens: int, provenanced_tokens: int) -> float:
     return 1.0 if total_tokens == 0 else provenanced_tokens / total_tokens
 
 
-def expected_calibration_error(
-    confidences: Sequence[float], outcomes: Sequence[bool], *, bins: int = 10
-) -> float:
+def expected_calibration_error(confidences: Sequence[float], outcomes: Sequence[bool], *, bins: int = 10) -> float:
     if len(confidences) != len(outcomes):
         raise ValueError("confidences and outcomes must have equal length")
     if bins < 1:

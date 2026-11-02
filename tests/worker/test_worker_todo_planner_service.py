@@ -7,6 +7,7 @@ Verifies that:
 - No path requeues task solely because planner parse failed
 - generate_text is NOT called by default (planner_llm_enabled=False)
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.services.worker_todo_planner_service import WorkerTodoPlannerService
-
 
 MALFORMED_OUTPUTS = [
     # Markdown fenced
@@ -126,9 +126,7 @@ class TestPlannerLLMDisabledByDefault:
         assert result["contract"]["todo"]["tasks"]
         # Mode can be artifact_first, deterministic_only, or deterministic_schema_invalid
         # (depending on mock contract validity) — but LLM was not attempted
-        assert result["generation"]["mode"] in (
-            "artifact_first", "deterministic_only", "deterministic_schema_invalid"
-        )
+        assert result["generation"]["mode"] in ("artifact_first", "deterministic_only", "deterministic_schema_invalid")
         assert result["generation"]["llm_attempted"] is False
         # Deterministic contract always present.
         tasks = result["contract"]["todo"]["tasks"]
@@ -182,7 +180,7 @@ class TestPlannerMalformedLLMOutput:
         # For inputs that can't produce valid tasks (all of our MALFORMED_OUTPUTS),
         # either tasks is None (parse failed) or it's an empty list (normalized to nothing)
         valid_task_producing = False
-        if raw_output.startswith('{"tasks":') or raw_output.startswith('['):
+        if raw_output.startswith('{"tasks":') or raw_output.startswith("["):
             try:
                 parsed = json.loads(raw_output)
                 raw_tasks = parsed if isinstance(parsed, list) else parsed.get("tasks")
@@ -197,19 +195,19 @@ class TestPlannerMalformedLLMOutput:
 
         # Proposal must be created
         assert proposal is not None, f"[{label}] Must create a PlannerProposalArtifact"
-        assert proposal.get("schema") == "planner_proposal_artifact.v1", (
-            f"[{label}] Proposal must have correct schema"
-        )
+        assert proposal.get("schema") == "planner_proposal_artifact.v1", f"[{label}] Proposal must have correct schema"
         assert proposal.get("parse_status") in (
-            "parsed", "failed", "malformed_json", "markdown_fenced", "natural_language",
+            "parsed",
+            "failed",
+            "malformed_json",
+            "markdown_fenced",
+            "natural_language",
         ), f"[{label}] parse_status={proposal.get('parse_status')!r}"
 
         # The return value is (tasks, error, proposal) — tasks being None means no direct replacement
         # If tasks is not None for some edge case, it means it was somehow normalized
         # But the proposal must always wrap the output
-        assert proposal is not None, (
-            f"[{label}] LLM output must always be wrapped in PlannerProposalArtifact"
-        )
+        assert proposal is not None, f"[{label}] LLM output must always be wrapped in PlannerProposalArtifact"
         assert proposal.get("adoption_status") in ("ignored", "pending"), (
             f"[{label}] proposal.adoption_status must be ignored or pending, not 'adopted'"
         )
@@ -234,22 +232,24 @@ class TestPlannerMalformedLLMOutput:
 
     def test_valid_json_creates_parsed_proposal(self) -> None:
         """Valid JSON from LLM creates a parsed proposal."""
-        valid_tasks = json.dumps({
-            "tasks": [
-                {
-                    "id": "todo-1",
-                    "title": "Set up Flask app",
-                    "instructions": "Install Flask and create app.py",
-                    "status": "todo",
-                    "priority": "high",
-                    "risk": "low",
-                    "depends_on": [],
-                    "allowed_tools": ["bash"],
-                    "expected_artifacts": [{"kind": "generated_file", "required": True}],
-                    "acceptance_criteria": ["app.py exists"],
-                }
-            ]
-        })
+        valid_tasks = json.dumps(
+            {
+                "tasks": [
+                    {
+                        "id": "todo-1",
+                        "title": "Set up Flask app",
+                        "instructions": "Install Flask and create app.py",
+                        "status": "todo",
+                        "priority": "high",
+                        "risk": "low",
+                        "depends_on": [],
+                        "allowed_tools": ["bash"],
+                        "expected_artifacts": [{"kind": "generated_file", "required": True}],
+                        "acceptance_criteria": ["app.py exists"],
+                    }
+                ]
+            }
+        )
         tasks, error, proposal = self._run_refine(valid_tasks)
         assert proposal is not None
         assert proposal["parse_status"] == "parsed"
@@ -259,9 +259,10 @@ class TestPlannerMalformedLLMOutput:
     def test_no_retry_on_planner_parse_failure(self) -> None:
         """Planner parse failure must not requeue the task when deterministic contract exists."""
         from agent.services.task_retry_policy_service import (
-            get_task_retry_policy_service,
             REASON_PLANNER_LLM_PARSE_FAILED,
+            get_task_retry_policy_service,
         )
+
         retry_svc = get_task_retry_policy_service()
         cls = retry_svc.classify(
             reason=REASON_PLANNER_LLM_PARSE_FAILED,

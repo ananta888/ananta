@@ -1,9 +1,6 @@
 """Tests für das CellGrid-Modell: leere Screens, Unicode, 120x32, deterministisches Hashing, ANSI-Stripping."""
+
 from __future__ import annotations
-
-import time
-
-import pytest
 
 from client_surfaces.operator_tui.snapshot import Cell, CellGrid
 

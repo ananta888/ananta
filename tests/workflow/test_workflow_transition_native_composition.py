@@ -464,9 +464,7 @@ def test_a_queue_reserving_plan_runs_end_to_end_and_takes_exactly_one_slot(
         effect_id=staged.effects[1].effect_id,
     )
     assert reserved.receipt is not None
-    assert reserved.receipt.task_id == workflow_transition_task_id(
-        transition_id=staged.transition.transition_id
-    )
+    assert reserved.receipt.task_id == workflow_transition_task_id(transition_id=staged.transition.transition_id)
 
 
 def test_a_command_plan_reserves_no_queue_slot_by_default(harness: dict[str, Any]) -> None:

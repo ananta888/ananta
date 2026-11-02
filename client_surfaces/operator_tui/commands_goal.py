@@ -8,12 +8,16 @@ from datetime import UTC, datetime
 from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
-from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view, normalize_goal_artifact_filters
+from client_surfaces.operator_tui.goal_artifact_filters import (
+    filter_goal_artifact_view,
+    normalize_goal_artifact_filters,
+)
 from client_surfaces.operator_tui.models import CommandResult, OperatorState, PanelState
 
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
 
 def _active_goal_id(state: OperatorState) -> str:
     game = dict(state.header_logo_game or {})
@@ -65,7 +69,6 @@ def _load_goal_artifact_payload(*, state: OperatorState, goal_id: str) -> dict:
         "filters": filters,
         **filtered,
     }
-
 
 
 GOAL_USAGE = "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates"
@@ -301,7 +304,9 @@ def handle_artifact_command(args: list[str], state: OperatorState) -> CommandRes
     if output is None:
         return CommandResult(state, f"output artifact not found: {output_id}", handled=False)
     provenance_id = str(output.get("provenance_id") or "")
-    provenance = service.get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id) if provenance_id else None
+    provenance = (
+        service.get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id) if provenance_id else None
+    )
     if action == "prompt":
         prompt_refs = dict((provenance or {}).get("prompt_refs") or {})
         detail = {
@@ -337,7 +342,9 @@ def handle_artifact_command(args: list[str], state: OperatorState) -> CommandRes
         )
     usages = list(graph.get("source_usages") or [])
     grants_by_id = {str(row.get("grant_id") or ""): row for row in list(graph.get("source_grants") or [])}
-    usage_rows = [row for row in usages if str(row.get("usage_id") or "") in set(list(output.get("input_usage_refs") or []))]
+    usage_rows = [
+        row for row in usages if str(row.get("usage_id") or "") in set(list(output.get("input_usage_refs") or []))
+    ]
     sources: list[dict[str, object]] = []
     for row in usage_rows:
         grant = grants_by_id.get(str(row.get("grant_id") or ""), {})

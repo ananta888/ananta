@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -14,8 +13,8 @@ from typing import Any
 
 from flask import current_app, has_app_context
 
-from agent.config import settings
 from agent.common.audit import log_audit
+from agent.config import settings
 from agent.research_backend_browser import (
     BROWSER_OBSERVABILITY,
     BROWSER_POLICY_VERSION,
@@ -137,17 +136,23 @@ def resolve_research_backend_config(
     provider_mode = str(provider_cfg.get("provider_mode") or "oss").strip().lower()
     command = str(provider_cfg.get("command") or spec["default_command"]).strip()
     working_dir = str(provider_cfg.get("working_dir") or "").strip() or None
-    timeout_seconds = max(30, int(provider_cfg.get("timeout_seconds") or getattr(settings, "command_timeout", 60) or 60))
+    timeout_seconds = max(
+        30, int(provider_cfg.get("timeout_seconds") or getattr(settings, "command_timeout", 60) or 60)
+    )
     result_format = str(provider_cfg.get("result_format") or spec["default_result_format"]).strip().lower()
     enabled_default = bool(spec["default_enabled"]) if selected else False
     enabled = bool(provider_cfg.get("enabled", enabled_default))
-    docker_binary = str(provider_cfg.get("docker_binary") or getattr(settings, "research_sandbox_docker_path", "docker") or "docker").strip()
+    docker_binary = str(
+        provider_cfg.get("docker_binary") or getattr(settings, "research_sandbox_docker_path", "docker") or "docker"
+    ).strip()
     sandbox_image = str(provider_cfg.get("sandbox_image") or "").strip() or None
     sandbox_network = str(provider_cfg.get("sandbox_network") or "none").strip() or "none"
     sandbox_workdir = str(provider_cfg.get("sandbox_workdir") or "/workspace").strip() or "/workspace"
     sandbox_mount_repo = bool(provider_cfg.get("sandbox_mount_repo", True))
     sandbox_read_only = bool(provider_cfg.get("sandbox_read_only", True))
-    sandbox_tmp_dir = str(provider_cfg.get("sandbox_tmp_dir") or "/tmp/ananta-research").strip() or "/tmp/ananta-research"
+    sandbox_tmp_dir = (
+        str(provider_cfg.get("sandbox_tmp_dir") or "/tmp/ananta-research").strip() or "/tmp/ananta-research"
+    )
 
     command_tokens = shlex.split(command) if command else []
     binary = None
@@ -368,7 +373,9 @@ def _execute_research_backend_sandbox(
     context_mount_dir = "/tmp/ananta-research-context"
     with tempfile.TemporaryDirectory(prefix=f"{provider}-sandbox-") as temp_dir:
         context_path = Path(temp_dir) / "research-context.json"
-        context_path.write_text(json.dumps(dict(research_context or {}), ensure_ascii=False, indent=2), encoding="utf-8")
+        context_path.write_text(
+            json.dumps(dict(research_context or {}), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         args = [docker_binary, "run", "--rm", "--network", str(cfg["sandbox_network"])]
         if cfg["sandbox_read_only"]:
             args.extend(["--read-only", "--tmpfs", str(cfg["sandbox_tmp_dir"])])
@@ -569,6 +576,7 @@ class ResearchBackendAdapter:
             return {"job_id": job_id, "provider": self.provider, "status": "not_found", "result": None}
         result = record.get("result") or {}
         from agent.research_artifact import normalize_research_artifact
+
         artifact = normalize_research_artifact(
             result.get("stdout") or "",
             backend=self.provider,

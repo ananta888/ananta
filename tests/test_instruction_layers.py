@@ -705,9 +705,7 @@ def test_effective_stack_suppresses_incompatible_profile_when_enforcement_enable
     diagnostics = dict(data.get("diagnostics") or {})
     suppressed = list(diagnostics.get("suppressed_layers") or [])
     assert any(
-        item.get("layer") == "user_profile"
-        and item.get("reason") == "template_incompatible"
-        for item in suppressed
+        item.get("layer") == "user_profile" and item.get("reason") == "template_incompatible" for item in suppressed
     )
     rendered = str(data.get("rendered_system_prompt") or "")
     assert "[USER PROFILE]" not in rendered

@@ -24,7 +24,10 @@ def test_composed_factory_real_hub_dry_run_cannot_manufacture_model_or_promotion
     artifacts.mkdir()
     execution = tmp_path / "execution"
     bridge = MlInternDatasetRepositoryBridgeService(
-        execution_root=execution, catalog=catalog, repository=repo, max_dataset_bytes=1024 * 1024,
+        execution_root=execution,
+        catalog=catalog,
+        repository=repo,
+        max_dataset_bytes=1024 * 1024,
     )
     registry = MlInternAdapterRegistryService(tmp_path / "registry.json")
     queue = FakeTaskQueue()
@@ -33,10 +36,20 @@ def test_composed_factory_real_hub_dry_run_cannot_manufacture_model_or_promotion
         {"enabled": True, "artifact_root": str(artifacts)}, repository=repo, executor=InlineExecutor()
     )
     factory = build_hub_specialist_factory(
-        principal=principal, contract=GATE, control=control, repository=repo, catalog=catalog,
-        bridge=bridge, registry=registry, artifact_root=artifacts, dataset_root=execution,
-        model_catalog={TINY: {"snapshot_hash": "b" * 64}}, policy=POLICY,
-        benchmark_version="code-risk-bench-v1", backend="mock", mode="dry_run",
+        principal=principal,
+        contract=GATE,
+        control=control,
+        repository=repo,
+        catalog=catalog,
+        bridge=bridge,
+        registry=registry,
+        artifact_root=artifacts,
+        dataset_root=execution,
+        model_catalog={TINY: {"snapshot_hash": "b" * 64}},
+        policy=POLICY,
+        benchmark_version="code-risk-bench-v1",
+        backend="mock",
+        mode="dry_run",
     )
     examples = gate_examples(45)
     with pytest.raises(ValueError, match="specialist_training_registry_binding_invalid"):

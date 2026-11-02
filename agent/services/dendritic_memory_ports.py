@@ -22,9 +22,7 @@ class DendriticExperimentBackendPort(Protocol):
 
 
 class DendriticPackArtifactPort(Protocol):
-    def put(
-        self, *, manifest: DendriticMemoryPackManifestV1, files: Mapping[str, bytes]
-    ) -> Mapping[str, Any]: ...
+    def put(self, *, manifest: DendriticMemoryPackManifestV1, files: Mapping[str, bytes]) -> Mapping[str, Any]: ...
 
 
 class DendriticModelCatalogPort(Protocol):

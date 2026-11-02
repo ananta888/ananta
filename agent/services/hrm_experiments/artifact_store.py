@@ -94,9 +94,7 @@ class HrmArtifactStoreAdapter:
         too_large_reason: str,
     ) -> tuple[Path, str, int, str]:
         with Session(self._engine) as session:
-            artifact = session.exec(
-                select(ArtifactDB).where(ArtifactDB.latest_sha256 == content_digest)
-            ).first()
+            artifact = session.exec(select(ArtifactDB).where(ArtifactDB.latest_sha256 == content_digest)).first()
         if artifact is None:
             raise HrmArtifactStoreError("hrm.artifact_not_found")
         path, media_type, declared_size, declared_digest = self._artifact_file(artifact.id)
@@ -188,8 +186,7 @@ class HrmArtifactStoreAdapter:
         for name, descriptor in header.items():
             if name == "__metadata__":
                 if not isinstance(descriptor, dict) or any(
-                    not isinstance(key, str) or not isinstance(value, str)
-                    for key, value in descriptor.items()
+                    not isinstance(key, str) or not isinstance(value, str) for key, value in descriptor.items()
                 ):
                     raise HrmArtifactStoreError("hrm.safetensors_metadata_invalid")
                 continue

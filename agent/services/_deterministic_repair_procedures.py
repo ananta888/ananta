@@ -10,41 +10,40 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
 import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import TYPE_CHECKING, Any
 
 from agent.services._deterministic_repair_constants import (
-    REPAIR_PROBLEM_CLASS_INVENTORY,
-    REPAIR_EXECUTION_SAFETY_POLICY,
     REPAIR_ACTION_SAFETY_CLASSES,
+    REPAIR_EXECUTION_SAFETY_POLICY,
+    REPAIR_PROBLEM_CLASS_INVENTORY,
 )
-
 
 log = logging.getLogger(__name__)
 
 from agent.services import _deterministic_repair_signatures as _drr_signatures
+
 build_initial_failure_signature_catalog = _drr_signatures.build_initial_failure_signature_catalog
 from agent.services import _deterministic_repair_utils as _drr_utils
+
+if TYPE_CHECKING:
+    from agent.services._deterministic_repair_signatures import FailureSignature
+
 _approval_scope_key = _drr_utils._approval_scope_key
 _default_llm_proposal_conversion = _drr_utils._default_llm_proposal_conversion
 _detect_contradictory_evidence = _drr_utils._detect_contradictory_evidence
 _detect_worsening_signals = _drr_utils._detect_worsening_signals
 _structure_llm_proposal = _drr_utils._structure_llm_proposal
 from agent.services import _deterministic_repair_verification as _drr_verification
+
 run_step_verification = _drr_verification.run_step_verification
 from agent.services import _deterministic_repair_safety as _drr_safety
+
 classify_repair_action_safety = _drr_safety.classify_repair_action_safety
 from agent.services import _deterministic_repair_misc as _drr_misc
+
 evaluate_unsafe_action_guardrails = _drr_misc.evaluate_unsafe_action_guardrails
-
-
 
 
 def build_repair_procedure_template(*, problem_class: str, platform_target: str) -> dict[str, Any]:
@@ -98,9 +97,6 @@ def build_repair_procedure_template(*, problem_class: str, platform_target: str)
     }
 
 
-
-
-
 def build_initial_repair_procedure_catalog(
     *, signature_catalog: tuple[FailureSignature, ...] | None = None
 ) -> dict[str, Any]:
@@ -129,9 +125,6 @@ def build_initial_repair_procedure_catalog(
     }
 
 
-
-
-
 def select_repair_procedure_from_catalog(
     *,
     repair_catalog: dict[str, Any],
@@ -145,9 +138,6 @@ def select_repair_procedure_from_catalog(
         if str(entry.get("problem_class") or "") == target_problem_class:
             return entry
     return entries[0]
-
-
-
 
 
 def build_repair_procedure_preview(
@@ -175,9 +165,6 @@ def build_repair_procedure_preview(
     }
 
 
-
-
-
 def execute_repair_procedure(
     *,
     selected_catalog_entry: dict[str, Any],
@@ -201,7 +188,9 @@ def execute_repair_procedure(
         proposed_actions=[str(step.get("title") or "") for step in steps],
     )
     procedure_safety_class = str(procedure.get("safety_class") or "safe")
-    procedure_requires_approval = procedure_safety_class in set(policy.get("requires_approval_for_safety_classes") or [])
+    procedure_requires_approval = procedure_safety_class in set(
+        policy.get("requires_approval_for_safety_classes") or []
+    )
     scope_key = _approval_scope_key(
         procedure_id=procedure_id,
         target_scope=str(target_scope),
@@ -272,7 +261,9 @@ def execute_repair_procedure(
             )
             stop_reason = "unknown_action_safety_class"
             break
-        action_requires_approval = action_safety_class in set(policy.get("requires_approval_for_action_safety_classes") or [])
+        action_requires_approval = action_safety_class in set(
+            policy.get("requires_approval_for_action_safety_classes") or []
+        )
         scope_approved = approval_context["approved_mutations"] or scope_key in approved_scopes
         verification = run_step_verification(
             step=step,
@@ -358,9 +349,6 @@ def execute_repair_procedure(
     }
 
 
-
-
-
 def convert_llm_proposal_to_reviewed_procedure(
     *,
     llm_proposal: dict[str, Any],
@@ -406,9 +394,3 @@ def convert_llm_proposal_to_reviewed_procedure(
         log.warning("convert_llm_proposal_to_reviewed_procedure setup failed: %s", exc)
 
     return _default_llm_proposal_conversion(llm_proposal, environment_facts)
-
-
-
-
-
-

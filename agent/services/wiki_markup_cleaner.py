@@ -19,4 +19,3 @@ def clean_wiki_markup(raw_text: str) -> str:
     text = re.sub(r"==+\s*([^=\n]+?)\s*==+", r" \1 ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
-

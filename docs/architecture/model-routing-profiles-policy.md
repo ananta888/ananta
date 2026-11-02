@@ -174,7 +174,7 @@ Bei Erkennung wird der Cloud-Provider blockiert und `policy_decisions` um einen 
 `ProviderHealthCache` hält einen 60-Sekunden-TTL-Cache pro `provider_id`:
 
 ```python
-resolver.report_provider_failure("openai")   # markiert 60s unavailable
+resolver.report_provider_failure("openai")  # markiert 60s unavailable
 resolver.report_provider_recovery("openai")  # sofortiges Reset
 ```
 

@@ -84,9 +84,19 @@ class _OneShotEvents:
         kind = update["type"]
         _require(not kind.startswith("toolcall_"), "pi_tool_execution_denied")
         _require(kind != "error", "pi_assistant_failed")
-        _require(kind in {
-            "start", "text_start", "text_delta", "text_end", "thinking_start", "thinking_delta", "thinking_end", "done",
-        })
+        _require(
+            kind
+            in {
+                "start",
+                "text_start",
+                "text_delta",
+                "text_end",
+                "thinking_start",
+                "thinking_delta",
+                "thinking_end",
+                "done",
+            }
+        )
         if kind == "done":
             _require(self.streaming_terminal is None, "pi_terminal_conflict")
             _require(update.get("reason") == "stop", "pi_assistant_failed")
@@ -101,16 +111,15 @@ class _OneShotEvents:
         _require(isinstance(message, dict) and message.get("role") == self.active_role)
         if self.active_role == "assistant":
             self.answer = self._assistant_text(message)
-            _require(
-                self.streaming_terminal is None or self.streaming_terminal == message, "pi_terminal_conflict"
-            )
+            _require(self.streaming_terminal is None or self.streaming_terminal == message, "pi_terminal_conflict")
         self.messages.append(message)
         self.active_role = None
 
     def _assistant_text(self, message: dict[str, Any]) -> str:
         _require(message.get("stopReason") == "stop" and not message.get("errorMessage"), "pi_assistant_failed")
         _require(
-            message.get("provider") == self.provider and message.get("model") == self.model
+            message.get("provider") == self.provider
+            and message.get("model") == self.model
             and message.get("api") == "openai-completions",
             "pi_model_binding_mismatch",
         )

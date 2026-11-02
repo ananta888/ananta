@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_screen_observation import (
+from tests.meet.meet_dialog_screen_observation import (
     record_screen_failure,
     require_pipeline_probe,
     screen_failure_projection,

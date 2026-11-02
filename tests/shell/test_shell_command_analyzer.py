@@ -1,9 +1,10 @@
 """SCG-003 / SCG-002: ShellCommandAnalyzer and ShellCommandPolicy tests."""
+
 from __future__ import annotations
 
 from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
 
-_OPENCODE_CMD = 'python hello.py; python -c "from hello import greet; print(greet(\'World\'))"'
+_OPENCODE_CMD = "python hello.py; python -c \"from hello import greet; print(greet('World'))\""
 
 
 # ── SCG-002: CommandChainAnalysisResult structure ─────────────────────────────
@@ -25,7 +26,7 @@ def test_analyzer_opencode_second_segment_has_quoted_semicolon():
     result = ShellCommandAnalyzer().analyze(_OPENCODE_CMD)
     assert len(result.segments) == 2
     second = result.segments[1].raw
-    assert second.startswith('python -c')
+    assert second.startswith("python -c")
     assert ";" in second
     assert result.contains_quoted_operators is True
 

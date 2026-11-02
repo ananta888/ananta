@@ -167,9 +167,7 @@ def test_ffmpeg_decoder_uses_bounded_argv_only_execution(monkeypatch, tmp_path):
 def test_ffmpeg_runner_stops_and_rejects_output_above_pcm_budget(monkeypatch, tmp_path):
     binary = _write_python_executable(
         tmp_path / "ffmpeg-overflow",
-        "import os, sys\nsys.stdin.buffer.read()\n"
-        "chunk = b'x' * 65536\n"
-        "while True:\n    os.write(1, chunk)\n",
+        "import os, sys\nsys.stdin.buffer.read()\nchunk = b'x' * 65536\nwhile True:\n    os.write(1, chunk)\n",
     )
     monkeypatch.setattr("voice_runtime.preprocessing.audio_decode.shutil.which", lambda _binary: str(binary))
     decoder = FfmpegAudioDecoder(
@@ -207,10 +205,7 @@ def test_ffmpeg_runner_bounds_stderr_without_exposing_it(tmp_path):
 def test_ffmpeg_timeout_kills_the_complete_process_group(monkeypatch, tmp_path):
     child_marker = tmp_path / "timeout-child-survived"
     ready_marker = tmp_path / "timeout-child-started"
-    child_code = (
-        "import pathlib,time; time.sleep(1.5); "
-        f"pathlib.Path({str(child_marker)!r}).write_text('survived')"
-    )
+    child_code = f"import pathlib,time; time.sleep(1.5); pathlib.Path({str(child_marker)!r}).write_text('survived')"
     binary = _write_python_executable(
         tmp_path / "ffmpeg-timeout",
         "import pathlib, subprocess, sys, time\n"
@@ -233,10 +228,7 @@ def test_ffmpeg_timeout_kills_the_complete_process_group(monkeypatch, tmp_path):
 def test_ffmpeg_error_kills_descendants_after_direct_process_exit(monkeypatch, tmp_path):
     child_marker = tmp_path / "error-child-survived"
     ready_marker = tmp_path / "error-child-started"
-    child_code = (
-        "import pathlib,time; time.sleep(1.5); "
-        f"pathlib.Path({str(child_marker)!r}).write_text('survived')"
-    )
+    child_code = f"import pathlib,time; time.sleep(1.5); pathlib.Path({str(child_marker)!r}).write_text('survived')"
     binary = _write_python_executable(
         tmp_path / "ffmpeg-error",
         "import pathlib, subprocess, sys\n"
@@ -264,10 +256,7 @@ class _InjectedCancellation(BaseException):
 def test_bounded_runner_cancellation_check_kills_process_group(tmp_path):
     child_marker = tmp_path / "cancel-child-survived"
     ready_marker = tmp_path / "cancel-child-started"
-    child_code = (
-        "import pathlib,time; time.sleep(1.5); "
-        f"pathlib.Path({str(child_marker)!r}).write_text('survived')"
-    )
+    child_code = f"import pathlib,time; time.sleep(1.5); pathlib.Path({str(child_marker)!r}).write_text('survived')"
     binary = _write_python_executable(
         tmp_path / "ffmpeg-cancel",
         "import pathlib, subprocess, sys, time\n"
@@ -275,6 +264,7 @@ def test_bounded_runner_cancellation_check_kills_process_group(tmp_path):
         f"pathlib.Path({str(ready_marker)!r}).write_text('started')\n"
         "sys.stdin.buffer.read()\ntime.sleep(30)\n",
     )
+
     def cancellation_check() -> None:
         if ready_marker.exists():
             raise _InjectedCancellation()

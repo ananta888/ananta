@@ -51,9 +51,11 @@ def test_keycloak_fetcher_dry_run_does_not_persist(monkeypatch, tmp_path: Path) 
     store = SourceSnapshotStore(root=tmp_path)
     fetcher = KeycloakDocsFetcher(snapshot_store=store)
     report = fetcher.fetch(
-        descriptor={"source_id": "keycloak-official-docs", "fetch_source": {"url": "https://www.keycloak.org/documentation"}},
+        descriptor={
+            "source_id": "keycloak-official-docs",
+            "fetch_source": {"url": "https://www.keycloak.org/documentation"},
+        },
         dry_run=True,
     )
     assert report["snapshot"]["status"] == "validating"
     assert store.latest_indexed_snapshot(source_id="keycloak-official-docs") is None
-

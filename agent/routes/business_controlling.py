@@ -109,9 +109,7 @@ def _scope(value: Mapping[str, object]) -> tuple[str, str, str]:
             tenant_id = str(resolver(project_id=project_id, actor_id=actor_id) or "").strip()
     if not tenant_id:
         raise PermissionError("controlling_scope_unresolved")
-    if not is_admin and (
-        user_project and user_project != project_id
-    ):
+    if not is_admin and (user_project and user_project != project_id):
         raise PermissionError("controlling_scope_denied")
     return tenant_id, project_id, actor_id
 

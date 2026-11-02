@@ -23,16 +23,23 @@ def setup_context(*, tasks=None, context_bundles=None, context_service_available
     tasks = tasks if tasks is not None else Mock()
     bundles, policy = Mock(), Mock()
     reader = context_bundles or NativeContextBundleService(
-        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
+        tasks=tasks,
+        bundles=TaskContextBundleAccessService(bundles),
+        policy=policy,
     )
     client, context, events = composition(context_bundles=reader if context_service_available else None)
     command = task_command(context)
     task = {
-        "id": "hub-task-1", "tenant_id": context.tenant_id, "project_id": "project-1",
-        "task_kind": "pi_coding_agent", "derivation_reason": "native_graph_hub_delegation",
-        "status": "running", "context_bundle_id": "bundle-1",
+        "id": "hub-task-1",
+        "tenant_id": context.tenant_id,
+        "project_id": "project-1",
+        "task_kind": "pi_coding_agent",
+        "derivation_reason": "native_graph_hub_delegation",
+        "status": "running",
+        "context_bundle_id": "bundle-1",
         "worker_execution_context": {
-            "schema": "ananta.native_graph_worker_context.v1", "runtime_path": "native_graph_node",
+            "schema": "ananta.native_graph_worker_context.v1",
+            "runtime_path": "native_graph_node",
             "native_node_command": command.to_dict(),
         },
     }
@@ -42,12 +49,18 @@ def setup_context(*, tasks=None, context_bundles=None, context_service_available
     policy.project.return_value = NativeApprovedContext("approved context only", "b" * 64)
     request = {
         "binding": {
-            "tenant_id": context.tenant_id, "workflow_id": context.workflow_id, "run_id": context.run_id,
-            "step_id": context.step_id, "plan_hash": context.plan_hash, "policy_version": context.policy_version,
+            "tenant_id": context.tenant_id,
+            "workflow_id": context.workflow_id,
+            "run_id": context.run_id,
+            "step_id": context.step_id,
+            "plan_hash": context.plan_hash,
+            "policy_version": context.policy_version,
             "authorization_envelope": context.authorization_envelope,
         },
-        "hub_task_id": task["id"], "command_id": command.command_id,
-        "attempt_id": context.attempt_id, "fencing_token": context.fencing_token,
+        "hub_task_id": task["id"],
+        "command_id": command.command_id,
+        "attempt_id": context.attempt_id,
+        "fencing_token": context.fencing_token,
     }
     return client, request, task, bundle, policy, events
 
@@ -68,7 +81,8 @@ def test_actual_task_model_uses_persisted_native_markers_not_an_invented_source_
     client, request, task, _, policy, _ = setup_context(tasks=tasks)
     task.update(task_kind="pi_coding_agent", derivation_reason="native_graph_hub_delegation")
     task["worker_execution_context"].update(
-        schema="ananta.native_graph_worker_context.v1", runtime_path="native_graph_node",
+        schema="ananta.native_graph_worker_context.v1",
+        runtime_path="native_graph_node",
     )
     stored = TaskDB(**task)
     assert "source" not in stored.model_dump()
@@ -98,11 +112,25 @@ def test_gateway_denies_foreign_stale_or_unregistered_context_requests_before_po
     policy.project.assert_not_called()
 
 
-@pytest.mark.parametrize("mutation", [
-    "tenant", "project", "derivation", "task_kind", "schema", "runtime_path", "terminal",
-    "command_id", "node", "envelope",
-    "bundle_owner", "bundle_unbound", "bundle_missing", "bundle_mismatch",
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "tenant",
+        "project",
+        "derivation",
+        "task_kind",
+        "schema",
+        "runtime_path",
+        "terminal",
+        "command_id",
+        "node",
+        "envelope",
+        "bundle_owner",
+        "bundle_unbound",
+        "bundle_missing",
+        "bundle_mismatch",
+    ],
+)
 def test_hub_rejects_persisted_task_or_bundle_mismatch(mutation):
     client, request, task, bundle, policy, _ = setup_context()
     command = task["worker_execution_context"]["native_node_command"]
@@ -162,10 +190,18 @@ def test_projection_changes_when_policy_changes_and_never_caches_a_grant():
         client.command("native_context_read", **request)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("schema", "future"), ("content", "mutated"), ("command_digest", "invalid"),
-    ("policy_digest", "invalid"), ("hub_task_id", ""), ("bundle_id", "a\nb"), ("extra", "unknown"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("schema", "future"),
+        ("content", "mutated"),
+        ("command_digest", "invalid"),
+        ("policy_digest", "invalid"),
+        ("hub_task_id", ""),
+        ("bundle_id", "a\nb"),
+        ("extra", "unknown"),
+    ],
+)
 def test_worker_contract_refuses_malformed_or_mutated_projection(field, value):
     client, request, _, _, _, _ = setup_context()
     raw = copy.deepcopy(client.command("native_context_read", **request))

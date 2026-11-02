@@ -10,7 +10,7 @@ from agent.db_models import OrganizationInstanceDB
 from agent.models.meet_organization_topology import MeetTopologyScope
 from agent.repositories.meet_role_assignment import SqlMeetRoleAssignments
 from agent.services.meet_contract import MeetError
-from tests.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
+from tests.meet.meet_dialog_lifecycle_fixture import PUBLISHER, seed_parent
 from tests.meet.test_meet_media_child_scope import organized_dialog
 
 pytestmark = pytest.mark.timeout(45)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 WIKI_LINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
 
 
@@ -27,4 +26,3 @@ def extract_wiki_semantic_signals(raw_text: str) -> dict[str, list[str]]:
         "links": sorted(dict.fromkeys(links)),
         "categories": sorted(dict.fromkeys(categories)),
     }
-

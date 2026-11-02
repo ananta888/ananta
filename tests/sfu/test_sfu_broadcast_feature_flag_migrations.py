@@ -11,7 +11,6 @@ from alembic.operations import Operations
 from sqlalchemy import inspect
 from sqlmodel import create_engine
 
-
 MIGRATION_MODULE = "migrations.versions.f7b8c9d0e1f2_add_sfu_broadcast_feature_flags"
 
 

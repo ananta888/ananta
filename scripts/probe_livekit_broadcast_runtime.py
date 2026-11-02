@@ -147,7 +147,9 @@ def collect_static_bindings(root: Path = ROOT) -> StaticBindings:
     except (OSError, UnicodeError, json.JSONDecodeError, ProbeFailure) as exc:
         raise ProbeFailure("static_binding_input_unavailable") from exc
 
-    image_match = re.search(r"^\s*image:\s*(livekit/livekit-server@sha256:[0-9a-f]{64})\s*$", compose_text, re.MULTILINE)
+    image_match = re.search(
+        r"^\s*image:\s*(livekit/livekit-server@sha256:[0-9a-f]{64})\s*$", compose_text, re.MULTILINE
+    )
     image_reference = image_match.group(1) if image_match else None
     dependencies = package.get("dependencies")
     client_package = dependencies.get("livekit-client") if isinstance(dependencies, Mapping) else None
@@ -227,7 +229,9 @@ def _capability_matrix(bindings: StaticBindings, runtime: RuntimeObservation | N
             "capability": "simulcast_svc_track_publish_options",
             "status": "documented",
             "required_for_feasibility": False,
-            "evidence": [_evidence("pinned_client_package", PACKAGE_RELATIVE.as_posix(), bindings.source_digests["package"])],
+            "evidence": [
+                _evidence("pinned_client_package", PACKAGE_RELATIVE.as_posix(), bindings.source_digests["package"])
+            ],
         },
         {
             "capability": "adaptive_stream_dynacast",
@@ -243,7 +247,12 @@ def _capability_matrix(bindings: StaticBindings, runtime: RuntimeObservation | N
         },
         {
             "capability": "one_publisher_three_receiver_fanout",
-            "status": "available" if trusted and runtime.publisher_count == 1 and runtime.receiver_count == 3 and runtime.decoded_receiver_count == 3 else "degraded",
+            "status": "available"
+            if trusted
+            and runtime.publisher_count == 1
+            and runtime.receiver_count == 3
+            and runtime.decoded_receiver_count == 3
+            else "degraded",
             "required_for_feasibility": True,
             "evidence": [_evidence("repository_file", SPIKE_RELATIVE.as_posix(), bindings.source_digests["spike"])],
         },
@@ -260,7 +269,9 @@ def _capability_matrix(bindings: StaticBindings, runtime: RuntimeObservation | N
         },
         {
             "capability": "prometheus_metrics",
-            "status": "documented" if re.search(r"^\s*prometheus_port:", bindings.config_text, re.MULTILINE) else "unsupported",
+            "status": "documented"
+            if re.search(r"^\s*prometheus_port:", bindings.config_text, re.MULTILINE)
+            else "unsupported",
             "required_for_feasibility": False,
             "evidence": [_evidence("repository_file", CONFIG_RELATIVE.as_posix(), bindings.source_digests["config"])],
         },
@@ -272,7 +283,9 @@ def _capability_matrix(bindings: StaticBindings, runtime: RuntimeObservation | N
         },
         {
             "capability": "embedded_turn",
-            "status": "documented" if re.search(r"(?ms)^turn:\s*\n\s+enabled:\s+true\s*$", bindings.config_text) else "unsupported",
+            "status": "documented"
+            if re.search(r"(?ms)^turn:\s*\n\s+enabled:\s+true\s*$", bindings.config_text)
+            else "unsupported",
             "required_for_feasibility": False,
             "evidence": [_evidence("repository_file", CONFIG_RELATIVE.as_posix(), bindings.source_digests["config"])],
         },
@@ -324,9 +337,7 @@ def build_report(bindings: StaticBindings, runtime: RuntimeObservation | None = 
     elif not runtime.trusted:
         reasons.extend(runtime.reason_codes or ("runtime_evidence_untrusted",))
     required_missing = sorted(
-        row["capability"]
-        for row in capabilities
-        if row["required_for_feasibility"] and row["status"] != "available"
+        row["capability"] for row in capabilities if row["required_for_feasibility"] and row["status"] != "available"
     )
     if required_missing:
         reasons.append("required_runtime_capability_unavailable")
@@ -367,7 +378,9 @@ def build_report(bindings: StaticBindings, runtime: RuntimeObservation | None = 
             "runtime_config_sha256": runtime.config_sha256 if runtime else None,
             "source_sha256": bindings.source_sha256,
         },
-        "runtime_evidence": None if runtime is None else {
+        "runtime_evidence": None
+        if runtime is None
+        else {
             "provenance": runtime.provenance,
             "container_id_sha256": runtime.container_id_sha256,
             "smoke_report_sha256": runtime.smoke_report_sha256,
@@ -384,8 +397,12 @@ def build_report(bindings: StaticBindings, runtime: RuntimeObservation | None = 
     }
 
 
-def _run(command: list[str], *, root: Path, env: Mapping[str, str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(command, cwd=root, env=dict(env), capture_output=True, text=True, check=False, timeout=timeout)
+def _run(
+    command: list[str], *, root: Path, env: Mapping[str, str], timeout: int = 60
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        command, cwd=root, env=dict(env), capture_output=True, text=True, check=False, timeout=timeout
+    )
     if result.returncode != 0:
         raise ProbeFailure(f"runtime_command_failed:{Path(command[0]).name}")
     return result
@@ -393,15 +410,23 @@ def _run(command: list[str], *, root: Path, env: Mapping[str, str], timeout: int
 
 def _jwt(api_key: str, api_secret: str, room: str) -> str:
     now = int(time.time())
-    encode = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+    def encode(value):
+        return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
     header = encode(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
-    payload = encode(json.dumps({
-        "iss": api_key,
-        "sub": "ananta-runtime-probe",
-        "nbf": now - 5,
-        "exp": now + 120,
-        "video": {"roomAdmin": True, "room": room},
-    }, separators=(",", ":")).encode())
+    payload = encode(
+        json.dumps(
+            {
+                "iss": api_key,
+                "sub": "ananta-runtime-probe",
+                "nbf": now - 5,
+                "exp": now + 120,
+                "video": {"roomAdmin": True, "room": room},
+            },
+            separators=(",", ":"),
+        ).encode()
+    )
     unsigned = f"{header}.{payload}"
     signature = encode(hmac.new(api_secret.encode(), unsigned.encode(), hashlib.sha256).digest())
     return f"{unsigned}.{signature}"
@@ -440,9 +465,13 @@ def _wait_for_live_room(base_url: str, token: str, process: subprocess.Popen[str
             time.sleep(0.25)
             continue
         identities = {row.get("identity") for row in participants if isinstance(row, Mapping)}
-        publisher = next((row for row in participants if isinstance(row, Mapping) and row.get("identity") == "publisher"), None)
+        publisher = next(
+            (row for row in participants if isinstance(row, Mapping) and row.get("identity") == "publisher"), None
+        )
         tracks = publisher.get("tracks") if isinstance(publisher, Mapping) else None
-        track = next((row for row in tracks or [] if isinstance(row, Mapping) and row.get("name") == "fanout-camera"), None)
+        track = next(
+            (row for row in tracks or [] if isinstance(row, Mapping) and row.get("name") == "fanout-camera"), None
+        )
         track_sid = track.get("sid") if isinstance(track, Mapping) else None
         if expected.issubset(identities) and isinstance(track_sid, str) and track_sid:
             return track_sid
@@ -482,8 +511,14 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
             if not isinstance(peers, list):
                 reasons.append("browser_smoke_peer_evidence_invalid")
                 continue
-            publisher = next((row for row in peers if isinstance(row, Mapping) and row.get("identity") == "publisher"), None)
-            receivers = [row for row in peers if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")]
+            publisher = next(
+                (row for row in peers if isinstance(row, Mapping) and row.get("identity") == "publisher"), None
+            )
+            receivers = [
+                row
+                for row in peers
+                if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")
+            ]
             if (
                 not isinstance(publisher, Mapping)
                 or publisher.get("peer_connections") != 1
@@ -491,11 +526,18 @@ def validate_spike_report(report: Mapping[str, Any]) -> tuple[str, ...]:
                 or int(publisher.get("outbound_video_streams") or 0) < 1
                 or int(publisher.get("outbound_video_bytes") or 0) < 1
                 or len(receivers) != 3
-                or any(int(row.get("decoded_samples") or 0) < 3 or int(row.get("inbound_video_bytes") or 0) < 1 for row in receivers)
+                or any(
+                    int(row.get("decoded_samples") or 0) < 3 or int(row.get("inbound_video_bytes") or 0) < 1
+                    for row in receivers
+                )
             ):
                 reasons.append("browser_smoke_media_evidence_invalid")
     e2ee = report.get("e2ee")
-    if not isinstance(e2ee, Mapping) or e2ee.get("enabled") is not True or e2ee.get("server_plaintext_access") is not False:
+    if (
+        not isinstance(e2ee, Mapping)
+        or e2ee.get("enabled") is not True
+        or e2ee.get("server_plaintext_access") is not False
+    ):
         reasons.append("browser_smoke_e2ee_evidence_invalid")
     return tuple(sorted(set(reasons)))
 
@@ -511,17 +553,28 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
     api_key = f"probe-{secrets.token_hex(8)}"
     api_secret = secrets.token_urlsafe(48)
     env = dict(os.environ)
-    env.update({
-        "ANANTA_SEMANTIC_MEDIA_SFU_API_KEY": api_key,
-        "ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET": api_secret,
-        "ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER": f"probe-{secrets.token_hex(8)}",
-        "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD": secrets.token_urlsafe(48),
-        "ANANTA_SEMANTIC_MEDIA_SFU_PUBLIC_WS_URL": "ws://127.0.0.1:7880",
-        "ANANTA_SEMANTIC_MEDIA_SFU_BROWSER_ENGINES": "chromium",
-        "ANANTA_SEMANTIC_MEDIA_SFU_RECEIVER_COUNT": "3",
-        "ANANTA_SEMANTIC_MEDIA_SFU_WRONG_KEY_PROBE": "1",
-    })
-    compose = ["docker", "compose", "-p", project, "-f", str(root / COMPOSE_RELATIVE), "--profile", "semantic-media-sfu"]
+    env.update(
+        {
+            "ANANTA_SEMANTIC_MEDIA_SFU_API_KEY": api_key,
+            "ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET": api_secret,
+            "ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER": f"probe-{secrets.token_hex(8)}",
+            "ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD": secrets.token_urlsafe(48),
+            "ANANTA_SEMANTIC_MEDIA_SFU_PUBLIC_WS_URL": "ws://127.0.0.1:7880",
+            "ANANTA_SEMANTIC_MEDIA_SFU_BROWSER_ENGINES": "chromium",
+            "ANANTA_SEMANTIC_MEDIA_SFU_RECEIVER_COUNT": "3",
+            "ANANTA_SEMANTIC_MEDIA_SFU_WRONG_KEY_PROBE": "1",
+        }
+    )
+    compose = [
+        "docker",
+        "compose",
+        "-p",
+        project,
+        "-f",
+        str(root / COMPOSE_RELATIVE),
+        "--profile",
+        "semantic-media-sfu",
+    ]
     if bindings.reason_codes:
         reasons.append("static_binding_failed_before_runtime")
     elif shutil.which("docker") is None or shutil.which("node") is None:
@@ -538,11 +591,17 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
                     raise ProbeFailure("runtime_container_identity_invalid")
                 provenance = "live_container"
                 container_hash = _sha256_bytes(container_id.encode())
-                image_reference = _run(["docker", "inspect", "--format", "{{.Config.Image}}", container_id], root=root, env=env).stdout.strip()
-                image_id = _run(["docker", "inspect", "--format", "{{.Image}}", container_id], root=root, env=env).stdout.strip()
+                image_reference = _run(
+                    ["docker", "inspect", "--format", "{{.Config.Image}}", container_id], root=root, env=env
+                ).stdout.strip()
+                image_id = _run(
+                    ["docker", "inspect", "--format", "{{.Image}}", container_id], root=root, env=env
+                ).stdout.strip()
                 if image_reference != EXPECTED_IMAGE_REFERENCE or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
                     raise ProbeFailure("runtime_image_digest_unverified")
-                version_result = _run(["docker", "exec", container_id, "/livekit-server", "--version"], root=root, env=env)
+                version_result = _run(
+                    ["docker", "exec", container_id, "/livekit-server", "--version"], root=root, env=env
+                )
                 version_output = f"{version_result.stdout}\n{version_result.stderr}"
                 match = re.search(r"(?<![0-9])(\d+\.\d+\.\d+)(?![0-9])", version_output)
                 server_version = match.group(1) if match else None
@@ -563,24 +622,52 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
                 )
                 token = _jwt(api_key, api_secret, ROOM_NAME)
                 track_sid = _wait_for_live_room("http://127.0.0.1:7880", token, process, min(timeout, 45))
-                _twirp("http://127.0.0.1:7880", "UpdateSubscriptions", token, {
-                    "room": ROOM_NAME, "identity": "receiver-1", "track_sids": [track_sid], "subscribe": False,
-                })
-                _twirp("http://127.0.0.1:7880", "UpdateSubscriptions", token, {
-                    "room": ROOM_NAME, "identity": "receiver-1", "track_sids": [track_sid], "subscribe": True,
-                })
+                _twirp(
+                    "http://127.0.0.1:7880",
+                    "UpdateSubscriptions",
+                    token,
+                    {
+                        "room": ROOM_NAME,
+                        "identity": "receiver-1",
+                        "track_sids": [track_sid],
+                        "subscribe": False,
+                    },
+                )
+                _twirp(
+                    "http://127.0.0.1:7880",
+                    "UpdateSubscriptions",
+                    token,
+                    {
+                        "room": ROOM_NAME,
+                        "identity": "receiver-1",
+                        "track_sids": [track_sid],
+                        "subscribe": True,
+                    },
+                )
                 update_ok = True
-                _twirp("http://127.0.0.1:7880", "UpdateParticipant", token, {
-                    "room": ROOM_NAME, "identity": "receiver-3", "permission": {"can_subscribe": True},
-                })
+                _twirp(
+                    "http://127.0.0.1:7880",
+                    "UpdateParticipant",
+                    token,
+                    {
+                        "room": ROOM_NAME,
+                        "identity": "receiver-3",
+                        "permission": {"can_subscribe": True},
+                    },
+                )
                 permission_ok = True
-                _twirp("http://127.0.0.1:7880", "SendData", token, {
-                    "room": ROOM_NAME,
-                    "data": base64.b64encode(b"ananta-runtime-probe").decode("ascii"),
-                    "kind": "RELIABLE",
-                    "destination_identities": ["receiver-1", "receiver-2", "receiver-3"],
-                    "topic": "ananta.control.v1",
-                })
+                _twirp(
+                    "http://127.0.0.1:7880",
+                    "SendData",
+                    token,
+                    {
+                        "room": ROOM_NAME,
+                        "data": base64.b64encode(b"ananta-runtime-probe").decode("ascii"),
+                        "kind": "RELIABLE",
+                        "destination_identities": ["receiver-1", "receiver-2", "receiver-3"],
+                        "topic": "ananta.control.v1",
+                    },
+                )
                 send_ok = True
                 try:
                     process.communicate(timeout=timeout)
@@ -597,13 +684,21 @@ def execute_runtime_probe(bindings: StaticBindings, root: Path = ROOT, timeout: 
                 publisher_count = int(topology.get("publishers") or 0) if isinstance(topology, Mapping) else 0
                 receiver_count = int(topology.get("receivers") or 0) if isinstance(topology, Mapping) else 0
                 engines = report.get("engines")
-                peers = engines[0].get("peers") if isinstance(engines, list) and engines and isinstance(engines[0], Mapping) else []
-                publisher = next((row for row in peers if isinstance(row, Mapping) and row.get("identity") == "publisher"), {})
-                receivers = [row for row in peers if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")]
-                upload_count = int(publisher.get("peer_connections") or 0)
-                publication_count = int(
-                    publisher.get("local_video_publication_count") or 0
+                peers = (
+                    engines[0].get("peers")
+                    if isinstance(engines, list) and engines and isinstance(engines[0], Mapping)
+                    else []
                 )
+                publisher = next(
+                    (row for row in peers if isinstance(row, Mapping) and row.get("identity") == "publisher"), {}
+                )
+                receivers = [
+                    row
+                    for row in peers
+                    if isinstance(row, Mapping) and str(row.get("identity", "")).startswith("receiver-")
+                ]
+                upload_count = int(publisher.get("peer_connections") or 0)
+                publication_count = int(publisher.get("local_video_publication_count") or 0)
                 decoded_count = sum(int(row.get("decoded_samples") or 0) >= 3 for row in receivers)
                 e2ee_ok = not validate_spike_report(report) and decoded_count == 3
         except (ProbeFailure, OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError) as exc:

@@ -267,8 +267,7 @@ class WorkflowRuntimeReleaseGate:
                         runtime_records,
                         key=lambda value: (value.scenario_id, value.iteration, value.run_id),
                     )
-                    if record.proofs[category] == "passed"
-                    and _observed_proof_sources(record, category)
+                    if record.proofs[category] == "passed" and _observed_proof_sources(record, category)
                 )
                 for category in PROOF_CATEGORIES
             }
@@ -434,13 +433,9 @@ class WorkflowRuntimeReleaseGate:
                         )
                     )
             if result.command_hash != release_verification_command_hash(command, self._contract_hash):
-                deviations.append(
-                    ReleaseDeviation("", "", 0, "verification_command_hash_mismatch", (command_id,))
-                )
+                deviations.append(ReleaseDeviation("", "", 0, "verification_command_hash_mismatch", (command_id,)))
             if command.evidence_runtime_ids and not command_records:
-                deviations.append(
-                    ReleaseDeviation("", "", 0, "verification_command_evidence_missing", (command_id,))
-                )
+                deviations.append(ReleaseDeviation("", "", 0, "verification_command_evidence_missing", (command_id,)))
             if result.evidence_records != len(command_records):
                 deviations.append(
                     ReleaseDeviation("", "", 0, "verification_command_evidence_count_mismatch", (command_id,))
@@ -618,9 +613,7 @@ class WorkflowRuntimeReleaseGate:
             if proof:
                 category_applicable[proof] = True
                 if any(
-                    record.proofs[proof] == "passed"
-                    and _observed_proof_sources(record, proof)
-                    for record in records
+                    record.proofs[proof] == "passed" and _observed_proof_sources(record, proof) for record in records
                 ):
                     continue
                 category_failed[proof] = True

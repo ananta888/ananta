@@ -73,9 +73,7 @@ class SqlSfuBroadcastCommandLedger:
                 capacity = len(
                     db.exec(
                         select(SfuCommandIdempotencyLedgerDB.id)
-                        .order_by(
-                            SfuCommandIdempotencyLedgerDB.created_at
-                        )
+                        .order_by(SfuCommandIdempotencyLedgerDB.created_at)
                         .limit(self._max_entries)
                     ).all()
                 )
@@ -109,9 +107,7 @@ class SqlSfuBroadcastCommandLedger:
                 db.commit()
                 return result
         except SQLAlchemyError as exc:
-            raise SfuBroadcastCommandError(
-                "sfu_command_idempotency_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastCommandError("sfu_command_idempotency_store_unavailable", 503) from exc
 
     def complete(
         self,
@@ -124,25 +120,17 @@ class SqlSfuBroadcastCommandLedger:
         try:
             with Session(self._engine) as db:
                 current = _find_ledger(db, scope_digest, key_digest)
-                if (
-                    current is None
-                    or current.request_digest != request_digest
-                ):
-                    raise SfuBroadcastCommandError(
-                        "sfu_command_idempotency_state_invalid", 503
-                    )
+                if current is None or current.request_digest != request_digest:
+                    raise SfuBroadcastCommandError("sfu_command_idempotency_state_invalid", 503)
                 if current.status == "completed":
                     if _ledger_result(current) == result:
                         return
-                    raise SfuBroadcastCommandError(
-                        "sfu_command_idempotency_state_invalid", 503
-                    )
+                    raise SfuBroadcastCommandError("sfu_command_idempotency_state_invalid", 503)
                 updated = db.exec(
                     sa.update(SfuCommandIdempotencyLedgerDB)
                     .where(
                         SfuCommandIdempotencyLedgerDB.id == current.id,
-                        SfuCommandIdempotencyLedgerDB.version
-                        == current.version,
+                        SfuCommandIdempotencyLedgerDB.version == current.version,
                         SfuCommandIdempotencyLedgerDB.status == "pending",
                     )
                     .values(
@@ -156,45 +144,33 @@ class SqlSfuBroadcastCommandLedger:
                         result_version=result.effective_version,
                         result_command_ref=result.command_ref,
                         version=current.version + 1,
-                        updated_at=_finite_time(
-                            self._clock(), "sfu_command_ledger_clock_invalid"
-                        ),
+                        updated_at=_finite_time(self._clock(), "sfu_command_ledger_clock_invalid"),
                     )
                 )
                 if int(updated.rowcount or 0) != 1:
                     db.rollback()
-                    raise SfuBroadcastCommandError(
-                        "sfu_command_idempotency_state_invalid", 503
-                    )
+                    raise SfuBroadcastCommandError("sfu_command_idempotency_state_invalid", 503)
                 db.commit()
         except SfuBroadcastCommandError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuBroadcastCommandError(
-                "sfu_command_idempotency_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastCommandError("sfu_command_idempotency_store_unavailable", 503) from exc
 
-    def abort(
-        self, scope_digest: str, key_digest: str, request_digest: str
-    ) -> None:
+    def abort(self, scope_digest: str, key_digest: str, request_digest: str) -> None:
         _validate_ledger_digests(scope_digest, key_digest, request_digest)
         try:
             with Session(self._engine) as db:
                 db.exec(
                     sa.delete(SfuCommandIdempotencyLedgerDB).where(
-                        SfuCommandIdempotencyLedgerDB.scope_digest
-                        == scope_digest,
+                        SfuCommandIdempotencyLedgerDB.scope_digest == scope_digest,
                         SfuCommandIdempotencyLedgerDB.key_digest == key_digest,
-                        SfuCommandIdempotencyLedgerDB.request_digest
-                        == request_digest,
+                        SfuCommandIdempotencyLedgerDB.request_digest == request_digest,
                         SfuCommandIdempotencyLedgerDB.status == "pending",
                     )
                 )
                 db.commit()
         except SQLAlchemyError as exc:
-            raise SfuBroadcastCommandError(
-                "sfu_command_idempotency_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastCommandError("sfu_command_idempotency_store_unavailable", 503) from exc
 
     def _claim_existing(
         self,
@@ -208,10 +184,7 @@ class SqlSfuBroadcastCommandLedger:
         if current.status == "completed":
             result = _ledger_result(current)
             return ("replay", result) if result is not None else ("conflict", None)
-        if (
-            current.delivery_state == "delivering"
-            and current.updated_at + self._delivery_retry > timestamp
-        ):
+        if current.delivery_state == "delivering" and current.updated_at + self._delivery_retry > timestamp:
             return "in_progress", None
         updated = db.exec(
             sa.update(SfuCommandIdempotencyLedgerDB)
@@ -241,39 +214,26 @@ class SqlSfuBroadcastCommandLedger:
         timestamp = _finite_time(now, "sfu_command_ledger_clock_invalid")
         bounded = self._purge_batch if limit is None else limit
         if not 1 <= bounded <= 1_000:
-            raise SfuBroadcastCommandError(
-                "sfu_command_idempotency_purge_limit_invalid", 503
-            )
+            raise SfuBroadcastCommandError("sfu_command_idempotency_purge_limit_invalid", 503)
         try:
             with Session(self._engine) as db:
                 count = _purge_ledger(db, timestamp, bounded)
                 db.commit()
                 return count
         except SQLAlchemyError as exc:
-            raise SfuBroadcastCommandError(
-                "sfu_command_idempotency_store_unavailable", 503
-            ) from exc
+            raise SfuBroadcastCommandError("sfu_command_idempotency_store_unavailable", 503) from exc
 
 
 def _validate_ledger_digests(*values: str) -> None:
-    if any(
-        not isinstance(value, str) or not _DIGEST.fullmatch(value)
-        for value in values
-    ):
-        raise SfuBroadcastCommandError(
-            "sfu_command_idempotency_digest_invalid", 503
-        )
+    if any(not isinstance(value, str) or not _DIGEST.fullmatch(value) for value in values):
+        raise SfuBroadcastCommandError("sfu_command_idempotency_digest_invalid", 503)
 
 
 def _ledger_id(scope_digest: str, key_digest: str) -> str:
-    return "sfu-cmd-" + _plain_digest(
-        scope_digest + "\0" + key_digest
-    )[:32]
+    return "sfu-cmd-" + _plain_digest(scope_digest + "\0" + key_digest)[:32]
 
 
-def _find_ledger(
-    db: Session, scope_digest: str, key_digest: str
-) -> SfuCommandIdempotencyLedgerDB | None:
+def _find_ledger(db: Session, scope_digest: str, key_digest: str) -> SfuCommandIdempotencyLedgerDB | None:
     return db.exec(
         select(SfuCommandIdempotencyLedgerDB).where(
             SfuCommandIdempotencyLedgerDB.scope_digest == scope_digest,
@@ -282,12 +242,8 @@ def _find_ledger(
     ).first()
 
 
-def _ledger_operation_id(
-    scope_digest: str, key_digest: str, request_digest: str
-) -> str:
-    digest = hashlib.sha256(
-        f"{scope_digest}\0{key_digest}\0{request_digest}".encode("ascii")
-    ).hexdigest()
+def _ledger_operation_id(scope_digest: str, key_digest: str, request_digest: str) -> str:
+    digest = hashlib.sha256(f"{scope_digest}\0{key_digest}\0{request_digest}".encode("ascii")).hexdigest()
     return "sfcop1." + digest[:32]
 
 
@@ -305,9 +261,7 @@ def _ledger_result(
         return None
     return SfuBroadcastCommandResult(
         row.result_accepted,
-        row.result_version
-        if row.result_version is not None
-        else row.result_effective_version,
+        row.result_version if row.result_version is not None else row.result_effective_version,
         row.result_state,
         row.result_code if row.result_code is not None else row.result_reason_code,
         row.result_command_ref,
@@ -322,11 +276,7 @@ def _purge_ledger(db: Session, now: float, limit: int) -> int:
         .limit(limit)
     ).all()
     if ids:
-        db.exec(
-            sa.delete(SfuCommandIdempotencyLedgerDB).where(
-                SfuCommandIdempotencyLedgerDB.id.in_(ids)
-            )
-        )
+        db.exec(sa.delete(SfuCommandIdempotencyLedgerDB).where(SfuCommandIdempotencyLedgerDB.id.in_(ids)))
         db.flush()
     return len(ids)
 

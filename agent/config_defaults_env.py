@@ -161,23 +161,28 @@ def _apply_worker_pool_env_values(
     parallel_cfg: dict, model_defaults: dict, worker_defaults: dict, native_kind: dict, subworkers: dict
 ) -> None:
     if "ANANTA_WORKER_POOL_ENABLED" in os.environ:
-        parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+        parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
     if "ANANTA_OLLAMA_MAX_PARALLEL" in os.environ:
         try:
             model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
     if "ANANTA_WORKER_MAX_PARALLEL_TASKS" in os.environ:
         try:
             worker_defaults["max_parallel_tasks"] = max(1, int(os.environ.get("ANANTA_WORKER_MAX_PARALLEL_TASKS") or 4))
             native_kind["max_parallel_tasks_per_container"] = worker_defaults["max_parallel_tasks"]
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
     if "ANANTA_SUBWORKER_MAX_CHILDREN" in os.environ:
         try:
             subworkers["max_children_per_parent"] = max(1, int(os.environ.get("ANANTA_SUBWORKER_MAX_CHILDREN") or 4))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_apply_worker_pool_env_values: ignored Exception", exc_info=True)
 
 
 def _apply_worker_parallelism_env(cfg: dict) -> None:
@@ -187,7 +192,9 @@ def _apply_worker_parallelism_env(cfg: dict) -> None:
         ollama_cfg = parallel_cfg.get("ollama") if isinstance(parallel_cfg.get("ollama"), dict) else {}
         model_defaults = ollama_cfg.get("model_defaults") if isinstance(ollama_cfg.get("model_defaults"), dict) else {}
         worker_pool = parallel_cfg.get("worker_pool") if isinstance(parallel_cfg.get("worker_pool"), dict) else {}
-        worker_defaults = worker_pool.get("worker_defaults") if isinstance(worker_pool.get("worker_defaults"), dict) else {}
+        worker_defaults = (
+            worker_pool.get("worker_defaults") if isinstance(worker_pool.get("worker_defaults"), dict) else {}
+        )
         kinds = worker_pool.get("kinds") if isinstance(worker_pool.get("kinds"), dict) else {}
         native_kind = kinds.get("native_ananta_worker") if isinstance(kinds.get("native_ananta_worker"), dict) else {}
         subworkers = native_kind.get("subworkers") if isinstance(native_kind.get("subworkers"), dict) else {}
@@ -223,9 +230,7 @@ def _evolver_env_settings() -> dict[str, tuple[str, Any]]:
         except Exception:
             parsed_evolver_headers = {}
     allowed_hosts = [
-        item.strip()
-        for item in str(getattr(settings, "evolver_allowed_hosts", "") or "").split(",")
-        if item.strip()
+        item.strip() for item in str(getattr(settings, "evolver_allowed_hosts", "") or "").split(",") if item.strip()
     ]
     env_to_key = {
         "EVOLVER_ENABLED": ("enabled", bool(getattr(settings, "evolver_enabled", False))),
@@ -298,12 +303,76 @@ def _apply_terminal_policy_env(cfg: dict) -> None:
         cfg["terminal_policy"] = terminal_policy
 
 
+def _apply_sgpt_routing_env(cfg: dict) -> None:
+    """``ANANTA_SGPT_ROUTING_*`` overrides for the CLI backend routing policy.
+
+    Additive: without these variables nothing is written, so an unchanged
+    container keeps the configured ``sgpt_routing`` (or the
+    ``ananta-worker`` default). Two containers of the same image can
+    therefore run the same delegated task on different backends, for
+    example ``opencode`` next to ``ananta-worker``.
+
+    The backend name is only normalized here; whether a value is actually
+    supported stays ``resolve_cli_backend``'s decision against the
+    supported set, so this layer carries no backend list of its own.
+    """
+    default_backend = str(os.environ.get("ANANTA_SGPT_ROUTING_DEFAULT_BACKEND") or "").strip().lower()
+    task_kind_json = str(os.environ.get("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND") or "").strip()
+    if not default_backend and not task_kind_json:
+        return
+
+    routing = dict(cfg.get("sgpt_routing") or {})
+    if default_backend:
+        routing["default_backend"] = default_backend
+    if task_kind_json:
+        try:
+            parsed = json.loads(task_kind_json)
+        except (TypeError, ValueError):
+            logging.warning("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND is not valid JSON; ignored")
+        else:
+            if isinstance(parsed, dict):
+                routing["task_kind_backend"] = {str(k): str(v).strip().lower() for k, v in parsed.items()}
+            else:
+                logging.warning("ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND must be a JSON object; ignored")
+    if routing:
+        cfg["sgpt_routing"] = routing
+
+
+def _apply_workspace_mutation_env(cfg: dict) -> None:
+    """``ANANTA_WORKSPACE_MUTATION_*`` for the mutation loop (additive).
+
+    ``ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT`` opts into the schema-constrained
+    path; ``ANANTA_WORKSPACE_MUTATION_LLM_BACKEND`` names the loop's brain
+    (``opencode`` runs the same loop with opencode as the answerer — L6 variant A).
+    Nothing is written unless a variable is set, so the code defaults keep every
+    deployment that does not set them. An unknown brain fails the config load
+    bounded instead of silently falling back to another runner.
+    """
+    raw = str(os.environ.get("ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT") or "").strip().lower()
+    raw_brain = str(os.environ.get("ANANTA_WORKSPACE_MUTATION_LLM_BACKEND") or "").strip().lower()
+    if not raw and not raw_brain:
+        return
+    mutation = dict(cfg.get("ananta_worker_workspace_mutation") or {})
+    if raw:
+        mutation["structured_output"] = raw in {"1", "true", "yes", "on"}
+    if raw_brain:
+        allowed_brains = {"opencode"}
+        if raw_brain not in allowed_brains:
+            raise ValueError(
+                f"ANANTA_WORKSPACE_MUTATION_LLM_BACKEND must be one of {sorted(allowed_brains)} (got {raw_brain!r})"
+            )
+        mutation["llm_backend"] = raw_brain
+    cfg["ananta_worker_workspace_mutation"] = mutation
+
+
 _ENV_CONFIG_OVERRIDES = (
     _apply_tiny_router_env,
     _apply_opencode_runtime_env,
     _apply_worker_parallelism_env,
     _apply_evolver_env,
     _apply_terminal_policy_env,
+    _apply_sgpt_routing_env,
+    _apply_workspace_mutation_env,
 )
 
 

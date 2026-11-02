@@ -8,6 +8,7 @@ IntentKinds and confidence levels:
   0.3  — general_project_question
   0.0  — unknown
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -44,39 +45,112 @@ class ClassificationResult:
 
 # ── Keyword tables ────────────────────────────────────────────────────────────
 
-_EXPLAIN_FILE_KW = frozenset({
-    "erklaer", "erkläre", "was macht", "was ist", "explain", "describe",
-    "what does", "what is", "zeig mir", "show me", "übersicht", "overview",
-})
+_EXPLAIN_FILE_KW = frozenset(
+    {
+        "erklaer",
+        "erkläre",
+        "was macht",
+        "was ist",
+        "explain",
+        "describe",
+        "what does",
+        "what is",
+        "zeig mir",
+        "show me",
+        "übersicht",
+        "overview",
+    }
+)
 
-_FIND_SYMBOL_KW = frozenset({
-    "wo ist", "where is", "find", "suche", "such nach", "symbol",
-    "function", "class", "method", "def ", "klasse", "methode", "funktion",
-    "wo wird", "where is defined", "definition", "declared",
-})
+_FIND_SYMBOL_KW = frozenset(
+    {
+        "wo ist",
+        "where is",
+        "find",
+        "suche",
+        "such nach",
+        "symbol",
+        "function",
+        "class",
+        "method",
+        "def ",
+        "klasse",
+        "methode",
+        "funktion",
+        "wo wird",
+        "where is defined",
+        "definition",
+        "declared",
+    }
+)
 
-_EXPLAIN_ERROR_KW = frozenset({
-    "fehler", "error", "exception", "traceback", "crash", "absturz",
-    "stack trace", "problem", "bug", "issue", "warum schlägt fehl",
-    "why fails", "failing", "broken",
-})
+_EXPLAIN_ERROR_KW = frozenset(
+    {
+        "fehler",
+        "error",
+        "exception",
+        "traceback",
+        "crash",
+        "absturz",
+        "stack trace",
+        "problem",
+        "bug",
+        "issue",
+        "warum schlägt fehl",
+        "why fails",
+        "failing",
+        "broken",
+    }
+)
 
-_TODO_STATUS_KW = frozenset({
-    "todo", "aufgabe", "task", "backlog", "open tasks", "offene aufgaben",
-    "was steht noch aus", "what's left", "nächste schritte", "next steps",
-    "fortschritt", "progress",
-})
+_TODO_STATUS_KW = frozenset(
+    {
+        "todo",
+        "aufgabe",
+        "task",
+        "backlog",
+        "open tasks",
+        "offene aufgaben",
+        "was steht noch aus",
+        "what's left",
+        "nächste schritte",
+        "next steps",
+        "fortschritt",
+        "progress",
+    }
+)
 
-_HELPCENTER_KW = frozenset({
-    "help", "hilfe", "anleitung", "guide", "faq", "documentation",
-    "how to", "wie geht", "anleitung", "tutorial", "wie kann ich",
-    "wie funktioniert",
-})
+_HELPCENTER_KW = frozenset(
+    {
+        "help",
+        "hilfe",
+        "anleitung",
+        "guide",
+        "faq",
+        "documentation",
+        "how to",
+        "wie geht",
+        "anleitung",
+        "tutorial",
+        "wie kann ich",
+        "wie funktioniert",
+    }
+)
 
-_ARTIFACT_KW = frozenset({
-    "artifact", "artefakt", "datei", "file", "modul", "module",
-    "script", "open file", "zeig datei", "show file",
-})
+_ARTIFACT_KW = frozenset(
+    {
+        "artifact",
+        "artefakt",
+        "datei",
+        "file",
+        "modul",
+        "module",
+        "script",
+        "open file",
+        "zeig datei",
+        "show file",
+    }
+)
 
 
 class ChatQueryClassifier:

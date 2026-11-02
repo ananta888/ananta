@@ -6,7 +6,6 @@ from agent.services.reference_profile_service import ReferenceProfileService
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "java_security_mini"
 
 

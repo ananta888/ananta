@@ -4,6 +4,7 @@ The catalog contains no worker instances, provider configuration or
 credentials.  ``ready`` means that the Hub queue bridge exists; the selected
 worker still validates its own runtime configuration before execution.
 """
+
 from __future__ import annotations
 
 from copy import deepcopy

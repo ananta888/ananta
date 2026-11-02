@@ -2,7 +2,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import AgentInfoDB, TeamBlueprintDB, TeamDB, TemplateDB
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def _create_template(client, auth_header, name: str, prompt_template: str) -> dict:
@@ -66,7 +66,9 @@ def _register_member_agent() -> None:
         session.commit()
 
 
-def _instantiate_blueprint_team(client, auth_header, blueprint: dict, team_name: str, custom_template_id: str | None = None) -> dict:
+def _instantiate_blueprint_team(
+    client, auth_header, blueprint: dict, team_name: str, custom_template_id: str | None = None
+) -> dict:
     _register_member_agent()
     developer_role = next(role for role in blueprint["roles"] if role["name"] == "Developer")
     response = client.post(
@@ -92,7 +94,9 @@ def test_export_blueprint_bundle_full_includes_templates_and_team(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
     role_template = _create_template(client, auth_header, "Bundle Role Template", "Role prompt for {{team_goal}}")
-    member_template = _create_template(client, auth_header, "Bundle Member Template", "Member prompt for {{task_title}}")
+    member_template = _create_template(
+        client, auth_header, "Bundle Member Template", "Member prompt for {{task_title}}"
+    )
     blueprint = _create_blueprint(client, auth_header, "Bundle Export Blueprint", role_template["id"])
     team = _instantiate_blueprint_team(client, auth_header, blueprint, "Bundle Export Team", member_template["id"])
 
@@ -246,7 +250,9 @@ def test_import_blueprint_bundle_overwrite_is_idempotent(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}
     role_template = _create_template(client, auth_header, "Roundtrip Role Template", "Roundtrip {{team_goal}}")
-    member_template = _create_template(client, auth_header, "Roundtrip Member Template", "Roundtrip member {{task_title}}")
+    member_template = _create_template(
+        client, auth_header, "Roundtrip Member Template", "Roundtrip member {{task_title}}"
+    )
     blueprint = _create_blueprint(client, auth_header, "Roundtrip Blueprint", role_template["id"])
     team = _instantiate_blueprint_team(client, auth_header, blueprint, "Roundtrip Team", member_template["id"])
 
@@ -267,7 +273,9 @@ def test_import_blueprint_bundle_overwrite_is_idempotent(client):
     assert payload["summary"]["conflict"] == 0
 
     with Session(engine) as session:
-        templates = session.exec(select(TemplateDB).where(TemplateDB.name.in_(["Roundtrip Role Template", "Roundtrip Member Template"]))).all()
+        templates = session.exec(
+            select(TemplateDB).where(TemplateDB.name.in_(["Roundtrip Role Template", "Roundtrip Member Template"]))
+        ).all()
         blueprints = session.exec(select(TeamBlueprintDB).where(TeamBlueprintDB.name == "Roundtrip Blueprint")).all()
         teams = session.exec(select(TeamDB).where(TeamDB.name == "Roundtrip Team")).all()
 

@@ -42,4 +42,3 @@ def test_fallback_resolver_guarantees_ansi_fallback() -> None:
     )
     assert (result.renderer, result.adapter) == ("ansi_blocks", "ansi")
     assert any("renderer unavailable" in row or "adapter unsupported" in row for row in result.diagnostics)
-

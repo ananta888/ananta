@@ -95,9 +95,7 @@ class KnowledgeIndexJobPayloadStorage:
             created_by=created_by or "knowledge-index-api",
             media_type=PAYLOAD_MEDIA_TYPE,
             artifact_metadata={
-                "system_artifact_kind": (
-                    "knowledge_index_job_payload"
-                ),
+                "system_artifact_kind": ("knowledge_index_job_payload"),
                 "idempotency_fingerprint": fingerprint,
             },
         )
@@ -128,9 +126,7 @@ class KnowledgeIndexJobPayloadStorage:
             None,
         )
         if not callable(prepare_reference):
-            raise RuntimeError(
-                "knowledge_index_content_addressed_payload_store_required"
-            )
+            raise RuntimeError("knowledge_index_content_addressed_payload_store_required")
         raw_reference = prepare_reference(
             content=content,
             fingerprint=fingerprint,
@@ -154,9 +150,7 @@ class KnowledgeIndexJobPayloadStorage:
             created_by=created_by,
         )
         if stored_reference != dict(expected_reference):
-            raise RuntimeError(
-                "knowledge_index_payload_artifact_reference_changed"
-            )
+            raise RuntimeError("knowledge_index_payload_artifact_reference_changed")
 
 
 __all__ = [

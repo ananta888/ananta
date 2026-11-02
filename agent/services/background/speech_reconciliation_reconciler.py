@@ -67,9 +67,7 @@ class SpeechReconciliationRecoveryReconciler:
     ) -> None:
         if self._audit is None or bool(getattr(self._repository, "transactional_audit", False)):
             return
-        binding = getattr(self._repository, "attempt_audit_binding", lambda _attempt_id: None)(
-            candidate.attempt_id
-        )
+        binding = getattr(self._repository, "attempt_audit_binding", lambda _attempt_id: None)(candidate.attempt_id)
         if binding is None:
             raise RuntimeError("semantic_audit_binding_unavailable")
         tenant_id, job_id, epoch, persisted_reason = binding

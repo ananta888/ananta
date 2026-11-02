@@ -188,9 +188,7 @@ class TaskRecoveryPlanningService:
             get_task_mutation_lock_port,
         )
 
-        return get_task_mutation_lock_port().mutation_lock(
-            source_task_id
-        )
+        return get_task_mutation_lock_port().mutation_lock(source_task_id)
 
     def _distributed_task_locks(
         self,
@@ -202,9 +200,7 @@ class TaskRecoveryPlanningService:
             get_task_mutation_lock_port,
         )
 
-        return get_task_mutation_lock_port().mutation_locks(
-            set(task_ids)
-        )
+        return get_task_mutation_lock_port().mutation_locks(set(task_ids))
 
     @contextlib.contextmanager
     def _plan_mutation_lock(self, plan_id: str):
@@ -484,8 +480,14 @@ class TaskRecoveryPlanningService:
         team_id: str,
     ) -> tuple[Any, str]:
         return self._approval_saga().request_materialization_approval(
-            repos=repos, plan=plan, nodes=nodes, goal_id=goal_id, source_task_id=source_task_id,
-            recovery_key=recovery_key, policy_hash=policy_hash, team_id=team_id,
+            repos=repos,
+            plan=plan,
+            nodes=nodes,
+            goal_id=goal_id,
+            source_task_id=source_task_id,
+            recovery_key=recovery_key,
+            policy_hash=policy_hash,
+            team_id=team_id,
         )
 
     def _mark_source_waiting_for_approval(
@@ -499,8 +501,12 @@ class TaskRecoveryPlanningService:
         team_id: str,
     ) -> bool:
         return self._approval_saga().mark_source_waiting_for_approval(
-            source_task=source_task, plan_id=plan_id, approval_request_id=approval_request_id,
-            recovery_key=recovery_key, node_count=node_count, team_id=team_id,
+            source_task=source_task,
+            plan_id=plan_id,
+            approval_request_id=approval_request_id,
+            recovery_key=recovery_key,
+            node_count=node_count,
+            team_id=team_id,
         )
 
     def _complete_approval_refresh_saga(
@@ -518,9 +524,15 @@ class TaskRecoveryPlanningService:
         refreshed_digest: str,
     ) -> dict[str, Any]:
         return self._approval_saga().complete_approval_refresh_saga(
-            repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
-            recovery_key=recovery_key, team_id=team_id, node_count=node_count,
-            stale_approval_id=stale_approval_id, refreshed_approval_id=refreshed_approval_id,
+            repos=repos,
+            plan_id=plan_id,
+            goal_id=goal_id,
+            source_task_id=source_task_id,
+            recovery_key=recovery_key,
+            team_id=team_id,
+            node_count=node_count,
+            stale_approval_id=stale_approval_id,
+            refreshed_approval_id=refreshed_approval_id,
             refreshed_digest=refreshed_digest,
         )
 
@@ -537,8 +549,13 @@ class TaskRecoveryPlanningService:
         stale_approval_id: str,
     ) -> dict[str, Any]:
         return self._approval_saga().refresh_stale_plan_approval(
-            repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
-            recovery_key=recovery_key, policy_hash=policy_hash, team_id=team_id,
+            repos=repos,
+            plan_id=plan_id,
+            goal_id=goal_id,
+            source_task_id=source_task_id,
+            recovery_key=recovery_key,
+            policy_hash=policy_hash,
+            team_id=team_id,
             stale_approval_id=stale_approval_id,
         )
 
@@ -556,8 +573,14 @@ class TaskRecoveryPlanningService:
         team_id: str,
     ) -> dict[str, Any]:
         return self._proposal_step().resume_existing_plan_saga(
-            repos=repos, plan=plan, source_task=source_task, goal=goal, goal_id=goal_id,
-            source_task_id=source_task_id, recovery_key=recovery_key, policy_hash=policy_hash,
+            repos=repos,
+            plan=plan,
+            source_task=source_task,
+            goal=goal,
+            goal_id=goal_id,
+            source_task_id=source_task_id,
+            recovery_key=recovery_key,
+            policy_hash=policy_hash,
             team_id=team_id,
         )
 
@@ -571,7 +594,10 @@ class TaskRecoveryPlanningService:
         release_details: dict[str, Any] | None = None,
     ) -> bool:
         return self._release_step().save_release_state(
-            repos=repos, plan_id=plan_id, state=state, release_epoch=release_epoch,
+            repos=repos,
+            plan_id=plan_id,
+            state=state,
+            release_epoch=release_epoch,
             release_details=release_details,
         )
 
@@ -583,7 +609,9 @@ class TaskRecoveryPlanningService:
         source_task_id: str,
     ) -> None:
         return self._release_step().cancel_recovery_children(
-            created_task_ids=created_task_ids, plan_id=plan_id, source_task_id=source_task_id,
+            created_task_ids=created_task_ids,
+            plan_id=plan_id,
+            source_task_id=source_task_id,
         )
 
     def _release_materialized_recovery(
@@ -600,8 +628,14 @@ class TaskRecoveryPlanningService:
         created_task_ids: list[str],
     ) -> dict[str, Any]:
         return self._release_step().release_materialized_recovery(
-            repos=repos, plan=plan, nodes=nodes, source_task_id=source_task_id, goal_id=goal_id,
-            approval_id=approval_id, recovery_key=recovery_key, team_id=team_id,
+            repos=repos,
+            plan=plan,
+            nodes=nodes,
+            source_task_id=source_task_id,
+            goal_id=goal_id,
+            approval_id=approval_id,
+            recovery_key=recovery_key,
+            team_id=team_id,
             created_task_ids=created_task_ids,
         )
 
@@ -613,7 +647,8 @@ class TaskRecoveryPlanningService:
     ) -> dict[str, Any]:
         """Persist one approval-gated draft for an eligible exhausted task."""
         return self._proposal_step().propose_after_model_exhaustion(
-            task=task, strategy_failures=strategy_failures,
+            task=task,
+            strategy_failures=strategy_failures,
         )
 
     def handle_approval_decision(self, approval: Any) -> dict[str, Any]:

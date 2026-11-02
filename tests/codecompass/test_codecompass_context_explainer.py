@@ -22,4 +22,3 @@ def test_context_explainer_produces_machine_and_human_readable_reason():
     assert "calls" in explanation["human"].lower()
     assert explanation["machine"]["record_id"] == "method:PaymentService.retryTimeout"
     assert explanation["machine"]["relation_steps"] == ["calls_probable_target", "injects_dependency"]
-

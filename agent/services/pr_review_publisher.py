@@ -100,4 +100,3 @@ class PRReviewPublisher:
                 "provider_result": provider_result if posted else None,
             },
         }
-

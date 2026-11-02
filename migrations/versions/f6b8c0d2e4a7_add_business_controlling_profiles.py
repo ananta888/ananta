@@ -26,7 +26,10 @@ def upgrade() -> None:
             sa.Column("payload", sa.JSON(), nullable=False),
             sa.Column("created_at_epoch", sa.Float(), nullable=False),
             sa.UniqueConstraint(
-                "tenant_id", "project_id", "source_revision_id", "revision_digest",
+                "tenant_id",
+                "project_id",
+                "source_revision_id",
+                "revision_digest",
                 name="uq_business_controlling_profile_source",
             ),
         )

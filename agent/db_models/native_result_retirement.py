@@ -5,7 +5,7 @@ from sqlmodel import Field, SQLModel
 
 
 class NativeResultRetirementManifestDB(SQLModel, table=True):
-    __tablename__ = 'native_result_retirement_manifests'
+    __tablename__ = "native_result_retirement_manifests"
 
     id: str = Field(primary_key=True)
     tenant_id: str = Field(index=True)
@@ -13,13 +13,13 @@ class NativeResultRetirementManifestDB(SQLModel, table=True):
     manifest: dict = Field(sa_column=Column(JSON, nullable=False))
     manifest_digest: str
     issued_at: float
-    state: str = 'issued'
-    reason_code: str = ''
+    state: str = "issued"
+    reason_code: str = ""
     updated_at: float
 
 
 class NativeResultRetirementMarkerDB(SQLModel, table=True):
-    __tablename__ = 'native_result_retirement_markers'
+    __tablename__ = "native_result_retirement_markers"
 
     id: str = Field(primary_key=True)
     tenant_id: str = Field(index=True)
@@ -34,7 +34,7 @@ class NativeResultRetirementMarkerDB(SQLModel, table=True):
 
 
 class NativeResultRetirementCursorDB(SQLModel, table=True):
-    __tablename__ = 'native_result_retirement_cursors'
+    __tablename__ = "native_result_retirement_cursors"
 
     id: str = Field(primary_key=True)
     tenant_id: str

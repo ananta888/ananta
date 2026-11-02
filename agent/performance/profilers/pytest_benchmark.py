@@ -18,12 +18,14 @@ class PytestBenchmarkProfilerParser:
     def parse(self, text: str) -> ProfileObservation:
         rows = []
         for match in _ROW.finditer(str(text or "")):
-            rows.append({
-                "name": match.group("name"),
-                "min": float(match.group("min")),
-                "max": float(match.group("max")),
-                "mean": float(match.group("mean")),
-            })
+            rows.append(
+                {
+                    "name": match.group("name"),
+                    "min": float(match.group("min")),
+                    "max": float(match.group("max")),
+                    "mean": float(match.group("mean")),
+                }
+            )
         if not rows:
             return ProfileObservation(
                 parser="pytest_benchmark",

@@ -44,9 +44,7 @@ PROVISIONABLE_CLI_BACKENDS: Mapping[str, CliBackendPackage] = {
         headless_node_minimum=(22, 19, 0),
     ),
 }
-_PROVISIONING_LOCKS = {
-    backend_id: threading.RLock() for backend_id in PROVISIONABLE_CLI_BACKENDS
-}
+_PROVISIONING_LOCKS = {backend_id: threading.RLock() for backend_id in PROVISIONABLE_CLI_BACKENDS}
 
 
 class CliBackendProvisioningError(RuntimeError):
@@ -74,8 +72,7 @@ class CliBackendProvisioner:
         self._base_dir = (
             Path(configured).expanduser()
             if base_dir is None and configured
-            else base_dir
-            or Path.home() / ".local" / "share" / "ananta" / "cli-backends"
+            else base_dir or Path.home() / ".local" / "share" / "ananta" / "cli-backends"
         )
         self._run_command = run_command
         self._headless = HeadlessNodeProvisioning(headless_runner)
@@ -145,9 +142,7 @@ class CliBackendProvisioner:
 
             status = self.status(backend_id)
             if not status["installed"] or status["status"] != "ready":
-                raise CliBackendProvisioningError(
-                    "installed_binary_verification_failed"
-                )
+                raise CliBackendProvisioningError("installed_binary_verification_failed")
             return status
 
     def install_prefix(self, backend_id: str) -> Path:
@@ -157,12 +152,7 @@ class CliBackendProvisioner:
     def binary_path(self, backend_id: str) -> Path:
         package = self._package(backend_id)
         suffix = ".cmd" if os.name == "nt" else ""
-        return (
-            self.install_prefix(backend_id)
-            / "node_modules"
-            / ".bin"
-            / f"{package.binary}{suffix}"
-        )
+        return self.install_prefix(backend_id) / "node_modules" / ".bin" / f"{package.binary}{suffix}"
 
     def _package(self, backend_id: str) -> CliBackendPackage:
         normalized = str(backend_id or "").strip().lower()

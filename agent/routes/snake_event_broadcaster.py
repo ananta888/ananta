@@ -8,7 +8,6 @@ listeners read via the SSE endpoint in snakes_execution_routes.
 
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading

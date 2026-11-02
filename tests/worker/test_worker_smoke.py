@@ -3,11 +3,16 @@
 Tests the complete plan_only and patch_propose flows using mock provider,
 verifying the integration of envelope → preflight → execution → result.
 """
+
 import time
+
 import pytest
 
+from worker.core.artifact_enforcer import ArtifactEnforcer
+from worker.core.context_resolver import ContextBlock
+from worker.core.context_scanner import ContextScanner
+from worker.core.diagnostics import AuditEmitter
 from worker.core.execution_envelope import (
-    ApprovalRef,
     ArtifactRef,
     CapabilityGrant,
     ExecutionEnvelope,
@@ -18,15 +23,10 @@ from worker.core.execution_envelope import (
     WorkerResultStatus,
 )
 from worker.core.preflight import PreflightGate
-from worker.core.artifact_enforcer import ArtifactEnforcer
-from worker.core.diagnostics import AuditEmitter
-from worker.core.trace_v2 import TraceBundleV2, ExecutionOutcome
-from worker.core.sanitizer import OutputSanitizer
-from worker.core.context_scanner import ContextScanner
 from worker.core.provider_registry import build_default_provider_registry
+from worker.core.sanitizer import OutputSanitizer
 from worker.core.tool_registry import build_default_registry
-from worker.core.context_resolver import ContextBlock, ContextSensitivity
-
+from worker.core.trace_v2 import ExecutionOutcome, TraceBundleV2
 
 # ── Mock provider response helpers ───────────────────────────────────────────
 
@@ -71,6 +71,7 @@ def _make_envelope(**overrides) -> ExecutionEnvelope:
 
 # ── Smoke: plan_only flow ─────────────────────────────────────────────────────
 
+
 class TestPlanOnlySmoke:
     """Smoke: planning capability → plan_artifact produced."""
 
@@ -102,7 +103,7 @@ class TestPlanOnlySmoke:
         )
 
         # 3. Context scan (clean input)
-        from worker.core.context_resolver import ContextBlock
+
         block = ContextBlock("task", env.task_id, "hub", content="Fix the parse_config bug")
         scan = self.scanner.scan(block)
         assert scan.clean
@@ -117,7 +118,8 @@ class TestPlanOnlySmoke:
 
         # 6. Enforce artifact-first
         enforcement = self.enforcer.check(
-            ["planning"], [artifact],
+            ["planning"],
+            [artifact],
             summary=self.enforcer.build_summary_with_refs("Plan created", [artifact]),
         )
         assert enforcement.compliant, enforcement.violations
@@ -128,7 +130,8 @@ class TestPlanOnlySmoke:
             capability_snapshot_hash=env.capability_grant.snapshot_hash,
         )
         artifact_ref = ArtifactRef(
-            artifact_id="plan-mock-001", kind="plan_artifact",
+            artifact_id="plan-mock-001",
+            kind="plan_artifact",
             provenance=f"{env.task_id}:planning",
         )
         result = WorkerResult(
@@ -166,13 +169,12 @@ class TestPlanOnlySmoke:
         assert not pre.allowed
 
     def test_plan_only_free_text_result_rejected(self):
-        enforcement = self.enforcer.check(
-            ["planning"], [], summary="I made a great plan"
-        )
+        enforcement = self.enforcer.check(["planning"], [], summary="I made a great plan")
         assert not enforcement.compliant
 
 
 # ── Smoke: patch_propose flow ─────────────────────────────────────────────────
+
 
 class TestPatchProposeSmoke:
     """Smoke: patch_propose capability → patch_artifact produced."""
@@ -194,6 +196,7 @@ class TestPatchProposeSmoke:
 
         # 2. Mock provider returns diff → parse to artifact
         from worker.core.file_policy import FilePolicy
+
         fp = FilePolicy()
         diff = "--- a/main.py\n+++ b/main.py\n@@ -10,1 +10,1 @@\n-    return config.get('key')\n+    return config.get('key', None)"
         artifact, scope_result = fp.build_patch_artifact(
@@ -216,7 +219,8 @@ class TestPatchProposeSmoke:
 
         # 4. Enforce artifact-first
         enforcement = self.enforcer.check(
-            ["patch_propose"], [artifact.as_dict()],
+            ["patch_propose"],
+            [artifact.as_dict()],
             summary=f"Patch {artifact.artifact_id}",
         )
         assert enforcement.compliant, enforcement.violations
@@ -227,7 +231,8 @@ class TestPatchProposeSmoke:
             capability_snapshot_hash=env.capability_grant.snapshot_hash,
         )
         artifact_ref = ArtifactRef(
-            artifact_id=artifact.artifact_id, kind="patch_artifact",
+            artifact_id=artifact.artifact_id,
+            kind="patch_artifact",
             provenance=f"{env.task_id}:patch_propose",
         )
         result = WorkerResult(
@@ -259,6 +264,7 @@ class TestPatchProposeSmoke:
 
 
 # ── Smoke: trace bundle flow ──────────────────────────────────────────────────
+
 
 class TestTraceBundleSmoke:
     def test_trace_bundle_produced_for_success(self):
@@ -297,6 +303,7 @@ class TestTraceBundleSmoke:
 
 # ── Smoke: tool registry integration ─────────────────────────────────────────
 
+
 class TestToolRegistrySmoke:
     def test_default_registry_has_tools(self):
         registry = build_default_registry()
@@ -317,6 +324,7 @@ class TestToolRegistrySmoke:
 
 
 # ── Smoke: provider registry integration ─────────────────────────────────────
+
 
 class TestProviderRegistrySmoke:
     def test_default_registry_has_local_providers(self):

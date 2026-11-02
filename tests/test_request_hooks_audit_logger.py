@@ -27,8 +27,7 @@ def test_configure_audit_logger_reuses_existing_file_handler(
         matching_handlers = [
             handler
             for handler in audit_logger.handlers
-            if isinstance(handler, logging.FileHandler)
-            and handler.baseFilename == str(audit_path.resolve())
+            if isinstance(handler, logging.FileHandler) and handler.baseFilename == str(audit_path.resolve())
         ]
         assert matching_handlers == [existing_handler]
         assert audit_logger.level == logging.INFO

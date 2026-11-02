@@ -48,20 +48,14 @@ class StrictGovernedKnowledgeIndexDependencies:
             "task_repository": self.task_repository,
             "payload_store": self.payload_store,
             "worker_artifact_service": self.worker_artifact_service,
-            "source_control_completion_projector": (
-                self.source_control_completion_projector
-            ),
+            "source_control_completion_projector": (self.source_control_completion_projector),
             "worker_directory": self.worker_directory,
         }
         missing = sorted(name for name, value in required.items() if value is None)
         if missing:
-            raise StrictKnowledgeIndexCompositionError(
-                "knowledge_index_production_dependencies_required"
-            )
+            raise StrictKnowledgeIndexCompositionError("knowledge_index_production_dependencies_required")
         if not isinstance(self.signing_key, SourceAccessSigningKey):
-            raise StrictKnowledgeIndexCompositionError(
-                "knowledge_index_signing_key_invalid"
-            )
+            raise StrictKnowledgeIndexCompositionError("knowledge_index_signing_key_invalid")
         for component, method in (
             (self.destination_catalog, "resolve"),
             (self.execution_binding_service, "prepare_issue"),
@@ -75,9 +69,7 @@ class StrictGovernedKnowledgeIndexDependencies:
             (self.worker_directory, "resolve_worker_url"),
         ):
             if not callable(getattr(component, method, None)):
-                raise StrictKnowledgeIndexCompositionError(
-                    "knowledge_index_production_dependency_invalid"
-                )
+                raise StrictKnowledgeIndexCompositionError("knowledge_index_production_dependency_invalid")
 
 
 def build_strict_governed_knowledge_index_job_service(
@@ -96,13 +88,9 @@ def build_strict_governed_knowledge_index_job_service(
         task_repository=dependencies.task_repository,
         payload_store=dependencies.payload_store,
         worker_artifact_service=dependencies.worker_artifact_service,
-        source_control_completion_projector=(
-            dependencies.source_control_completion_projector
-        ),
+        source_control_completion_projector=(dependencies.source_control_completion_projector),
         worker_directory=dependencies.worker_directory,
-        source_access_manifest_verifier=(
-            dependencies.source_access_manifest_verifier
-        ),
+        source_access_manifest_verifier=(dependencies.source_access_manifest_verifier),
         allow_legacy_reusable_grants=False,
         clock=clock,
     )

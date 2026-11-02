@@ -122,9 +122,7 @@ def _run_binding_reasons(
         hardware_digest=str(report.get("hardware_sha256")),
         rows=rows,
     )
-    return () if report.get("run_id_sha256") == expected else (
-        "speech_reconciliation_factor_run_binding_mismatch",
-    )
+    return () if report.get("run_id_sha256") == expected else ("speech_reconciliation_factor_run_binding_mismatch",)
 
 
 def run_benchmark() -> dict[str, Any]:
@@ -403,9 +401,7 @@ def _reconciliation_stage(factor: int) -> tuple[int, int, int]:
         candidates = tuple(_peer_candidate(case, sequence, observed) for sequence in range(factor))
         resolution = resolver.resolve(candidates)
         correct += int(
-            resolution.publishable
-            and resolution.transcript is not None
-            and resolution.transcript.text == expected
+            resolution.publishable and resolution.transcript is not None and resolution.transcript.text == expected
         )
     quality_micros = correct * 1_000_000 // 40
     return quality_micros, 64, 0

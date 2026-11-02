@@ -92,9 +92,7 @@ class FallbackVectorSearch:
         normalized_reason = str(reason or "").strip().lower()
         if normalized_reason in cls._FAIL_CLOSED_REASONS:
             return normalized_reason
-        return cls._FAIL_CLOSED_STATUS_REASONS.get(
-            str(status or "").strip().lower()
-        )
+        return cls._FAIL_CLOSED_STATUS_REASONS.get(str(status or "").strip().lower())
 
     def _raise_fail_closed(
         self,
@@ -186,9 +184,7 @@ class FallbackVectorSearch:
             )
         if reason not in self._FALLBACK_REASONS:
             return primary
-        mode = str(
-            getattr(self._policy.on_unavailable, "value", self._policy.on_unavailable)
-        )
+        mode = str(getattr(self._policy.on_unavailable, "value", self._policy.on_unavailable))
         fail_fast = False
         if mode == "fail_fast":
             result = primary

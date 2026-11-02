@@ -97,7 +97,7 @@ def test_execute_local_step_opencode_chain_not_blocked_by_preflight():
     """execute_local_step must not block the OpenCode python chain via full-string preflight."""
     svc = TaskExecutionService()
     shell = _StubShell()
-    cmd = 'python hello.py; python -c "from hello import greet; print(greet(\'World\'))"'
+    cmd = "python hello.py; python -c \"from hello import greet; print(greet('World'))\""
     shell.outputs = {
         "python hello.py": ("hello", 0),
         cmd.split("; ", 1)[1]: ("World", 0),
@@ -116,9 +116,7 @@ def test_execute_local_step_opencode_chain_not_blocked_by_preflight():
         )
     assert result.exit_code == 0
     assert len(shell.commands) == 2
-    chain_entry = next(
-        (h for h in result.retry_history if h.get("normalization") == "command_chain_parsed"), None
-    )
+    chain_entry = next((h for h in result.retry_history if h.get("normalization") == "command_chain_parsed"), None)
     assert chain_entry is not None
     assert chain_entry["segment_count"] == 2
 

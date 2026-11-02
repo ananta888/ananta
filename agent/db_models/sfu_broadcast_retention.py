@@ -27,9 +27,7 @@ class SfuAudienceSnapshotTombstoneDB(SQLModel, table=True):
 
 class SfuAudienceRetentionFenceDB(SQLModel, table=True):
     __tablename__ = "sfu_audience_retention_fences"
-    __table_args__ = (
-        sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_audience_retention_fence"),
-    )
+    __table_args__ = (sa.CheckConstraint("fencing_token > 0 AND version > 0", name="ck_sfu_audience_retention_fence"),)
 
     id: str = Field(primary_key=True, default="global")
     owner_id: str

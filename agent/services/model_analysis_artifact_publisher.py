@@ -73,13 +73,7 @@ class ModelAnalysisArtifactPublisher:
         }.get(reference.artifact_kind, reference.artifact_kind)
         contract_media_type = reference.media_type.split(";", 1)[0].strip()
         artifact_digest = hashlib.sha256(
-            (
-                job_id
-                + "\0"
-                + contract_kind
-                + "\0"
-                + reference.digest
-            ).encode("utf-8")
+            (job_id + "\0" + contract_kind + "\0" + reference.digest).encode("utf-8")
         ).hexdigest()
         return ArtifactRef(
             artifact_id=f"artifact-{artifact_digest[:32]}",
@@ -117,9 +111,7 @@ class ModelAnalysisArtifactPublisher:
         reference: ArtifactRef,
     ) -> dict[str, object]:
         try:
-            payload = json.loads(
-                self.load_bytes(tenant_id=tenant_id, reference=reference)
-            )
+            payload = json.loads(self.load_bytes(tenant_id=tenant_id, reference=reference))
         except (UnicodeError, ValueError) as exc:
             raise ModelAnalysisArtifactPublisherError(
                 "analysis_artifact_json_invalid",

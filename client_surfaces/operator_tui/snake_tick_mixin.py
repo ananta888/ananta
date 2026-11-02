@@ -5,6 +5,7 @@ Contains: _tick_header_snake, _tick_ai_snake_prediction, _update_multi_snake_sta
 Used as a mixin: class InteractiveOperatorTui(SnakeTickMixin, ...):
 All methods use self.* — no back-reference needed beyond normal Python MRO.
 """
+
 from __future__ import annotations
 
 import os
@@ -47,12 +48,12 @@ def _run_learning_cycle_bg(min_cases: int) -> None:
         read_patterns,
         save_patterns,
     )
+
     events = read_events(max_items=5000)
     mined = mine_patterns_from_events(events=events, min_cases=min_cases)
     if mined:
         merged = merge_patterns(existing=read_patterns(), mined=mined)
         save_patterns(merged, backup=False)
-
 
 
 class SnakeTickMixin:
@@ -62,13 +63,21 @@ class SnakeTickMixin:
 
     def _tick_header_snake(self) -> None:
         def _state_with_share_lock(current_state):
-            share_only = str(os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV") or "").strip().lower() in {"1", "true", "yes", "on"}
+            share_only = str(os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV") or "").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
             if not share_only:
                 return current_state
             from client_surfaces.operator_tui.sections import SECTIONS
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+
             share_index = next((i for i, section in enumerate(SECTIONS) if section.id == "share"), 0)
-            locked = open_or_activate_tab(current_state, section_id="share", kind="section", label=tab_label_for_section("share"))
+            locked = open_or_activate_tab(
+                current_state, section_id="share", kind="section", label=tab_label_for_section("share")
+            )
             return locked.with_updates(section_id="share", selected_index=share_index)
 
         if not self._header_snake_enabled():
@@ -87,7 +96,12 @@ class SnakeTickMixin:
         self._maybe_tick_llm_health(game, now=time.monotonic())
         free_mode = bool(game.get("free_mode"))
         # Allow tick when: in HEADER focus, OR ui_steering on, OR tutorial AI is running, OR free_mode active
-        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering") and not game.get("tutorial_mode") and not free_mode:
+        if (
+            self.state.focus is not FocusPane.HEADER
+            and not game.get("ui_steering")
+            and not game.get("tutorial_mode")
+            and not free_mode
+        ):
             self._poll_tutor_ask_result(game)
             self._tick_chat(game, now=time.monotonic())
             self._tick_chat_ai_response(game)
@@ -106,7 +120,9 @@ class SnakeTickMixin:
             return
         # T01.04: speed override via :speed command
         tps_override = game.get("tps_override")
-        tps = max(2, min(60, int(tps_override if tps_override else os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
+        tps = max(
+            2, min(60, int(tps_override if tps_override else os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18")))
+        )
         step = 1.0 / tps
         now = time.monotonic()
         last_move = float(game.get("last_move", now))
@@ -230,7 +246,12 @@ class SnakeTickMixin:
         self._tick_guided_tour(game, now=now)
 
         # E01: process pending notes ops (pin/unpin/delete/search)
-        if game.get("notes_pin_id") or game.get("notes_unpin_id") or game.get("notes_delete_id") or game.get("notes_search_query"):
+        if (
+            game.get("notes_pin_id")
+            or game.get("notes_unpin_id")
+            or game.get("notes_delete_id")
+            or game.get("notes_search_query")
+        ):
             self._process_notes_ops(game)
 
         # E03: poll chat transport and handle incoming messages
@@ -535,12 +556,8 @@ class SnakeTickMixin:
         if _mining_future is not None and _mining_future.done():
             self._ai_mining_future = None
         # Mining loop: runs in background executor, never on main thread
-        if (
-            _mining_future is None
-            and learning_active
-            and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 30.0
-        ):
-            self._ai_learning_last_mined_at = now   # prevent double-submit
+        if _mining_future is None and learning_active and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 30.0:
+            self._ai_learning_last_mined_at = now  # prevent double-submit
             _bg = self._get_snake_bg_executor()
             self._ai_mining_future = _bg.submit(_run_learning_cycle_bg, min_cases)
 
@@ -635,7 +652,9 @@ class SnakeTickMixin:
         }
         snakes[local_id] = local_snapshot
         self._update_demo_remote_snakes(snakes, now=now, board_w=board_w, board_h=board_h)
-        self._update_tutorial_ai_snake(game, snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode")))
+        self._update_tutorial_ai_snake(
+            game, snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode"))
+        )
         game["snakes"] = snakes
         game["local_snake_id"] = local_id
 
@@ -685,7 +704,9 @@ class SnakeTickMixin:
     def _share_action_join(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, invite_code: str) -> None:
         _snake_tick_share.share_action_join(self, game, oidc_token, hub_raw, endpoint, invite_code)
 
-    def _share_action_set_view(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str, enabled: bool) -> None:
+    def _share_action_set_view(
+        self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str, enabled: bool
+    ) -> None:
         _snake_tick_share.share_action_set_view(self, game, oidc_token, hub_raw, endpoint, session_id, enabled)
 
     def _share_action_stop(self, game: dict, oidc_token: str, hub_raw: str, endpoint: str, session_id: str) -> None:

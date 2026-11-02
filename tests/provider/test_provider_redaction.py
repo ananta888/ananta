@@ -49,9 +49,17 @@ def test_redaction_keeps_safe_payload_unchanged() -> None:
 
 
 def test_tool_parameter_schemas_named_like_secrets_stay_intact():
-    tool = {"type": "function", "function": {"name": "summarize", "parameters": {
-        "type": "object", "properties": {"max_tokens": {"type": "integer"}, "token": {"type": "string"}},
-        "required": ["token"]}}}
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "summarize",
+            "parameters": {
+                "type": "object",
+                "properties": {"max_tokens": {"type": "integer"}, "token": {"type": "string"}},
+                "required": ["token"],
+            },
+        },
+    }
     payload = {"messages": [], "tools": [tool], "api_key": "sk-live"}
 
     redacted = redact_provider_payload(payload, secret_refs=["sk-live"])
@@ -69,8 +77,13 @@ def test_secret_values_inside_schemas_are_still_redacted_by_reference():
 
 
 def test_token_counts_and_limits_are_not_redacted():
-    payload = {"max_context_tokens": 32768, "max_output_tokens": None, "cached_tokens": 12,
-               "refresh_tokens": "rt-secret", "session_token": 5}
+    payload = {
+        "max_context_tokens": 32768,
+        "max_output_tokens": None,
+        "cached_tokens": 12,
+        "refresh_tokens": "rt-secret",
+        "session_token": 5,
+    }
 
     redacted = redact_provider_payload(payload)
 

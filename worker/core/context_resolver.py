@@ -5,39 +5,43 @@ EW-T027: Token budget enforced globally and per source class; P0 signals never d
 EW-T028: Compression preserves task objective, AC, policy constraints; cloud blocked
           when cloud_allowed=False or context sensitivity disallows it.
 """
+
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Optional
-from .context_access_policy import Sensitivity as ContextSensitivity, Decision
 
+from .context_access_policy import Sensitivity as ContextSensitivity
 
-CLOUD_BLOCKED_SENSITIVITIES = frozenset({
-    ContextSensitivity.customer_confidential,
-    ContextSensitivity.secret,
-    ContextSensitivity.credential,
-    ContextSensitivity.security_sensitive,
-})
+CLOUD_BLOCKED_SENSITIVITIES = frozenset(
+    {
+        ContextSensitivity.customer_confidential,
+        ContextSensitivity.secret,
+        ContextSensitivity.credential,
+        ContextSensitivity.security_sensitive,
+    }
+)
 
 
 # ── ContextBlock ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ContextBlock:
     """A single resolved context block. EW-T026."""
-    source_type: str          # e.g. "task_description", "file_content", "memory", "artifact"
-    origin_id: str            # task_id, file path, artifact_id, etc.
-    provenance: str           # how this block was obtained
+
+    source_type: str  # e.g. "task_description", "file_content", "memory", "artifact"
+    origin_id: str  # task_id, file path, artifact_id, etc.
+    provenance: str  # how this block was obtained
     sensitivity: ContextSensitivity = ContextSensitivity.project_internal
     token_estimate: int = 0
     content: str = ""
     content_hash: str = ""
-    priority: int = 50        # 0 = P0 (never dropped), 100 = lowest priority
-    access_decision: Optional[Any] = None # Added for CAP integration
-    access_decision_hash: Optional[str] = None # T018
-    policy_version: Optional[int] = None # T018
+    priority: int = 50  # 0 = P0 (never dropped), 100 = lowest priority
+    access_decision: Optional[Any] = None  # Added for CAP integration
+    access_decision_hash: Optional[str] = None  # T018
+    policy_version: Optional[int] = None  # T018
 
     def __post_init__(self) -> None:
         if not self.content_hash and self.content:
@@ -50,9 +54,11 @@ class ContextBlock:
 
 # ── TokenBudget ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class TokenBudget:
     """Global and per-source-class budget enforcement. EW-T027."""
+
     global_limit: int = 32_000
     per_source_limits: dict[str, int] = field(default_factory=dict)
 
@@ -82,17 +88,11 @@ class TokenBudget:
             src_total = source_totals.get(block.source_type, 0)
 
             if src_limit and src_total + block.token_estimate > src_limit:
-                dropped.append(
-                    f"context_budget_exceeded:source={block.source_type},"
-                    f"origin={block.origin_id}"
-                )
+                dropped.append(f"context_budget_exceeded:source={block.source_type},origin={block.origin_id}")
                 continue
 
             if total + block.token_estimate > self.global_limit:
-                dropped.append(
-                    f"context_budget_exceeded:global,origin={block.origin_id},"
-                    f"tokens={block.token_estimate}"
-                )
+                dropped.append(f"context_budget_exceeded:global,origin={block.origin_id},tokens={block.token_estimate}")
                 continue
 
             kept.append(block)
@@ -104,13 +104,14 @@ class TokenBudget:
 
 # ── CompressionResult ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class CompressionResult:
     compressed_content: str
     source_hashes: list[str]
     original_tokens: int
     compressed_tokens: int
-    is_raw_source: bool = False   # always False for compressed output
+    is_raw_source: bool = False  # always False for compressed output
 
     def as_block(self, *, source_type: str, origin_id: str, priority: int = 50) -> ContextBlock:
         return ContextBlock(
@@ -125,6 +126,7 @@ class CompressionResult:
 
 # ── ContextCompressor ─────────────────────────────────────────────────────────
 
+
 class ContextCompressor:
     """Compresses context blocks while preserving critical signals. EW-T028.
 
@@ -136,9 +138,21 @@ class ContextCompressor:
     """
 
     PRESERVE_KEYWORDS = (
-        "objective:", "goal:", "acceptance criteria:", "ac:", "policy:",
-        "constraint:", "denied:", "failure:", "error:", "p0:", "critical:",
-        "must not", "must be", "required:", "forbidden:",
+        "objective:",
+        "goal:",
+        "acceptance criteria:",
+        "ac:",
+        "policy:",
+        "constraint:",
+        "denied:",
+        "failure:",
+        "error:",
+        "p0:",
+        "critical:",
+        "must not",
+        "must be",
+        "required:",
+        "forbidden:",
     )
 
     def compress(
@@ -208,6 +222,7 @@ class ContextCompressor:
 
 # ── ContextResolver ───────────────────────────────────────────────────────────
 
+
 class ContextResolver:
     """Resolves context references from Hub. EW-T026.
 
@@ -230,9 +245,7 @@ class ContextResolver:
         are rejected.
         """
         if len(refs) > self.MAX_BLOCKS_PER_REQUEST:
-            return [], [
-                f"context_unbounded_dump: too many refs ({len(refs)} > {self.MAX_BLOCKS_PER_REQUEST})"
-            ]
+            return [], [f"context_unbounded_dump: too many refs ({len(refs)} > {self.MAX_BLOCKS_PER_REQUEST})"]
 
         resolved: list[ContextBlock] = []
         errors: list[str] = []
@@ -241,15 +254,11 @@ class ContextResolver:
             source_type = str(ref.get("source_type", "unknown"))
 
             if source_type in ("all_files", "full_repo_dump"):
-                errors.append(
-                    f"context_unbounded_dump: source_type={source_type!r} is not allowed"
-                )
+                errors.append(f"context_unbounded_dump: source_type={source_type!r} is not allowed")
                 continue
 
             if allowed_source_types and source_type not in allowed_source_types:
-                errors.append(
-                    f"context_sensitivity_blocked: source_type={source_type!r} not in allowed list"
-                )
+                errors.append(f"context_sensitivity_blocked: source_type={source_type!r} not in allowed list")
                 continue
 
             content = str(ref.get("content", ""))
@@ -268,20 +277,23 @@ class ContextResolver:
             except ValueError:
                 sensitivity = ContextSensitivity.project_internal
 
-            resolved.append(ContextBlock(
-                source_type=source_type,
-                origin_id=str(ref.get("origin_id", "")),
-                provenance=str(ref.get("provenance", "hub_ref")),
-                sensitivity=sensitivity,
-                token_estimate=token_est,
-                content=content,
-                priority=int(ref.get("priority", 50)),
-            ))
+            resolved.append(
+                ContextBlock(
+                    source_type=source_type,
+                    origin_id=str(ref.get("origin_id", "")),
+                    provenance=str(ref.get("provenance", "hub_ref")),
+                    sensitivity=sensitivity,
+                    token_estimate=token_est,
+                    content=content,
+                    priority=int(ref.get("priority", 50)),
+                )
+            )
 
         return resolved, errors
 
 
 # ── Token estimation ──────────────────────────────────────────────────────────
+
 
 def _estimate_tokens(text: str) -> int:
     """Rough token estimate: ~4 chars per token."""
@@ -296,6 +308,7 @@ def _truncate_to_tokens(text: str, max_tokens: int) -> str:
 
 
 # ── ContextBudgetGate (AWF-T019) ──────────────────────────────────────────────
+
 
 class ContextBudgetGate:
     """Enforces token budget with output reserve before model/provider calls. AWF-T019.
@@ -334,6 +347,7 @@ class ContextBudgetGate:
 
 # ── ContextSensitivityFilter (AWF-T020) ───────────────────────────────────────
 
+
 class ContextSensitivityFilter:
     """Filters context blocks by sensitivity before sending to a provider. AWF-T020.
 
@@ -344,17 +358,13 @@ class ContextSensitivityFilter:
 
     _REDACTION_STUB = "[context redacted: sensitivity level blocked for this provider]"
 
-    def filter_for_cloud(
-        self, blocks: list[ContextBlock]
-    ) -> tuple[list[ContextBlock], list[str]]:
+    def filter_for_cloud(self, blocks: list[ContextBlock]) -> tuple[list[ContextBlock], list[str]]:
         """Remove confidential/secret blocks for cloud dispatch. AWF-T020."""
         kept: list[ContextBlock] = []
         redacted: list[str] = []
         for block in blocks:
             if block.sensitivity in CLOUD_BLOCKED_SENSITIVITIES:
-                redacted.append(
-                    f"context_sensitivity_blocked:{block.source_type}:{block.origin_id}"
-                )
+                redacted.append(f"context_sensitivity_blocked:{block.source_type}:{block.origin_id}")
             else:
                 kept.append(block)
         return kept, redacted

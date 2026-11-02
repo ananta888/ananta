@@ -262,7 +262,9 @@ def sanitize_model_intelligence_audit_event(
             sanitized[field] = _safe_audit_scalar(raw_value)
         except ModelIntelligenceSecurityError:
             redacted_count += 1
-            categories.add(_redaction_category(field) if _redaction_category(field) != "unapproved_field" else "unsafe_value")
+            categories.add(
+                _redaction_category(field) if _redaction_category(field) != "unapproved_field" else "unsafe_value"
+            )
     return {
         "schema": AUDIT_EVENT_SCHEMA,
         "event_type": normalized_event,

@@ -23,9 +23,11 @@ def client(monkeypatch):
     monkeypatch.setattr(
         auth,
         "_validate_user_jwt",
-        lambda token: {"sub": "actor", "tenant_id": "tenant", "project_id": "project", "role": "user"}
-        if token == "synthetic-user"
-        else None,
+        lambda token: (
+            {"sub": "actor", "tenant_id": "tenant", "project_id": "project", "role": "user"}
+            if token == "synthetic-user"
+            else None
+        ),
     )
     monkeypatch.setattr(auth, "_user_token_allows_current_request", lambda _: True)
     return app.test_client(), app

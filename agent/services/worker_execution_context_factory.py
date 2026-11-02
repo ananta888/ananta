@@ -10,6 +10,7 @@ forwarding; ``TaskDelegationPlanner`` and ``TaskDelegationResultWriter`` in
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -60,19 +61,14 @@ class WorkerExecutionContextFactory:
         self,
         dependencies,
         *,
-        research_delegation_policy: (
-            OrganizationResearchDelegationPolicyService | None
-        ) = None,
-        research_dispatch_issuer: (
-            OrganizationResearchDispatchCapabilityIssuer | None
-        ) = None,
+        research_delegation_policy: (OrganizationResearchDelegationPolicyService | None) = None,
+        research_dispatch_issuer: (OrganizationResearchDispatchCapabilityIssuer | None) = None,
         callback_capability_service_factory: Callable[[], Any] = WorkerResultCapabilityService,
         hub_settings: Any = settings,
     ) -> None:
         self.dependencies = dependencies
         self._research_delegation_policy = (
-            research_delegation_policy
-            or get_organization_research_delegation_policy_service()
+            research_delegation_policy or get_organization_research_delegation_policy_service()
         )
         self._research_dispatch_issuer = research_dispatch_issuer
         self._callback_capability_service_factory = callback_capability_service_factory
@@ -90,19 +86,11 @@ class WorkerExecutionContextFactory:
         parent_task = request.parent_task
         parent_wec = dict(parent_task.get("worker_execution_context") or {})
         data = request.data
-        parent_dispatch = dict(
-            parent_wec.get("planning_dispatch")
-            or {}
-        )
-        dispatch_intent_id = str(
-            parent_dispatch.get("dispatch_intent_id") or ""
-        ).strip()
+        parent_dispatch = dict(parent_wec.get("planning_dispatch") or {})
+        dispatch_intent_id = str(parent_dispatch.get("dispatch_intent_id") or "").strip()
         subtask_id = (
-            "sub-"
-            + hashlib.sha256(dispatch_intent_id.encode("utf-8")).hexdigest()[:32]
-            if parent_dispatch.get("schema")
-            == "organization_planning_dispatch.v1"
-            and dispatch_intent_id
+            "sub-" + hashlib.sha256(dispatch_intent_id.encode("utf-8")).hexdigest()[:32]
+            if parent_dispatch.get("schema") == "organization_planning_dispatch.v1" and dispatch_intent_id
             else f"sub-{uuid.uuid4()}"
         )
         context_query = self._context_query(parent_task=parent_task, data=data)
@@ -113,9 +101,7 @@ class WorkerExecutionContextFactory:
                 effective_task_kind=plan.effective_task_kind,
             )
         )
-        authoritative_context = (
-            self._research_delegation_policy.resolve_context(parent_task)
-        )
+        authoritative_context = self._research_delegation_policy.resolve_context(parent_task)
         if authoritative_context is None:
             context_bundle = worker_job_service.create_context_bundle(
                 query=context_query,
@@ -129,9 +115,7 @@ class WorkerExecutionContextFactory:
                 **dict(context_policy or {}),
                 "mode": "authoritative_source_catalog_bundle",
                 "llm_scope": "local_only",
-                "authoritative_context": dict(
-                    authoritative_context.context_policy
-                ),
+                "authoritative_context": dict(authoritative_context.context_policy),
             }
             retrieval_hints = {
                 **dict(retrieval_hints or {}),
@@ -152,28 +136,18 @@ class WorkerExecutionContextFactory:
             expected_output_schema = dict(data.expected_output_schema or {})
             allowed_tools = normalize_allowed_tools(data.allowed_tools)
         else:
-            expected_output_schema = dict(
-                parent_wec.get("expected_output_schema") or {}
-            )
-            allowed_tools = normalize_allowed_tools(
-                parent_wec.get("allowed_tools")
-            )
-        selected_runtime_target_id, selected_runtime_kind = (
-            self._runtime_selection_coordinates(plan)
-        )
-        research_destination_binding = (
-            self._research_delegation_policy.resolve_destination_binding(
-                task=parent_task,
-                worker_url=plan.agent_url,
-                selected_runtime_target_id=selected_runtime_target_id,
-                selected_runtime_kind=selected_runtime_kind,
-                preferred_provider=plan.preferred_backend,
-            )
+            expected_output_schema = dict(parent_wec.get("expected_output_schema") or {})
+            allowed_tools = normalize_allowed_tools(parent_wec.get("allowed_tools"))
+        selected_runtime_target_id, selected_runtime_kind = self._runtime_selection_coordinates(plan)
+        research_destination_binding = self._research_delegation_policy.resolve_destination_binding(
+            task=parent_task,
+            worker_url=plan.agent_url,
+            selected_runtime_target_id=selected_runtime_target_id,
+            selected_runtime_kind=selected_runtime_kind,
+            preferred_provider=plan.preferred_backend,
         )
         if research_destination_binding is not None:
-            context_policy["research_destination_binding"] = dict(
-                research_destination_binding
-            )
+            context_policy["research_destination_binding"] = dict(research_destination_binding)
         routing_decision_payload = worker_contract_service.build_routing_decision(
             agent_url=plan.agent_url,
             selected_by_policy=plan.selected_by_policy,
@@ -207,34 +181,23 @@ class WorkerExecutionContextFactory:
         routing_decision_payload["worker_profile"] = resolved_profile
         routing_decision_payload["profile_source"] = profile_source
         if research_destination_binding is not None:
-            routing_decision_payload["research_destination"] = dict(
-                research_destination_binding
-            )
+            routing_decision_payload["research_destination"] = dict(research_destination_binding)
         if plan.routing_hint:
             routing_decision_payload["copilot_hint"] = dict(plan.routing_hint)
         routing_decision = RoutingDecision(routing_decision_payload)
         selection_decision = (
             plan.worker_runtime_decision.model_dump(mode="json")
-            if plan.worker_runtime_decision
-            and hasattr(plan.worker_runtime_decision, "model_dump")
+            if plan.worker_runtime_decision and hasattr(plan.worker_runtime_decision, "model_dump")
             else None
         )
         if selection_decision is None and research_destination_binding is not None:
             selection_decision = {
                 "selected_worker_id": plan.agent_url,
-                "selected_worker_kind": research_destination_binding.get(
-                    "worker_kind"
-                ),
-                "selected_runtime_target_id": (
-                    research_destination_binding.get("runtime_target_id")
-                ),
-                "selected_runtime_kind": research_destination_binding.get(
-                    "runtime_kind"
-                ),
+                "selected_worker_kind": research_destination_binding.get("worker_kind"),
+                "selected_runtime_target_id": (research_destination_binding.get("runtime_target_id")),
+                "selected_runtime_kind": research_destination_binding.get("runtime_kind"),
                 "selection_mode": "organization_research_destination",
-                "policy_decision_ref": research_destination_binding.get(
-                    "binding_digest"
-                ),
+                "policy_decision_ref": research_destination_binding.get("binding_digest"),
             }
         worker_job = worker_job_service.create_worker_job(
             parent_task_id=task_id,
@@ -292,24 +255,14 @@ class WorkerExecutionContextFactory:
             **dict(worker_execution_context or {}),
         }
         if research_destination_binding is not None:
-            worker_execution_context["research_destination_binding"] = dict(
-                research_destination_binding
-            )
+            worker_execution_context["research_destination_binding"] = dict(research_destination_binding)
         if authoritative_context is not None:
-            worker_execution_context[
-                "source_context_bundle_manifest"
-            ] = {
+            worker_execution_context["source_context_bundle_manifest"] = {
                 "schema": "organization_research_context_manifest.v1",
                 "id": str(getattr(context_bundle, "id", "") or ""),
-                "retrieval_run_id": str(
-                    getattr(context_bundle, "retrieval_run_id", "") or ""
-                ),
-                "task_id": str(
-                    getattr(context_bundle, "task_id", "") or ""
-                ),
-                "bundle_type": str(
-                    getattr(context_bundle, "bundle_type", "") or ""
-                ),
+                "retrieval_run_id": str(getattr(context_bundle, "retrieval_run_id", "") or ""),
+                "task_id": str(getattr(context_bundle, "task_id", "") or ""),
+                "bundle_type": str(getattr(context_bundle, "bundle_type", "") or ""),
             }
         parent_foundation = parent_wec.get("deterministic_repair_foundation")
         if isinstance(parent_foundation, dict):
@@ -364,31 +317,15 @@ class WorkerExecutionContextFactory:
             worker_execution_context=worker_execution_context,
         )
         if authoritative_context is not None:
-            source_context_policy = dict(
-                worker_execution_context.get("source_context_policy") or {}
-            )
-            destination_binding = dict(
-                worker_execution_context.get(
-                    "research_destination_binding"
-                )
-                or {}
-            )
+            source_context_policy = dict(worker_execution_context.get("source_context_policy") or {})
+            destination_binding = dict(worker_execution_context.get("research_destination_binding") or {})
             try:
-                delegation_payload["hub_dispatch_capability"] = (
-                    self._research_dispatch_capability_issuer().issue(
-                        payload=delegation_payload,
-                        worker_url=plan.agent_url,
-                        source_context_bundle_digest=str(
-                            source_context_policy.get(
-                                "context_bundle_digest"
-                            )
-                            or ""
-                        ),
-                        destination_binding_digest=str(
-                            destination_binding.get("binding_digest") or ""
-                        ),
-                        worker_job_id=str(worker_job.id),
-                    )
+                delegation_payload["hub_dispatch_capability"] = self._research_dispatch_capability_issuer().issue(
+                    payload=delegation_payload,
+                    worker_url=plan.agent_url,
+                    source_context_bundle_digest=str(source_context_policy.get("context_bundle_digest") or ""),
+                    destination_binding_digest=str(destination_binding.get("binding_digest") or ""),
+                    worker_job_id=str(worker_job.id),
                 )
             except OrganizationResearchDispatchCapabilityError as exc:
                 fail_dispatch = getattr(
@@ -402,9 +339,7 @@ class WorkerExecutionContextFactory:
                         reason_code=exc.reason_code,
                         rejected=True,
                     )
-                raise OrganizationResearchDelegationPolicyError(
-                    exc.reason_code
-                ) from exc
+                raise OrganizationResearchDelegationPolicyError(exc.reason_code) from exc
         return WorkerExecutionBundle(
             subtask_id=subtask_id,
             context_bundle=context_bundle,
@@ -424,9 +359,7 @@ class WorkerExecutionContextFactory:
         self,
     ) -> OrganizationResearchDispatchCapabilityIssuer:
         if self._research_dispatch_issuer is None:
-            self._research_dispatch_issuer = (
-                get_organization_research_dispatch_capability_issuer()
-            )
+            self._research_dispatch_issuer = get_organization_research_dispatch_capability_issuer()
         return self._research_dispatch_issuer
 
     @staticmethod
@@ -436,13 +369,9 @@ class WorkerExecutionContextFactory:
         decision = plan.worker_runtime_decision
         if decision is None:
             return None, None
-        target_id = str(
-            getattr(decision, "selected_runtime_target_id", "") or ""
-        ).strip()
+        target_id = str(getattr(decision, "selected_runtime_target_id", "") or "").strip()
         raw_kind = getattr(decision, "selected_runtime_kind", None)
-        runtime_kind = str(
-            getattr(raw_kind, "value", raw_kind or "")
-        ).strip()
+        runtime_kind = str(getattr(raw_kind, "value", raw_kind or "")).strip()
         return target_id or None, runtime_kind or None
 
     def _resolve_output_dir(self, parent_task: dict[str, Any]) -> str:
@@ -455,7 +384,7 @@ class WorkerExecutionContextFactory:
             if goal:
                 return str((goal.execution_preferences or {}).get("output_dir") or "").strip()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_resolve_output_dir: ignored Exception", exc_info=True)
         return ""
 
     @staticmethod
@@ -579,9 +508,7 @@ class WorkerExecutionContextFactory:
             "dispatch_lease_id": dispatch_lease_id,
         }
         if plan.effective_task_kind == "planning_research":
-            callback_capability_kwargs["ttl_seconds"] = (
-                PLANNING_RESEARCH_CALLBACK_TTL_SECONDS
-            )
+            callback_capability_kwargs["ttl_seconds"] = PLANNING_RESEARCH_CALLBACK_TTL_SECONDS
         callback_capability = self._callback_capability_service_factory().issue(
             **callback_capability_kwargs,
         )

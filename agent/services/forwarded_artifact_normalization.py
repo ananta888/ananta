@@ -4,7 +4,9 @@ from __future__ import annotations
 
 
 def normalize_forwarded_artifacts(
-    *, task_id: str, artifacts: list[dict] | None,
+    *,
+    task_id: str,
+    artifacts: list[dict] | None,
 ) -> list[dict] | None:
     if artifacts is None:
         return None
@@ -15,13 +17,7 @@ def normalize_forwarded_artifacts(
         row = dict(item)
         artifact_id = str(row.get("artifact_id") or row.get("id") or "").strip()
         kind = str(row.get("kind") or "").strip()
-        path = str(
-            row.get("path")
-            or row.get("name")
-            or row.get("filename")
-            or row.get("title")
-            or ""
-        ).strip()
+        path = str(row.get("path") or row.get("name") or row.get("filename") or row.get("title") or "").strip()
         artifact_id = artifact_id or f"{task_id}-artifact-{index:03d}"
         row["artifact_id"] = artifact_id
         row.setdefault("id", artifact_id)

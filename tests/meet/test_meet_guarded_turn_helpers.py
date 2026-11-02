@@ -8,10 +8,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_egress_guard import namespace_info, session_policy
-from tests.meet_dialog_worker_container import DialogWorkerContainer
-from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
-from tests.meet_worker_relay_context import install_relay_context, relay_context_script
+from tests.meet.meet_dialog_egress_guard import namespace_info, session_policy
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
+from tests.meet.meet_worker_relay_context import install_relay_context, relay_context_script
 from tests.meet.test_meet_dialog_worker_container_fixture import HUB, IMAGE, NETWORK
 
 ORIGIN, TURN = "https://172.30.0.2", "turn:172.30.0.4:3478?transport=udp"
@@ -100,11 +100,15 @@ def test_bad_worker_namespace_or_relay_configuration_cannot_call_docker(options)
     command.assert_not_called()
 
 
-_SIBLING_RELAY_SCRIPT = Path(__file__).resolve().parents[3] / "webrtc-minimize-server/test/helpers/machine-forced-relay.js"
+_SIBLING_RELAY_SCRIPT = (
+    Path(__file__).resolve().parents[3] / "webrtc-minimize-server/test/helpers/machine-forced-relay.js"
+)
 
 
-@pytest.mark.skipif(not _SIBLING_RELAY_SCRIPT.is_file(),
-                    reason="needs the sibling webrtc-minimize-server checkout (not mounted in the test container)")
+@pytest.mark.skipif(
+    not _SIBLING_RELAY_SCRIPT.is_file(),
+    reason="needs the sibling webrtc-minimize-server checkout (not mounted in the test container)",
+)
 def test_relay_script_is_the_existing_authorized_session_adapter_not_new_credentials():
     path = _SIBLING_RELAY_SCRIPT
     script = relay_context_script(TURN, path)

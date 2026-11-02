@@ -79,10 +79,7 @@ class _FixtureHubHandler(BaseHTTPRequestHandler):
                                 "id": column,
                                 "title": column.replace("_", " ").title(),
                                 "statuses": [column],
-                                "card_count": sum(
-                                    card["column_id"] == column
-                                    for card in self.cards
-                                ),
+                                "card_count": sum(card["column_id"] == column for card in self.cards),
                             }
                             for column in _COLUMNS
                         ],
@@ -105,9 +102,7 @@ class _FixtureHubHandler(BaseHTTPRequestHandler):
                         "id": column,
                         "title": column.replace("_", " ").title(),
                         "statuses": [column],
-                        "card_count": sum(
-                            card["column_id"] == column for card in self.cards
-                        ),
+                        "card_count": sum(card["column_id"] == column for card in self.cards),
                     }
                     for column in _COLUMNS
                 ],
@@ -153,11 +148,7 @@ class _FixtureHubHandler(BaseHTTPRequestHandler):
                     "data": {
                         "schema_version": "kanban.v1",
                         "items": list(items),
-                        "next_cursor": (
-                            str(next_offset)
-                            if next_offset < len(self.cards)
-                            else None
-                        ),
+                        "next_cursor": (str(next_offset) if next_offset < len(self.cards) else None),
                     }
                 }
             )
@@ -258,9 +249,7 @@ def run_pty_resize_diagnostic(
         "release_evidence": False,
         "formal_gate_eligible": False,
         "card_count": card_count,
-        "terminal_sizes": [
-            {"columns": columns, "rows": rows} for columns, rows in sizes
-        ],
+        "terminal_sizes": [{"columns": columns, "rows": rows} for columns, rows in sizes],
         "resize_samples_per_size": samples_per_size,
         "resize_measurements": measurements,
         "peak_rss_kib": peak_rss_kib,
@@ -336,9 +325,7 @@ def _run_tui_process(
                     timeout_seconds=timeout_seconds,
                     process=process,
                 )
-                latency_samples.append(
-                    round((time.perf_counter() - started) * 1000.0, 3)
-                )
+                latency_samples.append(round((time.perf_counter() - started) * 1000.0, 3))
                 captured.extend(redraw)
                 marker_present = marker_present and b"KANBAN" in redraw
                 process_alive = process_alive and process.poll() is None
@@ -359,9 +346,7 @@ def _run_tui_process(
                 }
             )
         if process.poll() is not None:
-            raise RuntimeError(
-                f"tui_process_exited_during_resize:{process.returncode}"
-            )
+            raise RuntimeError(f"tui_process_exited_during_resize:{process.returncode}")
         return measurements, peak_rss_kib
     finally:
         if process is not None and process.poll() is None:
@@ -426,11 +411,7 @@ def _read_until(
                 output.extend(chunk)
                 if marker.decode("utf-8") in _plain_pty_text(bytes(output[-262_144:])):
                     return bytes(output)
-        raise TimeoutError(
-            "tui_marker_timeout:"
-            f"{marker.decode(errors='replace')}:"
-            f"{_redacted_pty_tail(bytes(output))}"
-        )
+        raise TimeoutError(f"tui_marker_timeout:{marker.decode(errors='replace')}:{_redacted_pty_tail(bytes(output))}")
     finally:
         selector.close()
 
@@ -450,9 +431,7 @@ def _drain(fd: int) -> None:
 
 def _rss_kib(pid: int) -> int:
     try:
-        for line in Path(f"/proc/{pid}/status").read_text(
-            encoding="utf-8"
-        ).splitlines():
+        for line in Path(f"/proc/{pid}/status").read_text(encoding="utf-8").splitlines():
             if line.startswith("VmRSS:"):
                 return int(line.split()[1])
     except (OSError, ValueError, IndexError):
@@ -480,9 +459,7 @@ def _plain_pty_text(raw: bytes) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run a real Linux PTY resize diagnostic for the Kanban TUI."
-    )
+    parser = argparse.ArgumentParser(description="Run a real Linux PTY resize diagnostic for the Kanban TUI.")
     parser.add_argument("--cards", type=int, default=1000)
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
     parser.add_argument(

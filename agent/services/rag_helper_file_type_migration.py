@@ -73,14 +73,11 @@ def plan_rag_helper_cache_migration(
     for relative_path, previous_format_id in sorted(manifest_files.items()):
         source_path = repository_path / relative_path
         classification = (
-            policy.classify_file(source_path, relative_path=relative_path)
-            if source_path.exists()
-            else None
+            policy.classify_file(source_path, relative_path=relative_path) if source_path.exists() else None
         )
         current_format_id = (
             classification.format_id
-            if classification is not None
-            and classification.format_id in current_enabled
+            if classification is not None and classification.format_id in current_enabled
             else None
         )
         if (

@@ -4,11 +4,16 @@ Erzwingt DiffProposal als einzige erlaubte Schreib-Vorstufe.
 Agenten duerfen Aenderungen nur als pruefbares DiffProposal erzeugen.
 Anwendung ins echte Repository ist ein separater Gate-Schritt.
 """
+
 from __future__ import annotations
-import hashlib, time, uuid
+
+import hashlib
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
 
 class ProposalStatus(str, Enum):
     DRAFT = "draft"
@@ -18,19 +23,31 @@ class ProposalStatus(str, Enum):
     APPLIED = "applied"
     EXPIRED = "expired"
 
+
 class DiffHunkStatus(str, Enum):
     CLEAN = "clean"
     RISKY = "risky"
     UNVERIFIED = "unverified"
 
+
 RISKY_PATH_PATTERNS = [
-    ".github/", ".ci/", "Dockerfile", "docker-compose",
-    "requirements.txt", "package.json", "pyproject.toml",
-    ".env", "secrets/", "config/policy", "workflow-security",
+    ".github/",
+    ".ci/",
+    "Dockerfile",
+    "docker-compose",
+    "requirements.txt",
+    "package.json",
+    "pyproject.toml",
+    ".env",
+    "secrets/",
+    "config/policy",
+    "workflow-security",
 ]
+
 
 class DiffProposalError(ValueError):
     pass
+
 
 @dataclass
 class DiffHunk:
@@ -42,6 +59,7 @@ class DiffHunk:
     content_hash: str
     hunk_status: DiffHunkStatus
     risk_flags: list[str]
+
 
 @dataclass
 class DiffProposal:
@@ -91,8 +109,9 @@ class DiffProposalService:
     def __init__(self) -> None:
         self._proposals: dict[str, DiffProposal] = {}
 
-    def create_proposal(self, *, run_id: str, worker_id: str, origin: str,
-                        hunks: list[dict], policy_constraints: dict | None = None) -> DiffProposal:
+    def create_proposal(
+        self, *, run_id: str, worker_id: str, origin: str, hunks: list[dict], policy_constraints: dict | None = None
+    ) -> DiffProposal:
         proposal_id = str(uuid.uuid4())
         built_hunks = []
         for h in hunks:
@@ -100,32 +119,44 @@ class DiffProposalService:
             status = self._classify_hunk(path)
             flags = self._risk_flags(path)
             raw = f"{path}{h.get('lines_added', 0)}{h.get('lines_removed', 0)}"
-            built_hunks.append(DiffHunk(
-                hunk_id=str(uuid.uuid4())[:8],
-                file_path=path,
-                lines_added=int(h.get("lines_added", 0)),
-                lines_removed=int(h.get("lines_removed", 0)),
-                operation=h.get("operation", "modified"),
-                content_hash=hashlib.sha256(raw.encode()).hexdigest()[:16],
-                hunk_status=status,
-                risk_flags=flags,
-            ))
+            built_hunks.append(
+                DiffHunk(
+                    hunk_id=str(uuid.uuid4())[:8],
+                    file_path=path,
+                    lines_added=int(h.get("lines_added", 0)),
+                    lines_removed=int(h.get("lines_removed", 0)),
+                    operation=h.get("operation", "modified"),
+                    content_hash=hashlib.sha256(raw.encode()).hexdigest()[:16],
+                    hunk_status=status,
+                    risk_flags=flags,
+                )
+            )
         total_added = sum(h.lines_added for h in built_hunks)
         total_removed = sum(h.lines_removed for h in built_hunks)
         risk = self._compute_risk_summary(built_hunks)
         p = DiffProposal(
-            proposal_id=proposal_id, run_id=run_id, worker_id=worker_id, origin=origin,
-            hunks=built_hunks, total_files=len(built_hunks),
-            total_lines_added=total_added, total_lines_removed=total_removed,
-            risk_summary=risk, status=ProposalStatus.DRAFT,
-            created_at=time.time(), approval_record_ref=None,
-            policy_check_passed=None, applied_at=None, blocked_reason=None,
+            proposal_id=proposal_id,
+            run_id=run_id,
+            worker_id=worker_id,
+            origin=origin,
+            hunks=built_hunks,
+            total_files=len(built_hunks),
+            total_lines_added=total_added,
+            total_lines_removed=total_removed,
+            risk_summary=risk,
+            status=ProposalStatus.DRAFT,
+            created_at=time.time(),
+            approval_record_ref=None,
+            policy_check_passed=None,
+            applied_at=None,
+            blocked_reason=None,
         )
         self._proposals[proposal_id] = p
         return p
 
-    def run_policy_check(self, proposal_id: str, *, allowed_paths: list[str] | None = None,
-                         denied_paths: list[str] | None = None) -> DiffProposal:
+    def run_policy_check(
+        self, proposal_id: str, *, allowed_paths: list[str] | None = None, denied_paths: list[str] | None = None
+    ) -> DiffProposal:
         p = self._get(proposal_id)
         denied = denied_paths or []
         passed = True

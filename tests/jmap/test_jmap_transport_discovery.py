@@ -16,8 +16,7 @@ from agent.services.jmap_http_transport import (
 )
 from agent.services.mail_contract_service import MailAccountV2
 from agent.services.mail_feature_policy import JmapRuntimeLimits, MailFeaturePolicy
-from agent.services.mail_provider_ports import MailAuthMaterial
-from agent.services.mail_provider_ports import MailProviderSession
+from agent.services.mail_provider_ports import MailAuthMaterial, MailProviderSession
 
 
 class _QueueAdapter:

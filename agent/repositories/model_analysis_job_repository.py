@@ -148,23 +148,17 @@ class SQLiteModelAnalysisJobRepository:
             ).fetchone()
             if duplicate is not None:
                 if str(duplicate["request_digest"]) != request_digest:
-                    raise ModelAnalysisJobServiceError(
-                        "model_analysis_idempotency_conflict"
-                    )
+                    raise ModelAnalysisJobServiceError("model_analysis_idempotency_conflict")
                 stored = self._select_record(
                     connection,
                     str(duplicate["job_id"]),
                 )
                 if stored is None:
-                    raise ModelAnalysisJobServiceError(
-                        "model_analysis_repository_corrupt"
-                    )
+                    raise ModelAnalysisJobServiceError("model_analysis_repository_corrupt")
                 return stored, False
 
             if self._select_record(connection, record.job.job_id) is not None:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_id_conflict"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_job_id_conflict")
 
             global_queued = self._count_states(
                 connection,
@@ -231,9 +225,7 @@ class SQLiteModelAnalysisJobRepository:
         expected_version: int,
     ) -> ModelAnalysisJobRecord:
         if record.version != expected_version + 1:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_version_increment_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_version_increment_invalid")
         with self._transaction() as connection:
             row = connection.execute(
                 """
@@ -245,18 +237,14 @@ class SQLiteModelAnalysisJobRepository:
             ).fetchone()
             if row is None:
                 if self._select_record(connection, record.job.job_id) is None:
-                    raise ModelAnalysisJobServiceError(
-                        "model_analysis_job_not_found"
-                    )
+                    raise ModelAnalysisJobServiceError("model_analysis_job_not_found")
                 raise ModelAnalysisJobServiceError(
                     "model_analysis_version_conflict",
                     retryable=True,
                 )
             current = self._deserialize(str(row["record_json"]))
             if current.job.to_wire() != record.job.to_wire():
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_binding_immutable"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_job_binding_immutable")
             updated = connection.execute(
                 """
                 UPDATE model_analysis_jobs
@@ -297,9 +285,7 @@ class SQLiteModelAnalysisJobRepository:
         with self._transaction() as connection:
             current = self._select_record(connection, job_id)
             if current is None:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_not_found"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_job_not_found")
             if current.version != expected_version:
                 raise ModelAnalysisJobServiceError(
                     "model_analysis_version_conflict",
@@ -344,10 +330,7 @@ class SQLiteModelAnalysisJobRepository:
                 """,
                 (now_epoch_ms, limit),
             ).fetchall()
-            return tuple(
-                self._deserialize(str(row["record_json"]))
-                for row in rows
-            )
+            return tuple(self._deserialize(str(row["record_json"])) for row in rows)
 
     def list_page(
         self,
@@ -379,10 +362,7 @@ class SQLiteModelAnalysisJobRepository:
                     """,
                     (tenant_id, after_job_id, limit),
                 ).fetchall()
-            return tuple(
-                self._deserialize(str(row["record_json"]))
-                for row in rows
-            )
+            return tuple(self._deserialize(str(row["record_json"])) for row in rows)
 
     @staticmethod
     def _select_record(
@@ -399,9 +379,7 @@ class SQLiteModelAnalysisJobRepository:
         ).fetchone()
         if row is None:
             return None
-        return SQLiteModelAnalysisJobRepository._deserialize(
-            str(row["record_json"])
-        )
+        return SQLiteModelAnalysisJobRepository._deserialize(str(row["record_json"]))
 
     @staticmethod
     def _count_states(
@@ -411,10 +389,7 @@ class SQLiteModelAnalysisJobRepository:
         tenant_id: str | None = None,
     ) -> int:
         placeholders = ",".join("?" for _ in states)
-        sql = (
-            f"SELECT COUNT(*) AS count FROM model_analysis_jobs "
-            f"WHERE state IN ({placeholders})"
-        )
+        sql = f"SELECT COUNT(*) AS count FROM model_analysis_jobs WHERE state IN ({placeholders})"
         values: tuple[object, ...] = states
         if tenant_id is not None:
             sql += " AND tenant_id = ?"
@@ -463,11 +438,7 @@ class SQLiteModelAnalysisJobRepository:
 
     @staticmethod
     def _lease_expiry(record: ModelAnalysisJobRecord) -> int | None:
-        return (
-            record.lease.expires_epoch_ms
-            if record.lease is not None
-            else None
-        )
+        return record.lease.expires_epoch_ms if record.lease is not None else None
 
     @staticmethod
     def _serialize(record: ModelAnalysisJobRecord) -> str:
@@ -477,16 +448,8 @@ class SQLiteModelAnalysisJobRepository:
                 "state": record.state.value,
                 "version": record.version,
                 "attempt": record.attempt,
-                "lease": (
-                    record.lease.to_wire()
-                    if record.lease is not None
-                    else None
-                ),
-                "completion": (
-                    record.completion.to_wire()
-                    if record.completion is not None
-                    else None
-                ),
+                "lease": (record.lease.to_wire() if record.lease is not None else None),
+                "completion": (record.completion.to_wire() if record.completion is not None else None),
                 "reason_code": record.reason_code,
                 "projection_pending": record.projection_pending,
                 "updated_epoch_ms": record.updated_epoch_ms,
@@ -505,31 +468,20 @@ class SQLiteModelAnalysisJobRepository:
                 state=ModelAnalysisJobState(str(raw["state"])),
                 version=int(raw["version"]),
                 attempt=int(raw["attempt"]),
-                lease=(
-                    ResourceLease.model_validate(raw["lease"])
-                    if raw.get("lease") is not None
-                    else None
-                ),
+                lease=(ResourceLease.model_validate(raw["lease"]) if raw.get("lease") is not None else None),
                 completion=(
-                    AnalysisCompletion.model_validate(raw["completion"])
-                    if raw.get("completion") is not None
-                    else None
+                    AnalysisCompletion.model_validate(raw["completion"]) if raw.get("completion") is not None else None
                 ),
                 reason_code=str(raw["reason_code"]),
                 projection_pending=bool(raw["projection_pending"]),
                 updated_epoch_ms=int(raw["updated_epoch_ms"]),
             )
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_repository_corrupt"
-            ) from exc
+            raise ModelAnalysisJobServiceError("model_analysis_repository_corrupt") from exc
 
     @staticmethod
     def _validate_digest(value: str, reason_code: str) -> None:
-        if (
-            len(value) != 64
-            or any(character not in "0123456789abcdef" for character in value)
-        ):
+        if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
             raise ModelAnalysisJobServiceError(reason_code)
 
 

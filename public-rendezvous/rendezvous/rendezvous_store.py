@@ -85,10 +85,7 @@ class RendezvousStore:
             return True, 0
         self.ensure_initialized()
         key = hashlib.sha256(
-            b"ananta.public-rendezvous.rate-limit.v1\0"
-            + namespace.encode("utf-8")
-            + b"\0"
-            + subject.encode("utf-8")
+            b"ananta.public-rendezvous.rate-limit.v1\0" + namespace.encode("utf-8") + b"\0" + subject.encode("utf-8")
         ).hexdigest()
         now = self._clock()
         with self.connect() as conn:

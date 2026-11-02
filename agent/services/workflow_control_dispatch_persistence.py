@@ -531,11 +531,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
             if not _owned(row, owner_id):
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_lease_conflict")
             binding = session.get(WorkflowControlBindingDB, str(row.workflow_id))
-            if (
-                binding is None
-                or binding.active_transition_id
-                or str(binding.dispatch_intent_id or "") != row.id
-            ):
+            if binding is None or binding.active_transition_id or str(binding.dispatch_intent_id or "") != row.id:
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_completion_conflict")
             if row.kind == DISPATCH_KIND_COMMAND:
                 if binding.command_claim != row.id:

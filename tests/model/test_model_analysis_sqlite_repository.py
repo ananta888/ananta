@@ -183,12 +183,7 @@ def test_repository_has_tenant_queue_and_recovery_indices(tmp_path) -> None:
     SQLiteModelAnalysisJobRepository(path)
 
     with sqlite3.connect(path) as connection:
-        index_names = {
-            str(row[1])
-            for row in connection.execute(
-                "PRAGMA index_list('model_analysis_jobs')"
-            ).fetchall()
-        }
+        index_names = {str(row[1]) for row in connection.execute("PRAGMA index_list('model_analysis_jobs')").fetchall()}
 
     assert "ix_model_analysis_jobs_tenant_state" in index_names
     assert "ix_model_analysis_jobs_queue" in index_names

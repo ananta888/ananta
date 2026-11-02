@@ -45,9 +45,7 @@ def initialize_dendritic_memory(app: Flask) -> DendriticMemoryWiringStatus:
                     "enabled": _bool(
                         app.config.get("ANANTA_DENDRITIC_MEMORY_ENABLED", settings.dendritic_memory_enabled)
                     ),
-                    "mode": str(
-                        app.config.get("ANANTA_DENDRITIC_MEMORY_MODE", settings.dendritic_memory_mode)
-                    ).strip(),
+                    "mode": str(app.config.get("ANANTA_DENDRITIC_MEMORY_MODE", settings.dendritic_memory_mode)).strip(),
                     "runtime_enabled": _bool(
                         app.config.get(
                             "ANANTA_DENDRITIC_MEMORY_RUNTIME_ENABLED", settings.dendritic_memory_runtime_enabled
@@ -101,10 +99,7 @@ def initialize_dendritic_memory(app: Flask) -> DendriticMemoryWiringStatus:
                 runtime_gate=runtime_gate,
             )
             artifacts = DendriticMemoryArtifactService(
-                str(
-                    app.config.get("ANANTA_DENDRITIC_MEMORY_ARTIFACT_ROOT")
-                    or settings.dendritic_memory_artifact_root
-                ),
+                str(app.config.get("ANANTA_DENDRITIC_MEMORY_ARTIFACT_ROOT") or settings.dendritic_memory_artifact_root),
                 max_pack_bytes=policy.max_pack_bytes,
             )
         except (OSError, TypeError, ValueError, json.JSONDecodeError):

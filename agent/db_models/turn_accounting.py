@@ -5,7 +5,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel
 
-
 _COUNTERS_NON_NEGATIVE = " AND ".join(
     f"{name} >= 0"
     for name in (

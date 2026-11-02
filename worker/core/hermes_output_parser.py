@@ -50,7 +50,9 @@ def parse_hermes_json_output(raw_text: str) -> HermesParseResult:
         )
 
     if not isinstance(payload, dict):
-        return HermesParseResult(ok=False, reason_code="parse_error_not_object", raw_snippet=_bounded_redacted_snippet(text))
+        return HermesParseResult(
+            ok=False, reason_code="parse_error_not_object", raw_snippet=_bounded_redacted_snippet(text)
+        )
     return HermesParseResult(ok=True, payload=payload)
 
 

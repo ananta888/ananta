@@ -1,7 +1,6 @@
 """Tests für DSL Evaluation Engine (T05.02)."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.dsl.evaluator import DslEvaluator, EvalResult
@@ -116,8 +115,9 @@ class TestDslEvaluator:
         assert decision.is_no_good_match()
 
     def test_to_decision_result_rejected(self):
-        eval_result = EvalResult(matched=True, score=0.5, action={"kind": "follow_artifact"},
-                                 rejected=True, reject_reason="crash")
+        eval_result = EvalResult(
+            matched=True, score=0.5, action={"kind": "follow_artifact"}, rejected=True, reject_reason="crash"
+        )
         decision = self.evaluator.to_decision_result(eval_result)
         assert decision.is_no_good_match()
 

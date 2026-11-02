@@ -37,4 +37,3 @@ class ResponseValidator:
         if text == "data: [DONE]":
             return True, "done"
         return True, "ok"
-

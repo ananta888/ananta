@@ -73,8 +73,8 @@ class JsonSchemaContractParser:
                 return
 
             pointer_token = pointer.rsplit("/", 1)[-1] if "/" in pointer else "#"
-            pointer_line, pointer_column = (1, 1) if pointer == "#" else locate(
-                pointer_token.replace("~1", "/").replace("~0", "~")
+            pointer_line, pointer_column = (
+                (1, 1) if pointer == "#" else locate(pointer_token.replace("~1", "/").replace("~0", "~"))
             )
             pointer_record = factory.symbol(
                 kind="json_schema_pointer",

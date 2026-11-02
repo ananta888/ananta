@@ -22,16 +22,17 @@ from werkzeug.serving import WSGIRequestHandler, make_server
 from agent.routes.meet import meet_bp
 from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 from agent.services.meet_turn_service import MeetTurnService
-from tests.meet_companion_build import require_current_browser_build
-from tests.meet_dialog_browser_fixture import docker
-from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+from tests.meet.meet_companion_build import require_current_browser_build
+from tests.meet.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
 from tests.test_meet_dialog_cross_repository import close_bridge
 
 
 @pytest.mark.timeout(240)
 @pytest.mark.skipif(os.environ.get("MEET_COMPANION_LIVE_GATE") != "1", reason="explicit private legacy loop gate")
-@pytest.mark.parametrize("scenario", ["backlog", "hub-revoke", "pressure", "hub-recovery", "source-revoke",
-                                     "assigned", "assigned-revoke"])
+@pytest.mark.parametrize(
+    "scenario", ["backlog", "hub-revoke", "pressure", "hub-recovery", "source-revoke", "assigned", "assigned-revoke"]
+)
 def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewals(tmp_path, scenario):
     root = Path(__file__).resolve().parents[2]
     meet = root.parent / "webrtc-minimize-server"
@@ -49,9 +50,14 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
     name = "ananta-companion-live-" + uuid4().hex[:12]
     with ExitStack() as cleanup:
         env = os.environ | {"ANANTA_TEST_MEET_REPOSITORY": str(meet), "MEET_TEST_HUB_PUBLIC_KEY": str(public)}
-        bridge = subprocess.Popen(["node", str(Path(__file__).with_name("meet_companion_live_bridge.mjs"))],
-                                  env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  stderr=subprocess.DEVNULL, text=True)
+        bridge = subprocess.Popen(
+            ["node", str(Path(__file__).with_name("meet_companion_live_bridge.mjs"))],
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
         cleanup.callback(close_bridge, bridge)
         worker_created = False
 
@@ -60,24 +66,41 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
                 return {}
             state = json.loads(docker("inspect", "-f", "{{json .State}}", name))
             logs = docker("logs", name)
-            result = {"worker_running": state["Running"], "worker_exit": state["ExitCode"],
-                    "hub_grants": len(grants), "hub_denials": len(denials),
-                    "model_stop_receipt": '"owned_model_process_stopped"' in logs}
+            result = {
+                "worker_running": state["Running"],
+                "worker_exit": state["ExitCode"],
+                "hub_grants": len(grants),
+                "hub_denials": len(denials),
+                "model_stop_receipt": '"owned_model_process_stopped"' in logs,
+            }
             if logs.splitlines():
                 try:
                     receipt = json.loads(logs.splitlines()[-1])
                 except ValueError:
                     receipt = {}
                 code = receipt.get("assigned_failure")
-                if code in {"meet_client_probe_invalid", "meet_dialog_session_checkpoint_required",
-                            "meet_dialog_session_operation_failed", "meet_browser_network_origin_invalid",
-                            "assigned_runtime_setup_failed", "meet_client_probe_unsupported",
-                            "meet_machine_navigation_denied", "meet_dialog_session_expired"}:
+                if code in {
+                    "meet_client_probe_invalid",
+                    "meet_dialog_session_checkpoint_required",
+                    "meet_dialog_session_operation_failed",
+                    "meet_browser_network_origin_invalid",
+                    "assigned_runtime_setup_failed",
+                    "meet_client_probe_unsupported",
+                    "meet_machine_navigation_denied",
+                    "meet_dialog_session_expired",
+                }:
                     result["assigned_failure"] = code
-                    if receipt.get("phase") in {'browser_setup', 'ready', 'ready_done', 'join', 'joined',
-                                                'grant_read', 'grant_read_done'}:
+                    if receipt.get("phase") in {
+                        "browser_setup",
+                        "ready",
+                        "ready_done",
+                        "join",
+                        "joined",
+                        "grant_read",
+                        "grant_read_done",
+                    }:
                         result["assigned_phase"] = receipt["phase"]
-                    if receipt.get("kind") in {'Error', 'TimeoutError', 'ValueError', 'KeyError', 'TypeError', 'other'}:
+                    if receipt.get("kind") in {"Error", "TimeoutError", "ValueError", "KeyError", "TypeError", "other"}:
                         result["assigned_error_kind"] = receipt["kind"]
             return result
 
@@ -117,8 +140,9 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
 
             task_fixture = fixture()
             caps = ["avatar.publish", "chat.read", "chat.send", "speech.publish"]
-            task_fixture.context.update(capabilities=caps, companion_execution=True, room_id=ready["room_id"],
-                                        chat_mode="room")
+            task_fixture.context.update(
+                capabilities=caps, companion_execution=True, room_id=ready["room_id"], chat_mode="room"
+            )
             task_fixture.context["controls"] = initial_controls(caps, "room", "off", task_fixture.now * 1000)
             for source in ("avatar", "speech"):
                 task_fixture.context["controls"][source]["enabled"] = True
@@ -128,11 +152,20 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
             }
             task_fixture.authority.policies[("tenant", "project")] = frozenset(caps)
             app.extensions["meet_companion_task_grants"] = MeetCompanionTaskGrants(task_fixture.authority, issuer)
-            task_assignment = {"schema": "ananta.meet-dialog-assignment.v1", "task_id": "task", "lease_id": "dispatch",
-                "runtime_id": "runtime", "session_id": "hub-session", "tenant_id": "tenant", "project_id": "project",
-                "deadline": task_fixture.context["deadline"], "capabilities": caps, "audio_mode": "off",
+            task_assignment = {
+                "schema": "ananta.meet-dialog-assignment.v1",
+                "task_id": "task",
+                "lease_id": "dispatch",
+                "runtime_id": "runtime",
+                "session_id": "hub-session",
+                "tenant_id": "tenant",
+                "project_id": "project",
+                "deadline": task_fixture.context["deadline"],
+                "capabilities": caps,
+                "audio_mode": "off",
                 "companion_execution": True,
-                "meeting": issuer.issue_dialog(task_fixture.authority, "task", "dispatch", "runtime", time.time())}
+                "meeting": issuer.issue_dialog(task_fixture.authority, "task", "dispatch", "runtime", time.time()),
+            }
             assignment_file = tmp_path / "assignment.json"
             assignment_file.write_text(json.dumps(task_assignment))
             assignment_file.chmod(0o644)  # Synthetic grant, private test mount only.
@@ -143,6 +176,7 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
         @app.after_request
         def count_grants(response):
             from flask import request
+
             paths = {"/api/meet/v1/internal/companion", "/api/meet/v1/internal/companion/task-grant"}
             if request.path == "/api/meet/v1/internal/companion":
                 legacy_calls.append(response.status_code)
@@ -161,28 +195,67 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
         cleanup.callback(hub.shutdown)
         threading.Thread(target=hub.serve_forever, daemon=True).start()
         certificate = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
-        spki = base64.b64encode(hashlib.sha256(certificate.public_key().public_bytes(
-            Encoding.DER, PublicFormat.SubjectPublicKeyInfo)).digest()).decode()
-        command = ["create", "--name", name, "--network", ready["network"], "--init", "--user", "11111:11111",
-                   "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges=true",
-                   "--security-opt", "seccomp=" + str(root / "docker/meet-media/chromium-seccomp.json"),
-                   "--memory", "2g", "--cpus", "2", "--pids-limit", "256", "--shm-size", "256m",
-                   "--tmpfs", "/tmp:rw,nosuid,nodev,size=256m,mode=1777",
-                   "--tmpfs", "/state:rw,nosuid,nodev,size=64m,uid=11111,gid=11111,mode=0700"]
-        for source, target in [(worker_key, "/test/key"), (Path(ready["certificate"]), "/test/ca.pem"),
-                               (Path(__file__).with_name("meet_companion_live_probe.py"), "/test/probe.py")]:
+        spki = base64.b64encode(
+            hashlib.sha256(
+                certificate.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+            ).digest()
+        ).decode()
+        command = [
+            "create",
+            "--name",
+            name,
+            "--network",
+            ready["network"],
+            "--init",
+            "--user",
+            "11111:11111",
+            "--read-only",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges=true",
+            "--security-opt",
+            "seccomp=" + str(root / "docker/meet-media/chromium-seccomp.json"),
+            "--memory",
+            "2g",
+            "--cpus",
+            "2",
+            "--pids-limit",
+            "256",
+            "--shm-size",
+            "256m",
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,size=256m,mode=1777",
+            "--tmpfs",
+            "/state:rw,nosuid,nodev,size=64m,uid=11111,gid=11111,mode=0700",
+        ]
+        for source, target in [
+            (worker_key, "/test/key"),
+            (Path(ready["certificate"]), "/test/ca.pem"),
+            (Path(__file__).with_name("meet_companion_live_probe.py"), "/test/probe.py"),
+        ]:
             command += ["--mount", f"type=bind,src={source},dst={target},readonly"]
-        values = {"MEET_ORIGIN": ready["origin"], "MEET_COMPANION_PROJECT": "synthetic",
-                  "MEET_HUB_COMPANION_URL": f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/companion",
-                  "MEET_WORKER_KEY_FILE": "/test/key", "SSL_CERT_FILE": "/test/ca.pem",
-                  "NODE_EXTRA_CA_CERTS": "/test/ca.pem", "TEST_CERT_SPKI": spki,
-                  "MEET_COMPANION_RENEW": "10", "MEET_COMPANION_PUBLIC_ROOM_CHECK": "0",
-                  "ANANTA_CPU_FALLBACK": "1", "MEET_AVATAR_SERVICE_ENABLED": "0",
-                  "MEET_AVATAR_IDLE_CLIP": "/state/missing.mp4", "PYTHONPATH": "/app"}
+        values = {
+            "MEET_ORIGIN": ready["origin"],
+            "MEET_COMPANION_PROJECT": "synthetic",
+            "MEET_HUB_COMPANION_URL": f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/companion",
+            "MEET_WORKER_KEY_FILE": "/test/key",
+            "SSL_CERT_FILE": "/test/ca.pem",
+            "NODE_EXTRA_CA_CERTS": "/test/ca.pem",
+            "TEST_CERT_SPKI": spki,
+            "MEET_COMPANION_RENEW": "10",
+            "MEET_COMPANION_PUBLIC_ROOM_CHECK": "0",
+            "ANANTA_CPU_FALLBACK": "1",
+            "MEET_AVATAR_SERVICE_ENABLED": "0",
+            "MEET_AVATAR_IDLE_CLIP": "/state/missing.mp4",
+            "PYTHONPATH": "/app",
+        }
         if scenario.startswith("assigned"):
             command += ["--mount", f"type=bind,src={assignment_file},dst=/test/assignment,readonly"]
-            values.update(TEST_ASSIGNED_COMPANION="1",
-                          MEET_HUB_COMPANION_TASK_URL=f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/companion/task-grant")
+            values.update(
+                TEST_ASSIGNED_COMPANION="1",
+                MEET_HUB_COMPANION_TASK_URL=f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/companion/task-grant",
+            )
         if scenario == "source-revoke":
             values["TEST_SOURCE_WITHDRAWAL"] = "1"
         for field, value in values.items():
@@ -193,16 +266,22 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
 
         worker_created = True
 
-        bridge_command = {"hub-recovery": "hub-revoke", "assigned": "backlog",
-                          "assigned-revoke": "hub-revoke"}.get(scenario, scenario)
+        bridge_command = {"hub-recovery": "hub-revoke", "assigned": "backlog", "assigned-revoke": "hub-revoke"}.get(
+            scenario, scenario
+        )
         bridge.stdin.write(bridge_command + "\n")
         bridge.stdin.flush()
         if scenario in {"hub-revoke", "hub-recovery", "source-revoke", "assigned-revoke"}:
             assert receive(60) == {"inputs_sent": 3}
             started = time.monotonic()
             while True:
-                received = docker("exec", name, "python", "-c",
-                                  "from pathlib import Path;print(Path('/state/synthetic-model-started').exists())")
+                received = docker(
+                    "exec",
+                    name,
+                    "python",
+                    "-c",
+                    "from pathlib import Path;print(Path('/state/synthetic-model-started').exists())",
+                )
                 if received == "True":
                     break
                 assert time.monotonic() - started < 10, "bounded model-start observation missing"
@@ -214,7 +293,10 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
                 assert not denials and time.monotonic() - started < 30
                 assert docker("wait", name) == "0"
                 assert json.loads(docker("logs", name).splitlines()[-1]) == {
-                    "owned_model_process_stopped": True, "recv_count": 1, "reply_count": 0}
+                    "owned_model_process_stopped": True,
+                    "recv_count": 1,
+                    "reply_count": 0,
+                }
                 return
             if scenario == "assigned-revoke":
                 task_fixture.task.status = "cancelled"
@@ -239,8 +321,14 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
         audio_windows = result.pop("audio_windows")
         assert type(audio_windows) is int and audio_windows > 0
         count = 32 if scenario == "pressure" else 3
-        assert result == {"replies": count, "unique": count, "captures": 0, "transform_errors": 0,
-                          "proxy_drops": 0, "decoded_avatar": True}
+        assert result == {
+            "replies": count,
+            "unique": count,
+            "captures": 0,
+            "transform_errors": 0,
+            "proxy_drops": 0,
+            "decoded_avatar": True,
+        }
         assert len(grants) >= 3
         if scenario == "assigned":
             assert not denials and not legacy_calls
@@ -251,10 +339,17 @@ def test_actual_packaged_companion_answers_backlog_across_long_model_and_renewal
             return
         # Export counts of closed diagnostic markers, never message IDs/text,
         # authority bindings, browser content or arbitrary exception payloads.
-        diagnostic = json.loads(docker("exec", name, "python", "-c",
-            "from pathlib import Path;import json;s=Path('/state/companion.log').read_text();"
-            "print(json.dumps({k:s.count(k) for k in ['RECV','REPLY','chat_gap',"
-            "'chat_control_err','chat_reply_err','RENEW status=200']}))"))
+        diagnostic = json.loads(
+            docker(
+                "exec",
+                name,
+                "python",
+                "-c",
+                "from pathlib import Path;import json;s=Path('/state/companion.log').read_text();"
+                "print(json.dumps({k:s.count(k) for k in ['RECV','REPLY','chat_gap',"
+                "'chat_control_err','chat_reply_err','RENEW status=200']}))",
+            )
+        )
         assert diagnostic["RECV"] == diagnostic["REPLY"] == count
         assert diagnostic["chat_gap"] == diagnostic["chat_control_err"] == diagnostic["chat_reply_err"] == 0
         assert diagnostic["RENEW status=200"] >= 2

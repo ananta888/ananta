@@ -1,11 +1,11 @@
 import json
 import logging
+from typing import Any
 
 from flask import current_app
 
 from agent.db_models import ConfigDB
 from agent.services.repository_registry import get_repository_registry
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 def get_goal_feature_flags() -> dict[str, bool]:
     try:
         from agent.config import settings as _settings
+
         defaults = {
             "goal_workflow_enabled": bool(getattr(_settings, "goal_workflow_enabled", True)),
             "persisted_plans_enabled": bool(getattr(_settings, "persisted_plans_enabled", True)),
@@ -26,11 +27,9 @@ def get_goal_feature_flags() -> dict[str, bool]:
         }
     stored = get_repository_registry().config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
     try:
-        logger.debug(
-            "get_goal_feature_flags: defaults=%s, stored=%s", defaults, stored.value_json if stored else None
-        )
+        logger.debug("get_goal_feature_flags: defaults=%s, stored=%s", defaults, stored.value_json if stored else None)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
 
     if not stored:
         return defaults
@@ -41,10 +40,10 @@ def get_goal_feature_flags() -> dict[str, bool]:
             try:
                 logger.debug("merged feature flags: %s", merged)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
             return merged
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("get_goal_feature_flags: ignored Exception", exc_info=True)
     return defaults
 
 

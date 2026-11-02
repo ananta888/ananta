@@ -27,7 +27,6 @@ from agent.services.source_control_observability import (
     emit_source_control_audit,
 )
 
-
 # Keep the established log channel of the composition root.
 _LOG = logging.getLogger("agent.bootstrap.source_control_api")
 
@@ -46,8 +45,7 @@ class SQLContextPolicySources:
         with Session(self._engine) as db:
             row = db.exec(
                 select(SourceRevisionDB).where(
-                    SourceRevisionDB.source_revision_id
-                    == source_revision_id,
+                    SourceRevisionDB.source_revision_id == source_revision_id,
                     SourceRevisionDB.tenant_id == tenant_id,
                     SourceRevisionDB.project_id == project_id,
                 )
@@ -98,33 +96,20 @@ class SourceControlRouteDenyAudit:
         self._metrics = metrics
 
     def record_denial(self, event: Mapping[str, object]) -> None:
-        reason_code = _bounded_reason(
-            event.get("reason_code"), fallback="authorization_denied"
-        )
+        reason_code = _bounded_reason(event.get("reason_code"), fallback="authorization_denied")
         try:
             emit_source_control_audit(
                 SourceControlAuditEvent(
                     operation=SourceControlAuditOperation.deny,
                     actor_id=_bounded_id(
-                        event.get("actor_id")
-                        or event.get("subject_id"),
+                        event.get("actor_id") or event.get("subject_id"),
                         fallback="actor",
                     ),
-                    tenant_id=_bounded_id(
-                        event.get("tenant_id"), fallback="tenant"
-                    ),
-                    project_id=_bounded_id(
-                        event.get("project_id"), fallback="project"
-                    ),
-                    resource_kind=_bounded_id(
-                        event.get("resource_kind"), fallback="resource"
-                    ),
-                    resource_id=_bounded_id(
-                        event.get("resource_id"), fallback="collection"
-                    ),
-                    trace_id=_bounded_id(
-                        event.get("trace_id"), fallback="route-deny"
-                    ),
+                    tenant_id=_bounded_id(event.get("tenant_id"), fallback="tenant"),
+                    project_id=_bounded_id(event.get("project_id"), fallback="project"),
+                    resource_kind=_bounded_id(event.get("resource_kind"), fallback="resource"),
+                    resource_id=_bounded_id(event.get("resource_id"), fallback="collection"),
+                    trace_id=_bounded_id(event.get("trace_id"), fallback="route-deny"),
                     decision=SourceControlDecision.deny,
                     reason_code=reason_code,
                 )

@@ -1,4 +1,5 @@
 """Debug API: POST /debug/prompts/render-dry-run. PTI-018."""
+
 from __future__ import annotations
 
 import logging
@@ -18,8 +19,8 @@ prompt_render_bp = Blueprint("debug_prompt_render", __name__)
 def render_dry_run():
     """Render a planning prompt without calling any provider."""
     from agent.services.planning_prompt_registry import get_planning_prompt_registry
+    from agent.services.prompt_provenance import PromptProvenanceChain
     from agent.services.prompt_trace_service import get_prompt_trace_service, prompt_hash
-    from agent.services.prompt_provenance import PromptProvenanceChain, text_hash
 
     body = request.get_json(silent=True) or {}
     goal = str(body.get("goal") or "").strip()
@@ -69,6 +70,7 @@ def render_dry_run():
 
     # Redact for display
     from agent.services.prompt_redaction_service import get_redaction_service
+
     redaction_result = get_redaction_service().redact(resolved.prompt)
     prompt_redacted = redaction_result.redacted_text
 

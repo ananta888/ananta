@@ -59,9 +59,7 @@ class LiveKitSfuObservationConfig:
 class LiveKitSfuObservationAdapter:
     """One job slice; the Hub scheduler owns periodic execution and retries."""
 
-    _SOURCE_FIELDS = frozenset(
-        {"capabilities", "health", "capacity", "pressure", "observed_node_id"}
-    )
+    _SOURCE_FIELDS = frozenset({"capabilities", "health", "capacity", "pressure", "observed_node_id"})
 
     def __init__(
         self,
@@ -118,15 +116,18 @@ class LiveKitSfuObservationAdapter:
             boot_id=self._config.boot_id,
         )
         capabilities = list(observed["capabilities"])
-        capability_digest = "sha256:" + hashlib.sha256(
-            json.dumps(
-                capabilities,
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-                allow_nan=False,
-            ).encode("ascii")
-        ).hexdigest()
+        capability_digest = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    capabilities,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                    allow_nan=False,
+                ).encode("ascii")
+            ).hexdigest()
+        )
         document = {
             "schema_version": "sfu_runtime_observation.v2",
             "producer_mode": "livekit_control_api",

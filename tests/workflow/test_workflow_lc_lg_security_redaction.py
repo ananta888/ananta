@@ -10,6 +10,7 @@ Covers:
 - execution_trace in WorkflowArtifactResult contains no sk-xxx patterns
 - to_safe_dict() strips secret_refs (regression guard from LCG-003/004)
 """
+
 from __future__ import annotations
 
 import re
@@ -38,9 +39,7 @@ def test_audit_log_redacts_secret_in_string_kwarg():
     entries = audit.entries()
     assert len(entries) == 1
     stored = entries[0].get("token", "")
-    assert "sk-abc123xyzABCDEFGHIJ" not in str(stored), (
-        f"Secret was not redacted from audit log: {stored!r}"
-    )
+    assert "sk-abc123xyzABCDEFGHIJ" not in str(stored), f"Secret was not redacted from audit log: {stored!r}"
 
 
 def test_audit_log_does_not_redact_event_and_ts():
@@ -88,9 +87,7 @@ def test_lc_build_prompt_redacts_secret_in_query():
     secret = "sk-ABCD1234EFGH5678IJKL"  # 20 chars after sk-
     payload = {"query": f"please use key {secret} to authenticate"}
     prompt = adapter._build_prompt("rag_query", payload, [])  # noqa: SLF001
-    assert secret not in prompt, (
-        f"Secret was not redacted from prompt: {prompt!r}"
-    )
+    assert secret not in prompt, f"Secret was not redacted from prompt: {prompt!r}"
 
 
 def test_lc_dry_run_plan_steps_no_secret():
@@ -119,16 +116,16 @@ def test_lg_build_node_prompt_redacts_prior_responses():
     state = LangGraphState(graph_id="g1", task_id="t1")
     # Use a 20+ char sk- secret so the TOKEN regex fires
     secret = "sk-SUPER1234SECRET5678XY"  # 20 chars after sk-
-    state.llm_responses.append({
-        "node_id": "prev",
-        "runner": "simplex",
-        "response": f"here is the api key {secret} please use it",
-    })
+    state.llm_responses.append(
+        {
+            "node_id": "prev",
+            "runner": "simplex",
+            "response": f"here is the api key {secret} please use it",
+        }
+    )
     node = {"id": "curr", "kind": "llm"}
     prompt = adapter._build_node_prompt(node, state)  # noqa: SLF001
-    assert secret not in prompt, (
-        f"Secret was not redacted from node prompt: {prompt!r}"
-    )
+    assert secret not in prompt, f"Secret was not redacted from node prompt: {prompt!r}"
 
 
 # ── execution_trace contains no secrets (LCG-054) ─────────────────────────────
@@ -136,8 +133,7 @@ def test_lg_build_node_prompt_redacts_prior_responses():
 
 def test_lc_execution_trace_no_secrets(monkeypatch):
     """The execution_trace in WorkflowArtifactResult must not contain 20+-char sk-xxx tokens."""
-    cfg = LangChainProviderConfig(enabled=True, mode="local_live",
-                                  model_provider_ref="local.default")
+    cfg = LangChainProviderConfig(enabled=True, mode="local_live", model_provider_ref="local.default")
     adapter = LangChainAdapter(cfg)
     monkeypatch.setattr(
         "worker.adapters.langchain_adapter.LangChainAdapter._langchain_available",
@@ -155,9 +151,7 @@ def test_lc_execution_trace_no_secrets(monkeypatch):
         )
 
     trace_str = str(result.execution_trace)
-    assert secret not in trace_str, (
-        f"Secret leaked into execution_trace: found in {trace_str!r}"
-    )
+    assert secret not in trace_str, f"Secret leaked into execution_trace: found in {trace_str!r}"
 
 
 # ── to_safe_dict regression guard (LCG-003, LCG-004) ─────────────────────────
@@ -166,7 +160,9 @@ def test_lc_execution_trace_no_secrets(monkeypatch):
 def test_lc_to_safe_dict_omits_secret_refs_regression():
     """to_safe_dict() must never include secret_refs — regression guard."""
     cfg = LangChainProviderConfig(
-        enabled=True, mode="cloud_gated", external_calls_allowed=True,
+        enabled=True,
+        mode="cloud_gated",
+        external_calls_allowed=True,
         secret_refs=["vault:openai/sk-ref"],
     )
     safe = cfg.to_safe_dict()
@@ -176,7 +172,9 @@ def test_lc_to_safe_dict_omits_secret_refs_regression():
 def test_lg_to_safe_dict_omits_secret_refs_regression():
     """to_safe_dict() must never include secret_refs — regression guard."""
     cfg = LangGraphProviderConfig(
-        enabled=True, mode="cloud_gated", external_calls_allowed=True,
+        enabled=True,
+        mode="cloud_gated",
+        external_calls_allowed=True,
         secret_refs=["vault:anthropic/key"],
     )
     safe = cfg.to_safe_dict()

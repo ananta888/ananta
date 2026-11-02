@@ -1,11 +1,11 @@
 """Heuristic token and cost estimation for model routing dry-runs."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
 from agent.services.model_profile_loader import ModelProfile
-
 
 _COST_CLASS_ESTIMATES = {
     "free": (0.0, 0.0),

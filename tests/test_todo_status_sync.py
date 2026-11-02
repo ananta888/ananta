@@ -33,9 +33,7 @@ def test_sync_preserves_explicit_block_and_reports_blocked_remainder(
                     },
                 ],
                 "critical_path_tasks": ["T-1", "T-2"],
-                "milestones": [
-                    {"id": "M-1", "task_ids": ["T-1", "T-2"], "status": "partial"}
-                ],
+                "milestones": [{"id": "M-1", "task_ids": ["T-1", "T-2"], "status": "partial"}],
                 "execution_stage_summary": {
                     "stages": {
                         "S-1": {

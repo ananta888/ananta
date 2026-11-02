@@ -21,4 +21,3 @@ def test_step_graph_cycle_detection_rejects_invalid_plan() -> None:
     graph = build_step_graph(steps=[{"step_id": "a", "depends_on": ["b"]}, {"step_id": "b", "depends_on": ["a"]}])
     with pytest.raises(ValueError, match="step_graph_cycle_detected"):
         assert_acyclic(graph)
-

@@ -1,4 +1,5 @@
 """CRG-007: graph metrics tests."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,20 +17,33 @@ def _build_star(tmp_path: Path, *, leaves: int) -> CodeCompassGraphStore:
     """Build a star graph: one hub connected to N leaves."""
     s = CodeCompassGraphStore(index_path=tmp_path / "index.json")
     records = [
-        {"_provenance": {"output_kind": "graph_nodes"},
-         "id": "f:hub", "kind": "symbol_function", "name": "hub", "file": "hub.py"},
+        {
+            "_provenance": {"output_kind": "graph_nodes"},
+            "id": "f:hub",
+            "kind": "symbol_function",
+            "name": "hub",
+            "file": "hub.py",
+        },
     ]
     for i in range(leaves):
-        records.append({
-            "_provenance": {"output_kind": "graph_nodes"},
-            "id": f"f:leaf{i}", "kind": "symbol_function",
-            "name": f"leaf{i}", "file": f"leaf{i}.py",
-        })
-        records.append({
-            "_provenance": {"output_kind": "graph_edges"},
-            "source": f"f:leaf{i}", "target": "f:hub",
-            "type": "calls", "confidence": 1.0,
-        })
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": f"f:leaf{i}",
+                "kind": "symbol_function",
+                "name": f"leaf{i}",
+                "file": f"leaf{i}.py",
+            }
+        )
+        records.append(
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": f"f:leaf{i}",
+                "target": "f:hub",
+                "type": "calls",
+                "confidence": 1.0,
+            }
+        )
     s.rebuild_from_output_records(manifest_hash="m", records=records)
     s._cached_payload = None
     return s
@@ -84,7 +98,11 @@ def test_betweenness_counts_only_shortest_path_intermediates() -> None:
     }
 
     summary = _bounded_shortest_paths_through(
-        "a", "d", outgoing, depth_cap=4, path_cap=1000,
+        "a",
+        "d",
+        outgoing,
+        depth_cap=4,
+        path_cap=1000,
     )
 
     assert summary.intermediate_counts == (("b", 1),)
@@ -103,7 +121,11 @@ def test_betweenness_reports_path_cap_truncation() -> None:
     }
 
     summary = _bounded_shortest_paths_through(
-        "a", "d", outgoing, depth_cap=4, path_cap=1,
+        "a",
+        "d",
+        outgoing,
+        depth_cap=4,
+        path_cap=1,
     )
 
     assert summary.paths_considered == 1
@@ -113,6 +135,7 @@ def test_betweenness_reports_path_cap_truncation() -> None:
 
 def test_metrics_result_is_json_serialisable(tmp_path):
     import json
+
     s = _build_star(tmp_path / "j", leaves=4)
     res = compute_graph_metrics(graph_store=s)
     json.dumps(res.as_dict())  # must not raise

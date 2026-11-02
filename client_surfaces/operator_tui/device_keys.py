@@ -4,6 +4,7 @@ Private Keys verlassen niemals das lokale Gerät.
 Public Key und Fingerprint sind abrufbar.
 Key-Rotation erzeugt neuen Fingerprint und deaktiviert alte Session-Keys.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,6 +24,7 @@ try:
         PrivateFormat,
         PublicFormat,
     )
+
     _CRYPTO_AVAILABLE = True
 except ImportError:
     _CRYPTO_AVAILABLE = False
@@ -47,7 +49,7 @@ def _meta_path(key_dir: Path) -> Path:
 def _fingerprint_from_pubkey_bytes(pub_bytes: bytes) -> str:
     digest = hashlib.sha256(pub_bytes).hexdigest()
     # Groups of 8, separated by colon for readability
-    return ":".join(digest[i:i+8] for i in range(0, 64, 8))
+    return ":".join(digest[i : i + 8] for i in range(0, 64, 8))
 
 
 def _restrict_permissions(path: Path) -> None:
@@ -163,6 +165,7 @@ class DeviceKeyManager:
         try:
             priv_bytes = key_file.read_bytes()
             from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
             priv = load_pem_private_key(priv_bytes, password=None)
             return priv.sign(message)  # type: ignore[attr-defined]
         except Exception as exc:

@@ -138,9 +138,7 @@ def create_job():
         idempotency_key = _idempotency_key()
         body = _json_body()
         if set(body) - _CREATE_FIELDS or body.get("schema") != _CREATE_SCHEMA:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_create_request_invalid"
-            )
+            raise ModelIntelligenceRouteError("model_analysis_create_request_invalid")
         job_id = _derived_job_id(
             tenant_id=tenant_id,
             idempotency_key=idempotency_key,
@@ -155,9 +153,7 @@ def create_job():
                 }
             )
         except ValidationError as exc:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_create_request_invalid"
-            ) from exc
+            raise ModelIntelligenceRouteError("model_analysis_create_request_invalid") from exc
         record = _job_service().submit(
             job,
             idempotency_key=idempotency_key,
@@ -165,9 +161,7 @@ def create_job():
         response = jsonify({"ok": True, "data": {"job": _job_view(record)}})
         response.status_code = 202
         response.headers["ETag"] = _job_etag(record)
-        response.headers["Location"] = (
-            f"/api/model-intelligence/jobs/{record.job.job_id}"
-        )
+        response.headers["Location"] = f"/api/model-intelligence/jobs/{record.job.job_id}"
         return response
     except Exception as exc:
         return _error_response(exc)
@@ -179,9 +173,7 @@ def list_jobs():
     try:
         _require_capability(write=False)
         if set(request.args) - {"page_size", "cursor"}:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_query_invalid"
-            )
+            raise ModelIntelligenceRouteError("model_analysis_query_invalid")
         page_size = _query_int(
             "page_size",
             default=50,
@@ -232,9 +224,7 @@ def cancel_job(job_id: str):
         _require_capability(write=True)
         _idempotency_key()
         if _json_body(allow_empty=True):
-            raise ModelIntelligenceRouteError(
-                "model_analysis_cancel_body_invalid"
-            )
+            raise ModelIntelligenceRouteError("model_analysis_cancel_body_invalid")
         record = _job_service().get(
             tenant_id=_tenant_id(),
             job_id=job_id,
@@ -250,9 +240,7 @@ def cancel_job(job_id: str):
                 "ok": True,
                 "data": {
                     "job": _job_view(cancelled),
-                    "cancellation": (
-                        signal.to_wire() if signal is not None else None
-                    ),
+                    "cancellation": (signal.to_wire() if signal is not None else None),
                 },
             }
         )
@@ -262,9 +250,7 @@ def cancel_job(job_id: str):
         return _error_response(exc)
 
 
-@model_intelligence_bp.get(
-    "/jobs/<job_id>/artifacts/<artifact_id>"
-)
+@model_intelligence_bp.get("/jobs/<job_id>/artifacts/<artifact_id>")
 @check_user_auth
 def get_artifact(job_id: str, artifact_id: str):
     try:
@@ -292,9 +278,7 @@ def get_artifact(job_id: str, artifact_id: str):
         return _error_response(exc)
 
 
-@model_intelligence_bp.get(
-    "/jobs/<job_id>/artifacts/<artifact_id>/content"
-)
+@model_intelligence_bp.get("/jobs/<job_id>/artifacts/<artifact_id>/content")
 @check_user_auth
 def get_artifact_content(job_id: str, artifact_id: str):
     try:
@@ -327,14 +311,10 @@ def get_report(job_id: str):
     try:
         _require_capability(write=False)
         if set(request.args) - {"format"}:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_query_invalid"
-            )
+            raise ModelIntelligenceRouteError("model_analysis_query_invalid")
         report_format = str(request.args.get("format") or "json").lower()
         if report_format not in _REPORT_KINDS:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_report_format_invalid"
-            )
+            raise ModelIntelligenceRouteError("model_analysis_report_format_invalid")
         record = _job_service().get(
             tenant_id=_tenant_id(),
             job_id=job_id,
@@ -353,11 +333,7 @@ def get_report(job_id: str):
         return Response(
             content,
             status=200,
-            content_type=(
-                "application/json"
-                if report_format == "json"
-                else "text/html"
-            ),
+            content_type=("application/json" if report_format == "json" else "text/html"),
             headers={
                 "Cache-Control": "private, no-cache",
                 "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
@@ -383,16 +359,10 @@ def get_graph(job_id: str):
             "timeout_ms",
         }
         if set(request.args) - allowed:
-            raise ModelIntelligenceRouteError(
-                "model_analysis_query_invalid"
-            )
-        start_node_id = str(
-            request.args.get("start_node_id") or ""
-        ).strip()
+            raise ModelIntelligenceRouteError("model_analysis_query_invalid")
+        start_node_id = str(request.args.get("start_node_id") or "").strip()
         if not start_node_id:
-            raise ModelIntelligenceRouteError(
-                "model_graph_start_node_required"
-            )
+            raise ModelIntelligenceRouteError("model_graph_start_node_required")
         record = _job_service().get(
             tenant_id=_tenant_id(),
             job_id=job_id,
@@ -405,19 +375,11 @@ def get_graph(job_id: str):
         graph = _graph_artifact(content, model_id=record.job.model_id)
         result = ModelGraphQueryService(graph).traverse(
             start_node_id=start_node_id,
-            max_depth=_query_int(
-                "max_depth", default=1, minimum=0, maximum=8
-            ),
-            max_nodes=_query_int(
-                "max_nodes", default=100, minimum=1, maximum=5000
-            ),
-            page_size=_query_int(
-                "page_size", default=50, minimum=1, maximum=100
-            ),
+            max_depth=_query_int("max_depth", default=1, minimum=0, maximum=8),
+            max_nodes=_query_int("max_nodes", default=100, minimum=1, maximum=5000),
+            page_size=_query_int("page_size", default=50, minimum=1, maximum=100),
             cursor=request.args.get("cursor"),
-            timeout_ms=_query_int(
-                "timeout_ms", default=200, minimum=1, maximum=1000
-            ),
+            timeout_ms=_query_int("timeout_ms", default=200, minimum=1, maximum=1000),
         )
         etag = _graph_etag(artifact, request.args)
         if _etag_matches(request.headers.get("If-None-Match"), etag):
@@ -441,9 +403,7 @@ def get_graph(job_id: str):
 
 
 def _job_service() -> ModelAnalysisJobService:
-    configured = current_app.extensions.get(
-        "model_analysis_job_service"
-    )
+    configured = current_app.extensions.get("model_analysis_job_service")
     if configured is not None:
         return configured
     service = build_model_analysis_job_service()
@@ -452,9 +412,7 @@ def _job_service() -> ModelAnalysisJobService:
 
 
 def _artifact_store() -> ModelIntelligenceArtifactStorePort:
-    configured = current_app.extensions.get(
-        "model_intelligence_artifact_store"
-    )
+    configured = current_app.extensions.get("model_intelligence_artifact_store")
     if configured is not None:
         return configured
     root = current_app.config.get("MODEL_INTELLIGENCE_ARTIFACT_ROOT")
@@ -471,14 +429,8 @@ def _identity() -> dict[str, Any]:
 
 def _tenant_id() -> str:
     identity = _identity()
-    subject = str(
-        identity.get("sub") or identity.get("username") or ""
-    ).strip()
-    tenant = str(
-        identity.get("tenant_id")
-        or identity.get("tenant")
-        or subject
-    ).strip()
+    subject = str(identity.get("sub") or identity.get("username") or "").strip()
+    tenant = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
     if not subject or not tenant:
         raise ModelIntelligenceRouteError(
             "model_intelligence_unauthenticated",
@@ -501,12 +453,7 @@ def _require_capability(*, write: bool = False) -> None:
 
     identity = _identity()
     claims = identity if isinstance(identity, dict) else {"sub": str(identity)}
-    subject_id = str(
-        claims.get("sub")
-        or claims.get("username")
-        or claims.get("user_id")
-        or "authenticated"
-    )
+    subject_id = str(claims.get("sub") or claims.get("username") or claims.get("user_id") or "authenticated")
     tenant_id = _tenant_id()
 
     raw_roles: list[str] = []
@@ -528,9 +475,7 @@ def _require_capability(*, write: bool = False) -> None:
     normalized_roles = {value.strip().lower().replace("-", "_") for value in raw_roles}
     normalized_capabilities = {value.strip().lower() for value in raw_capabilities}
     policy_roles: set[ModelIntelligenceRole] = set()
-    if normalized_roles & {"admin", "tenant_admin", "superadmin"} or bool(
-        getattr(g, "is_admin", False)
-    ):
+    if normalized_roles & {"admin", "tenant_admin", "superadmin"} or bool(getattr(g, "is_admin", False)):
         policy_roles.add(ModelIntelligenceRole.TENANT_ADMIN)
     if "operator" in normalized_roles:
         policy_roles.add(ModelIntelligenceRole.OPERATOR)
@@ -602,21 +547,15 @@ def _json_body(*, allow_empty: bool = False) -> dict[str, Any]:
     if allow_empty and not request.data:
         return {}
     body = request.get_json(silent=True)
-    if not isinstance(body, Mapping) or any(
-        not isinstance(key, str) for key in body
-    ):
-        raise ModelIntelligenceRouteError(
-            "model_intelligence_json_invalid"
-        )
+    if not isinstance(body, Mapping) or any(not isinstance(key, str) for key in body):
+        raise ModelIntelligenceRouteError("model_intelligence_json_invalid")
     return dict(body)
 
 
 def _idempotency_key() -> str:
     value = str(request.headers.get("Idempotency-Key") or "").strip()
     if not value:
-        raise ModelIntelligenceRouteError(
-            "model_analysis_idempotency_key_required"
-        )
+        raise ModelIntelligenceRouteError("model_analysis_idempotency_key_required")
     return value
 
 
@@ -648,23 +587,15 @@ def _query_int(
     try:
         value = int(raw)
     except ValueError as exc:
-        raise ModelIntelligenceRouteError(
-            "model_analysis_query_integer_invalid"
-        ) from exc
+        raise ModelIntelligenceRouteError("model_analysis_query_integer_invalid") from exc
     if not minimum <= value <= maximum:
-        raise ModelIntelligenceRouteError(
-            "model_analysis_query_integer_invalid"
-        )
+        raise ModelIntelligenceRouteError("model_analysis_query_integer_invalid")
     return value
 
 
 def _job_view(record: ModelAnalysisJobRecord) -> dict[str, Any]:
     completion = record.completion
-    artifacts = (
-        [artifact.to_wire() for artifact in completion.artifacts]
-        if completion is not None
-        else []
-    )
+    artifacts = [artifact.to_wire() for artifact in completion.artifacts] if completion is not None else []
     return {
         "schema": "ananta.model-intelligence.job-status.v1",
         "job": record.job.to_wire(),
@@ -673,11 +604,7 @@ def _job_view(record: ModelAnalysisJobRecord) -> dict[str, Any]:
         "attempt": record.attempt,
         "reason_code": record.reason_code,
         "artifacts": artifacts,
-        "error": (
-            completion.error.to_wire()
-            if completion is not None and completion.error is not None
-            else None
-        ),
+        "error": (completion.error.to_wire() if completion is not None and completion.error is not None else None),
     }
 
 
@@ -686,11 +613,7 @@ def _job_etag(record: ModelAnalysisJobRecord) -> str:
 
 
 def _etag_matches(raw: str | None, expected: str) -> bool:
-    return expected in {
-        item.strip()
-        for item in str(raw or "").split(",")
-        if item.strip()
-    }
+    return expected in {item.strip() for item in str(raw or "").split(",") if item.strip()}
 
 
 def _require_if_match(record: ModelAnalysisJobRecord) -> None:
@@ -737,10 +660,7 @@ def _find_artifact(
     matches = [
         artifact
         for artifact in completion.artifacts
-        if (
-            artifact_id is None or artifact.artifact_id == artifact_id
-        )
-        and (kinds is None or artifact.kind in kinds)
+        if (artifact_id is None or artifact.artifact_id == artifact_id) and (kinds is None or artifact.kind in kinds)
     ]
     if len(matches) != 1:
         raise ModelIntelligenceRouteError(
@@ -758,9 +678,7 @@ def _store_ref(
         digest=f"sha256:{artifact.sha256}",
         media_type=artifact.media_type,
         size_bytes=artifact.size_bytes,
-        tenant_scope=hashlib.sha256(
-            tenant_id.encode("utf-8")
-        ).hexdigest(),
+        tenant_scope=hashlib.sha256(tenant_id.encode("utf-8")).hexdigest(),
         artifact_kind=artifact.kind,
     )
 
@@ -812,9 +730,7 @@ def _graph_artifact(content: bytes, *, model_id: str) -> ModelGraphArtifact:
             edges=edges,
         )
     except (KeyError, TypeError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ModelIntelligenceRouteError(
-            "model_graph_artifact_invalid"
-        ) from exc
+        raise ModelIntelligenceRouteError("model_graph_artifact_invalid") from exc
 
 
 def _graph_etag(
@@ -860,10 +776,17 @@ def _error_response(exc: Exception):
     elif isinstance(exc, ModelIntelligenceArtifactStoreError):
         reason = exc.reason_code
         retryable = reason in {"artifact_read_failed", "artifact_write_failed"}
-        status = 503 if retryable else 404 if reason in {
-            "artifact_not_found",
-            "artifact_access_denied",
-        } else 400
+        status = (
+            503
+            if retryable
+            else 404
+            if reason
+            in {
+                "artifact_not_found",
+                "artifact_access_denied",
+            }
+            else 400
+        )
     elif isinstance(exc, ModelGraphError):
         reason = exc.code
         retryable = reason == "model_graph_query_timeout"
@@ -909,7 +832,6 @@ def _emit_sanitized_model_intelligence_events(response: Response) -> Response:
     )
 
 
-
 def _model_intelligence_request_aliases() -> None:
     """Accept the bounded Angular request DTO without changing the domain contract."""
     if request.method != "POST" or not request.path.rstrip("/").endswith("/jobs"):
@@ -944,11 +866,7 @@ def _normalize_model_intelligence_frontend_dtos(response: Response) -> Response:
     if response.status_code >= 400 or response.status_code == 304 or not response.is_json:
         return response
     payload = response.get_json(silent=True)
-    if (
-        isinstance(payload, dict)
-        and payload.get("ok") is True
-        and isinstance(payload.get("data"), dict)
-    ):
+    if isinstance(payload, dict) and payload.get("ok") is True and isinstance(payload.get("data"), dict):
         return response
     path = request.path.rstrip("/")
     base = "/api/model-intelligence"

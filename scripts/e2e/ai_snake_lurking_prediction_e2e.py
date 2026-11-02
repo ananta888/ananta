@@ -4,6 +4,7 @@ Output:
   - assets/operator_tui_ai_snake_lurking_prediction.cast
   - assets/operator_tui_ai_snake_lurking_prediction.chapters.json
 """
+
 from __future__ import annotations
 
 import json
@@ -49,12 +50,28 @@ def _base_game() -> dict:
         "local_snake_id": "s-op",
         "ai_snake_mode": "lurking_follow",
         "ai_snake_runtime_status": "lurking",
-        "ai_snake_prediction": {"predicted_intent": "section_scan", "target_ref": "section:dashboard", "confidence": 0.42},
+        "ai_snake_prediction": {
+            "predicted_intent": "section_scan",
+            "target_ref": "section:dashboard",
+            "confidence": 0.42,
+        },
         "ai_snake_debug": {"gate_reason": "confidence_low"},
         "ai_snake_context_envelope": {"context_hash": "ctx-operator-tui-snake-v1"},
         "snakes": {
-            "s-op": {"id": "s-op", "pseudonym": "operator", "snake_color": "mint", "active": True, "snake": [[10, 8], [9, 8], [8, 8]]},
-            "s-ai": {"id": "s-ai", "pseudonym": "lurking-ai", "snake_color": "amber", "active": True, "snake": [[25, 10], [24, 10], [23, 10]]},
+            "s-op": {
+                "id": "s-op",
+                "pseudonym": "operator",
+                "snake_color": "mint",
+                "active": True,
+                "snake": [[10, 8], [9, 8], [8, 8]],
+            },
+            "s-ai": {
+                "id": "s-ai",
+                "pseudonym": "lurking-ai",
+                "snake_color": "amber",
+                "active": True,
+                "snake": [[25, 10], [24, 10], [23, 10]],
+            },
         },
         "chat_state": default_chat_state("s-op"),
         "ai_snake_context": default_ai_context(),
@@ -113,7 +130,11 @@ def generate_cast() -> None:
     game["_section"] = "artifacts"
     game["direction"] = (1, 1)
     game["ai_snake_runtime_status"] = "following"
-    game["ai_snake_prediction"] = {"predicted_intent": "artifact_explain", "target_ref": "client_surfaces/operator_tui/renderer.py", "confidence": 0.78}
+    game["ai_snake_prediction"] = {
+        "predicted_intent": "artifact_explain",
+        "target_ref": "client_surfaces/operator_tui/renderer.py",
+        "confidence": 0.78,
+    }
     game["ai_snake_debug"] = {"gate_reason": "stable_prediction"}
     hold(20.0, status="ai:follows target=renderer.py", frames=20)
 

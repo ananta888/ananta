@@ -197,8 +197,9 @@ def test_evolver_prefers_markdown_when_json_not_accepted(monkeypatch):
 
 
 def test_evolver_rate_limit_creates_review_required(monkeypatch):
-    import agent.services.planning_prompt_evolver_service as mod
     import time
+
+    import agent.services.planning_prompt_evolver_service as mod
 
     base = _base_prompt()
     now = time.time()

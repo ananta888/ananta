@@ -47,10 +47,14 @@ class WorkerPolicyService:
         rejected: list[dict[str, Any]] = []
         for worker in list(workers or []):
             worker_url = str(getattr(worker, "url", "") or "").strip()
-            worker_caps = [str(v).strip().lower() for v in list(getattr(worker, "capabilities", None) or []) if str(v).strip()]
+            worker_caps = [
+                str(v).strip().lower() for v in list(getattr(worker, "capabilities", None) or []) if str(v).strip()
+            ]
             missing = [cap for cap in required_caps if cap not in set(worker_caps)]
             if enforce_caps and missing:
-                rejected.append({"worker_url": worker_url, "reason_code": "missing_capability", "missing_capabilities": missing})
+                rejected.append(
+                    {"worker_url": worker_url, "reason_code": "missing_capability", "missing_capabilities": missing}
+                )
                 continue
             if enforce_scope and llm_scope == "local_only" and not self._is_local_worker_url(worker_url):
                 rejected.append({"worker_url": worker_url, "reason_code": "llm_scope_denied", "llm_scope": llm_scope})

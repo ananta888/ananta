@@ -1,4 +1,5 @@
 """Low-level helpers for tool-output compaction. No service dependencies."""
+
 from __future__ import annotations
 
 import hashlib
@@ -77,7 +78,7 @@ def apply_keep_first_last(
     for i, line in enumerate(lines):
         if i in keep_indices:
             if in_omitted_run:
-                omitted_markers.append(f"... [omitted] ...")
+                omitted_markers.append("... [omitted] ...")
                 in_omitted_run = False
             kept.append(line)
         else:

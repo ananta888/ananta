@@ -1,8 +1,9 @@
 """HumanReviewStrategy — terminal escalation; all prior strategies declined."""
+
 from __future__ import annotations
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
 
 class HumanReviewStrategy(ProposeStrategy):

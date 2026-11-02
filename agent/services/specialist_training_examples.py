@@ -240,9 +240,13 @@ class SpecialistExampleAdmission:
         )
         redacted, findings = self._redactor.redact_value(normalized)
         input_digest = canonical_digest(redacted)
-        metadata = {str(k): v for k, v in dict(raw.get("metadata") or {}).items() if isinstance(v, (str, int, float, bool))}
+        metadata = {
+            str(k): v for k, v in dict(raw.get("metadata") or {}).items() if isinstance(v, (str, int, float, bool))
+        }
         return TrainingExample(
-            example_id=canonical_digest({"input": input_digest, "label": label, "contract": self.contract.contract_key}),
+            example_id=canonical_digest(
+                {"input": input_digest, "label": label, "contract": self.contract.contract_key}
+            ),
             specialist_id=self.contract.specialist_id,
             contract_version=self.contract.contract_version,
             input=redacted,
@@ -257,7 +261,9 @@ class SpecialistExampleAdmission:
             metadata=metadata,
         )
 
-    def admit_batch(self, raws: Iterable[Mapping[str, Any]], *, existing: Iterable[TrainingExample] = ()) -> AdmissionReport:
+    def admit_batch(
+        self, raws: Iterable[Mapping[str, Any]], *, existing: Iterable[TrainingExample] = ()
+    ) -> AdmissionReport:
         """Admit, deduplicate and quarantine contradictory deterministic labels."""
         report = AdmissionReport()
         seen: dict[str, TrainingExample] = {example.example_id: example for example in existing}
@@ -275,13 +281,22 @@ class SpecialistExampleAdmission:
             if other is not None and other.label != example.label:
                 # Same input, different label. A deterministic source contradicting
                 # itself is a labelling bug: quarantine both sides of the conflict.
-                if example.label_source in REPRODUCIBLE_LABEL_SOURCES and other.label_source in REPRODUCIBLE_LABEL_SOURCES:
-                    report.quarantined.append(QuarantineRecord(example.example_id, "contradictory_deterministic_label", other.example_id))
+                if (
+                    example.label_source in REPRODUCIBLE_LABEL_SOURCES
+                    and other.label_source in REPRODUCIBLE_LABEL_SOURCES
+                ):
+                    report.quarantined.append(
+                        QuarantineRecord(example.example_id, "contradictory_deterministic_label", other.example_id)
+                    )
                     if other in report.admitted:
                         report.admitted.remove(other)
-                        report.quarantined.append(QuarantineRecord(other.example_id, "contradictory_deterministic_label", example.example_id))
+                        report.quarantined.append(
+                            QuarantineRecord(other.example_id, "contradictory_deterministic_label", example.example_id)
+                        )
                     continue
-                report.quarantined.append(QuarantineRecord(example.example_id, "label_conflict_requires_review", other.example_id))
+                report.quarantined.append(
+                    QuarantineRecord(example.example_id, "label_conflict_requires_review", other.example_id)
+                )
                 continue
             seen[example.example_id] = example
             by_input[example.input_digest] = example

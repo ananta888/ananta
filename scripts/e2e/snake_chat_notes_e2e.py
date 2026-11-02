@@ -9,11 +9,10 @@ Zeigt:
 Output: assets/operator_tui_multisnake_chat.cast
 Duration: ~60s | Headless, ohne manuelle Eingabe
 """
+
 from __future__ import annotations
 
 import json
-import math
-import os
 import sys
 import time
 from pathlib import Path
@@ -21,13 +20,15 @@ from pathlib import Path
 _REPO = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_REPO))
 
-from client_surfaces.operator_tui.renderer import render_operator_shell
-from client_surfaces.operator_tui.models import OperatorState
-from client_surfaces.operator_tui.chat_state import (
-    default_chat_state, make_message, append_message, switch_channel,
-    ChannelType,
-)
 from client_surfaces.operator_tui.ai_snake_context import default_ai_context
+from client_surfaces.operator_tui.chat_state import (
+    append_message,
+    default_chat_state,
+    make_message,
+    switch_channel,
+)
+from client_surfaces.operator_tui.models import OperatorState
+from client_surfaces.operator_tui.renderer import render_operator_shell
 
 WIDTH = 140
 HEIGHT = 36
@@ -53,13 +54,20 @@ def _base_game() -> dict:
         "tutor_depth_mode": "overview",
         "snakes": {
             "s-op": {
-                "id": "s-op", "pseudonym": "operator", "role": "player",
-                "snake_color": "mint", "active": True, "local": True,
+                "id": "s-op",
+                "pseudonym": "operator",
+                "role": "player",
+                "snake_color": "mint",
+                "active": True,
+                "local": True,
                 "snake": [[10, 5], [9, 5], [8, 5]],
             },
             "s-ai": {
-                "id": "s-ai", "pseudonym": "tutor-ai", "role": "tutor",
-                "snake_color": "amber", "active": True,
+                "id": "s-ai",
+                "pseudonym": "tutor-ai",
+                "role": "tutor",
+                "snake_color": "amber",
+                "active": True,
                 "snake": [[30, 8], [29, 8], [28, 8]],
                 "message": "Hallo! Ich bin die tutor-ai snake.",
             },
@@ -95,8 +103,11 @@ def _ansi_frame(game: dict, ts: float, command_line: str = "") -> list:
 def _add_room_message(game: dict, sender_id: str, sender_color: str, text: str) -> None:
     chat = game["chat_state"]
     msg = make_message(
-        channel_id="room:main", channel_type="room",
-        sender_id=sender_id, sender_kind="user", text=text,
+        channel_id="room:main",
+        channel_type="room",
+        sender_id=sender_id,
+        sender_kind="user",
+        text=text,
         delivery_state="received",
     )
     append_message(chat, msg)
@@ -105,8 +116,11 @@ def _add_room_message(game: dict, sender_id: str, sender_color: str, text: str) 
 def _add_ai_message(game: dict, sender_id: str, sender_kind: str, text: str) -> None:
     chat = game["chat_state"]
     msg = make_message(
-        channel_id="ai:tutor", channel_type="ai",
-        sender_id=sender_id, sender_kind=sender_kind, text=text,
+        channel_id="ai:tutor",
+        channel_type="ai",
+        sender_id=sender_id,
+        sender_kind=sender_kind,
+        text=text,
         delivery_state="received" if sender_kind == "ai" else "sent",
         visibility="ai_context",
     )
@@ -116,9 +130,13 @@ def _add_ai_message(game: dict, sender_id: str, sender_kind: str, text: str) -> 
 def _add_note(game: dict, text: str) -> None:
     chat = game["chat_state"]
     msg = make_message(
-        channel_id="notes:self", channel_type="notes",
-        sender_id="s-op", sender_kind="user", text=text,
-        delivery_state="sent", visibility="local_only",
+        channel_id="notes:self",
+        channel_type="notes",
+        sender_id="s-op",
+        sender_kind="user",
+        text=text,
+        delivery_state="sent",
+        visibility="local_only",
     )
     append_message(chat, msg)
 
@@ -126,9 +144,13 @@ def _add_note(game: dict, text: str) -> None:
 def _add_system_msg(game: dict, channel_id: str, text: str) -> None:
     chat = game["chat_state"]
     msg = make_message(
-        channel_id=channel_id, channel_type="room" if channel_id == "room:main" else "system",
-        sender_id="system", sender_kind="system", text=text,
-        delivery_state="received", visibility="system",
+        channel_id=channel_id,
+        channel_type="room" if channel_id == "room:main" else "system",
+        sender_id="system",
+        sender_kind="system",
+        text=text,
+        delivery_state="received",
+        visibility="system",
     )
     append_message(chat, msg)
 
@@ -174,8 +196,11 @@ def generate_cast() -> None:
     _add_system_msg(game, "room:main", "* [system] s-peer joined the room")
     snakes = dict(game.get("snakes") or {})
     snakes["s-peer"] = {
-        "id": "s-peer", "pseudonym": "peer-dev", "role": "player",
-        "snake_color": "sky", "active": True,
+        "id": "s-peer",
+        "pseudonym": "peer-dev",
+        "role": "player",
+        "snake_color": "sky",
+        "active": True,
         "snake": [[50, 15], [49, 15], [48, 15]],
     }
     game["snakes"] = snakes
@@ -218,7 +243,9 @@ def generate_cast() -> None:
     hold(3)
 
     # AI antwortet
-    ai_answer = "Der Hub ist der Control Plane von Ananta – er orchestriert Worker, verwaltet Tasks und hält den Systemzustand."
+    ai_answer = (
+        "Der Hub ist der Control Plane von Ananta – er orchestriert Worker, verwaltet Tasks und hält den Systemzustand."
+    )
     game["chat_state"]["ai_typing"] = False
     _add_ai_message(game, "s-ai", "ai", ai_answer)
     hold(5)

@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from client_surfaces.operator_tui.tools.git_read_tool import GitReadTool
 from client_surfaces.operator_tui.tools.direct_tool_response_formatter import (
     format_direct_tool_response,
 )
+from client_surfaces.operator_tui.tools.git_read_tool import GitReadTool
 from client_surfaces.operator_tui.tools.todo_read_tool import TodoReadTool
 
 

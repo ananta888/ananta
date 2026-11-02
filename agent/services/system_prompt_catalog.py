@@ -13,6 +13,7 @@ Usage in services:
     template = get_system_prompt("system.llm_repair")
     prompt = template.format(previous_raw=..., validation_errors=..., ...)
 """
+
 from __future__ import annotations
 
 import copy
@@ -36,9 +37,7 @@ class SystemPromptCatalog:
     ) -> None:
         self.repository_root = (repository_root or ROOT).resolve()
         self.catalog_path = catalog_path or (self.repository_root / "config" / "system_prompts.json")
-        self.schema_path = schema_path or (
-            self.repository_root / "schemas" / "system_prompt_catalog.v1.json"
-        )
+        self.schema_path = schema_path or (self.repository_root / "schemas" / "system_prompt_catalog.v1.json")
         self._catalog: dict[str, Any] | None = None
         self.load_error: str | None = None
 
@@ -82,6 +81,7 @@ class SystemPromptCatalog:
         payload = json.loads(self.catalog_path.read_text(encoding="utf-8"))
         try:
             from jsonschema import Draft202012Validator
+
             schema = json.loads(self.schema_path.read_text(encoding="utf-8"))
             errors = sorted(Draft202012Validator(schema).iter_errors(payload), key=lambda e: list(e.path))
             if errors:

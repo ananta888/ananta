@@ -1,4 +1,5 @@
 """AudioDecision stream sessions (``/v1/audio/decisions/sessions*``) with mocked HTTP."""
+
 from __future__ import annotations
 
 import contextlib
@@ -57,8 +58,15 @@ class ScriptedTransport:
 
 
 def _created(**extra) -> tuple[int, dict]:
-    payload = {"object": "audio.decision.session", "id": SID, "sample_rate": 16000, "formats": ["s16le", "f32le"],
-               "idle_timeout_ms": 60000, "max_audio_ms": 1800000, "max_chunk_bytes": 1 << 20}
+    payload = {
+        "object": "audio.decision.session",
+        "id": SID,
+        "sample_rate": 16000,
+        "formats": ["s16le", "f32le"],
+        "idle_timeout_ms": 60000,
+        "max_audio_ms": 1800000,
+        "max_chunk_bytes": 1 << 20,
+    }
     payload.update(extra)
     return 201, payload
 
@@ -70,8 +78,13 @@ def _decision(field: dict, **kwargs) -> dict:
 
 
 def _events(*events, position_ms=1000, in_speech=False, session=SID) -> tuple[int, dict]:
-    return 200, {"object": "audio.decision.events", "session": session, "position_ms": position_ms,
-                 "in_speech": in_speech, "events": list(events)}
+    return 200, {
+        "object": "audio.decision.events",
+        "session": session,
+        "position_ms": position_ms,
+        "in_speech": in_speech,
+        "events": list(events),
+    }
 
 
 def _event(kind: str, seq: int, result: dict | None = None, **extra) -> dict:
@@ -124,8 +137,13 @@ def _pcm(ms: int) -> bytes:
 
 def test_open_sends_validated_request_and_returns_a_session():
     transport = ScriptedTransport({("POST", SESSIONS): [_created()]})
-    result = _open(transport, fields=("command",), language="en", fallback="transcribe",
-                   options=StreamOptions(min_silence_ms=400, partial_every_ms=300, threshold=0.6))
+    result = _open(
+        transport,
+        fields=("command",),
+        language="en",
+        fallback="transcribe",
+        options=StreamOptions(min_silence_ms=400, partial_every_ms=300, threshold=0.6),
+    )
     assert result.ok and result.session is not None and result.session.session_id == SID
     call = transport.calls[0]
     assert call["headers"]["Authorization"] == f"Bearer {KEY}"
@@ -146,8 +164,12 @@ def test_semantic_profile_streams_always_request_a_transcript():
 
 @pytest.mark.parametrize(
     "options",
-    [StreamOptions(partial_every_ms=100), StreamOptions(threshold=1.5), StreamOptions(max_speech_ms=60_000),
-     StreamOptions(min_speech_ms=True)],
+    [
+        StreamOptions(partial_every_ms=100),
+        StreamOptions(threshold=1.5),
+        StreamOptions(max_speech_ms=60_000),
+        StreamOptions(min_speech_ms=True),
+    ],
 )
 def test_invalid_stream_options_are_rejected_locally(options):
     transport = ScriptedTransport({})
@@ -206,20 +228,25 @@ def _session(transport):
 
 def test_push_returns_typed_events_and_only_partials_finals_carry_outcomes():
     final = _decision(_field("ok", "stop", calibrated=True, confidence=0.97))
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()],
-        ("POST", AUDIO): [_events(
-            _event("speech_start", 0),
-            _event("partial", 1, _decision(_field("ok", "go"))),
-            _event("final", 2, final, debounced=False, supersedes=[1]),
-            _event("revoked", 3, supersedes=[1]),
-            _event("dropped", 4),
-            _event("mystery", 5, final),
-            {"object": "audio.decision.event", "type": "final", "result": final},  # no seq
-            "garbage",
-            position_ms=1520, in_speech=True,
-        )],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [
+                _events(
+                    _event("speech_start", 0),
+                    _event("partial", 1, _decision(_field("ok", "go"))),
+                    _event("final", 2, final, debounced=False, supersedes=[1]),
+                    _event("revoked", 3, supersedes=[1]),
+                    _event("dropped", 4),
+                    _event("mystery", 5, final),
+                    {"object": "audio.decision.event", "type": "final", "result": final},  # no seq
+                    "garbage",
+                    position_ms=1520,
+                    in_speech=True,
+                )
+            ],
+        }
+    )
     session = _session(transport)
     pushed = session.push(_pcm(500))
     assert pushed.ok and pushed.position_ms == 1520 and pushed.in_speech is True
@@ -236,15 +263,19 @@ def test_push_returns_typed_events_and_only_partials_finals_carry_outcomes():
 
 
 def test_final_without_or_with_broken_result_is_no_decision():
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()],
-        ("POST", AUDIO): [_events(
-            _event("final", 1),
-            _event("final", 2, _error("deadline_exceeded")),
-            _event("final", 3, _decision(_field("ok", "stop"), api_version="audio.decision.v2")),
-            _event("final", 4, {**_decision(_field("ok", "stop")), "profile": {"id": "home-control-en"}}),
-        )],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [
+                _events(
+                    _event("final", 1),
+                    _event("final", 2, _error("deadline_exceeded")),
+                    _event("final", 3, _decision(_field("ok", "stop"), api_version="audio.decision.v2")),
+                    _event("final", 4, {**_decision(_field("ok", "stop")), "profile": {"id": "home-control-en"}}),
+                )
+            ],
+        }
+    )
     events = _session(transport).push(_pcm(200)).events
     codes = [event.outcome.error_code for event in events]
     assert all(event.outcome.ok is False and event.outcome.value("command") is None for event in events)
@@ -255,18 +286,27 @@ def test_final_without_or_with_broken_result_is_no_decision():
 
 def test_stream_gate_only_acts_on_non_debounced_finals():
     calibrated = _decision(_field("ok", "stop", calibrated=True, confidence=0.97))
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()],
-        ("POST", AUDIO): [_events(
-            _event("partial", 1, calibrated),
-            _event("final", 2, calibrated),
-            _event("final", 3, calibrated, debounced=True),
-            _event("final", 4, _decision(_field("abstain", reasons=["out_of_set"]),
-                                         fallback={"used": True, "transcript": SECRET_TRANSCRIPT,
-                                                   "system2_required": True})),
-            _event("final", 5, _decision(_field("ok", "stop"))),
-        )],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [
+                _events(
+                    _event("partial", 1, calibrated),
+                    _event("final", 2, calibrated),
+                    _event("final", 3, calibrated, debounced=True),
+                    _event(
+                        "final",
+                        4,
+                        _decision(
+                            _field("abstain", reasons=["out_of_set"]),
+                            fallback={"used": True, "transcript": SECRET_TRANSCRIPT, "system2_required": True},
+                        ),
+                    ),
+                    _event("final", 5, _decision(_field("ok", "stop"))),
+                )
+            ],
+        }
+    )
     events = _session(transport).push(_pcm(200)).events
     policy = VoiceCommandAudioDecisionPolicy()
     gated = [gate_stream_event(event, field_name="command", policy=policy) for event in events]
@@ -282,11 +322,16 @@ def test_stream_gate_treats_a_final_without_outcome_as_no_decision():
 
 
 def test_large_pushes_are_chunked_and_flush_marks_only_the_last_chunk():
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created(max_chunk_bytes=10_001)],
-        ("POST", AUDIO): [_events(_event("speech_start", 0)), _events(), _events(_event("final", 1, _decision(
-            _field("ok", "stop"))))],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created(max_chunk_bytes=10_001)],
+            ("POST", AUDIO): [
+                _events(_event("speech_start", 0)),
+                _events(),
+                _events(_event("final", 1, _decision(_field("ok", "stop")))),
+            ],
+        }
+    )
     session = _session(transport)
     pushed = session.push(_pcm(1000)[:25_000], flush=True)
     assert pushed.ok and [event.type for event in pushed.events] == ["speech_start", "final"]
@@ -323,12 +368,15 @@ def test_cancelled_token_closes_the_session_without_pushing():
 
 
 def test_cancel_during_push_discards_events_and_closes():
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()],
-        ("POST", AUDIO): [_events(_event("final", 1, _decision(_field("ok", "stop", calibrated=True,
-                                                                        confidence=0.99))))],
-        ("DELETE", SESSIONS): [DELETED],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [
+                _events(_event("final", 1, _decision(_field("ok", "stop", calibrated=True, confidence=0.99))))
+            ],
+            ("DELETE", SESSIONS): [DELETED],
+        }
+    )
     session = _session(transport)
     token = BackendCancellationToken(deadline_monotonic=time.monotonic() + 10)
     transport.on_request = lambda method, url: token.cancel() if url.endswith("format=s16le") else None
@@ -366,9 +414,13 @@ def test_push_timeout_is_bounded_by_the_token_deadline():
     ],
 )
 def test_push_failures_are_typed_without_events(answer, code, closed, deleted):
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()], ("POST", AUDIO): [answer], ("DELETE", SESSIONS): [DELETED],
-    })
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [answer],
+            ("DELETE", SESSIONS): [DELETED],
+        }
+    )
     session = _session(transport)
     result = session.push(_pcm(100))
     assert result.ok is False and result.error_code == code and result.events == ()
@@ -399,14 +451,19 @@ def test_decode_pcm_uses_ananta_limits():
 
 
 def test_stream_logs_carry_no_audio_transcript_label_or_key():
-    result_payload = _decision(_field("abstain", reasons=["out_of_set"]),
-                               fallback={"used": True, "transcript": SECRET_TRANSCRIPT, "system2_required": True})
-    transport = ScriptedTransport({
-        ("POST", SESSIONS): [_created()],
-        ("POST", AUDIO): [_events(_event("final", 1, result_payload),
-                                  _event("final", 2, _decision(_field("ok", "stop"))))],
-        ("DELETE", SESSIONS): [DELETED],
-    })
+    result_payload = _decision(
+        _field("abstain", reasons=["out_of_set"]),
+        fallback={"used": True, "transcript": SECRET_TRANSCRIPT, "system2_required": True},
+    )
+    transport = ScriptedTransport(
+        {
+            ("POST", SESSIONS): [_created()],
+            ("POST", AUDIO): [
+                _events(_event("final", 1, result_payload), _event("final", 2, _decision(_field("ok", "stop"))))
+            ],
+            ("DELETE", SESSIONS): [DELETED],
+        }
+    )
     with decision_log() as log:
         with _session(transport) as session:
             assert session.push(_pcm(100)).ok
@@ -442,7 +499,10 @@ def test_http_transport_forwards_the_query_string():
     try:
         port = server.server_address[1]
         status, _body = HttpClientTransport().request(
-            "POST", f"http://127.0.0.1:{port}{AUDIO}?format=s16le&flush=1", body=b"\x00\x00", headers={},
+            "POST",
+            f"http://127.0.0.1:{port}{AUDIO}?format=s16le&flush=1",
+            body=b"\x00\x00",
+            headers={},
             timeout_s=2,
         )
     finally:

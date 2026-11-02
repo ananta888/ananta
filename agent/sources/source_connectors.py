@@ -14,7 +14,6 @@ from agent.sources.source_cache import SourceCache
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 from agent.sources.wikimedia_downloader import WikimediaDownloader
 
-
 _CONNECTOR_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
 
@@ -175,11 +174,7 @@ class DescriptorConnectorAdapter:
         return {
             "source_id": str(descriptor.get("source_id") or ""),
             "status": "planned" if request.dry_run else "skipped",
-            "reason_code": (
-                "dry_run"
-                if request.dry_run
-                else "connector_does_not_support_remote_refresh"
-            ),
+            "reason_code": ("dry_run" if request.dry_run else "connector_does_not_support_remote_refresh"),
         }
 
     def health(self, descriptor: Mapping[str, Any]) -> ConnectorHealth:
@@ -217,10 +212,7 @@ class KeycloakConnectorAdapter(DescriptorConnectorAdapter):
         fetch_source = dict(descriptor.get("fetch_source") or {})
         urls = [
             str(fetch_source.get("url") or ""),
-            *[
-                str(item)
-                for item in list(fetch_source.get("additional_urls") or [])
-            ],
+            *[str(item) for item in list(fetch_source.get("additional_urls") or [])],
         ]
         digest = _canonical_digest([url for url in urls if url])
         return SourceInventory(
@@ -292,9 +284,7 @@ class WikimediaConnectorAdapter(DescriptorConnectorAdapter):
                 "source_id": source_id,
                 "status": "queued",
                 "reason_code": "download_parameters_required",
-                "human_message": (
-                    "Provide corpus_url and destination_name for dump refresh"
-                ),
+                "human_message": ("Provide corpus_url and destination_name for dump refresh"),
             }
         destination_name = Path(request.destination_name)
         if (
@@ -304,8 +294,7 @@ class WikimediaConnectorAdapter(DescriptorConnectorAdapter):
         ):
             raise SourceConnectorError("invalid_destination_name")
         descriptor_hash = str(
-            (descriptor.get("extensions") or {}).get("descriptor_hash")
-            or _canonical_digest(descriptor)
+            (descriptor.get("extensions") or {}).get("descriptor_hash") or _canonical_digest(descriptor)
         )
         destination = self._destination_root / destination_name.name
         report = self._downloader.download(

@@ -68,9 +68,7 @@ def test_agent_production_code_does_not_import_worker_policy() -> None:
     for path in agent_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == (
-                "worker.core.context_access_policy"
-            ):
+            if isinstance(node, ast.ImportFrom) and node.module == ("worker.core.context_access_policy"):
                 violations.append(str(path.relative_to(agent_root.parent)))
             if isinstance(node, ast.Import):
                 for alias in node.names:

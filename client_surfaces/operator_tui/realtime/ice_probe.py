@@ -4,13 +4,13 @@ Uses basic UDP sockets to test STUN (RFC 5389 binding request).
 Gracefully fails when network is unavailable.
 Local IPs are redacted from non-verbose output.
 """
+
 from __future__ import annotations
 
 import re
 import socket
 import struct
 import time
-import urllib.parse
 from dataclasses import dataclass, field
 
 # RFC 5389 STUN Binding Request magic cookie

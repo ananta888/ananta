@@ -25,6 +25,7 @@ P12     otherwise (calibrated, confident, low-risk direct action)             al
 permission by itself (``gate_audio_decision`` enforces ``grants_permission=False`` and turns
 policy exceptions into ``deny``).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

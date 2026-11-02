@@ -1,21 +1,23 @@
 """SS02.03 / PRD05.01: Tests für Session-Key-Ableitung und Payload-Verschlüsselung."""
+
 from __future__ import annotations
 
 import os
+
 import pytest
 
 from client_surfaces.operator_tui.share_crypto import (
-    SessionKeyPair,
-    encrypt_chat,
-    decrypt_chat,
-    encrypt_view,
-    decrypt_view,
-    EncryptedPayload,
-    DecryptionFailedError,
-    CryptoError,
-    _derive_key,
     _CONTEXT_CHAT,
     _CONTEXT_VIEW,
+    CryptoError,
+    DecryptionFailedError,
+    EncryptedPayload,
+    SessionKeyPair,
+    _derive_key,
+    decrypt_chat,
+    decrypt_view,
+    encrypt_chat,
+    encrypt_view,
 )
 
 

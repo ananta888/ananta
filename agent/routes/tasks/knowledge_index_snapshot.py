@@ -44,9 +44,7 @@ def knowledge_index_base_snapshot(task_id: str):
                 "reason_code": exc.reason_code,
             },
         )
-        public_reason_code = (
-            "not_found" if exc.status_code == 404 else exc.reason_code
-        )
+        public_reason_code = "not_found" if exc.status_code == 404 else exc.reason_code
         return api_response(
             status="error",
             message=public_reason_code,

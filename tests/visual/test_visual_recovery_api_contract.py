@@ -265,28 +265,16 @@ def test_visual_dry_run_exposes_effective_recovery_and_candidate_plan(
     payload = response.get_json()
     assert payload["validation"]["valid"] is True
     assert payload["model_routing_summary"]["status"] == "ready"
-    plans = {
-        item["step_id"]: item
-        for item in payload["per_step_model_plan"]
-    }
+    plans = {item["step_id"]: item for item in payload["per_step_model_plan"]}
     expected_candidates = [phi.profile_id, gemma.profile_id]
-    assert plans["inherit"]["context_recovery_strategies"] == (
-        inherited_strategies
-    )
+    assert plans["inherit"]["context_recovery_strategies"] == (inherited_strategies)
     assert plans["stop-only"]["context_recovery_strategies"] == ["stop"]
     assert plans["inherit"]["candidate_chain"] == expected_candidates
     assert plans["stop-only"]["candidate_chain"] == expected_candidates
     assert plans["inherit"]["selected_profile_id"] == phi.profile_id
-    blueprint_steps = {
-        item["step_id"]: item
-        for item in payload["blueprint"]["workflow"]["steps"]
-    }
-    assert blueprint_steps["inherit"]["model_routing"][
-        "context_recovery_strategies"
-    ] == inherited_strategies
-    assert blueprint_steps["stop-only"]["model_routing"][
-        "context_recovery_strategies"
-    ] == ["stop"]
+    blueprint_steps = {item["step_id"]: item for item in payload["blueprint"]["workflow"]["steps"]}
+    assert blueprint_steps["inherit"]["model_routing"]["context_recovery_strategies"] == inherited_strategies
+    assert blueprint_steps["stop-only"]["model_routing"]["context_recovery_strategies"] == ["stop"]
 
 
 def test_invalid_graph_step_recovery_merge_fails_closed_without_model_plan(
@@ -397,10 +385,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
             TaskDB(
                 id="task-recovery-api",
                 title="Recover exhausted local model execution",
-                description=(
-                    "Create a bounded, approval-gated plan after local model "
-                    "exhaustion."
-                ),
+                description=("Create a bounded, approval-gated plan after local model exhaustion."),
                 status="proposing",
                 goal_id=goal.id,
                 goal_trace_id=goal.trace_id,
@@ -409,9 +394,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
                 worker_execution_context={
                     "model_routing": {
                         "preferred_profile_id": "local_ollama_phi4_mini",
-                        "fallback_group_id": (
-                            "local_phi_to_gemma_reasoning"
-                        ),
+                        "fallback_group_id": ("local_phi_to_gemma_reasoning"),
                         "context_recovery_strategies": [
                             "compact_context",
                             "segment_planning",
@@ -446,9 +429,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
         assert old_approval.tool_name == RECOVERY_MATERIALIZE_TOOL
         assert old_approval.status == "pending"
         assert old_approval.target_fingerprint == old_digest
-        assert old_approval.canonical_arguments["team_id"] == (
-            "team-recovery"
-        )
+        assert old_approval.canonical_arguments["team_id"] == ("team-recovery")
 
     same_team_view = client.get(
         f"/goals/{goal.id}/plans/{plan_id}",
@@ -530,12 +511,8 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
         assert new_approval is not None
         assert new_approval.status == "pending"
         assert new_approval.target_fingerprint == refreshed_digest
-        assert new_approval.canonical_arguments["plan_digest"] == (
-            refreshed_digest
-        )
-        assert new_approval.canonical_arguments["team_id"] == (
-            "team-recovery"
-        )
+        assert new_approval.canonical_arguments["plan_digest"] == (refreshed_digest)
+        assert new_approval.canonical_arguments["team_id"] == ("team-recovery")
         source = repositories.task_repo.get_by_id(source_task.id)
         recovery_state = source.status_reason_details["model_recovery"]
         assert recovery_state["approval_request_id"] == new_approval_id
@@ -546,9 +523,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
         json={"decision": "granted"},
     )
     assert stale_grant_reuse.status_code == 409
-    assert stale_grant_reuse.get_json()["error"] == (
-        "request_already_consumed"
-    )
+    assert stale_grant_reuse.get_json()["error"] == ("request_already_consumed")
 
     same_team_approvals = client.get(
         f"/api/approvals?goal_id={goal.id}",
@@ -559,9 +534,9 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
         headers=other_team_headers,
     )
     assert same_team_approvals.status_code == 200
-    assert {
-        row["request_id"]
-        for row in same_team_approvals.get_json()["requests"]
-    } == {old_approval_id, new_approval_id}
+    assert {row["request_id"] for row in same_team_approvals.get_json()["requests"]} == {
+        old_approval_id,
+        new_approval_id,
+    }
     assert other_team_approvals.status_code == 200
     assert other_team_approvals.get_json()["requests"] == []

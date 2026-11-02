@@ -53,8 +53,11 @@ class RetrievalCache:
 
     @staticmethod
     def _key(access, key):
-        return hashlib.sha256(json.dumps([access.namespace.key(MemoryScope.run), key,
-                                         access.policy_digest], separators=(",", ":")).encode()).hexdigest()
+        return hashlib.sha256(
+            json.dumps(
+                [access.namespace.key(MemoryScope.run), key, access.policy_digest], separators=(",", ":")
+            ).encode()
+        ).hexdigest()
 
     def get(self, *, key: str) -> dict[str, Any] | None:
         try:
@@ -80,8 +83,7 @@ class RetrievalCache:
                 return
             scoped = self._key(access, key)
             with self._lock:
-                self._entries = {key: entry for key, entry in self._entries.items()
-                                 if time.time() < entry.expires_at}
+                self._entries = {key: entry for key, entry in self._entries.items() if time.time() < entry.expires_at}
                 if scoped in self._entries:
                     self._access(MemoryOperation.update)
                 elif len(self._entries) >= 256:
@@ -89,8 +91,12 @@ class RetrievalCache:
                 if self._access(MemoryOperation.append) != access:
                     return
                 self._entries[scoped] = CacheEntry(
-                    scoped, json.loads(encoded), time.time(), float(quality_score),
-                    min(time.time() + self._ttl_seconds, access.expires_at), access.policy_digest,
+                    scoped,
+                    json.loads(encoded),
+                    time.time(),
+                    float(quality_score),
+                    min(time.time() + self._ttl_seconds, access.expires_at),
+                    access.policy_digest,
                     access.namespace.key(MemoryScope.run),
                 )
         except (ValueError, TypeError):
@@ -100,9 +106,12 @@ class RetrievalCache:
         try:
             access = self._access(MemoryOperation.read)
             with self._lock:
-                count = sum(entry.policy_digest == access.policy_digest and time.time() < entry.expires_at
-                            and entry.namespace == access.namespace.key(MemoryScope.run)
-                            for entry in self._entries.values())
+                count = sum(
+                    entry.policy_digest == access.policy_digest
+                    and time.time() < entry.expires_at
+                    and entry.namespace == access.namespace.key(MemoryScope.run)
+                    for entry in self._entries.values()
+                )
             if self._access(MemoryOperation.read) != access:
                 return {"entry_count": 0}
             return {"entry_count": count}

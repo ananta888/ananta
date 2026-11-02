@@ -5,10 +5,12 @@ inside the resolved workspace root; path traversal and absolute paths are
 rejected. Outputs are bounded, sorted and deterministic. ``git.status``
 and ``git.diff_readonly`` run fixed read-only git argv (no shell).
 """
+
 from __future__ import annotations
 
 import fnmatch
 import hashlib
+import logging
 import os
 import re
 import subprocess
@@ -23,6 +25,8 @@ from agent.services.tools._evidence import (
     build_evidence_entry,
     build_tool_result,
 )
+
+log = logging.getLogger(__name__)
 
 _IGNORED_SEGMENTS = {".git", ".ananta", "__pycache__", "node_modules", "artifacts"}
 _MAX_LIST_LIMIT = 500
@@ -104,8 +108,17 @@ def repo_read_file_range(*, workspace_dir: str, arguments: dict[str, Any], tool_
             tool_name="repo.read_file_range", tool_call_id=tool_call_id, status="error", error=str(exc)
         )
     if not path.is_file():
+        log.warning(
+            "repo.read_file_range file_not_found requested=%s workspace=%s",
+            str(args.get("path") or ""),
+            str(Path(workspace_dir)),
+        )
         return build_tool_result(
-            tool_name="repo.read_file_range", tool_call_id=tool_call_id, status="error", error="file_not_found"
+            tool_name="repo.read_file_range",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="file_not_found",
+            data={"requested_path": str(args.get("path") or ""), "workspace_dir": str(Path(workspace_dir))},
         )
     if path.stat().st_size > _MAX_FILE_BYTES:
         return build_tool_result(
@@ -162,7 +175,9 @@ def repo_grep(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: st
     args = arguments or {}
     pattern = str(args.get("pattern") or "").strip()
     if not pattern:
-        return build_tool_result(tool_name="repo.grep", tool_call_id=tool_call_id, status="error", error="pattern_required")
+        return build_tool_result(
+            tool_name="repo.grep", tool_call_id=tool_call_id, status="error", error="pattern_required"
+        )
     try:
         compiled = re.compile(pattern)
     except re.error as exc:
@@ -260,7 +275,9 @@ def git_status(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: s
         return build_tool_result(
             tool_name="git.status", tool_call_id=tool_call_id, status="error", error=err.strip() or f"git_rc_{rc}"
         )
-    entry, _ = build_evidence_entry(kind="git_status", path=".", excerpt=out.strip() or "(clean)", max_excerpt_chars=4000)
+    entry, _ = build_evidence_entry(
+        kind="git_status", path=".", excerpt=out.strip() or "(clean)", max_excerpt_chars=4000
+    )
     return build_tool_result(tool_name="git.status", tool_call_id=tool_call_id, status="ok", evidence=[entry])
 
 
@@ -279,7 +296,12 @@ def git_diff_readonly(*, workspace_dir: str, arguments: dict[str, Any], tool_cal
     rc, out, err = _run_git_readonly(workspace_dir, argv)
     if rc != 0:
         return build_tool_result(
-            tool_name="git.diff_readonly", tool_call_id=tool_call_id, status="error", error=err.strip() or f"git_rc_{rc}"
+            tool_name="git.diff_readonly",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=err.strip() or f"git_rc_{rc}",
         )
-    entry, _ = build_evidence_entry(kind="diff", path=rel or ".", excerpt=out.strip() or "(no diff)", max_excerpt_chars=10000)
+    entry, _ = build_evidence_entry(
+        kind="diff", path=rel or ".", excerpt=out.strip() or "(no diff)", max_excerpt_chars=10000
+    )
     return build_tool_result(tool_name="git.diff_readonly", tool_call_id=tool_call_id, status="ok", evidence=[entry])

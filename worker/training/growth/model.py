@@ -6,7 +6,7 @@ are rejected by the transformation ports rather than silently rewritten.
 
 from __future__ import annotations
 
-from ananta_contracts.adaptive_growth import GrowthModelConfig, SUPPORTED_ARCHITECTURE
+from ananta_contracts.adaptive_growth import SUPPORTED_ARCHITECTURE, GrowthModelConfig
 from worker.training.research.modeling import require_torch
 
 

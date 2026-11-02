@@ -34,9 +34,7 @@ def test_local_acceptance_passes_but_production_stays_unverified_without_ids() -
 
     assert decision.local_acceptance_passed is True
     assert decision.production_release_allowed is False
-    assert decision.reason_codes == (
-        "controlling_gate_production_evidence_unverified",
-    )
+    assert decision.reason_codes == ("controlling_gate_production_evidence_unverified",)
 
 
 def test_gate_rejects_financial_action_budget_and_invented_ids() -> None:

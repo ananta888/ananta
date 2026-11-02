@@ -2,6 +2,7 @@
 
 Alle Calls sind synchron mit kurzem Timeout — für Background-Thread-Ausführung gedacht.
 """
+
 from __future__ import annotations
 
 import json
@@ -97,6 +98,7 @@ def _base(base_url: str | None = None) -> str:
 
 # --- Session API ---
 
+
 def create_session(
     *,
     token: str,
@@ -128,11 +130,15 @@ def join_session(
         url = f"{_base(base_url)}/rendezvous/sessions/{session_id}/join"
     else:
         url = f"{_base(base_url)}/rendezvous/sessions/join"
-    return _post(url, {
-        "invite_code": invite_code,
-        "device_id": device_id,
-        "device_fingerprint": device_fingerprint,
-    }, token)
+    return _post(
+        url,
+        {
+            "invite_code": invite_code,
+            "device_id": device_id,
+            "device_fingerprint": device_fingerprint,
+        },
+        token,
+    )
 
 
 def list_sessions(*, token: str, base_url: str | None = None) -> list[dict[str, Any]]:
@@ -185,6 +191,7 @@ def list_joined_hub_sessions(*, token: str, hub_url: str) -> list[dict[str, Any]
 
 # --- Share session (Hub relay) API ---
 
+
 def create_hub_session(
     *,
     hub_token: str,
@@ -210,8 +217,12 @@ def join_hub_session(
     device_fingerprint: str = "",
 ) -> dict[str, Any]:
     url = f"{hub_url.rstrip('/')}/share-sessions/{session_id}/join"
-    return _post(url, {
-        "invite_code": invite_code,
-        "device_id": device_id,
-        "public_key_fingerprint": device_fingerprint,
-    }, hub_token)
+    return _post(
+        url,
+        {
+            "invite_code": invite_code,
+            "device_id": device_id,
+            "public_key_fingerprint": device_fingerprint,
+        },
+        hub_token,
+    )

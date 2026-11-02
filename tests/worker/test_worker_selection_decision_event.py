@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
+from agent.services.autopilot.dispatch_policy import resolve_target_worker_for_task
 from agent.services.worker_policy_service import WorkerPolicyService
 
 

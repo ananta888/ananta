@@ -1,5 +1,40 @@
-from agent.task_models import TaskStatus  # noqa: F401 - re-exported for legacy imports
-
+from agent.models.config_models import (
+    AgentDirectoryEntryContract,
+    AgentLivenessContract,
+    AgentRegisterRequest,
+    ApiErrorResponseContract,
+    ConfigUpdateRequest,
+    ContextBundleContract,
+    ExposurePolicyContract,
+    ExposurePolicyGroupContract,
+    GovernancePolicyReadModelContract,
+    HealthCheckSection,
+    HubEventCatalogContract,
+    HubEventContextContract,
+    HubEventContract,
+    LLMConfig,
+    LLMGenerateRequest,
+    OpenAIChatCompletionChoice,
+    OpenAIChatCompletionContract,
+    OpenAIFileContract,
+    OpenAIModelContract,
+    OpenAIResponseContract,
+    OpenAIResponseOutput,
+    ProviderDescriptorContract,
+    RegistrationStateReadModel,
+    SystemHealthReadModel,
+    TemplateCreateRequest,
+    TemplatePreviewRequest,
+    TemplateValidationRequest,
+    TerminalPolicyContract,
+    TriggerConfigureRequest,
+    TriggerTestRequest,
+    WorkerExecutionContextContract,
+    WorkerExecutionLimitsContract,
+    WorkerJobContract,
+    WorkerResultContract,
+    WorkerRoutingDecisionContract,
+)
 from agent.models.goal_models import (
     AutoPlannerAnalyzeRequest,
     AutoPlannerConfigureRequest,
@@ -8,7 +43,13 @@ from agent.models.goal_models import (
     GoalPlanNodePatchRequest,
     GoalProvisionRequest,
 )
-
+from agent.models.project_models import (
+    ProjectCreateCommand,
+    ProjectMembershipRead,
+    ProjectMembershipUpsertCommand,
+    ProjectRead,
+    ProjectUpdateCommand,
+)
 from agent.models.task_models import (
     ArtifactRagIndexRequest,
     ArtifactUploadRequest,
@@ -52,18 +93,9 @@ from agent.models.task_models import (
     TaskStepProposeResponse,
     TaskUpdateRequest,
     TaskWorkerContextSummaryContract,
-    WorkflowExecutionRequestModel,
     WorkerContextHandoffV3,
+    WorkflowExecutionRequestModel,
 )
-
-from agent.models.project_models import (
-    ProjectCreateCommand,
-    ProjectMembershipRead,
-    ProjectMembershipUpsertCommand,
-    ProjectRead,
-    ProjectUpdateCommand,
-)
-
 from agent.models.team_models import (
     BlueprintArtifactDefinition,
     BlueprintBundleDefinition,
@@ -92,46 +124,10 @@ from agent.models.team_models import (
     TeamTypeRoleLinkPatchRequest,
     TeamUpdateRequest,
 )
-
-from agent.models.config_models import (
-    AgentDirectoryEntryContract,
-    AgentLivenessContract,
-    AgentRegisterRequest,
-    ApiErrorResponseContract,
-    ConfigUpdateRequest,
-    ContextBundleContract,
-    ExposurePolicyContract,
-    ExposurePolicyGroupContract,
-    GovernancePolicyReadModelContract,
-    HealthCheckSection,
-    HubEventCatalogContract,
-    HubEventContract,
-    HubEventContextContract,
-    LLMConfig,
-    LLMGenerateRequest,
-    OpenAIChatCompletionChoice,
-    OpenAIChatCompletionContract,
-    OpenAIResponseContract,
-    OpenAIResponseOutput,
-    OpenAIFileContract,
-    OpenAIModelContract,
-    ProviderDescriptorContract,
-    RegistrationStateReadModel,
-    SystemHealthReadModel,
-    TemplateCreateRequest,
-    TemplatePreviewRequest,
-    TemplateValidationRequest,
-    TerminalPolicyContract,
-    TriggerConfigureRequest,
-    TriggerTestRequest,
-    WorkerExecutionContextContract,
-    WorkerExecutionLimitsContract,
-    WorkerJobContract,
-    WorkerResultContract,
-    WorkerRoutingDecisionContract,
-)
+from agent.task_models import TaskStatus  # noqa: F401 - re-exported for legacy imports
 
 __all__ = [
+    "WorkflowExecutionRequestModel",
     "ProjectCreateCommand",
     "ProjectMembershipRead",
     "ProjectMembershipUpsertCommand",

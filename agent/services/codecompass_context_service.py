@@ -181,11 +181,13 @@ class CodeCompassContextService:
             and self._config.external_cloud_policy == "metadata_only_unless_allowed"
         ):
             if include_original_files:
-                denied_items.append({
-                    "kind": "context_files",
-                    "reason_code": "external_cloud_metadata_only",
-                    "requested": "include_original_files",
-                })
+                denied_items.append(
+                    {
+                        "kind": "context_files",
+                        "reason_code": "external_cloud_metadata_only",
+                        "requested": "include_original_files",
+                    }
+                )
             include_original_files = False
             include_jsonl_records = False
 
@@ -333,16 +335,18 @@ class CodeCompassContextService:
                 continue
             if glob_tokens and not any(token in path for token in glob_tokens):
                 continue
-            records.append({
-                "record_id": str(hit.get("id") or f"search:{idx}"),
-                "record_kind": kind,
-                "path": path,
-                "symbol": str(hit.get("symbol") or meta.get("symbol") or meta.get("name") or ""),
-                "score": self._to_float(hit.get("score")) or 0.0,
-                "excerpt": str(hit.get("content") or hit.get("text") or hit.get("snippet") or "")[:1500],
-                "domain_hint": str(domain_hint or ""),
-                "provenance": self._provenance(source="codecompass.search", path=path, score=hit.get("score")),
-            })
+            records.append(
+                {
+                    "record_id": str(hit.get("id") or f"search:{idx}"),
+                    "record_kind": kind,
+                    "path": path,
+                    "symbol": str(hit.get("symbol") or meta.get("symbol") or meta.get("name") or ""),
+                    "score": self._to_float(hit.get("score")) or 0.0,
+                    "excerpt": str(hit.get("content") or hit.get("text") or hit.get("snippet") or "")[:1500],
+                    "domain_hint": str(domain_hint or ""),
+                    "provenance": self._provenance(source="codecompass.search", path=path, score=hit.get("score")),
+                }
+            )
         return {
             "schema": SCHEMA_SEARCH_RESULT,
             "status": "ok" if records else "degraded",
@@ -471,7 +475,7 @@ class CodeCompassContextService:
                 lines = text.splitlines()
                 start = max(1, int(line_start or 1))
                 end = min(len(lines), int(line_end or len(lines)))
-                text = "\n".join(lines[start - 1:end])
+                text = "\n".join(lines[start - 1 : end])
             encoded = text.encode("utf-8", errors="replace")
             remaining = max(0, total_limit - consumed)
             limit = min(per_file_limit, remaining)
@@ -481,18 +485,20 @@ class CodeCompassContextService:
                 warnings.append("file_context_truncated")
             redacted, redaction_status = self._redact(text, enabled=redaction_mode != "none")
             consumed += len(redacted.encode("utf-8", errors="replace"))
-            context_files.append({
-                "path": path,
-                "content": redacted,
-                "sha256": hashlib.sha256(raw_bytes).hexdigest(),
-                "byte_count": len(raw_bytes),
-                "line_count": len(raw_bytes.decode("utf-8", errors="replace").splitlines()),
-                "line_ranges": [{"line_start": line_start, "line_end": line_end}] if line_start or line_end else [],
-                "redaction_status": redaction_status,
-                "truncated": truncated,
-                "read_at": time.time(),
-                "provenance": self._provenance(source="codecompass.get_file_context", path=path, score=None),
-            })
+            context_files.append(
+                {
+                    "path": path,
+                    "content": redacted,
+                    "sha256": hashlib.sha256(raw_bytes).hexdigest(),
+                    "byte_count": len(raw_bytes),
+                    "line_count": len(raw_bytes.decode("utf-8", errors="replace").splitlines()),
+                    "line_ranges": [{"line_start": line_start, "line_end": line_end}] if line_start or line_end else [],
+                    "redaction_status": redaction_status,
+                    "truncated": truncated,
+                    "read_at": time.time(),
+                    "provenance": self._provenance(source="codecompass.get_file_context", path=path, score=None),
+                }
+            )
         return {
             "schema": SCHEMA_FILE_CONTEXT_RESULT,
             "status": "ok" if context_files else "degraded",
@@ -521,11 +527,13 @@ class CodeCompassContextService:
                 if not path or path in seen:
                     continue
                 seen.add(path)
-                files.append({
-                    "path": path,
-                    "score": record.get("score", 0.0),
-                    "reason": "domain_hint_match" if hint else "architecture_search",
-                })
+                files.append(
+                    {
+                        "path": path,
+                        "score": record.get("score", 0.0),
+                        "reason": "domain_hint_match" if hint else "architecture_search",
+                    }
+                )
         edges = []
         if include_edges and files:
             graph = self.expand_graph(
@@ -727,6 +735,7 @@ class CodeCompassContextService:
             from agent.services.referenced_context_hint_service import (
                 get_referenced_context_hint_service,
             )
+
             svc = get_referenced_context_hint_service()
             task = str(task_kind or "context_selection")
             return svc.hints_for_candidates(candidates, task=task)

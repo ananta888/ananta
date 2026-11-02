@@ -10,26 +10,18 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
 import re
-from typing import Any, Pattern
+from typing import Any
 
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
 from agent.services import _deterministic_repair_utils as _drr_utils
+
 _detect_contradictory_evidence = _drr_utils._detect_contradictory_evidence
 _detect_worsening_signals = _drr_utils._detect_worsening_signals
 _extract_evidence_text = _drr_utils._extract_evidence_text
 
 
-
-
 log = logging.getLogger(__name__)
-
-
 
 
 def run_step_verification(
@@ -63,6 +55,3 @@ def run_step_verification(
             "mutation_candidate": requires_strict,
         },
     }
-
-
-

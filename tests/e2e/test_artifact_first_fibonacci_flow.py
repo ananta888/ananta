@@ -3,6 +3,7 @@
 The exact observed failure mode: worker produces valid files but returns Markdown/chat
 as final response. Hub must complete or needs_review without infinite retry.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,12 +17,11 @@ from agent.services.artifact_manifest_service import get_artifact_manifest_servi
 from agent.services.planning_utils import parse_followup_analysis
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
 from agent.services.task_retry_policy_service import (
-    get_task_retry_policy_service,
     REASON_ADVISORY_JSON_PARSE_FAILED,
+    get_task_retry_policy_service,
 )
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
 from worker.core.artifact_manifest import build_artifact_manifest, write_manifest
-
 
 FIBONACCI_FILES = {
     "app.py": (
@@ -63,18 +63,20 @@ def fibonacci_manifest(fibonacci_workspace: Path) -> dict:
     """Build a valid artifact manifest for the Fibonacci project."""
     artifacts = []
     for filename, content in FIBONACCI_FILES.items():
-        artifacts.append({
-            "artifact_id": f"art-{uuid.uuid4().hex[:12]}",
-            "kind": "generated_file",
-            "relative_path": filename,
-            "content_hash": _sha256(content),
-            "size_bytes": len(content.encode("utf-8")),
-            "classification": "internal",
-            "operation": "created",
-            "required": True,
-            "verification_status": "pending",
-            "metadata": {},
-        })
+        artifacts.append(
+            {
+                "artifact_id": f"art-{uuid.uuid4().hex[:12]}",
+                "kind": "generated_file",
+                "relative_path": filename,
+                "content_hash": _sha256(content),
+                "size_bytes": len(content.encode("utf-8")),
+                "classification": "internal",
+                "operation": "created",
+                "required": True,
+                "verification_status": "pending",
+                "metadata": {},
+            }
+        )
     return build_artifact_manifest(
         goal_id="goal-fibonacci",
         task_id="task-fibonacci",
@@ -156,9 +158,7 @@ def test_fibonacci_completes_despite_malformed_final_json(
         retry_count=0,
         has_valid_artifacts=True,
     )
-    assert not retry_cls.should_retry, (
-        "Advisory parse failure with valid artifacts must NEVER requeue the task."
-    )
+    assert not retry_cls.should_retry, "Advisory parse failure with valid artifacts must NEVER requeue the task."
 
     # Advisory parse status must be recorded separately from completion decision
     if advisory.get("parse_error"):

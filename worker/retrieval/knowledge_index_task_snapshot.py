@@ -69,9 +69,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
         self._requires_deadline_capable_transport = get is None
 
     def fetch(self, *, task_id: str) -> Mapping[str, Any]:
-        deadline_monotonic = (
-            float(self._monotonic_clock()) + self._timeout_seconds
-        )
+        deadline_monotonic = float(self._monotonic_clock()) + self._timeout_seconds
         token = str(self._token_provider() or "").strip()
         if len(token.encode("utf-8")) < 32:
             raise RuntimeError("knowledge_index_task_snapshot_worker_identity_unavailable")
@@ -126,9 +124,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
             raise
         except Exception as exc:
             if float(self._monotonic_clock()) >= deadline_monotonic:
-                raise RuntimeError(
-                    "knowledge_index_task_snapshot_deadline_exceeded"
-                ) from exc
+                raise RuntimeError("knowledge_index_task_snapshot_deadline_exceeded") from exc
             raise RuntimeError("knowledge_index_task_snapshot_unavailable") from exc
         finally:
             close = getattr(response, "close", None)
@@ -150,9 +146,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
                 if declared_length < 0:
                     raise RuntimeError("knowledge_index_task_snapshot_response_invalid")
                 if declared_length > _MAX_RESPONSE_BYTES:
-                    raise RuntimeError(
-                        "knowledge_index_task_snapshot_response_too_large"
-                    )
+                    raise RuntimeError("knowledge_index_task_snapshot_response_too_large")
             chunks: list[bytes] = []
             total = 0
             for chunk in self._response_chunks(
@@ -194,16 +188,12 @@ class HubKnowledgeIndexTaskSnapshotClient:
             if isinstance(headers, Mapping):
                 encoding = str(headers.get("Content-Encoding") or "").strip().lower()
             if encoding not in {"", "identity"}:
-                raise RuntimeError(
-                    "knowledge_index_task_snapshot_content_encoding_forbidden"
-                )
+                raise RuntimeError("knowledge_index_task_snapshot_content_encoding_forbidden")
             raw = getattr(response, "raw", None)
             http_response = getattr(raw, "_fp", None)
             reader = getattr(http_response, "read1", None)
             if not callable(reader):
-                raise RuntimeError(
-                    "knowledge_index_task_snapshot_deadline_transport_unsupported"
-                )
+                raise RuntimeError("knowledge_index_task_snapshot_deadline_transport_unsupported")
             # Reading through ``_fp`` bypasses urllib3's
             # ``length_remaining`` bookkeeping. Count the bytes here so a
             # response that closes exactly at Content-Length is still proven
@@ -216,27 +206,17 @@ class HubKnowledgeIndexTaskSnapshotClient:
                 if declared_length is None and self._response_is_complete(response):
                     return
                 if not self._set_socket_timeout(response, remaining):
-                    raise RuntimeError(
-                        "knowledge_index_task_snapshot_deadline_transport_unsupported"
-                    )
-                read_size = (
-                    min(65_536, declared_length - bytes_read)
-                    if declared_length is not None
-                    else 65_536
-                )
+                    raise RuntimeError("knowledge_index_task_snapshot_deadline_transport_unsupported")
+                read_size = min(65_536, declared_length - bytes_read) if declared_length is not None else 65_536
                 chunk = reader(read_size)
                 self._require_remaining(deadline_monotonic)
                 if not chunk:
                     if declared_length is not None and bytes_read != declared_length:
-                        raise RuntimeError(
-                            "knowledge_index_task_snapshot_response_invalid"
-                        )
+                        raise RuntimeError("knowledge_index_task_snapshot_response_invalid")
                     return
                 bytes_read += len(chunk)
                 if declared_length is not None and bytes_read > declared_length:
-                    raise RuntimeError(
-                        "knowledge_index_task_snapshot_response_invalid"
-                    )
+                    raise RuntimeError("knowledge_index_task_snapshot_response_invalid")
                 yield chunk
             return
 
@@ -254,9 +234,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
     def _require_remaining(self, deadline_monotonic: float) -> float:
         remaining = deadline_monotonic - float(self._monotonic_clock())
         if remaining <= 0:
-            raise RuntimeError(
-                "knowledge_index_task_snapshot_deadline_exceeded"
-            )
+            raise RuntimeError("knowledge_index_task_snapshot_deadline_exceeded")
         return remaining
 
     @staticmethod

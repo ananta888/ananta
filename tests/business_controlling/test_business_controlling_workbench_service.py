@@ -29,9 +29,7 @@ class _Analysis:
         self.calls: list[tuple[bool, bool]] = []
 
     def execute(self, **kwargs: object) -> Mapping[str, object]:
-        self.calls.append(
-            (bool(kwargs["statistics_enabled"]), bool(kwargs["explanations_enabled"]))
-        )
+        self.calls.append((bool(kwargs["statistics_enabled"]), bool(kwargs["explanations_enabled"])))
         finding: dict[str, object] = {
             "finding_id": "finding-a",
             "kind": "deterministic_violation",

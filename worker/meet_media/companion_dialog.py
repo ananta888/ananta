@@ -6,6 +6,7 @@ LLM port, and the runtime trace is ``companion_explanation``. The dialog
 never calls the browser or media stack.
 """
 
+import logging
 import re
 
 from worker.meet_media.companion_explanation import AnswerTrace, RepositorySource, explain
@@ -134,8 +135,10 @@ def context_block(snippets, *, max_chars=1400, preserve_lines=False, show_score=
         symbol = str(item.get("symbol") or "").strip()
         line, line_end = item.get("line"), item.get("line_end")
         raw = str(item.get("excerpt") or "")
-        excerpt = "\n".join(part.rstrip() for part in raw.strip("\n").splitlines()) if preserve_lines else " ".join(
-            raw.split()
+        excerpt = (
+            "\n".join(part.rstrip() for part in raw.strip("\n").splitlines())
+            if preserve_lines
+            else " ".join(raw.split())
         )
         if not excerpt.strip():
             continue
@@ -257,7 +260,7 @@ class CompanionDialog:
             try:
                 decision = self._routing(text, decision, codecompass_enabled=self._codecompass_enabled)
             except Exception:  # noqa: BLE001 -- the keyword rules always remain the answer
-                pass
+                logging.getLogger(__name__).debug("answer: ignored Exception", exc_info=True)
         trace = AnswerTrace(question=str(text or "")[:1000], route=decision.route)
         trace.observe(f"chat message received, route={decision.route} ({decision.reason})")
         if decision.route == SELF_EXPLANATION:
@@ -288,7 +291,8 @@ class CompanionDialog:
                 self._tools.force(choice.tool, dict(choice.arguments))
                 trace.codecompass_used = True
                 trace.observe(
-                    f"{choice.tool} chosen by the decision fast path (p={choice.confidence:.2f}) before the model call")
+                    f"{choice.tool} chosen by the decision fast path (p={choice.confidence:.2f}) before the model call"
+                )
                 grounded = True
         if decision.route == MEET_RUNTIME_CURRENT_DIALOG:
             runtime = str(self._runtime_context() or "").strip()

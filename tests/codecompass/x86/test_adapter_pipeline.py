@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -30,6 +29,7 @@ CALL_RET = FIXTURE_DIR / "call_ret_x86_64.json"
 
 
 # ===== X86CC-011: Adapter contract =====
+
 
 def test_dummy_adapter_is_concrete_subclass():
     assert issubclass(DummyAdapter, X86DisassemblerAdapter)
@@ -59,17 +59,19 @@ def test_dummy_adapter_disassemble_returns_required_keys():
 
 def test_adapter_contract_forbids_unsafe_input_kinds():
     """A safe-by-construction adapter must not advertise unsafe input kinds as supported."""
-    a = DummyAdapter()
+    DummyAdapter()
     # DummyAdapter currently advertises all 9 — that's fine for testing the dispatcher,
     # but the runtime dispatcher (not exercised here) MUST refuse unsafe ones.
     # The safety layer in agent.codecompass.x86.safety is what enforces this; here
     # we just verify the safety module agrees.
     from agent.codecompass.x86.safety import check_safety_policy, is_safe_for_static_analysis
+
     assert check_safety_policy("executable_binary") is not None
     assert is_safe_for_static_analysis("executable_binary") is False
 
 
 # ===== X86CC-012: Fixture adapter =====
+
 
 def test_load_fixture_returns_dict():
     d = load_fixture(SIMPLE_ADD)
@@ -130,6 +132,7 @@ def test_fixture_adapter_without_path_returns_adapter_error_diagnostic():
 
 # ===== X86CC-013: Capstone adapter =====
 
+
 def test_capstone_is_available_returns_bool():
     """Without capstone pip-installed, is_available() must return False (not raise)."""
     result = is_available()
@@ -142,7 +145,9 @@ def test_capstone_adapter_unavailable_disassemble_emits_diagnostic():
         pytest.skip("capstone is installed in this environment — skip unavailable test")
     a = CapstoneAdapter()
     inp = X86InputRecord(
-        kind=INPUT_KIND_CAPSTONE_FIXTURE, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_CAPSTONE_FIXTURE,
+        architecture="x86_64",
+        bitness=64,
     )
     out = a.disassemble(inp)
     assert "diagnostics" in out
@@ -160,6 +165,7 @@ def test_capstone_adapter_capabilities_disclose_availability():
 
 
 # ===== X86CC-014: Index builder =====
+
 
 def test_build_manifest_shape():
     m = build_manifest(
@@ -180,7 +186,9 @@ def test_build_manifest_shape():
 def test_index_builder_runs_fixture_end_to_end():
     builder = X86IndexBuilder()
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
         abi="x86_64_sysv",
     )
     adapter = FixtureAdapter(fixture_path=SIMPLE_ADD)
@@ -198,31 +206,44 @@ def test_index_builder_runs_fixture_end_to_end():
 
 def test_index_builder_handles_adapter_exception():
     """If adapter raises, the builder must NOT crash — emit adapter_error diagnostic."""
+
     class BoomAdapter(X86DisassemblerAdapter):
         @property
-        def name(self): return "boom"
+        def name(self):
+            return "boom"
+
         @property
-        def version(self): return "0"
+        def version(self):
+            return "0"
+
         @property
-        def supported_input_types(self): return frozenset({"disassembler_json"})
+        def supported_input_types(self):
+            return frozenset({"disassembler_json"})
+
         @property
-        def supported_profiles(self): return frozenset({"x86_64_sysv"})
+        def supported_profiles(self):
+            return frozenset({"x86_64_sysv"})
+
         def disassemble(self, input_record):
             raise RuntimeError("kaboom")
 
     builder = X86IndexBuilder()
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
     )
     out = builder.build(inp, BoomAdapter())
     assert out["x86_nodes"] == []
-    assert any("adapter" in d.get("code","") for d in out["x86_diagnostics"])
+    assert any("adapter" in d.get("code", "") for d in out["x86_diagnostics"])
 
 
 def test_index_builder_node_sorting_is_deterministic():
     builder = X86IndexBuilder()
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
     )
     adapter = FixtureAdapter(fixture_path=CALL_RET)
     out1 = builder.build(inp, adapter)
@@ -232,11 +253,14 @@ def test_index_builder_node_sorting_is_deterministic():
 
 # ===== X86CC-015: Index pipeline =====
 
+
 def test_pipeline_returns_empty_when_disabled():
     cfg = load_x86_config(env={})  # master switch off
     assert cfg.enabled is False
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
     )
     pipeline = X86IndexPipeline()
     out = pipeline.run([inp], cfg, FixtureAdapter(fixture_path=SIMPLE_ADD))
@@ -246,7 +270,9 @@ def test_pipeline_returns_empty_when_disabled():
 def test_pipeline_runs_when_enabled():
     cfg = X86Config(enabled=True, default_profile="x86_64_sysv")
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
         abi="x86_64_sysv",
     )
     pipeline = X86IndexPipeline()
@@ -258,18 +284,28 @@ def test_pipeline_runs_when_enabled():
 def test_pipeline_degrades_one_input_does_not_kill_others():
     cfg = X86Config(enabled=True)
     good_inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
     )
 
     class BoomAdapter(X86DisassemblerAdapter):
         @property
-        def name(self): return "boom"
+        def name(self):
+            return "boom"
+
         @property
-        def version(self): return "0"
+        def version(self):
+            return "0"
+
         @property
-        def supported_input_types(self): return frozenset({"disassembler_json"})
+        def supported_input_types(self):
+            return frozenset({"disassembler_json"})
+
         @property
-        def supported_profiles(self): return frozenset({"x86_64_sysv"})
+        def supported_profiles(self):
+            return frozenset({"x86_64_sysv"})
+
         def disassemble(self, input_record):
             raise RuntimeError("kaboom")
 
@@ -281,6 +317,7 @@ def test_pipeline_degrades_one_input_does_not_kill_others():
 
 
 # ===== X86CC-016: Index limits + truncation =====
+
 
 def test_index_limits_default_values_match_config():
     """Defaults must match the X86Config defaults; both share the same env contract."""
@@ -296,7 +333,9 @@ def test_truncation_emits_warning_diagnostic():
     limits = X86IndexLimits(max_instructions=2, max_functions=100, max_strings=100)
     builder = X86IndexBuilder(limits=limits)
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
         abi="x86_64_sysv",
     )
     adapter = FixtureAdapter(fixture_path=SIMPLE_ADD)

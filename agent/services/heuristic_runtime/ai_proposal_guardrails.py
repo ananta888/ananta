@@ -9,6 +9,7 @@ Checks:
   6. heuristic_id follows snake_case naming convention
   7. No inline_code field anywhere in the dict (forbidden execution path)
 """
+
 from __future__ import annotations
 
 import re
@@ -17,27 +18,35 @@ from typing import Any
 
 _SNAKE_CASE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
-_KNOWN_CAPABILITIES = frozenset({
-    "read_local_context",
-    "write_local_notes",
-    "send_to_chat",
-    "read_source_refs",
-    "read_heuristic_index",
-    "read_scope",
-    "read_goal_state",
-    "read_todo_state",
-    "read_artifact_ref",
-    "read_ui_state",
-    "ui_motion",
-    "file_write",
-    "network_access",
-    "secret_access",
-})
+_KNOWN_CAPABILITIES = frozenset(
+    {
+        "read_local_context",
+        "write_local_notes",
+        "send_to_chat",
+        "read_source_refs",
+        "read_heuristic_index",
+        "read_scope",
+        "read_goal_state",
+        "read_todo_state",
+        "read_artifact_ref",
+        "read_ui_state",
+        "ui_motion",
+        "file_write",
+        "network_access",
+        "secret_access",
+    }
+)
 
 _ALLOWED_MODULE_PREFIX = "agent.heuristics.strategies."
 _FORBIDDEN_STATUSES_FROM_AI = {"active"}
 _BOILERPLATE_DESCRIPTIONS = {
-    "", "description", "todo", "tbd", "n/a", "none", "placeholder",
+    "",
+    "description",
+    "todo",
+    "tbd",
+    "n/a",
+    "none",
+    "placeholder",
 }
 
 

@@ -79,10 +79,14 @@ def _service(*, engine=None, policy=None, clock=lambda: NOW):
 
 
 def _public_pem(private_key) -> str:
-    return private_key.public_key().public_bytes(
-        serialization.Encoding.PEM,
-        serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("ascii")
+    return (
+        private_key.public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
 
 
 def _api_command(
@@ -223,12 +227,15 @@ def test_enrollment_pop_idempotency_rate_limit_and_restart_are_durable():
     assert first_hub.enroll(command, source="192.0.2.1").status == "replayed"
     restarted_hub = _service(engine=engine)
     assert restarted_hub.get("node-a").version == 1
-    assert restarted_hub.authorize_livekit_control_credential(
-        node_id="node-a",
-        configured_credential_fingerprint="sha256:" + "1" * 64,
-        required_role=SFU_CONTROL,
-        tls_verified=True,
-    ).node_id == "node-a"
+    assert (
+        restarted_hub.authorize_livekit_control_credential(
+            node_id="node-a",
+            configured_credential_fingerprint="sha256:" + "1" * 64,
+            required_role=SFU_CONTROL,
+            tls_verified=True,
+        ).node_id
+        == "node-a"
+    )
 
 
 def test_wrong_or_stale_proof_and_reused_idempotency_fail_closed():
@@ -259,9 +266,7 @@ def test_persistent_rate_limit_is_shared_by_hubs():
     key = ed25519.Ed25519PrivateKey.generate()
     wrong = ed25519.Ed25519PrivateKey.generate()
     with pytest.raises(SfuNodeIdentityError, match="sfu_proof_signature_invalid"):
-        _service(engine=engine, policy=policy).enroll(
-            _api_command(key, signature_key=wrong), source="198.51.100.3"
-        )
+        _service(engine=engine, policy=policy).enroll(_api_command(key, signature_key=wrong), source="198.51.100.3")
     with pytest.raises(SfuNodeIdentityError, match="sfu_enrollment_rate_limited"):
         _service(engine=engine, policy=policy).enroll(
             _api_command(key, idempotency_key="idem-enrollment-0003"), source="198.51.100.3"

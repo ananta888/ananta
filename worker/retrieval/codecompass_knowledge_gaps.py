@@ -10,13 +10,13 @@ Finds:
 Every recommendation references at least one node / edge, or carries
 ``insufficient_evidence`` (CCRIG-DD-007).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
-
 
 KNOWLEDGE_GAPS_SCHEMA_VERSION = "knowledge_gaps.v1"
 DEFAULT_HOTSPOT_THRESHOLD = 3
@@ -85,14 +85,16 @@ def find_knowledge_gaps(
         if not has_in and not has_out:
             isolated.append(nid)
     if isolated:
-        gaps.append(KnowledgeGap(
-            type="isolated_node",
-            severity="low",
-            nodes=tuple(sorted(isolated)[:50]),
-            rationale="node has neither in- nor out-edges in the symbolgraph",
-        ))
+        gaps.append(
+            KnowledgeGap(
+                type="isolated_node",
+                severity="low",
+                nodes=tuple(sorted(isolated)[:50]),
+                rationale="node has neither in- nor out-edges in the symbolgraph",
+            )
+        )
 
-# 2) untested hotspots: high degree + no 'covers' edge (in any direction)
+    # 2) untested hotspots: high degree + no 'covers' edge (in any direction)
     hotspots: list[tuple[str, int]] = []
     for nid in nodes_by_id:
         in_deg = sum(len(es) for es in (incoming.get(nid) or {}).values())
@@ -115,25 +117,30 @@ def find_knowledge_gaps(
             hotspots.append((nid, deg))
     if hotspots:
         hotspots.sort(key=lambda x: (-x[1], x[0]))
-        gaps.append(KnowledgeGap(
-            type="missing_test_coverage",
-            severity="medium",
-            nodes=tuple(nid for nid, _ in hotspots[:50]),
-            rationale=("buildable_component or hot symbol without a 'covers' "
-                       f"edge (degree >= {hotspot_degree_threshold})"),
-        ))
+        gaps.append(
+            KnowledgeGap(
+                type="missing_test_coverage",
+                severity="medium",
+                nodes=tuple(nid for nid, _ in hotspots[:50]),
+                rationale=(
+                    f"buildable_component or hot symbol without a 'covers' edge (degree >= {hotspot_degree_threshold})"
+                ),
+            )
+        )
 
     # 3) thin components: BFS over the outgoing direction, identify
     #    components with <= thin_component_max nodes.
     components = _connected_components(nodes_by_id, outgoing)
     thin = [c for c in components if 0 < len(c) <= thin_component_max]
     if thin:
-        gaps.append(KnowledgeGap(
-            type="thin_community",
-            severity="low",
-            nodes=tuple(sorted(n for c in thin for n in c)[:50]),
-            rationale=f"connected component with <= {thin_component_max} nodes",
-        ))
+        gaps.append(
+            KnowledgeGap(
+                type="thin_community",
+                severity="low",
+                nodes=tuple(sorted(n for c in thin for n in c)[:50]),
+                rationale=f"connected component with <= {thin_component_max} nodes",
+            )
+        )
 
     summary = {
         "isolated": len(isolated),

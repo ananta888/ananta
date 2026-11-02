@@ -1,4 +1,5 @@
 """Predefined job search profiles."""
+
 from __future__ import annotations
 
 from agent.caseflow.discovery import SearchProfile

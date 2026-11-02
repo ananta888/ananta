@@ -22,19 +22,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from worker.retrieval.codecompass_candidate_resolver import (
     CodeCompassCandidateResolver,
     ResolverConfig,
-    _classify_path,
-    _is_source_path,
-    _looks_like_path,
-    _source_path_multiplier,
-    _stem_boost,
-    _stem_tokens,
 )
-from worker.retrieval.codecompass_query_parser import parse_codecompass_query
 
 
 def _write_jsonl(path: Path, records: list[dict]) -> None:
@@ -150,8 +141,8 @@ def _seed_minimal_codecompass_output(
 # ---------------------------------------------------------------------------
 
 
-
 # Split from tests/codecompass/test_codecompass_candidate_resolver_caps.py to keep source files below 1000 lines.
+
 
 class TestResolveWithMode:
     """End-to-end: the resolve() function honours ResolverConfig."""
@@ -170,7 +161,8 @@ class TestResolveWithMode:
             },
         )
         cands = CodeCompassCandidateResolver().resolve(
-            question="erkläre hub", output_dir=out,
+            question="erkläre hub",
+            output_dir=out,
         )
         paths = [c["path"] for c in cands]
         # tests/ must be filtered.
@@ -193,7 +185,9 @@ class TestResolveWithMode:
         )
         mode = ResolverConfig(include_test_paths=True)
         cands = CodeCompassCandidateResolver().resolve(
-            question="erkläre hub", output_dir=out, mode=mode,
+            question="erkläre hub",
+            output_dir=out,
+            mode=mode,
         )
         paths = [c["path"] for c in cands]
         # tests/ must now be present.
@@ -221,12 +215,14 @@ class TestResolveWithMode:
         )
         # Default: README filtered.
         cands = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out,
+            question="hub",
+            output_dir=out,
         )
         assert "README.md" not in [c["path"] for c in cands], "default mode must filter README.md"
         # Opt-in: README appears.
         cands2 = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out,
+            question="hub",
+            output_dir=out,
             mode=ResolverConfig(include_docs=True),
         )
         paths2 = [c["path"] for c in cands2]
@@ -246,11 +242,13 @@ class TestResolveWithMode:
             },
         )
         cands_default = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out,
+            question="hub",
+            output_dir=out,
         )
         assert "docker-compose.yml" not in [c["path"] for c in cands_default]
         cands_workflow = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out,
+            question="hub",
+            output_dir=out,
             mode=ResolverConfig(include_workflows=True),
         )
         paths = [c["path"] for c in cands_workflow]
@@ -272,12 +270,11 @@ class TestResolveWithMode:
         # Set env var → tests are opted in via ResolverConfig.from_env().
         monkeypatch.setenv("ANANTA_CODECOMPASS_INCLUDE_TEST_PATHS", "1")
         cands = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out,
+            question="hub",
+            output_dir=out,
         )
         paths = [c["path"] for c in cands]
-        assert any("tests/test_hub_loader.py" in p for p in paths), (
-            f"env var must opt tests in; got: {paths}"
-        )
+        assert any("tests/test_hub_loader.py" in p for p in paths), f"env var must opt tests in; got: {paths}"
 
     def test_all_includes_match_old_behavior(self, tmp_path) -> None:
         """When ALL includes are flipped on, the resolver behaves like
@@ -344,7 +341,9 @@ class TestResolveWithMode:
         )
         mode = ResolverConfig(include_test_paths=True)
         cands = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out, mode=mode,
+            question="hub",
+            output_dir=out,
+            mode=mode,
         )
         scores = {c["path"]: c["score"] for c in cands}
         if "tests/test_hub_loader.py" in scores and "tests/test_random_thing.py" in scores:
@@ -388,7 +387,9 @@ class TestResolveWithMode:
         )
         mode = ResolverConfig(include_test_paths=True)
         cands = CodeCompassCandidateResolver().resolve(
-            question="hub", output_dir=out, mode=mode,
+            question="hub",
+            output_dir=out,
+            mode=mode,
         )
         scores = {c["path"]: c["score"] for c in cands}
         assert scores["agent/services/hub_loader.py"] > scores["tests/test_hub_loader.py"], (
@@ -398,4 +399,4 @@ class TestResolveWithMode:
         )
         # And the ratio should be exactly 1.0/0.7 = 1.4286.
         ratio = scores["agent/services/hub_loader.py"] / scores["tests/test_hub_loader.py"]
-        assert abs(ratio - 1.0 / 0.7) < 0.05, f"ratio {ratio:.3f} should be ~{1/0.7:.3f}"
+        assert abs(ratio - 1.0 / 0.7) < 0.05, f"ratio {ratio:.3f} should be ~{1 / 0.7:.3f}"

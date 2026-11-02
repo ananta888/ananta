@@ -27,8 +27,13 @@ def cancellation(task_scope):  # noqa: F811 -- imported pytest fixture
 
 def cancel(s, task_id, lease, *, tenant_id=None):
     return cancel_native_task_fenced(
-        repository=s.repository, runtime=s.runtime, task_id=task_id, lease=lease,
-        tenant_id=tenant_id or s.request.plan.tenant_id, run_id=s.request.run_id, reason="synthetic-cancel",
+        repository=s.repository,
+        runtime=s.runtime,
+        task_id=task_id,
+        lease=lease,
+        tenant_id=tenant_id or s.request.plan.tenant_id,
+        run_id=s.request.run_id,
+        reason="synthetic-cancel",
     )
 
 

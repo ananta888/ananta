@@ -1,16 +1,14 @@
 """Tests for ObsidianPrivacyFilter (OBS-003)."""
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.application.privacy_filter import (
-    PrivacyResult,
     is_private,
     list_excluded,
 )
@@ -36,6 +34,7 @@ class _Profile:
 
 # ── Path prefix checks ────────────────────────────────────────────────────────
 
+
 def test_private_path_prefix_excluded():
     profile = _Profile()
     result = is_private("private/secret.md", {}, [], profile)
@@ -57,6 +56,7 @@ def test_non_private_path_not_excluded():
 
 
 # ── Frontmatter checks ────────────────────────────────────────────────────────
+
 
 def test_frontmatter_private_true_excluded():
     profile = _Profile()
@@ -85,6 +85,7 @@ def test_frontmatter_missing_not_excluded():
 
 # ── Tag checks ────────────────────────────────────────────────────────────────
 
+
 def test_private_tag_excluded():
     profile = _Profile()
     result = is_private("note.md", {}, ["private", "work"], profile)
@@ -106,6 +107,7 @@ def test_normal_tags_not_excluded():
 
 # ── Mode: off ────────────────────────────────────────────────────────────────
 
+
 def test_mode_off_nothing_excluded():
     profile = _Profile(privacy_filter_mode="off")
     result = is_private("private/secret.md", {"private": True}, ["no-index"], profile)
@@ -113,6 +115,7 @@ def test_mode_off_nothing_excluded():
 
 
 # ── Mode: and ────────────────────────────────────────────────────────────────
+
 
 def test_mode_and_requires_all_mechanisms():
     profile = _Profile(privacy_filter_mode="and")
@@ -129,6 +132,7 @@ def test_mode_and_all_match_excluded():
 
 
 # ── list_excluded ─────────────────────────────────────────────────────────────
+
 
 def test_list_excluded_finds_private_files():
     profile = _Profile()

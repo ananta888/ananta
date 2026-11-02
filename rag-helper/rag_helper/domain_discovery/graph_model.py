@@ -81,9 +81,7 @@ class DomainGraph:
                 if record.get("id") and record.get("file")
             ]
             if node_sources:
-                self.warnings.append(
-                    "graph_nodes missing; derived nodes from index/detail records"
-                )
+                self.warnings.append("graph_nodes missing; derived nodes from index/detail records")
 
         for node in node_sources:
             node_id = str(node.get("id"))
@@ -145,8 +143,4 @@ class DomainGraph:
             )
 
     def relation_degree(self, node_id: str) -> int:
-        return sum(
-            1
-            for edge in self.relation_edges
-            if edge.source == node_id or edge.target == node_id
-        )
+        return sum(1 for edge in self.relation_edges if edge.source == node_id or edge.target == node_id)

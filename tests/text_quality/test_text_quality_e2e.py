@@ -11,10 +11,10 @@ Was dieser Test beweist (TQAS-015 AC):
 - Feature-off: keine Externen Provider, keine Sandbox, keine LLM-Aufrufe
   (alles Stub-Paths).
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -23,7 +23,6 @@ from flask import Flask
 
 from agent.services.evolution.engine import UnsupportedEvolutionOperation
 from agent.services.evolution.models import EvolutionCapability, EvolutionContext
-from agent.services.repository_registry import get_repository_registry
 from agent.services.sandbox_backend import ExecResult, FakeSandbox
 from agent.services.text_quality.criteria_extractor_service import CriteriaExtractorService
 from agent.services.text_quality.models import ContentKind
@@ -31,7 +30,6 @@ from agent.services.text_quality.providers.avoid_ai_writing_provider import (
     AvoidAIWritingProvider,
 )
 from agent.services.text_quality.runtime_service import get_text_quality_runtime_service
-
 from plugins.anti_slop_evaluator.provider import AntiSlopEvolutionProvider
 
 
@@ -223,9 +221,10 @@ def test_anti_slop_plugin_cannot_apply_and_only_proposes(memory_repos):
     for forbidden in (EvolutionCapability.VALIDATE, EvolutionCapability.APPLY):
         with pytest.raises(UnsupportedEvolutionOperation):
             getattr(provider, "apply" if forbidden is EvolutionCapability.APPLY else "validate")(
-                EvolutionContext(objective="test"), None if forbidden is EvolutionCapability.APPLY else __import__(
-                    "agent.services.evolution.models", fromlist=["EvolutionProposal"]
-                ).EvolutionProposal(
+                EvolutionContext(objective="test"),
+                None
+                if forbidden is EvolutionCapability.APPLY
+                else __import__("agent.services.evolution.models", fromlist=["EvolutionProposal"]).EvolutionProposal(
                     title="x",
                     description="y",
                     proposal_type="prompt_quality",

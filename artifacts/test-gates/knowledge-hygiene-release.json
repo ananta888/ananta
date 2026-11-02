@@ -50,11 +50,11 @@
     "knowledge_hygiene_run.v1.json": "ec6d0d8c55f81bd5b2335ceb068181d588bbe978b6700e49fa8db32f877c2e06"
   },
   "source_hashes": {
-    "agent/services/knowledge_hygiene/analysis.py": "a5d510d7626ac7be15fd36c48ea805e71bce9df2ac5f66cc885964e92ed39b60",
+    "agent/services/knowledge_hygiene/analysis.py": "f07ca9cdab05e36699a454c440a945fa768d0d791d6c9224bc6e9e038fba4674",
     "agent/services/knowledge_hygiene/service.py": "5023bfa20b7cc51a92efdcd56b1087542094bbe51bf06a0a47d3c62283d2a4d9",
-    "ananta_contracts/knowledge_claim_precedence.py": "b7e450279e2821aafd46e18caea9d9d738748a015b6e943b690839e4d350673e",
-    "ananta_contracts/knowledge_hygiene.py": "bbeb97ffa17ee31d0e288233afa103d4dd4b211f0ecf354319e94817ae60c74e",
-    "worker/knowledge_hygiene/handlers.py": "edc9ea0d5125fab838618c1755b5c778ecd4dd0236d07c4c0be7e643a5a0fe5c"
+    "ananta_contracts/knowledge_claim_precedence.py": "974cf906dd3b25af1fbf334c8bef6c346fdd69f25d970af4cb591fdf7f489c92",
+    "ananta_contracts/knowledge_hygiene.py": "12dc9391d973b5e89cded22a27995d03bb7cd14fbcc4424cf47ebdc3d1e73b24",
+    "worker/knowledge_hygiene/handlers.py": "a673532ad324e688c3d9fdc4bd1dce0a6694fd7830620b23b0e366f4faf0eb6a"
   },
   "status": "passed",
   "todo": {

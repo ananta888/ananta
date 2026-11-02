@@ -17,16 +17,15 @@ from ananta_contracts.speech_reconciliation import (
     SpeechReconciliationContractError,
     SpeechResourceVector,
 )
+from scripts.benchmark.semantic_media_program_measurements import (
+    ProgramBenchmarkExecutionError,
+)
 from voice_runtime.peer_transcript_consensus import PeerTranscriptCandidate
 from voice_runtime.speech_reconciliation_policy import (
     SpeechReconciliationPolicy,
     SpeechReconciliationQualitySample,
 )
 from worker.speech_reconciliation.resolver import SpeechReconciliationResolver
-from scripts.benchmark.semantic_media_program_measurements import (
-    ProgramBenchmarkExecutionError,
-)
-
 
 # The probe runs the frontend toolchain from the repository root.
 _PROBE_ROOT = Path(__file__).resolve().parents[2]

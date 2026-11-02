@@ -227,9 +227,7 @@ class RecipientPeerEvidenceQuarantine:
         with self._lock:
             if self._count >= self._maximum_records:
                 raise PeerEvidenceAdmissionError("speech_evidence_quarantine_quota_exceeded")
-            record_id = hashlib.sha256(
-                f"{pair_id}\0{offer_id}\0{group_id}\0{payload_digest}".encode()
-            ).hexdigest()
+            record_id = hashlib.sha256(f"{pair_id}\0{offer_id}\0{group_id}\0{payload_digest}".encode()).hexdigest()
             record = QuarantinedEvidenceRecord(
                 record_id=record_id,
                 pair_id=pair_id,

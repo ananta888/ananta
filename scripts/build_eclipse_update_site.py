@@ -266,11 +266,13 @@ def _publish_p2_repository(
         timeout=180,
         env=_docker_env(),
     )
-    checks.append({
-        "check_id": "features_and_bundles_publisher",
-        "ok": publisher.returncode == 0,
-        "output_tail": (publisher.stdout + "\n" + publisher.stderr).strip()[-4000:],
-    })
+    checks.append(
+        {
+            "check_id": "features_and_bundles_publisher",
+            "ok": publisher.returncode == 0,
+            "output_tail": (publisher.stdout + "\n" + publisher.stderr).strip()[-4000:],
+        }
+    )
     if publisher.returncode != 0:
         return {"ok": False, "checks": checks}
 
@@ -294,25 +296,31 @@ def _publish_p2_repository(
             timeout=180,
             env=_docker_env(),
         )
-        checks.append({
-            "check_id": "category_publisher",
-            "ok": category.returncode == 0,
-            "output_tail": (category.stdout + "\n" + category.stderr).strip()[-4000:],
-        })
+        checks.append(
+            {
+                "check_id": "category_publisher",
+                "ok": category.returncode == 0,
+                "output_tail": (category.stdout + "\n" + category.stderr).strip()[-4000:],
+            }
+        )
     else:
-        checks.append({
-            "check_id": "category_publisher",
-            "ok": True,
-            "skipped": True,
-            "reason": "optional; Eclipse can install from p2 metadata with 'Group items by category' disabled",
-        })
+        checks.append(
+            {
+                "check_id": "category_publisher",
+                "ok": True,
+                "skipped": True,
+                "reason": "optional; Eclipse can install from p2 metadata with 'Group items by category' disabled",
+            }
+        )
 
     metadata_ok = (out_dir / "content.jar").exists() and (out_dir / "artifacts.jar").exists()
-    checks.append({
-        "check_id": "p2_metadata_present",
-        "ok": metadata_ok,
-        "files": [_relative_or_absolute(out_dir / "content.jar"), _relative_or_absolute(out_dir / "artifacts.jar")],
-    })
+    checks.append(
+        {
+            "check_id": "p2_metadata_present",
+            "ok": metadata_ok,
+            "files": [_relative_or_absolute(out_dir / "content.jar"), _relative_or_absolute(out_dir / "artifacts.jar")],
+        }
+    )
     return {"ok": all(bool(item.get("ok")) for item in checks), "checks": checks}
 
 

@@ -8,6 +8,21 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from agent.auth import check_user_auth, get_request_auth_context
+from agent.routes.share_session_chat_routes import register_share_session_chat_routes
+from agent.routes.share_session_key_routes import register_share_session_key_routes
+from agent.routes.share_session_relay_routes import register_share_session_relay_routes
+from agent.routes.share_session_route_support import (
+    _current_device_id,
+    _current_tenant_id,
+    _current_user_id,
+    _is_active_participant,
+    _is_session_active,
+    _participant_last_seen,
+    _peer_key_repository,
+    _strict_e2ee_enabled,
+    _view_started_audited,
+)
+from agent.routes.share_session_view_routes import register_share_session_view_routes
 from agent.services.share_audit_service import (
     audit_participant_joined,
     audit_participant_revoked,
@@ -20,22 +35,6 @@ from agent.services.share_relay_compatibility_service import (
 from agent.services.share_session_permissions import PermissionContractError
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_peer_identity_service import PeerIdentityError
-from agent.routes.share_session_route_support import (
-    _current_device_id,
-    _current_tenant_id,
-    _current_user_id,
-    _is_active_participant,
-    _is_session_active,
-    _participant_last_seen,
-    _peer_key_repository,
-    _strict_e2ee_enabled,
-    _view_started_audited,
-)
-from agent.routes.share_session_key_routes import register_share_session_key_routes
-from agent.routes.share_session_relay_routes import register_share_session_relay_routes
-from agent.routes.share_session_view_routes import register_share_session_view_routes
-from agent.routes.share_session_chat_routes import register_share_session_chat_routes
-
 
 share_sessions_bp = Blueprint("share_sessions", __name__)
 

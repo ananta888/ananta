@@ -36,9 +36,7 @@ class CodeCompassRetrievalCapabilityResolverPort(Protocol):
 def _canonical_capability(value: Mapping[str, Any]) -> dict[str, Any]:
     canonical = {field: value.get(field) for field in _DIGEST_FIELDS}
     for field in ("allowed_paths", "allowed_index_ids", "allowed_signals"):
-        canonical[field] = sorted(
-            {str(item).strip() for item in list(canonical.get(field) or []) if str(item).strip()}
-        )
+        canonical[field] = sorted({str(item).strip() for item in list(canonical.get(field) or []) if str(item).strip()})
     for field in (
         "subject_id",
         "tenant_id",

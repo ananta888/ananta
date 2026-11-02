@@ -119,4 +119,3 @@ def test_domain_policy_service_denies_unknown_capability_and_handles_degraded_po
     assert unknown_capability["reason"] == "unknown_capability"
     assert degraded_policy["decision"] == "degraded"
     assert degraded_policy["reason"] == "policy_pack_not_loaded"
-

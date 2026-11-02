@@ -54,7 +54,9 @@ def test_chain_semantics_and_prevalidation() -> None:
     assert code == 0
     assert "3" in out
     assert len(shell.commands) == 3
-    assert any(item.get("normalization") == "command_chain_parsed" and item.get("segment_count") == 3 for item in history)
+    assert any(
+        item.get("normalization") == "command_chain_parsed" and item.get("segment_count") == 3 for item in history
+    )
 
 
 def test_denied_later_segment_prevents_earlier_execution() -> None:
@@ -89,10 +91,10 @@ def test_opencode_mini_project_semicolon_chain_completes() -> None:
     """Simulate an OpenCode proposal that chains a run and test command."""
     svc = TaskExecutionService()
     shell = _StubShell()
-    opencode_cmd = 'python hello.py; python -c "from hello import greet; print(greet(\'World\'))"'
+    opencode_cmd = "python hello.py; python -c \"from hello import greet; print(greet('World'))\""
     shell.outputs = {
         "python hello.py": ("hello", 0),
-        'python -c "from hello import greet; print(greet(\'World\'))"': ("World", 0),
+        "python -c \"from hello import greet; print(greet('World'))\"": ("World", 0),
     }
     with (
         patch("agent.services.task_execution_result_handler.get_shell", return_value=shell),

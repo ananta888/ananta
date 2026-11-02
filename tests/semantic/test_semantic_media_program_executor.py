@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
 
@@ -12,7 +12,10 @@ from scripts.benchmark.semantic_media_program_executor import METRIC_FIELDS, run
 _VITE_NODE = Path(__file__).resolve().parents[2] / "frontend-angular/node_modules/.bin/vite-node"
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.skipif(not _VITE_NODE.is_file(), reason="the Angular workspace has no vite-node (not a declared dependency); the live measurement cannot run"),
+    pytest.mark.skipif(
+        not _VITE_NODE.is_file(),
+        reason="the Angular workspace has no vite-node (not a declared dependency); the live measurement cannot run",
+    ),
 ]
 
 
@@ -27,10 +30,7 @@ def test_executor_measures_the_complete_matrix_and_explicit_availability() -> No
     assert len(rows) == 32
     live = [row for row in rows if row["topology"] != "offline"]
     offline = [row for row in rows if row["topology"] == "offline"]
-    assert {
-        (row["topology"], row["window_seconds"], row["receivers"])
-        for row in live
-    } == {
+    assert {(row["topology"], row["window_seconds"], row["receivers"]) for row in live} == {
         (topology, window, receivers)
         for topology in ("pair", "group", "evidence")
         for window in (2, 10, 20)

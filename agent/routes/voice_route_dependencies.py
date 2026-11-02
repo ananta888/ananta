@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from agent.common.audit import log_audit
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.routes.voice_hub_execution import _execute_hub_voice_request
 from agent.routes.voice_recognition_context import _recognition_context
 from agent.routes.voice_request_support import (
@@ -27,6 +26,7 @@ from agent.routes.voice_request_support import (
     _voice_admission_limits,
 )
 from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.share_session_service import get_share_session_service
 from agent.services.speech_evidence_consent_service import get_speech_evidence_consent_service
 from agent.services.voice_admission_service import get_voice_admission_service

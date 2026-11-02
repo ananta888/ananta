@@ -13,13 +13,10 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-
 SOURCE_INDEX_RUNTIME_TARGET_ENV = "ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON"
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_MODEL_IDENTIFIER = re.compile(
-    r"^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$"
-)
+_MODEL_IDENTIFIER = re.compile(r"^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$")
 _PROVIDER_LOCATIONS = {
     "local_container",
     "private_network",
@@ -64,18 +61,14 @@ def _validate_scopes(value: Any) -> list[dict[str, str]]:
     scopes: list[dict[str, str]] = []
     for scope in value:
         if not isinstance(scope, dict) or set(scope) != {"tenant_id", "project_id"}:
-            raise ValueError(
-                "each source access scope must contain only tenant_id and project_id"
-            )
+            raise ValueError("each source access scope must contain only tenant_id and project_id")
         tenant_id = scope.get("tenant_id")
         project_id = scope.get("project_id")
         if not isinstance(tenant_id, str) or not tenant_id.strip():
             raise ValueError("source access scope tenant_id must be non-empty")
         if not isinstance(project_id, str) or not project_id.strip():
             raise ValueError("source access scope project_id must be non-empty")
-        scopes.append(
-            {"tenant_id": tenant_id.strip(), "project_id": project_id.strip()}
-        )
+        scopes.append({"tenant_id": tenant_id.strip(), "project_id": project_id.strip()})
     return scopes
 
 
@@ -92,9 +85,7 @@ def load_source_index_runtime_target(
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"{SOURCE_INDEX_RUNTIME_TARGET_ENV} must contain valid JSON"
-        ) from exc
+        raise ValueError(f"{SOURCE_INDEX_RUNTIME_TARGET_ENV} must contain valid JSON") from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{SOURCE_INDEX_RUNTIME_TARGET_ENV} must contain an object")
 
@@ -110,21 +101,14 @@ def load_source_index_runtime_target(
     if (
         not isinstance(model_ids, list)
         or not model_ids
-        or any(
-            not isinstance(model_id, str)
-            or not _MODEL_IDENTIFIER.fullmatch(model_id)
-            for model_id in model_ids
-        )
+        or any(not isinstance(model_id, str) or not _MODEL_IDENTIFIER.fullmatch(model_id) for model_id in model_ids)
     ):
         raise ValueError("model_ids must be a non-empty list of model identifiers")
     target["model_ids"] = list(dict.fromkeys(model_ids))
 
     provider_location = target.get("provider_location")
     if provider_location not in _PROVIDER_LOCATIONS:
-        raise ValueError(
-            "provider_location must be one of "
-            + ", ".join(sorted(_PROVIDER_LOCATIONS))
-        )
+        raise ValueError("provider_location must be one of " + ", ".join(sorted(_PROVIDER_LOCATIONS)))
     data_residency = target.get("data_residency")
     if not isinstance(data_residency, str) or not data_residency.strip():
         raise ValueError("data_residency must be non-empty")
@@ -153,7 +137,5 @@ def load_source_index_runtime_target(
         "worker_kind",
     ):
         if target.get(optional_identifier) is not None:
-            target[optional_identifier] = _required_identifier(
-                target, optional_identifier
-            )
+            target[optional_identifier] = _required_identifier(target, optional_identifier)
     return target

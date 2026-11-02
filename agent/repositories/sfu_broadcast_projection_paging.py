@@ -26,22 +26,15 @@ def _filter_page(
         return values
     if mode == "expired":
         return [
-            value
-            for value in values
-            if value.status in _LIVE_STATUSES and value.expires_at <= cast(float, threshold)
+            value for value in values if value.status in _LIVE_STATUSES and value.expires_at <= cast(float, threshold)
         ]
     if mode == "reconciliation":
-        return [
-            value
-            for value in values
-            if value.room_state_revision < cast(int, threshold)
-        ]
+        return [value for value in values if value.room_state_revision < cast(int, threshold)]
     if mode == "retention":
         return [
             value
             for value in values
-            if value.retain_until <= cast(float, threshold)
-            and value.retention_status != "purged"
+            if value.retain_until <= cast(float, threshold) and value.retention_status != "purged"
         ]
     raise SfuBroadcastRepositoryError("projection_page_mode_invalid")
 
@@ -89,7 +82,12 @@ def _encode_retention_cursor(key: tuple[float, str]) -> str:
 def _decode_retention_cursor(cursor: str) -> tuple[float, str]:
     try:
         raw = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
-        if not isinstance(raw, list) or len(raw) != 2 or not isinstance(raw[0], (int, float)) or not isinstance(raw[1], str):
+        if (
+            not isinstance(raw, list)
+            or len(raw) != 2
+            or not isinstance(raw[0], (int, float))
+            or not isinstance(raw[1], str)
+        ):
             raise ValueError
         return float(raw[0]), raw[1]
     except (ValueError, UnicodeError, json.JSONDecodeError) as exc:

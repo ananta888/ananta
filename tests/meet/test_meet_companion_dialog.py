@@ -22,8 +22,20 @@ from worker.meet_media.companion_router import (
 pytestmark = pytest.mark.timeout(30)
 
 SNIPPETS = [
-    {"path": "worker/meet_media/companion_media.py", "symbol": "SpeechAvatarPublisher", "revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a", "score": 0.9, "excerpt": "Publishes TTS audio and the rendered snake avatar from one timeline."},
-    {"path": "worker/meet_media/snake_avatar_timeline.py", "symbol": "", "revision": "", "score": 0.5, "excerpt": "One monotonic media timeline."},
+    {
+        "path": "worker/meet_media/companion_media.py",
+        "symbol": "SpeechAvatarPublisher",
+        "revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a",
+        "score": 0.9,
+        "excerpt": "Publishes TTS audio and the rendered snake avatar from one timeline.",
+    },
+    {
+        "path": "worker/meet_media/snake_avatar_timeline.py",
+        "symbol": "",
+        "revision": "",
+        "score": 0.5,
+        "excerpt": "One monotonic media timeline.",
+    },
     {"path": "", "symbol": "", "revision": "", "score": 0.1, "excerpt": "orphan excerpt without a locator"},
 ]
 
@@ -53,7 +65,9 @@ def test_router_never_uses_codecompass_when_the_flag_is_off():
     assert decision.route == ANANTA_CODE_ARCHITECTURE and decision.codecompass is False
 
 
-@pytest.mark.parametrize("value, expected", [("1", True), ("true", True), ("0", False), ("off", False), ("FALSE", False)])
+@pytest.mark.parametrize(
+    "value, expected", [("1", True), ("true", True), ("0", False), ("off", False), ("FALSE", False)]
+)
 def test_feature_flags_default_on_and_disable_explicitly(value, expected):
     assert avatar_enabled({}) is True and codecompass_enabled({}) is True
     assert avatar_enabled({AVATAR_FLAG: value}) is expected
@@ -68,7 +82,9 @@ def test_context_block_prefixes_path_and_symbol_and_stays_bounded():
 
 
 def test_assist_snippet_projection_keeps_only_bounded_locator_fields():
-    projected = _snippet({"path": "a.py", "symbol": "f", "revision": "abc", "score": 0.3, "excerpt": "x" * 2000, "content": "private"})
+    projected = _snippet(
+        {"path": "a.py", "symbol": "f", "revision": "abc", "score": 0.3, "excerpt": "x" * 2000, "content": "private"}
+    )
     assert set(projected) == {"path", "line", "line_end", "symbol", "revision", "score", "excerpt"}
     assert projected["line"] is None and _snippet({"line": 12})["line"] == 12
     assert _snippet({"line": True})["line"] is None
@@ -100,7 +116,10 @@ def test_repository_question_is_grounded_and_sources_are_cited_with_file_symbol_
     assert reply == (
         "Klar! Ich bin die Ananta-Schlange. Quelle: worker/meet_media/companion_media.py, SpeechAvatarPublisher."
     )
-    assert llm.calls[0][2] == PERSONA_SYSTEM and "[worker/meet_media/companion_media.py#SpeechAvatarPublisher]" in llm.calls[0][1]
+    assert (
+        llm.calls[0][2] == PERSONA_SYSTEM
+        and "[worker/meet_media/companion_media.py#SpeechAvatarPublisher]" in llm.calls[0][1]
+    )
     assert trace.route == ANANTA_CODE_ARCHITECTURE and trace.codecompass_used
     assert trace.source_labels() == [
         "worker/meet_media/companion_media.py · SpeechAvatarPublisher @ 26aa8f876389",
@@ -112,7 +131,9 @@ def test_repository_question_is_grounded_and_sources_are_cited_with_file_symbol_
 
 def test_smalltalk_skips_codecompass_and_meet_questions_attach_runtime_context():
     calls = []
-    companion, llm = dialog(retriever=lambda query: calls.append(query) or SNIPPETS, runtime_context=lambda: "peers=2 e2ee=on")
+    companion, llm = dialog(
+        retriever=lambda query: calls.append(query) or SNIPPETS, runtime_context=lambda: "peers=2 e2ee=on"
+    )
     _reply, trace = companion.answer("Hallo, wie geht es dir?")
     assert calls == [] and trace.codecompass_used is False and llm.calls[-1][1] == ""
     _reply, trace = companion.answer("Wer ist gerade im Raum?")
@@ -158,4 +179,6 @@ def test_explanation_without_a_previous_answer_and_unknown_snippets_are_bounded(
         trace.observe(f"step {index}")
     assert len(trace.observed) == 32
     assert "Aus dem Repository: a.py." in explain(trace)
-    assert "Aus dem Repository: nichts, diese Frage lief ohne CodeCompass." in explain(AnswerTrace("q", GENERAL_QUESTION))
+    assert "Aus dem Repository: nichts, diese Frage lief ohne CodeCompass." in explain(
+        AnswerTrace("q", GENERAL_QUESTION)
+    )

@@ -32,7 +32,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-
 # Fields a worker is allowed to put into a pattern_plan dict.
 # Anything else is stripped (default-deny on extra keys keeps the
 # audit log clean and prevents LLM creativity from leaking into
@@ -134,9 +133,7 @@ class PatternProposalNormalizer:
             )
 
         # Strip unknown keys (default-deny on extra fields).
-        clean: dict[str, Any] = {
-            k: v for k, v in proposal.items() if k in _ALLOWED_PATTERN_PLAN_FIELDS
-        }
+        clean: dict[str, Any] = {k: v for k, v in proposal.items() if k in _ALLOWED_PATTERN_PLAN_FIELDS}
         dropped = sorted(set(proposal) - set(clean))
         audit: dict[str, Any] = {"dropped_keys": dropped}
 

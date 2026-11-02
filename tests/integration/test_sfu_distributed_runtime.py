@@ -2,7 +2,6 @@ from pathlib import Path
 
 from scripts.verify_sfu_distributed_runtime import evaluate
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

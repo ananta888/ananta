@@ -66,14 +66,21 @@ class SpecialistPredictorPort(Protocol):
 
 class SpecialistPartitionPredictorPort(Protocol):
     def predict_partition(
-        self, training: CreateTrainingJobCommand, outcome: TrainingOutcome, manifest: SplitManifest,
-        train_records: Sequence[Mapping[str, Any]], examples: Sequence[TrainingExample], *, partition: str,
+        self,
+        training: CreateTrainingJobCommand,
+        outcome: TrainingOutcome,
+        manifest: SplitManifest,
+        train_records: Sequence[Mapping[str, Any]],
+        examples: Sequence[TrainingExample],
+        *,
+        partition: str,
     ) -> Sequence[str]: ...
 
 
 class SpecialistDatasetAdmissionPort(Protocol):
-    def admit(self, manifest: SplitManifest, train: Sequence[Mapping[str, Any]],
-              validation: Sequence[Mapping[str, Any]]) -> AdmittedSpecialistDataset: ...
+    def admit(
+        self, manifest: SplitManifest, train: Sequence[Mapping[str, Any]], validation: Sequence[Mapping[str, Any]]
+    ) -> AdmittedSpecialistDataset: ...
 
 
 @dataclass(frozen=True)
@@ -113,7 +120,8 @@ class FactoryCycle:
             "registry_status": self.registry_status,
             "evaluations": {
                 candidate.candidate_id: {role: asdict(receipt) for role, receipt in candidate.evaluations}
-                for candidate in self.candidates if candidate.evaluations
+                for candidate in self.candidates
+                if candidate.evaluations
             },
             "errors": {key: list(value) for key, value in self.errors.items()},
         }
@@ -184,13 +192,24 @@ class SpecialistModelFactory:
         )
 
     def _predict_partition(
-        self, job: CreateTrainingJobCommand, outcome: TrainingOutcome, manifest: SplitManifest,
-        train_records: Sequence[Mapping[str, Any]], examples: Sequence[TrainingExample], *, partition: str,
+        self,
+        job: CreateTrainingJobCommand,
+        outcome: TrainingOutcome,
+        manifest: SplitManifest,
+        train_records: Sequence[Mapping[str, Any]],
+        examples: Sequence[TrainingExample],
+        *,
+        partition: str,
     ) -> tuple[list[Prediction], SpecialistEvaluationReceipt | None]:
         if self._partition_predictor is None:
             return self._predict(outcome.adapter_digest, examples), None
         batch = self._partition_predictor.predict_partition(
-            job, outcome, manifest, train_records, examples, partition=partition,
+            job,
+            outcome,
+            manifest,
+            train_records,
+            examples,
+            partition=partition,
         )
         outputs = list(batch)
         if len(outputs) != len(examples):
@@ -232,17 +251,26 @@ class SpecialistModelFactory:
                 raise ValueError("specialist_previous_holdout_mismatch")
             if previous.result.benchmark_version != self._benchmark_version:
                 raise ValueError("specialist_previous_benchmark_mismatch")
-            if (previous.lineage.specialist_id != self.contract.specialist_id
-                    or previous.lineage.contract_version != self.contract.contract_version):
+            if (
+                previous.lineage.specialist_id != self.contract.specialist_id
+                or previous.lineage.contract_version != self.contract.contract_version
+            ):
                 raise ValueError("specialist_previous_contract_mismatch")
         manifest, partitions = split_examples(list(examples), seed=seed, frozen_holdout=frozen_holdout)
-        admission = admit_training_partitions(manifest, partitions, expected_holdout_digest=manifest.holdout.holdout_digest)
+        admission = admit_training_partitions(
+            manifest, partitions, expected_holdout_digest=manifest.holdout.holdout_digest
+        )
         if plan_candidates is None:
             raise ValueError("specialist_candidate_plan_required")
-        if (plan_candidates.specialist_id != self.contract.specialist_id
-                or plan_candidates.benchmark_version != self._benchmark_version):
+        if (
+            plan_candidates.specialist_id != self.contract.specialist_id
+            or plan_candidates.benchmark_version != self._benchmark_version
+        ):
             raise ValueError("specialist_candidate_plan_contract_mismatch")
-        if plan_candidates.dataset_digest != manifest.dataset_digest or plan_candidates.holdout_digest != manifest.holdout.holdout_digest:
+        if (
+            plan_candidates.dataset_digest != manifest.dataset_digest
+            or plan_candidates.holdout_digest != manifest.holdout.holdout_digest
+        ):
             raise ValueError("specialist_candidate_plan_mismatch")
         records = self.strategy.training_records(partitions["train"])
         dataset_id = f"{self._dataset_id_prefix}-{manifest.dataset_digest[:16]}"
@@ -258,9 +286,13 @@ class SpecialistModelFactory:
         baseline = None
         if baseline_predictions is not None:
             baseline = benchmark(
-                self.contract, list(baseline_predictions),
-                benchmark_version=self._benchmark_version, holdout_digest=manifest.holdout.holdout_digest,
-                candidate_id="prompt_gate_stack", base_model="none", method="lora",
+                self.contract,
+                list(baseline_predictions),
+                benchmark_version=self._benchmark_version,
+                holdout_digest=manifest.holdout.holdout_digest,
+                candidate_id="prompt_gate_stack",
+                base_model="none",
+                method="lora",
             )
         outcomes: list[CandidateOutcome] = []
         errors: dict[str, tuple[str, ...]] = {}
@@ -293,10 +325,16 @@ class SpecialistModelFactory:
             if previous is not None and previous.result.holdout_digest == manifest.holdout.holdout_digest:
                 baselines["previous_specialist"] = previous.result
             result = benchmark(
-                self.contract, holdout,
-                benchmark_version=self._benchmark_version, holdout_digest=manifest.holdout.holdout_digest,
-                candidate_id=candidate.candidate_id, base_model=candidate.base_model, method=candidate.method,
-                usage=outcome.usage, calibration=self._calibration(validation, holdout), baselines=baselines,
+                self.contract,
+                holdout,
+                benchmark_version=self._benchmark_version,
+                holdout_digest=manifest.holdout.holdout_digest,
+                candidate_id=candidate.candidate_id,
+                base_model=candidate.base_model,
+                method=candidate.method,
+                usage=outcome.usage,
+                calibration=self._calibration(validation, holdout),
+                baselines=baselines,
             )
             lineage = ArtifactLineage(
                 specialist_id=self.contract.specialist_id,
@@ -310,17 +348,25 @@ class SpecialistModelFactory:
                 training_job_id=outcome.job_id,
                 method=candidate.method,
             ).with_evaluation(result)
-            receipts = tuple((role, receipt) for role, receipt in (
-                ("validation", validation_receipt), ("holdout", holdout_receipt)
-            ) if receipt is not None)
-            outcomes.append(CandidateOutcome(
-                candidate.candidate_id, job, outcome, result, lineage, receipts, manifest.manifest_digest
-            ))
+            receipts = tuple(
+                (role, receipt)
+                for role, receipt in (("validation", validation_receipt), ("holdout", holdout_receipt))
+                if receipt is not None
+            )
+            outcomes.append(
+                CandidateOutcome(
+                    candidate.candidate_id, job, outcome, result, lineage, receipts, manifest.manifest_digest
+                )
+            )
         ranking = compare_candidates(plan_candidates, [o.result for o in outcomes], thresholds)
         winner = next((o for o in outcomes if o.candidate_id == ranking.winner), None)
         decision = adapter_id = status = None
         if winner is not None:
-            previous_result = previous.result if previous is not None and previous.result.holdout_digest == manifest.holdout.holdout_digest else None
+            previous_result = (
+                previous.result
+                if previous is not None and previous.result.holdout_digest == manifest.holdout.holdout_digest
+                else None
+            )
             decision = decide_promotion(
                 candidate=winner.result,
                 lineage=winner.lineage,
@@ -334,7 +380,9 @@ class SpecialistModelFactory:
                 errors[winner.candidate_id] = ("specialist_production_promotion_pending",)
         else:
             errors = {cid: tuple(problems) for cid, problems in ranking.violations.items() if problems}
-        return FactoryCycle(version, manifest, admission, tuple(outcomes), ranking, winner, decision, adapter_id, status, errors)
+        return FactoryCycle(
+            version, manifest, admission, tuple(outcomes), ranking, winner, decision, adapter_id, status, errors
+        )
 
     # -- registry -----------------------------------------------------------
 

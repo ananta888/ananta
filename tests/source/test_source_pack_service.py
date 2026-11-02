@@ -19,7 +19,10 @@ def test_source_pack_bootstrap_dry_run_includes_warning(tmp_path: Path) -> None:
     result = service.bootstrap(source_pack_id="ananta-dev-default", dry_run=True)
     assert result["status"] == "planned"
     assert "wikipedia_dump_large_download_warning" in list(result.get("warnings") or [])
-    assert any(str(item.get("source_id") or "") == "wikimedia-wikipedia-initial-dump" for item in list(result.get("selected_sources") or []))
+    assert any(
+        str(item.get("source_id") or "") == "wikimedia-wikipedia-initial-dump"
+        for item in list(result.get("selected_sources") or [])
+    )
 
 
 def test_source_pack_bootstrap_generates_snapshots_and_bundle(tmp_path: Path) -> None:
@@ -90,7 +93,10 @@ def test_source_pack_bootstrap_license_policy_can_block(tmp_path: Path) -> None:
     result = service.bootstrap(source_pack_id="blocked-license-pack")
     assert result["status"] == "failed"
     assert result["reason_code"] == "license_policy_blocked"
-    assert any("license_not_allowed:keycloak-official-docs:license_unknown" in item for item in list(result["license_policy_report"]["blocking_errors"]))
+    assert any(
+        "license_not_allowed:keycloak-official-docs:license_unknown" in item
+        for item in list(result["license_policy_report"]["blocking_errors"])
+    )
 
 
 def test_source_pack_doctor_reports_ready_and_missing_cases(tmp_path: Path) -> None:
@@ -154,7 +160,9 @@ def test_source_pack_fixture_bootstrap_is_offline_and_deterministic(tmp_path: Pa
     monkeypatch.setattr("urllib.request.urlopen", _deny_network)
     service = _service(tmp_path)
     first = service.bootstrap(source_pack_id="ananta-dev-default", skip_source_ids=["wikimedia-wikipedia-initial-dump"])
-    second = service.bootstrap(source_pack_id="ananta-dev-default", skip_source_ids=["wikimedia-wikipedia-initial-dump"])
+    second = service.bootstrap(
+        source_pack_id="ananta-dev-default", skip_source_ids=["wikimedia-wikipedia-initial-dump"]
+    )
     assert first["status"] == "ok"
     assert second["status"] == "ok"
     assert len(list(first.get("snapshot_ids") or [])) >= 4
@@ -165,19 +173,34 @@ def test_source_pack_answer_preview_routes_swt_jdt_keycloak_and_wikipedia(tmp_pa
     service = _service(tmp_path)
     service.bootstrap(source_pack_id="ananta-dev-default", include_optional=True)
 
-    swt = service.answer_preview(source_pack_id="ananta-dev-default", query="How does SWT/JFace layout work in Eclipse plugin UI?")
-    assert any(str(item.get("source_id") or "").startswith("eclipse-") for item in list(swt.get("source_references") or []))
+    swt = service.answer_preview(
+        source_pack_id="ananta-dev-default", query="How does SWT/JFace layout work in Eclipse plugin UI?"
+    )
+    assert any(
+        str(item.get("source_id") or "").startswith("eclipse-") for item in list(swt.get("source_references") or [])
+    )
 
     jdt = service.answer_preview(source_pack_id="ananta-dev-default", query="How does JDT ASTParser resolve bindings?")
-    assert any(str(item.get("source_id") or "") == "eclipse-jdt-core-official-source" for item in list(jdt.get("source_references") or []))
+    assert any(
+        str(item.get("source_id") or "") == "eclipse-jdt-core-official-source"
+        for item in list(jdt.get("source_references") or [])
+    )
 
-    keycloak = service.answer_preview(source_pack_id="ananta-dev-default", query="How to configure keycloak realm roles and token mapping?")
-    assert any(str(item.get("source_id") or "") == "keycloak-official-docs" for item in list(keycloak.get("source_references") or []))
+    keycloak = service.answer_preview(
+        source_pack_id="ananta-dev-default", query="How to configure keycloak realm roles and token mapping?"
+    )
+    assert any(
+        str(item.get("source_id") or "") == "keycloak-official-docs"
+        for item in list(keycloak.get("source_references") or [])
+    )
 
     wiki = service.answer_preview(
         source_pack_id="ananta-dev-default",
         query="What is dependency injection?",
         include_wikipedia=True,
     )
-    assert any(str(item.get("source_id") or "") == "wikimedia-wikipedia-initial-dump" for item in list(wiki.get("source_references") or []))
+    assert any(
+        str(item.get("source_id") or "") == "wikimedia-wikipedia-initial-dump"
+        for item in list(wiki.get("source_references") or [])
+    )
     assert all(str(item.get("trust_level") or "") for item in list(wiki.get("source_references") or []))

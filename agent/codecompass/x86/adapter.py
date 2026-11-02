@@ -1,4 +1,5 @@
 """X86CC-011: Abstract base class for x86 disassembler adapters."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -77,11 +78,13 @@ class DummyAdapter(X86DisassemblerAdapter):
     @property
     def supported_input_types(self) -> frozenset[str]:
         from agent.codecompass.x86.input_taxonomy import ALL_INPUT_KINDS
+
         return frozenset(ALL_INPUT_KINDS)
 
     @property
     def supported_profiles(self) -> frozenset[str]:
         from agent.codecompass.x86.config import VALID_PROFILES
+
         return frozenset(VALID_PROFILES)
 
     def disassemble(self, input_record: X86InputRecord) -> dict[str, Any]:

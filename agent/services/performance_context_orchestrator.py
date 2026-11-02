@@ -30,12 +30,14 @@ class PerformanceContextOrchestrator:
                 break
             excerpt = text[:remaining]
             used += len(excerpt.encode("utf-8"))
-            files.append({
-                "path": str(path.relative_to(root)),
-                "content": excerpt,
-                "why_this_context": f"affected by hypothesis {hypothesis.get('hypothesis_id')}",
-                "authoritative": True,
-            })
+            files.append(
+                {
+                    "path": str(path.relative_to(root)),
+                    "content": excerpt,
+                    "why_this_context": f"affected by hypothesis {hypothesis.get('hypothesis_id')}",
+                    "authoritative": True,
+                }
+            )
         return {
             "schema": "performance_context_package.v1",
             "hypothesis_id": hypothesis.get("hypothesis_id"),

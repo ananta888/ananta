@@ -15,12 +15,8 @@ from agent.services.workflow_runtime_rollout_service import (
     canonical_runtime_id,
 )
 
-WORKFLOW_RUNTIME_PERFORMANCE_SAMPLES_SCHEMA = (
-    "ananta.workflow_runtime_performance_samples.v1"
-)
-WORKFLOW_RUNTIME_COMPOSE_PERFORMANCE_SCHEMA = (
-    "ananta.workflow_runtime_compose_performance_evidence.v1"
-)
+WORKFLOW_RUNTIME_PERFORMANCE_SAMPLES_SCHEMA = "ananta.workflow_runtime_performance_samples.v1"
+WORKFLOW_RUNTIME_COMPOSE_PERFORMANCE_SCHEMA = "ananta.workflow_runtime_compose_performance_evidence.v1"
 COMPOSE_REFERENCE_PROFILE = "docker-compose-temporal-reference-v1"
 
 _THRESHOLDS_MS = {
@@ -63,16 +59,12 @@ class PerformanceMetricEvidence:
             try:
                 value = float(raw)
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "workflow_runtime_performance_sample_invalid"
-                ) from exc
+                raise ValueError("workflow_runtime_performance_sample_invalid") from exc
             if not math.isfinite(value) or value < 0:
                 raise ValueError("workflow_runtime_performance_sample_invalid")
             normalized.append(value)
         if len(normalized) < _MINIMUM_SAMPLES[normalized_metric]:
-            raise ValueError(
-                f"workflow_runtime_performance_sample_count_insufficient:{normalized_metric}"
-            )
+            raise ValueError(f"workflow_runtime_performance_sample_count_insufficient:{normalized_metric}")
         p95 = nearest_rank_percentile(normalized, 95)
         return cls(
             metric=normalized_metric,
@@ -83,9 +75,7 @@ class PerformanceMetricEvidence:
 
     def assert_passed(self) -> None:
         if self.p95_ms >= self.threshold_ms:
-            raise RuntimeError(
-                f"workflow_runtime_performance_p95_exceeded:{self.metric}"
-            )
+            raise RuntimeError(f"workflow_runtime_performance_p95_exceeded:{self.metric}")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -131,10 +121,7 @@ class ComposeWorkflowRuntimePerformanceEvidence:
             raise ValueError("workflow_runtime_performance_timestamp_invalid")
         if set(samples) != set(_THRESHOLDS_MS):
             raise ValueError("workflow_runtime_performance_metric_set_invalid")
-        metrics = tuple(
-            PerformanceMetricEvidence.build(metric, samples[metric])
-            for metric in _THRESHOLDS_MS
-        )
+        metrics = tuple(PerformanceMetricEvidence.build(metric, samples[metric]) for metric in _THRESHOLDS_MS)
         for metric in metrics:
             metric.assert_passed()
         identity = _evidence_identity(
@@ -166,9 +153,7 @@ class ComposeWorkflowRuntimePerformanceEvidence:
         if not isinstance(raw_metrics, Mapping):
             raise ValueError("workflow_runtime_performance_metrics_required")
         samples = {
-            str(metric): value.get("samples_ms")
-            for metric, value in raw_metrics.items()
-            if isinstance(value, Mapping)
+            str(metric): value.get("samples_ms") for metric, value in raw_metrics.items() if isinstance(value, Mapping)
         }
         evidence = cls.build(
             runtime_id=str(raw.get("runtime_id") or ""),
@@ -179,20 +164,14 @@ class ComposeWorkflowRuntimePerformanceEvidence:
         )
         if evidence.evidence_id != str(raw.get("evidence_id") or ""):
             raise ValueError("workflow_runtime_performance_evidence_digest_mismatch")
-        reported = {
-            str(metric): value
-            for metric, value in raw_metrics.items()
-            if isinstance(value, Mapping)
-        }
+        reported = {str(metric): value for metric, value in raw_metrics.items() if isinstance(value, Mapping)}
         for metric in evidence.metrics:
             value = reported.get(metric.metric, {})
             try:
                 reported_p95 = float(value.get("p95_ms"))
                 reported_threshold = float(value.get("threshold_ms"))
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "workflow_runtime_performance_summary_invalid"
-                ) from exc
+                raise ValueError("workflow_runtime_performance_summary_invalid") from exc
             if (
                 reported_p95 != metric.p95_ms
                 or reported_threshold != metric.threshold_ms
@@ -214,9 +193,7 @@ class ComposeWorkflowRuntimePerformanceEvidence:
             start_p95_ms=self.metric("start").p95_ms,
             signal_p95_ms=self.metric("signal").p95_ms,
             event_projection_p95_ms=self.metric("event_projection").p95_ms,
-            worker_restart_resume_p95_ms=self.metric(
-                "worker_restart_resume"
-            ).p95_ms,
+            worker_restart_resume_p95_ms=self.metric("worker_restart_resume").p95_ms,
             source_revision=self.source_revision,
         )
 
@@ -229,9 +206,7 @@ class ComposeWorkflowRuntimePerformanceEvidence:
             "source_revision": self.source_revision,
             "generated_at": self.generated_at,
             "reference_profile": self.reference_profile,
-            "metrics": {
-                metric.metric: metric.to_dict() for metric in self.metrics
-            },
+            "metrics": {metric.metric: metric.to_dict() for metric in self.metrics},
         }
 
 
@@ -257,18 +232,13 @@ class JsonWorkflowRolloutPerformanceEvidenceStore:
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(
-                "workflow_runtime_performance_evidence_unavailable"
-            ) from exc
+            raise RuntimeError("workflow_runtime_performance_evidence_unavailable") from exc
         if not isinstance(raw, Mapping):
             raise ValueError("workflow_runtime_performance_evidence_invalid")
         evidence = ComposeWorkflowRuntimePerformanceEvidence.from_mapping(raw)
         if evidence.runtime_id != canonical_runtime_id(runtime_id):
             raise RuntimeError("workflow_runtime_performance_runtime_mismatch")
-        if (
-            self._expected_source_revision
-            and evidence.source_revision != self._expected_source_revision
-        ):
+        if self._expected_source_revision and evidence.source_revision != self._expected_source_revision:
             raise RuntimeError("workflow_runtime_performance_revision_mismatch")
         return evidence.to_rollout_evidence()
 

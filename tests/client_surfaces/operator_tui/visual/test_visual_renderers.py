@@ -48,4 +48,3 @@ def test_svg_raster_renderer_falls_back_without_svg_dependency_or_input() -> Non
     assert frame.height == 32
     assert frame.metadata.get("renderer") == "svg_raster_optional"
     assert frame.metadata.get("degraded") is True
-

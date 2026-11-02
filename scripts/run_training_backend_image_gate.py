@@ -191,10 +191,7 @@ class DockerImageGate:
             spec.image,
         )
         self._runner.run((*prefix, "-m", "pip", "check"), timeout_seconds=300)
-        assertion = (
-            "import importlib.metadata as m;"
-            f"assert m.version({spec.package!r}) == {spec.version!r}"
-        )
+        assertion = f"import importlib.metadata as m;assert m.version({spec.package!r}) == {spec.version!r}"
         self._runner.run((*prefix, "-c", assertion), timeout_seconds=120)
         return {"container_digest": digest, "image_size_bytes": size, "install_smoke": "verified"}
 
@@ -352,8 +349,7 @@ def run_gate(*, build: bool, scan: bool, runner: CommandPort, timeout_seconds: i
         "schema_version": "ananta.training-backend-image-gate.v1",
         "status": status,
         "scanners": {
-            name: {"version": scanners[name]["version"], "image": scanners[name]["image"]}
-            for name in ("syft", "grype")
+            name: {"version": scanners[name]["version"], "image": scanners[name]["image"]} for name in ("syft", "grype")
         },
         "results": results,
     }

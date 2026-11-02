@@ -87,9 +87,7 @@ class OperationPolicyRevisionService:
         change_kind: str = "update",
     ) -> OperationPolicyRevisionUpdate:
         current_exists = isinstance(current_stored, dict)
-        current = self._policy_service.resolve_policy(
-            {"operation_policy": current_stored} if current_exists else {}
-        )
+        current = self._policy_service.resolve_policy({"operation_policy": current_stored} if current_exists else {})
         current_revision = int(current.get("revision") or 0)
         self._expected_revision(requested, current_revision, current_exists=current_exists)
         normalized = self._policy_service.normalize_policy(requested)

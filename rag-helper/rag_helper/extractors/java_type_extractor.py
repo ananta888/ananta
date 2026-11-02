@@ -159,31 +159,32 @@ def extract_type(
                         ctx.same_file_types,
                         wildcard_imports=ctx.wildcard_imports,
                     ):
-                        relation_records.append(make_relation(
-                            file=ctx.rel_path,
-                            source_id=type_id,
-                            source_kind="java_type",
-                            source_name=name,
-                            relation=field_relation,
-                            target=raw_t,
-                            target_resolved=rt,
-                        ))
+                        relation_records.append(
+                            make_relation(
+                                file=ctx.rel_path,
+                                source_id=type_id,
+                                source_kind="java_type",
+                                source_name=name,
+                                relation=field_relation,
+                                target=raw_t,
+                                target_resolved=rt,
+                            )
+                        )
                 if ctx.resolve_framework_relations:
-                    relation_records.extend(build_field_framework_relations(
-                        rel_path=ctx.rel_path,
-                        type_id=type_id,
-                        type_name=name,
-                        field=field,
-                    ))
+                    relation_records.extend(
+                        build_field_framework_relations(
+                            rel_path=ctx.rel_path,
+                            type_id=type_id,
+                            type_name=name,
+                            field=field,
+                        )
+                    )
 
             elif member.type == "method_declaration":
                 m_index, m_detail, m_relations, m_meta = extract_method(member_ctx, name, type_id, member)
                 if ctx.exclude_trivial_methods and m_meta["is_trivial"]:
                     continue
-                if (
-                    ctx.max_methods_per_class is not None
-                    and len(method_signatures) >= ctx.max_methods_per_class
-                ):
+                if ctx.max_methods_per_class is not None and len(method_signatures) >= ctx.max_methods_per_class:
                     skipped_method_count += 1
                     continue
                 method_signatures.append(m_index["signature"])
@@ -197,31 +198,37 @@ def extract_type(
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(m_index.get("type_resolution_conflicts", []))
                 if ctx.relation_mode != "compact":
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=type_id,
-                        source_kind="java_type",
-                        source_name=name,
-                        relation="declares_method",
-                        target=m_index["name"],
-                        target_resolved=m_index["id"],
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=m_index["id"],
-                        source_kind="java_method",
-                        source_name=f"{name}.{m_index['name']}",
-                        relation="child_of_type",
-                        target=name,
-                        target_resolved=type_id,
-                    ))
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=type_id,
+                            source_kind="java_type",
+                            source_name=name,
+                            relation="declares_method",
+                            target=m_index["name"],
+                            target_resolved=m_index["id"],
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=m_index["id"],
+                            source_kind="java_method",
+                            source_name=f"{name}.{m_index['name']}",
+                            relation="child_of_type",
+                            target=name,
+                            target_resolved=type_id,
+                        )
+                    )
                 if ctx.resolve_framework_relations:
-                    relation_records.extend(build_method_framework_relations(
-                        rel_path=ctx.rel_path,
-                        type_id=type_id,
-                        type_name=name,
-                        method_record=m_index,
-                    ))
+                    relation_records.extend(
+                        build_method_framework_relations(
+                            rel_path=ctx.rel_path,
+                            type_id=type_id,
+                            type_name=name,
+                            method_record=m_index,
+                        )
+                    )
 
             elif member.type == "constructor_declaration":
                 c_index, c_detail, c_relations = extract_constructor(member_ctx, name, type_id, member)
@@ -235,31 +242,37 @@ def extract_type(
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(c_index.get("type_resolution_conflicts", []))
                 if ctx.relation_mode != "compact":
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=type_id,
-                        source_kind="java_type",
-                        source_name=name,
-                        relation="declares_constructor",
-                        target=c_index["signature"],
-                        target_resolved=c_index["id"],
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=c_index["id"],
-                        source_kind="java_constructor",
-                        source_name=f"{name}.{c_index['name']}",
-                        relation="child_of_type",
-                        target=name,
-                        target_resolved=type_id,
-                    ))
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=type_id,
+                            source_kind="java_type",
+                            source_name=name,
+                            relation="declares_constructor",
+                            target=c_index["signature"],
+                            target_resolved=c_index["id"],
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=c_index["id"],
+                            source_kind="java_constructor",
+                            source_name=f"{name}.{c_index['name']}",
+                            relation="child_of_type",
+                            target=name,
+                            target_resolved=type_id,
+                        )
+                    )
                 if ctx.resolve_framework_relations:
-                    relation_records.extend(build_constructor_framework_relations(
-                        rel_path=ctx.rel_path,
-                        type_id=type_id,
-                        type_name=name,
-                        constructor_record=c_index,
-                    ))
+                    relation_records.extend(
+                        build_constructor_framework_relations(
+                            rel_path=ctx.rel_path,
+                            type_id=type_id,
+                            type_name=name,
+                            constructor_record=c_index,
+                        )
+                    )
 
     roles = detect_type_roles(
         type_name=name,
@@ -283,28 +296,34 @@ def extract_type(
             )
             return resolved[0] if resolved else None
 
-        relation_records.extend(build_test_type_relations(
-            rel_path=ctx.rel_path,
-            type_id=type_id,
-            type_name=name,
-            annotations=annotations,
-            fields=fields,
-            resolve=_resolve_first,
-        ))
-        for method_index in method_indexes:
-            relation_records.extend(build_endpoint_relations(
+        relation_records.extend(
+            build_test_type_relations(
                 rel_path=ctx.rel_path,
                 type_id=type_id,
                 type_name=name,
-                method_record=method_index,
-            ))
-            relation_records.extend(build_policy_relations(
-                rel_path=ctx.rel_path,
-                type_name=name,
-                method_record=method_index,
-                parameter_bindings=parse_parameter_bindings(list(method_index.get("parameters") or [])),
+                annotations=annotations,
+                fields=fields,
                 resolve=_resolve_first,
-            ))
+            )
+        )
+        for method_index in method_indexes:
+            relation_records.extend(
+                build_endpoint_relations(
+                    rel_path=ctx.rel_path,
+                    type_id=type_id,
+                    type_name=name,
+                    method_record=method_index,
+                )
+            )
+            relation_records.extend(
+                build_policy_relations(
+                    rel_path=ctx.rel_path,
+                    type_name=name,
+                    method_record=method_index,
+                    parameter_bindings=parse_parameter_bindings(list(method_index.get("parameters") or [])),
+                    resolve=_resolve_first,
+                )
+            )
 
     extends_resolved = resolve_type_name(
         extends,
@@ -337,23 +356,27 @@ def extract_type(
 
     if extends:
         for rt in extends_resolved or [extends]:
-            relation_records.append(make_relation(
-                file=ctx.rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=name,
-                relation="extends",
-                target=extends,
-                target_resolved=rt,
-            ))
+            relation_records.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=name,
+                    relation="extends",
+                    target=extends,
+                    target_resolved=rt,
+                )
+            )
     if ctx.resolve_framework_relations:
-        relation_records.extend(build_type_framework_relations(
-            rel_path=ctx.rel_path,
-            type_id=type_id,
-            type_name=name,
-            annotations=annotations,
-            resolved_extends=extends_resolved,
-        ))
+        relation_records.extend(
+            build_type_framework_relations(
+                rel_path=ctx.rel_path,
+                type_id=type_id,
+                type_name=name,
+                annotations=annotations,
+                resolved_extends=extends_resolved,
+            )
+        )
 
     for impl in implements:
         impl_resolved = resolve_type_name(
@@ -365,15 +388,17 @@ def extract_type(
             wildcard_imports=ctx.wildcard_imports,
         )
         for rt in impl_resolved or [impl]:
-            relation_records.append(make_relation(
-                file=ctx.rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=name,
-                relation="implements",
-                target=impl,
-                target_resolved=rt,
-            ))
+            relation_records.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=name,
+                    relation="implements",
+                    target=impl,
+                    target_resolved=rt,
+                )
+            )
 
     embedding_text = build_embedding_text(
         ctx.embedding_text_mode,
@@ -434,31 +459,42 @@ def extract_type(
     }
 
     if ctx.relation_mode != "compact":
-        relation_records.insert(0, make_relation(
-            file=ctx.rel_path,
-            source_id=file_id,
-            source_kind="java_file",
-            source_name=ctx.rel_path,
-            relation="contains_type",
-            target=name,
-            target_resolved=type_id,
-        ))
-        relation_records.insert(1, make_relation(
-            file=ctx.rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=name,
-            relation="child_of_file",
-            target=ctx.rel_path,
-            target_resolved=file_id,
-        ))
+        relation_records.insert(
+            0,
+            make_relation(
+                file=ctx.rel_path,
+                source_id=file_id,
+                source_kind="java_file",
+                source_name=ctx.rel_path,
+                relation="contains_type",
+                target=name,
+                target_resolved=type_id,
+            ),
+        )
+        relation_records.insert(
+            1,
+            make_relation(
+                file=ctx.rel_path,
+                source_id=type_id,
+                source_kind="java_type",
+                source_name=name,
+                relation="child_of_file",
+                target=ctx.rel_path,
+                target_resolved=file_id,
+            ),
+        )
 
-    return type_record, detail_records, relation_records, {
-        "field_count": len(fields),
-        "method_count": len(method_signatures),
-        "constructor_count": len(constructor_signatures),
-        "skipped_method_count": skipped_method_count,
-    }
+    return (
+        type_record,
+        detail_records,
+        relation_records,
+        {
+            "field_count": len(fields),
+            "method_count": len(method_signatures),
+            "constructor_count": len(constructor_signatures),
+            "skipped_method_count": skipped_method_count,
+        },
+    )
 
 
 def has_annotation_prefix(annotations: list[str], prefixes: tuple[str, ...]) -> bool:
@@ -474,46 +510,54 @@ def build_type_framework_relations(
 ) -> list[RelationRecord]:
     relations: list[RelationRecord] = []
     if has_annotation_prefix(annotations, ("@Configuration",)):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="spring_configuration",
-            target=type_name,
-            target_resolved=type_id,
-        ))
-    if has_annotation_prefix(annotations, ("@Entity", "@Embeddable", "@MappedSuperclass")):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="jpa_entity_role",
-            target=type_name,
-            target_resolved=type_id,
-        ))
-    if has_annotation_prefix(annotations, ("@Transactional",)):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="transactional_boundary",
-            target=type_name,
-            target_resolved=type_id,
-        ))
-    for resolved_base in resolved_extends:
-        if resolved_base.endswith("JpaRepository") or resolved_base.endswith("CrudRepository"):
-            relations.append(make_relation(
+        relations.append(
+            make_relation(
                 file=rel_path,
                 source_id=type_id,
                 source_kind="java_type",
                 source_name=type_name,
-                relation="repository_extends_framework",
-                target=resolved_base,
-                target_resolved=resolved_base,
-            ))
+                relation="spring_configuration",
+                target=type_name,
+                target_resolved=type_id,
+            )
+        )
+    if has_annotation_prefix(annotations, ("@Entity", "@Embeddable", "@MappedSuperclass")):
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=type_id,
+                source_kind="java_type",
+                source_name=type_name,
+                relation="jpa_entity_role",
+                target=type_name,
+                target_resolved=type_id,
+            )
+        )
+    if has_annotation_prefix(annotations, ("@Transactional",)):
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=type_id,
+                source_kind="java_type",
+                source_name=type_name,
+                relation="transactional_boundary",
+                target=type_name,
+                target_resolved=type_id,
+            )
+        )
+    for resolved_base in resolved_extends:
+        if resolved_base.endswith("JpaRepository") or resolved_base.endswith("CrudRepository"):
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="repository_extends_framework",
+                    target=resolved_base,
+                    target_resolved=resolved_base,
+                )
+            )
     return relations
 
 
@@ -532,15 +576,17 @@ def build_field_framework_relations(
     if has_annotation_prefix(annotations, ("@Autowired", "@Inject")) and primary_target:
         for declarator in declarators:
             field_name = declarator.split("=")[0].strip()
-            relations.append(make_relation(
-                file=rel_path,
-                source_id=type_id,
-                source_kind="java_type",
-                source_name=type_name,
-                relation="injects_dependency",
-                target=field_name or (field.get("type") or ""),
-                target_resolved=primary_target,
-            ))
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation="injects_dependency",
+                    target=field_name or (field.get("type") or ""),
+                    target_resolved=primary_target,
+                )
+            )
 
     jpa_map = {
         "@OneToMany": "jpa_one_to_many",
@@ -550,26 +596,30 @@ def build_field_framework_relations(
     }
     for annotation_prefix, relation_name in jpa_map.items():
         if has_annotation_prefix(annotations, (annotation_prefix,)) and primary_target:
-            relations.append(make_relation(
+            relations.append(
+                make_relation(
+                    file=rel_path,
+                    source_id=type_id,
+                    source_kind="java_type",
+                    source_name=type_name,
+                    relation=relation_name,
+                    target=field.get("type") or "",
+                    target_resolved=primary_target,
+                )
+            )
+
+    if has_annotation_prefix(annotations, ("@JoinColumn",)):
+        relations.append(
+            make_relation(
                 file=rel_path,
                 source_id=type_id,
                 source_kind="java_type",
                 source_name=type_name,
-                relation=relation_name,
+                relation="jpa_join_column",
                 target=field.get("type") or "",
                 target_resolved=primary_target,
-            ))
-
-    if has_annotation_prefix(annotations, ("@JoinColumn",)):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="jpa_join_column",
-            target=field.get("type") or "",
-            target_resolved=primary_target,
-        ))
+            )
+        )
 
     return relations
 
@@ -587,35 +637,41 @@ def build_method_framework_relations(
 
     if has_annotation_prefix(annotations, ("@Bean",)):
         target_resolved = method_record.get("resolved_return_types", [None])[0] or method_record.get("return_type")
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="declares_bean",
-            target=method_name,
-            target_resolved=target_resolved,
-        ))
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=method_id,
-            source_kind="java_method",
-            source_name=f"{type_name}.{method_name}",
-            relation="bean_factory_method",
-            target=method_name,
-            target_resolved=target_resolved,
-        ))
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=type_id,
+                source_kind="java_type",
+                source_name=type_name,
+                relation="declares_bean",
+                target=method_name,
+                target_resolved=target_resolved,
+            )
+        )
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=method_id,
+                source_kind="java_method",
+                source_name=f"{type_name}.{method_name}",
+                relation="bean_factory_method",
+                target=method_name,
+                target_resolved=target_resolved,
+            )
+        )
 
     if has_annotation_prefix(annotations, ("@Transactional",)):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=method_id,
-            source_kind="java_method",
-            source_name=f"{type_name}.{method_name}",
-            relation="transactional_boundary",
-            target=method_name,
-            target_resolved=method_id,
-        ))
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=method_id,
+                source_kind="java_method",
+                source_name=f"{type_name}.{method_name}",
+                relation="transactional_boundary",
+                target=method_name,
+                target_resolved=method_id,
+            )
+        )
 
     return relations
 
@@ -629,13 +685,15 @@ def build_constructor_framework_relations(
     relations: list[RelationRecord] = []
     annotations = constructor_record.get("annotations", [])
     if has_annotation_prefix(annotations, ("@Autowired", "@Inject")):
-        relations.append(make_relation(
-            file=rel_path,
-            source_id=type_id,
-            source_kind="java_type",
-            source_name=type_name,
-            relation="constructor_injection",
-            target=constructor_record["signature"],
-            target_resolved=constructor_record["id"],
-        ))
+        relations.append(
+            make_relation(
+                file=rel_path,
+                source_id=type_id,
+                source_kind="java_type",
+                source_name=type_name,
+                relation="constructor_injection",
+                target=constructor_record["signature"],
+                target_resolved=constructor_record["id"],
+            )
+        )
     return relations

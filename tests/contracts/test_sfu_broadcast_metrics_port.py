@@ -29,6 +29,11 @@ def test_small_metric_ports_are_structurally_substitutable():
     assert isinstance(sink, SfuBroadcastGaugePort)
     assert isinstance(sink, SfuBroadcastAuditEventPort)
     assert set(SfuBroadcastMetricPoint("metric", "gauge", "items", 1, {}, 1).public()) == {
-        "name", "kind", "unit", "value", "labels", "observed_at_seconds"
+        "name",
+        "kind",
+        "unit",
+        "value",
+        "labels",
+        "observed_at_seconds",
     }
     assert "payload" not in SfuBroadcastAuditObservation("event", "ok", "accepted", {}, 1).public()

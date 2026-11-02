@@ -33,4 +33,3 @@ def test_invalid_tool_calls_fails():
     )
     assert ok is False
     assert reason == "tool_calls_invalid"
-

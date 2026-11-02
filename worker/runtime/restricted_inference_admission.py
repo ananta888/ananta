@@ -76,9 +76,7 @@ class FilesystemSnapshotAdmission:
                 reason_code = exc.reason_code
             metadata_languages = manifest.metadata.get("languages", ())
             languages = (
-                tuple(str(item) for item in metadata_languages)
-                if isinstance(metadata_languages, (list, tuple))
-                else ()
+                tuple(str(item) for item in metadata_languages) if isinstance(metadata_languages, (list, tuple)) else ()
             )
             capabilities.append(
                 ModelCapability(

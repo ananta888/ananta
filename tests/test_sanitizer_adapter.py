@@ -1,17 +1,16 @@
 """Tests for sanitizer.py (EW-T017) and adapter_trust.py (EW-T019)."""
-import pytest
 
-from worker.core.sanitizer import OutputSanitizer, sanitize, sanitize_dict
 from worker.core.adapter_trust import (
+    KNOWN_ADAPTERS,
     AdapterOutput,
     AdapterTrustBoundary,
-    KNOWN_ADAPTERS,
     _extract_command_blocks,
     _extract_diff_blocks,
 )
-
+from worker.core.sanitizer import OutputSanitizer, sanitize, sanitize_dict
 
 # ── OutputSanitizer (EW-T017) ─────────────────────────────────────────────────
+
 
 class TestOutputSanitizer:
     def setup_method(self):
@@ -50,9 +49,7 @@ class TestOutputSanitizer:
 
     def test_private_key_block_redacted(self):
         key_text = (
-            "-----BEGIN RSA PRIVATE KEY-----\n"
-            "MIIEowIBAAKCAQEA0Z3VS5JJcds3xHn/ygWep4\n"
-            "-----END RSA PRIVATE KEY-----"
+            "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0Z3VS5JJcds3xHn/ygWep4\n-----END RSA PRIVATE KEY-----"
         )
         result = self.san.sanitize(key_text)
         assert "BEGIN RSA PRIVATE KEY" not in result.text
@@ -110,15 +107,13 @@ class TestOutputSanitizer:
 
 # ── AdapterTrustBoundary (EW-T019) ────────────────────────────────────────────
 
+
 class TestAdapterTrustBoundary:
     def setup_method(self):
         self.boundary = AdapterTrustBoundary()
 
     def test_known_adapter_with_patch_succeeds(self):
-        diff = (
-            "--- a/main.py\n+++ b/main.py\n"
-            "@@ -1,1 +1,1 @@\n-old\n+new\n"
-        )
+        diff = "--- a/main.py\n+++ b/main.py\n@@ -1,1 +1,1 @@\n-old\n+new\n"
         output = AdapterOutput(adapter_id="aider", raw_text=diff, exit_code=0)
         result = self.boundary.process(output)
         assert result.allowed is True
@@ -197,6 +192,7 @@ class TestAdapterTrustBoundary:
 
 
 # ── Extraction helpers ────────────────────────────────────────────────────────
+
 
 class TestExtractionHelpers:
     def test_extract_diff_blocks(self):

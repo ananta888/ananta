@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -39,4 +38,3 @@ def test_coturn_contract_has_no_open_relay_or_username_metrics():
         line for line in config.splitlines() if not line.lstrip().startswith("#")
     )
     assert "no-auth" not in config
-

@@ -1,9 +1,10 @@
 """Repository for RepairExecutionRecordDB persistence.
 DRR-T026: Persist and query repair execution records.
 """
+
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlmodel import Session, select
 
@@ -23,9 +24,7 @@ class RepairExecutionRecordRepository:
         with Session(engine) as session:
             return session.get(RepairExecutionRecordDB, entry_id)
 
-    def query_by_problem_class(
-        self, problem_class: str, *, limit: int = 20
-    ) -> List[RepairExecutionRecordDB]:
+    def query_by_problem_class(self, problem_class: str, *, limit: int = 20) -> List[RepairExecutionRecordDB]:
         with Session(engine) as session:
             statement = (
                 select(RepairExecutionRecordDB)
@@ -35,9 +34,7 @@ class RepairExecutionRecordRepository:
             )
             return session.exec(statement).all()
 
-    def query_by_signature_id(
-        self, signature_id: str, *, limit: int = 20
-    ) -> List[RepairExecutionRecordDB]:
+    def query_by_signature_id(self, signature_id: str, *, limit: int = 20) -> List[RepairExecutionRecordDB]:
         with Session(engine) as session:
             statement = (
                 select(RepairExecutionRecordDB)
@@ -47,9 +44,7 @@ class RepairExecutionRecordRepository:
             )
             return session.exec(statement).all()
 
-    def query_by_procedure_id(
-        self, procedure_id: str, *, limit: int = 20
-    ) -> List[RepairExecutionRecordDB]:
+    def query_by_procedure_id(self, procedure_id: str, *, limit: int = 20) -> List[RepairExecutionRecordDB]:
         with Session(engine) as session:
             statement = (
                 select(RepairExecutionRecordDB)
@@ -59,16 +54,11 @@ class RepairExecutionRecordRepository:
             )
             return session.exec(statement).all()
 
-    def recent_by_environment(
-        self, environment_facts_hash: str, *, limit: int = 20
-    ) -> List[RepairExecutionRecordDB]:
+    def recent_by_environment(self, environment_facts_hash: str, *, limit: int = 20) -> List[RepairExecutionRecordDB]:
         with Session(engine) as session:
             statement = (
                 select(RepairExecutionRecordDB)
-                .where(
-                    RepairExecutionRecordDB.environment_facts_hash
-                    == environment_facts_hash
-                )
+                .where(RepairExecutionRecordDB.environment_facts_hash == environment_facts_hash)
                 .order_by(RepairExecutionRecordDB.created_at.desc())
                 .limit(limit)
             )
@@ -76,11 +66,7 @@ class RepairExecutionRecordRepository:
 
     def find_all(self, *, limit: int = 50) -> List[RepairExecutionRecordDB]:
         with Session(engine) as session:
-            statement = (
-                select(RepairExecutionRecordDB)
-                .order_by(RepairExecutionRecordDB.created_at.desc())
-                .limit(limit)
-            )
+            statement = select(RepairExecutionRecordDB).order_by(RepairExecutionRecordDB.created_at.desc()).limit(limit)
             return session.exec(statement).all()
 
 

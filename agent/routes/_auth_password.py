@@ -5,6 +5,7 @@ No Flask route decorators live here — this module is the
 single-responsibility home of every password/lockout policy check,
 so that the route modules stay focused on HTTP plumbing.
 """
+
 from __future__ import annotations
 
 import re

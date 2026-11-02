@@ -1,9 +1,8 @@
 """Tests for Job Posting Normalizer (JOBCORE-003)."""
+
 from __future__ import annotations
 
-import pytest
-from agent.job_module.posting_normalizer import normalize_posting, JobPosting
-
+from agent.job_module.posting_normalizer import normalize_posting
 
 GERMAN_POSTING = """
 Python Developer (m/w/d)

@@ -14,4 +14,3 @@ class TracePort(Protocol):
 
 class ArtifactPort(Protocol):
     def publish(self, *, artifact: dict[str, Any]) -> dict[str, Any]: ...
-

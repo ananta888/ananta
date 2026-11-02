@@ -1,7 +1,9 @@
 """Tests for CaseFlow Discovery Layer (DISCOVERY-001/002/004)."""
+
 from __future__ import annotations
 
 import pytest
+
 from agent.caseflow.discovery import (
     DiscoveryResult,
     DiscoveryRun,
@@ -75,7 +77,7 @@ class TestConvertResultToCase:
 
     def test_convert_result_duplicate_prevented(self):
         result = self._make_result()
-        case = convert_result_to_case(result, "job_application", approved_by="user-1")
+        convert_result_to_case(result, "job_application", approved_by="user-1")
         with pytest.raises(PolicyDenied) as exc_info:
             convert_result_to_case(result, "job_application", approved_by="user-1")
         assert exc_info.value.error_code == "DUPLICATE_CONVERSION"
@@ -86,7 +88,6 @@ class TestConvertResultToCase:
         # Reset so we can convert again
         result.converted_to_case_id = case1.id
         case2 = convert_result_to_case(
-            result, "job_application", approved_by="user-1",
-            options={"allow_duplicate": True}
+            result, "job_application", approved_by="user-1", options={"allow_duplicate": True}
         )
         assert case2.case_type == "job_application"

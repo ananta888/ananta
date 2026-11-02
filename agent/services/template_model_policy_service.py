@@ -19,6 +19,7 @@ Config example (AGENT_CONFIG):
       model_role: "coder"
       allow_cloud: false
 """
+
 from __future__ import annotations
 
 import logging

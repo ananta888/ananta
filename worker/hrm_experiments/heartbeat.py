@@ -61,8 +61,7 @@ class HrmCapabilityHeartbeat:
             except Exception as exc:
                 with self._state_lock:
                     self._last_reason_code = (
-                        str(getattr(exc, "reason_code", "") or exc)[:128]
-                        or "hrm_capability_refresh_failed"
+                        str(getattr(exc, "reason_code", "") or exc)[:128] or "hrm_capability_refresh_failed"
                     )
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -35,9 +34,11 @@ def test_repo_scope_context_triggers_background_indexing_when_enabled(tmp_path):
     def _fake_trigger(scope_id, *, profile):
         triggered.append(scope_id)
 
-    with patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}), \
-         patch.object(svc, "_trigger_path_indexing", side_effect=_fake_trigger), \
-         patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos:
+    with (
+        patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}),
+        patch.object(svc, "_trigger_path_indexing", side_effect=_fake_trigger),
+        patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos,
+    ):
         mock_repos.return_value.knowledge_index_repo.get_by_scope.return_value = None
         items = svc._repo_scope_context([{"path": "."}], per_item_limit=2000)
 
@@ -52,9 +53,11 @@ def test_repo_scope_context_returns_indexed_chunks_when_completed(tmp_path):
     fake_chunk = SimpleNamespace(source="svc.py:5", content="def run(): pass", score=0.9)
     mock_index = SimpleNamespace(status="completed")
 
-    with patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}), \
-         patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos, \
-         patch("agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service") as mock_ret:
+    with (
+        patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}),
+        patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos,
+        patch("agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service") as mock_ret,
+    ):
         mock_repos.return_value.knowledge_index_repo.get_by_scope.return_value = mock_index
         mock_ret.return_value.search.return_value = [fake_chunk]
         # path: "." is the repo root itself
@@ -76,9 +79,11 @@ def test_repo_scope_context_does_not_retrigger_running_index(tmp_path):
 
     mock_index = SimpleNamespace(status="running")
 
-    with patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}), \
-         patch.object(svc, "_trigger_path_indexing", side_effect=_fake_trigger), \
-         patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos:
+    with (
+        patch.object(svc, "_auto_index_cfg", return_value={"enabled": True, "profile": "default"}),
+        patch.object(svc, "_trigger_path_indexing", side_effect=_fake_trigger),
+        patch("agent.services.research_context_bridge_service.get_repository_registry") as mock_repos,
+    ):
         mock_repos.return_value.knowledge_index_repo.get_by_scope.return_value = mock_index
         svc._repo_scope_context([{"path": "."}], per_item_limit=2000)
 
@@ -89,23 +94,19 @@ def test_hidden_system_artifact_is_rejected_before_extraction_and_context_build(
     svc = ResearchContextBridgeService()
     hidden = SimpleNamespace(
         id="hidden-index-payload",
-        artifact_metadata={
-            "system_artifact_kind": "knowledge_index_job_payload"
-        },
+        artifact_metadata={"system_artifact_kind": "knowledge_index_job_payload"},
     )
     repositories = SimpleNamespace(
-        artifact_repo=SimpleNamespace(
-            get_by_id=lambda artifact_id: (
-                hidden if artifact_id == hidden.id else None
-            )
-        )
+        artifact_repo=SimpleNamespace(get_by_id=lambda artifact_id: hidden if artifact_id == hidden.id else None)
     )
 
-    with patch(
-        "agent.services.research_context_bridge_service.get_repository_registry",
-        return_value=repositories,
-    ), patch.object(svc, "_ensure_document") as ensure_document, patch(
-        "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service"
+    with (
+        patch(
+            "agent.services.research_context_bridge_service.get_repository_registry",
+            return_value=repositories,
+        ),
+        patch.object(svc, "_ensure_document") as ensure_document,
+        patch("agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service"),
     ):
         result = svc.build_context(
             task={},
@@ -124,9 +125,7 @@ def test_knowledge_collection_filters_system_artifacts_before_retrieval() -> Non
     public = SimpleNamespace(id="public-document", artifact_metadata={})
     hidden = SimpleNamespace(
         id="hidden-worker-output",
-        artifact_metadata={
-            "system_artifact_kind": "knowledge_index_worker_output"
-        },
+        artifact_metadata={"system_artifact_kind": "knowledge_index_worker_output"},
     )
     artifacts = {public.id: public, hidden.id: hidden}
     repositories = SimpleNamespace(
@@ -148,12 +147,15 @@ def test_knowledge_collection_filters_system_artifacts_before_retrieval() -> Non
     retrieval = MagicMock()
     retrieval.search.return_value = []
 
-    with patch(
-        "agent.services.research_context_bridge_service.get_repository_registry",
-        return_value=repositories,
-    ), patch(
-        "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service",
-        return_value=retrieval,
+    with (
+        patch(
+            "agent.services.research_context_bridge_service.get_repository_registry",
+            return_value=repositories,
+        ),
+        patch(
+            "agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service",
+            return_value=retrieval,
+        ),
     ):
         items = svc._knowledge_context(
             ["collection-1"],

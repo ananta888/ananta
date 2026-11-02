@@ -1,19 +1,24 @@
 import logging
+import os
 import threading
 import time
-import os
+
 from agent.config import settings
 from agent.database import OperationalError
+
 
 def _is_db_operational_error(exc: Exception) -> bool:
     return isinstance(exc, OperationalError) or "OperationalError" in str(exc)
 
+
 def _sleep_with_shutdown(total_seconds: int) -> None:
     import agent.common.context
+
     for _ in range(total_seconds):
         if agent.common.context.shutdown_requested:
             break
         time.sleep(1)
+
 
 def start_monitoring_thread(app):
     from agent.services.agent_health_monitor_service import get_agent_health_monitor_service
@@ -30,13 +35,12 @@ def start_monitoring_thread(app):
         if db_error_count <= 3:
             logging.info(f"Datenbank vorübergehend nicht erreichbar (Monitoring): {exc}")
         elif db_error_count % 10 == 0:
-            logging.warning(
-                f"Datenbank weiterhin nicht erreichbar (Monitoring, {db_error_count} Versuche): {exc}"
-            )
+            logging.warning(f"Datenbank weiterhin nicht erreichbar (Monitoring, {db_error_count} Versuche): {exc}")
         return db_error_count
 
     def run_monitoring():
         import agent.common.context
+
         if not should_run_monitoring():
             logging.info("Monitoring-Task uebersprungen (kein Hub und keine Agents-Daten).")
             return
@@ -61,5 +65,6 @@ def start_monitoring_thread(app):
 
     t = threading.Thread(target=run_monitoring, daemon=True)
     import agent.common.context
+
     agent.common.context.active_threads.append(t)
     t.start()

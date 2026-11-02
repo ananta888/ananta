@@ -51,7 +51,9 @@ def build_prediction_trace(
             ref = str(item).strip()
         if ref:
             refs.append(ref)
-    trace_id = f"pred-{int(time.time() * 1000)}-{abs(hash((mode, prediction.predicted_intent, context_hash))) % 10000:04d}"
+    trace_id = (
+        f"pred-{int(time.time() * 1000)}-{abs(hash((mode, prediction.predicted_intent, context_hash))) % 10000:04d}"
+    )
     return {
         "prediction_id": trace_id,
         "mode": str(mode or "predict_intent"),
@@ -65,7 +67,9 @@ def build_prediction_trace(
 
 
 class PredictionGate:
-    def __init__(self, *, min_interval_seconds: float = 3.0, min_confidence: float = 0.35, stable_ms: int = 500) -> None:
+    def __init__(
+        self, *, min_interval_seconds: float = 3.0, min_confidence: float = 0.35, stable_ms: int = 500
+    ) -> None:
         self.min_interval_seconds = max(0.5, float(min_interval_seconds))
         self.min_confidence = max(0.0, min(1.0, float(min_confidence)))
         self.stable_ms = max(100, int(stable_ms))
@@ -105,7 +109,9 @@ class PredictionGate:
         return GateDecision(True, "allowed", self.skipped_worker_requests)
 
 
-def quick_predict(events: list[ObservationEvent], *, now: float | None = None, ttl_seconds: int = 20) -> QuickPrediction:
+def quick_predict(
+    events: list[ObservationEvent], *, now: float | None = None, ttl_seconds: int = 20
+) -> QuickPrediction:
     ts = time.time() if now is None else float(now)
     ttl = max(5, min(120, int(ttl_seconds)))
     if not events:

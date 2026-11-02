@@ -18,11 +18,19 @@ from typing import Callable
 TRUNCATION_MARKER = "\n# [… gekürzt]"
 
 EXT_LANG: dict[str, str] = {
-    "py": "python", "ts": "typescript", "tsx": "typescript",
-    "js": "javascript", "jsx": "javascript",
-    "yaml": "yaml", "yml": "yaml", "json": "json",
-    "md": "markdown", "html": "html", "css": "css",
-    "sh": "bash", "bash": "bash",
+    "py": "python",
+    "ts": "typescript",
+    "tsx": "typescript",
+    "js": "javascript",
+    "jsx": "javascript",
+    "yaml": "yaml",
+    "yml": "yaml",
+    "json": "json",
+    "md": "markdown",
+    "html": "html",
+    "css": "css",
+    "sh": "bash",
+    "bash": "bash",
 }
 
 # CCSH-004: Accepted alias names for line-range and snippet fields
@@ -182,17 +190,19 @@ class ContextBlockCollector:
         end_line: "int | None",
         score: "float | None" = None,
     ) -> None:
-        self.blocks.append({
-            "rel_path": rel_path,
-            "lang": lang,
-            "content": content,
-            "source_kind": source_kind,
-            "start_line": start_line,
-            "end_line": end_line,
-            "score": resolved.score if score is None else score,
-            "reason": resolved.reason,
-            "symbol": resolved.symbol,
-        })
+        self.blocks.append(
+            {
+                "rel_path": rel_path,
+                "lang": lang,
+                "content": content,
+                "source_kind": source_kind,
+                "start_line": start_line,
+                "end_line": end_line,
+                "score": resolved.score if score is None else score,
+                "reason": resolved.reason,
+                "symbol": resolved.symbol,
+            }
+        )
 
 
 # A source strategy returns True when it consumed the ref (later strategies are skipped).

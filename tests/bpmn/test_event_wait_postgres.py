@@ -25,10 +25,17 @@ from tests.bpmn.test_native_postgres_concurrency import pg_native as pg_native
 def wait_setup(native):
     connections = engines(native)
     plan = execution_plan(compile_request(xor_xml()))
-    request = NativeGraphRequest(plan, 'postgres-event-waits', 'synthetic-control-task')
-    run = WaitRunBinding(plan.tenant_id, 'synthetic-project', plan.workflow_id,
-        request.run_id, 'synthetic-definition-v1', plan.plan_hash, plan.policy_version)
-    keys = HmacKeyRing({'synthetic': b'synthetic-event-wait-signing-key-only'}, active_key_id='synthetic')
+    request = NativeGraphRequest(plan, "postgres-event-waits", "synthetic-control-task")
+    run = WaitRunBinding(
+        plan.tenant_id,
+        "synthetic-project",
+        plan.workflow_id,
+        request.run_id,
+        "synthetic-definition-v1",
+        plan.plan_hash,
+        plan.policy_version,
+    )
+    keys = HmacKeyRing({"synthetic": b"synthetic-event-wait-signing-key-only"}, active_key_id="synthetic")
     now = [100.0]
     checkpoints = [SQLAlchemyCheckpointStore(engine) for engine in connections]
     leases = [BpmnRunLeaseService(checkpoints=store, keys=keys, clock=lambda: now[0]) for store in checkpoints]
@@ -36,13 +43,19 @@ def wait_setup(native):
     class AdmitExactMessage:
         def authorize(self, item):
             if item.run != run or item.target != TARGET or item.contract != CONTRACT:
-                raise PermissionError('synthetic_message_scope_denied')
+                raise PermissionError("synthetic_message_scope_denied")
 
     def service(index, lease):
         store = CheckpointEventWaitStore(checkpoints[index], keys).for_lease(lease)
-        return BpmnEventWaitService(run=run, store=store, clock=lambda: now[0],
-            fencing_token=lease.fencing_token, guard=lease.ensure_valid,
-            authorizer=AdmitExactMessage(), payload_validator=ValidateOrder())
+        return BpmnEventWaitService(
+            run=run,
+            store=store,
+            clock=lambda: now[0],
+            fencing_token=lease.fencing_token,
+            guard=lease.ensure_valid,
+            authorizer=AdmitExactMessage(),
+            payload_validator=ValidateOrder(),
+        )
 
     return connections, run, now, leases, request, service
 
@@ -65,10 +78,10 @@ def test_postgres_timer_cancel_consume_has_one_durable_winner(pg_native):
                 cancelled = pool.submit(canceller.cancel, TARGET)
                 receipt, cancellation = consumed.result(timeout=5), cancelled.result(timeout=5)
             final = service(1, lease).inspect(TARGET)
-            if final.status == 'cancelled':
-                assert receipt is None and cancellation.status == 'cancelled'
+            if final.status == "cancelled":
+                assert receipt is None and cancellation.status == "cancelled"
             else:
-                assert final.status == cancellation.status == 'consumed' and receipt is not None
+                assert final.status == cancellation.status == "consumed" and receipt is not None
             assert service(1, lease).pending() == ()
     finally:
         for engine in connections:
@@ -84,8 +97,8 @@ def test_postgres_duplicate_message_and_consume_share_persisted_receipt(pg_nativ
             a, b = racing(service(0, lease), service(1, lease))
             with ThreadPoolExecutor(max_workers=2) as pool:
                 results = [pool.submit(hub.deliver_message, item) for hub in (a, b)]
-                assert [result.result(timeout=5).status for result in results] == ['matched', 'matched']
-            ready, = service(0, lease).pending()
+                assert [result.result(timeout=5).status for result in results] == ["matched", "matched"]
+            (ready,) = service(0, lease).pending()
             a, b = racing(service(0, lease), service(1, lease))
             with ThreadPoolExecutor(max_workers=2) as pool:
                 results = [pool.submit(hub.consume, TARGET, wakeup_id=ready.wakeup_id) for hub in (a, b)]
@@ -110,11 +123,11 @@ def test_postgres_successor_control_lease_blocks_old_wait_mutation(pg_native):
         now[0] = 131
         with leases[1].acquire(request) as successor:
             assert successor.fencing_token > first.fencing_token
-            with pytest.raises(OptimisticConcurrencyError, match='bpmn_control_lease_stale'):
+            with pytest.raises(OptimisticConcurrencyError, match="bpmn_control_lease_stale"):
                 old.cancel(TARGET)
             assert old._store.load(run) == snapshot
             successor.ensure_valid()
-            assert service(1, successor).inspect(TARGET).status == 'ready'
+            assert service(1, successor).inspect(TARGET).status == "ready"
     finally:
         first_scope.__exit__(None, None, None)
         for engine in connections:

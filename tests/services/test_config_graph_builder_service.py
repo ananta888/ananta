@@ -1,4 +1,5 @@
 """VACGE-008: Tests for ConfigGraphBuilderService."""
+
 from __future__ import annotations
 
 import json
@@ -8,44 +9,31 @@ from pathlib import Path
 import pytest
 
 from agent.services.config_graph_builder_service import (
-    GRAPH_SCHEMA,
-    ConfigGraph,
-    ConfigGraphBuilderService,
-    ConfigGraphEdge,
-    ConfigGraphNode,
-    EDGE_ACTIVATES,
     EDGE_ASSIGNED_TO,
-    EDGE_CONTAINS,
     EDGE_INHERITS_FROM,
-    EDGE_USES_PROFILE,
+    GRAPH_SCHEMA,
     NODE_AGENT_PROFILE,
     NODE_CODECOMPASS_RANKING,
-    NODE_EMBEDDING_MODEL,
     NODE_GOAL_TEMPLATE,
-    NODE_INSTRUCTION_LAYER,
-    NODE_MODEL_PROVIDER,
     NODE_PATH_RULE,
     NODE_RESTRICTED_INFERENCE_MODEL,
     NODE_RESTRICTED_INFERENCE_ROOT,
     NODE_RESTRICTED_INFERENCE_TASK,
-    NODE_ROLE,
     NODE_SURFACE,
-    NODE_TASK_KIND,
-    NODE_TOOL,
-    NODE_TOOL_GROUP,
-    VIEW_IDS,
     VIEW_AGENT_RUNTIME,
-    VIEW_CONTEXT_PIPELINE,
     VIEW_CONFIGURATION_OVERVIEW,
+    VIEW_CONTEXT_PIPELINE,
     VIEW_EFFECTIVE_CONFIG,
     VIEW_PLANNING_FLOW,
     VIEW_POLICY_PATH,
     VIEW_PROFILE_ACTIVATION,
+    ConfigGraph,
+    ConfigGraphBuilderService,
     get_config_graph_builder_service,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def make_temp_repo(profile_map: dict | None = None, with_agents_md: bool = True) -> Path:
     tmp = Path(tempfile.mkdtemp())
@@ -58,9 +46,7 @@ def make_temp_repo(profile_map: dict | None = None, with_agents_md: bool = True)
 
     # profile-map.json
     if profile_map is not None:
-        (tmp / "docs/agent-profiles/profile-map.json").write_text(
-            json.dumps(profile_map)
-        )
+        (tmp / "docs/agent-profiles/profile-map.json").write_text(json.dumps(profile_map))
     else:
         default_pm = {
             "schema": "ananta.agent_profile_map.v2",
@@ -75,17 +61,14 @@ def make_temp_repo(profile_map: dict | None = None, with_agents_md: bool = True)
                 }
             },
         }
-        (tmp / "docs/agent-profiles/profile-map.json").write_text(
-            json.dumps(default_pm)
-        )
-        (tmp / "docs/agent-profiles/test_profile_agents.md").write_text(
-            "# Test Profile Instructions\n"
-        )
+        (tmp / "docs/agent-profiles/profile-map.json").write_text(json.dumps(default_pm))
+        (tmp / "docs/agent-profiles/test_profile_agents.md").write_text("# Test Profile Instructions\n")
 
     return tmp
 
 
 # ── Schema and metadata tests ─────────────────────────────────────────────────
+
 
 def test_graph_schema():
     assert GRAPH_SCHEMA == "ananta_configuration_graph.v1"
@@ -137,6 +120,7 @@ def test_missing_agents_file_adds_diagnostic():
 
 # ── Path rule tests ───────────────────────────────────────────────────────────
 
+
 def test_path_rules_added_from_config():
     tmp = make_temp_repo()
     cfg = {
@@ -163,9 +147,7 @@ def test_rtipm_nodes_added_from_config():
                     "tasks": ["candidate_rerank"],
                 }
             ],
-            "tasks": {
-                "candidate_rerank": {"enabled": True, "preferred_engine": "mock"}
-            },
+            "tasks": {"candidate_rerank": {"enabled": True, "preferred_engine": "mock"}},
         },
         "codecompass_ranking": {
             "restricted_inference_rerank_enabled": True,
@@ -208,6 +190,7 @@ def test_model_provider_node_added():
 
 # ── Factory function ──────────────────────────────────────────────────────────
 
+
 def test_factory_returns_builder():
     svc = get_config_graph_builder_service()
     assert isinstance(svc, ConfigGraphBuilderService)
@@ -243,8 +226,17 @@ def test_default_graph_structure_and_integrity(default_graph: ConfigGraph) -> No
     assert isinstance(graph, ConfigGraph)
     assert graph.schema == GRAPH_SCHEMA
     data = graph.to_dict()
-    for key in ("schema", "snapshot_id", "nodes", "edges", "views", "diagnostics",
-                "generated_at", "node_count", "edge_count"):
+    for key in (
+        "schema",
+        "snapshot_id",
+        "nodes",
+        "edges",
+        "views",
+        "diagnostics",
+        "generated_at",
+        "node_count",
+        "edge_count",
+    ):
         assert key in data, f"missing key: {key}"
     # instruction layers: the root is active when AGENTS.md exists; the profile layer inherits from it
     assert "instruction_layer::root" in graph.nodes
@@ -252,7 +244,8 @@ def test_default_graph_structure_and_integrity(default_graph: ConfigGraph) -> No
     assert "instruction_layer::test_profile" in graph.nodes
     assert any(
         e.edge_type == EDGE_INHERITS_FROM
-        and e.source == "instruction_layer::test_profile" and e.target == "instruction_layer::root"
+        and e.source == "instruction_layer::test_profile"
+        and e.target == "instruction_layer::root"
         for e in graph.edges
     )
     node_ids = set(graph.nodes)
@@ -293,8 +286,13 @@ def test_default_graph_surfaces_models_and_templates(default_graph: ConfigGraph)
 def test_default_graph_views(default_graph: ConfigGraph) -> None:
     graph = default_graph
     for view_id in (
-        VIEW_CONFIGURATION_OVERVIEW, VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
-        VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
+        VIEW_CONFIGURATION_OVERVIEW,
+        VIEW_PROFILE_ACTIVATION,
+        VIEW_PLANNING_FLOW,
+        VIEW_AGENT_RUNTIME,
+        VIEW_POLICY_PATH,
+        VIEW_CONTEXT_PIPELINE,
+        VIEW_EFFECTIVE_CONFIG,
     ):
         assert view_id in graph.views, f"view missing: {view_id}"
     assert set(graph.views[VIEW_CONFIGURATION_OVERVIEW]) == set(graph.nodes)

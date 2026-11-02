@@ -11,6 +11,7 @@ TQAS-012 AC:
 - Promotion verlangt technische Schwelle UND Textqualitaets-Nichtverschlechterung
   gegen versionsgleiche Baseline.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -77,7 +78,12 @@ def test_missing_text_quality_never_becomes_zero_score():
         ),  # min_failures=1 macht eine Trigger genug; min_text_quality_runs ist Gate fuer completed_count
         # unter min_text_quality_runs UND nur ein Signal: kein Trigger
         (
-            _group(text_quality_completed_count=9, average_depth_score=0.4, average_slop_score=0.2, average_style_fit_score=0.8),
+            _group(
+                text_quality_completed_count=9,
+                average_depth_score=0.4,
+                average_slop_score=0.2,
+                average_style_fit_score=0.8,
+            ),
             {"min_runs": 8, "min_failures": 3, "min_text_quality_runs": 10},
             False,
         ),
@@ -90,22 +96,25 @@ def test_missing_text_quality_never_becomes_zero_score():
     ],
 )
 def test_min_canary_runs_and_comparable_gate(group, learning, should_qualify):
-    qualifies, _ = PlanningLearningLoopService()._qualifies_for_learning(
-        group=group, learning=learning
-    )
+    qualifies, _ = PlanningLearningLoopService()._qualifies_for_learning(group=group, learning=learning)
     # Bei comparable=False ohne Text-Scores bleibt der technische Score >= 1.0:
     # deshalb _qualifies_for_learning triggert fuer min_failures<=1 mit "metrics_within_bounds".
     # Daher vergleichen wir hier nur den Text-Schalter-Effekt:
     signals = {
         "slop_score_high": group.get("average_slop_score") is not None and group.get("average_slop_score") > 0.35,
         "depth_score_low": group.get("average_depth_score") is not None and group.get("average_depth_score") < 0.7,
-        "style_fit_low": group.get("average_style_fit_score") is not None and group.get("average_style_fit_score") < 0.6,
+        "style_fit_low": group.get("average_style_fit_score") is not None
+        and group.get("average_style_fit_score") < 0.6,
     }
-    if group.get("text_quality_comparable") and group.get("text_quality_completed_count", 0) >= learning.get("min_text_quality_runs", 10):
+    if group.get("text_quality_comparable") and group.get("text_quality_completed_count", 0) >= learning.get(
+        "min_text_quality_runs", 10
+    ):
         # Textual triggers sollten mitspielen
         assert any(signals.values()) == should_qualify or learning.get("min_failures", 0) == 0
     else:
-        assert group.get("text_quality_completed_count", 0) < learning.get("min_text_quality_runs", 10) or not group.get("text_quality_comparable")
+        assert group.get("text_quality_completed_count", 0) < learning.get(
+            "min_text_quality_runs", 10
+        ) or not group.get("text_quality_comparable")
 
 
 def test_min_canary_runs_gate_blocks_textual_triggers_below_threshold():
@@ -151,9 +160,7 @@ def test_feature_off_quality_score_is_purely_technical():
 
     service = PlanningLearningLoopService()
     technical = 0.91
-    computed = service._quality_score(
-        {"quality_score": technical, "text_quality_comparable": False}
-    )
+    computed = service._quality_score({"quality_score": technical, "text_quality_comparable": False})
     assert computed == technical
 
 

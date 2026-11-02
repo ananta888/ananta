@@ -23,7 +23,6 @@ class LegacySourceInventoryPort(Protocol):
     ) -> LegacyMigrationInventory: ...
 
 
-
 class LegacySourceControlMigrationRepositoryPort(Protocol):
     def begin(
         self,
@@ -57,13 +56,9 @@ class LegacySourceControlMigrationRepositoryPort(Protocol):
 
     def get_run(self, migration_id: str) -> MigrationRunRecord | None: ...
 
-    def list_mappings(
-        self, migration_id: str
-    ) -> tuple[LegacyMappingRecord, ...]: ...
+    def list_mappings(self, migration_id: str) -> tuple[LegacyMappingRecord, ...]: ...
 
-    def rollback_new_mappings(
-        self, migration_id: str
-    ) -> MigrationRunRecord: ...
+    def rollback_new_mappings(self, migration_id: str) -> MigrationRunRecord: ...
 
 
 __all__ = [

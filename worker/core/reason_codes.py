@@ -3,6 +3,7 @@
 EW-T011: Reason codes appear in WorkerResult, TraceBundle, and logs.
 Human-readable messages are generated from codes without hiding the code.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -193,11 +194,7 @@ SECRET_REDACTED = ReasonCode(
 
 # ── Registry ──────────────────────────────────────────────────────────────────
 
-_ALL: dict[str, ReasonCode] = {
-    obj.code: obj
-    for name, obj in list(globals().items())
-    if isinstance(obj, ReasonCode)
-}
+_ALL: dict[str, ReasonCode] = {obj.code: obj for name, obj in list(globals().items()) if isinstance(obj, ReasonCode)}
 
 
 def lookup(code: str) -> ReasonCode | None:

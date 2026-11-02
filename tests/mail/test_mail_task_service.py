@@ -98,9 +98,7 @@ def test_idempotent_submission_queues_reference_only_envelope_once() -> None:
 
     assert second["job_id"] == first["job_id"]
     assert len(queue.calls) == 1
-    envelope = queue.calls[0]["extra_fields"]["worker_execution_context"][
-        "mail_task"
-    ]
+    envelope = queue.calls[0]["extra_fields"]["worker_execution_context"]["mail_task"]
     assert envelope["operation_refs"] == {"message_ref": "mailref-one"}
     assert "credential" not in str(envelope).lower()
 

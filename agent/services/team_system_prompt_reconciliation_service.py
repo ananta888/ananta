@@ -6,6 +6,7 @@ system prompts are global (not blueprint-scoped) and follow slightly
 different rules (no is_seed flipping for non-seed). Migrated from
 team_blueprint_service.py (WFG-029 split) without behaviour change.
 """
+
 from __future__ import annotations
 
 import time
@@ -43,9 +44,7 @@ def reconcile_system_prompts(system_catalog) -> list[dict]:
 def _reconcile_system_prompts_once(all_prompts: list[dict]) -> list[dict]:
     reports: list[dict] = []
     with Session(engine) as session:
-        existing: dict[str, TemplateDB] = {
-            t.name: t for t in session.exec(select(TemplateDB)).all()
-        }
+        existing: dict[str, TemplateDB] = {t.name: t for t in session.exec(select(TemplateDB)).all()}
         for entry in all_prompts:
             name = str(entry.get("name") or "")
             description = str(entry.get("description") or "")
@@ -55,10 +54,14 @@ def _reconcile_system_prompts_once(all_prompts: list[dict]) -> list[dict]:
 
             existing_tpl = existing.get(name)
             if existing_tpl is None:
-                session.add(TemplateDB(
-                    name=name, description=description,
-                    prompt_template=prompt_template, is_seed=True,
-                ))
+                session.add(
+                    TemplateDB(
+                        name=name,
+                        description=description,
+                        prompt_template=prompt_template,
+                        is_seed=True,
+                    )
+                )
                 reports.append({"name": name, "action": "created"})
                 continue
 

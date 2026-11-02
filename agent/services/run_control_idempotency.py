@@ -1,4 +1,5 @@
 """Pure idempotency-key scoping and replay comparison for Run-Control."""
+
 from __future__ import annotations
 
 import json
@@ -53,14 +54,10 @@ def values_are_exact(left: Any, right: Any) -> bool:
     if isinstance(left, Mapping):
         if left.keys() != right.keys():
             return False
-        return all(
-            values_are_exact(left[key], right[key])
-            for key in left
-        )
+        return all(values_are_exact(left[key], right[key]) for key in left)
     if isinstance(left, (list, tuple)):
         return len(left) == len(right) and all(
-            values_are_exact(left_item, right_item)
-            for left_item, right_item in zip(left, right)
+            values_are_exact(left_item, right_item) for left_item, right_item in zip(left, right)
         )
     return bool(left == right)
 
@@ -86,8 +83,4 @@ def idempotency_mismatches(
         "tenant_id": (existing.tenant_id, principal.tenant_id),
         "subject_id": (existing.subject_id, principal.subject_id),
     }
-    return tuple(
-        name
-        for name, (left, right) in values.items()
-        if not values_are_exact(left, right)
-    )
+    return tuple(name for name, (left, right) in values.items() if not values_are_exact(left, right))

@@ -31,7 +31,6 @@ from typing import Any, Callable
 
 from agent.services.workflow_settings import GateFailurePolicy, WorkflowSettings
 
-
 # ---------------------------------------------------------------------------
 # WFG-012: gate decision model and states
 # ---------------------------------------------------------------------------
@@ -54,8 +53,8 @@ GATE_PENDING_STATUS = "blocked"
 GATE_PASSED_STATUS = "completed"
 GATE_FAILED_STATUS = "failed"
 GATE_SKIPPED_STATUS = "completed"  # skipped counts as "done" so downstream
-                                   # steps unblock; the decision object
-                                   # records the skip reason.
+# steps unblock; the decision object
+# records the skip reason.
 
 
 @dataclass(frozen=True)
@@ -161,38 +160,30 @@ def resolve_gate_failure_policy(
 GateCheckFn = Callable[[dict | None, dict | None, dict | None], GateCheckResult]
 
 
-def _check_plan_has_small_tasks(
-    task: dict | None, step: dict | None, ctx: dict | None
-) -> GateCheckResult:
+def _check_plan_has_small_tasks(task: dict | None, step: dict | None, ctx: dict | None) -> GateCheckResult:
     """Pass when the upstream plan task produced >= 2 plan tasks, each
     with at least one acceptance criterion. This is the contract gate
     that blocks the developer step when the plan is too coarse."""
     plan = dict((ctx or {}).get("plan_tasks") or {})
     tasks = list(plan.get("tasks") or [])
-    small = [
-        t for t in tasks
-        if list(t.get("acceptance_criteria") or [])
-    ]
+    small = [t for t in tasks if list(t.get("acceptance_criteria") or [])]
     passed = len(small) >= 2
     return GateCheckResult(
         name="plan_has_small_tasks",
         passed=passed,
-        reason="all plan tasks have acceptance_criteria" if passed else
-               "fewer than 2 plan tasks carry acceptance_criteria",
+        reason="all plan tasks have acceptance_criteria"
+        if passed
+        else "fewer than 2 plan tasks carry acceptance_criteria",
         details={"small_task_count": len(small), "total_task_count": len(tasks)},
     )
 
 
-def _check_dependencies_acyclic(
-    task: dict | None, step: dict | None, ctx: dict | None
-) -> GateCheckResult:
+def _check_dependencies_acyclic(task: dict | None, step: dict | None, ctx: dict | None) -> GateCheckResult:
     """Pass when the workflow DAG reachable from the gate has no
     cycles. We use a simple Kahn topological sort to confirm."""
     plan = dict((ctx or {}).get("plan_tasks") or {})
     nodes = {
-        str(t.get("id") or "").strip(): [
-            str(d).strip() for d in list(t.get("depends_on") or []) if str(d).strip()
-        ]
+        str(t.get("id") or "").strip(): [str(d).strip() for d in list(t.get("depends_on") or []) if str(d).strip()]
         for t in list(plan.get("tasks") or [])
         if str(t.get("id") or "").strip()
     }
@@ -221,9 +212,7 @@ def _check_dependencies_acyclic(
     )
 
 
-def _check_required_capabilities_present(
-    task: dict | None, step: dict | None, ctx: dict | None
-) -> GateCheckResult:
+def _check_required_capabilities_present(task: dict | None, step: dict | None, ctx: dict | None) -> GateCheckResult:
     """Pass when the gate step (or the downstream step it guards) has
     at least one entry in its ``required_capabilities`` list."""
     candidates: list[dict] = []
@@ -232,21 +221,18 @@ def _check_required_capabilities_present(
     downstream = (ctx or {}).get("downstream_step")
     if isinstance(downstream, dict):
         candidates.append(downstream)
-    has_caps = any(
-        list(c.get("required_capabilities") or []) for c in candidates
-    )
+    has_caps = any(list(c.get("required_capabilities") or []) for c in candidates)
     return GateCheckResult(
         name="required_capabilities_present",
         passed=has_caps,
-        reason="downstream step has required_capabilities" if has_caps else
-               "no required_capabilities declared on the gated step",
+        reason="downstream step has required_capabilities"
+        if has_caps
+        else "no required_capabilities declared on the gated step",
         details={},
     )
 
 
-def _check_security_review_needed(
-    task: dict | None, step: dict | None, ctx: dict | None
-) -> GateCheckResult:
+def _check_security_review_needed(task: dict | None, step: dict | None, ctx: dict | None) -> GateCheckResult:
     """Pass when either (a) no tools / credentials are referenced by
     the gated step, or (b) a security_reviewer step exists somewhere
     downstream. This blocks coding steps that touch credentials
@@ -265,8 +251,9 @@ def _check_security_review_needed(
     return GateCheckResult(
         name="security_review_needed_if_tools_or_credentials_are_used",
         passed=security_downstream,
-        reason="security_reviewer step present downstream" if security_downstream else
-               "tools/credentials used but no security_reviewer step",
+        reason="security_reviewer step present downstream"
+        if security_downstream
+        else "tools/credentials used but no security_reviewer step",
         details={"tool_count": len(tools), "credential_count": len(credentials)},
     )
 
@@ -352,12 +339,8 @@ def evaluate_gate(
 ) -> GateDecision:
     """Evaluate a gate step end-to-end. Returns a GateDecision that
     the caller persists to the task's ``verification_status``."""
-    policy, source = resolve_gate_failure_policy(
-        step=step, blueprint_default=blueprint_default, settings=settings
-    )
-    check_results = evaluate_gate_checks(
-        checks=checks, task=task, step=step, context=context
-    )
+    policy, source = resolve_gate_failure_policy(step=step, blueprint_default=blueprint_default, settings=settings)
+    check_results = evaluate_gate_checks(checks=checks, task=task, step=step, context=context)
     if not check_results:
         # No checks configured — the gate is informational only.
         return GateDecision(

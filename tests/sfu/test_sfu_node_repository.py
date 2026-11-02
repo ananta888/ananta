@@ -15,7 +15,6 @@ from agent.repositories.sfu_node_repository import (
     SqlSfuNodeRepository,
 )
 
-
 NOW = 1_800_000_000.0
 CURSOR_KEY = b"test-sfu-node-cursor-signing-key"
 
@@ -83,17 +82,13 @@ def _observe(repository, record, *, fencing_token=None, ttl=10.0):
 
 
 def test_migration_is_based_on_runtime_identity_revision_and_round_trips():
-    migration = importlib.import_module(
-        "migrations.versions.19d0e1f2a3b4_add_sfu_nodes"
-    )
+    migration = importlib.import_module("migrations.versions.19d0e1f2a3b4_add_sfu_nodes")
     assert migration.down_revision == "08c9d0e1f2a3"
     engine = create_engine("sqlite://")
     with engine.begin() as connection:
         migration.op = Operations(MigrationContext.configure(connection))
         migration.upgrade()
-        assert {"sfu_nodes", "sfu_node_mutations"}.issubset(
-            inspect(connection).get_table_names()
-        )
+        assert {"sfu_nodes", "sfu_node_mutations"}.issubset(inspect(connection).get_table_names())
         migration.downgrade()
         assert "sfu_nodes" not in inspect(connection).get_table_names()
 
@@ -149,9 +144,7 @@ def test_observation_expiry_is_explicit_and_never_removes_the_node():
     assert stale.observation_status == "stale"
     assert stale.health_status == "healthy"
     assert stale.effective_health == "unknown"
-    assert repository.list_nodes(tenant_id="tenant-a", cluster_id="cluster-a").items == (
-        stale,
-    )
+    assert repository.list_nodes(tenant_id="tenant-a", cluster_id="cluster-a").items == (stale,)
 
 
 def test_two_hubs_cas_fencing_and_revocation_are_monotonic_and_sticky():
@@ -196,9 +189,7 @@ def test_two_hubs_cas_fencing_and_revocation_are_monotonic_and_sticky():
     assert revoked.fencing_token == 10
     with pytest.raises(SfuNodeRepositoryError, match="sfu_node_revoked"):
         _observe(drain_hub, revoked, fencing_token=11)
-    persisted = observation_hub.get_node(
-        tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a"
-    )
+    persisted = observation_hub.get_node(tenant_id="tenant-a", cluster_id="cluster-a", node_id="node-a")
     assert persisted is not None
     assert persisted.revoked is True
     assert persisted.version == 4
@@ -212,9 +203,7 @@ def test_sorted_paginated_list_and_watch_are_scope_bound_and_tamper_evident():
     _enroll(repository, "node-other-cluster", cluster_id="cluster-b")
     _enroll(repository, "node-other-tenant", tenant_id="tenant-b")
 
-    first = repository.list_nodes(
-        tenant_id="tenant-a", cluster_id="cluster-a", limit=2
-    )
+    first = repository.list_nodes(tenant_id="tenant-a", cluster_id="cluster-a", limit=2)
     assert [node.node_id for node in first.items] == ["node-a", "node-b"]
     assert first.next_cursor is not None
     second = repository.list_nodes(
@@ -243,9 +232,7 @@ def test_sorted_paginated_list_and_watch_are_scope_bound_and_tamper_evident():
             cursor=f"{raw}.{tampered_signature}",
         )
 
-    watch_first = repository.watch_nodes(
-        tenant_id="tenant-a", cluster_id="cluster-a", limit=2
-    )
+    watch_first = repository.watch_nodes(tenant_id="tenant-a", cluster_id="cluster-a", limit=2)
     assert [change.node.node_id for change in watch_first.changes] == ["node-c", "node-a"]
     assert watch_first.has_more is True
     watch_second = repository.watch_nodes(
@@ -265,17 +252,13 @@ def test_cross_cluster_reads_return_no_foreign_node_or_watch_event():
     repository = _repository()
     _enroll(repository, "node-a", cluster_id="cluster-a")
     _enroll(repository, "node-b", cluster_id="cluster-b")
-    assert repository.get_node(
-        tenant_id="tenant-a", cluster_id="cluster-b", node_id="node-a"
-    ) is None
+    assert repository.get_node(tenant_id="tenant-a", cluster_id="cluster-b", node_id="node-a") is None
     cluster_b = repository.watch_nodes(tenant_id="tenant-a", cluster_id="cluster-b")
     assert [change.node.node_id for change in cluster_b.changes] == ["node-b"]
 
 
 def test_database_failover_failure_is_explicit_without_memory_fallback():
-    unavailable_engine = create_engine(
-        "sqlite:////proc/ananta-sfu-directory-unavailable/directory.sqlite"
-    )
+    unavailable_engine = create_engine("sqlite:////proc/ananta-sfu-directory-unavailable/directory.sqlite")
     repository = _repository(engine=unavailable_engine)
     with pytest.raises(SfuNodeRepositoryError, match="sfu_node_store_unavailable"):
         repository.list_nodes(tenant_id="tenant-a", cluster_id="cluster-a")

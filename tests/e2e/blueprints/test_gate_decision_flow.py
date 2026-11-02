@@ -32,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tests_support import admin_login_token as _login_admin  # noqa: E402
+from tests.support import admin_login_token as _login_admin  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -54,23 +54,25 @@ def _create_real_goal(name: str) -> str:
     check passes without triggering LLM-based planning (which hangs in CI
     where no model is configured)."""
     from sqlmodel import Session
+
     from agent.database import engine
     from agent.db_models import GoalDB
+
     goal_id = str(uuid.uuid4())
     with Session(engine) as session:
-        session.add(GoalDB(
-            id=goal_id,
-            goal=name,
-            status="created",
-            requested_by="admin",
-        ))
+        session.add(
+            GoalDB(
+                id=goal_id,
+                goal=name,
+                status="created",
+                requested_by="admin",
+            )
+        )
         session.commit()
     return goal_id
 
 
-def _build_gate_task(
-    *, goal_id: str, gate_task_id: str | None = None
-) -> dict:
+def _build_gate_task(*, goal_id: str, gate_task_id: str | None = None) -> dict:
     """Build a ``TaskDB``-shaped dict that mimics the
     gate engine's ``pending_approval`` state. The endpoint
     reads the task via ``task_repo.get_by_id`` and uses
@@ -79,10 +81,9 @@ def _build_gate_task(
     from agent.services.human_approval_service import (
         build_pending_approval_record,
     )
+
     gate_task_id = gate_task_id or f"ptask-gate-{uuid.uuid4().hex[:8]}"
-    pending = build_pending_approval_record(
-        goal_id=goal_id, gate_task_id=gate_task_id
-    )
+    pending = build_pending_approval_record(goal_id=goal_id, gate_task_id=gate_task_id)
     return {
         "id": gate_task_id,
         "goal_id": goal_id,
@@ -116,6 +117,7 @@ def _persist_gate_task(task: dict) -> None:
 
     from agent.database import engine
     from agent.db_models import TaskDB
+
     row = TaskDB(
         id=task["id"],
         goal_id=task["goal_id"],
@@ -149,10 +151,9 @@ def test_blueprint_snapshot_exposes_workflow_block(client) -> None:
 
     tdd = _ensure_tdd_blueprint(client, auth_header)
     assert "workflow" in tdd, "blueprint must carry the workflow block"
-    assert any(
-        step.get("gate") and step.get("id") == "refactor"
-        for step in tdd["workflow"]["steps"]
-    ), "TDD workflow must have a refactor gate step"
+    assert any(step.get("gate") and step.get("id") == "refactor" for step in tdd["workflow"]["steps"]), (
+        "TDD workflow must have a refactor gate step"
+    )
 
     # Instantiate a team and assert the snapshot keeps it
     inst = client.post(
@@ -163,10 +164,7 @@ def test_blueprint_snapshot_exposes_workflow_block(client) -> None:
     assert inst.status_code == 201
     snapshot = inst.json["data"]["team"]["blueprint_snapshot"]
     assert "workflow" in snapshot
-    assert any(
-        step.get("gate") and step.get("id") == "refactor"
-        for step in snapshot["workflow"]["steps"]
-    )
+    assert any(step.get("gate") and step.get("id") == "refactor" for step in snapshot["workflow"]["steps"])
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +256,6 @@ def test_human_decision_endpoint_rejects_invalid_outcome(client) -> None:
     # pending_approval.
     from agent.repository import task_repo
     from agent.services.human_approval_service import is_pending_approval
+
     persisted = task_repo.get_by_id(gate["id"])
-    assert is_pending_approval(persisted), (
-        "invalid outcome must not mutate the gate"
-    )
+    assert is_pending_approval(persisted), "invalid outcome must not mutate the gate"

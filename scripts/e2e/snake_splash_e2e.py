@@ -10,11 +10,11 @@ Aufruf:
 Oder:
     make cast
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -157,119 +157,166 @@ def build_frames() -> list[tuple[float, str]]:
     CHAPTERS.append({"t": 0.0, "title": "Intro", "description": "Ananta Operator TUI – Snake-Modus startet"})
     for step in range(5):
         sx = 20 + step * 8
-        push(_base_state(
-            focus=FocusPane.HEADER, section_id="dashboard", selected_index=0,
-            status_message="snake:fullscreen speed:3/5 · Ananta Operator TUI",
-            header_logo_game=_snake_game(
-                snake=[(sx - i * 2, 16) for i in range(8)],
-                ai_snake=[(sx - i * 2 + 5, 14) for i in range(6)],
-                ai_message="Willkommen! Ich bin die tutor-ai-Schlange. Ich erkläre die Ananta-Architektur.",
+        push(
+            _base_state(
+                focus=FocusPane.HEADER,
+                section_id="dashboard",
+                selected_index=0,
+                status_message="snake:fullscreen speed:3/5 · Ananta Operator TUI",
+                header_logo_game=_snake_game(
+                    snake=[(sx - i * 2, 16) for i in range(8)],
+                    ai_snake=[(sx - i * 2 + 5, 14) for i in range(6)],
+                    ai_message="Willkommen! Ich bin die tutor-ai-Schlange. Ich erkläre die Ananta-Architektur.",
+                ),
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
 
     # ── Chapter 2: Dashboard (10–22s, 6 Frames) ──────────────────────────────
     CHAPTERS.append({"t": 10.0, "title": "Dashboard", "description": "KI erklärt das Dashboard und Zeige-Funktion"})
     t = 10.0
     for step in range(4):
         ptr = {"target": "dashboard", "expires": t + 10, "blink_frame": step * 2}
-        push(_base_state(
-            focus=FocusPane.NAVIGATION, section_id="dashboard", selected_index=0,
-            status_message="snake:fullscreen · Dashboard-Erklärung",
-            header_logo_game=_snake_game(
-                snake=[(50 - step * 4 - i * 2, 20) for i in range(8)],
-                ai_snake=[(55 - step * 4 - i * 2, 18) for i in range(6)],
-                ai_message="Dashboard: Agenten-Status, Queue-Tiefe und Goals. Wie ein Kontrollzentrum.",
-                tutor_pointer=ptr, score=2,
+        push(
+            _base_state(
+                focus=FocusPane.NAVIGATION,
+                section_id="dashboard",
+                selected_index=0,
+                status_message="snake:fullscreen · Dashboard-Erklärung",
+                header_logo_game=_snake_game(
+                    snake=[(50 - step * 4 - i * 2, 20) for i in range(8)],
+                    ai_snake=[(55 - step * 4 - i * 2, 18) for i in range(6)],
+                    ai_message="Dashboard: Agenten-Status, Queue-Tiefe und Goals. Wie ein Kontrollzentrum.",
+                    tutor_pointer=ptr,
+                    score=2,
+                ),
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
     # Zeige-Funktion #2: Goals-Pointer
     for step in range(2):
         ptr2 = {"target": "goals", "expires": t + 10, "blink_frame": step * 2}
-        push(_base_state(
-            focus=FocusPane.NAVIGATION, section_id="dashboard", selected_index=1,
-            status_message="snake:fullscreen · Goals-Zeige",
-            header_logo_game=_snake_game(
-                snake=[(40 - step * 4 - i * 2, 22) for i in range(8)],
-                ai_snake=[(45 - step * 4 - i * 2, 20) for i in range(6)],
-                ai_message="Schau auf Goals – dort definierst du Ziele für Ananta.",
-                tutor_pointer=ptr2, score=3,
+        push(
+            _base_state(
+                focus=FocusPane.NAVIGATION,
+                section_id="dashboard",
+                selected_index=1,
+                status_message="snake:fullscreen · Goals-Zeige",
+                header_logo_game=_snake_game(
+                    snake=[(40 - step * 4 - i * 2, 22) for i in range(8)],
+                    ai_snake=[(45 - step * 4 - i * 2, 20) for i in range(6)],
+                    ai_message="Schau auf Goals – dort definierst du Ziele für Ananta.",
+                    tutor_pointer=ptr2,
+                    score=3,
+                ),
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
 
     # ── Chapter 3: Goals (22–34s, 4 Frames) ──────────────────────────────────
     CHAPTERS.append({"t": 22.0, "title": "Goals", "description": "KI erklärt Goals und beantwortet Frage"})
     t = 22.0
     for step in range(2):
-        push(_base_state(
-            focus=FocusPane.CONTENT, section_id="goals", selected_index=1,
-            status_message="snake:fullscreen · Goals-Sektion",
-            header_logo_game=_snake_game(
-                snake=[(45 - step * 4 - i * 2, 15) for i in range(8)],
-                ai_snake=[(50 - step * 4 - i * 2, 13) for i in range(6)],
-                ai_message="Goals: Jedes Ziel wird in Tasks aufgeteilt. Score = dein Fortschritt.",
-                score=5,
+        push(
+            _base_state(
+                focus=FocusPane.CONTENT,
+                section_id="goals",
+                selected_index=1,
+                status_message="snake:fullscreen · Goals-Sektion",
+                header_logo_game=_snake_game(
+                    snake=[(45 - step * 4 - i * 2, 15) for i in range(8)],
+                    ai_snake=[(50 - step * 4 - i * 2, 13) for i in range(6)],
+                    ai_message="Goals: Jedes Ziel wird in Tasks aufgeteilt. Score = dein Fortschritt.",
+                    score=5,
+                ),
             ),
-        ), hold=2.5)
+            hold=2.5,
+        )
 
     # :ask-Interaktion (T02.03) – 2 Frames pausiert, 2 Frames mit Antwort
     CHAPTERS.append({"t": 27.0, "title": ":ask Demo", "description": "Operator fragt die AI-Schlange direkt"})
     t = 27.0
     for step in range(2):
-        push(_base_state(
-            focus=FocusPane.CONTENT, section_id="goals", selected_index=1,
-            status_message=":ask Was ist ein Context Bundle?",
-            header_logo_game=_snake_game(
-                snake=[(40 - step * 2 - i * 2, 14) for i in range(8)],
-                ai_snake=[(45 - step * 2 - i * 2, 12) for i in range(6)],
-                ai_question="Was ist ein Context Bundle?",
-                ai_answered=False, score=5, paused=True,
+        push(
+            _base_state(
+                focus=FocusPane.CONTENT,
+                section_id="goals",
+                selected_index=1,
+                status_message=":ask Was ist ein Context Bundle?",
+                header_logo_game=_snake_game(
+                    snake=[(40 - step * 2 - i * 2, 14) for i in range(8)],
+                    ai_snake=[(45 - step * 2 - i * 2, 12) for i in range(6)],
+                    ai_question="Was ist ein Context Bundle?",
+                    ai_answered=False,
+                    score=5,
+                    paused=True,
+                ),
             ),
-        ), hold=1.5)
+            hold=1.5,
+        )
     for step in range(2):
-        push(_base_state(
-            focus=FocusPane.CONTENT, section_id="goals", selected_index=1,
-            status_message=":ask – Antwort erhalten, Resume",
-            header_logo_game=_snake_game(
-                snake=[(38 - step * 2 - i * 2, 13) for i in range(8)],
-                ai_snake=[(43 - step * 2 - i * 2, 11) for i in range(6)],
-                ai_question="Was ist ein Context Bundle?",
-                ai_answer="Ein Context Bundle fasst Dateien, Git-History und Artefakte für den LLM-Kontext zusammen.",
-                ai_answered=True, score=6,
+        push(
+            _base_state(
+                focus=FocusPane.CONTENT,
+                section_id="goals",
+                selected_index=1,
+                status_message=":ask – Antwort erhalten, Resume",
+                header_logo_game=_snake_game(
+                    snake=[(38 - step * 2 - i * 2, 13) for i in range(8)],
+                    ai_snake=[(43 - step * 2 - i * 2, 11) for i in range(6)],
+                    ai_question="Was ist ein Context Bundle?",
+                    ai_answer="Ein Context Bundle fasst Dateien, Git-History und Artefakte für den LLM-Kontext zusammen.",
+                    ai_answered=True,
+                    score=6,
+                ),
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
 
     # ── Chapter 4: Snake-Modus (34–50s, 8 Frames) ────────────────────────────
     CHAPTERS.append({"t": 34.0, "title": "Snake-Modus", "description": "Spielfeld, Multi-Snake und Erklärungen"})
     t = 34.0
     for step in range(8):
-        push(_base_state(
-            focus=FocusPane.HEADER, section_id="tasks", selected_index=2,
-            status_message=f"snake:fullscreen speed:3/5 · score:{6 + step}",
-            header_logo_game=_snake_game(
-                snake=[(35 - step * 3 - i * 2, 16) for i in range(8)],
-                ai_snake=[(45 - step * 3 - i * 2, 12) for i in range(6)],
-                ai_message=(
-                    "Tasks: Welcher Worker verarbeitet gerade was."
-                    if step < 4 else "food_eaten – Futter = abgeschlossener Task!"
+        push(
+            _base_state(
+                focus=FocusPane.HEADER,
+                section_id="tasks",
+                selected_index=2,
+                status_message=f"snake:fullscreen speed:3/5 · score:{6 + step}",
+                header_logo_game=_snake_game(
+                    snake=[(35 - step * 3 - i * 2, 16) for i in range(8)],
+                    ai_snake=[(45 - step * 3 - i * 2, 12) for i in range(6)],
+                    ai_message=(
+                        "Tasks: Welcher Worker verarbeitet gerade was."
+                        if step < 4
+                        else "food_eaten – Futter = abgeschlossener Task!"
+                    ),
+                    score=6 + step,
+                    speed_level=3,
                 ),
-                score=6 + step, speed_level=3,
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
 
     # ── Chapter 5: Outro (50–60s, 5 Frames) ──────────────────────────────────
     CHAPTERS.append({"t": 50.0, "title": "Outro", "description": "Zusammenfassung und nächste Schritte"})
     t = 50.0
     for step in range(5):
-        push(_base_state(
-            focus=FocusPane.NAVIGATION, section_id="dashboard", selected_index=0,
-            status_message=":tutorial start snake_mode – starte das Tutorial",
-            header_logo_game=_snake_game(
-                snake=[(60 + step * 5 - i * 2, 15) for i in range(8)],
-                ai_snake=[(65 + step * 5 - i * 2, 13) for i in range(6)],
-                ai_message="Tour abgeschlossen! Starte ':tutorial start snake_mode' für ein geführtes Tutorial.",
-                score=14,
+        push(
+            _base_state(
+                focus=FocusPane.NAVIGATION,
+                section_id="dashboard",
+                selected_index=0,
+                status_message=":tutorial start snake_mode – starte das Tutorial",
+                header_logo_game=_snake_game(
+                    snake=[(60 + step * 5 - i * 2, 15) for i in range(8)],
+                    ai_snake=[(65 + step * 5 - i * 2, 13) for i in range(6)],
+                    ai_message="Tour abgeschlossen! Starte ':tutorial start snake_mode' für ein geführtes Tutorial.",
+                    score=14,
+                ),
             ),
-        ), hold=2.0)
+            hold=2.0,
+        )
 
     return frames
 

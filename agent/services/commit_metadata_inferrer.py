@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Optional
 
 from agent.models import CommitMetadata
 from agent.services.commit_scope_resolver import get_commit_scope_resolver

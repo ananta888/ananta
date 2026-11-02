@@ -71,9 +71,7 @@ class HubSpeechEvidenceSyncError(ValueError):
         super().__init__(reason_code)
 
 
-PEER_CURATION_REQUEST_POLICY_DIGEST = hashlib.sha256(
-    b"ananta.peer-speech-hub-curation-request.v1"
-).hexdigest()
+PEER_CURATION_REQUEST_POLICY_DIGEST = hashlib.sha256(b"ananta.peer-speech-hub-curation-request.v1").hexdigest()
 
 
 class _TenantMembershipKeyResolver:
@@ -422,9 +420,7 @@ class HubSpeechEvidenceSyncService:
         payload = message.payload
         groups = tuple(sorted(str(value) for value in payload["quarantined_group_ids"]))
         expected_consent = (
-            offer.sender_consent_digest
-            if principal.subject == offer.sender_id
-            else offer.recipient_consent_digest
+            offer.sender_consent_digest if principal.subject == offer.sender_id else offer.recipient_consent_digest
         )
         expected_result = hashlib.sha256(
             json.dumps(
@@ -453,9 +449,7 @@ class HubSpeechEvidenceSyncService:
                 group_id=group_id,
             )
             if binding is None:
-                raise HubSpeechEvidenceSyncError(
-                    "speech_evidence_curation_transfer_incomplete", status_code=409
-                )
+                raise HubSpeechEvidenceSyncError("speech_evidence_curation_transfer_incomplete", status_code=409)
             bindings.append(binding)
         return message, offer, tuple(bindings)
 

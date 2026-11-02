@@ -38,24 +38,41 @@ class NativeArtifactPublisher:
             raise ValueError("native_artifact_binding_response_invalid")
         binding = projection["binding"]
         if (
-            not isinstance(binding, Mapping) or projection["declared_outputs"] != list(command.node.output_artifacts)
+            not isinstance(binding, Mapping)
+            or projection["declared_outputs"] != list(command.node.output_artifacts)
             or binding.get("hub_task_id") != hub_task_id
             or binding.get("command_digest") != native_context_digest(command.to_dict())
             or binding.get("attempt_id") != command.attempt_id
-            or type(binding.get("fencing_token")) is not int or binding["fencing_token"] != command.fencing_token
+            or type(binding.get("fencing_token")) is not int
+            or binding["fencing_token"] != command.fencing_token
         ):
             raise ValueError("native_artifact_binding_response_mismatch")
-        transfer = {"schema": SCHEMA, "binding": dict(binding), "artifacts": [{
-            "output_name": item.output_name, "filename": item.filename, "media_type": item.media_type,
-            "size_bytes": len(item.content), "sha256": item.sha256,
-            "content_base64": base64.b64encode(item.content).decode("ascii"),
-        } for item in artifacts]}
+        transfer = {
+            "schema": SCHEMA,
+            "binding": dict(binding),
+            "artifacts": [
+                {
+                    "output_name": item.output_name,
+                    "filename": item.filename,
+                    "media_type": item.media_type,
+                    "size_bytes": len(item.content),
+                    "sha256": item.sha256,
+                    "content_base64": base64.b64encode(item.content).decode("ascii"),
+                }
+                for item in artifacts
+            ],
+        }
         validate_native_artifact_transfer(
-            transfer, expected_binding=binding, declared_outputs=command.node.output_artifacts,
+            transfer,
+            expected_binding=binding,
+            declared_outputs=command.node.output_artifacts,
         )
         receipts = self._transport.request(method="POST", path=path, payload=transfer)
         return validate_native_artifact_receipts(
-            receipts, transfer=transfer, tenant_id=command.tenant_id, project_id=project_id,
+            receipts,
+            transfer=transfer,
+            tenant_id=command.tenant_id,
+            project_id=project_id,
         )
 
 
@@ -66,9 +83,18 @@ class NativeNodeArtifactPublication:
     def publish(self, *, command, task, references):
         if set(references) != set(command.node.output_artifacts):
             raise ValueError("native_artifact_outputs_missing")
-        artifacts = tuple(self._reader.read(
-            command=command, task=task, output_name=name, reference=references[name],
-        ) for name in command.node.output_artifacts)
+        artifacts = tuple(
+            self._reader.read(
+                command=command,
+                task=task,
+                output_name=name,
+                reference=references[name],
+            )
+            for name in command.node.output_artifacts
+        )
         return self._publisher.publish(
-            command=command, hub_task_id=task["id"], project_id=task.get("project_id"), artifacts=artifacts,
+            command=command,
+            hub_task_id=task["id"],
+            project_id=task.get("project_id"),
+            artifacts=artifacts,
         )

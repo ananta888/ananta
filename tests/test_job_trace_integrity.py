@@ -1,12 +1,15 @@
 """Tests for Job Trace Integrity (JOBAGENT-002)."""
+
 from __future__ import annotations
 
 import uuid
-import pytest
 from datetime import datetime
+
+import pytest
+
 from agent.caseflow.agent_runs import AgentRunStatus, CaseAgentRun
 from agent.caseflow.artifacts import CaseArtifact
-from agent.caseflow.timeline import CaseEvent, append_event, get_events_for_case, clear_events
+from agent.caseflow.timeline import CaseEvent, append_event, clear_events, get_events_for_case
 from agent.job_module import setup as job_setup
 
 
@@ -120,8 +123,5 @@ class TestTraceIntegrity:
         append_event(case_id, event)
         events = get_events_for_case(case_id)
         # Find trace via artifact or event
-        found_trace = next(
-            (e.trace_id for e in events if e.artifact_id == artifact.id),
-            None
-        )
+        found_trace = next((e.trace_id for e in events if e.artifact_id == artifact.id), None)
         assert found_trace == trace_id

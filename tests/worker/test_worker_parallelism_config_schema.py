@@ -3,9 +3,8 @@ from pathlib import Path
 
 import jsonschema
 
-from agent.config_defaults import build_default_agent_config, apply_env_config_overrides
+from agent.config_defaults import apply_env_config_overrides, build_default_agent_config
 from agent.services.worker_pool_scheduler_service import WorkerPoolSchedulerService
-
 
 ROOT = Path(__file__).resolve().parents[2]
 

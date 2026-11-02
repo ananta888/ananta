@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import copy
 import json
 import math
@@ -25,7 +19,11 @@ from agent.services.sfu_broadcast_contract_validator import (
     StructuralLimits,
     ValidationContext,
 )
-
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
 
 _CONTRACT_ID = "ananta.receiver-quality-observation.v1"
 _ALLOWED_METRICS = frozenset(
@@ -360,8 +358,7 @@ class SfuReceiverQualityIngestionService:
             self._validate_times(document, now)
             if (
                 window.last_accepted_at is not None
-                and (now - window.last_accepted_at) * 1_000
-                < self._policy.quality_report_interval_ms_min
+                and (now - window.last_accepted_at) * 1_000 < self._policy.quality_report_interval_ms_min
             ):
                 raise SfuReceiverQualityError("report_interval_too_short", 429)
             if len(window.accepted_times) >= self._policy.quality_reports_per_window_max:
@@ -443,10 +440,7 @@ class SfuReceiverQualityIngestionService:
                 for key, window in self._windows.items()
                 if key[0] == tenant_id
                 and key[1] == session_id
-                and any(
-                    report.get("subscriber_ref") == normalized_subscriber
-                    for _, report in window.reports
-                )
+                and any(report.get("subscriber_ref") == normalized_subscriber for _, report in window.reports)
             ]
             removed = sum(len(self._windows[key].reports) for key in keys)
             for key in keys:
@@ -483,9 +477,7 @@ class SfuReceiverQualityIngestionService:
         for sample in samples:
             if not isinstance(sample, Mapping):
                 raise SfuReceiverQualityError("quality_observation_schema_invalid")
-            sample_sequence = _required_int(
-                sample.get("sample_sequence"), "sample_sequence_invalid"
-            )
+            sample_sequence = _required_int(sample.get("sample_sequence"), "sample_sequence_invalid")
             if previous_sequence is not None:
                 if sample_sequence == previous_sequence:
                     raise SfuReceiverQualityError("sample_sequence_duplicate")
@@ -587,9 +579,7 @@ class _UnusedTrustStore:
         return False
 
 
-def build_sfu_receiver_quality_validator(
-    *, clock: Callable[[], float] = time.time
-) -> SfuBroadcastContractValidator:
+def build_sfu_receiver_quality_validator(*, clock: Callable[[], float] = time.time) -> SfuBroadcastContractValidator:
     root = Path(__file__).resolve().parents[2]
     schema_path = root / "schemas/webrtc/receiver_quality_observation.v1.json"
     definitions_path = root / "schemas/webrtc/sfu_broadcast_extension_defs.v1.json"
@@ -622,9 +612,7 @@ def _decode_document(raw: bytes) -> dict[str, Any]:
     try:
         value = json.loads(
             raw.decode("utf-8", errors="strict"),
-            parse_constant=lambda token: (_ for _ in ()).throw(
-                SfuReceiverQualityError("invalid_json_non_finite")
-            ),
+            parse_constant=lambda token: (_ for _ in ()).throw(SfuReceiverQualityError("invalid_json_non_finite")),
         )
     except SfuReceiverQualityError:
         raise

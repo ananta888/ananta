@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from worker.core.context_resolver import ContextBlock, ContextSensitivity
+from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
 from worker.core.hermes_adapter_config import HermesAdapterConfig
 from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
 from worker.core.hermes_output_parser import parse_hermes_json_output
 from worker.core.hermes_prompting import build_governed_system_prompt
-from worker.core.context_resolver import ContextBlock, ContextSensitivity
-from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
 
 
 def _env() -> ExecutionEnvelope:

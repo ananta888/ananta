@@ -104,7 +104,9 @@ def wiki_import_url_request() -> dict:
     index_url = str(payload.get("index_url") or "").strip()
     if not preset_id and not corpus_url:
         raise BadRequestError("wiki_corpus_url_required")
-    selected_preset = next((item for item in WIKI_IMPORT_PRESETS if item["id"] == preset_id), None) if preset_id else None
+    selected_preset = (
+        next((item for item in WIKI_IMPORT_PRESETS if item["id"] == preset_id), None) if preset_id else None
+    )
     if preset_id and selected_preset is None:
         raise BadRequestError("invalid_wiki_preset")
     effective_url = str(selected_preset.get("corpus_url") if selected_preset else corpus_url).strip()
@@ -114,10 +116,17 @@ def wiki_import_url_request() -> dict:
         str(selected_preset.get("source_id") or "").strip() if selected_preset else None
     )
     profile_name = str(payload.get("profile_name") or "").strip() or None
-    language = str(payload.get("language") or (selected_preset.get("language") if selected_preset else "en")).strip().lower() or "en"
+    language = (
+        str(payload.get("language") or (selected_preset.get("language") if selected_preset else "en")).strip().lower()
+        or "en"
+    )
     strict = bool(payload.get("strict", False))
     async_mode = bool(payload.get("async", True))
-    codecompass_prerender = bool(payload.get("codecompass_prerender", selected_preset.get("codecompass_prerender", False) if selected_preset else False))
+    codecompass_prerender = bool(
+        payload.get(
+            "codecompass_prerender", selected_preset.get("codecompass_prerender", False) if selected_preset else False
+        )
+    )
     raw_source_metadata = payload.get("source_metadata") or {}
     if not isinstance(raw_source_metadata, dict):
         raise BadRequestError("invalid_source_metadata")
@@ -184,7 +193,14 @@ def file_type_support_filter() -> FileTypeSupportFilter:
 def normalize_security_metadata_patch(raw: dict) -> dict:
     if not isinstance(raw, dict):
         raise BadRequestError("invalid_security_metadata_patch")
-    allowed_keys = {"classification", "source_origin", "sensitivity", "tenancy", "approval_class", "chunk_security_tags"}
+    allowed_keys = {
+        "classification",
+        "source_origin",
+        "sensitivity",
+        "tenancy",
+        "approval_class",
+        "chunk_security_tags",
+    }
     patch: dict = {}
     for key, value in raw.items():
         normalized_key = str(key or "").strip()
@@ -237,10 +253,9 @@ def strict_if_match_version(raw_if_match: str) -> int:
 
     if raw_if_match.startswith("W/"):
         raise BadRequestError("if_match_invalid")
-    normalized = raw_if_match[1:-1] if (
-        len(raw_if_match) >= 2
-        and raw_if_match[0] == raw_if_match[-1] == '"'
-    ) else raw_if_match
+    normalized = (
+        raw_if_match[1:-1] if (len(raw_if_match) >= 2 and raw_if_match[0] == raw_if_match[-1] == '"') else raw_if_match
+    )
     try:
         version = int(normalized)
     except (TypeError, ValueError) as exc:

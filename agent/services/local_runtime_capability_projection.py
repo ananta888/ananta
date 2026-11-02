@@ -13,11 +13,7 @@ class LocalRuntimeCapabilityProjection:
         snapshots = self._cache.load()
         providers = sorted({item.provider_id for item in snapshots})
         stale = any(item.stale for item in snapshots)
-        routable = any(
-            item.routable(capability)
-            for item in snapshots
-            for capability in ("chat", "embedding")
-        )
+        routable = any(item.routable(capability) for item in snapshots for capability in ("chat", "embedding"))
         return {
             "schema": "ananta.local-runtime-capability-catalog.v1",
             "partial": stale,

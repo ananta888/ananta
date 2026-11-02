@@ -2,9 +2,10 @@
 
 Budget policy order: active_target → rolling_summary → recent_turns → codecompass → rag → hints
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +14,11 @@ from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
 
 @dataclass(frozen=True)
 class PromptBuildResult:
-    messages: list[dict[str, str]]        # OpenAI-style for LMStudio/local
-    prompt_text: str                       # Plain text for propose/worker
-    worker_v2_payload: dict[str, Any]     # Structured for /snake/ask v2
-    worker_v3_payload: dict[str, Any]     # Structured for /snake/ask v3 (CWFH-006)
-    included_sections: dict[str, int]     # section name → char count
+    messages: list[dict[str, str]]  # OpenAI-style for LMStudio/local
+    prompt_text: str  # Plain text for propose/worker
+    worker_v2_payload: dict[str, Any]  # Structured for /snake/ask v2
+    worker_v3_payload: dict[str, Any]  # Structured for /snake/ask v3 (CWFH-006)
+    included_sections: dict[str, int]  # section name → char count
     total_chars: int
 
 
@@ -51,13 +52,13 @@ class ChatPromptBuilder:
             remaining -= len(s)
 
         if self._memory.rolling_summary and remaining > 50:
-            s = self._memory.rolling_summary[:min(remaining, 1500)]
+            s = self._memory.rolling_summary[: min(remaining, 1500)]
             sections["rolling_summary"] = s
             remaining -= len(s)
 
         if self._memory.recent_turns and remaining > 50:
             turns_text = self._format_turns()
-            s = turns_text[:min(remaining, self._max_turns_chars)]
+            s = turns_text[: min(remaining, self._max_turns_chars)]
             sections["recent_turns"] = s
             remaining -= len(s)
 
@@ -122,8 +123,8 @@ class ChatPromptBuilder:
             "context": context_text,
             "depth": self._depth,
             "memory_context": self._memory.rolling_summary,
-            "candidate_files": [],   # populated by SnakeChat backend via CWFH-007
-            "context_files": [],     # populated by ContextFileReaderService via CWFH-005
+            "candidate_files": [],  # populated by SnakeChat backend via CWFH-007
+            "context_files": [],  # populated by ContextFileReaderService via CWFH-005
             "manifest_hash": self._memory.metadata.get("manifest_hash"),
             "policy_version": "v3.0",
             "required_reads": [],
@@ -186,14 +187,13 @@ class ChatPromptBuilder:
     def _build_system(self, context_text: str, depth_instruction: str, project_name: str) -> str:
         if self._system_template and "{context}" in self._system_template:
             return (
-                self._system_template
-                .replace("{context}", context_text[:self._budget])
+                self._system_template.replace("{context}", context_text[: self._budget])
                 .replace("{depth_instruction}", depth_instruction)
                 .replace("{project_name}", project_name)
             )
         return (
             f"Du bist ein hilfreicher Assistent für das Projekt {project_name}.\n"
-            f"Kontext:\n{context_text[:self._budget]}\n{depth_instruction}"
+            f"Kontext:\n{context_text[: self._budget]}\n{depth_instruction}"
         )
 
     def _build_plain_prompt(self, context_text: str, depth_instruction: str) -> str:

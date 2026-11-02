@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -29,7 +30,9 @@ class OperationsObservabilityService:
         if explicit in {"demo", "trial", "production"}:
             return explicit
 
-        runtime_profile = str(event_details.get("runtime_profile") or (config or {}).get("runtime_profile") or "").strip().lower()
+        runtime_profile = (
+            str(event_details.get("runtime_profile") or (config or {}).get("runtime_profile") or "").strip().lower()
+        )
         source = str(event_details.get("source") or "").strip().lower()
         mode = str(event_details.get("mode") or "").strip().lower()
         if source == "demo" or mode in {"guided-first-run", "demo"} or runtime_profile == "demo":
@@ -104,15 +107,21 @@ class OperationsObservabilityService:
             },
             "channels": {
                 "counts": dict(channel_counts),
-                "friction_by_source": {source: _rates(counter) for source, counter in sorted(friction_by_channel.items())},
+                "friction_by_source": {
+                    source: _rates(counter) for source, counter in sorted(friction_by_channel.items())
+                },
             },
             "usage_contexts": {
                 "counts": dict(context_counts),
-                "friction_by_context": {context: _rates(counter) for context, counter in sorted(friction_by_context.items())},
+                "friction_by_context": {
+                    context: _rates(counter) for context, counter in sorted(friction_by_context.items())
+                },
             },
         }
 
-    def build_dashboard_summary(self, *, tasks: list[dict], max_records: int = 300, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    def build_dashboard_summary(
+        self, *, tasks: list[dict], max_records: int = 300, config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         repos = get_repository_registry()
         recent_tasks = sorted(
             tasks,
@@ -199,19 +208,22 @@ class OperationsObservabilityService:
             "root_causes": {
                 "verification_failures": _top(verification_failures),
                 "routing_reasons": _top(routing_reasons),
-                "task_failures": _top(Counter(str(task.get("status_reason_code") or "unknown") for task in recent_tasks if str(task.get("status") or "").lower() in {"failed", "blocked"})),
+                "task_failures": _top(
+                    Counter(
+                        str(task.get("status_reason_code") or "unknown")
+                        for task in recent_tasks
+                        if str(task.get("status") or "").lower() in {"failed", "blocked"}
+                    )
+                ),
             },
             "task_kind_outcomes": {
-                kind: dict(counter)
-                for kind, counter in sorted(task_kind_status.items(), key=lambda item: item[0])
+                kind: dict(counter) for kind, counter in sorted(task_kind_status.items(), key=lambda item: item[0])
             },
             "routing_by_task_kind": {
-                kind: dict(counter)
-                for kind, counter in sorted(routing_by_kind.items(), key=lambda item: item[0])
+                kind: dict(counter) for kind, counter in sorted(routing_by_kind.items(), key=lambda item: item[0])
             },
             "verification_by_task_kind": {
-                kind: dict(counter)
-                for kind, counter in sorted(verification_by_kind.items(), key=lambda item: item[0])
+                kind: dict(counter) for kind, counter in sorted(verification_by_kind.items(), key=lambda item: item[0])
             },
             "context_efficiency": {
                 "sample_size": len(context_rows),
@@ -244,7 +256,7 @@ class OperationsObservabilityService:
             chunks = store.list_jobs(limit=1)  # force db accessibility check
             _ = chunks  # no-op
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("build_memory_context_metrics: ignored Exception", exc_info=True)
 
         ratios: list[float] = []
         for log in logs:

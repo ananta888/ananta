@@ -6,7 +6,6 @@ and the four segregated operation protocols from
 """
 
 from agent.models.sfu_broadcast_route import (
-    ApplyRouteCommandV1,
     MAX_ROUTE_BITRATE_BPS_V1,
     MAX_ROUTE_BURST_BYTES_V1,
     MAX_ROUTE_LAYERS_V1,
@@ -14,9 +13,10 @@ from agent.models.sfu_broadcast_route import (
     MAX_ROUTE_RECEIVERS_V1,
     MAX_ROUTE_TRAFFIC_CLASSES_V1,
     MAX_ROUTE_TTL_MS_V1,
+    ROUTE_PORT_CONTRACT_V1,
+    ApplyRouteCommandV1,
     MediaKindV1,
     ObserveRouteQueryV1,
-    ROUTE_PORT_CONTRACT_V1,
     RevokeRouteCommandV1,
     RouteContractViolationV1,
     RouteKeyV1,

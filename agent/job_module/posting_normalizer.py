@@ -3,6 +3,7 @@
 No LLM required. Extracts title, company, location, remote policy, salary,
 tech stack and requirements from free-form job posting text.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,26 +41,83 @@ SALARY_PATTERNS = [
 ]
 
 TECH_KEYWORDS = [
-    "python", "java", "javascript", "typescript", "react", "angular", "vue",
-    "docker", "kubernetes", "aws", "azure", "gcp", "postgresql", "mysql",
-    "mongodb", "redis", "flask", "django", "fastapi", "spring", "node.js",
-    "nodejs", "git", "linux", "terraform", "ci/cd", "graphql", "rest api",
-    "microservices", "kafka", "elasticsearch", "rust", "go", "golang", "scala",
-    "jenkins", "github actions", "gitlab ci", "ansible", "prometheus",
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "react",
+    "angular",
+    "vue",
+    "docker",
+    "kubernetes",
+    "aws",
+    "azure",
+    "gcp",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "redis",
+    "flask",
+    "django",
+    "fastapi",
+    "spring",
+    "node.js",
+    "nodejs",
+    "git",
+    "linux",
+    "terraform",
+    "ci/cd",
+    "graphql",
+    "rest api",
+    "microservices",
+    "kafka",
+    "elasticsearch",
+    "rust",
+    "go",
+    "golang",
+    "scala",
+    "jenkins",
+    "github actions",
+    "gitlab ci",
+    "ansible",
+    "prometheus",
 ]
 
 GERMAN_CITIES = [
-    "münchen", "berlin", "hamburg", "frankfurt", "köln", "düsseldorf",
-    "stuttgart", "leipzig", "dresden", "nürnberg", "hannover", "bonn", "wien",
-    "zürich", "linz", "graz", "bern", "basel",
+    "münchen",
+    "berlin",
+    "hamburg",
+    "frankfurt",
+    "köln",
+    "düsseldorf",
+    "stuttgart",
+    "leipzig",
+    "dresden",
+    "nürnberg",
+    "hannover",
+    "bonn",
+    "wien",
+    "zürich",
+    "linz",
+    "graz",
+    "bern",
+    "basel",
 ]
 
 PLZ_PATTERN = re.compile(r"\b\d{4,5}\b")
 
 REQUIREMENT_SECTION_HEADERS = [
-    "anforderungen", "requirements", "qualifikationen", "qualifications",
-    "ihr profil", "dein profil", "voraussetzungen", "what you bring",
-    "what we're looking for", "was du mitbringst", "was wir erwarten",
+    "anforderungen",
+    "requirements",
+    "qualifikationen",
+    "qualifications",
+    "ihr profil",
+    "dein profil",
+    "voraussetzungen",
+    "what you bring",
+    "what we're looking for",
+    "was du mitbringst",
+    "was wir erwarten",
 ]
 
 

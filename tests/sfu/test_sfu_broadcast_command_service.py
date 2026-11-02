@@ -39,7 +39,9 @@ def _service():
 
 
 def _command(**changes):
-    values = dict(room_ref="room-a", action="start", expected_version=2, confirmed=True, options={"quality_preference": "medium"})
+    values = dict(
+        room_ref="room-a", action="start", expected_version=2, confirmed=True, options={"quality_preference": "medium"}
+    )
     values.update(changes)
     return SfuBroadcastCommand(**values)
 
@@ -90,9 +92,7 @@ def test_ambiguous_executor_failure_retries_same_operation_after_delivery_lease(
             operation_ids.append(audit_event.operation_id)
             if len(operation_ids) == 1:
                 raise RuntimeError("transport_lost_after_commit")
-            return SfuBroadcastCommandExecution(
-                True, 3, "active", "sfu_broadcast_started", True
-            )
+            return SfuBroadcastCommandExecution(True, 3, "active", "sfu_broadcast_started", True)
 
     service = SfuBroadcastCommandService(
         authorizer=authorizer,
@@ -101,16 +101,12 @@ def test_ambiguous_executor_failure_retries_same_operation_after_delivery_lease(
         diagnostic_secret=b"c" * 32,
         clock=lambda: clock[0],
     )
-    principal = SfuBroadcastCommandPrincipal(
-        "user-a", "tenant-a", "user", ("room-a",)
-    )
+    principal = SfuBroadcastCommandPrincipal("user-a", "tenant-a", "user", ("room-a",))
     with pytest.raises(SfuBroadcastCommandError, match="executor_unavailable"):
         service.execute(principal, _command(), idempotency_key="command-key-0008")
     with pytest.raises(SfuBroadcastCommandError, match="command_in_progress"):
         service.execute(principal, _command(), idempotency_key="command-key-0008")
     clock[0] += 5
-    assert service.execute(
-        principal, _command(), idempotency_key="command-key-0008"
-    ).accepted
+    assert service.execute(principal, _command(), idempotency_key="command-key-0008").accepted
     assert len(operation_ids) == 2
     assert operation_ids[0] == operation_ids[1]

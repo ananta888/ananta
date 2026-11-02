@@ -1,4 +1,5 @@
 """SCG-013: POST /debug/command-guardrails/analyze — dry-run shell command chain analysis."""
+
 from __future__ import annotations
 
 import logging

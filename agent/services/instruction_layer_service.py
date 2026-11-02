@@ -6,10 +6,6 @@ from typing import Any
 from agent.common.audit import log_audit
 from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
 from agent.services.instruction_layer_compiler import (
-    _LAYER_MODEL_VERSION,
-    _OVERLAY_ATTACHMENT_KINDS,
-    _OVERLAY_SCOPES,
-    _STACK_VERSION,
     InstructionLayerService as InstructionLayerCompiler,
 )
 from agent.services.recovery_task_mutation_policy import (
@@ -148,7 +144,9 @@ class InstructionLayerService(InstructionLayerCompiler):
                 str((overlay.attachment_kind if overlay else "") or "").strip() or ("task" if overlay_id else None)
             ),
             "attachment_id": (
-                str((overlay.attachment_id if overlay else "") or "").strip() or str(task.get("id") or "").strip() or None
+                str((overlay.attachment_id if overlay else "") or "").strip()
+                or str(task.get("id") or "").strip()
+                or None
                 if overlay_id
                 else None
             ),
@@ -185,7 +183,9 @@ class InstructionLayerService(InstructionLayerCompiler):
                 str((overlay.attachment_kind if overlay else "") or "").strip() or ("goal" if overlay_id else None)
             ),
             "attachment_id": (
-                str((overlay.attachment_id if overlay else "") or "").strip() or str(data.get("id") or "").strip() or None
+                str((overlay.attachment_id if overlay else "") or "").strip()
+                or str(data.get("id") or "").strip()
+                or None
                 if overlay_id
                 else None
             ),

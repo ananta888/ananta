@@ -18,9 +18,7 @@ from agent.services.workflow_runtime_read_model_service import (
     get_workflow_runtime_read_model_service,
 )
 
-RUNTIME_OPERATIONS_COMMANDS = frozenset(
-    {"pause_run", "resume_run", "cancel_run", "retry_run_or_task"}
-)
+RUNTIME_OPERATIONS_COMMANDS = frozenset({"pause_run", "resume_run", "cancel_run", "retry_run_or_task"})
 
 
 def runtime_operation_idempotency_key(
@@ -63,8 +61,7 @@ class HubRuntimeCommandGateway(Protocol):
         requested_by: str,
         idempotency_key: str,
         governance_context: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
-        ...
+    ) -> Mapping[str, Any]: ...
 
 
 class WorkflowControlBindingLookupPort(Protocol):
@@ -217,11 +214,7 @@ class RunControlRuntimeCommandGateway:
             get_run_control_service,
         )
 
-        service = (
-            self._service_provider()
-            if self._service_provider is not None
-            else get_run_control_service()
-        )
+        service = self._service_provider() if self._service_provider is not None else get_run_control_service()
         try:
             principal = RunControlPrincipal.from_values(tenant_id, requested_by)
             if not service.bind_resource_owners(
@@ -304,15 +297,9 @@ class WorkflowAwareRuntimeCommandGateway:
 
         from agent.services.workflow_route_authorization_service import WorkflowRoutePrincipal
 
-        facade = (
-            self._facade_provider()
-            if self._facade_provider is not None
-            else _workflow_control_facade()
-        )
+        facade = self._facade_provider() if self._facade_provider is not None else _workflow_control_facade()
         registered = set(getattr(facade.registry, "runtime_ids", ()))
-        if str(binding.runtime_id) not in registered and str(facade.backend_id) != str(
-            binding.runtime_id
-        ):
+        if str(binding.runtime_id) not in registered and str(facade.backend_id) != str(binding.runtime_id):
             raise WorkflowRuntimeGatewayError(
                 "runtime_workflow_backend_binding_mismatch",
                 409,
@@ -378,16 +365,9 @@ class WorkflowAwareRuntimeCommandGateway:
             raise error from exc
         except RuntimeError as exc:
             reason = str(exc).lower()
-            is_conflict = any(
-                marker in reason
-                for marker in ("conflict", "mismatch", "revision", "replay")
-            )
+            is_conflict = any(marker in reason for marker in ("conflict", "mismatch", "revision", "replay"))
             error = WorkflowRuntimeGatewayError(
-                (
-                    "runtime_workflow_command_conflict"
-                    if is_conflict
-                    else "runtime_workflow_command_unavailable"
-                ),
+                ("runtime_workflow_command_conflict" if is_conflict else "runtime_workflow_command_unavailable"),
                 409 if is_conflict else 503,
             )
             self._workflow_replays.fail(

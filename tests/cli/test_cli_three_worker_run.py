@@ -39,7 +39,7 @@ def test_cli_three_worker_default_uses_dry_run(monkeypatch) -> None:
     monkeypatch.setattr(runner_mod, "get_three_worker_comparison_runner", lambda: runner)
     monkeypatch.setattr(exec_mod, "get_three_worker_track_executor", lambda: object())
 
-    rc = _run_ananta_run(["three-worker", "--prompt", "test"]) 
+    rc = _run_ananta_run(["three-worker", "--prompt", "test"])
 
     assert rc == 0
     assert len(runner.calls) == 1
@@ -56,7 +56,7 @@ def test_cli_three_worker_execute_wires_track_executor(monkeypatch) -> None:
     monkeypatch.setattr(runner_mod, "get_three_worker_comparison_runner", lambda: runner)
     monkeypatch.setattr(exec_mod, "get_three_worker_track_executor", lambda: sentinel)
 
-    rc = _run_ananta_run(["three-worker", "--prompt", "test", "--execute"]) 
+    rc = _run_ananta_run(["three-worker", "--prompt", "test", "--execute"])
 
     assert rc == 0
     assert len(runner.calls) == 1

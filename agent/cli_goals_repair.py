@@ -74,7 +74,8 @@ def _poll_goal_status(
                     # stalled (worker crash) — count them as failures to avoid blocking forever.
                     cost_items = summary.get("cost_summary", {}).get("items") or []
                     stalled = sum(
-                        1 for it in cost_items
+                        1
+                        for it in cost_items
                         if isinstance(it, dict)
                         and str(it.get("status") or "").lower() == "proposing"
                         and it.get("latency_ms") is None
@@ -133,70 +134,147 @@ def _extract_script_blocks(text: str) -> str:
 # ── Host-Diagnose (läuft lokal, vor LLM-Submission) ─────────────────────────
 
 _SCAN_BASE: list[tuple[str, str]] = [
-    ("Uptime / Load",          "uptime"),
-    ("Disk",                   "df -h"),
-    ("Memory",                 "free -h"),
-    ("Failed systemd units",   "systemctl --failed --no-pager 2>/dev/null"),
-    ("Open TCP listeners",     "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null"),
-    ("Recent kernel/svc errors","journalctl -p err -n 20 --no-pager 2>/dev/null"),
+    ("Uptime / Load", "uptime"),
+    ("Disk", "df -h"),
+    ("Memory", "free -h"),
+    ("Failed systemd units", "systemctl --failed --no-pager 2>/dev/null"),
+    ("Open TCP listeners", "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null"),
+    ("Recent kernel/svc errors", "journalctl -p err -n 20 --no-pager 2>/dev/null"),
 ]
 
 _SCAN_SERVICE_MAP: list[tuple[str, list[tuple[str, str]]]] = [
-    (r"\bnginx\b", [
-        ("nginx: status",      "systemctl status nginx --no-pager -l 2>/dev/null"),
-        ("nginx: config test", "nginx -t 2>&1"),
-        ("nginx: config",      "cat /etc/nginx/nginx.conf 2>/dev/null"),
-        ("nginx: sites",       "ls -la /etc/nginx/sites-enabled/ 2>/dev/null || ls -la /etc/nginx/conf.d/ 2>/dev/null"),
-        ("nginx: error log",   "journalctl -u nginx -n 40 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bapache2?\b|\bhttpd\b", [
-        ("apache: status",     "systemctl status apache2 --no-pager -l 2>/dev/null || systemctl status httpd --no-pager -l 2>/dev/null"),
-        ("apache: configtest", "apache2ctl configtest 2>&1 || apachectl configtest 2>&1"),
-        ("apache: error log",  "journalctl -u apache2 -n 40 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bdocker\b", [
-        ("docker: containers", "docker ps -a 2>/dev/null"),
-        ("docker: compose",    "docker compose ps 2>/dev/null || docker-compose ps 2>/dev/null"),
-        ("docker: recent logs","docker compose logs --tail=25 2>/dev/null | head -60"),
-    ]),
-    (r"\bpostgres(?:ql)?\b", [
-        ("postgres: status",   "systemctl status postgresql --no-pager 2>/dev/null"),
-        ("postgres: ready",    "pg_isready 2>/dev/null"),
-        ("postgres: log",      "journalctl -u postgresql -n 40 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bmysql\b|\bmariadb\b", [
-        ("mysql: status",      "systemctl status mysql --no-pager 2>/dev/null || systemctl status mariadb --no-pager 2>/dev/null"),
-        ("mysql: log",         "journalctl -u mysql -n 40 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bsshd?\b", [
-        ("ssh: status",        "systemctl status ssh --no-pager 2>/dev/null || systemctl status sshd --no-pager 2>/dev/null"),
-        ("ssh: config",        "grep -Ev '^(#|\\s*$)' /etc/ssh/sshd_config 2>/dev/null"),
-        ("ssh: log",           "journalctl -u ssh -n 20 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bufw\b|\bfirewall\b|\biptables\b", [
-        ("firewall: ufw",      "ufw status verbose 2>/dev/null"),
-        ("firewall: iptables", "iptables -L -n 2>/dev/null | head -40"),
-    ]),
-    (r"\bsystemd?\b|\bservice\b|\bunit\b", [
-        ("systemd: failed",    "systemctl list-units --state=failed --no-pager 2>/dev/null"),
-        ("systemd: log",       "journalctl -n 40 --no-pager 2>/dev/null"),
-    ]),
-    (r"\bdns\b|\bresolvd?\b|\bnameserver\b", [
-        ("dns: resolv.conf",   "cat /etc/resolv.conf 2>/dev/null"),
-        ("dns: systemd-resolved","systemctl status systemd-resolved --no-pager 2>/dev/null"),
-    ]),
-    (r"\bcron\b|\bcrontab\b", [
-        ("cron: status",       "systemctl status cron --no-pager 2>/dev/null || systemctl status crond --no-pager 2>/dev/null"),
-        ("cron: log",          "journalctl -u cron -n 30 --no-pager 2>/dev/null"),
-    ]),
+    (
+        r"\bnginx\b",
+        [
+            ("nginx: status", "systemctl status nginx --no-pager -l 2>/dev/null"),
+            ("nginx: config test", "nginx -t 2>&1"),
+            ("nginx: config", "cat /etc/nginx/nginx.conf 2>/dev/null"),
+            ("nginx: sites", "ls -la /etc/nginx/sites-enabled/ 2>/dev/null || ls -la /etc/nginx/conf.d/ 2>/dev/null"),
+            ("nginx: error log", "journalctl -u nginx -n 40 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bapache2?\b|\bhttpd\b",
+        [
+            (
+                "apache: status",
+                "systemctl status apache2 --no-pager -l 2>/dev/null || systemctl status httpd --no-pager -l 2>/dev/null",
+            ),
+            ("apache: configtest", "apache2ctl configtest 2>&1 || apachectl configtest 2>&1"),
+            ("apache: error log", "journalctl -u apache2 -n 40 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bdocker\b",
+        [
+            ("docker: containers", "docker ps -a 2>/dev/null"),
+            ("docker: compose", "docker compose ps 2>/dev/null || docker-compose ps 2>/dev/null"),
+            ("docker: recent logs", "docker compose logs --tail=25 2>/dev/null | head -60"),
+        ],
+    ),
+    (
+        r"\bpostgres(?:ql)?\b",
+        [
+            ("postgres: status", "systemctl status postgresql --no-pager 2>/dev/null"),
+            ("postgres: ready", "pg_isready 2>/dev/null"),
+            ("postgres: log", "journalctl -u postgresql -n 40 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bmysql\b|\bmariadb\b",
+        [
+            (
+                "mysql: status",
+                "systemctl status mysql --no-pager 2>/dev/null || systemctl status mariadb --no-pager 2>/dev/null",
+            ),
+            ("mysql: log", "journalctl -u mysql -n 40 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bsshd?\b",
+        [
+            (
+                "ssh: status",
+                "systemctl status ssh --no-pager 2>/dev/null || systemctl status sshd --no-pager 2>/dev/null",
+            ),
+            ("ssh: config", "grep -Ev '^(#|\\s*$)' /etc/ssh/sshd_config 2>/dev/null"),
+            ("ssh: log", "journalctl -u ssh -n 20 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bufw\b|\bfirewall\b|\biptables\b",
+        [
+            ("firewall: ufw", "ufw status verbose 2>/dev/null"),
+            ("firewall: iptables", "iptables -L -n 2>/dev/null | head -40"),
+        ],
+    ),
+    (
+        r"\bsystemd?\b|\bservice\b|\bunit\b",
+        [
+            ("systemd: failed", "systemctl list-units --state=failed --no-pager 2>/dev/null"),
+            ("systemd: log", "journalctl -n 40 --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bdns\b|\bresolvd?\b|\bnameserver\b",
+        [
+            ("dns: resolv.conf", "cat /etc/resolv.conf 2>/dev/null"),
+            ("dns: systemd-resolved", "systemctl status systemd-resolved --no-pager 2>/dev/null"),
+        ],
+    ),
+    (
+        r"\bcron\b|\bcrontab\b",
+        [
+            (
+                "cron: status",
+                "systemctl status cron --no-pager 2>/dev/null || systemctl status crond --no-pager 2>/dev/null",
+            ),
+            ("cron: log", "journalctl -u cron -n 30 --no-pager 2>/dev/null"),
+        ],
+    ),
 ]
 
 # Wörter, die NICHT als Service-Name erkannt werden sollen
 _SCAN_SKIP_WORDS = {
-    "der", "die", "das", "ein", "eine", "nicht", "startet", "geht", "kaputt", "funktioniert",
-    "error", "fehler", "problem", "issue", "help", "crash", "fail", "failed", "bitte",
-    "the", "is", "not", "does", "won", "can", "running", "service", "system", "server",
-    "nach", "beim", "seit", "immer", "wieder", "alle", "port", "ports", "log", "logs",
+    "der",
+    "die",
+    "das",
+    "ein",
+    "eine",
+    "nicht",
+    "startet",
+    "geht",
+    "kaputt",
+    "funktioniert",
+    "error",
+    "fehler",
+    "problem",
+    "issue",
+    "help",
+    "crash",
+    "fail",
+    "failed",
+    "bitte",
+    "the",
+    "is",
+    "not",
+    "does",
+    "won",
+    "can",
+    "running",
+    "service",
+    "system",
+    "server",
+    "nach",
+    "beim",
+    "seit",
+    "immer",
+    "wieder",
+    "alle",
+    "port",
+    "ports",
+    "log",
+    "logs",
 }
 
 
@@ -319,8 +397,7 @@ def _submit_repair_goal(
     terminal_fail = final_status in {"failed", "cancelled", "aborted", "timeout"}
     if terminal_fail and not allow_partial:
         print(
-            f"Goal did not complete (status={final_status}). "
-            f"Use 'ananta goal --goal-detail {goal_id}' for details.",
+            f"Goal did not complete (status={final_status}). Use 'ananta goal --goal-detail {goal_id}' for details.",
             file=sys.stderr,
         )
         return None

@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_java as tsjava
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -31,7 +31,9 @@ def _parse_first_method(code: str):
     return src, method_node
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tsjava is not None, "tree_sitter dependencies missing"
+)
 class JavaMemberExtractorTests(unittest.TestCase):
     def test_extract_method_marks_getter_and_return_relation(self) -> None:
         src, method_node = _parse_first_method(
@@ -66,10 +68,9 @@ class JavaMemberExtractorTests(unittest.TestCase):
         self.assertTrue(idx["is_trivial"])
         self.assertTrue(meta["is_trivial"])
         self.assertIn("code_snippet", detail)
-        self.assertTrue(any(
-            r["relation"] == "returns" and r["target_resolved"] == "java.lang.String"
-            for r in relations
-        ))
+        self.assertTrue(
+            any(r["relation"] == "returns" and r["target_resolved"] == "java.lang.String" for r in relations)
+        )
 
 
 if __name__ == "__main__":

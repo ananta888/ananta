@@ -335,9 +335,7 @@ class SqlSpreadsheetExecutionQueueRepository:
         with Session(bind=self._engine) as session:
             counts = dict(
                 session.execute(
-                    select(SpreadsheetExecutionJobDB.status, func.count()).group_by(
-                        SpreadsheetExecutionJobDB.status
-                    )
+                    select(SpreadsheetExecutionJobDB.status, func.count()).group_by(SpreadsheetExecutionJobDB.status)
                 ).all()
             )
             stale = list(
@@ -352,10 +350,7 @@ class SqlSpreadsheetExecutionQueueRepository:
                 ).scalars()
             )
         return {
-            "counts": {
-                status: int(counts.get(status, 0))
-                for status in (*active, "completed", "failed", "cancelled")
-            },
+            "counts": {status: int(counts.get(status, 0)) for status in (*active, "completed", "failed", "cancelled")},
             "stale_jobs": [self._projection(record) for record in stale],
         }
 

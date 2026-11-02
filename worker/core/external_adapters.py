@@ -4,6 +4,7 @@ EW-T045: HermesAdapter — bounded task/context, sensitivity-aware, artifact par
 EW-T046: OpenCodeAdapter — allowed-files-only, PatchArtifact output, no direct tree write.
 EW-T047: MCPAdapter — ToolPolicy filtering, env allowlist, sanitized results.
 """
+
 from __future__ import annotations
 
 import re
@@ -16,13 +17,16 @@ from worker.core.sanitizer import OutputSanitizer
 
 _SANITIZER = OutputSanitizer()
 
-CLOUD_BLOCKED_SENSITIVITIES = frozenset({
-    ContextSensitivity.customer_confidential,
-    ContextSensitivity.secret,
-})
+CLOUD_BLOCKED_SENSITIVITIES = frozenset(
+    {
+        ContextSensitivity.customer_confidential,
+        ContextSensitivity.secret,
+    }
+)
 
 
 # ── AdapterResult ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class AdapterResult:
@@ -35,6 +39,7 @@ class AdapterResult:
 
 
 # ── HermesAdapter (EW-T045) ───────────────────────────────────────────────────
+
 
 class HermesAdapter:
     """Sends bounded task/context to Hermes; parses response into Ananta artifacts. EW-T045.
@@ -83,12 +88,14 @@ class HermesAdapter:
         artifacts = []
         # Extract patch blocks
         for match in re.finditer(r"```(?:diff|patch)\n(.*?)```", clean_output, re.DOTALL):
-            artifacts.append({
-                "kind": "patch_candidate",
-                "task_id": task_id,
-                "content": match.group(1),
-                "source": "hermes",
-            })
+            artifacts.append(
+                {
+                    "kind": "patch_candidate",
+                    "task_id": task_id,
+                    "content": match.group(1),
+                    "source": "hermes",
+                }
+            )
 
         return AdapterResult(
             allowed=True,
@@ -106,6 +113,7 @@ class HermesAdapter:
 
 # ── OpenCodeAdapter (EW-T046) ─────────────────────────────────────────────────
 
+
 class OpenCodeAdapter:
     """Hardens OpenCode invocation: allowed files only, PatchArtifact output. EW-T046.
 
@@ -121,6 +129,7 @@ class OpenCodeAdapter:
     ) -> tuple[list[str], list[str]]:
         """Return (allowed, denied) file lists based on filesystem scope."""
         from worker.core.file_policy import FilePolicy
+
         policy = FilePolicy()
         allowed, denied = [], []
         for f in requested_files:
@@ -150,7 +159,8 @@ class OpenCodeAdapter:
                 detail="OpenCode output contained no parseable patch",
             )
 
-        from worker.core.file_policy import PatchArtifact, FilePolicy
+        from worker.core.file_policy import PatchArtifact
+
         artifact = PatchArtifact(
             artifact_id=artifact_id,
             task_id=task_id,
@@ -185,6 +195,7 @@ class OpenCodeAdapter:
 
 # ── MCPAdapter (EW-T047) ──────────────────────────────────────────────────────
 
+
 class MCPAdapter:
     """MCP server/tool adapter with capability filtering. EW-T047.
 
@@ -194,9 +205,17 @@ class MCPAdapter:
     """
 
     # Allowlisted env vars that can be passed to MCP tools
-    DEFAULT_ALLOWED_ENV_KEYS = frozenset({
-        "PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TMP", "TEMP",
-    })
+    DEFAULT_ALLOWED_ENV_KEYS = frozenset(
+        {
+            "PATH",
+            "HOME",
+            "LANG",
+            "LC_ALL",
+            "TMPDIR",
+            "TMP",
+            "TEMP",
+        }
+    )
 
     def filter_tools(
         self,

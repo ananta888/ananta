@@ -37,6 +37,8 @@ def redact_mail_for_worker_context(
         "original_body": original_body,
         "redacted_body": str(body_result.get("text") or ""),
         "redaction_status": "redacted" if body_status == "redacted" or blocked else "not_required",
-        "reason_code": "secret_detected" if body_status == "redacted" else ("attachment_secret_detected" if blocked else "clean"),
+        "reason_code": "secret_detected"
+        if body_status == "redacted"
+        else ("attachment_secret_detected" if blocked else "clean"),
         "attachment_results": attachment_results,
     }

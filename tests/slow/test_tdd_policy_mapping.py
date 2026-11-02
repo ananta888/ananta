@@ -1,5 +1,6 @@
 from __future__ import annotations
-from tests_support import admin_login_token as _login_admin
+
+from tests.support import admin_login_token as _login_admin
 
 
 def test_tdd_blueprint_policy_requires_patch_apply_approval(client):

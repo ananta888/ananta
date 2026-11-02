@@ -13,8 +13,12 @@ def test_event_diagnostics_project_only_validated_short_id(kind):
 
 
 def test_state_diagnostic_drops_nested_chat_peer_and_encryption_payloads():
-    assert chat_state_diagnostic({"peers": [{"name": "private"}], "chat": [{"text": "private"}],
-                                  "e2ee": {"secret": "private"}}) == "STATE peers=1 e2ee=False chat=1"
+    assert (
+        chat_state_diagnostic(
+            {"peers": [{"name": "private"}], "chat": [{"text": "private"}], "e2ee": {"secret": "private"}}
+        )
+        == "STATE peers=1 e2ee=False chat=1"
+    )
     assert chat_state_diagnostic({"peers": -1, "chat": "private", "e2ee": True}) == "STATE peers=0 e2ee=True chat=0"
 
 

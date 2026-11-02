@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import inspect
 
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 
 from agent.services.source_control_legacy_inventory_adapters import (
     ComposedLegacySourceInventoryAdapter,
-    SQLLegacyKnowledgePolicyReader,
     SourceRegistrySnapshotReader,
+    SQLLegacyKnowledgePolicyReader,
 )
 from agent.services.source_control_legacy_migration import (
     LegacyMigrationInventory,
@@ -20,6 +20,7 @@ class _EmptyReadPort:
 
     def __getattr__(self, name):
         if name.startswith(("list", "read", "get", "load")):
+
             def read(*args, **kwargs):
                 self.calls.append((name, args, kwargs))
                 if name.startswith("get"):
@@ -43,9 +44,7 @@ def _construct(adapter_type, resolver):
         if value is None:
             if parameter.default is not inspect.Parameter.empty:
                 continue
-            raise AssertionError(
-                f"unsupported required adapter port: {parameter.name}"
-            )
+            raise AssertionError(f"unsupported required adapter port: {parameter.name}")
         if parameter.kind is inspect.Parameter.POSITIONAL_ONLY:
             positional.append(value)
         else:
@@ -66,9 +65,7 @@ def _read_inventory(adapter) -> LegacyMigrationInventory:
 def test_concrete_readers_compose_empty_inventory_without_mutation(
     tmp_path,
 ) -> None:
-    engine = create_engine(
-        f"sqlite:///{tmp_path / 'legacy-inventory.sqlite3'}"
-    )
+    engine = create_engine(f"sqlite:///{tmp_path / 'legacy-inventory.sqlite3'}")
     SQLModel.metadata.create_all(engine)
     registry = _EmptyReadPort()
     snapshots = _EmptyReadPort()
@@ -76,23 +73,11 @@ def test_concrete_readers_compose_empty_inventory_without_mutation(
 
     source_reader = _construct(
         SourceRegistrySnapshotReader,
-        lambda name: (
-            registry
-            if "registry" in name
-            else snapshots
-            if "snapshot" in name or "store" in name
-            else None
-        ),
+        lambda name: registry if "registry" in name else snapshots if "snapshot" in name or "store" in name else None,
     )
     knowledge_reader = _construct(
         SQLLegacyKnowledgePolicyReader,
-        lambda name: (
-            engine
-            if "engine" in name
-            else (lambda: Session(engine))
-            if "session" in name
-            else None
-        ),
+        lambda name: engine if "engine" in name else (lambda: Session(engine)) if "session" in name else None,
     )
     adapter = _construct(
         ComposedLegacySourceInventoryAdapter,

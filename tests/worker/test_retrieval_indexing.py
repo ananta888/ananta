@@ -38,4 +38,3 @@ def test_delta_set_marks_rename_by_hash_match() -> None:
     )
     assert "old.py" in delta.deleted_paths
     assert "new.py" in delta.changed_paths
-

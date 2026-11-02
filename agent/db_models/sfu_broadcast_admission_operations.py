@@ -4,7 +4,7 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -13,9 +13,7 @@ class SfuBroadcastAdmissionOperationDB(SQLModel, table=True):
 
     __tablename__ = "sfu_broadcast_admission_operations"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "idempotency_key_digest", name="uq_sfu_admission_operation_idempotency"
-        ),
+        sa.UniqueConstraint("tenant_id", "idempotency_key_digest", name="uq_sfu_admission_operation_idempotency"),
         sa.CheckConstraint("version > 0", name="ck_sfu_admission_operation_version"),
         sa.Index("ix_sfu_admission_operation_recovery", "status", "deadline_at", "updated_at"),
     )

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from agent.services.meet_contract import MeetError
-from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
+from tests.meet.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
 
 
 def test_disabled_fixture_does_not_wrap_read_or_report_recovery():

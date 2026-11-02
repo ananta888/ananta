@@ -1,4 +1,5 @@
 """HDE-007: the policy gate guards every hub-direct call."""
+
 import pytest
 
 from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter
@@ -46,7 +47,9 @@ def adapter(runtime):
 
 def test_unknown_tool_is_blocked_not_executed(adapter, runtime, tmp_path):
     result = adapter.execute_direct(
-        tool_name="repo.does_not_exist", arguments={}, agent_cfg=_cfg(["repo.does_not_exist"]),
+        tool_name="repo.does_not_exist",
+        arguments={},
+        agent_cfg=_cfg(["repo.does_not_exist"]),
         workspace_ref=str(tmp_path),
     )
     assert result["kind"] == "direct_policy_blocked"
@@ -56,7 +59,9 @@ def test_unknown_tool_is_blocked_not_executed(adapter, runtime, tmp_path):
 
 def test_blocked_category_tool_is_blocked(adapter, runtime, tmp_path):
     result = adapter.execute_direct(
-        tool_name="shell.run_unrestricted", arguments={}, agent_cfg=_cfg(["shell.run_unrestricted"]),
+        tool_name="shell.run_unrestricted",
+        arguments={},
+        agent_cfg=_cfg(["shell.run_unrestricted"]),
         workspace_ref=str(tmp_path),
     )
     assert result["kind"] == "direct_policy_blocked"
@@ -79,7 +84,9 @@ def test_write_tool_in_read_only_mode_is_blocked(adapter, runtime, tmp_path):
 
 def test_tool_outside_allowed_tools_is_blocked(adapter, runtime, tmp_path):
     result = adapter.execute_direct(
-        tool_name="git.status", arguments={}, agent_cfg=_cfg(["repo.grep"]),
+        tool_name="git.status",
+        arguments={},
+        agent_cfg=_cfg(["repo.grep"]),
         workspace_ref=str(tmp_path),
     )
     assert result["kind"] == "direct_policy_blocked"
@@ -89,7 +96,9 @@ def test_tool_outside_allowed_tools_is_blocked(adapter, runtime, tmp_path):
 
 def test_allowed_read_only_tool_executes(adapter, runtime, tmp_path):
     result = adapter.execute_direct(
-        tool_name="git.status", arguments={}, agent_cfg=_cfg(["git.status"]),
+        tool_name="git.status",
+        arguments={},
+        agent_cfg=_cfg(["git.status"]),
         workspace_ref=str(tmp_path),
     )
     assert result["kind"] == "direct_tool_result"
@@ -112,7 +121,9 @@ def test_execution_plane_gate_blocks_specless_dynamic_tool(adapter, runtime, tmp
 
     monkeypatch.setattr(registry_module, "get_dynamic_tool_registry_service", lambda: _Registry())
     result = adapter.execute_direct(
-        tool_name="custom.no_plane", arguments={}, agent_cfg=_cfg(["custom.no_plane"]),
+        tool_name="custom.no_plane",
+        arguments={},
+        agent_cfg=_cfg(["custom.no_plane"]),
         workspace_ref=str(tmp_path),
     )
     assert result["kind"] == "direct_policy_blocked"

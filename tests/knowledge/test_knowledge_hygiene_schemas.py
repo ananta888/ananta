@@ -20,7 +20,6 @@ from ananta_contracts.knowledge_hygiene import (
     canonical_digest,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

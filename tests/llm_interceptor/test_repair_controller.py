@@ -29,4 +29,3 @@ def test_repair_failure_invalid_json_string():
     )
     assert repaired is None
     assert reason == "repair_failed_invalid_json"
-

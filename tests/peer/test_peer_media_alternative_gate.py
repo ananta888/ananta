@@ -39,9 +39,7 @@ def test_alternative_gate_requires_both_engines_and_bounded_decisions() -> None:
 
 
 def test_committed_alternative_report_is_test_scoped_and_not_promotable() -> None:
-    report = json.loads(
-        (ROOT / "artifacts/test-gates/peer-media-alternative.json").read_text(encoding="utf-8")
-    )
+    report = json.loads((ROOT / "artifacts/test-gates/peer-media-alternative.json").read_text(encoding="utf-8"))
     assert report["status"] == "passed"
     assert report["decision"] in {"bounded_experiment", "no_go"}
     assert {row["engine"] for row in report["measurements"]} == EXPECTED_ENGINES

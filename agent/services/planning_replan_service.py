@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from agent.db_models import PlanningArtifactRevisionDB, PlanningLineageDB, TaskDB
-from agent.services.task_dependency_policy import validate_dependency_graph
 from agent.services.planning_artifact_transition_service import (
     PlanningOperationContext,
     PlanningTransitionError,
@@ -25,6 +24,7 @@ from agent.services.planning_track_pipeline_service import (
     evaluate_planning_quality_gates,
     validate_planning_track_with_details,
 )
+from agent.services.task_dependency_policy import validate_dependency_graph
 
 
 class PlanningReplanService:

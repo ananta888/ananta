@@ -134,15 +134,9 @@ class PythonTranslationPlanService:
         plan = TranslationPlan(source_path=path, source_hash=source_hash, target=target)
 
         parsed = self.semantic_executor.parse_for_language("python", path, source)
-        parse_diagnostics = [
-            item
-            for item in parsed.get("diagnostics") or []
-            if isinstance(item, dict)
-        ]
+        parse_diagnostics = [item for item in parsed.get("diagnostics") or [] if isinstance(item, dict)]
         plan.warnings.extend(str(item.get("message") or item) for item in parse_diagnostics)
-        if _PARSER_FAILURE_CODES & {
-            str(item.get("code") or "") for item in parse_diagnostics
-        }:
+        if _PARSER_FAILURE_CODES & {str(item.get("code") or "") for item in parse_diagnostics}:
             return plan
 
         # Run the second, focused AST inspection only after bounded parsing.
@@ -181,9 +175,17 @@ class PythonTranslationPlanService:
             status = "blocked_dynamic_runtime"
         elif kind in ("dataclass", "frozen_dataclass") or (kind == "class" and not item.get("unsupported")):
             if lang == "java":
-                rules.append("pyjr.dataclass_to_java_record.v1" if kind in ("dataclass", "frozen_dataclass") else "pyjr.class_to_java_class.v1")
+                rules.append(
+                    "pyjr.dataclass_to_java_record.v1"
+                    if kind in ("dataclass", "frozen_dataclass")
+                    else "pyjr.class_to_java_class.v1"
+                )
             else:
-                rules.append("pyjr.dataclass_to_rust_struct.v1" if kind in ("dataclass", "frozen_dataclass") else "pyjr.class_to_rust_struct.v1")
+                rules.append(
+                    "pyjr.dataclass_to_rust_struct.v1"
+                    if kind in ("dataclass", "frozen_dataclass")
+                    else "pyjr.class_to_rust_struct.v1"
+                )
             if type_confidence in ("unknown", "dynamic"):
                 status = "needs_review"
                 warnings.append(f"type_confidence_{type_confidence}: annotate fields for safe auto-transform")
@@ -205,9 +207,16 @@ class PythonTranslationPlanService:
                 rust_artifact = self._emit_rust_type(item)
 
         return TranslationPlanEntry(
-            symbol=name, kind=kind, status=status, target_language=lang,
-            rules=rules, warnings=warnings, blockers=[str(b) for b in blockers],
-            type_confidence=type_confidence, java_artifact=java_artifact, rust_artifact=rust_artifact,
+            symbol=name,
+            kind=kind,
+            status=status,
+            target_language=lang,
+            rules=rules,
+            warnings=warnings,
+            blockers=[str(b) for b in blockers],
+            type_confidence=type_confidence,
+            java_artifact=java_artifact,
+            rust_artifact=rust_artifact,
         )
 
     def _plan_function(self, fn: dict, lang: str, path: str, source_hash: str, dynamic: Any) -> TranslationPlanEntry:
@@ -241,9 +250,16 @@ class PythonTranslationPlanService:
                 rust_artifact = result.as_dict()
 
         return TranslationPlanEntry(
-            symbol=name, kind="function", status=status, target_language=lang,
-            rules=rules, warnings=warnings, blockers=[],
-            type_confidence=type_confidence, java_artifact=java_artifact, rust_artifact=rust_artifact,
+            symbol=name,
+            kind="function",
+            status=status,
+            target_language=lang,
+            rules=rules,
+            warnings=warnings,
+            blockers=[],
+            type_confidence=type_confidence,
+            java_artifact=java_artifact,
+            rust_artifact=rust_artifact,
         )
 
     def _emit_java_type(self, item: dict) -> dict:
@@ -253,7 +269,9 @@ class PythonTranslationPlanService:
         elif kind in ("dataclass", "frozen_dataclass", "typed_dict"):
             result = _java_emitter.emit_record(item["name"], item.get("fields") or [])
         else:
-            result = _java_emitter.emit_class(item["name"], item.get("fields") or [], mutable=kind != "frozen_dataclass")
+            result = _java_emitter.emit_class(
+                item["name"], item.get("fields") or [], mutable=kind != "frozen_dataclass"
+            )
         return result.as_dict()
 
     def _emit_rust_type(self, item: dict) -> dict:
@@ -261,7 +279,9 @@ class PythonTranslationPlanService:
         if kind == "enum":
             result = _rust_emitter.emit_enum(item["name"], item.get("enum_values") or [])
         elif kind in ("dataclass", "frozen_dataclass", "typed_dict", "class"):
-            result = _rust_emitter.emit_struct(item["name"], item.get("fields") or [], frozen=kind == "frozen_dataclass")
+            result = _rust_emitter.emit_struct(
+                item["name"], item.get("fields") or [], frozen=kind == "frozen_dataclass"
+            )
         else:
             result = _rust_emitter.emit_struct(item["name"], item.get("fields") or [])
         return result.as_dict()
@@ -282,12 +302,20 @@ class PythonTransformEngine:
 
         for entry in plan.entries:
             if entry.status == "blocked_dynamic_runtime":
-                artifacts.append(TransformArtifact(
-                    source_path=path, source_hash=source_hash,
-                    target_language=entry.target_language, symbol=entry.symbol, kind=entry.kind,
-                    target_source="", rule_ids=[], warnings=entry.warnings + entry.blockers,
-                    verifier_status="failed", needs_review=True,
-                ))
+                artifacts.append(
+                    TransformArtifact(
+                        source_path=path,
+                        source_hash=source_hash,
+                        target_language=entry.target_language,
+                        symbol=entry.symbol,
+                        kind=entry.kind,
+                        target_source="",
+                        rule_ids=[],
+                        warnings=entry.warnings + entry.blockers,
+                        verifier_status="failed",
+                        needs_review=True,
+                    )
+                )
                 continue
 
             if entry.target_language == "java" and entry.java_artifact:
@@ -295,26 +323,40 @@ class PythonTransformEngine:
                 verifier_status: VerifierStatus = "verified_with_warnings" if art.get("warnings") else "verified"
                 if art.get("needs_review"):
                     verifier_status = "needs_review"
-                artifacts.append(TransformArtifact(
-                    source_path=path, source_hash=source_hash,
-                    target_language="java", symbol=entry.symbol, kind=entry.kind,
-                    target_source=art.get("source", ""),
-                    rule_ids=entry.rules, warnings=art.get("warnings") or [],
-                    verifier_status=verifier_status, needs_review=art.get("needs_review", False),
-                ))
+                artifacts.append(
+                    TransformArtifact(
+                        source_path=path,
+                        source_hash=source_hash,
+                        target_language="java",
+                        symbol=entry.symbol,
+                        kind=entry.kind,
+                        target_source=art.get("source", ""),
+                        rule_ids=entry.rules,
+                        warnings=art.get("warnings") or [],
+                        verifier_status=verifier_status,
+                        needs_review=art.get("needs_review", False),
+                    )
+                )
 
             if entry.target_language == "rust" and entry.rust_artifact:
                 art = entry.rust_artifact
                 verifier_status = "verified_with_warnings" if art.get("warnings") else "verified"
                 if art.get("needs_review"):
                     verifier_status = "needs_review"
-                artifacts.append(TransformArtifact(
-                    source_path=path, source_hash=source_hash,
-                    target_language="rust", symbol=entry.symbol, kind=entry.kind,
-                    target_source=art.get("source", ""),
-                    rule_ids=entry.rules, warnings=art.get("warnings") or [],
-                    verifier_status=verifier_status, needs_review=art.get("needs_review", False),
-                ))
+                artifacts.append(
+                    TransformArtifact(
+                        source_path=path,
+                        source_hash=source_hash,
+                        target_language="rust",
+                        symbol=entry.symbol,
+                        kind=entry.kind,
+                        target_source=art.get("source", ""),
+                        rule_ids=entry.rules,
+                        warnings=art.get("warnings") or [],
+                        verifier_status=verifier_status,
+                        needs_review=art.get("needs_review", False),
+                    )
+                )
 
         return artifacts
 

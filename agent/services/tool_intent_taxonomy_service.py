@@ -16,18 +16,44 @@ class ToolIntentDefinition:
 
 
 _DEFINITIONS: tuple[ToolIntentDefinition, ...] = (
-    ToolIntentDefinition("shell_command", ("bash", "shell_execute", "run_command", "execute_command"), ("command",), ("cwd",), "high", ("bash",), "admin"),
-    ToolIntentDefinition("file_write", ("file_write", "file_patch"), ("path",), ("content", "patch"), "medium", ("file_write", "file_patch"), "write"),
-    ToolIntentDefinition("file_read", ("file_read", "file_list"), ("path",), tuple(), "low", ("file_read", "file_list"), "read"),
-    ToolIntentDefinition("web_search", ("web_search", "web_fetch"), ("query",), ("url",), "low", ("web_search", "web_fetch"), "read"),
-    ToolIntentDefinition("git_query", ("git_status", "git_diff", "git_log"), tuple(), tuple(), "low", ("git_status", "git_diff", "git_log"), "read"),
+    ToolIntentDefinition(
+        "shell_command",
+        ("bash", "shell_execute", "run_command", "execute_command"),
+        ("command",),
+        ("cwd",),
+        "high",
+        ("bash",),
+        "admin",
+    ),
+    ToolIntentDefinition(
+        "file_write",
+        ("file_write", "file_patch"),
+        ("path",),
+        ("content", "patch"),
+        "medium",
+        ("file_write", "file_patch"),
+        "write",
+    ),
+    ToolIntentDefinition(
+        "file_read", ("file_read", "file_list"), ("path",), tuple(), "low", ("file_read", "file_list"), "read"
+    ),
+    ToolIntentDefinition(
+        "web_search", ("web_search", "web_fetch"), ("query",), ("url",), "low", ("web_search", "web_fetch"), "read"
+    ),
+    ToolIntentDefinition(
+        "git_query",
+        ("git_status", "git_diff", "git_log"),
+        tuple(),
+        tuple(),
+        "low",
+        ("git_status", "git_diff", "git_log"),
+        "read",
+    ),
     ToolIntentDefinition("git_commit", ("git_commit",), tuple(), tuple(), "high", ("git_commit",), "admin"),
 )
 
 _BY_TOOL: dict[str, ToolIntentDefinition] = {
-    tool: definition
-    for definition in _DEFINITIONS
-    for tool in definition.tool_names
+    tool: definition for definition in _DEFINITIONS for tool in definition.tool_names
 }
 
 
@@ -69,4 +95,3 @@ _service = ToolIntentTaxonomyService()
 
 def get_tool_intent_taxonomy_service() -> ToolIntentTaxonomyService:
     return _service
-

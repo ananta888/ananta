@@ -28,9 +28,7 @@ class UnslothMultimodalEngine:
         self._model_class_name = model_class_name
         self._media_type = media_type
         self._lifecycle = PeftTrlTrainingBackend()
-        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(
-            backend_name=backend_name
-        )
+        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(backend_name=backend_name)
 
     def availability(self) -> tuple[bool, str | None]:
         missing = [name for name in self._requirements if importlib.util.find_spec(name) is None]
@@ -232,11 +230,7 @@ def _materialize_rows(rows: Any, *, root: Path, media_type: str) -> list[dict[st
                                 f"{media_type} content requires a relative file reference",
                             )
                         candidate = (admitted_root / reference).resolve(strict=True)
-                        if (
-                            candidate.is_symlink()
-                            or not candidate.is_file()
-                            or admitted_root not in candidate.parents
-                        ):
+                        if candidate.is_symlink() or not candidate.is_file() or admitted_root not in candidate.parents:
                             raise TrainingBackendError(
                                 "modality_path_escape",
                                 f"{media_type} content escapes its dataset root",

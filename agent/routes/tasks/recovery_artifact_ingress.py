@@ -23,61 +23,37 @@ recovery_artifact_ingress_bp = Blueprint(
 _MAX_MANIFEST_HTTP_BYTES = 262_144
 
 
-@recovery_artifact_ingress_bp.post(
-    "/internal/tasks/<task_id>/recovery-artifacts"
-)
+@recovery_artifact_ingress_bp.post("/internal/tasks/<task_id>/recovery-artifacts")
 @rate_limit(
     limit=120,
     window=60,
     namespace="recovery_artifact_ingress",
 )
-@check_registered_worker_auth(
-    scope=RECOVERY_ARTIFACT_INGRESS_SCOPE
-)
+@check_registered_worker_auth(scope=RECOVERY_ARTIFACT_INGRESS_SCOPE)
 def recovery_artifact_ingress(task_id: str):
     content_length = int(request.content_length or 0)
-    if (
-        content_length <= 0
-        or content_length > _MAX_MANIFEST_HTTP_BYTES
-    ):
+    if content_length <= 0 or content_length > _MAX_MANIFEST_HTTP_BYTES:
         return api_response(
             status="error",
             message="recovery_artifact_manifest_size_invalid",
-            data={
-                "reason_code": (
-                    "recovery_artifact_manifest_size_invalid"
-                )
-            },
+            data={"reason_code": ("recovery_artifact_manifest_size_invalid")},
             code=413,
         )
     identity = dict(getattr(g, "service_identity", {}) or {})
     worker_id = str(identity.get("worker_id") or "")
     worker_url = str(identity.get("worker_url") or "")
-    auth_header = str(
-        request.headers.get("Authorization") or ""
-    )
-    worker_token = (
-        auth_header.removeprefix("Bearer ").strip()
-        if auth_header.startswith("Bearer ")
-        else ""
-    )
-    lease_token = str(
-        request.headers.get(
-            "X-Ananta-Recovery-Dispatch-Lease"
-        )
-        or ""
-    ).strip()
+    auth_header = str(request.headers.get("Authorization") or "")
+    worker_token = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+    lease_token = str(request.headers.get("X-Ananta-Recovery-Dispatch-Lease") or "").strip()
     manifest = request.get_json(silent=True)
     try:
-        receipts = (
-            get_recovery_artifact_ingress_service().materialize(
-                task_id=task_id,
-                manifest=manifest,
-                lease_token=lease_token,
-                worker_id=worker_id,
-                worker_url=worker_url,
-                worker_token=worker_token,
-            )
+        receipts = get_recovery_artifact_ingress_service().materialize(
+            task_id=task_id,
+            manifest=manifest,
+            lease_token=lease_token,
+            worker_id=worker_id,
+            worker_url=worker_url,
+            worker_token=worker_token,
         )
     except RecoveryArtifactIngressError as exc:
         log_audit(

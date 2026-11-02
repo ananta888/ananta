@@ -137,8 +137,7 @@ class UnslothModelImportTaskHandler:
         if (
             any(not isinstance(payload.get(field), str) for field in required_strings)
             or any(
-                payload.get(field) is not None and not isinstance(payload.get(field), str)
-                for field in optional_strings
+                payload.get(field) is not None and not isinstance(payload.get(field), str) for field in optional_strings
             )
             or not isinstance(payload.get("trust_remote_code"), bool)
             or not isinstance(payload.get("network_authorized"), bool)
@@ -219,9 +218,7 @@ class UnslothDataRecipeTaskHandler:
         *,
         attempt_id: str,
     ) -> Mapping[str, Any]:
-        if set(payload) != {"schema", "manifest"} or payload.get("schema") != (
-            "ananta.unsloth-data-recipe-task.v1"
-        ):
+        if set(payload) != {"schema", "manifest"} or payload.get("schema") != ("ananta.unsloth-data-recipe-task.v1"):
             raise ValueError("data_recipe_task_contract_invalid")
         manifest = payload.get("manifest")
         if not isinstance(manifest, Mapping):
@@ -259,9 +256,7 @@ class UnslothStorageCleanupTaskHandler:
         try:
             result = self.handle(binding.payload)
             if result.get("task_id") != binding.task_id:
-                raise ValueError(
-                    "cleanup_task_binding_mismatch"
-                )
+                raise ValueError("cleanup_task_binding_mismatch")
         except Exception as exc:  # noqa: BLE001 - closed worker boundary
             return _result_envelope(
                 binding,
@@ -331,30 +326,19 @@ class UnslothMcpStopTrainingTaskHandler:
                 "replay_nonce",
                 "correlation_id",
             }
-            or payload.get("schema")
-            != "ananta.unsloth_hub_task_command.v1"
+            or payload.get("schema") != "ananta.unsloth_hub_task_command.v1"
             or payload.get("tool_id") != "stop_training"
         ):
-            raise ValueError(
-                "unsloth_mcp_control_task_contract_invalid"
-            )
+            raise ValueError("unsloth_mcp_control_task_contract_invalid")
         arguments = payload.get("arguments")
-        if not isinstance(arguments, Mapping) or (
-            set(arguments) - {"save"}
-        ):
-            raise ValueError(
-                "unsloth_mcp_control_task_contract_invalid"
-            )
+        if not isinstance(arguments, Mapping) or (set(arguments) - {"save"}):
+            raise ValueError("unsloth_mcp_control_task_contract_invalid")
         save = arguments.get("save", True)
         if not isinstance(save, bool):
-            raise ValueError(
-                "unsloth_mcp_control_task_contract_invalid"
-            )
+            raise ValueError("unsloth_mcp_control_task_contract_invalid")
         return self._client.stop_training(
             save=save,
-            correlation_id=str(
-                payload.get("correlation_id") or ""
-            ),
+            correlation_id=str(payload.get("correlation_id") or ""),
         )
 
 
@@ -384,9 +368,7 @@ def _resolve_task_binding(
         raise ValueError("unsloth_worker_task_missing")
     task_id = str(task.get("id") or "")
     context = task.get("worker_execution_context")
-    if not isinstance(context, Mapping) or context.get("schema") != (
-        "ananta.unsloth-worker-task-context.v1"
-    ):
+    if not isinstance(context, Mapping) or context.get("schema") != ("ananta.unsloth-worker-task-context.v1"):
         raise ValueError("unsloth_worker_context_invalid")
     envelope = context.get("unsloth_task")
     expected_fields = {
@@ -405,18 +387,12 @@ def _resolve_task_binding(
     try:
         payload_sha256 = unsloth_payload_sha256(payload)
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "unsloth_worker_payload_invalid"
-        ) from exc
+        raise ValueError("unsloth_worker_payload_invalid") from exc
     task_type = str(envelope.get("task_type") or "")
     expected_handler = {
         "ml.model.import": "unsloth_model_import_v1",
-        "ml.dataset.recipe.materialize": (
-            "unsloth_data_recipe_v1"
-        ),
-        "unsloth.mcp.stop_training": (
-            "unsloth_mcp_control_v1"
-        ),
+        "ml.dataset.recipe.materialize": ("unsloth_data_recipe_v1"),
+        "unsloth.mcp.stop_training": ("unsloth_mcp_control_v1"),
     }.get(expected_task_type)
     if (
         not task_id.startswith("unsloth-")
@@ -489,20 +465,14 @@ def _result_envelope(
 
 
 def _reason(exc: BaseException) -> str:
-    value = str(
-        getattr(exc, "reason_code", "")
-        or getattr(exc, "code", "")
-        or ""
-    ).strip()
-    if value and len(value) <= 160 and all(
-        character in "abcdefghijklmnopqrstuvwxyz0123456789_:-"
-        for character in value
+    value = str(getattr(exc, "reason_code", "") or getattr(exc, "code", "") or "").strip()
+    if (
+        value
+        and len(value) <= 160
+        and all(character in "abcdefghijklmnopqrstuvwxyz0123456789_:-" for character in value)
     ):
         return value
-    return (
-        "unsloth_worker_execution_failed:"
-        f"{type(exc).__name__.lower()}"
-    )
+    return f"unsloth_worker_execution_failed:{type(exc).__name__.lower()}"
 
 
 __all__ = [

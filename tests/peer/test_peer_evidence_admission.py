@@ -181,18 +181,20 @@ def test_digest_mismatch_stale_retention_and_quota_race_fail_closed() -> None:
 class _Offer:
     def authorize_transfer(self, offer_id):
         assert offer_id == "offer-test"
-        preview = SpeechEvidenceGroupPreview.from_mapping({
-            "preview_version": GROUP_PREVIEW_VERSION,
-            "group_id": GROUP_ID,
-            "source_group_digest": SOURCE_GROUP_DIGEST,
-            "speaker_scope_digest": SPEAKER_SCOPE_DIGEST,
-            "quality_basis": "policy",
-            "quality_digest": speech_evidence_quality_policy_digest(),
-            "resolution_digest": RESOLUTION_DIGEST,
-            **comparison_preview(SOURCE_GROUP_DIGEST, GROUP_REVISION, "admission"),
-            "revision": GROUP_REVISION,
-            "size_bytes": 128,
-        })
+        preview = SpeechEvidenceGroupPreview.from_mapping(
+            {
+                "preview_version": GROUP_PREVIEW_VERSION,
+                "group_id": GROUP_ID,
+                "source_group_digest": SOURCE_GROUP_DIGEST,
+                "speaker_scope_digest": SPEAKER_SCOPE_DIGEST,
+                "quality_basis": "policy",
+                "quality_digest": speech_evidence_quality_policy_digest(),
+                "resolution_digest": RESOLUTION_DIGEST,
+                **comparison_preview(SOURCE_GROUP_DIGEST, GROUP_REVISION, "admission"),
+                "revision": GROUP_REVISION,
+                "size_bytes": 128,
+            }
+        )
         return SpeechEvidenceOfferRecord(
             offer_id=offer_id,
             proposal_verification_digest=digest("proposal"),
@@ -276,9 +278,7 @@ def _command(**changes):
 
 def test_hub_admission_rechecks_offer_and_never_exposes_quarantine_to_training() -> None:
     recipient = _Recipient()
-    service = SpeechEvidenceAdmissionService(
-        offers=_Offer(), recipient=recipient, capacity=_Capacity()
-    )
+    service = SpeechEvidenceAdmissionService(offers=_Offer(), recipient=recipient, capacity=_Capacity())
     decision = service.admit(_command())
     assert decision.state == "accept"
     assert recipient.calls[0][1]["target"] == "accepted"
@@ -307,12 +307,8 @@ def test_quota_and_stale_or_malicious_validation_remain_quarantined_or_rejected(
     assert no_capacity.admit(_command()).state == "quarantine"
     assert recipient.calls[-1][1]["target"] == "quarantined"
 
-    invalid = SpeechEvidencePreAdmissionEvidence(
-        **{**_command().pre_admission.__dict__, "consent_valid": False}
-    )
+    invalid = SpeechEvidencePreAdmissionEvidence(**{**_command().pre_admission.__dict__, "consent_valid": False})
     recipient = _Recipient()
-    service = SpeechEvidenceAdmissionService(
-        offers=_Offer(), recipient=recipient, capacity=_Capacity()
-    )
+    service = SpeechEvidenceAdmissionService(offers=_Offer(), recipient=recipient, capacity=_Capacity())
     assert service.admit(_command(pre_admission=invalid)).state == "reject"
     assert recipient.calls[-1][1]["target"] == "rejected"

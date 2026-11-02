@@ -36,7 +36,9 @@ def _binding(source_id: str, revision: str, digest: str, locator: str) -> Source
     )
 
 
-def _result(run, *, left_value: int, right_value: int, left_revision: str, right_revision: str) -> WorkerKnowledgeHygieneResult:
+def _result(
+    run, *, left_value: int, right_value: int, left_revision: str, right_revision: str
+) -> WorkerKnowledgeHygieneResult:
     claims = (
         {
             "project_id": "project-a",

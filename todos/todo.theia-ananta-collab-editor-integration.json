@@ -1,0 +1,1106 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "created": "2026-11-01",
+  "updated": "2026-11-01",
+  "project": "ananta",
+  "owner": "Ananta",
+  "track": "theia-ananta-collab-editor-integration",
+  "title": "Theia x Ananta Kollaborations-Editor: vollstaendige Front- und Backend-Integration",
+  "purpose": "Echtzeit-Pair-Dev-Editor auf Eclipse-Theia-Basis, in den Ananta Hub-Worker-Orchestrator integriert: menschliche User und KI-Agenten editieren gemeinsam geteilte Dokumente mit Presence, Review und Evidence-Binding.",
+  "goal": "Ein produktionsreifes, containerisiertes Theia-IDE-System mit Yjs-CRDT-Sync, Multi-User-Presence, Agent-Edit-Bridge ueber die bestehende Task-Queue, Review-Workflow und Hub-Evidence-Grounding, vollstaendig in Ananta Front- und Backend integriert.",
+  "priority": "P0",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high"],
+  "sources": [
+    "AGENTS.md (hub-worker architecture, container model, SOLID, evidence identity, output boundary)",
+    "docs/planning-pipeline.md",
+    "docs/cli-backends-architecture.md",
+    "docs/architecture/meet-hub-worker-boundaries.md",
+    "ananta_contracts/collaboration_workspace.py",
+    "agent/services/collaboration_workspace_service.py",
+    "agent/services/collaboration_live_transport.py",
+    "agent/routes/collaboration_workspaces.py",
+    "agent/routes/share_sessions.py",
+    "agent/routes/diff3.py",
+    "agent/routes/control_center_api.py",
+    "agent/ws_terminal.py",
+    "agent/services/hub_evidence_registry_service.py",
+    "agent/services/hub_evidence_gate_service.py",
+    "agent/services/collaboration_evidence_policy.py",
+    "agent/services/task_management_service.py",
+    "agent/services/task_delegation_services.py",
+    "agent/services/worker_result_callback_service.py",
+    "agent/services/worker_workspace_service.py",
+    "agent/services/sandbox_policy_service.py",
+    "agent/services/collaboration_content_security.py",
+    "agent/cli_backends/context.py",
+    "schemas/collaboration/",
+    "todos/todo.track.schema.json"
+  ],
+  "architecture_constraints": [
+    "Hub bleibt zentrale Control Plane und Eigentuemer der Task-Queue; Worker orchestrieren niemals andere Worker.",
+    "Agent-Edits laufen ausschliesslich ueber hub-owned Tasks (task_management_service -> TaskDelegationPlanner -> Worker -> worker_result_callback_service).",
+    "Keine parallele Collab-Architektur: Editor-Sessions und -Events reichern die bestehende collaboration_workspace-Domain an statt sie zu duplizieren.",
+    "Theia ersetzt nicht den Hub: Theia-Backend ist ein Client/Bridge, keine eigenstaendige Orchestrations-Instanz.",
+    "Additive API-Erweiterungen (neue Blueprints, optionale Felder); keine destruktiven Aenderungen an bestehenden Endpunkten.",
+    "Container-Model respektieren: Theia laeuft als eigener Container, ANANTA_AGENT_COUNT-Regeln bleiben unberuehrt.",
+    "Evidence Identity: nur Hub-issued SRC_*/RUN_* Identitaeten; Worker erhalten nur die closed assignment projection.",
+    "Tests vollstaendig headless und self-contained; keine interaktiven Freigaben in Testlaeufen.",
+    "SOLID durchgaengig: SRP pro Plugin/Service, DIP via Ports/Adapters und InversifyJS-DI, ISP kleine Interfaces, OCP ueber Strategien/Events.",
+    "Alle persistenten Editor-Artefakte werden an CollaborationEvidencePolicy und Audit angebunden."
+  ],
+  "milestones": [
+    {
+      "id": "AEC-M1",
+      "title": "Bestandsaufnahme, Vertraege und Architektur-Entscheidungen",
+      "task_ids": ["AEC-001", "AEC-002", "AEC-003", "AEC-004", "AEC-005"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M2",
+      "title": "Hub Editor Core: Sessions, Events, Presence, Transport",
+      "task_ids": ["AEC-006", "AEC-007", "AEC-008", "AEC-009", "AEC-010", "AEC-011", "AEC-012", "AEC-013"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M3",
+      "title": "Theia Foundation und Yjs-CRDT-Sync",
+      "task_ids": ["AEC-014", "AEC-015", "AEC-016", "AEC-017", "AEC-018", "AEC-019", "AEC-020", "AEC-021"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M4",
+      "title": "Presence und Multi-User-Erlebnis",
+      "task_ids": ["AEC-022", "AEC-023", "AEC-024", "AEC-026", "AEC-027"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M5",
+      "title": "Agent-Integration: Edit-Bridge, Task-Dispatch, Agent-Panel",
+      "task_ids": ["AEC-025", "AEC-028", "AEC-029", "AEC-030", "AEC-031", "AEC-032", "AEC-033", "AEC-034", "AEC-035", "AEC-036"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M6",
+      "title": "Review, Evidence und Governance",
+      "task_ids": ["AEC-037", "AEC-038", "AEC-039", "AEC-040", "AEC-041", "AEC-042", "AEC-043"],
+      "status": "todo"
+    },
+    {
+      "id": "AEC-M7",
+      "title": "Security, Docker, E2E und Abschluss",
+      "task_ids": ["AEC-044", "AEC-045", "AEC-046", "AEC-047", "AEC-048", "AEC-049", "AEC-050", "AEC-051", "AEC-052"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AEC-001",
+      "title": "Bestehende Collab-Primitives und Integration-Seams auditieren",
+      "description": "collaboration_workspace, share_sessions, collaboration_live_transport, ws_terminal, control_center SSE, diff3, editor_resolver und project-workspaces-Mapping systematisch erfassen und dokumentieren, welche Bausteine der Editor-Schnittstellen wiederverwendet werden. Ziel: keine Doppelarchitektur, jede vorhandene Seam wird benannt.",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "milestone_id": "AEC-M1",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Mapping aller vorhandenen Collab-, Transport-, Presence- und Evidence-Schnittstellen mit konkreten Dateipfaden liegt vor.",
+        "Explizite Entscheidung pro Baustein: wiederverwendet, erweitert oder ersetzt, begruendet nach SRP/DIP.",
+        "Keine Implementationsarbeit in dieser Aufgabe; reines Audit- und Entscheidungsartefakt."
+      ],
+      "implementation_notes": "Ergebnis als Quelltext-Referenz in AEC-005-Architekturdokument uebernehmen; keine neue Datei ausserhalb docs/ anlegen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-002",
+      "title": "Contracts in ananta_contracts/collaboration_editor.py definieren",
+      "description": "Reine, dependency-freie Vertragsmodule fuer EditorSessionContract, EditEventContract, AgentEditRequestContract, PresenceStateContract und ReviewDecisionContract anlegen. Felder strikt benannt (session_id, workspace_id, author_kind human|agent, crdt_update, source_evidence, run_evidence).",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M1",
+      "depends_on": ["AEC-001"],
+      "acceptance_criteria": [
+        "Modul ananta_contracts/collaboration_editor.py existiert und ist ohne Runtime-Abhaengigkeiten importierbar.",
+        "Jeder Vertrag ist frozen/immutable und validiert Kerninvarianten (kein self-minted SRC_*/RUN_*, author_kind strikt getypt).",
+        "Unit-Tests decken Gueltigkeits- und Ablehnungsfaelle ab (u.a. fehlende, post-hoc oder mutierte Evidence-Identifier -> unverified)."
+      ],
+      "implementation_notes": "Pattern von ananta_contracts/collaboration_workspace.py und hub_evidence.py uebernehmen; kein Flask/SQLModel-Import.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-003",
+      "title": "JSON-Schemas unter schemas/collaboration/ ergaenzen",
+      "description": "editor-session.v1.json, edit-event.v1.json, agent-edit.v1.json und review-decision.v1.json gemaess bestehendem schemas/collaboration/*.v1-Stil definieren und gegen die Contracts aus AEC-002 halten.",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "milestone_id": "AEC-M1",
+      "depends_on": ["AEC-002"],
+      "acceptance_criteria": [
+        "Alle vier Schemas sind valide JSON-Schema-Draft-2020-12 und versioniert als *.v1.",
+        "Schema-Validierungstests (headless) belegen Konformitaet der Contract-Serialisierung.",
+        "Zusaetzliche Felder sind explizit erlaubt oder verboten dokumentiert (Forward-Kompatibilitaet)."
+      ],
+      "implementation_notes": "Bestehende schemas/collaboration/workspace-event.v1.json als stilistische Referenz nutzen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-004",
+      "title": "Theia-Version, Extension-API- und Yjs-Binding-Auswahl festlegen",
+      "description": "Theia-Version pinning, Kompatibilitaetsmatrix gegen VS Code Extension API, Auswahl des Monaco-Yjs-Bindings (y-monaco vs. eigenes Binding) und Node-/Browser-Support-Matrix dokumentieren. Entscheidung muss fuer Frontend- und Backend-Extensions gelten.",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M1",
+      "depends_on": ["AEC-001"],
+      "acceptance_criteria": [
+        "Getroffene Toolchain-Entscheidung (Theia-Version, Yjs, y-monaco oder Alternative) ist begruendet und reproduzierbar dokumentiert.",
+        "Inkompatibilitaeten mit VS Code Extensions sind benannt mit Auswirkung auf Sprach-Plugins.",
+        "Lizenz-Pruefung (EPL-2.0 / MIT Yjs) hinterlegt; keine Copyleft-Konflikte im Kernpfad."
+      ],
+      "implementation_notes": "Entscheidung fliesst in docs/architecture/theia-ananta-collab-editor.md und in AEC-014-Scaffold ein.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-005",
+      "title": "Architekturdokument mit SOLID-Schnittstellen und Datenfluessen erstellen",
+      "description": "docs/architecture/theia-ananta-collab-editor.md verfasst: Komponentendiagramm, Ports/Adapters, Datenfluesse (Mensch-Edit, Agent-Edit, Evidence-Flow), Plugin-Grenzen, Anti-Corruption-Layer Hub<->Theia und explizite SOLID-Begruendungen.",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "AEC-M1",
+      "depends_on": ["AEC-001", "AEC-002", "AEC-004"],
+      "acceptance_criteria": [
+        "Dokument beschreibt alle Milestones M2-M7 mit Verweisen auf betroffene Verantwortlichkeiten (SRP-Checkliste).",
+        "Datenflussdiagramme decken Mensch-Edit, Agent-Edit und Evidence-Binding ab.",
+        "Offene Architektur-Risiken sind als Abschnitt benannt (keine impliziten Annahmen)."
+      ],
+      "implementation_notes": "Folgt der Dokumentationsstruktur unter docs/architecture/; verweist auf bestehende Seam-Dateien aus AEC-001.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-006",
+      "title": "DB-Models und Repositories fuer Editor-Sessions, -Events und Presence",
+      "description": "SQLModel-Tabellen editor_sessions, edit_events, editor_presence unter agent/db_models/ anlegen, inkl. Foreign Keys auf collaboration_workspaces und Evidence-Spalten (source_evidence, run_evidence). Repositories in agent/repositories/ gemaess bestehendem Repository-Muster.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-002", "AEC-003"],
+      "acceptance_criteria": [
+        "Tabellen sind migrierbar und in Tests auf SQLite reproduzierbar (headless).",
+        "Repositories kapseln Persistenz; keine SQL-Queries in Services oder Routes.",
+        "Idempotente Event-Aufnahme (deduplizierung ueber event_id) ist getestet."
+      ],
+      "implementation_notes": "Vorbild: agent/db_models/evidence_identity.py und collaboration_workspace-Modelle; keine Worker-Zugriffe auf diese Tabellen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-007",
+      "title": "EditorSessionService implementieren (Create/Join/Leave/Close)",
+      "description": "Hub-owned Service fuer Editor-Sessions: Lebenszyklus, Mitgliederverwaltung (human + agent), Anbindung an collaboration_workspace-Membership, Session-Scopes und Policy-Pruefung. Persistenz ueber Repository aus AEC-006.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-006"],
+      "acceptance_criteria": [
+        "Session-Lebenszyklus inkl. Membership-Transitionen ist ueber Unit-Tests abgedeckt (inkl. Doppel-Join und Fremd-Zugriff).",
+        "Service ist ueber ServiceRegistry/Bootstrap-Extension erreichbar (kein globales Singleton-Muster ueber Umwege).",
+        "Policy-Verweigerungen erzeugen maschinenlesbare, auditierbare Ergebnisse statt stiller Fehler."
+      ],
+      "implementation_notes": "Pattern aus agent/bootstrap/collaboration_workspace.py (run_startup_phase + app.extensions) uebernehmen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-008",
+      "title": "EditEventService implementieren (CRDT-Updates, Timeline, Replay)",
+      "description": "Service fuer Append, Timeline-Abfrage und Replay von Edit-Events mit CRDT-Binary-Updates. Batches, Groessen-Budgets und Reihenfolge-Garantien; Spiegelung in collaboration_workspace-Events als optionale Projektion.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-006", "AEC-007"],
+      "acceptance_criteria": [
+        "Append ist atomar und idempotent; Replay liefert deterministische Update-Reihenfolge.",
+        "Budget- und Groessenlimits sind durchsetzbar und testbar (uebermals grosse Payloads -> bounded failure).",
+        "Timeline-Abfragen sind paginiert und skalieren fuer min. 10k Events pro Session im Test."
+      ],
+      "implementation_notes": "Kein CRDT-Rendering im Hub; der Hub speichert lediglich binäre Updates und Metadaten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-009",
+      "title": "Blueprint collaboration_editor plus Bootstrap-Initialisierung anbinden",
+      "description": "agent/routes/collaboration_editor.py als Blueprint anlegen und in agent/bootstrap/routes.py registrieren; Initialisierer agent/bootstrap/collaboration_editor.py als run_startup_phase in agent/ai_agent.py verdrahten. Services auf app.extensions registrieren.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-007", "AEC-008"],
+      "acceptance_criteria": [
+        "Bootstrap startet ohne Nebenwirkungen in Tests; Rolle hub/worker wird respektiert (nur Hub initialisiert Editor-Services).",
+        "Blueprint ist ueber bestehende Auth-Decorator absicherbar (check_user_auth / check_registered_worker_auth).",
+        "Import-Detektor-regelkonform: keine verbotenen agent.common.sgpt_* Imports (scripts/check_cli_backend_shim_imports.py bleibt gruen)."
+      ],
+      "implementation_notes": "Folgt dem bestehenden Blueprint+Bootstrap-Muster; Startup-Phase ist optional abstellbar via Feature-Flag.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-010",
+      "title": "REST-Endpunkte fuer Sessions und Events implementieren",
+      "description": "POST/GET /api/collaboration/editor/sessions, GET /api/collaboration/editor/sessions/<id>, POST /api/collaboration/editor/events, GET /api/collaboration/editor/events inkl. Paginierung und Scope-Filter. Zusaetzliche optionale Felder statt neuer Pflichtfelder in bestehenden Endpunkten.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-009"],
+      "acceptance_criteria": [
+        "Alle Endpunkte sind vollstaendig headless testbar und in api-spec.md dokumentiert.",
+        "Fehlerfaelle (ungueltige Session, verbotener Scope, Payload-Limit) liefern definierte Statuscodes und Audit-Eintraege.",
+        "Bestehende collaboration-Endpunkte bleiben unveraendert kompatibel (keine Breaking Changes)."
+      ],
+      "implementation_notes": "Route-Handler bleiben duenn; Business-Logik ausschliesslich in Services (SRP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-011",
+      "title": "SSE-Stream /api/collaboration/editor/events/stream mit Scope-Visibility",
+      "description": "Server-Sent-Events-Stream fuer Live-Edit-Events analog zu control_center_api.py /events/stream, inkl. stream-token und Scope-Aufloesung ueber control_center_stream_scope-Muster. Views fuer humans und agents getrennt filterbar.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-010"],
+      "acceptance_criteria": [
+        "Stream liefert Events in Echtzeit an mehrere verbundene Clients; Scope-Verstoesse werden nicht ausgeliefert.",
+        "Stream-Token-Erzeugung und -Validierung ist getestet (abgelaufene, widerrufene Tokens).",
+        "Verbindungsabbrueche und Reconnects sind im Test simuliert ohne Event-Verlust."
+      ],
+      "implementation_notes": "Kein flask-socketio; SSE wie im bestehenden Control-Center-Pattern.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-012",
+      "title": "WebSocket-Endpunkt /ws/collaboration/editor (flask-sock) implementieren",
+      "description": "Bidirektionaler Editor-Socket gemaess ws_terminal.py-Muster fuer Awareness/Edits mit Token-Auth, Resize-frei, Logging und Verbindungsmanagement. Nutzbar als Alternative/Verstaerkung zu SSE fuer niedrige Latenz.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-010"],
+      "acceptance_criteria": [
+        "Auth ist verpflichtend; unauthentifizierte Verbindungen werden abgelehnt und geloggt.",
+        "Backpressure- und Rate-Limits sind gesetzt; Payload-Budgets werden erzwungen.",
+        "Headless-Tests decken Connect/Disconnect/Malformed-Message-Faelle ab."
+      ],
+      "implementation_notes": "Flask-sock wie in agent/ws_terminal.py; keine neue Socket-Bibliothek einfuehren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-013",
+      "title": "Presence-State-Service und Presence-Endpunkte implementieren",
+      "description": "Hub-seitiger Presence-State (wer ist wo, Cursor-Position, agent-is-editing) mit Heartbeat/TTL, REST-Leseschnittstelle und Push ueber WS/SSE. Persistenz ist fluechtig zulaessig, Kern-Metriken auditierbar.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M2",
+      "depends_on": ["AEC-007", "AEC-011"],
+      "acceptance_criteria": [
+        "Presence laeuft bei TTL-Ablauf korrekt ab (keine Geister-Eintraege).",
+        "Presence-Abfragen sind nach Session und Workspace scopbar.",
+        "Tests sind headless und deterministisch (TTL ueber injectable clock)."
+      ],
+      "implementation_notes": "Kein eigener Presence-Store neben collaboration_live_state_repository ohne Pruefung; Wiederverwendung pruefen (AEC-001-Ergebnis).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-014",
+      "title": "Theia-Produkt-Scaffold mit Build-Pipeline und Dockerfile anlegen",
+      "description": "Eigenstaendiges Theia-Produkt-Verzeichnis (z.B. frontend-theia/) mit Frontend/Backend-Extension-Struktur, InversifyJS-DI-Setup, Build-Skripten und Container-Image. VS Code Extension API Kompatibilitaet bleibt aktiv.",
+      "type": "infra",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-004", "AEC-005"],
+      "acceptance_criteria": [
+        "Theia startet headless im Container und ist ueber Browser erreichbar (Smoke-Test).",
+        "Extension-Paketstruktur trennt Frontend- und Backend-Extensions sauber (SRP/ISP).",
+        "Build ist reproduzierbar (pinned dependencies, deterministisches Image)."
+      ],
+      "implementation_notes": "Container-Model beachten: eigener Service, kein Mitlaufen in Hub- oder Worker-Containern ohne explizite Compose-Definition.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-015",
+      "title": "ananta-hub-connector Backend-Extension (Anti-Corruption-Layer)",
+      "description": "Node-Extension im Theia-Backend, die Hub REST, SSE und WS kapselt. Uebersetzt Hub-Contracts in interne Modelle, haelt Auth-Tokens, verwaltet Reconnect und entkoppelt Plugins vom Hub-Transport (DIP: Plugins sprechen nur gegen AnantaHubClient-Interface).",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-014", "AEC-010"],
+      "acceptance_criteria": [
+        "Alle Hub-Zugriffe laufen ueber den Connector; kein Plugin importiert Hub-URLs direkt.",
+        "Reconnect, Timeout und Fehlerklassifikation sind getestet (bounded failures, keine Endlosschleifen).",
+        "Auth-Tokens werden nicht geloggt oder persistiert (Security-Test)."
+      ],
+      "implementation_notes": "Contract-Serialisierung muss zu AEC-002/AEC-003 passen; Typen geteilt ueber ein gemeinsames Contract-Paket oder Codegen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-016",
+      "title": "yjs-sync-service Backend-Extension (Websocket-CRDT-Sync)",
+      "description": "Yjs-Websocket-Sync im Theia-Backend: Docs pro Datei, Auth via Hub-Session-Token, Update-Batching, Persistenz der Updates ueber Hub-Edit-Events und Awareness-Fanout. y-websocket-kompatibel, aber ananta-aware (Rooms = collaboration_workspace rooms).",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-015", "AEC-008"],
+      "acceptance_criteria": [
+        "Zwei Clients editieren dasselbe Dokument ohne Konflikt-Verlust (CRDT-Merge deterministisch).",
+        "Sync funktioniert nach Verbindungsabbruch mit automatischem Catch-up.",
+        "Persistenz-Verzicht (nur Hub) ist erzwungen: kein lokal zustaendiger Wahrheits-Store im Theia-Backend."
+      ],
+      "implementation_notes": "Bibliotheken: yjs, y-protocols, ws; kein proprietaeres Sync-Protokoll. Sicherheit: nur authentifizierte Sessions koennen Docs oeffnen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-017",
+      "title": "ananta-collab-editor Frontend-Plugin (Monaco + Yjs-Binding)",
+      "description": "Theia-Frontend-Plugin mit Monaco-Editor, y-monaco-Binding, Dokument-oeffnen/speichern ueber den Sync-Service und Befehle (Open Shared Doc, Show Diff). Reines Editing-Plugin ohne Presence- oder Task-UI (SRP).",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-016", "AEC-014"],
+      "acceptance_criteria": [
+        "Geteiltes Dokument wird live zwischen zwei Browsern synchronisiert (headless E2E).",
+        "Sprach-Features (Syntax-Highlighting, Basic Linting) funktionieren ueber Monaco-Integration.",
+        "Plugin enthaelt keine Hub-Transport-Logik (nur ueber AnantaHubClient/EditorSync-Interface)."
+      ],
+      "implementation_notes": "VS Code Extension API Kompatibilitaet beibehalten, damit bestehende Sprach-Extensions nutzbar bleiben.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-018",
+      "title": "Dokument-Lebenszyklus und Datei-Pfad-Mapping implementieren",
+      "description": "Doc-oeffnen/schliessen pro Datei, Mapping zwischen Theia-Workspace, /project-workspaces und hub-seitigen Dokument-Referenzen ueber worker_workspace_service-Pfadlogik. Sicherheitsbegrenzung auf erlaubte Workspace-Roots.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-017", "AEC-019"],
+      "acceptance_criteria": [
+        "Pfad-Aufloesung folgt sandbox_policy_service erlaubten Roots; Pfade ausserhalb werden abgelehnt und geloggt.",
+        "Doc-Lebenszyklus (open, edit, close, reopen) ist ohne Zustandsleck getestet.",
+        "Host-Container-Remapping analog zu worker_workspace_service ist dokumentiert und getestet."
+      ],
+      "implementation_notes": "Keine eigene Pfadnormalisierung erfinden; wiederverwendete Logik muss zentral bleiben.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-019",
+      "title": "Workspace-Mount-Integration (project-workspaces Volume)",
+      "description": "Theia-Container mountet /project-workspaces analog zu Hub/Worker; Compose-Volume, Berechtigungs-Modell und Schreibrechte fuer Agent- und Human-Edits definieren.",
+      "type": "infra",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-014"],
+      "acceptance_criteria": [
+        "Mount-Regeln respektieren bestehende Security-Tests (tests/security/.../test_*_compose.py).",
+        "Schreibzugriffe sind auf erlaubte Pfade begrenzt und im Audit sichtbar.",
+        "Volume-Isolation ist mit ANANTA_AGENT_COUNT-Mehrprozess-Szenarien kompatibel."
+      ],
+      "implementation_notes": "Keine neuen gemeinsamen zustaendigen Verzeichnisse ausserhalb project-workspaces einfuehren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-020",
+      "title": "Offline-/Reconnect-Resilienz des Sync-Layers",
+      "description": "Update-Batching, Pufferung und Catch-up nach Verbindungsabbruechen; keine verlorenen CRDT-Updates; kontrollierte Backpressure bei grossen Docs.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-016"],
+      "acceptance_criteria": [
+        "Simulierte Netz-Abbrueche fuehren zu keiner Dateninkonsistenz im getesteten Merge.",
+        "Memory-Begrenzung ist gesetzt (bounded buffering) und getestet.",
+        "Metriken fuer Sync-Latenz und verlorene/verzweigte Updates sind erfasst."
+      ],
+      "implementation_notes": "Resilienz nur im Sync-Layer, nicht in einzelnen Plugins (SRP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-021",
+      "title": "Multi-User-Smoke-Test und E2E-Basis fuer Collab-Editing",
+      "description": "Headless E2E (Playwright oder vergleichbar): zwei Browser-Clients editieren dasselbe Dokument, Events und Persistenz werden im Hub verifiziert. Grundlage fuer spaetere Agent-E2E-Szenarien.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M3",
+      "depends_on": ["AEC-017", "AEC-018", "AEC-020"],
+      "acceptance_criteria": [
+        "E2E laeuft vollstaendig headless ohne manuelle Interaktion und mit bounded runtime.",
+        "Test validiert CRDT-Merge, Event-Persistenz und SSE/WS-Fanout ueber den Hub.",
+        "Testartefakte werden nur in erlaubte artifacts/-Pfade geschrieben (Output Boundary beachtet)."
+      ],
+      "implementation_notes": "Test-Isolation: eigene DB/Ports; keine Abhaengigkeit von laufenden Produktionscontainern.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-022",
+      "title": "ananta-presence Frontend-Plugin (Yjs Awareness)",
+      "description": "Plugin fuer Cursors, Selections, User-Farben und Awareness ueber Yjs-Awareness-Protokoll. Eigene kleine Interfaces (ISP); konsumierbar von Collab-Editor und Agent-Panel.",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M4",
+      "depends_on": ["AEC-017", "AEC-023"],
+      "acceptance_criteria": [
+        "Cursor und Selection der Teilnehmer sind live sichtbar inkl. Farbzuordnung.",
+        "Plugin hat keine eigene Persistenzlogik (nur Awareness-State ueber Sync-Service).",
+        "Verhalten bei 10+ gleichzeitigen Teilnehmern bleibt im Test responsiv."
+      ],
+      "implementation_notes": "Awareness-Updates muessen an AEC-013 Presence-State gespiegelt werden koennen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-023",
+      "title": "Hub-seitiges Presence-Tracking und Push-Kanal",
+      "description": "Presence-Eintraege (join/leave, heartbeat, TTL) ueber AEC-013-Service in WS/SSE pushen; Rollen human/agent unterscheiden; Metriken fuer aktive Sessions.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M4",
+      "depends_on": ["AEC-013"],
+      "acceptance_criteria": [
+        "Presence-Push erreicht alle Teilnehmer einer Session ohne Polling.",
+        "TTL-Aufraeumung ist deterministisch getestet.",
+        "Agent-Praesenz ist als eigene Klasse erkennbar (author_kind=agent)."
+      ],
+      "implementation_notes": "Kein doppelter Presence-Store; Persistenz minimal und auditierbar.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-024",
+      "title": "Teilnehmerliste und User-Identitaets-Aufloesung",
+      "description": "UI-Seite der Teilnehmerliste mit Anzeige von Display-Name, Rolle und Status; Identitaetsaufloesung ueber Ananta-Auth (check_user_auth) und Agent-Registry.",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "AEC-M4",
+      "depends_on": ["AEC-022", "AEC-023"],
+      "acceptance_criteria": [
+        "Teilnehmerliste zeigt alle aktiven human- und agent-Teilnehmer korrekt.",
+        "Unbekannte/abgelaufene Identitaeten werden nicht stillschweigend als vertrauenswuerdig dargestellt.",
+        "UI-Zugriff ist scopesicher (keine Daten fremder Sessions sichtbar)."
+      ],
+      "implementation_notes": "Darstellung bleibt im Plugin; Identitaetslogik kommt vom Hub (DIP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-025",
+      "title": "Agent-Prasenz-Visualisierung (Agent-Edit-Indikator)",
+      "description": "Sichtbare Darstellung, wenn ein Agent gerade editiert (Agent-Cursor, Badge, Sperrhinweis), inkl. Verknuepfung zu laufendem Task und Evidence-Status.",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-022", "AEC-033"],
+      "acceptance_criteria": [
+        "Agent-Aktivitaet ist im Editor sichtbar und unterscheidbar von menschlichen Edits.",
+        "Anzeige zeigt bei Bedarf Evidence-Status (grounded vs. unverified).",
+        "Keine UI-Zustaendigkeit fuer Task-Dispatch (SRP: nur Darstellung)."
+      ],
+      "implementation_notes": "Datenquelle ist Agent-Panel-/Task-Status, nicht eigene Business-Logik.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-026",
+      "title": "Session-Chat-/Annotation-Kanal als Collab-Events",
+      "description": "Textnachrichten und Annotationen pro Session als eigener Collab-Event-Typ; Anreicherung der Timeline, kein separates Chat-System (keine Duplizierung von share_sessions).",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "AEC-M4",
+      "depends_on": ["AEC-008", "AEC-022"],
+      "acceptance_criteria": [
+        "Nachrichten erscheinen in Session-Timeline und sind zeitlich mit Edits korreliert.",
+        "Content-Security-Policy aus collaboration_content_security greift auch fuer Chat-Events.",
+        "Kein neuer Persistenzpfad neben edit_events ohne zwingende Begruendung."
+      ],
+      "implementation_notes": "Optional ausblendbar via Feature-Flag; Kernpfad ist unabhaengig davon lauffaehig.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-027",
+      "title": "Presence- und Multi-User-Tests (headless)",
+      "description": "Testabdeckung fuer Presence-TTL, Reconnect, Sichtbarkeits-Scopes und Multi-User-Cursor inkl. Race-Bedingungen.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M4",
+      "depends_on": ["AEC-022", "AEC-023", "AEC-024"],
+      "acceptance_criteria": [
+        "Alle Presence-Zustaende sind deterministisch testbar (injectable clock).",
+        "Scope-Verstoesse sind negativ getestet (fremde Session nicht sichtbar).",
+        "Tests laufen bounded und headless."
+      ],
+      "implementation_notes": "Keine realen Zeitabhaengigkeiten; Fake-Clock und In-Memory-Transports verwenden.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-028",
+      "title": "agent-edit-bridge Backend-Extension implementieren",
+      "description": "Theia-Backend-Extension, die Agent-Edit-Requests vom Hub empfaengt und als Yjs-Transaktionen auf das geteilte Dokument anwendet. Ergebnis-Rueckfluss an Hub mit Evidence; keine eigene Task-Orchestrierung.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-016", "AEC-015"],
+      "acceptance_criteria": [
+        "Agent-Edits erscheinen live als CRDT-Ops mit author_kind=agent und korrekter Presence.",
+        "Bridge lehnt Edits ohne gueltige Hub-Bindung (closed projection) ab.",
+        "Ruecklauf zum Hub ist idempotent und mit RUN_*/SRC_* versehen (sofern vorhanden)."
+      ],
+      "implementation_notes": "Bridge ist ausfuehrend, nicht orchestrierend: Dispatch-Entscheidungen bleiben im Hub.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-029",
+      "title": "Hub AgentEditDispatchService (Editor-Agent-Edit -> Task)",
+      "description": "Hub-Service, der Agent-Edit-Anforderungen aus dem Editor in normale Hub-Tasks ueber task_management_service uebersetzt, inkl. Ziel-Worker-Auswahl ueber bestehende Delegations-Policies und Evidence-Reservierung vor Dispatch.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-007", "AEC-010"],
+      "acceptance_criteria": [
+        "Jeder Agent-Edit erzeugt genau einen nachvollziehbaren Hub-Task mit Provenanz.",
+        "Dispatch folgt TaskDelegationPlanner/forward_and_write; keine Direkt-Weiterleitung an Worker ohne Lease.",
+        "RUN_* wird vor Ausfuehrung reserviert und an den Task gebunden (reserve_run -> assignment projection)."
+      ],
+      "implementation_notes": "Anti-Muster vermeiden: kein Worker-side Orchestration, kein editor-spezifischer Dispatch-Pfad neben task_management_service.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-030",
+      "title": "Worker-seitiger Editor-Edit-Handler (CLI-Backend-Anbindung)",
+      "description": "Worker-Handler, der Editor-Edit-Tasks uebernimmt, die passende LLM-CLI-Backend-Auswahl (agent/cli_backends/routing.py) nutzt und das Ergebnis als CRDT-Updates zurueckliefert. Integration ueber task_scoped_execution analog zu bestehenden Steps.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-029"],
+      "acceptance_criteria": [
+        "Worker erzeugt aus Agent-Auftrag reproduzierbare CRDT-Updates und meldet sie ueber subtask-callback.",
+        "Backend-Auswahl nutzt bestehendes Routing (kein paralleles Selection-Muster).",
+        "Worker kann keine eigene Evidence anlegen (nur closed assignment projection verwenden)."
+      ],
+      "implementation_notes": "Anbindung ueber worker/core Execution-Envelopes; keine neuen Worker-Worker-Kommunikationswege.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-031",
+      "title": "Worker->Hub Ergebnis-Callback mit CRDT-Updates und Evidence",
+      "description": "worker_result_callback_service-Erweiterung fuer Editor-Edit-Ergebnisse: CRDT-Payload validieren, Evidence pruefen (HubEvidenceRegistryService), Event in edit_events persistieren und Fanout ausloesen.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-028", "AEC-030"],
+      "acceptance_criteria": [
+        "Ergebnisse ohne gueltige Evidence werden als unverified/failed eingestuft und nicht als grounded propagiert.",
+        "Idempotente Verarbeitung doppelter Callbacks ist getestet.",
+        "Lease-/Fencing-Verstoesse fuehren zu bounded failure statt stille Akzeptanz."
+      ],
+      "implementation_notes": "Pattern aus worker_result_callback_service.py (receipts, lease validity) uebernehmen und auf Editor-Events anwenden.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-032",
+      "title": "Fanout von Agent-Edits an alle Session-Teilnehmer",
+      "description": "Nach Validierung werden Agent-Edits ueber WS/SSE an alle Teilnehmer gespiegelt; konsistente Reihenfolge, Deduplizierung und Verknuepfung zu Task-/Evidence-Metadaten.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-031", "AEC-011"],
+      "acceptance_criteria": [
+        "Alle Teilnehmer sehen Agent-Edits in gleicher Reihenfolge (Kausalitaet gewahrt).",
+        "Reconnect nach Verlust fuehrt zu vollstaendigem Catch-up.",
+        "Metadaten (Task-ID, Evidence-Status) sind im Event sichtbar."
+      ],
+      "implementation_notes": "Fanout nutzt bestehende Transporte (collaboration_live_transport / SSE), keine dritte Push-Technik.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-033",
+      "title": "ananta-agent-panel Frontend-Plugin (Tasks, Chat, Anfragen)",
+      "description": "Panel mit Task-Queue-Ansicht (delegated, running, completed), Agent-Chat pro Task und Aktion 'Agent editieren lassen'. UI-Seite; alle Zustandsaenderungen ueber AnantaHubClient (DIP).",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-015", "AEC-022"],
+      "acceptance_criteria": [
+        "Task-Zustaende werden live aktualisiert (kein Polling-Zwang sichtbar).",
+        "Panel kann Agent-Edit-Anforderungen ausloesen und deren Fortschritt verfolgen.",
+        "Panel enthaelt keine Dispatch- oder Policy-Logik (nur Aufruf der Hub-Endpunkte)."
+      ],
+      "implementation_notes": "ISP: Panel nutzt kleine Task-, Chat- und EditRequest-Interfaces statt eines Monolith-Clients.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-034",
+      "title": "Agent-Edit-Request UX (Bereich markieren, Prompt, Ziel waehlen)",
+      "description": "Interaktionsfluss: Code-Bereich im Editor markieren, Prompt erfassen, Ziel-Worker/Capability waehlen, Request abschicken. Validierung und Bestaetigung inklusive Kosten-/Policy-Hinweisen.",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-033", "AEC-017"],
+      "acceptance_criteria": [
+        "Request enthaelt dokumentierten Scope (Datei, Zeilenbereich, Prompt, Ziel).",
+        "Policy-Blockaden werden als maschinenlesbares, bounded Ergebnis angezeigt (kein endloses Warten).",
+        "UX ist headless testbar ueber definierte UI-Selektoren/Commands."
+      ],
+      "implementation_notes": "Keine implizite Auto-Ausfuehrung ohne Policy; headless Mode beachtet AGENTS.md 'Fully Automated Execution'.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-035",
+      "title": "Konfliktbehandlung bei gleichzeitigen Human- und Agent-Edits",
+      "description": "Semantik fuer konkurrierende Edits: CRDT-Merge, sichtbare Konfliktmarker, optionale Sperren/Reservierungen fuer Agent-Bereiche und Rollback-Faehigkeit von Agent-Edits.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-032", "AEC-028"],
+      "acceptance_criteria": [
+        "Gleichzeitige Edits fuehren zu keinem Dokumentverlust; Merge ist deterministisch getestet.",
+        "Agent-Edits sind revertierbar ueber dokumentierte Undo-/Review-Schritte.",
+        "Konfliktzustaende sind in UI und Event-Timeline sichtbar."
+      ],
+      "implementation_notes": "Konfliktloesung bleibt im CRDT-Modell; keine ad-hoc Locks ausserhalb Presence-Reservierungen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-036",
+      "title": "Agent-Edit-Integrationstest (voller Loop Mensch->Hub->Worker->Editor)",
+      "description": "Headless End-to-End-Test des kompletten Agent-Edit-Pfads inkl. Task-Dispatch, Worker-Ausfuehrung (Mock-Backend erlaubt), CRDT-Anwendung, Fanout und Evidence-Bewertung.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M5",
+      "depends_on": ["AEC-031", "AEC-032", "AEC-035"],
+      "acceptance_criteria": [
+        "Test belegt lueckenlosen Ablauf ohne menschliches Eingreifen (headless, bounded).",
+        "Negative Pfade (fehlende Evidence, abgelaufene Lease) sind mitgetestet und bounded.",
+        "Test ist reproduzierbar und hinterlaesst keine ungeordneten Artefakte ausserhalb erlaubter Pfade."
+      ],
+      "implementation_notes": "Mock-LLM-Backend ueber CliBackendContext-Injection (agent/cli_backends/context.py) statt echter Modelle.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-037",
+      "title": "ananta-diff-review Frontend-Plugin (3-Wege-Diff)",
+      "description": "Review-Ansicht mit 3-Wege-Merge-Darstellung (Base, Human, Agent) unter Wiederverwendung der diff3-Logik; Navigation ueber geaenderte Blöcke, Kommentierung, Uebernahme/Ablehnung.",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-017", "AEC-033"],
+      "acceptance_criteria": [
+        "3-Wege-Ansicht zeigt Quellen korrekt und ist fuer grosse Diffs performant (bounded rendering).",
+        "Review-Entscheidungen erzeugen ReviewDecisionEvents ueber AEC-038.",
+        "Plugin bleibt anzeigend/entscheidend, ohne Persistenz- oder Policy-Eigenschaften (SRP)."
+      ],
+      "implementation_notes": "Logik-Anbindung an agent/routes/diff3.py-Algorithmus via geteiltes Modul, nicht via HTTP-Call ins Backend.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-038",
+      "title": "Approve-/Reject-Workflow mit Review-Zustaenden",
+      "description": "Review-Zustaende (pending, approved, rejected, changes_requested) auf Edit-Events und Agent-Edit-Sessions; Zustandsmaschine mit Policy-Guards; Verknuepfung zu Quality-/Release-Gates.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-008"],
+      "acceptance_criteria": [
+        "Zustandsuebergaenge sind valide und auditierbar (keine stillen Ueberschreibungen).",
+        "Approve setzt nur bei gueltiger Evidence den grounded-Status; sonst unverified.",
+        "Workflow ist headless ueber API testbar ohne interaktive Bestaetigung."
+      ],
+      "implementation_notes": "Zustandsmaschine analog zu task_state_machine_service, aber eigenstaendiges Modul (SRP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-039",
+      "title": "Evidence-Binding fuer Agent-Edits implementieren",
+      "description": "Integration von CollaborationEvidencePolicy und HubEvidenceRegistryService: jeder Agent-Edit wird an SRC_*/RUN_* gebunden, Scope-Validierung, Zurueckweisung von post-hoc oder synthetischen Production-Claims.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-031", "AEC-038"],
+      "acceptance_criteria": [
+        "Grounded-Status entsteht ausschliesslich bei verifizierter Hub-Evidence (verify_release_binding).",
+        "Test- und Synthetic-Evidence sind gekennzeichnet und blockieren Production-Release-Gates.",
+        "Unbekannte, mutierte oder stale Identifier fuehren zu failed/unverified, nie zu stiller Akzeptanz."
+      ],
+      "implementation_notes": "Pattern aus agent/bootstrap/collaboration_workspace.py (CollaborationEvidencePolicy(get_hub_evidence_registry_service())) uebernehmen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-040",
+      "title": "RUN_*/SRC_*-Reservierung und closed Worker-Projection fuer Editor-Edits",
+      "description": "Reservierung vor Ausfuehrung (reserve_run), Uebergabe ausschliesslich der closed assignment projection an Worker, Ergebnis-Aufzeichnung (record_result) und Fencing-Lease-Bindung.",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-039", "AEC-029"],
+      "acceptance_criteria": [
+        "Worker kann keine Identity minten, erweitern oder ersetzen (negativ getestet).",
+        "Reservation ist an Task, Assignment, Dispatch-Lease, Revision und Source-Inputs gebunden.",
+        "Ergebnisse ausserhalb der Reservation bleiben technische Beobachtung, kein grounded Release-Evidence."
+      ],
+      "implementation_notes": "Strikte Umsetzung der AGENTS.md 'Hub Evidence Identity' Regeln fuer den Editor-Pfad.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-041",
+      "title": "Release-Gate-Integration fuer Editor-Artefakte",
+      "description": "hub_evidence_gate_service-Anbindung: Editor-Artefakte durchlaufen Release-Pruefungen, verify_release_binding wird vor Freigabe geprueft; Ergebnis in artifacts/test-gates bzw. artifacts/domain dokumentiert.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-039", "AEC-040"],
+      "acceptance_criteria": [
+        "Release-Gates blockieren nicht verifizierte Editor-Artefakte deterministisch.",
+        "Gate-Berichte sind strukturiert und maschinenlesbar abgelegt.",
+        "Kein Weg umgeht das Gate ueber Editor-Freigaben (negativ getestet)."
+      ],
+      "implementation_notes": "Gate-Reports nach Output Boundary in artifacts/domain/ oder artifacts/test-gates/ (stabile, committable Formate).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-042",
+      "title": "Audit, Content-Security und Loop-Detection fuer Editor-Events",
+      "description": "collaboration_event_policy, collaboration_content_security und Loop-Detection auf Editor-Events anwenden; Audit-Eintraege fuer jede Session-, Edit- und Review-Transition; Budgets fuer Payload-Groessen.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-008", "AEC-038"],
+      "acceptance_criteria": [
+        "Alle sicherheitsrelevanten Transitionen erzeugen Audit-Eintraege.",
+        "Content-Security-Regeln blockieren schaedliche Payloads (bounded failure).",
+        "Loop-Detection erkennt sich wiederholende Agent-Edit-Muster und begrenzt sie."
+      ],
+      "implementation_notes": "Keine neue Policy-Engine; bestehende collaboration_*_policy-Services wiederverwenden (DIP/OCP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-043",
+      "title": "Review- und Evidence-Tests (negative Pfade inklusive)",
+      "description": "Testabdeckung fuer Review-Zustaende, Evidence-Binding, Synthetik-Blockaden, Release-Gates und Audit-Pflichtfaelle. Alle Tests headless und deterministisch.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M6",
+      "depends_on": ["AEC-038", "AEC-039", "AEC-041", "AEC-042"],
+      "acceptance_criteria": [
+        "Negative Pfade (fehlende, post-hoc, mutierte, stale Evidence) sind explizit getestet -> unverified/failed.",
+        "Headless-Betrieb ohne menschliche Interaktion ist gewaehrleistet.",
+        "Testabdeckung deckt mindestens Review-, Evidence- und Gate-Services ab."
+      ],
+      "implementation_notes": "Fixtures nur bei Determinismus und dokumentiertem Zweck committen (Output-Boundary-Kriterien).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-044",
+      "title": "Auth-Hardening fuer Theia<->Hub und Worker-Scopes",
+      "description": "Session-Token-Handling fuer Theia-Backend<->Hub, Worker-Auth-Scopes (check_registered_worker_auth(scope=...)) fuer Editor-Endpunkte, Token-Rotation und Secret-Vermeidung in Logs.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-015", "AEC-012"],
+      "acceptance_criteria": [
+        "Unauthentifizierte Zugriffe auf Editor-Endpunkte sind systematisch abgelehnt (negativ getestet).",
+        "Tokens erscheinen in keinem Log, Artefakt oder Fehlerdetail.",
+        "Worker-Scopes sind minimal und least-privilege (keine uebermaessigen Rechte)."
+      ],
+      "implementation_notes": "Pattern aus agent/auth.py und workflow_worker_service_auth.py uebernehmen; keine neuen Auth-Mechanismen erfinden.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-045",
+      "title": "Sandbox- und Pfadsicherheit (project-workspaces Begrenzung)",
+      "description": "sandbox_policy_service-Erzwingung fuer alle Editor- und Agent-Schreibpfade; Verhinderung von Path-Traversal und Zugriff ausserhalb erlaubter Roots; Mount-Assertions in Security-Tests.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-018", "AEC-019"],
+      "acceptance_criteria": [
+        "Pfade ausserhalb erlaubter Roots werden ueberall abgelehnt (Theia, Hub, Worker).",
+        "Security-Tests (tests/security/...) decken Compose-Mounts und Laufzeit-Zugriffe ab.",
+        "Path-Traversal-Payloads sind negativ getestet."
+      ],
+      "implementation_notes": "Zentrale Pfadvalidierung statt verteilter Pruefungen (SRP).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-046",
+      "title": "Content-Security, Payload-Budgets und DoS-Begrenzung",
+      "description": "Maximalgroessen fuer CRDT-Updates, Event-Raten und Session-Teilnehmer; Quotas pro Session/Workspace; Schutz vor Ressourcenerschoepfung im Sync- und Event-Pfad.",
+      "type": "security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-008", "AEC-042"],
+      "acceptance_criteria": [
+        "Ueberschreitungen erzeugen bounded failures statt Abstuerze.",
+        "Quotas sind konfigurierbar und in Tests erzwungen.",
+        "Metriken zeigen Auslastung und Zurueckweisungen."
+      ],
+      "implementation_notes": "Gemeinsame Budget-Konfiguration statt pro Service eigene Limits (Konsistenz).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-047",
+      "title": "Docker- und Compose-Integration fuer Theia-Service",
+      "description": "Neuer Compose-Service fuer Theia in docker/compose-next inkl. Volumes (project-workspaces), Netz-Isolation, Env-Konfiguration und Kompatibilitaet mit compose.stack.full/distributed. Security-Mount-Assertions einhalten.",
+      "type": "infra",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-014", "AEC-019", "AEC-045"],
+      "acceptance_criteria": [
+        "Theia startet ueber Compose reproduzierbar und ist ueber definierten Port erreichbar.",
+        "Bestehende Security-Compose-Tests bleiben gruen (keine verbotenen Mounts).",
+        "Verteiltes Szenario (distributed stack) ist kompatibel (mehrere Theia-Instanzen moeglich)."
+      ],
+      "implementation_notes": "Container-Model aus AGENTS.md beachten: keine implizite gemeinsame State-Annahme, klare Volume-Grenzen.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-048",
+      "title": "Konfiguration, Feature-Flags und Waertere Kompatibilitaet",
+      "description": "Settings fuer Editor-Endpunkte, Feature-Flags (Collab, Presence, Agent-Edit, Review) und Konfigurationsschicht analog zu agent/config*.py; sichere Defaults; Dokumentation in .env.example.",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-009", "AEC-047"],
+      "acceptance_criteria": [
+        "Alle neuen Features sind abschaltbar ohne Code-Aenderung (Flags).",
+        "Defaults sind least-privilege und sicher (keine offenen Ports ohne Auth).",
+        "Konfiguration ist in .env.example und Docs dokumentiert (keine Secrets im Repo)."
+      ],
+      "implementation_notes": "Additive Defaults; bestehende Konfigurationsfelder bleiben unveraendert (Backward Compatibility).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-049",
+      "title": "Headless E2E-Suite: Multi-User + Agent Pair-Dev-Szenario",
+      "description": "Vollstaendige E2E-Suite: mehrere menschliche Clients, ein Agent-Edit ueber die Task-Queue, gemeinsames Review und Evidence-Abschluss. Bounded runtime, keine interaktive Interaktion.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-021", "AEC-036", "AEC-043", "AEC-047"],
+      "acceptance_criteria": [
+        "Suite deckt Happy-Path und zentrale Fehlerpfade headless ab.",
+        "Ergebnisartefakte sind deterministisch und committable, sofern strukturierte Gate-Reports.",
+        "Laufzeit ist bounded und in CI ausfuehrbar."
+      ],
+      "implementation_notes": "Acceptance-Runner-Muster aus scripts/first_goal_acceptance_runner.py aehnlich gestalten.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-050",
+      "title": "Detektor-Skripte und Lint-Gates fuer neue Grenzen",
+      "description": "Neue Pruefskripte unter scripts/ fuer Import-Grenzen (kein Theia-Backend-Import in Hub-Services, kein Hub-Orchestration in Theia-Plugins) und Grenzverstoesse gegen Worker/HUB-Trennung; Integration in CI/Release-Gate.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-005", "AEC-015"],
+      "acceptance_criteria": [
+        "Detektoren erkennen absichtlich eingebaute Grenzverstoesse im Test (negativ getestet).",
+        "Bestehende Detektoren (check_cli_backend_shim_imports.py etc.) bleiben gruen.",
+        "Skripte sind dokumentiert und in Release-Gate eingebunden."
+      ],
+      "implementation_notes": "Folgt dem Muster der bestehenden scripts/check_*-Detektoren.",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-051",
+      "title": "Dokumentation: Architektur, API-Spec und Plugin-READMEs",
+      "description": "docs/architecture/theia-ananta-collab-editor.md finalisieren, api-spec.md um Editor-Endpunkte ergaenzen, Plugin-READMEs (Frontend/Backend) und Betriebsdoku (Start, Konfiguration, Monitoring) erstellen.",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-048", "AEC-049"],
+      "acceptance_criteria": [
+        "API-Spec bildet alle neuen Endpunkte ab und ist mit Tests abgeglichen.",
+        "Architekturdokument spiegelt finalen Implementierungsstand (keine veralteten Skizzen).",
+        "Betriebsdoku erlaubt reproduzierbaren Start im Container."
+      ],
+      "implementation_notes": "Doku ist Source und wird committet (Output Boundary: docs/ ist Source).",
+      "progress_percent": 0
+    },
+    {
+      "id": "AEC-052",
+      "title": "Akzeptanz-Lauf, Artefakte und finale Architektur-Review",
+      "description": "Vollstaendiger Akzeptanzlauf inkl. Release-Gates, strukturierte Artefakte in artifacts/ (domain/e2e/test-gates), finale SOLID-/Grenz-Review und Abgleich mit AGENTS.md-Regeln. Offene Schulden dokumentieren.",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone_id": "AEC-M7",
+      "depends_on": ["AEC-049", "AEC-050", "AEC-051"],
+      "acceptance_criteria": [
+        "Alle Milestone-Abnahmekriterien sind maschinell ueberprueft (Gates gruen oder dokumentiert).",
+        "Finale Review dokumentiert SRP/DIP/ISP/OCP/LSP-Einhaltung und erhaltene bewusste technische Schulden.",
+        "Keine fixup/wip-Commits im Track; Commit-Scope-Regeln aus AGENTS.md eingehalten."
+      ],
+      "implementation_notes": "Artefakte nur in erlaubte strukturierte Pfade schreiben; Runtime-Artefakte bleiben uncommittet.",
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "AEC-001",
+    "AEC-002",
+    "AEC-006",
+    "AEC-007",
+    "AEC-008",
+    "AEC-009",
+    "AEC-010",
+    "AEC-014",
+    "AEC-015",
+    "AEC-016",
+    "AEC-017",
+    "AEC-028",
+    "AEC-029",
+    "AEC-030",
+    "AEC-031",
+    "AEC-032",
+    "AEC-036",
+    "AEC-049"
+  ],
+  "tasks_status_summary": {
+    "total": 52,
+    "by_status": {
+      "todo": 52,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 27,
+      "P1": 22,
+      "P2": 3
+    },
+    "by_risk": {
+      "low": 10,
+      "medium": 21,
+      "high": 21
+    },
+    "critical_path": {
+      "total": 18,
+      "done": 0,
+      "remaining": 18
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 52,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Planungsartefakt: keine Implementierung beansprucht; alle Aufgaben sind offen (status=todo).",
+    "Theia ist kein VS-Code-Fork: gemeinsame Basis ist Monaco + VS Code Extension API; Collab-Aufwand liegt im selbst zu bauenden Yjs-Sync-Layer (AEC-016).",
+    "Agent-Edits laufen strikt ueber hub-owned Tasks und Hub-Evidence; Theia-Backend ist Bridge/Client, kein Orchestrator (AGENTS.md konform).",
+    "Bestehende collaboration_workspace-, share_sessions-, diff3- und evidence-Services werden wiederverwendet/ergaenzt, nicht dupliziert.",
+    "Reihenfolge M1->M7 ist inkrementell; jede Phase ist unabhaengig deploy- und headless testbar.",
+    "Hohe Risiken konzentrieren sich auf CRDT-Sync (AEC-016/020), Agent-Edit-Loop (AEC-028..032) und Evidence-Binding (AEC-039/040) - diese zuerst absichern."
+  ]
+}

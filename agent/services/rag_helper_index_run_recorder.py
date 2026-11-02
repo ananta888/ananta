@@ -58,9 +58,7 @@ class KnowledgeIndexRunRecorder:
         if persist:
             knowledge_index = self._knowledge_index_repo.save(knowledge_index)
         KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="completed", profile=profile_name).inc()
-        KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile_name).observe(
-            duration_ms / 1000.0
-        )
+        KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile_name).observe(duration_ms / 1000.0)
         return knowledge_index, run
 
     def failed(
@@ -98,9 +96,7 @@ class KnowledgeIndexRunRecorder:
         if persist:
             knowledge_index = self._knowledge_index_repo.save(knowledge_index)
         KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="failed", profile=profile_name).inc()
-        KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile_name).observe(
-            duration_ms / 1000.0
-        )
+        KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile_name).observe(duration_ms / 1000.0)
         return knowledge_index, run
 
 

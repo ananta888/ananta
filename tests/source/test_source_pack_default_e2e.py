@@ -37,7 +37,9 @@ def test_source_pack_default_cli_tui_e2e(monkeypatch, tmp_path, capsys) -> None:
     assert doctor["source_pack_id"] == "ananta-dev-default"
 
     state = OperatorState(endpoint="http://localhost")
-    query = execute_command(":sources pack query ananta-dev-default How to create an Eclipse plugin extension point?", state)
+    query = execute_command(
+        ":sources pack query ananta-dev-default How to create an Eclipse plugin extension point?", state
+    )
     assert query.handled is True
     payload = json.loads(query.message)
     assert payload["status"] == "ok"

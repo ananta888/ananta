@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from agent.routes.route_dependency_seam import RouteDependencySeam
 from agent.routes.workflow_control_security import (
     backend_error,
     configured_workflow_backend,
@@ -21,6 +20,7 @@ from agent.routes.workflow_control_security import (
 from agent.services.caseflow_agent_collaboration_trace_projection_service import (
     get_caseflow_agent_collaboration_trace_projection_service,
 )
+from agent.services.route_dependency_seam import RouteDependencySeam
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 
 

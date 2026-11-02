@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from agent.services.ml_intern_training_worker_port import (
+    WORKER_CONTRACT_VERSION,
     HttpMlInternTrainingWorkerPort,
     MlInternTrainingWorkerTransportError,
-    WORKER_CONTRACT_VERSION,
     _validate_worker_event,
 )
 from scripts.run_lora_training_smoke import _nvidia_runtime_backend, _support_claim
@@ -45,9 +45,7 @@ def _resource_admission() -> dict[str, object]:
 
 
 def test_worker_port_admits_every_composed_training_backend() -> None:
-    default = inspect.signature(HttpMlInternTrainingWorkerPort.__init__).parameters[
-        "admitted_backends"
-    ].default
+    default = inspect.signature(HttpMlInternTrainingWorkerPort.__init__).parameters["admitted_backends"].default
 
     assert set(default) == {
         "mock",
@@ -86,10 +84,7 @@ def test_runtime_resource_admission_contract_is_exact_and_copies_assumptions() -
 
 
 def test_documented_event_schema_matches_runtime_extensions() -> None:
-    schema_path = (
-        Path(__file__).resolve().parents[2]
-        / "docs/contracts/mlintern-lora-training-event.v1.schema.json"
-    )
+    schema_path = Path(__file__).resolve().parents[2] / "docs/contracts/mlintern-lora-training-event.v1.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
 
     assert "resource_admission" in schema["properties"]["type"]["enum"]
@@ -99,9 +94,7 @@ def test_documented_event_schema_matches_runtime_extensions() -> None:
         "audio",
         "embedding",
     ]
-    assert set(schema["$defs"]["resourceAdmissionPayload"]["required"]) == set(
-        _resource_admission()
-    )
+    assert set(schema["$defs"]["resourceAdmissionPayload"]["required"]) == set(_resource_admission())
 
 
 def test_nvidia_smoke_selects_unsloth_without_claiming_unrun_platform_stages() -> None:

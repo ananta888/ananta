@@ -88,7 +88,9 @@ def initialize_codecompass_layers(
     evidence = evidence or _Lazy(lambda: _hub_evidence(environ))
     backend = CodeCompassLayerDispatchBackend(
         query_backend=CodeCompassLayerQueryBackend(
-            layers=layers, heads=heads, snapshots=snapshots,
+            layers=layers,
+            heads=heads,
+            snapshots=snapshots,
             policy=ChunkPlanPolicy(max_delta_depth=_max_deltas(environ)),
         ),
         task_queue=HubTaskQueueLayerDispatcher(
@@ -96,7 +98,9 @@ def initialize_codecompass_layers(
         ),
         dispatch_repository=FileLayerDispatchRepository(root),
         publisher=HubCodeCompassLayerPublisher(
-            layers=layers, heads=heads, evidence=evidence,
+            layers=layers,
+            heads=heads,
+            evidence=evidence,
             observers=[
                 *_publication_observers(root, layers, heads, pointer_repository),
                 SyncCatchUpObserver(lambda: app.extensions["codecompass_layer_sync_service"]),
@@ -113,11 +117,18 @@ def initialize_codecompass_layers(
     )
     sync_state = SyncStateStore(root)
     app.extensions["codecompass_layer_gc"] = LayerStorageGarbageCollector(
-        layers=layers, heads=heads, snapshots=snapshots, contents=contents,
-        dispatches=FileLayerDispatchRepository(root), sync_state=sync_state,
+        layers=layers,
+        heads=heads,
+        snapshots=snapshots,
+        contents=contents,
+        dispatches=FileLayerDispatchRepository(root),
+        sync_state=sync_state,
     )
     app.extensions["codecompass_layer_sync_service"] = CodeCompassLayerSyncService(
-        snapshots=snapshots, contents=contents, layer_service=service, state=sync_state,
+        snapshots=snapshots,
+        contents=contents,
+        layer_service=service,
+        state=sync_state,
         task_status=task_status or _hub_task_status,
     )
     return CodeCompassLayerWiringStatus(True, "codecompass_layers_enabled", str(root))
@@ -139,8 +150,10 @@ def _publication_observers(root: Path, layers: Any, heads: Any, pointer_reposito
     )
 
     repository = pointer_repository or _Lazy(_knowledge_index_repository)
-    return [KnowledgeIndexPointerObserver(repository, KnowledgeIndexDB),
-            SearchIndexSyncObserver(root=root, layers=layers, heads=heads)]
+    return [
+        KnowledgeIndexPointerObserver(repository, KnowledgeIndexDB),
+        SearchIndexSyncObserver(root=root, layers=layers, heads=heads),
+    ]
 
 
 def _hub_task_status(task_id: str) -> str | None:

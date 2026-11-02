@@ -24,13 +24,9 @@ def _sample_count() -> int:
     try:
         value = int(os.getenv("ANANTA_TEMPORAL_PERFORMANCE_SAMPLES", "20"))
     except ValueError as exc:
-        raise ValueError(
-            "ANANTA_TEMPORAL_PERFORMANCE_SAMPLES must be an integer"
-        ) from exc
+        raise ValueError("ANANTA_TEMPORAL_PERFORMANCE_SAMPLES must be an integer") from exc
     if not 10 <= value <= 100:
-        raise ValueError(
-            "ANANTA_TEMPORAL_PERFORMANCE_SAMPLES must be between 10 and 100"
-        )
+        raise ValueError("ANANTA_TEMPORAL_PERFORMANCE_SAMPLES must be between 10 and 100")
     return value
 
 

@@ -1,4 +1,5 @@
 """X86CC-015: Pipeline for building x86 indexes from multiple inputs."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -6,7 +7,7 @@ from typing import Any
 from agent.codecompass.x86.adapter import X86DisassemblerAdapter
 from agent.codecompass.x86.config import X86Config
 from agent.codecompass.x86.diagnostics import ADAPTER_ERROR, x86_diag_dict
-from agent.codecompass.x86.index_builder import X86IndexBuilder, X86IndexLimits
+from agent.codecompass.x86.index_builder import X86IndexBuilder
 from agent.codecompass.x86.input_taxonomy import X86InputRecord
 
 
@@ -50,11 +51,13 @@ class X86IndexPipeline:
                     manifests.append(result["x86_manifest"])
             except Exception as exc:  # noqa: BLE001
                 # Adapter error degrades only x86 part
-                all_diags.append(x86_diag_dict(
-                    ADAPTER_ERROR,
-                    f"pipeline error for input {inp.source_path!r}: {exc}",
-                    severity="degraded",
-                ))
+                all_diags.append(
+                    x86_diag_dict(
+                        ADAPTER_ERROR,
+                        f"pipeline error for input {inp.source_path!r}: {exc}",
+                        severity="degraded",
+                    )
+                )
 
         return {
             "x86_nodes": all_nodes,

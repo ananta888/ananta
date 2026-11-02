@@ -2,26 +2,23 @@
 
 Covers ASH-050 (regression: no tick blocking) and ASH-051 (auto-activation pipeline).
 """
+
 from __future__ import annotations
 
 import json
 import os
 import tempfile
 import time
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 # ── M01: Governance mode ──────────────────────────────────────────────────────
-
 from agent.services.heuristic_runtime.governance import GovernanceMode
 
 
 class TestGovernanceMode:
     def test_all_four_modes_parse(self):
-        for mode in ("auto_without_human_approval", "human_approval_required",
-                     "observe_only", "frozen"):
+        for mode in ("auto_without_human_approval", "human_approval_required", "observe_only", "frozen"):
             assert GovernanceMode.from_str(mode).value == mode
 
     def test_invalid_mode_raises(self):
@@ -52,18 +49,27 @@ class TestGovernanceMode:
 
 # ── M01: State catalog ────────────────────────────────────────────────────────
 
-from agent.services.heuristic_runtime.snake_state_catalog import (
-    SnakeState, is_valid_transition, VALID_TRANSITIONS
-)
+from agent.services.heuristic_runtime.snake_state_catalog import SnakeState, is_valid_transition
 
 
 class TestSnakeStateCatalog:
     def test_all_states_present(self):
         expected = {
-            "disabled", "paused", "observe_only", "follow_user", "inspect_artifact",
-            "move_to_artifact", "explain_artifact", "chat_with_user", "waiting_for_ai",
-            "heuristic_fallback", "candidate_shadow_test", "candidate_rollout",
-            "candidate_auto_active", "quarantined", "error",
+            "disabled",
+            "paused",
+            "observe_only",
+            "follow_user",
+            "inspect_artifact",
+            "move_to_artifact",
+            "explain_artifact",
+            "chat_with_user",
+            "waiting_for_ai",
+            "heuristic_fallback",
+            "candidate_shadow_test",
+            "candidate_rollout",
+            "candidate_auto_active",
+            "quarantined",
+            "error",
         }
         actual = {s.value for s in SnakeState}
         assert expected == actual
@@ -90,7 +96,10 @@ class TestSnakeStateCatalog:
 # ── M01: Snake interfaces ─────────────────────────────────────────────────────
 
 from agent.services.heuristic_runtime.snake_interfaces import (
-    MovementMode, SnakeRuntimeState, CandidateRecord, ActivationPolicy
+    ActivationPolicy,
+    CandidateRecord,
+    MovementMode,
+    SnakeRuntimeState,
 )
 
 
@@ -158,7 +167,9 @@ class TestCandidateFingerprint:
     def test_fallback_reason_not_in_fingerprint(self):
         # fallback_reason should not affect fingerprint
         fp1 = compute_candidate_fingerprint("tui_snake", "base", "follow_with_distance", {})
-        fp2 = compute_candidate_fingerprint("tui_snake", "base", "follow_with_distance", {"fallback_reason": "no_match"})
+        fp2 = compute_candidate_fingerprint(
+            "tui_snake", "base", "follow_with_distance", {"fallback_reason": "no_match"}
+        )
         # Only stable fields matter — but "fallback_reason" is in parameters here, so it DOES differ
         # The real requirement: context_hash_pattern not in fingerprint
         assert fp1 != fp2  # different params → different fingerprint
@@ -171,9 +182,7 @@ class TestCandidateFingerprint:
 
 # ── M02: Raw data validator ───────────────────────────────────────────────────
 
-from agent.services.heuristic_runtime.candidate_raw_validator import (
-    CandidateRawValidator, validate_candidate_raw_data
-)
+from agent.services.heuristic_runtime.candidate_raw_validator import validate_candidate_raw_data
 
 
 class TestCandidateRawValidator:
@@ -212,9 +221,7 @@ class TestCandidateRawValidator:
 
 # ── M02: Migration gate ───────────────────────────────────────────────────────
 
-from agent.services.heuristic_runtime.candidate_migration import (
-    run_candidate_migration, is_candidate_eligible
-)
+from agent.services.heuristic_runtime.candidate_migration import is_candidate_eligible, run_candidate_migration
 
 
 class TestCandidateMigration:
@@ -256,8 +263,7 @@ class TestCandidateMigration:
         with tempfile.TemporaryDirectory() as tmp:
             domain_dir = os.path.join(tmp, "candidates", "tui_snake")
             os.makedirs(domain_dir)
-            self._write_candidate(domain_dir, "cand-003",
-                                  simulation_result={"can_activate": True})
+            self._write_candidate(domain_dir, "cand-003", simulation_result={"can_activate": True})
             report = run_candidate_migration(domain="tui_snake", base_path=tmp)
             assert report.set_pending_simulation == 0
 
@@ -266,8 +272,7 @@ class TestCandidateMigration:
             domain_dir = os.path.join(tmp, "candidates", "tui_snake")
             quarantine_dir = os.path.join(tmp, "quarantine", "tui_snake")
             os.makedirs(domain_dir)
-            self._write_candidate(domain_dir, "cand-004",
-                                  expires_at=time.time() - 1)
+            self._write_candidate(domain_dir, "cand-004", expires_at=time.time() - 1)
             report = run_candidate_migration(domain="tui_snake", base_path=tmp)
             assert report.quarantined_expired == 1
             assert not os.path.exists(os.path.join(domain_dir, "cand-004.json"))
@@ -318,9 +323,7 @@ class TestSnakeAuditEvents:
         assert all(e["event_type"] == "snake_decision" for e in events)
 
     def test_events_contain_no_raw_data_keys(self):
-        audit.candidate_shadow_watchdog_triggered(
-            candidate_id="c1", trigger="exception_rate", value=0.15
-        )
+        audit.candidate_shadow_watchdog_triggered(candidate_id="c1", trigger="exception_rate", value=0.15)
         events = audit.get_events()
         for event in events:
             for key in event:
@@ -329,16 +332,12 @@ class TestSnakeAuditEvents:
                 assert "password" not in key.lower()
 
     def test_watchdog_event_type_present(self):
-        audit.candidate_shadow_watchdog_triggered(
-            candidate_id="x", trigger="no_movement", value=11
-        )
+        audit.candidate_shadow_watchdog_triggered(candidate_id="x", trigger="no_movement", value=11)
         events = audit.get_events(event_type="candidate_shadow_watchdog_triggered")
         assert len(events) == 1
 
     def test_rollout_stage_event(self):
-        audit.candidate_rollout_stage_advanced(
-            candidate_id="c1", stage="partial", quota=0.5, decisions_at_stage=50
-        )
+        audit.candidate_rollout_stage_advanced(candidate_id="c1", stage="partial", quota=0.5, decisions_at_stage=50)
         events = audit.get_events(event_type="candidate_rollout_stage_advanced")
         assert events[0]["quota"] == 0.5
 
@@ -414,7 +413,7 @@ class TestCandidateScoring:
 
 # ── M03: Shadow runner ────────────────────────────────────────────────────────
 
-from agent.services.heuristic_runtime.shadow_runner import ShadowRunner, SHADOW_MIN_DECISIONS
+from agent.services.heuristic_runtime.shadow_runner import SHADOW_MIN_DECISIONS, ShadowRunner
 
 
 class TestShadowRunner:
@@ -502,7 +501,7 @@ class TestSnakeSimulationFixtures:
 
 # ── M04: Auto activator ───────────────────────────────────────────────────────
 
-from agent.services.heuristic_runtime.auto_activator import AutoActivator, ROLLOUT_STAGES
+from agent.services.heuristic_runtime.auto_activator import ROLLOUT_STAGES, AutoActivator
 
 
 class TestAutoActivator:
@@ -565,10 +564,7 @@ class TestAutoActivator:
             candidate = self._make_candidate()
             activator.promote(candidate)
             # At 10% quota: ticks 0-9 use candidate, 10-99 do not
-            uses = sum(
-                1 for tick in range(100)
-                if activator.should_use_candidate("test-candidate-001", tick)
-            )
+            uses = sum(1 for tick in range(100) if activator.should_use_candidate("test-candidate-001", tick))
             assert uses == 10  # exactly 10% of 100 ticks
 
     def test_rollback_quarantines_candidate(self):
@@ -581,6 +577,7 @@ class TestAutoActivator:
             activator.promote(candidate)
             # Trigger rollback via negative feedback
             from agent.services.heuristic_runtime.auto_activator import ROLLBACK_NEGATIVE_FEEDBACK_COUNT
+
             for _ in range(ROLLBACK_NEGATIVE_FEEDBACK_COUNT):
                 activator.tick_rollout(
                     "test-candidate-001",
@@ -594,9 +591,13 @@ class TestAutoActivator:
 # ── M05: Artifact intent decision model (ASH-042) ────────────────────────────
 
 from client_surfaces.operator_tui.artifact_intent import (
-    SnakeArtifactDecision, SnakeArtifactIntentKind, SnakeArtifactMovement,
-    SnakeArtifactInteraction, build_snake_artifact_decision,
-    ArtifactIntent, IntentConfidence,
+    ArtifactIntent,
+    IntentConfidence,
+    SnakeArtifactDecision,
+    SnakeArtifactIntentKind,
+    SnakeArtifactInteraction,
+    SnakeArtifactMovement,
+    build_snake_artifact_decision,
 )
 
 
@@ -658,6 +659,7 @@ class TestSnakeArtifactDecision:
 
 
 # ── ASH-051: Auto-activation integration pipeline ────────────────────────────
+
 
 class TestAutoActivationPipeline:
     """End-to-end: candidate created → migration → scoring → promotion."""
@@ -747,21 +749,23 @@ class TestAutoActivationPipeline:
 
 # ── ASH-050: Regression — no tick blocking ───────────────────────────────────
 
+
 class TestSnakeHeuristicMixinRateLimit:
     """ASH-050: rate limit prevents candidate flood."""
 
     def test_rate_limit_max_per_hour(self):
-        from client_surfaces.operator_tui.snake_heuristic_mixin import (
-            _PROPOSAL_MAX_PER_HOUR, _PROPOSAL_HOUR
-        )
+        from client_surfaces.operator_tui.snake_heuristic_mixin import _PROPOSAL_HOUR, _PROPOSAL_MAX_PER_HOUR
+
         assert _PROPOSAL_MAX_PER_HOUR == 3
         assert _PROPOSAL_HOUR == 3600.0
 
     def test_min_interval(self):
         from client_surfaces.operator_tui.snake_heuristic_mixin import _PROPOSAL_MIN_INTERVAL
+
         assert _PROPOSAL_MIN_INTERVAL == 300.0
 
     def test_governance_mode_blocks_creation(self):
         from agent.services.heuristic_runtime.governance import GovernanceMode
+
         for mode in (GovernanceMode.OBSERVE_ONLY, GovernanceMode.FROZEN):
             assert mode.allows_candidate_creation is False

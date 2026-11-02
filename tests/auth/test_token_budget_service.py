@@ -1,15 +1,15 @@
 """Tests for TokenBudgetService — T01."""
+
 from __future__ import annotations
 
-import pytest
 from agent.services.token_budget_service import (
     TokenBudgetService,
     estimate_tokens,
     normalize_usage,
 )
 
-
 # ── estimate_tokens ───────────────────────────────────────────────────────────
+
 
 def test_estimate_empty_string():
     result = estimate_tokens("")
@@ -47,6 +47,7 @@ def test_estimate_python_code():
 
 def test_estimate_json_payload():
     import json
+
     payload = json.dumps({"action": "run", "steps": [1, 2, 3], "enabled": True})
     result = estimate_tokens(payload)
     assert result["tokens"] > 0
@@ -76,7 +77,9 @@ def test_estimate_returns_model_and_provider():
 def test_estimate_chars_per_token_fallback_math():
     """Without tiktoken available, verify the fallback math."""
     import math
+
     from agent.services import token_budget_service as tbs_mod
+
     original = tbs_mod._TIKTOKEN_AVAILABLE
     try:
         tbs_mod._TIKTOKEN_AVAILABLE = False  # Force fallback
@@ -91,6 +94,7 @@ def test_estimate_chars_per_token_fallback_math():
 
 
 # ── normalize_usage ───────────────────────────────────────────────────────────
+
 
 def test_normalize_openai_format():
     raw = {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}
@@ -150,6 +154,7 @@ def test_normalize_trace_ref():
 
 
 # ── TokenBudgetService.check_budget ──────────────────────────────────────────
+
 
 def test_budget_allowed():
     svc = TokenBudgetService()

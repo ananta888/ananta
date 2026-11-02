@@ -9,6 +9,16 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from agent.auth import check_user_auth
+from agent.routes.share_session_route_support import (
+    _current_user_id,
+    _is_active_participant,
+    _is_session_active,
+    _rate_limiter,
+    _share_envelope_security,
+    _strict_e2ee_enabled,
+    _strict_pair_authorizer,
+    _strict_security_contract,
+)
 from agent.services.share_audit_service import audit_chat_sent
 from agent.services.share_relay_compatibility_service import (
     ShareRelayCompatibilityError,
@@ -23,17 +33,6 @@ from agent.services.share_session_permissions import (
 from agent.services.share_session_service import get_share_session_service
 from agent.services.share_view_security_service import ShareViewSecurityError
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
-from agent.routes.share_session_route_support import (
-    _current_user_id,
-    _is_active_participant,
-    _is_session_active,
-    _rate_limiter,
-    _share_envelope_security,
-    _strict_e2ee_enabled,
-    _strict_pair_authorizer,
-    _strict_security_contract,
-)
-
 
 _CHAT_QUEUE_MAX = 200
 _CHAT_MSG_MAX_BYTES = 64 * 1024

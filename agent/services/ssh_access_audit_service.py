@@ -2,6 +2,7 @@
 
 Never stores OIDC tokens, private certificate material, raw bearer tokens, or passwords.
 """
+
 from __future__ import annotations
 
 import logging

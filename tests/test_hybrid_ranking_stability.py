@@ -6,6 +6,7 @@ or shuffle retrieval rankings in ways that hurt retrieval quality.
 A MinimalRankingHarness wraps CodeCompassVectorStore + CodeCompassVectorEngine
 with a deterministic FakeEmbeddingProvider.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,6 +26,7 @@ from worker.retrieval.vector_encoding import (
 # ---------------------------------------------------------------------------
 # Deterministic fake embedding provider
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class FakeEmbeddingProvider:
@@ -57,28 +59,61 @@ class FakeEmbeddingProvider:
 # ---------------------------------------------------------------------------
 
 _RANKING_DOCS: list[dict[str, Any]] = [
-    {"record_id": "r01", "kind": "python_function", "file": "src/auth.py",
-     "embedding_text": "authenticate user password hash verify bcrypt"},
-    {"record_id": "r02", "kind": "python_function", "file": "src/search.py",
-     "embedding_text": "vector similarity cosine search top_k results"},
-    {"record_id": "r03", "kind": "java_class", "file": "src/Payment.java",
-     "embedding_text": "payment gateway stripe webhook charge refund"},
-    {"record_id": "r04", "kind": "config", "file": "config/db.yml",
-     "embedding_text": "database postgres connection pool credentials"},
-    {"record_id": "r05", "kind": "python_module", "file": "src/cache.py",
-     "embedding_text": "redis cache ttl eviction key-value store"},
-    {"record_id": "r06", "kind": "markdown", "file": "docs/api.md",
-     "embedding_text": "rest api openapi swagger endpoint documentation"},
-    {"record_id": "r07", "kind": "python_function", "file": "src/email.py",
-     "embedding_text": "email smtp send notification template html"},
-    {"record_id": "r08", "kind": "java_method", "file": "src/Invoice.java",
-     "embedding_text": "invoice tax calculation total vat subtotal"},
+    {
+        "record_id": "r01",
+        "kind": "python_function",
+        "file": "src/auth.py",
+        "embedding_text": "authenticate user password hash verify bcrypt",
+    },
+    {
+        "record_id": "r02",
+        "kind": "python_function",
+        "file": "src/search.py",
+        "embedding_text": "vector similarity cosine search top_k results",
+    },
+    {
+        "record_id": "r03",
+        "kind": "java_class",
+        "file": "src/Payment.java",
+        "embedding_text": "payment gateway stripe webhook charge refund",
+    },
+    {
+        "record_id": "r04",
+        "kind": "config",
+        "file": "config/db.yml",
+        "embedding_text": "database postgres connection pool credentials",
+    },
+    {
+        "record_id": "r05",
+        "kind": "python_module",
+        "file": "src/cache.py",
+        "embedding_text": "redis cache ttl eviction key-value store",
+    },
+    {
+        "record_id": "r06",
+        "kind": "markdown",
+        "file": "docs/api.md",
+        "embedding_text": "rest api openapi swagger endpoint documentation",
+    },
+    {
+        "record_id": "r07",
+        "kind": "python_function",
+        "file": "src/email.py",
+        "embedding_text": "email smtp send notification template html",
+    },
+    {
+        "record_id": "r08",
+        "kind": "java_method",
+        "file": "src/Invoice.java",
+        "embedding_text": "invoice tax calculation total vat subtotal",
+    },
 ]
 
 
 # ---------------------------------------------------------------------------
 # MinimalRankingHarness
 # ---------------------------------------------------------------------------
+
 
 class MinimalRankingHarness:
     """Thin wrapper around store + engine for ranking stability testing."""
@@ -116,6 +151,7 @@ class MinimalRankingHarness:
 # TQ-024-001  ranking is stable across two rebuilds with same config
 # ---------------------------------------------------------------------------
 
+
 def test_ranking_stable_across_rebuilds(tmp_path):
     """Two consecutive rebuilds with the same config must produce the same ranking."""
     provider = FakeEmbeddingProvider()
@@ -141,6 +177,7 @@ def test_ranking_stable_across_rebuilds(tmp_path):
 # TQ-024-002  mode=float32 and mode=off produce the same top-3 order
 # ---------------------------------------------------------------------------
 
+
 def test_ranking_stable_float32_vs_off(tmp_path):
     """float32 and off are both lossless; their top-3 ranking must be identical."""
     provider = FakeEmbeddingProvider()
@@ -160,14 +197,14 @@ def test_ranking_stable_float32_vs_off(tmp_path):
     top3_off = h_off.search(query, top_k=3)
     top3_f32 = h_f32.search(query, top_k=3)
     assert top3_off == top3_f32, (
-        f"mode=off and mode=float32 produce different top-3 rankings:\n"
-        f"  off: {top3_off}\n  float32: {top3_f32}"
+        f"mode=off and mode=float32 produce different top-3 rankings:\n  off: {top3_off}\n  float32: {top3_f32}"
     )
 
 
 # ---------------------------------------------------------------------------
 # TQ-024-003  int8 encoding does not invert the top result vs float32
 # ---------------------------------------------------------------------------
+
 
 def test_int8_encoding_does_not_invert_top_result(tmp_path):
     """For a clear semantic winner, int8 must agree with float32 on top-1."""
@@ -189,14 +226,14 @@ def test_int8_encoding_does_not_invert_top_result(tmp_path):
     top1_f32 = h_f32.search(query, top_k=5)[0]
     top1_int8 = h_int8.search(query, top_k=5)[0]
     assert top1_f32 == top1_int8, (
-        f"int8 encoding inverted the top result:\n"
-        f"  float32 top-1: {top1_f32}\n  int8 top-1: {top1_int8}"
+        f"int8 encoding inverted the top result:\n  float32 top-1: {top1_f32}\n  int8 top-1: {top1_int8}"
     )
 
 
 # ---------------------------------------------------------------------------
 # TQ-024-004  float16 top-3 matches float32
 # ---------------------------------------------------------------------------
+
 
 def test_float16_ranking_matches_float32(tmp_path):
     """float16 is high-precision; its top-3 ranking must match float32."""
@@ -216,15 +253,13 @@ def test_float16_ranking_matches_float32(tmp_path):
     query = "database postgres connection pool"
     top3_f32 = h_f32.search(query, top_k=3)
     top3_f16 = h_f16.search(query, top_k=3)
-    assert top3_f32 == top3_f16, (
-        f"float16 top-3 diverges from float32:\n"
-        f"  float32: {top3_f32}\n  float16: {top3_f16}"
-    )
+    assert top3_f32 == top3_f16, f"float16 top-3 diverges from float32:\n  float32: {top3_f32}\n  float16: {top3_f16}"
 
 
 # ---------------------------------------------------------------------------
 # TQ-024-005  switching mode=off→int8 changes config hash and triggers refresh
 # ---------------------------------------------------------------------------
+
 
 def test_encoding_change_triggers_rebuild(tmp_path):
     """Switching mode=off to mode=int8 must produce a different config_hash and trigger refresh."""

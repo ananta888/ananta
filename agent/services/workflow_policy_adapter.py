@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 
-def decide_workflow_policy(descriptor: Any, *, approved: bool = False, safe_read_auto_allow: bool = True) -> dict[str, Any]:
+def decide_workflow_policy(
+    descriptor: Any, *, approved: bool = False, safe_read_auto_allow: bool = True
+) -> dict[str, Any]:
     capability = str(getattr(descriptor, "capability", "read")).lower()
     risk_class = str(getattr(descriptor, "risk_class", "medium")).lower()
     approval_required = bool(getattr(descriptor, "approval_required", capability in {"write", "admin"}))

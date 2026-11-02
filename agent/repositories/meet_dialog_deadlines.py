@@ -50,12 +50,14 @@ class SqlDialogDeadlines:
             expected["task_id"],
             "failed",
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda row: still_expired()
-            and row.task_kind == expected["task_kind"]
-            and row.tenant_id == expected["tenant_id"]
-            and row.project_id == expected["project_id"]
-            and row.parent_task_id == expected["parent_task_id"]
-            and row.worker_execution_context == expected["context"],
+            authoritative_predicate=lambda row: (
+                still_expired()
+                and row.task_kind == expected["task_kind"]
+                and row.tenant_id == expected["tenant_id"]
+                and row.project_id == expected["project_id"]
+                and row.parent_task_id == expected["parent_task_id"]
+                and row.worker_execution_context == expected["context"]
+            ),
             event_type=DEADLINE_BINDINGS[expected["task_kind"]].event_type,
             event_actor="hub",
             event_details={"reason": "original_deadline_expired"},

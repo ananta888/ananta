@@ -1,20 +1,18 @@
 """Tests for ChatAnswerBlock, SourceRef, HallucinationGuardrail — T05.04 + T05.05."""
+
 from __future__ import annotations
 
-import pytest
-
+from client_surfaces.operator_tui.chat_policy import (
+    validate_heuristic_answer,
+)
 from client_surfaces.operator_tui.chat_state import (
     ChatAnswerBlock,
     SourceRef,
     make_heuristic_message,
 )
-from client_surfaces.operator_tui.chat_policy import (
-    GuardrailResult,
-    validate_heuristic_answer,
-)
-
 
 # ── SourceRef ─────────────────────────────────────────────────────────────────
+
 
 def test_source_ref_to_dict():
     ref = SourceRef(ref="src/main.py", display_label="main.py")
@@ -31,6 +29,7 @@ def test_source_ref_default_display_label():
 
 
 # ── ChatAnswerBlock ───────────────────────────────────────────────────────────
+
 
 def test_answer_block_is_heuristic():
     block = ChatAnswerBlock(result_text="Test", is_heuristic=True)
@@ -90,9 +89,13 @@ def test_why_these_sources_capped_at_200():
 
 def test_from_decision_result():
     from agent.services.heuristic_runtime.decision_result import DecisionResult
+
     result = DecisionResult(
-        action_kind="chat", confidence=0.85, source="heuristic",
-        answer_kind="context_summary", selected_context_refs=["ref1", "ref2"]
+        action_kind="chat",
+        confidence=0.85,
+        source="heuristic",
+        answer_kind="context_summary",
+        selected_context_refs=["ref1", "ref2"],
     )
     block = ChatAnswerBlock.from_decision_result(result, confidence=0.85)
     assert block.is_heuristic
@@ -100,6 +103,7 @@ def test_from_decision_result():
 
 
 # ── make_heuristic_message ────────────────────────────────────────────────────
+
 
 def test_make_heuristic_message():
     block = ChatAnswerBlock(result_text="Test response", source_refs=[SourceRef("r1")])
@@ -111,6 +115,7 @@ def test_make_heuristic_message():
 
 
 # ── HallucinationGuardrail ────────────────────────────────────────────────────
+
 
 def _block(refs=None, text="Kontext gefunden.", confidence=0.9, uncertainty_note=""):
     return ChatAnswerBlock(

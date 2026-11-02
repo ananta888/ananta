@@ -56,10 +56,7 @@ class WorkflowWorkerAssignment:
             self.hub_task_id,
             self.worker_id,
         )
-        if any(
-            not value or len(value) > 256 or "\x00" in value
-            for value in identifiers
-        ):
+        if any(not value or len(value) > 256 or "\x00" in value for value in identifiers):
             raise WorkflowWorkerAssignmentError(
                 "workflow_worker_assignment_binding_invalid",
                 status_code=422,
@@ -174,9 +171,7 @@ class SQLAlchemyWorkflowWorkerAssignmentStore(SQLAlchemyStoreSupport):
                     .execution_options(synchronize_session=False)
                 )
                 if result.rowcount != 1:
-                    raise WorkflowWorkerAssignmentError(
-                        "workflow_worker_assignment_compare_and_set_failed"
-                    )
+                    raise WorkflowWorkerAssignmentError("workflow_worker_assignment_compare_and_set_failed")
             session.flush()
             return value
 
@@ -244,15 +239,12 @@ class WorkflowWorkerAssignmentService:
         worker_id = str(_value(worker, "name") or "").strip()
         worker_url = _normalize_url(_value(worker, "url"))
         authorized = {
-            str(value).strip()
-            for value in (_value(worker, "authorized_capabilities") or [])
-            if str(value).strip()
+            str(value).strip() for value in (_value(worker, "authorized_capabilities") or []) if str(value).strip()
         }
         if (
             str(_value(worker, "role") or "").strip().lower() != "worker"
             or not bool(_value(worker, "registration_validated"))
-            or str(_value(worker, "registration_provenance") or "")
-            != STRICT_WORKER_REGISTRATION_PROVENANCE
+            or str(_value(worker, "registration_provenance") or "") != STRICT_WORKER_REGISTRATION_PROVENANCE
             or binding["required_capability"] not in authorized
             or not worker_id
             or not worker_url
@@ -343,14 +335,9 @@ def _next_assignment(
         and current.hub_task_id == candidate.hub_task_id
     )
     if same_lease:
-        if (
-            current.worker_id == candidate.worker_id
-            and current.worker_url == candidate.worker_url
-        ):
+        if current.worker_id == candidate.worker_id and current.worker_url == candidate.worker_url:
             return current
-        raise WorkflowWorkerAssignmentError(
-            "workflow_worker_assignment_identity_conflict"
-        )
+        raise WorkflowWorkerAssignmentError("workflow_worker_assignment_identity_conflict")
     if candidate.fencing_token <= current.fencing_token:
         raise WorkflowWorkerAssignmentError("workflow_worker_assignment_stale")
     return replace(candidate, revision=current.revision + 1)
@@ -414,9 +401,7 @@ def _normalize_url(value: object) -> str:
     hostname = str(parsed.hostname).lower()
     host = f"[{hostname}]" if ":" in hostname else hostname
     netloc = f"{host}:{port}" if port is not None else host
-    return urlunsplit(
-        (parsed.scheme.lower(), netloc, parsed.path.rstrip("/"), "", "")
-    )
+    return urlunsplit((parsed.scheme.lower(), netloc, parsed.path.rstrip("/"), "", ""))
 
 
 __all__ = [

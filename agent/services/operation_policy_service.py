@@ -155,22 +155,14 @@ class OperationPolicyService:
         if schema_version != "1.0":
             raise OperationPolicyConfigError("operation_policy_schema_version_unsupported", field="schema_version")
         enabled = self._bool(raw, "enabled", True)
-        enforced_transports = self._string_list(
-            raw, "enforced_transports", ["mcp.resource", "mcp.tool"]
-        )
+        enforced_transports = self._string_list(raw, "enforced_transports", ["mcp.resource", "mcp.tool"])
         allow_operations = self._string_list(raw, "allow_operations", [])
         deny_operations = self._string_list(raw, "deny_operations", [])
         allow_groups = self._string_list(raw, "allow_groups", [])
         deny_groups = self._string_list(raw, "deny_groups", [])
-        allowed_auth_sources = self._string_list(
-            raw, "allowed_auth_sources", ["agent_auth", "user_jwt"]
-        )
-        admin_access = self._string_list(
-            raw, "require_admin_for_access_classes", ["admin", "write"]
-        )
-        approval_risks = self._string_list(
-            raw, "require_approval_for_risks", ["critical", "high"]
-        )
+        allowed_auth_sources = self._string_list(raw, "allowed_auth_sources", ["agent_auth", "user_jwt"])
+        admin_access = self._string_list(raw, "require_admin_for_access_classes", ["admin", "write"])
+        approval_risks = self._string_list(raw, "require_approval_for_risks", ["critical", "high"])
 
         for transport in enforced_transports:
             if transport not in _TRANSPORTS:
@@ -361,8 +353,14 @@ class OperationPolicyService:
         reason = "operation_allowed_degraded" if descriptor.lifecycle == "degraded" else "operation_allowed"
         return decision(True, reason, matched_allow)
 
-    def _decide_by_roles(self, descriptor: OperationDescriptor, policy: dict[str, Any], auth: OperationAuthContext,
-                         grants: Any, decision: Any) -> OperationPolicyDecision:
+    def _decide_by_roles(
+        self,
+        descriptor: OperationDescriptor,
+        policy: dict[str, Any],
+        auth: OperationAuthContext,
+        grants: Any,
+        decision: Any,
+    ) -> OperationPolicyDecision:
         """Bound access roles decide; a global deny, the admin requirement and approvals still bind."""
         if bool(policy.get("enabled")):
             if descriptor.operation_id in set(policy.get("deny_operations") or []):
@@ -376,8 +374,11 @@ class OperationPolicyService:
         if descriptor.access_class == "admin" and not (auth.is_admin or grants.admin):
             return decision(False, "operation_admin_required", "access:admin:admin")
         enforced = bool(policy.get("enabled")) and descriptor.transport in set(policy.get("enforced_transports") or [])
-        if (enforced and descriptor.risk_class in set(policy.get("require_approval_for_risks") or [])
-                and not auth.approval_granted):
+        if (
+            enforced
+            and descriptor.risk_class in set(policy.get("require_approval_for_risks") or [])
+            and not auth.approval_granted
+        ):
             return decision(False, "operation_approval_required", f"risk:approval:{descriptor.risk_class}")
         reason = "operation_allowed_degraded" if descriptor.lifecycle == "degraded" else "operation_allowed"
         return decision(True, reason, rule_id)

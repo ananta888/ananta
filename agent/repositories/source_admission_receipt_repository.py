@@ -51,18 +51,14 @@ class SourceAdmissionCounters:
                 continue
             value = getattr(self, field_definition.name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise SourceAdmissionReceiptPersistenceError(
-                    "source_admission_receipt_counter_invalid"
-                )
+                raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_counter_invalid")
         if (
             isinstance(self.archive_expansion_ratio, bool)
             or not isinstance(self.archive_expansion_ratio, (int, float))
             or not math.isfinite(float(self.archive_expansion_ratio))
             or self.archive_expansion_ratio < 0
         ):
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_expansion_ratio_invalid"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_expansion_ratio_invalid")
 
 
 @dataclass(frozen=True)
@@ -89,30 +85,20 @@ class SourceAdmissionReceiptDraft:
         ):
             value = str(getattr(self, name) or "").strip()
             if not value or len(value) > max_length:
-                raise SourceAdmissionReceiptPersistenceError(
-                    f"source_admission_receipt_{name}_invalid"
-                )
+                raise SourceAdmissionReceiptPersistenceError(f"source_admission_receipt_{name}_invalid")
             object.__setattr__(self, name, value)
 
         raw_state = getattr(self.decision_state, "value", self.decision_state)
         state = str(raw_state)
         if state not in {"admitted", "blocked"}:
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_decision_invalid"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_decision_invalid")
         object.__setattr__(self, "decision_state", state)
 
         reasons = tuple(str(reason) for reason in self.reason_codes)
-        if reasons != tuple(sorted(set(reasons))) or any(
-            _REASON_CODE.fullmatch(reason) is None for reason in reasons
-        ):
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_reasons_invalid"
-            )
+        if reasons != tuple(sorted(set(reasons))) or any(_REASON_CODE.fullmatch(reason) is None for reason in reasons):
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_reasons_invalid")
         if (state == "blocked") != bool(reasons):
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_reasons_mismatch"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_reasons_mismatch")
         object.__setattr__(self, "reason_codes", reasons)
 
         for name in (
@@ -124,18 +110,14 @@ class SourceAdmissionReceiptDraft:
             "admission_digest",
         ):
             if _SHA256.fullmatch(str(getattr(self, name) or "")) is None:
-                raise SourceAdmissionReceiptPersistenceError(
-                    f"source_admission_receipt_{name}_invalid"
-                )
+                raise SourceAdmissionReceiptPersistenceError(f"source_admission_receipt_{name}_invalid")
         if (
             isinstance(self.evaluated_at_epoch, bool)
             or not isinstance(self.evaluated_at_epoch, (int, float))
             or not math.isfinite(float(self.evaluated_at_epoch))
             or self.evaluated_at_epoch < 0
         ):
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_timestamp_invalid"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_timestamp_invalid")
 
 
 @dataclass(frozen=True)
@@ -146,18 +128,14 @@ class SourceAdmissionReceiptRecord(SourceAdmissionReceiptDraft):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.receipt_id != f"sar_{self.admission_digest}":
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_identity_invalid"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_identity_invalid")
         if (
             isinstance(self.persisted_at_epoch, bool)
             or not isinstance(self.persisted_at_epoch, (int, float))
             or not math.isfinite(float(self.persisted_at_epoch))
             or self.persisted_at_epoch < 0
         ):
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_timestamp_invalid"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_timestamp_invalid")
 
     def as_draft(self) -> SourceAdmissionReceiptDraft:
         return SourceAdmissionReceiptDraft(
@@ -228,16 +206,12 @@ class SQLSourceAdmissionReceiptRepository:
                 )
             ).first()
             if revision is None:
-                raise SourceAdmissionReceiptPersistenceError(
-                    "source_admission_revision_not_found"
-                )
+                raise SourceAdmissionReceiptPersistenceError("source_admission_revision_not_found")
             if (
                 revision.revision_digest != receipt.revision_digest
                 or revision.content_manifest_digest != receipt.manifest_digest
             ):
-                raise SourceAdmissionReceiptPersistenceError(
-                    "source_admission_revision_digest_mismatch"
-                )
+                raise SourceAdmissionReceiptPersistenceError("source_admission_revision_digest_mismatch")
 
             existing = db.get(SourceAdmissionReceiptDB, receipt_id)
             if existing is not None:
@@ -269,9 +243,7 @@ class SQLSourceAdmissionReceiptRepository:
                 concurrent = db.get(SourceAdmissionReceiptDB, receipt_id)
                 if concurrent is not None:
                     return self._idempotent_or_conflict(concurrent, receipt)
-                raise SourceAdmissionReceiptPersistenceError(
-                    "source_admission_receipt_identity_conflict"
-                ) from None
+                raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_identity_conflict") from None
             db.refresh(row)
             return self._record(row)
 
@@ -289,8 +261,7 @@ class SQLSourceAdmissionReceiptRepository:
                     SourceAdmissionReceiptDB.receipt_id == receipt_id,
                     SourceAdmissionReceiptDB.tenant_id == tenant_id,
                     SourceAdmissionReceiptDB.project_id == project_id,
-                    SourceAdmissionReceiptDB.source_revision_id
-                    == source_revision_id,
+                    SourceAdmissionReceiptDB.source_revision_id == source_revision_id,
                 )
             ).first()
             return None if row is None else self._record(row)
@@ -320,16 +291,13 @@ class SQLSourceAdmissionReceiptRepository:
     ) -> SourceAdmissionReceiptRecord:
         record = cls._record(row)
         if record.as_draft() != receipt:
-            raise SourceAdmissionReceiptPersistenceError(
-                "source_admission_receipt_identity_conflict"
-            )
+            raise SourceAdmissionReceiptPersistenceError("source_admission_receipt_identity_conflict")
         return record
 
     @staticmethod
     def _counter_values(counters: SourceAdmissionCounters) -> dict[str, object]:
         return {
-            field_definition.name: getattr(counters, field_definition.name)
-            for field_definition in fields(counters)
+            field_definition.name: getattr(counters, field_definition.name) for field_definition in fields(counters)
         }
 
     @staticmethod

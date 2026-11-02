@@ -29,9 +29,7 @@ def upgrade() -> None:
     columns = {row["name"] for row in inspect(bind).get_columns("speech_evidence_offers")}
     with op.batch_alter_table("speech_evidence_offers") as batch:
         if "group_previews" not in columns:
-            batch.add_column(
-                sa.Column("group_previews", sa.JSON(), nullable=False, server_default=sa.text("'[]'"))
-            )
+            batch.add_column(sa.Column("group_previews", sa.JSON(), nullable=False, server_default=sa.text("'[]'")))
         if "group_preview_digest" not in columns:
             batch.add_column(
                 sa.Column(

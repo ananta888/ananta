@@ -33,7 +33,10 @@ def _setup(monkeypatch):
 
 
 def test_style_read_model_is_versioned_explainable_and_capability_protected(
-    client, admin_token, user_auth_header, monkeypatch,
+    client,
+    admin_token,
+    user_auth_header,
+    monkeypatch,
 ):
     _setup(monkeypatch)
 
@@ -48,7 +51,9 @@ def test_style_read_model_is_versioned_explainable_and_capability_protected(
 
 
 def test_style_mutation_rejects_unknown_fields_and_revision_conflicts(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     service = _setup(monkeypatch)
     current = service.read().configuration.model_dump(mode="json", by_alias=True)
@@ -60,14 +65,19 @@ def test_style_mutation_rejects_unknown_fields_and_revision_conflicts(
         "overlays": current["overlays"],
     }
     invalid = client.put(
-        "/models/styles/v1", json={**body, "permission_grant": "admin"},
+        "/models/styles/v1",
+        json={**body, "permission_grant": "admin"},
         headers=_headers(admin_token),
     )
     applied = client.put(
-        "/models/styles/v1", json=body, headers=_headers(admin_token),
+        "/models/styles/v1",
+        json=body,
+        headers=_headers(admin_token),
     )
     conflict = client.put(
-        "/models/styles/v1", json=body, headers=_headers(admin_token),
+        "/models/styles/v1",
+        json=body,
+        headers=_headers(admin_token),
     )
 
     assert invalid.status_code == 400
@@ -77,12 +87,14 @@ def test_style_mutation_rejects_unknown_fields_and_revision_conflicts(
 
 
 def test_benchmark_plan_is_fixed_and_async_run_is_bounded(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     _setup(monkeypatch)
-    monkeypatch.setattr(routes, "_profiles", lambda: (
-        ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),
-    ))
+    monkeypatch.setattr(
+        routes, "_profiles", lambda: (ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),)
+    )
 
     class _Jobs:
         def submit_cognitive_style_benchmark_job(self, **kwargs):
@@ -101,14 +113,16 @@ def test_benchmark_plan_is_fixed_and_async_run_is_bounded(
         "context": _context(),
         "repeats": 2,
         "seeds": [17, 41],
-        "temperatures": [0, .4],
+        "temperatures": [0, 0.4],
     }
     plan = client.post(
-        "/models/styles/v1/benchmarks/plan", json=body,
+        "/models/styles/v1/benchmarks/plan",
+        json=body,
         headers=_headers(admin_token),
     )
     run = client.post(
-        "/models/styles/v1/benchmarks/run", json=body,
+        "/models/styles/v1/benchmarks/run",
+        json=body,
         headers=_headers(admin_token),
     )
 
@@ -119,7 +133,9 @@ def test_benchmark_plan_is_fixed_and_async_run_is_bounded(
 
 
 def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     _setup(monkeypatch)
     mismatch = client.post(
@@ -128,10 +144,14 @@ def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
             "schema": "ananta.style-mismatch-record-command.v1",
             "expected_revision": 0,
             "evidence": {
-                "evidence_id": "evidence-1", "agent_id": "agent-1",
-                "role_id": "reviewer", "model_profile_id": "local-chat",
-                "signal": "rework", "observed_at": "2026-08-25T00:00:00Z",
-                "correlation_score": .3, "hypothesis": "Style könnte beitragen.",
+                "evidence_id": "evidence-1",
+                "agent_id": "agent-1",
+                "role_id": "reviewer",
+                "model_profile_id": "local-chat",
+                "signal": "rework",
+                "observed_at": "2026-08-25T00:00:00Z",
+                "correlation_score": 0.3,
+                "hypothesis": "Style könnte beitragen.",
                 "alternative_causes": ["Unvollständiger Kontext"],
             },
         },
@@ -143,7 +163,8 @@ def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
             "schema": "ananta.style-evolution-proposal-command.v1",
             "expected_revision": 1,
             "proposal": {
-                "proposal_id": "proposal-1", "proposal_type": "role_overlay",
+                "proposal_id": "proposal-1",
+                "proposal_type": "role_overlay",
                 "hypothesis": "Ein Overlay reduziert Rework.",
                 "expected_effect": "Weniger Rework.",
                 "payload": {"role_id": "reviewer"},
@@ -157,7 +178,8 @@ def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
             "schema": "ananta.style-evolution-transition-mutation-command.v1",
             "expected_revision": 2,
             "transition": {
-                "expected_status": "proposed", "target_status": "applied",
+                "expected_status": "proposed",
+                "target_status": "applied",
             },
         },
         headers=_headers(admin_token),
@@ -169,7 +191,9 @@ def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
 
 
 def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     _setup(monkeypatch)
     headers = _headers(admin_token)
@@ -186,12 +210,17 @@ def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
         "/models/styles/v1/retrospectives/analyze",
         json={
             "schema": "ananta.style-retrospective-analysis-command.v1",
-            "signals": [{
-                "agent_id": "agent-1", "role_id": "reviewer",
-                "model_profile_id": "local-chat", "signal": "rework",
-                "observed_at": "2026-08-25T00:00:00Z", "severity": .5,
-                "evidence_refs": ["RUN_caller_supplied"],
-            }],
+            "signals": [
+                {
+                    "agent_id": "agent-1",
+                    "role_id": "reviewer",
+                    "model_profile_id": "local-chat",
+                    "signal": "rework",
+                    "observed_at": "2026-08-25T00:00:00Z",
+                    "severity": 0.5,
+                    "evidence_refs": ["RUN_caller_supplied"],
+                }
+            ],
         },
         headers=headers,
     )
@@ -223,12 +252,20 @@ def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
             "schema": "ananta.complementary-style-experiment-command.v1",
             "experiment_id": "paired-run-1",
             "complementary": {
-                "quality_score": .9, "rework_count": 1, "cost_units": 5,
-                "duration_seconds": 10, "gates_passed": 3, "gates_total": 3,
+                "quality_score": 0.9,
+                "rework_count": 1,
+                "cost_units": 5,
+                "duration_seconds": 10,
+                "gates_passed": 3,
+                "gates_total": 3,
             },
             "homogeneous_control": {
-                "quality_score": .7, "rework_count": 2, "cost_units": 4,
-                "duration_seconds": 9, "gates_passed": 2, "gates_total": 3,
+                "quality_score": 0.7,
+                "rework_count": 2,
+                "cost_units": 4,
+                "duration_seconds": 9,
+                "gates_passed": 2,
+                "gates_total": 3,
             },
         },
         headers=headers,
@@ -244,12 +281,14 @@ def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
 
 
 def test_drift_rebenchmark_queues_one_revision_safe_hub_batch(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     _setup(monkeypatch)
-    monkeypatch.setattr(routes, "_profiles", lambda: (
-        ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),
-    ))
+    monkeypatch.setattr(
+        routes, "_profiles", lambda: (ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),)
+    )
 
     class _Jobs:
         def submit_cognitive_style_rebenchmark_job(self, **kwargs):
@@ -280,7 +319,9 @@ def test_drift_rebenchmark_queues_one_revision_safe_hub_batch(
 
 
 def test_drift_rebenchmark_rejects_revision_conflict_before_queueing(
-    client, admin_token, monkeypatch,
+    client,
+    admin_token,
+    monkeypatch,
 ):
     _setup(monkeypatch)
     response = client.post(

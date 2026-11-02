@@ -1,4 +1,5 @@
 """TuiArtifactIntentStrategy — implements snake_tui_artifact_intent_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import (

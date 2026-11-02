@@ -1,4 +1,5 @@
 """ananta task — task inspection and management."""
+
 from __future__ import annotations
 
 import argparse
@@ -35,12 +36,11 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     sub = p.add_subparsers(dest="task_cmd", metavar="<action>")
 
     ins_p = sub.add_parser("inspect", help="Inspect a task's prompt traces and latest response.")
-    ins_p.add_argument("task_id", nargs="?", default="",
-                       help="Task ID or prefix. Omit for interactive selection.")
-    ins_p.add_argument("--task-id", dest="task_id_opt", default="",
-                       help="Task ID or prefix (alias for positional task_id).")
-    ins_p.add_argument("--goal-id", dest="goal_id", default="",
-                       help="Filter interactive list by goal ID.")
+    ins_p.add_argument("task_id", nargs="?", default="", help="Task ID or prefix. Omit for interactive selection.")
+    ins_p.add_argument(
+        "--task-id", dest="task_id_opt", default="", help="Task ID or prefix (alias for positional task_id)."
+    )
+    ins_p.add_argument("--goal-id", dest="goal_id", default="", help="Filter interactive list by goal ID.")
     ins_p.add_argument("--json", action="store_true")
     ins_p.add_argument("--base-url", default=None)
     ins_p.add_argument("--user", default=_DEFAULT_USER)
@@ -94,21 +94,19 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _not_implemented(name: str) -> int:
     print(f"Error: 'ananta {name}' is not yet implemented.", file=sys.stderr)
     return 1
 
 
 def _base_url(parsed) -> str:
-    return (
-        getattr(parsed, "base_url", None)
-        or os.environ.get("ANANTA_BASE_URL", "")
-        or _DEFAULT_BASE_URL
-    )
+    return getattr(parsed, "base_url", None) or os.environ.get("ANANTA_BASE_URL", "") or _DEFAULT_BASE_URL
 
 
 def _login(base: str, user: str, password: str) -> str:
     import requests
+
     resp = requests.post(
         f"{base}/login",
         json={"username": user, "password": password},
@@ -131,6 +129,7 @@ def _resolve_task_id(parsed) -> str | None:
         return partial  # full UUID
 
     from agent.cli.utils.interactive import fetch_tasks, resolve_id
+
     base = _base_url(parsed)
     goal_id = getattr(parsed, "goal_id", "")
     try:
@@ -154,6 +153,7 @@ def _cmd_inspect(parsed) -> int:
     if not tid:
         return 2
     from agent.cli.prompt_inspect import run_prompt_command
+
     parsed.task_id = tid
     parsed.prompt_cmd = "task-inspect"
     return run_prompt_command(parsed)
@@ -161,6 +161,7 @@ def _cmd_inspect(parsed) -> int:
 
 def _cmd_list(parsed) -> int:
     import requests
+
     base = _base_url(parsed)
     try:
         token = _login(base, parsed.user, parsed.password)
@@ -184,11 +185,7 @@ def _cmd_list(parsed) -> int:
         print(f"{'TASK ID':<38} {'STATUS':<20} TITLE")
         print("-" * 90)
         for t in tasks:
-            print(
-                f"{t.get('id', ''):<38} "
-                f"{t.get('status', ''):20} "
-                f"{t.get('title', '')[:40]}"
-            )
+            print(f"{t.get('id', ''):<38} {t.get('status', ''):20} {t.get('title', '')[:40]}")
         if not tasks:
             print("(no tasks)")
     return 0

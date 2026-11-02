@@ -27,7 +27,9 @@ class ProviderRouter:
                 return False
         return True
 
-    def resolve_route(self, *, payload: dict[str, Any], envelope: dict[str, Any] | None = None) -> tuple[UpstreamConfig, str]:
+    def resolve_route(
+        self, *, payload: dict[str, Any], envelope: dict[str, Any] | None = None
+    ) -> tuple[UpstreamConfig, str]:
         env = dict(envelope or {})
         caller = dict(env.get("caller_metadata") or payload.get("caller") or {})
         task = dict(env.get("task_metadata") or payload.get("task") or {})

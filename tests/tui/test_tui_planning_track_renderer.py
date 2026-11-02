@@ -42,7 +42,9 @@ def _payload() -> dict:
             "tasks_status_summary": {"total": 1, "by_status": {"todo": 1, "done": 0}},
             "progress_summary": {"state": "todo", "count_based_percent": 0, "weighted_percent": 0},
             "weighted_progress_summary": {"blocked_weight": 0},
-            "tasks_type_summary": {"by_type": {"test": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0}}},
+            "tasks_type_summary": {
+                "by_type": {"test": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0}}
+            },
             "derived_summary_metadata": {"source_hash": "abcdef1234567890"},
             "summary_recalculation_status": "repaired",
             "repaired_fields": ["tasks_status_summary"],

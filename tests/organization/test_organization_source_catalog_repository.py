@@ -90,32 +90,36 @@ def _snapshot(tmp_path):
     manifest_content = b'{"coverage":{},"exclusions":[]}\n'
     (tmp_path / "index.jsonl").write_bytes(index_content)
     (tmp_path / "manifest.json").write_bytes(manifest_content)
-    public_manifest = CodeCompassArtifactManifestProjector().project(
-        knowledge_index_id="index-1",
-        run_id="run-1",
-        source_revision_id="revision-1",
-        references=[
-            {
-                "role": "manifest",
-                "filename": "manifest.json",
-                "artifact_schema": "knowledge_index_manifest.v1",
-                "media_type": "application/json",
-                "size_bytes": len(manifest_content),
-                "sha256": _sha256(manifest_content),
-            },
-            {
-                "role": "index",
-                "filename": "index.jsonl",
-                "artifact_schema": "knowledge_index_records.v1",
-                "media_type": "application/jsonl",
-                "size_bytes": len(index_content),
-                "sha256": _sha256(index_content),
-            },
-        ],
-        coverage={},
-        exclusions=(),
-        status="completed",
-    ).to_dict()
+    public_manifest = (
+        CodeCompassArtifactManifestProjector()
+        .project(
+            knowledge_index_id="index-1",
+            run_id="run-1",
+            source_revision_id="revision-1",
+            references=[
+                {
+                    "role": "manifest",
+                    "filename": "manifest.json",
+                    "artifact_schema": "knowledge_index_manifest.v1",
+                    "media_type": "application/json",
+                    "size_bytes": len(manifest_content),
+                    "sha256": _sha256(manifest_content),
+                },
+                {
+                    "role": "index",
+                    "filename": "index.jsonl",
+                    "artifact_schema": "knowledge_index_records.v1",
+                    "media_type": "application/jsonl",
+                    "size_bytes": len(index_content),
+                    "sha256": _sha256(index_content),
+                },
+            ],
+            coverage={},
+            exclusions=(),
+            status="completed",
+        )
+        .to_dict()
+    )
     index = KnowledgeIndexDB(
         id="index-1",
         latest_run_id="run-1",

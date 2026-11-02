@@ -1,4 +1,5 @@
 """ananta runtime — runtime profile management commands."""
+
 from __future__ import annotations
 
 import argparse
@@ -66,7 +67,9 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     llmi_p = sub.add_parser("llm-interceptor", help="Validate/start OpenAI-compatible interceptor.")
     llmi_p.add_argument("--config", required=True, help="Path to interceptor config JSON.")
     llmi_p.add_argument("--dry-run", action="store_true", help="Validate config and print startup summary only.")
-    llmi_p.add_argument("--dev-fake-upstream", action="store_true", help="Run with fake upstream mode note (no secret output).")
+    llmi_p.add_argument(
+        "--dev-fake-upstream", action="store_true", help="Run with fake upstream mode note (no secret output)."
+    )
 
 
 def dispatch(argv: Sequence[str]) -> int:
@@ -94,6 +97,8 @@ def dispatch(argv: Sequence[str]) -> int:
         return _cmd_llm_interceptor(parsed)
     parser.print_help()
     return 0
+
+
 def register(subparsers: Any) -> None:
     p = subparsers.add_parser("runtime", help="List and inspect runtime profiles.")
     _configure_subparsers(p)
@@ -102,8 +107,10 @@ def register(subparsers: Any) -> None:
 
 # ── Implementations ────────────────────────────────────────────────────────────
 
+
 def _get_catalog() -> dict:
     from agent.runtime_profiles import _RUNTIME_PROFILE_CATALOG
+
     return _RUNTIME_PROFILE_CATALOG
 
 
@@ -111,8 +118,7 @@ def _cmd_list(parsed) -> int:
     catalog = _get_catalog()
     if getattr(parsed, "json", False):
         out = [
-            {"id": k, "label": v.get("label", k), "description": v.get("description", "")}
-            for k, v in catalog.items()
+            {"id": k, "label": v.get("label", k), "description": v.get("description", "")} for k, v in catalog.items()
         ]
         print(json.dumps(out, indent=2, ensure_ascii=False))
     else:
@@ -145,11 +151,13 @@ def _cmd_inspect(parsed) -> int:
 
 def _cmd_recommend(parsed) -> int:
     import sys
+
     try:
         from agent.services.runtime_profile_recommender import (
             RuntimeRecommendationRequest,
             recommend_runtime_profile,
         )
+
         req = RuntimeRecommendationRequest(
             hardware_hint=getattr(parsed, "hardware", "") or None,
             use_case_hint=getattr(parsed, "use_case", "") or None,
@@ -174,11 +182,9 @@ def _cmd_recommend(parsed) -> int:
 def _cmd_llm_interceptor(parsed) -> int:
     import sys
 
+    from agent.routes.llm_interceptor_openai_compat import run_interceptor_server
     from agent.services.llm_interceptor.config_schema import load_llm_interceptor_config
-    from agent.services.llm_interceptor.openai_compat_server import (
-        OpenAICompatInterceptorServer,
-        run_interceptor_server,
-    )
+    from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer
 
     try:
         cfg = load_llm_interceptor_config(parsed.config)

@@ -55,13 +55,26 @@ class UnavailableCodeCompassLayerBackend:
     def _unavailable(self):
         raise RuntimeError("codecompass_layer_worker_dispatch_required")
 
-    def list_profiles(self) -> list[str]: self._unavailable()
-    def show_head(self, profile_id: str) -> dict[str, Any] | None: self._unavailable()
-    def diff(self, **kwargs: Any) -> dict[str, Any]: self._unavailable()
-    def plan_update(self, **kwargs: Any) -> dict[str, Any]: self._unavailable()
-    def apply_update(self, **kwargs: Any) -> dict[str, Any]: self._unavailable()
-    def compact(self, **kwargs: Any) -> dict[str, Any]: self._unavailable()
-    def admit_result(self, result: Mapping[str, Any]) -> dict[str, Any]: self._unavailable()
+    def list_profiles(self) -> list[str]:
+        self._unavailable()
+
+    def show_head(self, profile_id: str) -> dict[str, Any] | None:
+        self._unavailable()
+
+    def diff(self, **kwargs: Any) -> dict[str, Any]:
+        self._unavailable()
+
+    def plan_update(self, **kwargs: Any) -> dict[str, Any]:
+        self._unavailable()
+
+    def apply_update(self, **kwargs: Any) -> dict[str, Any]:
+        self._unavailable()
+
+    def compact(self, **kwargs: Any) -> dict[str, Any]:
+        self._unavailable()
+
+    def admit_result(self, result: Mapping[str, Any]) -> dict[str, Any]:
+        self._unavailable()
 
 
 class CodeCompassLayerDispatchBackend:
@@ -111,10 +124,7 @@ class CodeCompassLayerDispatchBackend:
     def _plan_binding(plan: Mapping[str, Any]) -> tuple[str, list[str]]:
         manifest = plan.get("new_manifest") if isinstance(plan.get("new_manifest"), Mapping) else {}
         revision = str(
-            plan.get("input_revision")
-            or plan.get("target_revision")
-            or manifest.get("revision")
-            or ""
+            plan.get("input_revision") or plan.get("target_revision") or manifest.get("revision") or ""
         ).strip()
         raw_kinds = plan.get("artifact_kinds")
         if not raw_kinds:
@@ -289,18 +299,32 @@ class CodeCompassLayerService:
     def __init__(self, backend: CodeCompassLayerBackendPort | None = None) -> None:
         self._backend = backend or UnavailableCodeCompassLayerBackend()
 
-    def list_profiles(self) -> list[str]: return self._backend.list_profiles()
-    def show_head(self, profile_id: str) -> dict[str, Any] | None: return self._backend.show_head(profile_id)
+    def list_profiles(self) -> list[str]:
+        return self._backend.list_profiles()
+
+    def show_head(self, profile_id: str) -> dict[str, Any] | None:
+        return self._backend.show_head(profile_id)
+
     def scoped_query(self, capability):
         resolve = getattr(self._backend, "scoped_query", None)
         if not callable(resolve):
             raise ValueError("codecompass_layer_scoped_query_unavailable")
         return resolve(capability)
-    def diff(self, **kwargs: Any) -> dict[str, Any]: return self._backend.diff(**kwargs)
-    def plan_update(self, **kwargs: Any) -> dict[str, Any]: return self._backend.plan_update(**kwargs)
-    def apply_update(self, **kwargs: Any) -> dict[str, Any]: return self._backend.apply_update(**kwargs)
-    def compact(self, **kwargs: Any) -> dict[str, Any]: return self._backend.compact(**kwargs)
-    def admit_result(self, result: Mapping[str, Any]) -> dict[str, Any]: return self._backend.admit_result(result)
+
+    def diff(self, **kwargs: Any) -> dict[str, Any]:
+        return self._backend.diff(**kwargs)
+
+    def plan_update(self, **kwargs: Any) -> dict[str, Any]:
+        return self._backend.plan_update(**kwargs)
+
+    def apply_update(self, **kwargs: Any) -> dict[str, Any]:
+        return self._backend.apply_update(**kwargs)
+
+    def compact(self, **kwargs: Any) -> dict[str, Any]:
+        return self._backend.compact(**kwargs)
+
+    def admit_result(self, result: Mapping[str, Any]) -> dict[str, Any]:
+        return self._backend.admit_result(result)
 
     def job(self, task_id: str) -> Mapping[str, Any] | None:
         """The active dispatch record of a delegated layer job, if the backend dispatches."""

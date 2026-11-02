@@ -25,7 +25,6 @@ from ananta_contracts.cognitive_style import (
 )
 from ananta_contracts.model_selection import (
     AgentStyleProfile,
-    CognitiveStyleVector,
     RoleStyleTarget,
     StyleRange,
 )
@@ -45,25 +44,19 @@ class CognitiveStyleConflict(RuntimeError):
 
 class CognitiveStyleStatePort(Protocol):
     def load(self) -> CognitiveStylePersistedState: ...
-    def save_if_revision(
-        self, expected_revision: int, state: CognitiveStylePersistedState
-    ) -> bool: ...
+    def save_if_revision(self, expected_revision: int, state: CognitiveStylePersistedState) -> bool: ...
 
 
 class InMemoryCognitiveStyleStateRepository:
     def __init__(self, state: CognitiveStylePersistedState | None = None) -> None:
-        self._state = state or CognitiveStylePersistedState(
-            configuration=CognitiveStyleConfiguration(revision=0)
-        )
+        self._state = state or CognitiveStylePersistedState(configuration=CognitiveStyleConfiguration(revision=0))
         self._lock = RLock()
 
     def load(self) -> CognitiveStylePersistedState:
         with self._lock:
             return self._state
 
-    def save_if_revision(
-        self, expected_revision: int, state: CognitiveStylePersistedState
-    ) -> bool:
+    def save_if_revision(self, expected_revision: int, state: CognitiveStylePersistedState) -> bool:
         with self._lock:
             if self._state.configuration.revision != expected_revision:
                 return False
@@ -82,42 +75,100 @@ def standard_role_style_targets() -> tuple[RoleStyleTarget, ...]:
         return RoleStyleTarget(
             target_id=f"standard.{role}.v1",
             role_id=role,
-            rule_correctness=StyleRange(
-                minimum=rule[0], maximum=rule[1], weight=rule[2]
-            ),
-            truth_exploration=StyleRange(
-                minimum=truth[0], maximum=truth[1], weight=truth[2]
-            ),
-            initiative_assertiveness=StyleRange(
-                minimum=initiative[0], maximum=initiative[1], weight=initiative[2]
-            ),
+            rule_correctness=StyleRange(minimum=rule[0], maximum=rule[1], weight=rule[2]),
+            truth_exploration=StyleRange(minimum=truth[0], maximum=truth[1], weight=truth[2]),
+            initiative_assertiveness=StyleRange(minimum=initiative[0], maximum=initiative[1], weight=initiative[2]),
             rationale=rationale,
         )
 
     return (
-        target("developer", (.75, 1, 2), (.35, .75, 1), (.3, .7, 1), "Reproduzierbare Umsetzung mit begrenzter Exploration."),
-        target("implementer", (.8, 1, 2), (.3, .7, 1), (.3, .65, 1), "Definition-of-Done und Verträge stehen im Vordergrund."),
-        target("qa", (.8, 1, 2), (.65, 1, 2), (.25, .7, 1), "Korrektheit plus aktive Suche nach Gegenbeispielen."),
-        target("verifier", (.85, 1, 2), (.65, 1, 2), (.2, .65, 1), "Evidenzbasierte, reproduzierbare Verifikation."),
-        target("researcher", (.35, .8, 1), (.8, 1, 3), (.4, .8, 1), "Prämissen, Evidenz und Alternativerklärungen explorieren."),
-        target("architect", (.5, .9, 1), (.75, 1, 3), (.45, .85, 1), "Systemische Annahmen und langfristige Folgen prüfen."),
-        target("reviewer", (.65, 1, 2), (.75, 1, 3), (.35, .8, 1), "Korrektheit prüfen und schwache Prämissen offenlegen."),
-        target("challenger", (.3, .8, 1), (.8, 1, 3), (.75, 1, 2), "Begründete Gegenpositionen innerhalb expliziter Grenzen."),
-        target("red_team", (.45, .9, 1), (.8, 1, 3), (.7, 1, 2), "Risiken und Gegenbeispiele aktiv suchen, ohne Rechte auszuweiten."),
-        target("product", (.45, .85, 1), (.55, .9, 2), (.5, .85, 2), "Balanciert Zielklarheit, Lernen und Entscheidung."),
-        target("planner", (.55, .9, 2), (.55, .9, 2), (.4, .8, 1), "Umsetzbare Pläne mit Prämissenprüfung."),
-        target("scrum_master", (.4, .8, 1), (.45, .85, 2), (.4, .8, 2), "Facilitation, Goal-Fokus und Anpassungsfähigkeit statt Starrheit."),
-        target("coordinator", (.5, .85, 1), (.45, .8, 1), (.45, .8, 2), "Koordination bleibt an Ziele und Hub-Grenzen gebunden."),
-        target("coder", (.75, 1, 2), (.35, .75, 1), (.3, .7, 1), "Technischer Alias für Implementierungsrollen."),
-        target("reasoning", (.4, .85, 1), (.75, 1, 3), (.35, .8, 1), "Generische explorative Reasoning-Rolle."),
-        target("chat", (.4, .85, 1), (.4, .85, 1), (.35, .8, 1), "Ausgewogene interaktive Assistenz."),
+        target(
+            "developer",
+            (0.75, 1, 2),
+            (0.35, 0.75, 1),
+            (0.3, 0.7, 1),
+            "Reproduzierbare Umsetzung mit begrenzter Exploration.",
+        ),
+        target(
+            "implementer",
+            (0.8, 1, 2),
+            (0.3, 0.7, 1),
+            (0.3, 0.65, 1),
+            "Definition-of-Done und Verträge stehen im Vordergrund.",
+        ),
+        target("qa", (0.8, 1, 2), (0.65, 1, 2), (0.25, 0.7, 1), "Korrektheit plus aktive Suche nach Gegenbeispielen."),
+        target(
+            "verifier", (0.85, 1, 2), (0.65, 1, 2), (0.2, 0.65, 1), "Evidenzbasierte, reproduzierbare Verifikation."
+        ),
+        target(
+            "researcher",
+            (0.35, 0.8, 1),
+            (0.8, 1, 3),
+            (0.4, 0.8, 1),
+            "Prämissen, Evidenz und Alternativerklärungen explorieren.",
+        ),
+        target(
+            "architect",
+            (0.5, 0.9, 1),
+            (0.75, 1, 3),
+            (0.45, 0.85, 1),
+            "Systemische Annahmen und langfristige Folgen prüfen.",
+        ),
+        target(
+            "reviewer",
+            (0.65, 1, 2),
+            (0.75, 1, 3),
+            (0.35, 0.8, 1),
+            "Korrektheit prüfen und schwache Prämissen offenlegen.",
+        ),
+        target(
+            "challenger",
+            (0.3, 0.8, 1),
+            (0.8, 1, 3),
+            (0.75, 1, 2),
+            "Begründete Gegenpositionen innerhalb expliziter Grenzen.",
+        ),
+        target(
+            "red_team",
+            (0.45, 0.9, 1),
+            (0.8, 1, 3),
+            (0.7, 1, 2),
+            "Risiken und Gegenbeispiele aktiv suchen, ohne Rechte auszuweiten.",
+        ),
+        target(
+            "product",
+            (0.45, 0.85, 1),
+            (0.55, 0.9, 2),
+            (0.5, 0.85, 2),
+            "Balanciert Zielklarheit, Lernen und Entscheidung.",
+        ),
+        target("planner", (0.55, 0.9, 2), (0.55, 0.9, 2), (0.4, 0.8, 1), "Umsetzbare Pläne mit Prämissenprüfung."),
+        target(
+            "scrum_master",
+            (0.4, 0.8, 1),
+            (0.45, 0.85, 2),
+            (0.4, 0.8, 2),
+            "Facilitation, Goal-Fokus und Anpassungsfähigkeit statt Starrheit.",
+        ),
+        target(
+            "coordinator",
+            (0.5, 0.85, 1),
+            (0.45, 0.8, 1),
+            (0.45, 0.8, 2),
+            "Koordination bleibt an Ziele und Hub-Grenzen gebunden.",
+        ),
+        target("coder", (0.75, 1, 2), (0.35, 0.75, 1), (0.3, 0.7, 1), "Technischer Alias für Implementierungsrollen."),
+        target("reasoning", (0.4, 0.85, 1), (0.75, 1, 3), (0.35, 0.8, 1), "Generische explorative Reasoning-Rolle."),
+        target("chat", (0.4, 0.85, 1), (0.4, 0.85, 1), (0.35, 0.8, 1), "Ausgewogene interaktive Assistenz."),
     )
 
 
 def standard_role_style_overlays() -> tuple[RoleStyleOverlay, ...]:
     return (
         RoleStyleOverlay(
-            overlay_id="standard.rule-checklist.v1", role_id="implementer", revision=1,
+            overlay_id="standard.rule-checklist.v1",
+            role_id="implementer",
+            revision=1,
             reinforces=("rule_correctness",),
             instruction=(
                 "Arbeite die geltenden Verträge und Akzeptanzkriterien als Checkliste ab. "
@@ -126,7 +177,9 @@ def standard_role_style_overlays() -> tuple[RoleStyleOverlay, ...]:
             ),
         ),
         RoleStyleOverlay(
-            overlay_id="standard.evidence-review.v1", role_id="reviewer", revision=1,
+            overlay_id="standard.evidence-review.v1",
+            role_id="reviewer",
+            revision=1,
             reinforces=("truth_exploration",),
             instruction=(
                 "Trenne Evidenz von Vermutung, benenne mindestens eine Gegenhypothese und "
@@ -134,7 +187,9 @@ def standard_role_style_overlays() -> tuple[RoleStyleOverlay, ...]:
             ),
         ),
         RoleStyleOverlay(
-            overlay_id="standard.bounded-challenger.v1", role_id="challenger", revision=1,
+            overlay_id="standard.bounded-challenger.v1",
+            role_id="challenger",
+            revision=1,
             reinforces=("truth_exploration", "initiative_assertiveness"),
             instruction=(
                 "Sprich schwache Annahmen früh an und formuliere eine Alternative als Proposal. "
@@ -196,26 +251,27 @@ class CognitiveStyleService:
         current = self._with_defaults(self._repository.load())
         if current.configuration.revision != expected_revision:
             raise CognitiveStyleConflict(current.configuration.revision)
+
         # Routing must have one unambiguous active style vector per model. A
         # changed model/runtime/prompt/sampling context starts a new measurement,
         # but the previous measurement remains auditable in history.
-        same_model = lambda item: (
-            item.model_profile_id == result.profile.model_profile_id
+        def same_model(item):
+            return item.model_profile_id == result.profile.model_profile_id
+
+        replaced = tuple(item for item in current.configuration.profiles if same_model(item))
+        profiles = tuple(item for item in current.configuration.profiles if not same_model(item)) + (result.profile,)
+        configuration = current.configuration.model_copy(
+            update={
+                "revision": expected_revision + 1,
+                "profiles": profiles,
+            }
         )
-        replaced = tuple(
-            item for item in current.configuration.profiles if same_model(item)
+        updated = current.model_copy(
+            update={
+                "configuration": configuration,
+                "profile_history": tuple((*current.profile_history, *replaced))[-1000:],
+            }
         )
-        profiles = tuple(
-            item for item in current.configuration.profiles if not same_model(item)
-        ) + (result.profile,)
-        configuration = current.configuration.model_copy(update={
-            "revision": expected_revision + 1,
-            "profiles": profiles,
-        })
-        updated = current.model_copy(update={
-            "configuration": configuration,
-            "profile_history": tuple((*current.profile_history, *replaced))[-1000:],
-        })
         self._save(expected_revision, updated)
         return configuration
 
@@ -228,13 +284,13 @@ class CognitiveStyleService:
         current = self._with_defaults(self._repository.load())
         if current.configuration.revision != expected_revision:
             raise CognitiveStyleConflict(current.configuration.revision)
-        configuration = current.configuration.model_copy(
-            update={"revision": expected_revision + 1}
+        configuration = current.configuration.model_copy(update={"revision": expected_revision + 1})
+        updated = current.model_copy(
+            update={
+                "configuration": configuration,
+                "mismatch_evidence": tuple((*current.mismatch_evidence, evidence))[-2000:],
+            }
         )
-        updated = current.model_copy(update={
-            "configuration": configuration,
-            "mismatch_evidence": tuple((*current.mismatch_evidence, evidence))[-2000:],
-        })
         self._save(expected_revision, updated)
         return self.read()
 
@@ -249,13 +305,13 @@ class CognitiveStyleService:
             raise CognitiveStyleConflict(current.configuration.revision)
         if any(item.proposal_id == proposal.proposal_id for item in current.evolution_proposals):
             raise ValueError("style_evolution_proposal_duplicate")
-        configuration = current.configuration.model_copy(
-            update={"revision": expected_revision + 1}
+        configuration = current.configuration.model_copy(update={"revision": expected_revision + 1})
+        updated = current.model_copy(
+            update={
+                "configuration": configuration,
+                "evolution_proposals": (*current.evolution_proposals, proposal),
+            }
         )
-        updated = current.model_copy(update={
-            "configuration": configuration,
-            "evolution_proposals": (*current.evolution_proposals, proposal),
-        })
         self._save(expected_revision, updated)
         return self.read()
 
@@ -283,16 +339,15 @@ class CognitiveStyleService:
             raise ValueError("style_evolution_review_required")
         transitioned = proposal.model_copy(update={"status": command.target_status})
         proposals = tuple(
-            transitioned if item.proposal_id == proposal_id else item
-            for item in current.evolution_proposals
+            transitioned if item.proposal_id == proposal_id else item for item in current.evolution_proposals
         )
-        configuration = current.configuration.model_copy(
-            update={"revision": expected_revision + 1}
+        configuration = current.configuration.model_copy(update={"revision": expected_revision + 1})
+        updated = current.model_copy(
+            update={
+                "configuration": configuration,
+                "evolution_proposals": proposals,
+            }
         )
-        updated = current.model_copy(update={
-            "configuration": configuration,
-            "evolution_proposals": proposals,
-        })
         self._save(expected_revision, updated)
         return self.read()
 
@@ -303,10 +358,7 @@ class CognitiveStyleService:
         organization_id: str | None = None,
         project_id: str | None = None,
     ) -> RoleStyleTarget | None:
-        targets = [
-            item for item in self.read().configuration.role_targets
-            if item.role_id == role_id
-        ]
+        targets = [item for item in self.read().configuration.role_targets if item.role_id == role_id]
         precedence = (
             (project_id, lambda item: item.project_id == project_id),
             (organization_id, lambda item: item.organization_id == organization_id and item.project_id is None),
@@ -321,44 +373,33 @@ class CognitiveStyleService:
 
     def overlay_instruction(self, role_id: str) -> str | None:
         overlay = next(
-            (
-                item for item in self.read().configuration.overlays
-                if item.role_id == role_id and item.enabled
-            ),
+            (item for item in self.read().configuration.overlays if item.role_id == role_id and item.enabled),
             None,
         )
         return overlay.instruction if overlay is not None else None
 
     def diversity(self, members: Iterable[TeamStyleMember]) -> TeamStyleDiversityReport:
         values = tuple(members)
-        active = {
-            item.model_profile_id: item
-            for item in self.read().configuration.profiles
-        }
+        active = {item.model_profile_id: item for item in self.read().configuration.profiles}
         vectors = [active[item.model_profile_id].scores for item in values if item.model_profile_id in active]
         if len(vectors) < 2:
             return TeamStyleDiversityReport(
-                members_evaluated=len(vectors), centroid={}, spread={},
+                members_evaluated=len(vectors),
+                centroid={},
+                spread={},
                 classification="insufficient_data",
                 warnings=("style_diversity_requires_two_profiles",),
             )
-        dimensions = (
-            "rule_correctness", "truth_exploration", "initiative_assertiveness"
-        )
-        centroid = {
-            name: round(sum(getattr(item, name) for item in vectors) / len(vectors), 6)
-            for name in dimensions
-        }
+        dimensions = ("rule_correctness", "truth_exploration", "initiative_assertiveness")
+        centroid = {name: round(sum(getattr(item, name) for item in vectors) / len(vectors), 6) for name in dimensions}
         spread = {
-            name: round(sqrt(sum(
-                (getattr(item, name) - centroid[name]) ** 2 for item in vectors
-            ) / len(vectors)), 6)
+            name: round(sqrt(sum((getattr(item, name) - centroid[name]) ** 2 for item in vectors) / len(vectors)), 6)
             for name in dimensions
         }
         maximum = max(centroid, key=centroid.get)
-        if max(spread.values()) < .08:
+        if max(spread.values()) < 0.08:
             classification = "homogeneous"
-        elif max(centroid.values()) - min(centroid.values()) < .15:
+        elif max(centroid.values()) - min(centroid.values()) < 0.15:
             classification = "balanced"
         else:
             classification = {
@@ -366,36 +407,29 @@ class CognitiveStyleService:
                 "truth_exploration": "exploratory",
                 "initiative_assertiveness": "initiative_oriented",
             }[maximum]
-        warnings = (
-            ("style_team_homogeneous",) if classification == "homogeneous" else ()
-        )
-        complementary = (
-            ("reviewer", "challenger") if centroid["truth_exploration"] < .55 else ()
-        )
+        warnings = ("style_team_homogeneous",) if classification == "homogeneous" else ()
+        complementary = ("reviewer", "challenger") if centroid["truth_exploration"] < 0.55 else ()
         return TeamStyleDiversityReport(
-            members_evaluated=len(vectors), centroid=centroid, spread=spread,
-            classification=classification, warnings=warnings,
+            members_evaluated=len(vectors),
+            centroid=centroid,
+            spread=spread,
+            classification=classification,
+            warnings=warnings,
             complementary_role_ids=complementary,
             capability_or_security_overridden=False,
         )
 
     def _save(self, expected_revision: int, state: CognitiveStylePersistedState) -> None:
         if not self._repository.save_if_revision(expected_revision, state):
-            raise CognitiveStyleConflict(
-                self._repository.load().configuration.revision
-            )
+            raise CognitiveStyleConflict(self._repository.load().configuration.revision)
 
     @staticmethod
     def _with_defaults(state: CognitiveStylePersistedState) -> CognitiveStylePersistedState:
         configuration = state.configuration
         if not configuration.role_targets:
-            configuration = configuration.model_copy(update={
-                "role_targets": standard_role_style_targets()
-            })
+            configuration = configuration.model_copy(update={"role_targets": standard_role_style_targets()})
         if not configuration.overlays:
-            configuration = configuration.model_copy(update={
-                "overlays": standard_role_style_overlays()
-            })
+            configuration = configuration.model_copy(update={"overlays": standard_role_style_overlays()})
         return state.model_copy(update={"configuration": configuration})
 
 
@@ -468,29 +502,34 @@ class CognitiveStyleRankingPolicy:
             confidence = self._effective_confidence(profile)
             score = round(decision.score * confidence / max(profile.confidence, 1e-9), 6)
             ranks.append(StyleRank(candidate, score, confidence, "style_fit_applied"))
-        self._observer.record(
-            "applied" if any(item.score is not None for item in ranks)
-            else "profile_unavailable"
+        self._observer.record("applied" if any(item.score is not None for item in ranks) else "profile_unavailable")
+        return tuple(
+            sorted(
+                ranks,
+                key=lambda item: (
+                    -(self._weight * (item.score if item.score is not None else -1)),
+                    base_index[item.profile.profile_id],
+                ),
+            )
         )
-        return tuple(sorted(ranks, key=lambda item: (
-            -(self._weight * (item.score if item.score is not None else -1)),
-            base_index[item.profile.profile_id],
-        )))
 
-    def _target(
-        self, role_id: str, project_id: str | None, organization_id: str | None
-    ) -> RoleStyleTarget | None:
+    def _target(self, role_id: str, project_id: str | None, organization_id: str | None) -> RoleStyleTarget | None:
         matches = [item for item in self._targets if item.role_id == role_id]
         return (
             next((item for item in matches if project_id and item.project_id == project_id), None)
-            or next((item for item in matches if organization_id and item.organization_id == organization_id and item.project_id is None), None)
+            or next(
+                (
+                    item
+                    for item in matches
+                    if organization_id and item.organization_id == organization_id and item.project_id is None
+                ),
+                None,
+            )
             or next((item for item in matches if item.project_id is None and item.organization_id is None), None)
         )
 
     def _latest_profile(self, model_profile_id: str) -> AgentStyleProfile | None:
-        matches = [
-            item for item in self._profiles if item.model_profile_id == model_profile_id
-        ]
+        matches = [item for item in self._profiles if item.model_profile_id == model_profile_id]
         return max(matches, key=lambda item: item.measured_at, default=None)
 
     def _effective_confidence(self, profile: AgentStyleProfile) -> float:
@@ -513,7 +552,7 @@ def get_cognitive_style_service() -> CognitiveStyleService:
 
 def get_cognitive_style_ranking_policy(
     *,
-    weight: float = .25,
+    weight: float = 0.25,
 ) -> CognitiveStyleRankingPolicy:
     read = get_cognitive_style_service().read()
     return CognitiveStyleRankingPolicy(
@@ -524,10 +563,17 @@ def get_cognitive_style_ranking_policy(
 
 
 __all__ = [
-    "CognitiveStyleConflict", "CognitiveStyleRankingPolicy",
-    "CognitiveStyleService", "CognitiveStyleStatePort", "HEURISTIC_NOTICE",
-    "InMemoryCognitiveStyleStateRepository", "PrometheusStyleRoutingObserver",
-    "StyleRank", "StyleRoutingObserver",
-    "get_cognitive_style_ranking_policy", "get_cognitive_style_service", "standard_role_style_overlays",
+    "CognitiveStyleConflict",
+    "CognitiveStyleRankingPolicy",
+    "CognitiveStyleService",
+    "CognitiveStyleStatePort",
+    "HEURISTIC_NOTICE",
+    "InMemoryCognitiveStyleStateRepository",
+    "PrometheusStyleRoutingObserver",
+    "StyleRank",
+    "StyleRoutingObserver",
+    "get_cognitive_style_ranking_policy",
+    "get_cognitive_style_service",
+    "standard_role_style_overlays",
     "standard_role_style_targets",
 ]

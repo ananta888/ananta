@@ -46,28 +46,15 @@ def retry_bound_execution(
 
     service = binding_service
     if service is None:
-        raise RuntimeError(
-            "knowledge_index_execution_binding_service_unavailable"
-        )
+        raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
     task = repository_provider().get_by_id(str(job_id))
     if task is None:
         raise ValueError("knowledge_index_job_not_found")
-    raw_task = (
-        task.model_dump()
-        if hasattr(task, "model_dump")
-        else dict(task)
-    )
-    expected_envelope = dict(
-        dict(raw_task.get("worker_execution_context") or {}).get(
-            "knowledge_index_job"
-        )
-        or {}
-    )
+    raw_task = task.model_dump() if hasattr(task, "model_dump") else dict(task)
+    expected_envelope = dict(dict(raw_task.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
     record = service.retry(
         job_id=str(job_id),
-        assignment=KnowledgeIndexExecutionAssignment.model_validate(
-            dict(assignment)
-        ),
+        assignment=KnowledgeIndexExecutionAssignment.model_validate(dict(assignment)),
         **retry_options,
     )
     persist_bound_execution_envelope(
@@ -98,33 +85,25 @@ def reconcile_expired_bound_dispatch(
     if isinstance(expected_lock_version, bool) or normalized_lock_version < 1:
         raise ValueError("knowledge_index_execution_lock_version_invalid")
     if binding_service is None:
-        raise RuntimeError(
-            "knowledge_index_execution_binding_service_unavailable"
-        )
+        raise RuntimeError("knowledge_index_execution_binding_service_unavailable")
     reconcile = getattr(
         binding_service,
         "reconcile_expired_dispatch",
         None,
     )
     if not callable(reconcile):
-        raise RuntimeError(
-            "knowledge_index_execution_reconcile_service_unavailable"
-        )
+        raise RuntimeError("knowledge_index_execution_reconcile_service_unavailable")
     record = reconcile(
         job_id=normalized_job_id,
         expected_lock_version=normalized_lock_version,
     )
     if record.state != "failed" or record.completed_at_epoch_ms is None:
-        raise RuntimeError(
-            "knowledge_index_execution_reconcile_result_invalid"
-        )
+        raise RuntimeError("knowledge_index_execution_reconcile_result_invalid")
 
     repository = repository_provider()
     status_cas = getattr(repository, "compare_and_set_status", None)
     if not callable(status_cas):
-        raise RuntimeError(
-            "knowledge_index_atomic_task_status_repository_required"
-        )
+        raise RuntimeError("knowledge_index_atomic_task_status_repository_required")
     marker = expired_dispatch_reconciliation_marker(record)
     result = status_cas(
         normalized_job_id,
@@ -147,9 +126,7 @@ def reconcile_expired_bound_dispatch(
             marker=marker,
         )
     ):
-        raise ValueError(
-            "knowledge_index_execution_task_projection_conflict"
-        )
+        raise ValueError("knowledge_index_execution_task_projection_conflict")
     return {
         "job_id": normalized_job_id,
         "status": "failed",

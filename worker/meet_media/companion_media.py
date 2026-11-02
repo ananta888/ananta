@@ -58,8 +58,14 @@ class AvatarPorts:
 def _clip(samples, seconds, *, state, repeat, start_frame=0, frames=None, encoder=None):
     with tempfile.TemporaryDirectory(prefix="snake-") as temporary:
         data, count = build_video(
-            samples, SPEECH_RATE, seconds, temporary,
-            state=state, start_frame=start_frame, frames=frames, encoder=encoder,
+            samples,
+            SPEECH_RATE,
+            seconds,
+            temporary,
+            state=state,
+            start_frame=start_frame,
+            frames=frames,
+            encoder=encoder,
         )
     return video_payload(data, count, repeat=repeat)
 
@@ -113,9 +119,13 @@ class SpeechAvatarPublisher:
             clip = self._lipsync_clip(pcm, segment)
             if clip is None:
                 clip = _clip(
-                    samples, segment.frames / timeline.fps,
-                    state=SPEAKING, repeat="hold_last",
-                    start_frame=segment.first_frame, frames=segment.frames, encoder=self._encoder,
+                    samples,
+                    segment.frames / timeline.fps,
+                    state=SPEAKING,
+                    repeat="hold_last",
+                    start_frame=segment.first_frame,
+                    frames=segment.frames,
+                    encoder=self._encoder,
                 )
             clips.append(clip)
         return timeline, clips
@@ -124,7 +134,7 @@ class SpeechAvatarPublisher:
         if self._lipsync is None:
             return None
         try:
-            clip = self._lipsync(pcm[segment.start_sample * 2:segment.end_sample * 2])
+            clip = self._lipsync(pcm[segment.start_sample * 2 : segment.end_sample * 2])
         except Exception as error:  # noqa: BLE001
             # The port is expected to return None on failure; a raise is still
             # only a fallback, never a dropped reply.
@@ -199,10 +209,13 @@ class SpeechAvatarPublisher:
                     anchor = ports.clock()
                     playback_anchor = anchor
                     now = anchor
-                if (segments and len(audio_pushed) < len(segments)
-                        and offset >= segments[len(audio_pushed)].start_sample):
+                if (
+                    segments
+                    and len(audio_pushed) < len(segments)
+                    and offset >= segments[len(audio_pushed)].start_sample
+                ):
                     audio_pushed.append(int(now * MICROSECONDS))
-                chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
+                chunk = pcm[offset * 2 : (offset + FRAME_SAMPLES) * 2]
                 ports.speech_push(speech_generation, offset, chunk)
                 offset += FRAME_SAMPLES
                 if (now - anchor) - offset / SPEECH_RATE > REANCHOR_AFTER_SECONDS:
@@ -212,8 +225,9 @@ class SpeechAvatarPublisher:
             else:
                 target = anchor + pending[0][0].start_sample / SPEECH_RATE
             if pending:
-                target = min(target, anchor + pending[0][0].start_sample / SPEECH_RATE
-                             - PRE_SWAP_SECONDS - swap_latency)
+                target = min(
+                    target, anchor + pending[0][0].start_sample / SPEECH_RATE - PRE_SWAP_SECONDS - swap_latency
+                )
             delay = target - ports.clock()
             if delay > 0:
                 ports.sleep(delay)

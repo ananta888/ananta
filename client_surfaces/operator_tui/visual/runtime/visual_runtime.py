@@ -86,8 +86,7 @@ class VisualRuntime:
         if self._active_view_id in _IMAGE_CAPABLE_VIEWS:
             return True
         if scene is not None and any(
-            isinstance(n, dict) and n.get("kind") == "diagram_image"
-            for n in (scene.nodes or [])
+            isinstance(n, dict) and n.get("kind") == "diagram_image" for n in (scene.nodes or [])
         ):
             return True
         return False
@@ -144,6 +143,7 @@ class VisualRuntime:
             adapter = self._adapter()
             if hasattr(adapter, "clear"):
                 import sys
+
                 adapter.clear(sys.stdout)
         except Exception:
             pass
@@ -295,9 +295,7 @@ class VisualRuntime:
                 if pair not in self._excluded_pairs:
                     self._excluded_pairs.add(pair)
                     self._last_adapter_fail_reason = f"{self._active_adapter_id}: {reason}"
-                    self._fallback_diagnostics.append(
-                        f"adapter draw failed ({reason}), retrying with next fallback"
-                    )
+                    self._fallback_diagnostics.append(f"adapter draw failed ({reason}), retrying with next fallback")
                     try:
                         self._select_renderer_adapter()
                         # Re-render with new renderer/adapter
@@ -305,7 +303,9 @@ class VisualRuntime:
                         if frame2 is not None:
                             adapter2 = self._adapter()
                             draw_result = adapter2.draw(
-                                frame2, region=region, stream=stream,
+                                frame2,
+                                region=region,
+                                stream=stream,
                                 context=DrawContext(now=t_now, metadata={"retry": True}),
                             )
                     except Exception as retry_exc:

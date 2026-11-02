@@ -1,13 +1,13 @@
 """Tests für Auto-Experimental Leases (T07.04)."""
+
 import time
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
 from agent.services.heuristic_runtime.lease_reevaluation_service import (
-    LeaseReevaluationService,
-    _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS,
     _EXPERIMENTAL_LIVE_DEFAULT_TTL_SECONDS,
+    _EXPERIMENTAL_LIVE_MAX_TTL_SECONDS,
+    LeaseReevaluationService,
 )
-from agent.services.heuristic_runtime.decision_context import DecisionContext
 
 
 def _make_service(auto_experiment_mode: bool = False) -> tuple[LeaseReevaluationService, MagicMock]:
@@ -30,7 +30,8 @@ def test_grant_experimental_lease_disabled_by_default():
     """Config-Off-Verhalten: kein automatisches Experimental."""
     svc, repo = _make_service()
     result = svc.grant_experimental_lease(
-        "test_h", "tui_snake",
+        "test_h",
+        "tui_snake",
         auto_experiment_mode=False,
     )
     assert result is None
@@ -45,7 +46,8 @@ def test_grant_experimental_lease_enabled_calls_repo():
     repo.acquire.return_value = mock_lease
 
     result = svc.grant_experimental_lease(
-        "test_h", "tui_snake",
+        "test_h",
+        "tui_snake",
         auto_experiment_mode=True,
     )
 
@@ -65,7 +67,8 @@ def test_grant_experimental_lease_ttl_capped_at_max():
 
     # Versuche TTL von 100s — soll auf 20s begrenzt werden
     svc.grant_experimental_lease(
-        "test_h", "tui_snake",
+        "test_h",
+        "tui_snake",
         ttl_seconds=100.0,
         auto_experiment_mode=True,
     )
@@ -87,7 +90,8 @@ def test_grant_experimental_lease_default_ttl_used_when_none():
     repo.acquire.return_value = mock_lease
 
     svc.grant_experimental_lease(
-        "test_h", "tui_snake",
+        "test_h",
+        "tui_snake",
         ttl_seconds=None,
         auto_experiment_mode=True,
     )
@@ -131,7 +135,8 @@ def test_rollback_to_stable_after_experimental_lease_expires():
 
     # Ohne auto_experiment_mode: kein neues Experimental
     new_lease = svc.grant_experimental_lease(
-        "test_h", "tui_snake",
+        "test_h",
+        "tui_snake",
         auto_experiment_mode=False,
     )
     assert new_lease is None

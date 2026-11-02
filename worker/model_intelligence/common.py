@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import stat
+from pathlib import Path, PurePosixPath
 from typing import Mapping
 
 
@@ -38,12 +38,7 @@ def canonical_digest(value: object) -> str:
 
 def safe_relative_path(relative_path: str) -> PurePosixPath:
     candidate = PurePosixPath(relative_path)
-    if (
-        not relative_path
-        or candidate.is_absolute()
-        or ".." in candidate.parts
-        or "." in candidate.parts
-    ):
+    if not relative_path or candidate.is_absolute() or ".." in candidate.parts or "." in candidate.parts:
         raise ModelAnalysisError(
             "analysis_path_invalid",
             "Analysis files must use safe relative paths.",

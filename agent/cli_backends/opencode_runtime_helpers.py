@@ -12,7 +12,10 @@ from agent.cli_backends.helpers import (
 
 
 def build_codex_runtime_diagnostics(
-    *, base_url: str | None, api_key: str | None, is_local: bool,
+    *,
+    base_url: str | None,
+    api_key: str | None,
+    is_local: bool,
 ) -> list[str]:
     diagnostics: list[str] = []
     if not base_url:
@@ -73,7 +76,9 @@ def infer_local_opencode_target(
                 probe = probe_lmstudio(base_url, timeout=timeout)
             except Exception:
                 continue
-            matched = match_lmstudio(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
+            matched = (
+                match_lmstudio(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
+            )
             if matched:
                 return "lmstudio", str((matched or {}).get("id") or "").strip() or raw_model
     return None, None
@@ -89,14 +94,61 @@ def build_opencode_runtime_diagnostics(*, base_url: str | None) -> list[str]:
 
 def build_opencode_toolless_agent_config() -> dict[str, object]:
     return {
-        "description": "Toolless worker for structured JSON replies",
-        "prompt": "Return concise structured answers. Never call tools.",
+        "description": "Worker for structured JSON replies with governed CodeCompass reads",
+        "prompt": "Return concise structured answers. Use CodeCompass tools when repository context is needed.",
         "temperature": 0.1,
         "tools": {
             name: False
             for name in (
-                "bash", "read", "glob", "grep", "edit", "write", "task",
-                "webfetch", "todowrite", "question", "skill",
+                "bash",
+                "read",
+                "glob",
+                "grep",
+                "edit",
+                "write",
+                "task",
+                "webfetch",
+                "todowrite",
+                "question",
+                "skill",
+            )
+        },
+    }
+
+
+def build_opencode_loop_brain_agent_config() -> dict[str, object]:
+    """The loop brain: protocol answers only, never native tool or MCP calls.
+
+    The mutation loop owns every tool — it executes the protocol's
+    ``codecompass.*`` and ``workspace_write`` steps itself. A brain that reaches
+    for native MCP instead stalls the turn against the local transport and burns
+    the propose timeout without ever answering the protocol.
+    """
+    return {
+        "description": "Mutation loop brain answering the loop protocol as structured JSON",
+        "prompt": (
+            "Respond with exactly the JSON protocol object the user prompt requests, "
+            "including every step that protocol requires — such as codecompass analysis "
+            "calls before any mutation. The runtime executes those requested steps for "
+            "you; never use your own tools or MCP servers. Before final_answer the "
+            "protocol always requires a successful codecompass tool_request and a "
+            "code_analysis answer — never skip them."
+        ),
+        "temperature": 0.1,
+        "tools": {
+            name: False
+            for name in (
+                "bash",
+                "read",
+                "glob",
+                "grep",
+                "edit",
+                "write",
+                "task",
+                "webfetch",
+                "todowrite",
+                "question",
+                "skill",
             )
         },
     }
@@ -104,7 +156,7 @@ def build_opencode_toolless_agent_config() -> dict[str, object]:
 
 def normalize_opencode_tool_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
-    return mode if mode in {"toolless", "readonly", "full"} else "full"
+    return mode if mode in {"toolless", "readonly", "full", "protocol"} else "full"
 
 
 def normalize_opencode_execution_mode(value: str | None) -> str:

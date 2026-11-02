@@ -13,6 +13,7 @@ The workspace-mutation loop is split into 4 sub-modules:
 All public symbols are re-exported from agent.cli_backends.workspace_mutation
 so callers can use the package as a single import surface.
 """
+
 from __future__ import annotations
 
 from agent.cli_backends.workspace_mutation._orchestrator import (  # noqa: F401

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from collections.abc import Mapping
 from typing import Any
@@ -150,7 +151,7 @@ class WorkerResultCallbackService:
 
             notify_task_update(normalized_task_id)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("accept: ignored Exception", exc_info=True)
         return {"status": "updated", "replayed": False}
 
     @staticmethod

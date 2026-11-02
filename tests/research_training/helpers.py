@@ -52,9 +52,7 @@ def recipe_request() -> dict[str, Any]:
 def spec(recipes: ResearchTrainingRecipeService, *, automatic_release: bool = True) -> dict[str, Any]:
     resolved = recipes.resolve(recipe_request())
     recipe = {
-        key: value
-        for key, value in resolved.items()
-        if key not in {"recipe_digest", "resolution_is_deterministic"}
+        key: value for key, value in resolved.items() if key not in {"recipe_digest", "resolution_is_deterministic"}
     }
     return {
         "schema": "ananta.research-training-run.v1",

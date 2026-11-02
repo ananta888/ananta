@@ -12,6 +12,7 @@ TQAS-011 AC:
 - Kandidaten default disabled; eine einzelne schlechte Evaluation aktualisiert
   nicht auto.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -98,9 +99,7 @@ def test_text_quality_reasons_are_gated_by_completed_status():
             }
         }
     )
-    should, reasons = service._should_evolve(
-        run=run, policy={"planner_prompt_evolution": {"enabled": True}}
-    )
+    should, reasons = service._should_evolve(run=run, policy={"planner_prompt_evolution": {"enabled": True}})
     assert not should
     assert reasons == []
 
@@ -116,9 +115,7 @@ def test_unscorable_status_does_not_trigger_evolution():
             }
         }
     )
-    should, reasons = service._should_evolve(
-        run=run, policy={"planner_prompt_evolution": {"enabled": True}}
-    )
+    should, reasons = service._should_evolve(run=run, policy={"planner_prompt_evolution": {"enabled": True}})
     assert not should
     assert reasons == []
 
@@ -229,9 +226,7 @@ def test_feature_off_keeps_existing_evolution_byte_compatible():
         model_provider="",
         model_name="",
     )
-    should, reasons = service._should_evolve(
-        run=run, policy={"planner_prompt_evolution": {"enabled": True}}
-    )
+    should, reasons = service._should_evolve(run=run, policy={"planner_prompt_evolution": {"enabled": True}})
     assert should
     expected_substrings = [
         "low_parse_confidence",

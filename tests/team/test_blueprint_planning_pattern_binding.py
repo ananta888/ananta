@@ -16,7 +16,6 @@ import pytest
 
 from agent.services.blueprint_planning_adapter import BlueprintPlanningAdapter
 
-
 # --- fixtures ---------------------------------------------------------
 
 

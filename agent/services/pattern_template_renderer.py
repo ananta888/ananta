@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 from string import Template
 from typing import Any, Iterable
 
-
 # The renderer uses ``@@name@@`` as the substitution marker. This is
 # chosen because it never collides with Python f-strings ({var}),
 # Java template strings (${var}), or TypeScript template strings
@@ -175,9 +174,7 @@ class PatternTemplateRenderer:
                 # Schema-array form: no values supplied.
                 flat = {}
             else:
-                raise RenderError(
-                    "pattern_plan parameters must be a dict (flat) or a list (schema array)"
-                )
+                raise RenderError("pattern_plan parameters must be a dict (flat) or a list (schema array)")
         if not isinstance(flat, dict):
             raise RenderError("pattern_plan parameters must be a dict")
         # Coerce non-string values via repr() so the rendered output
@@ -219,9 +216,7 @@ class PatternTemplateRenderer:
         if "@@" in content and not _VAR_PATTERN.search(content):
             # A stray '@@' with no valid name is suspicious (likely a
             # typo). Surface it.
-            raise RenderError(
-                f"template '{template_name}' contains stray '@@' without a valid marker"
-            )
+            raise RenderError(f"template '{template_name}' contains stray '@@' without a valid marker")
 
     def _preprocess(self, content: str) -> tuple[Template, dict[str, str]]:
         """Convert ``@@name@@`` markers into a string.Template.
@@ -266,20 +261,14 @@ class PatternTemplateRenderer:
             raise RenderError(f"output_path '{output_path}' must be relative")
         normalised = os.path.normpath(output_path)
         if normalised.startswith("..") or "/.." in f"/{normalised}" or normalised == "..":
-            raise RenderError(
-                f"output_path '{output_path}' escapes the target root"
-            )
+            raise RenderError(f"output_path '{output_path}' escapes the target root")
         full = os.path.abspath(os.path.join(target_root, normalised))
         root_abs = os.path.abspath(target_root) + os.sep
         if not (full + os.sep).startswith(root_abs):
-            raise RenderError(
-                f"output_path '{output_path}' resolves outside target_root"
-            )
+            raise RenderError(f"output_path '{output_path}' resolves outside target_root")
         return full
 
-    def _render_dry(
-        self, pattern_plan: dict[str, Any], templates: list[TemplateFile]
-    ) -> RenderManifest:
+    def _render_dry(self, pattern_plan: dict[str, Any], templates: list[TemplateFile]) -> RenderManifest:
         return self._render_impl(pattern_plan, templates, target_root=None)
 
     def _render_to_disk(
@@ -300,9 +289,7 @@ class PatternTemplateRenderer:
                 data = f.read()
             actual_sha = hashlib.sha256(data).hexdigest()
             if actual_sha != rendered.sha256:
-                raise RenderError(
-                    f"hash mismatch for '{rendered.output_path}' after write"
-                )
+                raise RenderError(f"hash mismatch for '{rendered.output_path}' after write")
         return manifest
 
     def _render_impl(
@@ -332,9 +319,7 @@ class PatternTemplateRenderer:
             try:
                 stage1 = template.substitute(placeholders)
             except (KeyError, ValueError) as exc:
-                raise RenderError(
-                    f"template '{tpl.template_name}' has invalid marker form: {exc}"
-                ) from exc
+                raise RenderError(f"template '{tpl.template_name}' has invalid marker form: {exc}") from exc
             # Stage 2: substitute the real values for each marker.
             # We do *not* rebuild a Template here — the text already
             # contains the anchored marker strings, and we do a
@@ -348,9 +333,7 @@ class PatternTemplateRenderer:
                         f"template '{tpl.template_name}' references unknown parameter "
                         f"{var_name!r}; available: {sorted(resolved_params)}"
                     )
-                rendered = rendered.replace(
-                    placeholder, resolved_params[var_name]
-                )
+                rendered = rendered.replace(placeholder, resolved_params[var_name])
 
             # Validate output_path early — both for dry-run and on-disk.
             if target_root is not None:
@@ -378,9 +361,7 @@ class PatternTemplateRenderer:
         _IMPLICIT = {"pattern_id", "language"}
         undeclared = set(resolved_params) - declared - _IMPLICIT
         if undeclared and declared:
-            warnings.append(
-                f"pattern_plan supplied undeclared parameters: {sorted(undeclared)}"
-            )
+            warnings.append(f"pattern_plan supplied undeclared parameters: {sorted(undeclared)}")
 
         return RenderManifest(
             pattern_id=pattern_id,

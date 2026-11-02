@@ -17,6 +17,7 @@ from agent.tools_registry import registry
 )
 def shell_execute_tool(command: str, timeout: int = 30):
     from agent.services.platform_governance_service import get_platform_governance_service
+
     gov = get_platform_governance_service()
     cfg = current_app.config.get("AGENT_CONFIG")
 
@@ -26,19 +27,17 @@ def shell_execute_tool(command: str, timeout: int = 30):
     blacklist = ["rm -rf", "sudo ", "chmod 777", "mkfs", "dd ", "shutdown", "reboot"]
     cmd_lower = command.lower()
     if any(b in cmd_lower for b in blacklist):
-        return {"error": f"Kommando enthaelt verbotene Sequenzen (Security Policy)."}
+        return {"error": "Kommando enthaelt verbotene Sequenzen (Security Policy)."}
 
     import subprocess
+
     try:
         from agent.common.audit import log_audit
+
         log_audit("shell_execute", {"command": command})
 
         res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
-        return {
-            "stdout": res.stdout,
-            "stderr": res.stderr,
-            "exit_code": res.returncode
-        }
+        return {"stdout": res.stdout, "stderr": res.stderr, "exit_code": res.returncode}
     except subprocess.TimeoutExpired:
         return {"error": f"Kommando-Timeout nach {timeout}s"}
     except Exception as e:

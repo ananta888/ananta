@@ -10,6 +10,7 @@ and headers; they must not re-implement these guarantees.
 """
 
 import json
+import logging
 import re
 import time
 import urllib.error
@@ -47,9 +48,7 @@ def _path_allowed(path, allow_path):
         return True
     if not allow_path or len(path) > MAX_PATH_BYTES:
         return False
-    return all(
-        _PATH_SEGMENT.match(segment) and segment not in {".", ".."} for segment in path.strip("/").split("/")
-    )
+    return all(_PATH_SEGMENT.match(segment) and segment not in {".", ".."} for segment in path.strip("/").split("/"))
 
 
 def endpoint(value, *, allow_path=False):
@@ -113,5 +112,5 @@ class BoundedJsonClient:
                 try:
                     error.close()
                 except Exception:
-                    pass  # Cleanup diagnostics must not replace the redacted failure.
+                    logging.getLogger(__name__).debug("exchange: ignored Exception", exc_info=True)
             raise ValueError("meet_llm_transport_failed") from None

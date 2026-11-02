@@ -23,9 +23,7 @@ from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_graph_visual_metrics import build_graph_visual_metrics
 
 ROOT = Path(__file__).resolve().parents[2]
-DOMAIN_SCHEMA = json.loads(
-    (ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8")
-)
+DOMAIN_SCHEMA = json.loads((ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8"))
 
 
 def _payload() -> dict:
@@ -222,10 +220,7 @@ def test_all_canonical_semantic_translation_types_are_registered() -> None:
     assert SEMANTIC_TRANSLATION_NODE_KINDS <= KNOWN_NODE_KINDS
     assert SEMANTIC_TRANSLATION_EDGE_TYPES <= KNOWN_EDGE_RELATIONS
 
-    nodes = [
-        {"id": f"semantic-kind:{kind}", "kind": kind}
-        for kind in sorted(SEMANTIC_TRANSLATION_NODE_KINDS)
-    ]
+    nodes = [{"id": f"semantic-kind:{kind}", "kind": kind} for kind in sorted(SEMANTIC_TRANSLATION_NODE_KINDS)]
     source_id = str(nodes[0]["id"])
     target_id = str(nodes[-1]["id"])
     result = CodeCompassGraphProjectionService().project(
@@ -243,9 +238,7 @@ def test_all_canonical_semantic_translation_types_are_registered() -> None:
     )
 
     assert {
-        node["node_type"]
-        for node in result["nodes"]
-        if node["attributes"]["semantic_status"] == "known"
+        node["node_type"] for node in result["nodes"] if node["attributes"]["semantic_status"] == "known"
     } >= SEMANTIC_TRANSLATION_NODE_KINDS
     assert {
         edge["attributes"]["known_relation"]
@@ -407,9 +400,7 @@ def test_invalid_worker_capability_and_duplicate_metric_rows_fail_closed() -> No
     invalid_capability["content_hash"] = _content_hash(unsigned)
 
     invalid_result = _project(payload, metrics=invalid_capability)
-    assert invalid_result["metric_capabilities"]["in_degree"]["reason_code"] == (
-        "worker_metrics_capabilities_invalid"
-    )
+    assert invalid_result["metric_capabilities"]["in_degree"]["reason_code"] == ("worker_metrics_capabilities_invalid")
     assert "visual_metrics_capabilities_invalid" in invalid_result["warnings"]
 
     duplicate_rows = build_graph_visual_metrics(graph_payload=payload)
@@ -418,9 +409,7 @@ def test_invalid_worker_capability_and_duplicate_metric_rows_fail_closed() -> No
     duplicate_rows["content_hash"] = _content_hash(unsigned)
 
     duplicate_result = _project(payload, metrics=duplicate_rows)
-    assert duplicate_result["metric_capabilities"]["in_degree"]["reason_code"] == (
-        "worker_metrics_duplicate_node_id"
-    )
+    assert duplicate_result["metric_capabilities"]["in_degree"]["reason_code"] == ("worker_metrics_duplicate_node_id")
     assert "visual_metrics_duplicate_node_id" in duplicate_result["warnings"]
 
 
@@ -482,18 +471,24 @@ def test_fallback_revision_covers_all_style_relevant_edge_evidence() -> None:
     payload["state"] = {}
     service = CodeCompassGraphProjectionService()
     first = service.project(
-        nodes=payload["nodes"], edges=payload["edges"],
-        source_kind="ananta_self_graph", source_ref="ananta",
+        nodes=payload["nodes"],
+        edges=payload["edges"],
+        source_kind="ananta_self_graph",
+        source_ref="ananta",
     )
     payload["edges"][0]["dependency_weight"] = 0
     second = service.project(
-        nodes=payload["nodes"], edges=payload["edges"],
-        source_kind="ananta_self_graph", source_ref="ananta",
+        nodes=payload["nodes"],
+        edges=payload["edges"],
+        source_kind="ananta_self_graph",
+        source_ref="ananta",
     )
     payload["edges"][0]["directed"] = False
     third = service.project(
-        nodes=payload["nodes"], edges=payload["edges"],
-        source_kind="ananta_self_graph", source_ref="ananta",
+        nodes=payload["nodes"],
+        edges=payload["edges"],
+        source_kind="ananta_self_graph",
+        source_ref="ananta",
     )
 
     assert first["metadata"]["graph_revision"] != second["metadata"]["graph_revision"]
@@ -506,12 +501,16 @@ def test_edge_identity_is_order_independent_and_preserves_explicit_ids() -> None
     payload["edges"][0]["edge_id"] = "provided-edge-id"
     service = CodeCompassGraphProjectionService()
     first = service.project(
-        nodes=payload["nodes"], edges=payload["edges"],
-        source_kind="graph", source_ref="ref",
+        nodes=payload["nodes"],
+        edges=payload["edges"],
+        source_kind="graph",
+        source_ref="ref",
     )
     reordered = service.project(
-        nodes=payload["nodes"], edges=list(reversed(payload["edges"])),
-        source_kind="graph", source_ref="ref",
+        nodes=payload["nodes"],
+        edges=list(reversed(payload["edges"])),
+        source_kind="graph",
+        source_ref="ref",
     )
 
     def identity_by_confidence(result: dict) -> dict[float, str]:

@@ -7,9 +7,11 @@ GET /api/codecompass/query?knowledge_index_id=<id>&type=<query_type>&seed=<symbo
     &field=<optional>&depth=<optional>&direction=<optional>
 GET /api/codecompass/self-graph?limit=<n>&kind=<filter>  — Ananta self-graph from rag-helper/out JSONL
 """
+
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from flask import Blueprint, g, request
@@ -75,6 +77,7 @@ def _resolve_index_path(knowledge_index_id: str) -> Path:
 
 def _load_store(index_path: Path):
     from ananta_codecompass.graph_store import CodeCompassGraphStore
+
     return CodeCompassGraphStore(index_path=index_path)
 
 
@@ -95,9 +98,7 @@ def _authorize_codecompass_graph_surface():
     action = _GRAPH_ACTIONS.get(endpoint)
     if action is None:
         return None
-    knowledge_index_id = str(
-        request.args.get("knowledge_index_id") or ""
-    ).strip()
+    knowledge_index_id = str(request.args.get("knowledge_index_id") or "").strip()
     if knowledge_index_id:
         authorization_response = authorize_route_request(
             action=action,
@@ -106,9 +107,7 @@ def _authorize_codecompass_graph_surface():
             object_id=knowledge_index_id,
         )
         if authorization_response is None:
-            g.source_control_authorized_knowledge_index_ids = frozenset(
-                {knowledge_index_id}
-            )
+            g.source_control_authorized_knowledge_index_ids = frozenset({knowledge_index_id})
         return authorization_response
     return authorize_route_request(
         action=action,
@@ -156,16 +155,18 @@ def get_node(node_id: str):
     node = by_id.get(node_id)
     if node is None:
         raise NotFoundError("node_not_found")
-    return api_response(data={
-        "node_id": str(node.get("id") or ""),
-        "node_type": str(node.get("kind") or "unknown"),
-        "attributes": {
-            "file": str(node.get("file") or ""),
-            "name": str(node.get("name") or ""),
-            "content": str(node.get("content") or ""),
-            "record_id": str(node.get("record_id") or ""),
-        },
-    })
+    return api_response(
+        data={
+            "node_id": str(node.get("id") or ""),
+            "node_type": str(node.get("kind") or "unknown"),
+            "attributes": {
+                "file": str(node.get("file") or ""),
+                "name": str(node.get("name") or ""),
+                "content": str(node.get("content") or ""),
+                "record_id": str(node.get("record_id") or ""),
+            },
+        }
+    )
 
 
 @codecompass_graph_bp.route("/api/codecompass/graph/expand", methods=["GET"])
@@ -181,6 +182,7 @@ def expand_graph():
     index_path = _resolve_index_path(knowledge_index_id)
     store = _load_store(index_path)
     from ananta_codecompass.graph_expansion import expand_codecompass_graph
+
     expansion = expand_codecompass_graph(store=store, seed_node_ids=[seed_id], profile=profile)
     nodes = list(expansion.get("nodes") or [])
     payload = store.load()
@@ -190,10 +192,11 @@ def expand_graph():
     if _agent_profile_id:
         try:
             from agent.services.agent_profile_service import get_agent_profile_service
+
             _ap = get_agent_profile_service().resolve_by_profile_id(_agent_profile_id)
             agent_profile_meta = _ap.to_metadata()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("expand_graph: ignored Exception", exc_info=True)
     projected = get_codecompass_graph_projection_service().project(
         nodes=nodes,
         edges=_edges_for_expansion(
@@ -248,6 +251,7 @@ def architecture_query():
     store = _load_store(index_path)
 
     from agent.config import settings
+
     limits = QueryLimits(
         max_depth=int(settings.codecompass_query_max_depth),
         max_nodes=int(settings.codecompass_query_max_nodes),
@@ -327,10 +331,14 @@ def _get_name_index(out_dir: Path) -> dict[str, str]:
 
     # ── TypeScript: symbols in typescript_file.jsonl ─────────────────────────
     _TS_KIND_MAP = {
-        "function": "typescript_function", "class": "typescript_class",
-        "interface": "typescript_interface", "method": "typescript_method",
-        "const": "typescript_const", "type": "typescript_type",
-        "enum": "typescript_enum", "constructor": "typescript_constructor",
+        "function": "typescript_function",
+        "class": "typescript_class",
+        "interface": "typescript_interface",
+        "method": "typescript_method",
+        "const": "typescript_const",
+        "type": "typescript_type",
+        "enum": "typescript_enum",
+        "constructor": "typescript_constructor",
     }
     for node in _read_jsonl(ik / "typescript_file.jsonl"):
         raw_id = str(node.get("id") or "")
@@ -375,19 +383,39 @@ def _load_nodes_jsonl(nodes_path: Path) -> dict[str, dict]:
 # Tier 2: implementations (functions, methods, constructors)
 # Tier 3: details (imports, tags, entries, sections)
 _NODE_KIND_TIER: dict[str, int] = {
-    "python_module_summary": 0, "typescript_folder_summary": 0, "java_module_summary": 0,
-    "python_file": 0, "typescript_file": 0, "java_file": 0,
-    "md_file": 0, "yaml_file": 0, "xml_file": 0, "properties_file": 0,
-    "python_class": 1, "typescript_class": 1, "typescript_interface": 1,
-    "typescript_type": 1, "typescript_enum": 1, "java_type": 1,
-    "python_function": 2, "python_method": 2,
-    "typescript_function": 2, "typescript_method": 2,
-    "typescript_const": 2, "typescript_constructor": 2,
-    "java_method": 2, "java_constructor": 2,
-    "java_method_detail": 2, "java_constructor_detail": 2,
-    "python_import": 3, "typescript_import": 3,
-    "md_section": 3, "xml_tag": 3, "xml_node_detail": 3,
-    "yaml_entry": 3, "properties_entry": 3,
+    "python_module_summary": 0,
+    "typescript_folder_summary": 0,
+    "java_module_summary": 0,
+    "python_file": 0,
+    "typescript_file": 0,
+    "java_file": 0,
+    "md_file": 0,
+    "yaml_file": 0,
+    "xml_file": 0,
+    "properties_file": 0,
+    "python_class": 1,
+    "typescript_class": 1,
+    "typescript_interface": 1,
+    "typescript_type": 1,
+    "typescript_enum": 1,
+    "java_type": 1,
+    "python_function": 2,
+    "python_method": 2,
+    "typescript_function": 2,
+    "typescript_method": 2,
+    "typescript_const": 2,
+    "typescript_constructor": 2,
+    "java_method": 2,
+    "java_constructor": 2,
+    "java_method_detail": 2,
+    "java_constructor_detail": 2,
+    "python_import": 3,
+    "typescript_import": 3,
+    "md_section": 3,
+    "xml_tag": 3,
+    "xml_node_detail": 3,
+    "yaml_entry": 3,
+    "properties_entry": 3,
 }
 _DEFAULT_TIER = 3
 _DEFAULT_MAX_NODES = 0
@@ -418,19 +446,15 @@ def _domain_metadata_for_node(file_path: str, selected_domain: str) -> dict[str,
         return {"domain_path": "", "domain_level": 0, "domain_parent": "", "domain_leaf": ""}
 
     source_kind = (
-        "typescript"
-        if selected_domain.startswith("ts:") or file_path.startswith("frontend-angular/")
-        else "python"
+        "typescript" if selected_domain.startswith("ts:") or file_path.startswith("frontend-angular/") else "python"
     )
     selected_prefix = _domain_to_file_prefix(selected_domain)
     selected_parts = _domain_parts_from_file(selected_prefix)
     rel_parts = (
-        parts[len(selected_parts):]
-        if selected_parts and parts[:len(selected_parts)] == selected_parts
-        else parts
+        parts[len(selected_parts) :] if selected_parts and parts[: len(selected_parts)] == selected_parts else parts
     )
     rel_parts = rel_parts or parts[-1:]
-    domain_parts = parts[:len(parts) - len(rel_parts) + min(len(rel_parts), 3)]
+    domain_parts = parts[: len(parts) - len(rel_parts) + min(len(rel_parts), 3)]
     domain_path = _domain_id_from_parts(domain_parts, source_kind)
     parent_path = _domain_id_from_parts(domain_parts[:-1], source_kind) if len(domain_parts) > 1 else ""
     return {
@@ -460,6 +484,7 @@ def _domain_to_file_prefix(domain: str) -> str:
 def get_self_graph_domains():
     """Return semantic module domains derived from *_module_summary and folder_summary nodes."""
     from agent.config import settings
+
     nodes_path, _ = _rag_out_paths(settings)
     if not nodes_path.exists():
         return api_response(data={"domains": [], "warnings": ["graph_nodes.jsonl not found"]})
@@ -580,12 +605,14 @@ def _resolve_symbol_import_edges(
             if not target_id:
                 continue
             node_ids.add(target_id)
-            edges.append({
-                "source_id": source_id,
-                "target_id": target_id,
-                "relation": "imports_symbol",
-                "attributes": {"confidence": 1.0, "module": module, "name": str(imported_name)},
-            })
+            edges.append(
+                {
+                    "source_id": source_id,
+                    "target_id": target_id,
+                    "relation": "imports_symbol",
+                    "attributes": {"confidence": 1.0, "module": module, "name": str(imported_name)},
+                }
+            )
     return edges, node_ids
 
 
@@ -608,12 +635,14 @@ def _load_internal_edges(edges_path: Path, scoped_ids: set[str], node_degree: di
             if src in scoped_ids and tgt in scoped_ids:
                 node_degree[src] = node_degree.get(src, 0) + 1
                 node_degree[tgt] = node_degree.get(tgt, 0) + 1
-                edges.append({
-                    "source_id": src,
-                    "target_id": tgt,
-                    "relation": str(edge.get("type") or edge.get("kind") or "related"),
-                    "attributes": {"confidence": 1.0},
-                })
+                edges.append(
+                    {
+                        "source_id": src,
+                        "target_id": tgt,
+                        "relation": str(edge.get("type") or edge.get("kind") or "related"),
+                        "attributes": {"confidence": 1.0},
+                    }
+                )
     return edges
 
 
@@ -668,24 +697,17 @@ def get_self_graph():
         scoped = list(all_nodes_by_id.values())
     else:
         scoped = [
-            n for n in all_nodes_by_id.values()
-            if str(n.get("file") or "").replace("\\", "/").startswith(file_prefix)
+            n for n in all_nodes_by_id.values() if str(n.get("file") or "").replace("\\", "/").startswith(file_prefix)
         ]
 
     domain_total = len(scoped)
 
     # ── 3. Detail-level filter (kind tiers, not graph traversal hops) ────────
-    scoped = [
-        n for n in scoped
-        if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) <= detail_level
-    ]
+    scoped = [n for n in scoped if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) <= detail_level]
     if kind_filter:
         scoped = [n for n in scoped if str(n.get("kind") or "").lower() == kind_filter]
 
-    scoped_file_ids = {
-        str(n["id"]) for n in scoped
-        if str(n.get("kind") or "") == "python_file"
-    }
+    scoped_file_ids = {str(n["id"]) for n in scoped if str(n.get("kind") or "") == "python_file"}
     resolved_import_edges, resolved_import_node_ids = _resolve_symbol_import_edges(
         all_nodes_by_id,
         name_index,
@@ -713,10 +735,7 @@ def get_self_graph():
     graph_depth_total = len(scoped)
     graph_depth_filtered = False
     if graph_depth > 0:
-        root_ids = {
-            str(n["id"]) for n in scoped
-            if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) == 0
-        }
+        root_ids = {str(n["id"]) for n in scoped if _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER) == 0}
         if root_ids:
             adjacency: dict[str, set[str]] = {nid: set() for nid in scoped_ids_full}
             for edge in all_internal_edges:
@@ -740,8 +759,7 @@ def get_self_graph():
             scoped_ids_full = {str(n["id"]) for n in scoped}
             node_degree = {nid: 0 for nid in scoped_ids_full}
             all_internal_edges = [
-                e for e in all_internal_edges
-                if e["source_id"] in scoped_ids_full and e["target_id"] in scoped_ids_full
+                e for e in all_internal_edges if e["source_id"] in scoped_ids_full and e["target_id"] in scoped_ids_full
             ]
             for edge in all_internal_edges:
                 node_degree[edge["source_id"]] = node_degree.get(edge["source_id"], 0) + 1
@@ -752,11 +770,13 @@ def get_self_graph():
     warnings: list[str] = []
     capped = False
     if max_nodes > 0 and len(scoped) > max_nodes:
-        scoped.sort(key=lambda n: (
-            _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER),
-            -node_degree.get(str(n["id"]), 0),
-            -float(n.get("importance_score") or 0.0),
-        ))
+        scoped.sort(
+            key=lambda n: (
+                _NODE_KIND_TIER.get(str(n.get("kind") or ""), _DEFAULT_TIER),
+                -node_degree.get(str(n["id"]), 0),
+                -float(n.get("importance_score") or 0.0),
+            )
+        )
         scoped = scoped[:max_nodes]
         capped = True
         warnings.append(
@@ -766,18 +786,14 @@ def get_self_graph():
 
     # ── 6. Filter edges to final selected node set ────────────────────────────
     selected_ids: set[str] = {str(n["id"]) for n in scoped}
-    raw_edges = [
-        e for e in all_internal_edges
-        if e["source_id"] in selected_ids and e["target_id"] in selected_ids
-    ]
+    raw_edges = [e for e in all_internal_edges if e["source_id"] in selected_ids and e["target_id"] in selected_ids]
     pre_edge_cap_count = len(raw_edges)
     edge_capped = False
     if max_edges > 0 and len(raw_edges) > max_edges:
         raw_edges = raw_edges[:max_edges]
         edge_capped = True
         warnings.append(
-            f"edge_cap_applied: showing {max_edges} of {pre_edge_cap_count} edges "
-            f"(raise max_edges to see more)"
+            f"edge_cap_applied: showing {max_edges} of {pre_edge_cap_count} edges (raise max_edges to see more)"
         )
 
     # ── 7. Format output ─────────────────────────────────────────────────────
@@ -803,9 +819,7 @@ def get_self_graph():
     if self_graph_store_path.exists():
         self_graph_store = _load_store(self_graph_store_path)
         self_graph_payload = self_graph_store.load()
-        self_graph_revision = str(
-            (self_graph_payload.get("state") or {}).get("manifest_hash") or ""
-        ).strip() or None
+        self_graph_revision = str((self_graph_payload.get("state") or {}).get("manifest_hash") or "").strip() or None
         self_graph_metrics = self_graph_store.load_visual_metrics()
 
     projected = get_codecompass_graph_projection_service().project(
@@ -853,27 +867,15 @@ def _edges_for_expansion(
     visit guard. Selecting from the immutable store keeps edge identity and all
     style-relevant evidence intact.
     """
-    selected_ids = {
-        str(node.get("id") or node.get("node_id") or "").strip()
-        for node in nodes
-    }
-    allowed = {
-        str(edge_type).strip().lower()
-        for edge_type in allowed_edge_types
-        if str(edge_type).strip()
-    }
+    selected_ids = {str(node.get("id") or node.get("node_id") or "").strip() for node in nodes}
+    allowed = {str(edge_type).strip().lower() for edge_type in allowed_edge_types if str(edge_type).strip()}
     result: list[dict] = []
     for edge in [*(payload.get("edges") or []), *(payload.get("semantic_edges") or [])]:
         if not isinstance(edge, dict):
             continue
         source_id = str(edge.get("source_id") or edge.get("source") or "").strip()
         target_id = str(edge.get("target_id") or edge.get("target") or "").strip()
-        edge_type = str(
-            edge.get("edge_type")
-            or edge.get("relation")
-            or edge.get("type")
-            or "related"
-        ).strip().lower()
+        edge_type = str(edge.get("edge_type") or edge.get("relation") or edge.get("type") or "related").strip().lower()
         if source_id not in selected_ids or target_id not in selected_ids:
             continue
         if allowed and edge_type not in allowed:

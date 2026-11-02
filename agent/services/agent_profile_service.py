@@ -4,6 +4,7 @@ Loads profile-map.json, resolves the active AGENTS.md profile for a task,
 composes Root-AGENTS.md + profile AGENTS.md and returns a structured result
 with full diagnostics.  No Flask dependency; fully unit-testable.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -111,13 +112,18 @@ class AgentProfileService:
                 fallback_reason=None,
             )
 
-        fallback_reason = f"no_profile_matched_for_activation_source={activation_source}" if activation_source != "root_only" else "root_only"
+        fallback_reason = (
+            f"no_profile_matched_for_activation_source={activation_source}"
+            if activation_source != "root_only"
+            else "root_only"
+        )
         return self._build_result(
             profile_id="root_only",
             agents_file_rel=_ROOT_AGENTS_REL,
             primary_role=None,
             activation_source="root_only",
-            extra_warnings=warnings + ([f"fallback_to_root: {fallback_reason}"] if activation_source != "root_only" else []),
+            extra_warnings=warnings
+            + ([f"fallback_to_root: {fallback_reason}"] if activation_source != "root_only" else []),
             is_fallback=True,
             fallback_reason=fallback_reason,
         )
@@ -171,9 +177,7 @@ class AgentProfileService:
     # Internal: resolution (APRL-004)
     # ------------------------------------------------------------------
 
-    def _resolve_profile_id(
-        self, task: dict, profiles: dict
-    ) -> tuple[str | None, str, list[str]]:
+    def _resolve_profile_id(self, task: dict, profiles: dict) -> tuple[str | None, str, list[str]]:
         warnings: list[str] = []
 
         # 1. Explicit profile_id beats everything
@@ -189,11 +193,7 @@ class AgentProfileService:
             warnings.append(f"explicit_profile_id={explicit!r} not in profile_map; falling back")
 
         # 2. template_id from worker_execution_context or agent_template field
-        template_id = str(
-            wec.get("template_id")
-            or task.get("agent_template")
-            or ""
-        ).strip().lower()
+        template_id = str(wec.get("template_id") or task.get("agent_template") or "").strip().lower()
         if template_id:
             matched = self._match_by_activation(template_id, profiles)
             if matched:

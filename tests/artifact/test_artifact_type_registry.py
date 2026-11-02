@@ -83,4 +83,3 @@ def test_artifact_type_registry_validates_payload_and_reports_unknown_or_unsuppo
         payload={"artifact_id": "x"},
     )
     assert unsupported["status"] == "unsupported"
-

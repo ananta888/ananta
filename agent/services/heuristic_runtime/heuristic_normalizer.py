@@ -7,6 +7,7 @@ Rules:
   - YAML in authoring/ cannot become active directly.
   - Runtime loads only validated JSON from heuristics/active/.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,10 +18,22 @@ from typing import Any
 
 _DEFAULT_STATUS = "candidate"
 _CANONICAL_KEY_ORDER = [
-    "heuristic_id", "version", "status", "domain", "description",
-    "deterministic", "safety_class", "capabilities", "ttl_policy",
-    "runtime", "inputs", "outputs", "parameters", "content_hash",
-    "provenance", "changelog",
+    "heuristic_id",
+    "version",
+    "status",
+    "domain",
+    "description",
+    "deterministic",
+    "safety_class",
+    "capabilities",
+    "ttl_policy",
+    "runtime",
+    "inputs",
+    "outputs",
+    "parameters",
+    "content_hash",
+    "provenance",
+    "changelog",
 ]
 
 

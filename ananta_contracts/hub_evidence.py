@@ -77,15 +77,13 @@ def validate_hub_evidence_assignment(value: Any) -> dict[str, Any]:
         projection.get("schema") != "ananta.hub-evidence-assignment.v1"
         or _RUN_ID.fullmatch(str(projection.get("run_id") or "")) is None
         or any(
-            not str(projection.get(field) or "").strip()
-            for field in ("task_id", "assignment_id", "dispatch_lease_id")
+            not str(projection.get(field) or "").strip() for field in ("task_id", "assignment_id", "dispatch_lease_id")
         )
         or not isinstance(sources, list)
         or not sources
         or sources != sorted(set(sources))
         or any(_SOURCE_ID.fullmatch(str(source)) is None for source in sources)
-        or projection.get("evidence_scope")
-        not in {"test", "local", "external", "production"}
+        or projection.get("evidence_scope") not in {"test", "local", "external", "production"}
         or _DIGEST.fullmatch(str(projection.get("binding_digest") or "")) is None
     ):
         raise HubEvidenceAssignmentError("hub_evidence_assignment_binding_invalid")

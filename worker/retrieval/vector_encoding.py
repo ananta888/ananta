@@ -93,7 +93,9 @@ class VectorEncodingProfile:
             target_bits=float(cfg.get("target_bits") or env.get("CODECOMPASS_VECTOR_ENCODING_TARGET_BITS") or 32.0),
             seed=int(cfg.get("seed") or env.get("CODECOMPASS_VECTOR_ENCODING_SEED") or 888),
             block_size=int(cfg.get("block_size") or env.get("CODECOMPASS_VECTOR_ENCODING_BLOCK_SIZE") or 0),
-            store_original=_bool(cfg.get("store_original", env.get("CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL", False))),
+            store_original=_bool(
+                cfg.get("store_original", env.get("CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL", False))
+            ),
             algorithm_version=str(cfg.get("algorithm_version") or "vector-encoding.v1"),
         )
 
@@ -176,7 +178,9 @@ class VectorEncoder:
         return {
             "bytes_original_float32": original_bytes,
             "bytes_encoded_payload": len(encoded_bytes),
-            "compression_ratio_vs_float32": round(float(original_bytes) / float(encoded_len), 4) if encoded_len else 1.0,
+            "compression_ratio_vs_float32": round(float(original_bytes) / float(encoded_len), 4)
+            if encoded_len
+            else 1.0,
             "max_abs_error": float(max_abs_error),
             "experimental": self.profile.experimental,
         }

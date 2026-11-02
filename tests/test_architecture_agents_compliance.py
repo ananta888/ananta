@@ -3,12 +3,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_IMPORT_PREFIXES = (
     "agent.routes.tasks.autopilot",
     "agent.routes.tasks.orchestration",
-    "agent.routes.tasks.orchestration_policy",
+    "agent.services.orchestration_policy",
 )
 
 
@@ -35,4 +34,6 @@ def test_worker_modules_do_not_import_hub_orchestration_routes():
             if imported.startswith(FORBIDDEN_IMPORT_PREFIXES):
                 violations.append(f"{py_path.relative_to(REPO_ROOT)} -> {imported}")
 
-    assert not violations, "AGENTS.md violation: worker modules must not import hub orchestration routes:\n" + "\n".join(violations)
+    assert not violations, (
+        "AGENTS.md violation: worker modules must not import hub orchestration routes:\n" + "\n".join(violations)
+    )

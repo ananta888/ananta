@@ -1,4 +1,5 @@
 """T07.02: Integrationstests für Snake Chat API (Hub-Endpunkte)."""
+
 from __future__ import annotations
 
 import copy
@@ -280,11 +281,14 @@ def test_light_ui_context_is_disabled_for_architecture_templates(client):
 
     del client
 
-    assert ser._should_include_light_ui_context(
-        active_session_id="arch-overview",
-        active_session_group="Architektur",
-        active_session_settings={"chat_architecture_analysis_mode": "rag_iterative"},
-    ) is False
+    assert (
+        ser._should_include_light_ui_context(
+            active_session_id="arch-overview",
+            active_session_group="Architektur",
+            active_session_settings={"chat_architecture_analysis_mode": "rag_iterative"},
+        )
+        is False
+    )
 
 
 def test_light_ui_context_can_be_disabled_per_session(client):
@@ -292,11 +296,14 @@ def test_light_ui_context_can_be_disabled_per_session(client):
 
     del client
 
-    assert ser._should_include_light_ui_context(
-        active_session_id="custom",
-        active_session_group="",
-        active_session_settings={"chat_include_ui_context": False},
-    ) is False
+    assert (
+        ser._should_include_light_ui_context(
+            active_session_id="custom",
+            active_session_group="",
+            active_session_settings={"chat_include_ui_context": False},
+        )
+        is False
+    )
 
 
 def test_light_ui_context_is_omitted_for_plain_content_question(client):
@@ -304,12 +311,15 @@ def test_light_ui_context_is_omitted_for_plain_content_question(client):
 
     del client
 
-    assert ser._should_include_light_ui_context(
-        active_session_id="custom",
-        active_session_group="",
-        active_session_settings={},
-        prompt="Erkläre mir den CodeCompass",
-    ) is False
+    assert (
+        ser._should_include_light_ui_context(
+            active_session_id="custom",
+            active_session_group="",
+            active_session_settings={},
+            prompt="Erkläre mir den CodeCompass",
+        )
+        is False
+    )
 
 
 def test_light_ui_context_is_used_for_navigation_question(client):
@@ -317,12 +327,15 @@ def test_light_ui_context_is_used_for_navigation_question(client):
 
     del client
 
-    assert ser._should_include_light_ui_context(
-        active_session_id="custom",
-        active_session_group="",
-        active_session_settings={},
-        prompt="Wo finde ich den Einstellungen-Tab?",
-    ) is True
+    assert (
+        ser._should_include_light_ui_context(
+            active_session_id="custom",
+            active_session_group="",
+            active_session_settings={},
+            prompt="Wo finde ich den Einstellungen-Tab?",
+        )
+        is True
+    )
 
 
 def test_light_ui_context_can_be_explicitly_enabled(client):
@@ -330,12 +343,15 @@ def test_light_ui_context_can_be_explicitly_enabled(client):
 
     del client
 
-    assert ser._should_include_light_ui_context(
-        active_session_id="custom",
-        active_session_group="",
-        active_session_settings={"chat_include_ui_context": True},
-        prompt="Erkläre mir den CodeCompass",
-    ) is True
+    assert (
+        ser._should_include_light_ui_context(
+            active_session_id="custom",
+            active_session_group="",
+            active_session_settings={"chat_include_ui_context": True},
+            prompt="Erkläre mir den CodeCompass",
+        )
+        is True
+    )
 
 
 def test_append_room_ai_message_does_not_apply_hidden_storage_cut(client):
@@ -431,7 +447,6 @@ def test_direct_message_between_two_snakes(client):
 
 
 def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
-    import agent.routes.snakes_execution_routes as ser
     import agent.services.retrieval_profile_service as rps
 
     captured: dict[str, object] = {}
@@ -484,13 +499,13 @@ def test_snake_ask_forwards_v2_limits_to_worker(client, monkeypatch):
 
 
 def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
-    import agent.routes.snakes_execution_routes as ser
     import agent.services.retrieval_profile_service as rps
 
     captured_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
+
     def _fake_generate_text(**kwargs):
         captured_calls.append(dict(kwargs))
         return "y" * 900
@@ -526,13 +541,13 @@ def test_snake_ask_applies_limits_to_hub_fallback(client, monkeypatch):
 
 
 def test_snake_ask_summarizes_overlong_hub_answer_before_truncating(client, monkeypatch):
-    import agent.routes.snakes_execution_routes as ser
     import agent.services.retrieval_profile_service as rps
 
     calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(rps, "_is_full_scan_intent", lambda *a, **kw: False)
     monkeypatch.setattr(rps, "_is_rag_iterative_intent", lambda *a, **kw: False)
+
     def _fake_generate_text(**kwargs):
         calls.append(dict(kwargs))
         return "z" * 900 if len(calls) == 1 else "kurze zusammenfassung"
@@ -879,6 +894,7 @@ def test_participants_list(client):
 def test_ananta_visual_default_session_is_read_only():
     """The built-in ananta-visual session must be seeded as a read-only log."""
     from client_surfaces.operator_tui.chat_state import default_sessions
+
     sessions = default_sessions()
     visual = next((s for s in sessions if s.get("id") == "ananta-visual"), None)
     assert visual is not None, "ananta-visual session must be in default_sessions()"
@@ -890,6 +906,7 @@ def test_ananta_visual_default_session_is_read_only():
 def test_ananta_visual_session_is_added_to_legacy_state():
     """Existing user.json state must have ananta-visual backfilled on load."""
     from client_surfaces.operator_tui.chat_state import get_sessions
+
     chat: dict = {}  # legacy / empty state
     sessions = get_sessions(chat)
     visual = next((s for s in sessions if s.get("id") == "ananta-visual"), None)
@@ -899,6 +916,7 @@ def test_ananta_visual_session_is_added_to_legacy_state():
 def test_chat_read_only_default_is_false():
     """Non-built-in sessions should not be read-only by default."""
     from client_surfaces.operator_tui.chat_state import make_session
+
     sess = make_session(session_id="my-custom", name="Custom")
     assert sess["settings"]["chat_read_only"] is False
 
@@ -925,6 +943,7 @@ def test_ui_tick_to_ananta_visual_is_accepted_and_logged(client):
     """The [ui-tick] system path must be accepted and append a system message
     to _room_messages with session_id='ananta-visual'."""
     from agent.routes.snakes import _room_messages
+
     _room_messages.clear()
     s1 = _register(client, "VisualSnake")
     snapshot = "/teams | nav:Teams* | h:Blueprints | list:3"
@@ -957,6 +976,7 @@ def test_append_room_ai_message_sets_visibility_and_sender():
     """_append_room_ai_message must honour visibility/sender_id/ui_snapshot overrides."""
     from agent.routes.snakes import _room_messages
     from agent.routes.snakes_execution_routes import _append_room_ai_message
+
     _room_messages.clear()
     _append_room_ai_message(
         text="hallo",

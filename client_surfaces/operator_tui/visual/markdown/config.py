@@ -64,13 +64,9 @@ class MarkdownMermaidConfig:
 
     def __post_init__(self) -> None:
         if self.markdown_mode not in _VALID_MD_MODES:
-            raise ValueError(
-                f"markdown_mode {self.markdown_mode!r} invalid; choose from {sorted(_VALID_MD_MODES)}"
-            )
+            raise ValueError(f"markdown_mode {self.markdown_mode!r} invalid; choose from {sorted(_VALID_MD_MODES)}")
         if self.mermaid_mode not in _VALID_MM_MODES:
-            raise ValueError(
-                f"mermaid_mode {self.mermaid_mode!r} invalid; choose from {sorted(_VALID_MM_MODES)}"
-            )
+            raise ValueError(f"mermaid_mode {self.mermaid_mode!r} invalid; choose from {sorted(_VALID_MM_MODES)}")
         for r in self.mermaid_renderers:
             if r not in _VALID_BACKENDS:
                 raise ValueError(f"unknown mermaid renderer {r!r}; valid: {sorted(_VALID_BACKENDS)}")
@@ -83,8 +79,7 @@ class MarkdownMermaidConfig:
         known_profiles = {profile.name for profile in self.docs_graphics_profiles}
         if self.docs_graphics_profile not in known_profiles and self.docs_graphics_profile not in {"auto", "wsl2_auto"}:
             raise ValueError(
-                f"docs_graphics_profile {self.docs_graphics_profile!r} unknown; "
-                f"available: {sorted(known_profiles)}"
+                f"docs_graphics_profile {self.docs_graphics_profile!r} unknown; available: {sorted(known_profiles)}"
             )
 
 

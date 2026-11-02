@@ -136,13 +136,16 @@ def test_quantitative_go_is_digest_bound_and_schema_valid(tmp_path: Path) -> Non
     assert admission["decision"] == "go"
     assert admission["reason_codes"] == []
     assert admission["human_intervention_required"] is False
-    assert service.require_go(
-        tenant_id="tenant-a",
-        principal_id="owner-one",
-        admission_id="admission-one",
-        dataset_id="dataset-one",
-        base_model="model-one",
-    )["admission_digest"] == admission["admission_digest"]
+    assert (
+        service.require_go(
+            tenant_id="tenant-a",
+            principal_id="owner-one",
+            admission_id="admission-one",
+            dataset_id="dataset-one",
+            base_model="model-one",
+        )["admission_digest"]
+        == admission["admission_digest"]
+    )
     for filename, value in (
         ("base-model-baseline.v1.json", baseline),
         ("training-admission.v1.json", admission),

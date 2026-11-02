@@ -38,8 +38,11 @@ for line in sys.stdin:
     def forbidden(*_args, **_kwargs):
         pytest.fail("synthetic TTS must not receive model or tool authority")
 
-    execution = runner(code, model_profile={"backend": "openai", "model": "synthetic-model",
-        "environment_digest": "e" * 64}, ports={"model": forbidden, "tool": forbidden})
+    execution = runner(
+        code,
+        model_profile={"backend": "openai", "model": "synthetic-model", "environment_digest": "e" * 64},
+        ports={"model": forbidden, "tool": forbidden},
+    )
     speech_processes = []
     try:
         assert execution.call("answer", "synthetic first", cooperate=lambda: None) == "1"
@@ -90,13 +93,16 @@ for line in sys.stdin:
 
 
 def test_negotiated_profile_preserves_full_unicode_message_character_budget():
-    execution = runner("""
+    execution = runner(
+        """
 import json,sys
 request=json.loads(sys.stdin.readline())
 assert len(request['text'])==2000 and request['model_execution']['backend']=='openai'
 print(json.dumps({'kind':'answer','result':'synthetic'}),flush=True)
-""", model_profile={"backend": "openai", "model": "synthetic", "environment_digest": "e" * 64},
-        ports={"tool": lambda *args, **kwargs: None, "model": lambda *args, **kwargs: None})
+""",
+        model_profile={"backend": "openai", "model": "synthetic", "environment_digest": "e" * 64},
+        ports={"tool": lambda *args, **kwargs: None, "model": lambda *args, **kwargs: None},
+    )
     try:
         assert execution.call("answer", "🐍" * 2000, cooperate=lambda: None) == "synthetic"
     finally:
@@ -117,17 +123,21 @@ def test_control_loss_cancels_process_and_cannot_restart_or_repeat_operation():
 
 
 def test_timeout_kills_child_ignoring_termination():
-    execution = runner("import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(20)",
-                       timeout_seconds=0.2)
+    execution = runner(
+        "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(20)", timeout_seconds=0.2
+    )
     with pytest.raises(CompanionExecutionError, match="execution_timeout"):
         execution.call("answer", "synthetic", cooperate=lambda: None)
     assert execution._process.poll() is not None
 
 
-@pytest.mark.parametrize("code", [
-    "print('{\"kind\":\"speech\",\"result\":\"foreign\"}', flush=True)",
-    "print('{\"kind\":\"answer\",\"result\":\"x\",\"authority\":true}', flush=True)",
-])
+@pytest.mark.parametrize(
+    "code",
+    [
+        'print(\'{"kind":"speech","result":"foreign"}\', flush=True)',
+        'print(\'{"kind":"answer","result":"x","authority":true}\', flush=True)',
+    ],
+)
 def test_wrong_or_broadened_result_never_reaches_browser(code):
     execution = runner(code)
     with pytest.raises(CompanionExecutionError, match="protocol_invalid"):
@@ -152,13 +162,16 @@ def test_invalid_operation_and_text_never_spawn():
 
 def test_control_loss_terminates_spawned_descendant_as_well(tmp_path):
     marker = tmp_path / "synthetic-child-pid"
-    execution = runner(f"""
+    execution = runner(
+        f"""
 import subprocess, sys, time
 from pathlib import Path
 child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'])
 Path({str(marker)!r}).write_text(str(child.pid))
 time.sleep(20)
-""", timeout_seconds=2)
+""",
+        timeout_seconds=2,
+    )
 
     def revoked_after_spawn():
         if marker.exists():
@@ -175,12 +188,12 @@ time.sleep(20)
 
 
 def test_pcm_is_validated_and_decoded_before_browser_receives_it():
-    execution = runner("print('{\"kind\":\"speech\",\"result\":\"AAE=\"}', flush=True)")
+    execution = runner('print(\'{"kind":"speech","result":"AAE="}\', flush=True)')
     try:
         assert execution.call("speech", "synthetic", cooperate=lambda: None) == b"\x00\x01"
     finally:
         execution.close()
-    execution = runner("print('{\"kind\":\"speech\",\"result\":\"not pcm\"}', flush=True)")
+    execution = runner('print(\'{"kind":"speech","result":"not pcm"}\', flush=True)')
     with pytest.raises(CompanionExecutionError, match="protocol_invalid"):
         execution.call("speech", "synthetic", cooperate=lambda: None)
 
@@ -196,10 +209,16 @@ def test_real_process_is_killed_when_cooperative_pump_loses_session():
         return {"joined": False}
 
     inbox = CompanionChatInbox()
-    pump = CompanionChatPump(inbox, status=status, open_chat=lambda: pytest.fail("no open after loss"),
-                             poll=lambda _cursor: pytest.fail("no poll after loss"),
-                             redeliver=lambda _ids: pytest.fail("no redelivery after loss"), renew=lambda: None,
-                             stopped=lambda: False, log=lambda _message: None)
+    pump = CompanionChatPump(
+        inbox,
+        status=status,
+        open_chat=lambda: pytest.fail("no open after loss"),
+        poll=lambda _cursor: pytest.fail("no poll after loss"),
+        redeliver=lambda _ids: pytest.fail("no redelivery after loss"),
+        renew=lambda: None,
+        stopped=lambda: False,
+        log=lambda _message: None,
+    )
     execution = runner("import time; time.sleep(20)")
     with pytest.raises(CompanionSessionEnded):
         execution.call("answer", "synthetic", cooperate=pump.step)

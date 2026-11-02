@@ -30,16 +30,12 @@ def test_failed_persisted_task_retry_records_one_terminal_fail_fast_event(
     monkeypatch.setattr(
         agent.services.task_queue_service,
         "get_task_queue_service",
-        lambda: SimpleNamespace(
-            ingest_task=lambda **values: ingested.append(values)
-        ),
+        lambda: SimpleNamespace(ingest_task=lambda **values: ingested.append(values)),
     )
     monkeypatch.setattr(
         agent.services.task_runtime_service,
         "update_local_task_status",
-        lambda task_id, status, **values: updates.append(
-            (task_id, status, values)
-        ),
+        lambda task_id, status, **values: updates.append((task_id, status, values)),
     )
 
     def circuit_open() -> dict:

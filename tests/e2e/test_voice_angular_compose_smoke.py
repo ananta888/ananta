@@ -34,9 +34,7 @@ _FORBIDDEN_RUNTIME_BUNDLE_TARGETS = (
     "http://voice-runtime",
     "http://restricted-inference",
 )
-_ESM_DEPENDENCY_PATTERN = re.compile(
-    r"(?:\bfrom\s*|\bimport\s*\(\s*)[\"']([^\"']+\.js)[\"']"
-)
+_ESM_DEPENDENCY_PATTERN = re.compile(r"(?:\bfrom\s*|\bimport\s*\(\s*)[\"']([^\"']+\.js)[\"']")
 
 
 def _required(name: str) -> str:
@@ -244,7 +242,7 @@ def _create_real_compose_result_artifact(
         allow_redirects=False,
     )
     assert response.status_code == 201, response.text[:1000]
-    data = (response.json().get("data") or {})
+    data = response.json().get("data") or {}
     assert data.get("candidate_ids") == list(run.candidate_ids)
     result_ref = str(data.get("result_ref") or "")
     assert result_ref.startswith("voice-result-")

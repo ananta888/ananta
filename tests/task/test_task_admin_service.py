@@ -145,9 +145,7 @@ def test_recovery_task_admin_write_authority_is_exactly_bound():
             ("to_status", "failed"),
         ):
             mismatched = {**authority, field: mismatched_value}
-            assert not recovery_task_admin_write_authorized(
-                **mismatched
-            )
+            assert not recovery_task_admin_write_authorized(**mismatched)
     assert not recovery_task_admin_write_authorized(**authority)
 
 
@@ -155,11 +153,9 @@ def test_detached_recovery_source_archive_transition_remains_denied(
     app,
 ):
     with app.app_context():
-        goal_id, _plan_id, source_id, _child_id = (
-            _persist_recovery_lineage(
-                suffix="archive-authority",
-                child_status="todo",
-            )
+        goal_id, _plan_id, source_id, _child_id = _persist_recovery_lineage(
+            suffix="archive-authority",
+            child_status="todo",
         )
         from agent.services.repository_registry import (
             get_repository_registry,
@@ -176,9 +172,7 @@ def test_detached_recovery_source_archive_transition_remains_denied(
 
         with pytest.raises(
             ValueError,
-            match=(
-                "recovery_source_finalization_write_authority_required"
-            ),
+            match=("recovery_source_finalization_write_authority_required"),
         ):
             repos.task_repo.save(_candidate())
 
@@ -192,16 +186,11 @@ def test_detached_recovery_source_archive_transition_remains_denied(
         ):
             with pytest.raises(
                 ValueError,
-                match=(
-                    "recovery_source_finalization_write_authority_required"
-                ),
+                match=("recovery_source_finalization_write_authority_required"),
             ):
                 repos.task_repo.save(_candidate())
 
-        assert (
-            repos.task_repo.get_by_id(source_id).status
-            == "blocked_by_dependency"
-        )
+        assert repos.task_repo.get_by_id(source_id).status == "blocked_by_dependency"
 
 
 def test_cancel_forwards_to_assigned_worker(monkeypatch):
@@ -225,10 +214,9 @@ def test_cancel_forwards_to_assigned_worker(monkeypatch):
 
     monkeypatch.setattr(
         "agent.services.request_cancellation_service.get_request_cancellation_service",
-        lambda: SimpleNamespace(
-            cancel_task_requests=_cancel_task_requests
-        ),
+        lambda: SimpleNamespace(cancel_task_requests=_cancel_task_requests),
     )
+
     def _update_status(_task_id, status, **_kwargs):
         task.status = status
 
@@ -241,9 +229,7 @@ def test_cancel_forwards_to_assigned_worker(monkeypatch):
     ok, msg, data = service.intervene_task(task_id="task-1", action="cancel", actor="test")
     assert ok is True
     assert msg == "ok"
-    assert calls == [
-        {"task_id": "task-1", "include_workers": True}
-    ]
+    assert calls == [{"task_id": "task-1", "include_workers": True}]
     forward = data.get("worker_cancel_forward") or {}
     assert forward.get("attempted") is True
     assert forward.get("status") == "ok"
@@ -296,34 +282,16 @@ def test_vector_intervention_uses_dedicated_hub_lifecycle(
     cancellation_calls: list[dict] = []
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: task
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
     monkeypatch.setattr(
-        (
-            "agent.services.vector_index_task_service."
-            "get_vector_index_task_service"
-        ),
-        lambda: SimpleNamespace(
-            cancel=lambda **kwargs: (
-                lifecycle_calls.append(kwargs)
-                or {"status": "cancelled"}
-            )
-        ),
+        ("agent.services.vector_index_task_service.get_vector_index_task_service"),
+        lambda: SimpleNamespace(cancel=lambda **kwargs: lifecycle_calls.append(kwargs) or {"status": "cancelled"}),
     )
     monkeypatch.setattr(
-        (
-            "agent.services.request_cancellation_service."
-            "get_request_cancellation_service"
-        ),
+        ("agent.services.request_cancellation_service.get_request_cancellation_service"),
         lambda: SimpleNamespace(
-            cancel_task_requests=lambda **kwargs: (
-                cancellation_calls.append(kwargs)
-                or {"status": "ok"}
-            )
+            cancel_task_requests=lambda **kwargs: cancellation_calls.append(kwargs) or {"status": "ok"}
         ),
     )
 
@@ -339,12 +307,8 @@ def test_vector_intervention_uses_dedicated_hub_lifecycle(
         "ok",
         "cancelled",
     )
-    assert lifecycle_calls == [
-        {"job_id": task.id, "actor": "admin-a"}
-    ]
-    assert cancellation_calls == [
-        {"task_id": task.id, "include_workers": True}
-    ]
+    assert lifecycle_calls == [{"job_id": task.id, "actor": "admin-a"}]
+    assert cancellation_calls == [{"task_id": task.id, "include_workers": True}]
 
 
 def test_vector_intervention_fails_closed_for_generic_or_partial_domain(
@@ -353,11 +317,7 @@ def test_vector_intervention_fails_closed_for_generic_or_partial_domain(
     task = _vector_task_row()
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: task
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
 
     ok, reason, data = TaskAdminService().intervene_task(
@@ -376,8 +336,7 @@ def test_vector_intervention_fails_closed_for_generic_or_partial_domain(
         action="cancel",
         actor="admin-a",
         vector_authorization=(
-            get_vector_store_authorization_policy()
-            .system_context(
+            get_vector_store_authorization_policy().system_context(
                 actor="run-control",
                 purpose="run_control",
             )
@@ -395,22 +354,11 @@ def test_vector_intervention_direct_service_bypass_is_denied(
     lifecycle_calls: list[dict] = []
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: task
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
     monkeypatch.setattr(
-        (
-            "agent.services.vector_index_task_service."
-            "get_vector_index_task_service"
-        ),
-        lambda: SimpleNamespace(
-            cancel=lambda **kwargs: lifecycle_calls.append(
-                kwargs
-            )
-        ),
+        ("agent.services.vector_index_task_service.get_vector_index_task_service"),
+        lambda: SimpleNamespace(cancel=lambda **kwargs: lifecycle_calls.append(kwargs)),
     )
 
     ok, reason, data = TaskAdminService().intervene_task(
@@ -434,11 +382,7 @@ def test_vector_cleanup_direct_service_bypass_is_denied(
     task = _vector_task_row()
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: task
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
 
     with pytest.raises(
@@ -464,11 +408,7 @@ def test_intervention_reports_authoritative_commit_conflict(
     )
     monkeypatch.setattr(
         "agent.services.task_admin_service.get_repository_registry",
-        lambda: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: task
-            )
-        ),
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
     monkeypatch.setattr(
         "agent.services.task_admin_service.update_local_task_status",
@@ -494,11 +434,9 @@ def test_active_recovery_child_archive_is_a_structured_conflict(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="archive-active",
-                child_status="todo",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="archive-active",
+            child_status="todo",
         )
 
     response = client.post(
@@ -507,10 +445,7 @@ def test_active_recovery_child_archive_is_a_structured_conflict(
     )
 
     assert response.status_code == 409
-    assert (
-        response.json["message"]
-        == "recovery_child_cleanup_requires_closed_lineage"
-    )
+    assert response.json["message"] == "recovery_child_cleanup_requires_closed_lineage"
     conflict = response.json["data"]
     assert conflict["task_id"] == child_id
     assert conflict["source_task_id"] == source_id
@@ -531,11 +466,9 @@ def test_active_recovery_child_delete_cleanup_is_a_structured_conflict(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="delete-active",
-                child_status="in_progress",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="delete-active",
+            child_status="in_progress",
         )
 
     response = client.post(
@@ -545,23 +478,16 @@ def test_active_recovery_child_delete_cleanup_is_a_structured_conflict(
     )
 
     assert response.status_code == 409
-    assert (
-        response.json["message"]
-        == "recovery_child_cleanup_requires_closed_lineage"
-    )
+    assert response.json["message"] == "recovery_child_cleanup_requires_closed_lineage"
     errors = response.json["data"]["errors"]
     assert errors == [
         {
             "action": "delete",
-            "error": (
-                "recovery_child_cleanup_requires_closed_lineage"
-            ),
+            "error": ("recovery_child_cleanup_requires_closed_lineage"),
             "http_status": 409,
             "id": child_id,
             "plan_id": plan_id,
-            "reason_code": (
-                "recovery_child_cleanup_requires_closed_lineage"
-            ),
+            "reason_code": ("recovery_child_cleanup_requires_closed_lineage"),
             "source_task_id": source_id,
             "task_id": child_id,
         }
@@ -571,10 +497,7 @@ def test_active_recovery_child_delete_cleanup_is_a_structured_conflict(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry().task_repo.get_by_id(child_id)
-            is not None
-        )
+        assert get_repository_registry().task_repo.get_by_id(child_id) is not None
 
 
 def test_bulk_cleanup_keeps_recovery_source_under_hub_control(
@@ -583,11 +506,9 @@ def test_bulk_cleanup_keeps_recovery_source_under_hub_control(
     admin_auth_header,
 ) -> None:
     with app.app_context():
-        _goal_id, _plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="bulk-source-delete",
-                child_status="assigned",
-            )
+        _goal_id, _plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="bulk-source-delete",
+            child_status="assigned",
         )
 
     response = client.post(
@@ -597,9 +518,7 @@ def test_bulk_cleanup_keeps_recovery_source_under_hub_control(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_source_cleanup_requires_hub_control"
-    )
+    assert response.json["message"] == ("recovery_source_cleanup_requires_hub_control")
     assert response.json["data"]["deleted_ids"] == []
     error = response.json["data"]["errors"][0]
     assert error["id"] == source_id
@@ -620,11 +539,9 @@ def test_active_recovery_child_cancel_cannot_bypass_hub_plan(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="cancel-active",
-                child_status="assigned",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="cancel-active",
+            child_status="assigned",
         )
 
     response = client.post(
@@ -633,10 +550,7 @@ def test_active_recovery_child_cancel_cannot_bypass_hub_plan(
     )
 
     assert response.status_code == 409
-    assert (
-        response.json["message"]
-        == "recovery_child_active_mutation_requires_hub_control"
-    )
+    assert response.json["message"] == "recovery_child_active_mutation_requires_hub_control"
     assert response.json["data"]["source_task_id"] == source_id
     assert response.json["data"]["plan_id"] == plan_id
     with app.app_context():
@@ -644,12 +558,7 @@ def test_active_recovery_child_cancel_cannot_bypass_hub_plan(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .task_repo.get_by_id(child_id)
-            .status
-            == "assigned"
-        )
+        assert get_repository_registry().task_repo.get_by_id(child_id).status == "assigned"
 
 
 def test_recovery_source_cancel_is_deterministic_409_without_mutation(
@@ -658,11 +567,9 @@ def test_recovery_source_cancel_is_deterministic_409_without_mutation(
     admin_auth_header,
 ) -> None:
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="cancel-source",
-                child_status="assigned",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="cancel-source",
+            child_status="assigned",
         )
         direct = TaskAdminService().intervene_task(
             task_id=source_id,
@@ -671,9 +578,7 @@ def test_recovery_source_cancel_is_deterministic_409_without_mutation(
         )
 
     assert direct[0] is False
-    assert direct[1] == (
-        "recovery_source_cancel_requires_hub_control"
-    )
+    assert direct[1] == ("recovery_source_cancel_requires_hub_control")
     assert direct[2]["http_status"] == 409
     assert direct[2]["source_task_id"] == source_id
     assert direct[2]["plan_id"] == plan_id
@@ -684,9 +589,7 @@ def test_recovery_source_cancel_is_deterministic_409_without_mutation(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_source_cancel_requires_hub_control"
-    )
+    assert response.json["message"] == ("recovery_source_cancel_requires_hub_control")
     assert response.json["data"]["action"] == "cancel"
     assert response.json["data"]["source_task_id"] == source_id
     assert response.json["data"]["plan_id"] == plan_id
@@ -696,14 +599,8 @@ def test_recovery_source_cancel_is_deterministic_409_without_mutation(
         )
 
         repos = get_repository_registry()
-        assert (
-            repos.task_repo.get_by_id(source_id).status
-            == "blocked_by_dependency"
-        )
-        assert (
-            repos.task_repo.get_by_id(child_id).status
-            == "assigned"
-        )
+        assert repos.task_repo.get_by_id(source_id).status == "blocked_by_dependency"
+        assert repos.task_repo.get_by_id(child_id).status == "assigned"
 
 
 def test_terminal_recovery_child_retry_cannot_resurrect_lineage(
@@ -712,11 +609,9 @@ def test_terminal_recovery_child_retry_cannot_resurrect_lineage(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="retry-terminal",
-                child_status="failed",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="retry-terminal",
+            child_status="failed",
         )
 
     response = client.post(
@@ -725,10 +620,7 @@ def test_terminal_recovery_child_retry_cannot_resurrect_lineage(
     )
 
     assert response.status_code == 409
-    assert (
-        response.json["message"]
-        == "recovery_child_retry_requires_new_hub_plan"
-    )
+    assert response.json["message"] == "recovery_child_retry_requires_new_hub_plan"
     assert response.json["data"]["source_task_id"] == source_id
     assert response.json["data"]["plan_id"] == plan_id
     with app.app_context():
@@ -736,12 +628,7 @@ def test_terminal_recovery_child_retry_cannot_resurrect_lineage(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .task_repo.get_by_id(child_id)
-            .status
-            == "failed"
-        )
+        assert get_repository_registry().task_repo.get_by_id(child_id).status == "failed"
 
 
 def test_closed_recovery_lineage_allows_terminal_child_archive(
@@ -750,13 +637,11 @@ def test_closed_recovery_lineage_allows_terminal_child_archive(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, _plan_id, _source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="archive-closed",
-                child_status="completed",
-                source_status="completed",
-                goal_status="completed",
-            )
+        _goal_id, _plan_id, _source_id, child_id = _persist_recovery_lineage(
+            suffix="archive-closed",
+            child_status="completed",
+            source_status="completed",
+            goal_status="completed",
         )
 
     response = client.post(
@@ -781,17 +666,15 @@ def test_inflight_recovery_result_fences_closed_lineage_cleanup(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, _plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="archive-inflight",
-                child_status="completed",
-                source_status="completed",
-                goal_status="completed",
-                lease={
-                    "state": "worker_admitted",
-                    "expires_at": time.time() + 300,
-                },
-            )
+        _goal_id, _plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="archive-inflight",
+            child_status="completed",
+            source_status="completed",
+            goal_status="completed",
+            lease={
+                "state": "worker_admitted",
+                "expires_at": time.time() + 300,
+            },
         )
 
     response = client.post(
@@ -800,20 +683,14 @@ def test_inflight_recovery_result_fences_closed_lineage_cleanup(
     )
 
     assert response.status_code == 409
-    assert (
-        response.json["message"]
-        == "recovery_child_dispatch_inflight"
-    )
+    assert response.json["message"] == "recovery_child_dispatch_inflight"
     assert response.json["data"]["source_task_id"] == source_id
     with app.app_context():
         from agent.services.repository_registry import (
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry().task_repo.get_by_id(child_id)
-            is not None
-        )
+        assert get_repository_registry().task_repo.get_by_id(child_id) is not None
 
 
 def test_archive_rechecks_dispatch_lease_after_waiting_on_shared_fence(
@@ -833,13 +710,11 @@ def test_archive_rechecks_dispatch_lease_after_waiting_on_shared_fence(
     )
 
     with app.app_context():
-        goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="archive-race",
-                child_status="completed",
-                source_status="completed",
-                goal_status="completed",
-            )
+        goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="archive-race",
+            child_status="completed",
+            source_status="completed",
+            goal_status="completed",
         )
     real_lock_port = get_task_mutation_lock_port()
     lock_attempted = threading.Event()
@@ -848,9 +723,7 @@ def test_archive_rechecks_dispatch_lease_after_waiting_on_shared_fence(
         @contextlib.contextmanager
         def mutation_locks(self, lock_ids):
             lock_attempted.set()
-            with real_lock_port.mutation_locks(
-                lock_ids
-            ) as acquired:
+            with real_lock_port.mutation_locks(lock_ids) as acquired:
                 yield acquired
 
     monkeypatch.setattr(
@@ -861,9 +734,7 @@ def test_archive_rechecks_dispatch_lease_after_waiting_on_shared_fence(
 
     def _archive() -> None:
         try:
-            outcome.append(
-                TaskAdminService().archive_task(task_id=child_id)
-            )
+            outcome.append(TaskAdminService().archive_task(task_id=child_id))
         except BaseException as exc:  # captured for the thread assertion
             outcome.append(exc)
 
@@ -912,13 +783,8 @@ def test_archive_rechecks_dispatch_lease_after_waiting_on_shared_fence(
         outcome[0],
         RecoveryChildAdminMutationConflict,
     )
-    assert outcome[0].reason_code == (
-        "recovery_child_dispatch_inflight"
-    )
-    assert (
-        get_repository_registry().task_repo.get_by_id(child_id)
-        is not None
-    )
+    assert outcome[0].reason_code == ("recovery_child_dispatch_inflight")
+    assert get_repository_registry().task_repo.get_by_id(child_id) is not None
 
 
 def test_archived_recovery_child_restore_is_denied_single_and_bulk(
@@ -927,13 +793,11 @@ def test_archived_recovery_child_restore_is_denied_single_and_bulk(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, _plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="restore-child",
-                child_status="completed",
-                source_status="completed",
-                goal_status="completed",
-            )
+        _goal_id, _plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="restore-child",
+            child_status="completed",
+            source_status="completed",
+            goal_status="completed",
         )
     archived = client.post(
         f"/tasks/{child_id}/archive",
@@ -946,9 +810,7 @@ def test_archived_recovery_child_restore_is_denied_single_and_bulk(
         headers=admin_auth_header,
     )
     assert single.status_code == 409
-    assert single.json["message"] == (
-        "recovery_lineage_restore_requires_hub_control"
-    )
+    assert single.json["message"] == ("recovery_lineage_restore_requires_hub_control")
     assert single.json["data"]["source_task_id"] == source_id
 
     bulk = client.post(
@@ -957,9 +819,7 @@ def test_archived_recovery_child_restore_is_denied_single_and_bulk(
         headers=admin_auth_header,
     )
     assert bulk.status_code == 409
-    assert bulk.json["message"] == (
-        "recovery_lineage_restore_requires_hub_control"
-    )
+    assert bulk.json["message"] == ("recovery_lineage_restore_requires_hub_control")
     with app.app_context():
         from agent.services.repository_registry import (
             get_repository_registry,
@@ -976,11 +836,9 @@ def test_archived_recovery_source_restore_cannot_reopen_broken_dag(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="restore-source",
-                child_status="in_progress",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="restore-source",
+            child_status="in_progress",
         )
 
     archived = client.post(
@@ -1002,9 +860,7 @@ def test_archived_recovery_source_restore_cannot_reopen_broken_dag(
         headers=admin_auth_header,
     )
     assert restored.status_code == 409
-    assert restored.json["message"] == (
-        "recovery_lineage_restore_requires_hub_control"
-    )
+    assert restored.json["message"] == ("recovery_lineage_restore_requires_hub_control")
     assert restored.json["data"]["source_task_id"] == source_id
     assert restored.json["data"]["plan_id"] == plan_id
     with app.app_context():
@@ -1019,12 +875,10 @@ def test_recovery_source_retry_is_denied_without_false_success(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, plan_id, source_id, _child_id = (
-            _persist_recovery_lineage(
-                suffix="retry-source",
-                child_status="cancelled",
-                source_status="failed",
-            )
+        _goal_id, plan_id, source_id, _child_id = _persist_recovery_lineage(
+            suffix="retry-source",
+            child_status="cancelled",
+            source_status="failed",
         )
 
     response = client.post(
@@ -1033,9 +887,7 @@ def test_recovery_source_retry_is_denied_without_false_success(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_source_retry_requires_new_hub_plan"
-    )
+    assert response.json["message"] == ("recovery_source_retry_requires_new_hub_plan")
     assert response.json["data"]["source_task_id"] == source_id
     assert response.json["data"]["plan_id"] == plan_id
     with app.app_context():
@@ -1043,12 +895,7 @@ def test_recovery_source_retry_is_denied_without_false_success(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .task_repo.get_by_id(source_id)
-            .status
-            == "failed"
-        )
+        assert get_repository_registry().task_repo.get_by_id(source_id).status == "failed"
 
 
 def test_stopped_model_recovery_strategy_cannot_be_retried_generically(
@@ -1068,13 +915,9 @@ def test_stopped_model_recovery_strategy_cannot_be_retried_generically(
                 status="waiting_for_review",
                 status_reason_details={
                     "model_recovery_strategy": {
-                        "schema": (
-                            "ananta.model_recovery_strategy.v1"
-                        ),
+                        "schema": ("ananta.model_recovery_strategy.v1"),
                         "status": "stopped",
-                        "reason_code": (
-                            "model_recovery_stop_selected"
-                        ),
+                        "reason_code": ("model_recovery_stop_selected"),
                         "recovery_actions": ["stop"],
                     }
                 },
@@ -1087,9 +930,7 @@ def test_stopped_model_recovery_strategy_cannot_be_retried_generically(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_source_retry_requires_new_hub_plan"
-    )
+    assert response.json["message"] == ("recovery_source_retry_requires_new_hub_plan")
     assert response.json["data"]["source_task_id"] == task_id
     assert response.json["data"]["plan_id"] is None
     with app.app_context():
@@ -1097,12 +938,7 @@ def test_stopped_model_recovery_strategy_cannot_be_retried_generically(
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .task_repo.get_by_id(task_id)
-            .status
-            == "waiting_for_review"
-        )
+        assert get_repository_registry().task_repo.get_by_id(task_id).status == "waiting_for_review"
 
 
 def test_repository_preserves_model_recovery_strategy_metadata(app):
@@ -1119,13 +955,9 @@ def test_repository_preserves_model_recovery_strategy_metadata(app):
                 status="waiting_for_review",
                 status_reason_details={
                     "model_recovery_strategy": {
-                        "schema": (
-                            "ananta.model_recovery_strategy.v1"
-                        ),
+                        "schema": ("ananta.model_recovery_strategy.v1"),
                         "status": "stopped",
-                        "reason_code": (
-                            "model_recovery_stop_selected"
-                        ),
+                        "reason_code": ("model_recovery_stop_selected"),
                     }
                 },
             )
@@ -1135,13 +967,9 @@ def test_repository_preserves_model_recovery_strategy_metadata(app):
 
         repo.save(persisted)
 
-        strategy = repo.get_by_id(
-            task_id
-        ).status_reason_details["model_recovery_strategy"]
+        strategy = repo.get_by_id(task_id).status_reason_details["model_recovery_strategy"]
         assert strategy["status"] == "stopped"
-        assert strategy["reason_code"] == (
-            "model_recovery_stop_selected"
-        )
+        assert strategy["reason_code"] == ("model_recovery_stop_selected")
 
 
 def test_direct_archived_recovery_child_delete_rechecks_active_lineage(
@@ -1152,11 +980,9 @@ def test_direct_archived_recovery_child_delete_rechecks_active_lineage(
     from agent.db_models import ArchivedTaskDB
 
     with app.app_context():
-        _goal_id, plan_id, source_id, child_id = (
-            _persist_recovery_lineage(
-                suffix="direct-delete-child",
-                child_status="cancelled",
-            )
+        _goal_id, plan_id, source_id, child_id = _persist_recovery_lineage(
+            suffix="direct-delete-child",
+            child_status="cancelled",
         )
         from agent.services.repository_registry import (
             get_repository_registry,
@@ -1164,9 +990,7 @@ def test_direct_archived_recovery_child_delete_rechecks_active_lineage(
 
         repos = get_repository_registry()
         child = repos.task_repo.get_by_id(child_id)
-        repos.archived_task_repo.save(
-            ArchivedTaskDB(**child.model_dump())
-        )
+        repos.archived_task_repo.save(ArchivedTaskDB(**child.model_dump()))
         repos.task_repo.delete(child_id)
 
     response = client.delete(
@@ -1175,17 +999,11 @@ def test_direct_archived_recovery_child_delete_rechecks_active_lineage(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_child_cleanup_requires_closed_lineage"
-    )
+    assert response.json["message"] == ("recovery_child_cleanup_requires_closed_lineage")
     assert response.json["data"]["source_task_id"] == source_id
     assert response.json["data"]["plan_id"] == plan_id
     with app.app_context():
-        assert (
-            get_repository_registry()
-            .archived_task_repo.get_by_id(child_id)
-            is not None
-        )
+        assert get_repository_registry().archived_task_repo.get_by_id(child_id) is not None
 
 
 def test_direct_archived_recovery_source_delete_requires_hub_control(
@@ -1194,11 +1012,9 @@ def test_direct_archived_recovery_source_delete_requires_hub_control(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, _plan_id, source_id, _child_id = (
-            _persist_recovery_lineage(
-                suffix="direct-delete-source",
-                child_status="todo",
-            )
+        _goal_id, _plan_id, source_id, _child_id = _persist_recovery_lineage(
+            suffix="direct-delete-source",
+            child_status="todo",
         )
     archived = client.post(
         f"/tasks/{source_id}/archive",
@@ -1212,20 +1028,14 @@ def test_direct_archived_recovery_source_delete_requires_hub_control(
     )
 
     assert response.status_code == 409
-    assert response.json["message"] == (
-        "recovery_source_cleanup_requires_hub_control"
-    )
+    assert response.json["message"] == ("recovery_source_cleanup_requires_hub_control")
     assert response.json["data"]["source_task_id"] == source_id
     with app.app_context():
         from agent.services.repository_registry import (
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .archived_task_repo.get_by_id(source_id)
-            is not None
-        )
+        assert get_repository_registry().archived_task_repo.get_by_id(source_id) is not None
 
 
 def test_api_retention_preserves_archived_recovery_lineage(
@@ -1234,11 +1044,9 @@ def test_api_retention_preserves_archived_recovery_lineage(
     admin_auth_header,
 ):
     with app.app_context():
-        _goal_id, _plan_id, source_id, _child_id = (
-            _persist_recovery_lineage(
-                suffix="api-retention",
-                child_status="todo",
-            )
+        _goal_id, _plan_id, source_id, _child_id = _persist_recovery_lineage(
+            suffix="api-retention",
+            child_status="todo",
         )
     archived = client.post(
         f"/tasks/{source_id}/archive",
@@ -1254,19 +1062,106 @@ def test_api_retention_preserves_archived_recovery_lineage(
 
     assert response.status_code == 200
     errors = response.json["data"]["errors"]
-    source_error = next(
-        item for item in errors if item["id"] == source_id
-    )
-    assert source_error["reason_code"] == (
-        "recovery_lineage_retention_preserved"
-    )
+    source_error = next(item for item in errors if item["id"] == source_id)
+    assert source_error["reason_code"] == ("recovery_lineage_retention_preserved")
     with app.app_context():
         from agent.services.repository_registry import (
             get_repository_registry,
         )
 
-        assert (
-            get_repository_registry()
-            .archived_task_repo.get_by_id(source_id)
-            is not None
-        )
+        assert get_repository_registry().archived_task_repo.get_by_id(source_id) is not None
+
+
+def test_retry_refills_the_stale_active_recovery_budget(monkeypatch):
+    """A caller-driven retry must start a fresh recovery budget.
+
+    ``stale_active_retries`` is spent by the repair sweep (3 auto-retries, then
+    ``stale_active_task_auto_failed``) and nothing reset it, so the task a ``retry`` handed to the
+    autopilot kept its exhausted budget and was auto-failed the moment the 600s manual override
+    expired -- live, 607s after the retry, in the same tick the dispatch gate would first have
+    allowed dispatching.
+    """
+    service = TaskAdminService()
+    captured: dict = {}
+    task = SimpleNamespace(
+        id="task-retry-budget",
+        status="failed",
+        assigned_agent_url=None,
+        source_task_id=None,
+        goal_id=None,
+        plan_id=None,
+        derivation_reason=None,
+        status_reason_details={},
+        last_exit_code=1,
+        manual_override_until=0.0,
+        verification_status={
+            "autopilot_recovery": {
+                "stale_active_retries": 3,
+                "waiting_review_retries": 2,
+                "tooling_retries": 1,
+                "last_stale_active_status": "assigned",
+                "last_stale_active_retry_at": 123.0,
+            },
+            "source_notes": {"kept": True},
+        },
+    )
+
+    def _capture(_task_id, status, **kwargs):
+        captured["status"] = status
+        captured["kwargs"] = dict(kwargs)
+
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.update_local_task_status",
+        _capture,
+    )
+
+    ok, reason, _data = service.intervene_task(task_id=task.id, action="retry", actor="test")
+
+    # the stub task never changes status, so the authoritative commit check reports the conflict
+    assert ok is False and reason == "task_admin_status_commit_conflict"
+    kwargs = captured["kwargs"]
+    assert captured["status"] == "todo"
+    assert kwargs["manual_override_until"] > 0
+    assert kwargs["last_exit_code"] is None
+    recovery = kwargs["verification_status"]["autopilot_recovery"]
+    # every repair budget the sweeps spend is refilled
+    assert recovery["stale_active_retries"] == 0
+    assert recovery["waiting_review_retries"] == 0
+    assert recovery["tooling_retries"] == 0
+    # informational history and unrelated recovery state stay exactly as they were
+    assert recovery["last_stale_active_status"] == "assigned"
+    assert recovery["last_stale_active_retry_at"] == 123.0
+    assert kwargs["verification_status"]["source_notes"] == {"kept": True}
+
+
+def test_retry_leaves_an_untouched_recovery_budget_alone(monkeypatch):
+    service = TaskAdminService()
+    captured: dict = {}
+    task = SimpleNamespace(
+        id="task-retry-budget-clean",
+        status="failed",
+        assigned_agent_url=None,
+        source_task_id=None,
+        goal_id=None,
+        plan_id=None,
+        derivation_reason=None,
+        status_reason_details={},
+        verification_status={"autopilot_recovery": {"last_stale_active_status": "assigned"}},
+    )
+
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.get_repository_registry",
+        lambda: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
+    )
+    monkeypatch.setattr(
+        "agent.services.task_admin_service.update_local_task_status",
+        lambda _task_id, _status, **kwargs: captured.update(kwargs),
+    )
+
+    service.intervene_task(task_id=task.id, action="retry", actor="test")
+
+    assert captured["verification_status"] == {"autopilot_recovery": {"last_stale_active_status": "assigned"}}

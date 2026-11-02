@@ -72,7 +72,9 @@ def _seed_output_with_provenance(tmp_path: Path, monkeypatch) -> tuple[str, str,
     return goal_id, output_id, provenance_id
 
 
-def test_output_provenance_endpoint_returns_redacted_payload(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_output_provenance_endpoint_returns_redacted_payload(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     goal_id, output_id, _ = _seed_output_with_provenance(tmp_path, monkeypatch)
 
     response = client.get(f"/goals/{goal_id}/artifacts/outputs/{output_id}/provenance", headers=admin_auth_header)
@@ -84,7 +86,9 @@ def test_output_provenance_endpoint_returns_redacted_payload(client, admin_auth_
     assert payload["config_refs"]["model_config_ref"] == "cfg-model-1"
 
 
-def test_execution_provenance_endpoint_supports_policy_blocked_raw_prompt(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_execution_provenance_endpoint_supports_policy_blocked_raw_prompt(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     goal_id, _, provenance_id = _seed_output_with_provenance(tmp_path, monkeypatch)
 
     response = client.get(
@@ -97,7 +101,9 @@ def test_execution_provenance_endpoint_supports_policy_blocked_raw_prompt(client
     assert payload["prompt_access"]["raw_prompt"] == "policy_blocked"
 
 
-def test_execution_provenance_endpoint_returns_404_for_missing_provenance(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_execution_provenance_endpoint_returns_404_for_missing_provenance(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
@@ -108,7 +114,9 @@ def test_execution_provenance_endpoint_returns_404_for_missing_provenance(client
     assert "provenance_not_found" in json.dumps(response.json)
 
 
-def test_output_provenance_endpoint_returns_404_for_missing_output(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+def test_output_provenance_endpoint_returns_404_for_missing_output(
+    client, admin_auth_header, monkeypatch, tmp_path: Path
+) -> None:
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))

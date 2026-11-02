@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from agent.services.meet_contract import MeetError
-from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
+from tests.meet.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
 
 
 def test_disabled_terminal_fixture_does_not_wrap_or_act():

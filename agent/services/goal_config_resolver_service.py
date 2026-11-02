@@ -8,50 +8,56 @@ from typing import Any
 
 from agent.services.config_profile_service import get_config_profile_service
 
-ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
-    "feature_flags",
-    "hermes_worker_adapter",
-    "default_provider",
-    "default_model",
-    "llm_config",
-    "opencode_runtime",
-    "worker_runtime",
-    "sgpt_routing",
-    "task_kind_model_overrides",
-    "role_model_overrides",
-    "template_model_overrides",
-    "planning_policy",
-    "llm_profile_policy",
-    "task_kind_execution_policies",
-    "worker_selection",
-    "git_workspace",
-    "workspace_context_policy",
-    "llm_tool_guardrails",
-    "propose_policy",
-    "action_packs",
-    "autopilot_task_propose_hard_guard_status",
-    "task_propose_timeout_seconds",
-})
+ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset(
+    {
+        "feature_flags",
+        "hermes_worker_adapter",
+        "default_provider",
+        "default_model",
+        "llm_config",
+        "opencode_runtime",
+        "worker_runtime",
+        "sgpt_routing",
+        "task_kind_model_overrides",
+        "role_model_overrides",
+        "template_model_overrides",
+        "planning_policy",
+        "llm_profile_policy",
+        "task_kind_execution_policies",
+        "worker_selection",
+        "git_workspace",
+        "workspace_context_policy",
+        "llm_tool_guardrails",
+        "propose_policy",
+        "action_packs",
+        "autopilot_task_propose_hard_guard_status",
+        "task_propose_timeout_seconds",
+    }
+)
 
 # Backward-compatible alias — internal code should migrate to ALLOWED_GOAL_CONFIG_KEYS.
 _ALLOWED_TOP_LEVEL_KEYS = ALLOWED_GOAL_CONFIG_KEYS
 
 _SECRET_KEY_MARKERS = ("key", "token", "secret", "password", "authorization", "credential", "bearer")
-_NON_SECRET_KEY_EXCEPTIONS: frozenset[str] = frozenset({
-    "max_output_tokens",
-    "max_tokens_per_request",
-    "chars_per_token_estimate",
-})
+_NON_SECRET_KEY_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "max_output_tokens",
+        "max_tokens_per_request",
+        "chars_per_token_estimate",
+    }
+)
 
 # These nested config paths are treated as atomic replacements rather than deep-merged.
 # When a profile or goal override sets one of these keys, the entire dict replaces the
 # base config value — partial merging would produce confusing hybrid routing tables.
-_REPLACE_NOT_MERGE_PATHS: frozenset[str] = frozenset({
-    "sgpt_routing.task_kind_backend",
-    "sgpt_routing.research_capability_backend",
-    "sgpt_routing.backend_parallel_limits",
-    "planning_policy.validation_profiles",
-})
+_REPLACE_NOT_MERGE_PATHS: frozenset[str] = frozenset(
+    {
+        "sgpt_routing.task_kind_backend",
+        "sgpt_routing.research_capability_backend",
+        "sgpt_routing.backend_parallel_limits",
+        "planning_policy.validation_profiles",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -154,7 +160,9 @@ class GoalConfigResolverService:
                 unknown.append(key)
         return filtered, unknown
 
-    def _apply_with_provenance(self, target: dict[str, Any], patch: dict[str, Any], source: str, provenance: dict[str, Any], prefix: str = "") -> None:
+    def _apply_with_provenance(
+        self, target: dict[str, Any], patch: dict[str, Any], source: str, provenance: dict[str, Any], prefix: str = ""
+    ) -> None:
         for key, value in patch.items():
             path = f"{prefix}.{key}" if prefix else str(key)
             if path not in _REPLACE_NOT_MERGE_PATHS and isinstance(value, dict) and isinstance(target.get(key), dict):

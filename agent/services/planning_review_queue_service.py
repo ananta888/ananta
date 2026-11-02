@@ -15,7 +15,8 @@ class PlanningReviewQueueService:
         if str(run.parse_mode or "") == "parse_failed":
             recent = repos.planning_run_repo.get_recent(limit=50)
             same_model_fails = [
-                r for r in recent
+                r
+                for r in recent
                 if str(r.model_provider or "") == str(run.model_provider or "")
                 and str(r.model_name or "") == str(run.model_name or "")
                 and str(r.parse_mode or "") == "parse_failed"
@@ -27,7 +28,11 @@ class PlanningReviewQueueService:
                             planning_run_id=str(run.id),
                             review_type="repeated_parse_failed",
                             reason_codes=["parse_failed_repeated"],
-                            payload={"model_provider": run.model_provider, "model_name": run.model_name, "count": len(same_model_fails)},
+                            payload={
+                                "model_provider": run.model_provider,
+                                "model_name": run.model_name,
+                                "count": len(same_model_fails),
+                            },
                         )
                     )
                 )
@@ -49,7 +54,9 @@ class PlanningReviewQueueService:
     def list_open(self, limit: int = 200) -> list[PlanningReviewItemDB]:
         return get_repository_registry().planning_review_item_repo.get_open(limit=limit)
 
-    def apply_action(self, *, item_id: str, action: str, actor: str, details: dict[str, Any] | None = None) -> PlanningReviewItemDB | None:
+    def apply_action(
+        self, *, item_id: str, action: str, actor: str, details: dict[str, Any] | None = None
+    ) -> PlanningReviewItemDB | None:
         repos = get_repository_registry()
         open_items = repos.planning_review_item_repo.get_open(limit=2000)
         item = next((i for i in open_items if str(i.id) == str(item_id)), None)

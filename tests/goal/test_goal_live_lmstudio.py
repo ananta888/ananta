@@ -9,7 +9,7 @@ from agent.db_models import AgentInfoDB
 from agent.repository import agent_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"

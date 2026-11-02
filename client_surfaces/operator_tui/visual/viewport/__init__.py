@@ -11,4 +11,3 @@ __all__ = [
     "ViewportState",
     "derive_pixel_size",
 ]
-

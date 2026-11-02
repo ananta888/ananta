@@ -1,10 +1,9 @@
 """Tests für DeltaEncoder: Encoding, Anwendung (apply), DirtyRegions."""
+
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.snapshot import CellGrid
-from client_surfaces.operator_tui.snapshot_delta import DeltaEncoder, DirtyRegion, TuiDelta, _compute_dirty_regions
+from client_surfaces.operator_tui.snapshot_delta import DeltaEncoder, DirtyRegion, _compute_dirty_regions
 
 
 class TestDeltaEncoderNoChange:
@@ -104,8 +103,15 @@ class TestDeltaToDictSchema:
         enc = DeltaEncoder()
         delta = enc.encode(prev, curr)
         d = delta.to_dict()
-        required = {"previous_hash", "current_hash", "changed_cell_count",
-                    "changed_lines", "dirty_regions", "changed_cells", "line_hashes"}
+        required = {
+            "previous_hash",
+            "current_hash",
+            "changed_cell_count",
+            "changed_lines",
+            "dirty_regions",
+            "changed_cells",
+            "line_hashes",
+        }
         assert required <= set(d.keys())
 
     def test_to_dict_line_hashes_length_matches_height(self) -> None:

@@ -1,4 +1,5 @@
 """GithubFailureSourceRefsStrategy — helpcenter_github_failure_source_refs_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, CodeCompassReadPort, HeuristicStrategyBase
@@ -8,8 +9,18 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _GITHUB_KEYWORDS = [
-    "pr", "pull request", "issue", "commit", "sha", "branch", "merge",
-    "github", "workflow", "action", "check run", "status check",
+    "pr",
+    "pull request",
+    "issue",
+    "commit",
+    "sha",
+    "branch",
+    "merge",
+    "github",
+    "workflow",
+    "action",
+    "check run",
+    "status check",
 ]
 _MIN_SCORE = 0.1
 

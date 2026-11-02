@@ -15,29 +15,38 @@ class RetirementIssuancePolicy:
 
     def __call__(self, task, command):
         for schedule in configured_maintenance_schedules(self._configuration()):
-            if (schedule.retire_expired and schedule.tenant_id == task.tenant_id
-                    and schedule.project_id == task.project_id and schedule.control_task_id == command.control_task_id
-                    and maintenance_request(schedule, command.run_id).plan.plan_hash == command.plan_hash):
+            if (
+                schedule.retire_expired
+                and schedule.tenant_id == task.tenant_id
+                and schedule.project_id == task.project_id
+                and schedule.control_task_id == command.control_task_id
+                and maintenance_request(schedule, command.run_id).plan.plan_hash == command.plan_hash
+            ):
                 self._admission.require(schedule)
                 self._reservations.require_current(schedule, run_id=command.run_id)
                 return
-        raise ValueError('native_result_retirement_current_policy_required')
+        raise ValueError("native_result_retirement_current_policy_required")
 
 
 def get_native_result_retirement_service(app):
-    if str(app.config.get('ROLE') or '').lower() != 'hub':
-        raise ValueError('native_result_retirement_hub_only')
-    service = app.extensions.get('native_result_retirement_service')
+    if str(app.config.get("ROLE") or "").lower() != "hub":
+        raise ValueError("native_result_retirement_hub_only")
+    service = app.extensions.get("native_result_retirement_service")
     if service is None:
         from agent.database import engine
         from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
 
-        service = NativeResultRetirementService(repository=SQLNativeResultRetirementRepository(engine),
-            authority=SQLAlchemyNativeResultAuthority(key_ring=get_workflow_authorization_key_ring,
-                required_capabilities=(RETIREMENT_CAPABILITY,)), keys=get_workflow_authorization_key_ring,
+        service = NativeResultRetirementService(
+            repository=SQLNativeResultRetirementRepository(engine),
+            authority=SQLAlchemyNativeResultAuthority(
+                key_ring=get_workflow_authorization_key_ring, required_capabilities=(RETIREMENT_CAPABILITY,)
+            ),
+            keys=get_workflow_authorization_key_ring,
             policy=RetirementIssuancePolicy(
-                configuration=lambda: (app.config.get('AGENT_CONFIG') or {}).get('native_result_maintenance'),
+                configuration=lambda: (app.config.get("AGENT_CONFIG") or {}).get("native_result_maintenance"),
                 admission=build_native_maintenance_admission(app, engine=engine),
-                reservations=SQLMaintenanceCadenceRepository(engine)))
-        app.extensions['native_result_retirement_service'] = service
+                reservations=SQLMaintenanceCadenceRepository(engine),
+            ),
+        )
+        app.extensions["native_result_retirement_service"] = service
     return service

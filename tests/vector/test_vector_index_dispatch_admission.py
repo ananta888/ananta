@@ -27,26 +27,14 @@ def _registration_config(tmp_path) -> dict[str, str]:
     path.write_text(
         json.dumps(
             {
-                "schema": (
-                    "ananta.workflow-worker-registration-keyring.v1"
-                ),
+                "schema": ("ananta.workflow-worker-registration-keyring.v1"),
                 "workers": {
                     "worker-a": {
                         "worker_url": "http://worker-a:5000",
-                        "registration_token": (
-                            "worker-registration-token-"
-                            + ("b" * 40)
-                        ),
-                        "service_token_sha256": hashlib.sha256(
-                            _TOKEN.encode("utf-8")
-                        ).hexdigest(),
+                        "registration_token": ("worker-registration-token-" + ("b" * 40)),
+                        "service_token_sha256": hashlib.sha256(_TOKEN.encode("utf-8")).hexdigest(),
                         "session_signing_key_sha256": (
-                            hashlib.sha256(
-                                (
-                                    "worker-session-key-"
-                                    + ("c" * 40)
-                                ).encode("utf-8")
-                            ).hexdigest()
+                            hashlib.sha256(("worker-session-key-" + ("c" * 40)).encode("utf-8")).hexdigest()
                         ),
                         "allowed_capabilities": _CAPABILITIES,
                     }
@@ -56,11 +44,7 @@ def _registration_config(tmp_path) -> dict[str, str]:
         encoding="utf-8",
     )
     path.chmod(0o600)
-    return {
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": (
-            str(path)
-        )
-    }
+    return {"ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE": (str(path))}
 
 
 def _worker(**overrides):
@@ -71,9 +55,7 @@ def _worker(**overrides):
         "role": "worker",
         "status": "online",
         "registration_validated": True,
-        "registration_provenance": (
-            "strict_registration_keyring_v1"
-        ),
+        "registration_provenance": ("strict_registration_keyring_v1"),
         "authorized_capabilities": _CAPABILITIES,
         "capabilities": _CAPABILITIES,
     }
@@ -200,10 +182,7 @@ def test_worker_admission_client_is_bounded_and_redirect_safe() -> None:
 
     assert calls[0]["allow_redirects"] is False
     assert calls[0]["stream"] is True
-    assert (
-        calls[0]["headers"]["Authorization"]
-        == f"Bearer {_TOKEN}"
-    )
+    assert calls[0]["headers"]["Authorization"] == f"Bearer {_TOKEN}"
     assert success.closed is True
 
     redirect = _Response({}, status_code=307)
@@ -228,9 +207,7 @@ def test_worker_admission_client_is_bounded_and_redirect_safe() -> None:
     client._post = lambda *_args, **_kwargs: oversized
     with pytest.raises(
         RuntimeError,
-        match=(
-            "vector_index_dispatch_admission_response_too_large"
-        ),
+        match=("vector_index_dispatch_admission_response_too_large"),
     ):
         client.admit(
             job_id="vector-index-job",
@@ -269,9 +246,7 @@ def test_worker_admission_client_is_bounded_and_redirect_safe() -> None:
             200,
         ),
         (
-            _granted_payload(
-                attempt_id="dispatch-attempt-00000002"
-            ),
+            _granted_payload(attempt_id="dispatch-attempt-00000002"),
             200,
         ),
         (
@@ -283,9 +258,7 @@ def test_worker_admission_client_is_bounded_and_redirect_safe() -> None:
             200,
         ),
         (
-            _granted_payload(
-                worker_audience="http://worker-b:5000"
-            ),
+            _granted_payload(worker_audience="http://worker-b:5000"),
             200,
         ),
         (
@@ -332,10 +305,10 @@ def test_internal_admission_route_binds_authenticated_worker(
     tmp_path,
 ) -> None:
     from agent.db_models import AgentInfoDB
+    from agent.services import vector_index_task_service
     from agent.services.repository_registry import (
         get_repository_registry,
     )
-    from agent.services import vector_index_task_service
 
     calls: list[dict] = []
     worker = AgentInfoDB(
@@ -354,9 +327,7 @@ def test_internal_admission_route_binds_authenticated_worker(
             "vector_index_operation",
         ],
         registration_validated=True,
-        registration_provenance=(
-            "strict_registration_keyring_v1"
-        ),
+        registration_provenance=("strict_registration_keyring_v1"),
         status="online",
     )
     with app.app_context():
@@ -379,10 +350,7 @@ def test_internal_admission_route_binds_authenticated_worker(
     )
 
     response = client.post(
-        (
-            "/internal/tasks/vector-index-job/"
-            "vector-index-dispatch-admission"
-        ),
+        ("/internal/tasks/vector-index-job/vector-index-dispatch-admission"),
         json={
             "attempt_id": "dispatch-attempt-00000001",
             "sequence": 7,
@@ -400,9 +368,7 @@ def test_internal_admission_route_binds_authenticated_worker(
         "status": "success",
         "data": {
             "allowed": True,
-            "reason_code": (
-                "vector_index_dispatch_admission_granted"
-            ),
+            "reason_code": ("vector_index_dispatch_admission_granted"),
             "job_id": "vector-index-job",
             "attempt_id": "dispatch-attempt-00000001",
             "sequence": 7,
@@ -410,6 +376,4 @@ def test_internal_admission_route_binds_authenticated_worker(
             "worker_audience": "http://worker-a:5000",
         },
     }
-    assert calls[0]["worker_audience"] == (
-        "http://worker-a:5000"
-    )
+    assert calls[0]["worker_audience"] == ("http://worker-a:5000")

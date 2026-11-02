@@ -201,8 +201,8 @@ def test_chat_waits_for_post_generation_hub_exchange_before_text_or_pcm(change):
         elif change == "reopened":
             pump.opened = dict(pump.opened)  # Equal values are not the old activation.
         elif change == "send_failure":
-            f.page.evaluate.side_effect = (
-                lambda expression, *args: f.local if "const {joined, lease}" in expression else False
+            f.page.evaluate.side_effect = lambda expression, *args: (
+                f.local if "const {joined, lease}" in expression else False
             )
         f.output.update(f.receipt, f.controls)
         pump.tick()

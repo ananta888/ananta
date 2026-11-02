@@ -86,12 +86,7 @@ def downgrade() -> None:
     if "voice_runtime_cleanups" in tables:
         columns = {column["name"] for column in inspect(op.get_bind()).get_columns("voice_runtime_cleanups")}
         if "cleanup_kind" in columns:
-            op.execute(
-                sa.text(
-                    "DELETE FROM voice_runtime_cleanups "
-                    "WHERE cleanup_kind != 'runtime_stream_delete'"
-                )
-            )
+            op.execute(sa.text("DELETE FROM voice_runtime_cleanups WHERE cleanup_kind != 'runtime_stream_delete'"))
             with op.batch_alter_table("voice_runtime_cleanups") as batch_op:
                 batch_op.alter_column(
                     "runtime_session_ciphertext",

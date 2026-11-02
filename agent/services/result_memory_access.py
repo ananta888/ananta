@@ -20,8 +20,15 @@ from ananta_contracts.memory_access import (
 
 
 class CurrentMemoryAuthorizationPort(Protocol):
-    def authorize_current(self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation,
-                          channel_id: str, security: MemorySecurityMetadata) -> MemoryPolicyDecision: ...
+    def authorize_current(
+        self,
+        *,
+        actor: MemoryActor,
+        run_id: str,
+        operation: MemoryOperation,
+        channel_id: str,
+        security: MemorySecurityMetadata,
+    ) -> MemoryPolicyDecision: ...
 
 
 class ResultMemoryAccess:
@@ -61,8 +68,11 @@ class ResultMemoryAccess:
                 raise MemoryAccessError("memory_result_binding_mismatch")
             actor, run_id = context.actor, context.run_id
         return self._gateway.authorize_current(
-            actor=actor, run_id=run_id, operation=operation,
-            channel_id="hub-result-memory", security=security,
+            actor=actor,
+            run_id=run_id,
+            operation=operation,
+            channel_id="hub-result-memory",
+            security=security,
         )
 
     def recheck(self, previous):

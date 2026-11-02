@@ -91,49 +91,63 @@ def test_tool_loop_continues_after_ambiguous_path_hint_when_unlimited(tmp_path, 
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "missing/same.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "missing/same.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        if len(posted_payloads) == 2:
-            prompt = "\n".join(
-                str(msg.get("content") or "") for msg in posted_payloads[-1]["messages"]
+                        }
+                    ]
+                }
             )
+        if len(posted_payloads) == 2:
+            prompt = "\n".join(str(msg.get("content") or "") for msg in posted_payloads[-1]["messages"])
             assert "Datei nicht gefunden: missing/same.py" in prompt
             assert "agent/same.py" in prompt
             assert "worker/same.py" in prompt
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_2",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "worker/same.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_2",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "worker/same.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer after choosing worker/same.py"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer after choosing worker/same.py"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -170,43 +184,59 @@ def test_tool_loop_caches_auto_corrected_path_alias(tmp_path, monkeypatch):
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "agent/services/tools/codecompass_architecture_query.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "agent/services/tools/codecompass_architecture_query.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
+                        }
+                    ]
+                }
+            )
         if len(posted_payloads) == 2:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_2",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "worker/retrieval/codecompass_architecture_query.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_2",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "worker/retrieval/codecompass_architecture_query.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -245,27 +275,37 @@ def test_tool_loop_adds_evidence_memory_to_followup_llm_call(tmp_path, monkeypat
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "agent/example.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "agent/example.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -284,9 +324,9 @@ def test_tool_loop_adds_evidence_memory_to_followup_llm_call(tmp_path, monkeypat
     assert trace["evidence"][0]["path"] == "agent/example.py"
     second_messages = posted_payloads[1]["messages"]
     evidence_messages = [
-        msg for msg in second_messages
-        if msg.get("role") == "user"
-        and "Recherche-Stand fuer die naechste LLM-Aktion" in msg.get("content", "")
+        msg
+        for msg in second_messages
+        if msg.get("role") == "user" and "Recherche-Stand fuer die naechste LLM-Aktion" in msg.get("content", "")
     ]
     assert len(evidence_messages) == 1
     assert any(
@@ -315,27 +355,37 @@ def test_tool_loop_compacts_initial_packed_files_for_followup_llm_call(tmp_path,
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "agent/next.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "agent/next.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -357,12 +407,14 @@ def test_tool_loop_compacts_initial_packed_files_for_followup_llm_call(tmp_path,
         max_tool_calls=2,
         max_chars_per_file=5000,
         question="erklaere x",
-        initial_evidence=[{
-            "path": "agent/initial.py",
-            "summary": "Initial file summary",
-            "score": 10.0,
-            "source": "initial_context",
-        }],
+        initial_evidence=[
+            {
+                "path": "agent/initial.py",
+                "summary": "Initial file summary",
+                "score": 10.0,
+                "source": "initial_context",
+            }
+        ],
     )
 
     assert answer == "final answer"
@@ -402,35 +454,49 @@ def test_tool_loop_uses_llm_summary_for_initial_evidence_followup(tmp_path, monk
         messages = payload.get("messages") or []
         prompt = str((messages[0] or {}).get("content") or "") if messages else ""
         if "Extrahiere AUSSCHLIESSLICH" in prompt:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "stop",
-                    "message": {"content": "LLM summary for initial evidence"},
-                }]
-            })
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": "LLM summary for initial evidence"},
+                        }
+                    ]
+                }
+            )
         main_call_count += 1
         if main_call_count == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "agent/next.py"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "function": {
+                                            "name": "read_file",
+                                            "arguments": '{"path": "agent/next.py"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -454,13 +520,15 @@ def test_tool_loop_uses_llm_summary_for_initial_evidence_followup(tmp_path, monk
         question="erklaere x",
         summarize_reads=True,
         max_summary_chars=500,
-        initial_evidence=[{
-            "path": "agent/initial.py",
-            "summary": "fallback summary",
-            "content": raw_initial,
-            "score": 10.0,
-            "source": "initial_context",
-        }],
+        initial_evidence=[
+            {
+                "path": "agent/initial.py",
+                "summary": "fallback summary",
+                "content": raw_initial,
+                "score": 10.0,
+                "source": "initial_context",
+            }
+        ],
     )
 
     assert answer == "final answer"
@@ -489,27 +557,37 @@ def test_tool_loop_forces_final_after_repeated_search_only_calls(tmp_path, monke
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) <= 3:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": f"call_{len(posted_payloads)}",
-                            "function": {
-                                "name": "search_codebase",
-                                "arguments": '{"query": "same thing"}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": f"call_{len(posted_payloads)}",
+                                        "function": {
+                                            "name": "search_codebase",
+                                            "arguments": '{"query": "same thing"}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final after search loop"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final after search loop"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -571,20 +649,28 @@ def test_tool_loop_rejects_textual_tool_request_as_final_answer(tmp_path, monkey
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         posted_payloads.append(copy.deepcopy(dict(json or {})))
         if len(posted_payloads) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "stop",
-                    "message": {
-                        "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"x"}}\n[END_TOOL_REQUEST]',
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final normal answer"},
-            }]
-        })
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {
+                                "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"x"}}\n[END_TOOL_REQUEST]',
+                            },
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final normal answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -614,20 +700,28 @@ def test_tool_loop_records_textual_tool_request_trace_event(tmp_path, monkeypatc
     def _fake_post(_endpoint, *, json=None, **_kwargs):
         messages = list((json or {}).get("messages") or [])
         if len(messages) == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "stop",
-                    "message": {
-                        "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"agent/x.py"}}\n[END_TOOL_REQUEST]',
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final normal answer"},
-            }]
-        })
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {
+                                "content": '[TOOL_REQUEST]\n{"name":"search_codebase","arguments":{"query":"agent/x.py"}}\n[END_TOOL_REQUEST]',
+                            },
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final normal answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
     rec = _RecordingTrace()
@@ -663,27 +757,37 @@ def test_tool_loop_llm_done_trace_includes_tool_call_arguments(tmp_path, monkeyp
         nonlocal calls
         calls += 1
         if calls == 1:
-            return _FakeResponse({
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": "call_search_1",
-                            "function": {
-                                "name": "search_codebase",
-                                "arguments": '{"query": "agent/services/agent_registry_service.py", "max_results": 5}',
+            return _FakeResponse(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_search_1",
+                                        "function": {
+                                            "name": "search_codebase",
+                                            "arguments": '{"query": "agent/services/agent_registry_service.py", "max_results": 5}',
+                                        },
+                                    }
+                                ],
                             },
-                        }],
-                    },
-                }]
-            })
-        return _FakeResponse({
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "final answer"},
-            }]
-        })
+                        }
+                    ]
+                }
+            )
+        return _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": "final answer"},
+                    }
+                ]
+            }
+        )
 
     monkeypatch.setattr("requests.post", _fake_post)
 
@@ -748,10 +852,12 @@ def test_tool_loop_profile_route_never_calls_legacy_provider(tmp_path, monkeypat
     def routed(_messages, *, task_kind, tools=None, timeout_seconds=None):
         routed_kinds.append((task_kind, bool(tools)))
         return {
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "local final answer", "tool_calls": []},
-            }]
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {"content": "local final answer", "tool_calls": []},
+                }
+            ]
         }, {"worker_url": "http://worker:5000"}
 
     monkeypatch.setattr("agent.routes.snakes_worker_routing._worker_profile_chat", routed)
@@ -780,21 +886,25 @@ def test_failed_kat_synthesis_returns_marked_lfm_research_fallback(tmp_path, mon
     calls = []
 
     def routed(messages, *, task_kind, tools=None, timeout_seconds=None):
-        calls.append({
-            "task_kind": task_kind,
-            "tools": bool(tools),
-            "timeout_seconds": timeout_seconds,
-            "prompt_chars": len(str(messages[0].get("content") or "")),
-        })
+        calls.append(
+            {
+                "task_kind": task_kind,
+                "tools": bool(tools),
+                "timeout_seconds": timeout_seconds,
+                "prompt_chars": len(str(messages[0].get("content") or "")),
+            }
+        )
         if tools:
             return {
-                "choices": [{
-                    "finish_reason": "stop",
-                    "message": {
-                        "content": "LFM hat die belegte Rechercheantwort erstellt.",
-                        "tool_calls": [],
-                    },
-                }]
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": "LFM hat die belegte Rechercheantwort erstellt.",
+                            "tool_calls": [],
+                        },
+                    }
+                ]
             }, {"inference": {"model": "lfm2.5-2.6b-agentic-q8_0"}}
         raise TimeoutError("KAT synthesis timeout")
 
@@ -831,41 +941,47 @@ def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):
         calls.append({"task_kind": task_kind, "tools": bool(tools), "messages": copy.deepcopy(messages)})
         if tools:
             return {
-                "choices": [{
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "content": "",
-                        "tool_calls": [{
-                            "id": f"call-{len(calls)}",
-                            "type": "function",
-                            "function": {"name": "read_file", "arguments": '{"path":"agent/config.py"}'},
-                        }],
-                    },
-                }]
+                "choices": [
+                    {
+                        "finish_reason": "tool_calls",
+                        "message": {
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": f"call-{len(calls)}",
+                                    "type": "function",
+                                    "function": {"name": "read_file", "arguments": '{"path":"agent/config.py"}'},
+                                }
+                            ],
+                        },
+                    }
+                ]
             }, {"inference": {"model": "lfm2.5-2.6b-agentic-q8_0"}}
         return {
-            "choices": [{
-                "finish_reason": "stop",
-                "message": {"content": "KAT finalisiert aus der Evidenz.", "tool_calls": []},
-            }]
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {"content": "KAT finalisiert aus der Evidenz.", "tool_calls": []},
+                }
+            ]
         }, {"inference": {"model": "kat-coder-v2.5-dev"}}
 
     monkeypatch.setattr("agent.routes.snakes_worker_routing._worker_profile_chat", routed)
     answer, trace = run_rag_chat_tool_loop(
-        messages=[{
-            "role": "user",
-            "content": (
-                "Frage: Erkläre CodeCompass\n"
-                "Naechster Schritt: Beginne mit read_file('agent/config.py') — lies diese Datei als erstes."
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    "Frage: Erkläre CodeCompass\n"
+                    "Naechster Schritt: Beginne mit read_file('agent/config.py') — lies diese Datei als erstes."
+                ),
+            }
+        ],
         provider="lmstudio",
         model="legacy",
         repo_root=tmp_path,
         max_tool_calls=0,
-        initial_evidence=[{
-            "path": "agent/config.py", "summary": "Konfiguration", "source": "initial_context"
-        }],
+        initial_evidence=[{"path": "agent/config.py", "summary": "Konfiguration", "source": "initial_context"}],
         question="Erkläre CodeCompass",
         architecture_context="=== Architektur ===\nHub -> Worker",
     )

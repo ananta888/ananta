@@ -23,6 +23,7 @@ def fixture(monkeypatch, tmp_path):
         10,
     )
     preset = VoicePreset("synthetic", "de-DE", model)
+
     def lookup(voice):
         if voice != "synthetic":
             raise ValueError("synthetic_voice_unknown")
@@ -122,8 +123,10 @@ def test_download_enforces_response_size_encoding_status_and_total_budget(monkey
     opener.open.return_value = response
     monkeypatch.setattr(provision.urllib.request, "build_opener", lambda *_args: opener)
     ticks = iter([0, 0, 91]) if case == "deadline" else None
+
     def clock():
         return next(ticks) if ticks is not None else 0
+
     if case == "ok":
         assert provision.download("https://huggingface.co/fixed", 10, clock=clock) == b"xxx"
     else:

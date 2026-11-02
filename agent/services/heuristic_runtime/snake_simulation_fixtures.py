@@ -12,6 +12,7 @@ Provides standard fixture scenarios that all tui_snake candidates must pass:
 
 Used by HeuristicSimulationHarness to validate candidates before activation.
 """
+
 from __future__ import annotations
 
 from agent.services.heuristic_runtime.simulation_harness import SimulationFixture
@@ -37,6 +38,7 @@ def build_extended_tui_snake_fixtures() -> list[SimulationFixture]:
 
 
 # ── Fixture builders ──────────────────────────────────────────────────────────
+
 
 def _normal_follow_user() -> SimulationFixture:
     return SimulationFixture(

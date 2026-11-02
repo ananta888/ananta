@@ -16,12 +16,8 @@ Most of these cases are already covered by CRG-012 and RIG-003 tests.
 This module adds cross-adapter smoke tests and a high-level invariant
 report.
 """
+
 from __future__ import annotations
-
-import json
-from pathlib import Path
-
-import pytest
 
 from agent.services.tools.graph_evidence import enforce_import_invariants
 from worker.retrieval.codecompass_crg_adapter import (
@@ -31,50 +27,51 @@ from worker.retrieval.codecompass_crg_adapter import (
 from worker.retrieval.codecompass_rig_cmake_adapter import (
     CmakeRigAdapter,
 )
-from worker.retrieval.codecompass_rig_importer import import_snapshot_file
 
 
 def _good_rig_snapshot(workspace_dir: str) -> dict:
     return {
         "schema_version": "codecompass.repository-intelligence.v1",
         "snapshot_id": "snap_audit_test_0001",
-        "extractor": {"id": "manual.fixture", "version": "0.1.0",
-                     "build_system": "cmake"},
-        "repository": {"repository_id": "audit",
-                       "workspace_dir": workspace_dir},
+        "extractor": {"id": "manual.fixture", "version": "0.1.0", "build_system": "cmake"},
+        "repository": {"repository_id": "audit", "workspace_dir": workspace_dir},
         "coverage": {"status": "complete", "unsupported_features": []},
         "entities": {
             "package_managers": [{"id": "pm:cmake", "kind": "cmake"}],
             "external_packages": [],
-            "buildable_components": [{"id": "bc:x", "name": "x",
-                                     "kind": "library"}],
+            "buildable_components": [{"id": "bc:x", "name": "x", "kind": "library"}],
             "aggregators": [],
             "runners": [{"id": "rn:ctest", "kind": "ctest"}],
             "tests": [],
         },
-        "edges": [{
-            "kind": "tested_by",
-            "from_id": "bc:x", "to_id": "rn:ctest",
-            "evidence": {
-                "source_file": workspace_dir + "/CMakeLists.txt",
-                "source_kind": "manual_fixture",
-                "reason": "manual_fixture",
-            },
-            "trust": {
-                "trust_level": "manual",
-                "verification_status": "verified",
-                "confidence": 0.9,
+        "edges": [
+            {
+                "kind": "tested_by",
+                "from_id": "bc:x",
+                "to_id": "rn:ctest",
                 "evidence": {
                     "source_file": workspace_dir + "/CMakeLists.txt",
                     "source_kind": "manual_fixture",
                     "reason": "manual_fixture",
                 },
-                "provenance": {"source": "manual",
-                               "provider_id": "rig.manual",
-                               "provider_revision": "0.1.0",
-                               "build_system": "cmake"},
-            },
-        }],
+                "trust": {
+                    "trust_level": "manual",
+                    "verification_status": "verified",
+                    "confidence": 0.9,
+                    "evidence": {
+                        "source_file": workspace_dir + "/CMakeLists.txt",
+                        "source_kind": "manual_fixture",
+                        "reason": "manual_fixture",
+                    },
+                    "provenance": {
+                        "source": "manual",
+                        "provider_id": "rig.manual",
+                        "provider_revision": "0.1.0",
+                        "build_system": "cmake",
+                    },
+                },
+            }
+        ],
         "generated_at": "2026-07-05T12:00:00Z",
     }
 
@@ -128,6 +125,7 @@ def test_sqlite_adapter_uses_read_only_uri(tmp_path, monkeypatch):
     """CrgSqliteAdapter must open SQLite in read-only mode (uri=ro)."""
     opened = []
     import sqlite3 as _real
+
     real_connect = _real.connect
 
     def _spy(*args, **kwargs):
@@ -139,14 +137,12 @@ def test_sqlite_adapter_uses_read_only_uri(tmp_path, monkeypatch):
     db_path = tmp_path / ".code-review-graph" / "graph.db"
     db_path.parent.mkdir(parents=True)
     import sqlite3 as _sqlite
+
     with _sqlite.connect(str(db_path)) as conn:
         conn.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
-        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', "
-                     "'b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d')")
-        conn.execute("CREATE TABLE nodes(id TEXT, kind TEXT, file TEXT, "
-                     "name TEXT, confidence TEXT)")
-        conn.execute("CREATE TABLE edges(source_id TEXT, target_id TEXT, "
-                     "kind TEXT, confidence TEXT)")
+        conn.execute("INSERT INTO meta VALUES('reviewer_graph_revision', 'b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d')")
+        conn.execute("CREATE TABLE nodes(id TEXT, kind TEXT, file TEXT, name TEXT, confidence TEXT)")
+        conn.execute("CREATE TABLE edges(source_id TEXT, target_id TEXT, kind TEXT, confidence TEXT)")
     # Reset the spy capture *after* the fixture build.
     opened.clear()
     s = CrgSqliteAdapter(workspace_dir=tmp_path)
@@ -161,29 +157,30 @@ def test_sqlite_adapter_uses_read_only_uri(tmp_path, monkeypatch):
 def test_no_shell_construction_in_any_adapter(monkeypatch):
     """Static check: none of the adapter modules builds shell commands."""
     import os
-    import subprocess
     import re
+    import subprocess
 
     calls = []
-    monkeypatch.setattr(os, "system",
-                        lambda *a, **kw: calls.append(("system", a, kw)))
-    monkeypatch.setattr(subprocess, "Popen",
-                        lambda *a, **kw: calls.append(("popen", a, kw)))
+    monkeypatch.setattr(os, "system", lambda *a, **kw: calls.append(("system", a, kw)))
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **kw: calls.append(("popen", a, kw)))
 
     # Static text scan: every adapter file must not contain
     # `subprocess.run(`, `subprocess.Popen(`, `os.system(` outside of
     # docstrings/comments. Backticks are only forbidden in code, not in
     # docstrings (which frequently reference them in prose).
     import pathlib
-    for adapter in ("worker/retrieval/codecompass_crg_adapter.py",
-                    "worker/retrieval/codecompass_rig_cmake_adapter.py",
-                    "worker/retrieval/codecompass_rig_importer.py",
-                    "scripts/import_repository_intelligence_graph.py",
-                    "scripts/codecompass_import_external_graphs.py",
-                    "worker/retrieval/codecompass_import_provider.py"):
+
+    for adapter in (
+        "worker/retrieval/codecompass_crg_adapter.py",
+        "worker/retrieval/codecompass_rig_cmake_adapter.py",
+        "worker/retrieval/codecompass_rig_importer.py",
+        "scripts/import_repository_intelligence_graph.py",
+        "scripts/codecompass_import_external_graphs.py",
+        "worker/retrieval/codecompass_import_provider.py",
+    ):
         text = pathlib.Path(adapter).read_text(encoding="utf-8")
         # Strip docstrings + comments
-        code_only = re.sub(r'\"\"\".*?\"\"\"', "", text, flags=re.DOTALL)
+        code_only = re.sub(r"\"\"\".*?\"\"\"", "", text, flags=re.DOTALL)
         code_only = re.sub(r"#.*", "", code_only)
         assert "subprocess.run(" not in code_only, adapter
         assert "subprocess.Popen(" not in code_only, adapter

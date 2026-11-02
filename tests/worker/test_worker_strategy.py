@@ -1,13 +1,13 @@
 """Tests for WorkerStrategy — FA-T008."""
 
-import pytest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from worker.core.propose_orchestrator import ProposeContext
-from worker.core.propose import STATUS_ADVISORY, STATUS_EXECUTABLE, STATUS_DECLINED
-from worker.core.runtime_target import SelectionDecisionStatus
+import pytest
 
+from worker.core.propose import STATUS_ADVISORY, STATUS_DECLINED, STATUS_EXECUTABLE
+from worker.core.propose_orchestrator import ProposeContext
+from worker.core.runtime_target import SelectionDecisionStatus
 from worker.core.worker_strategy import WorkerStrategy
 
 

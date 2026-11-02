@@ -1,32 +1,35 @@
 """Typed artifact enforcement for native worker outputs. AWF-T038."""
+
 from __future__ import annotations
 
 from typing import Any
 
-TYPED_ARTIFACT_KINDS = frozenset({
-    "command_plan_artifact",
-    "command_result_artifact",
-    "test_result_artifact",
-    "verification_artifact",
-    "patch_artifact",
-    "patch_plan_artifact",
-    "review_artifact",
-    "security_review_artifact",
-    "triage_artifact",
-    "summary_artifact",
-    "memory_proposal_artifact",
-    "skill_proposal_artifact",
-    "skill_result",
-    "delegation_artifact",
-    # DRR-T031: Deterministic repair artifact kinds
-    "repair_plan_artifact",
-    "repair_preview_artifact",
-    "repair_step_result_artifact",
-    "repair_verification_artifact",
-    "repair_outcome_artifact",
-    "rollback_proposal_artifact",
-    "repair_execution_result",
-})
+TYPED_ARTIFACT_KINDS = frozenset(
+    {
+        "command_plan_artifact",
+        "command_result_artifact",
+        "test_result_artifact",
+        "verification_artifact",
+        "patch_artifact",
+        "patch_plan_artifact",
+        "review_artifact",
+        "security_review_artifact",
+        "triage_artifact",
+        "summary_artifact",
+        "memory_proposal_artifact",
+        "skill_proposal_artifact",
+        "skill_result",
+        "delegation_artifact",
+        # DRR-T031: Deterministic repair artifact kinds
+        "repair_plan_artifact",
+        "repair_preview_artifact",
+        "repair_step_result_artifact",
+        "repair_verification_artifact",
+        "repair_outcome_artifact",
+        "rollback_proposal_artifact",
+        "repair_execution_result",
+    }
+)
 
 # DRR-T031: Required metadata fields per repair artifact kind
 REPAIR_ARTIFACT_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
@@ -50,11 +53,18 @@ def validate_repair_artifact_metadata(artifact: dict) -> list[str]:
     missing = [f for f in required if f not in metadata]
     return [f"repair_artifact_missing_field:{f}" for f in missing]
 
+
 # Modes that are "non-trivial" — success requires at least one typed artifact
-_MUTATION_OR_CODE_MODES = frozenset({
-    "shell_execute", "command_execute", "patch_apply",
-    "patch_propose", "code_read", "plan_only",
-})
+_MUTATION_OR_CODE_MODES = frozenset(
+    {
+        "shell_execute",
+        "command_execute",
+        "patch_apply",
+        "patch_propose",
+        "code_read",
+        "plan_only",
+    }
+)
 
 _SUCCESS_STATUSES = frozenset({"success", "partial_success"})
 
@@ -80,9 +90,7 @@ def enforce_artifact_first(
         return []
     typed = [a for a in artifacts if is_typed_artifact(a)]
     if not typed:
-        return [
-            f"artifact_first_violation:mode={mode!r} success requires at least one typed artifact"
-        ]
+        return [f"artifact_first_violation:mode={mode!r} success requires at least one typed artifact"]
     return []
 
 

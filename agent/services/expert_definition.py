@@ -4,10 +4,11 @@ Schema, Loader und Registry für Expert-Definitionen.
 Experts beschreiben wiederverwendbare Worker-Rollen. Die tatsächlich geltenden
 Rechte sind immer die Schnittmenge aus Expert-Definition und aktiver Hub-Policy.
 """
+
 from __future__ import annotations
 
 import fnmatch
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -54,9 +55,7 @@ class ExpertDefinition:
             errors.append("output_contract is required and must not be empty")
         valid_scopes = {"global", "project", "workspace"}
         if self.min_policy_scope not in valid_scopes:
-            errors.append(
-                f"min_policy_scope must be one of {valid_scopes}, got: {self.min_policy_scope!r}"
-            )
+            errors.append(f"min_policy_scope must be one of {valid_scopes}, got: {self.min_policy_scope!r}")
         return errors
 
     # ── Tool access ───────────────────────────────────────────────────────────
@@ -140,17 +139,13 @@ class ExpertRegistry:
         for path in sorted(config_dir.glob("*.yaml")):
             expert = self._load_file(path)
             if expert.expert_id in loaded:
-                raise ValueError(
-                    f"Duplicate expert_id {expert.expert_id!r} detected in {path}"
-                )
+                raise ValueError(f"Duplicate expert_id {expert.expert_id!r} detected in {path}")
             loaded[expert.expert_id] = expert
 
         for path in sorted(config_dir.glob("*.json")):
             expert = self._load_file(path)
             if expert.expert_id in loaded:
-                raise ValueError(
-                    f"Duplicate expert_id {expert.expert_id!r} detected in {path}"
-                )
+                raise ValueError(f"Duplicate expert_id {expert.expert_id!r} detected in {path}")
             loaded[expert.expert_id] = expert
 
         self._experts = loaded
@@ -163,6 +158,7 @@ class ExpertRegistry:
                 data = yaml.safe_load(fh)
             else:
                 import json
+
                 data = json.load(fh)
         if not isinstance(data, dict):
             raise ValueError(f"Expert file {path} must contain a YAML/JSON mapping")
@@ -214,6 +210,7 @@ class ExpertRegistry:
                 intersected_paths.append(expert_pattern)
 
         from dataclasses import replace
+
         return replace(
             expert,
             allowed_tools=intersected_tools,

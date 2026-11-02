@@ -8,13 +8,13 @@ policies before an admitted snapshot may cross the Hub/worker boundary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import stat
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Mapping
 
@@ -26,7 +26,6 @@ from agent.services.restricted_inference_model_manifest import (
     SnapshotValidationPolicy,
     VerifiedModelSnapshot,
 )
-
 
 _TENANT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")
 _ARCHIVE_SUFFIXES = (
@@ -86,9 +85,7 @@ class AnalysisSnapshotAdmissionPolicy:
     max_files: int = 4096
     max_expansion_ratio: float = 8.0
     reject_sparse_files: bool = True
-    allowed_licenses: frozenset[str] = frozenset(
-        {"Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "MIT", "MPL-2.0"}
-    )
+    allowed_licenses: frozenset[str] = frozenset({"Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "MIT", "MPL-2.0"})
 
     def __post_init__(self) -> None:
         if self.max_file_bytes <= 0 or self.max_total_bytes <= 0:
@@ -99,11 +96,7 @@ class AnalysisSnapshotAdmissionPolicy:
             raise ValueError("max_files must be positive")
         if self.max_expansion_ratio < 1.0:
             raise ValueError("max_expansion_ratio must be at least 1.0")
-        licenses = frozenset(
-            str(item).strip()
-            for item in self.allowed_licenses
-            if str(item).strip()
-        )
+        licenses = frozenset(str(item).strip() for item in self.allowed_licenses if str(item).strip())
         if not licenses:
             raise ValueError("allowed_licenses must not be empty")
         object.__setattr__(self, "allowed_licenses", licenses)
@@ -208,10 +201,7 @@ class ModelAnalysisSnapshotAdmission:
             )
 
         root = Path(snapshot_root)
-        declared_roles = {
-            item.relative_path: item.role
-            for item in manifest.files
-        }
+        declared_roles = {item.relative_path: item.role for item in manifest.files}
         self._preflight_tree(root, declared_roles)
         try:
             verified = self._validator.validate(root, manifest)
@@ -248,9 +238,7 @@ class ModelAnalysisSnapshotAdmission:
                 ensure_ascii=True,
             ).encode("utf-8")
         ).hexdigest()
-        admission_id = hashlib.sha256(
-            f"{tenant_id}\0{snapshot_digest}".encode("utf-8")
-        ).hexdigest()
+        admission_id = hashlib.sha256(f"{tenant_id}\0{snapshot_digest}".encode("utf-8")).hexdigest()
         external_manifest = AnalysisSnapshotManifest(
             schema_version="model_analysis_snapshot.v1",
             admission_id=admission_id,

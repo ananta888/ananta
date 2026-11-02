@@ -10,18 +10,16 @@ Covers:
   T08.02 — HeuristicFormatTuiView
   T08.04 — E2E YAML → normalize → validate → candidate flow
 """
+
 from __future__ import annotations
 
 import json
 import os
-import tempfile
-
-import pytest
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_valid_hdef(**overrides) -> dict:
     base = {
@@ -97,9 +95,11 @@ parameters:
 # T05.01 — HeuristicYamlImporter
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHeuristicYamlImporter:
     def _importer(self, tmp_path):
         from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
+
         return HeuristicYamlImporter(base_path=str(tmp_path))
 
     def test_import_text_success(self, tmp_path):
@@ -171,9 +171,7 @@ class TestHeuristicYamlImporter:
         authoring_dir = tmp_path / "authoring"
         authoring_dir.mkdir()
         (authoring_dir / "one.heuristic.yaml").write_text(MINIMAL_YAML)
-        (authoring_dir / "two.heuristic.yaml").write_text(
-            MINIMAL_YAML.replace("yaml_test_heuristic", "yaml_test_two")
-        )
+        (authoring_dir / "two.heuristic.yaml").write_text(MINIMAL_YAML.replace("yaml_test_heuristic", "yaml_test_two"))
         results = importer.import_directory(str(authoring_dir))
         assert len(results) == 2
         assert all(r.success for r in results)
@@ -189,9 +187,11 @@ class TestHeuristicYamlImporter:
 # T07.01 — HeuristicFormatValidator
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHeuristicFormatValidator:
     def _validator(self):
         from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
+
         return HeuristicFormatValidator()
 
     def test_valid_hdef_passes(self):
@@ -243,37 +243,37 @@ class TestHeuristicFormatValidator:
 
     def test_python_strategy_missing_class(self):
         v = self._validator()
-        hdef = _make_valid_hdef(runtime={"mode": "python_strategy", "python_strategy": {"module": "agent.heuristics.strategies.x.y"}})
+        hdef = _make_valid_hdef(
+            runtime={"mode": "python_strategy", "python_strategy": {"module": "agent.heuristics.strategies.x.y"}}
+        )
         result = v.validate(hdef)
         assert not result.passed
         assert "python_strategy_missing_class" in result.reason_codes
 
     def test_python_strategy_valid(self):
         v = self._validator()
-        hdef = _make_valid_hdef(runtime={
-            "mode": "python_strategy",
-            "python_strategy": {
-                "module": "agent.heuristics.strategies.chat_codecompass.symbol_lookup",
-                "class": "SymbolLookupStrategy",
+        hdef = _make_valid_hdef(
+            runtime={
+                "mode": "python_strategy",
+                "python_strategy": {
+                    "module": "agent.heuristics.strategies.chat_codecompass.symbol_lookup",
+                    "class": "SymbolLookupStrategy",
+                },
             }
-        })
+        )
         result = v.validate(hdef)
         assert result.passed
 
     def test_ttl_invariant_violated(self):
         v = self._validator()
-        hdef = _make_valid_hdef(
-            ttl_policy={"min_seconds": 20.0, "default_seconds": 10.0, "max_seconds": 30.0}
-        )
+        hdef = _make_valid_hdef(ttl_policy={"min_seconds": 20.0, "default_seconds": 10.0, "max_seconds": 30.0})
         result = v.validate(hdef)
         assert not result.passed
         assert any("ttl_policy_invariant_violated" in c for c in result.reason_codes)
 
     def test_ttl_invariant_ok(self):
         v = self._validator()
-        hdef = _make_valid_hdef(
-            ttl_policy={"min_seconds": 5.0, "default_seconds": 7.5, "max_seconds": 10.0}
-        )
+        hdef = _make_valid_hdef(ttl_policy={"min_seconds": 5.0, "default_seconds": 7.5, "max_seconds": 10.0})
         result = v.validate(hdef)
         assert result.passed
 
@@ -303,9 +303,11 @@ class TestHeuristicFormatValidator:
 # T07.02 — AiProposalGuardrails
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestAiProposalGuardrails:
     def _guardrails(self):
         from agent.services.heuristic_runtime.ai_proposal_guardrails import AiProposalGuardrails
+
         return AiProposalGuardrails()
 
     def _valid_proposal(self, **overrides) -> dict:
@@ -374,23 +376,27 @@ class TestAiProposalGuardrails:
 
     def test_python_strategy_wrong_module_prefix_rejected(self):
         g = self._guardrails()
-        proposal = self._valid_proposal(runtime={
-            "mode": "python_strategy",
-            "python_strategy": {"module": "evil.module.path", "class": "EvilClass"},
-        })
+        proposal = self._valid_proposal(
+            runtime={
+                "mode": "python_strategy",
+                "python_strategy": {"module": "evil.module.path", "class": "EvilClass"},
+            }
+        )
         result = g.check(proposal)
         assert not result.passed
         assert any("python_strategy_module_not_in_allowed_prefix" in r for r in result.rejection_reasons)
 
     def test_python_strategy_valid_module_prefix_passes(self):
         g = self._guardrails()
-        proposal = self._valid_proposal(runtime={
-            "mode": "python_strategy",
-            "python_strategy": {
-                "module": "agent.heuristics.strategies.chat_codecompass.symbol_lookup",
-                "class": "SymbolLookupStrategy",
-            },
-        })
+        proposal = self._valid_proposal(
+            runtime={
+                "mode": "python_strategy",
+                "python_strategy": {
+                    "module": "agent.heuristics.strategies.chat_codecompass.symbol_lookup",
+                    "class": "SymbolLookupStrategy",
+                },
+            }
+        )
         result = g.check(proposal)
         assert result.passed
 
@@ -411,9 +417,11 @@ class TestAiProposalGuardrails:
 # T07.04 — HeuristicProvenanceTracker
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHeuristicProvenanceTracker:
     def _tracker(self):
         from agent.services.heuristic_runtime.provenance_tracker import HeuristicProvenanceTracker
+
         return HeuristicProvenanceTracker()
 
     def test_enrich_adds_content_hash(self):
@@ -486,6 +494,7 @@ class TestHeuristicProvenanceTracker:
 
     def test_provenance_record_roundtrip(self):
         from agent.services.heuristic_runtime.provenance_tracker import ProvenanceRecord
+
         record = ProvenanceRecord(
             created_by="operator",
             normalized_from="yaml",
@@ -504,24 +513,29 @@ class TestHeuristicProvenanceTracker:
 # T08.01 — CLI heuristic commands (smoke tests)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHeuristicCliCommands:
     def test_list_no_index_returns_error(self, tmp_path):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["list", "--index", str(tmp_path / "missing.json")])
         assert rc == 1
 
     def test_list_with_real_index(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["list"])
         assert rc == 0  # heuristics/index.json exists in the project
 
     def test_list_domain_filter(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["list", "--domain", "chat_codecompass"])
         assert rc == 0
 
     def test_list_as_json(self, capsys):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["list", "--json"])
         assert rc == 0
         captured = capsys.readouterr()
@@ -530,17 +544,21 @@ class TestHeuristicCliCommands:
 
     def test_show_unknown_id_returns_error(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["show", "nonexistent_heuristic_xyz"])
         assert rc == 1
 
     def test_show_known_id(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["show", "chat_codecompass_symbol_lookup_default"])
         assert rc == 0
 
     def test_validate_existing_file(self):
-        from agent.cli.commands.heuristic import dispatch
         import pathlib
+
+        from agent.cli.commands.heuristic import dispatch
+
         active_dir = pathlib.Path(__file__).parent.parent / "heuristics" / "active"
         first_file = sorted(active_dir.glob("*.heuristic.json"))[0]
         rc = dispatch(["validate", str(first_file)])
@@ -548,11 +566,13 @@ class TestHeuristicCliCommands:
 
     def test_validate_nonexistent_file(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["validate", "/nonexistent/file.json"])
         assert rc == 1
 
     def test_normalize_json_file(self, tmp_path, capsys):
         from agent.cli.commands.heuristic import dispatch
+
         hdef = _make_valid_hdef()
         json_file = tmp_path / "test.json"
         json_file.write_text(json.dumps(hdef))
@@ -564,16 +584,19 @@ class TestHeuristicCliCommands:
 
     def test_catalog_validates_active_dir(self):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["catalog"])
         assert rc == 0
 
     def test_no_subcommand_prints_help(self, capsys):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch([])
         assert rc == 0
 
     def test_dispatch_help(self, capsys):
         from agent.cli.commands.heuristic import dispatch
+
         rc = dispatch(["--help"])
         assert rc == 0
 
@@ -582,9 +605,11 @@ class TestHeuristicCliCommands:
 # T08.02 — HeuristicFormatTuiView
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHeuristicFormatTuiView:
     def test_build_with_real_catalog(self):
         from agent.services.heuristic_runtime.heuristic_format_tui_view import HeuristicFormatTuiView
+
         view = HeuristicFormatTuiView()
         model = view.build()
         assert model.active_count > 0
@@ -592,6 +617,7 @@ class TestHeuristicFormatTuiView:
 
     def test_render_returns_string(self):
         from agent.services.heuristic_runtime.heuristic_format_tui_view import HeuristicFormatTuiView
+
         view = HeuristicFormatTuiView()
         output = view.render()
         assert isinstance(output, str)
@@ -599,12 +625,14 @@ class TestHeuristicFormatTuiView:
 
     def test_render_contains_active_count(self):
         from agent.services.heuristic_runtime.heuristic_format_tui_view import HeuristicFormatTuiView
+
         view = HeuristicFormatTuiView()
         output = view.render()
         assert "Active:" in output
 
     def test_build_empty_catalog(self, tmp_path):
         from agent.services.heuristic_runtime.heuristic_format_tui_view import HeuristicFormatTuiView
+
         (tmp_path / "active").mkdir()
         (tmp_path / "index.json").write_text('{"version": "0", "heuristics": []}')
         view = HeuristicFormatTuiView(base_path=str(tmp_path))
@@ -614,6 +642,7 @@ class TestHeuristicFormatTuiView:
 
     def test_to_dict_structure(self):
         from agent.services.heuristic_runtime.heuristic_format_tui_view import HeuristicFormatTuiView
+
         view = HeuristicFormatTuiView()
         model = view.build()
         d = model.to_dict()
@@ -626,14 +655,15 @@ class TestHeuristicFormatTuiView:
 # T08.04 — E2E: YAML draft → normalize → validate → candidate
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestE2eYamlToCandidate:
     """Full flow: YAML authoring draft → normalize → format-validate → guardrails → candidate JSON."""
 
     def test_full_flow_declarative_heuristic(self, tmp_path):
-        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
-        from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
         from agent.services.heuristic_runtime.ai_proposal_guardrails import AiProposalGuardrails
+        from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
         from agent.services.heuristic_runtime.provenance_tracker import HeuristicProvenanceTracker
+        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
 
         # Step 1 — write YAML draft to authoring/
         authoring_dir = tmp_path / "authoring"
@@ -674,9 +704,9 @@ class TestE2eYamlToCandidate:
         assert len(enriched["content_hash"]) == 64
 
     def test_full_flow_python_strategy_heuristic(self, tmp_path):
-        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
-        from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
         from agent.services.heuristic_runtime.ai_proposal_guardrails import AiProposalGuardrails
+        from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
+        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
 
         authoring_dir = tmp_path / "authoring"
         authoring_dir.mkdir()
@@ -718,8 +748,8 @@ class TestE2eYamlToCandidate:
         assert candidate["status"] == "candidate"
 
     def test_e2e_guardrails_block_inline_code(self, tmp_path):
-        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
         from agent.services.heuristic_runtime.ai_proposal_guardrails import AiProposalGuardrails
+        from agent.services.heuristic_runtime.yaml_importer import HeuristicYamlImporter
 
         authoring_dir = tmp_path / "authoring"
         authoring_dir.mkdir()
@@ -744,8 +774,8 @@ class TestE2eYamlToCandidate:
 
     def test_e2e_normalize_json_draft(self, tmp_path):
         """Non-YAML flow: normalize a JSON draft → validate → enrich provenance."""
-        from agent.services.heuristic_runtime.heuristic_normalizer import HeuristicNormalizer
         from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
+        from agent.services.heuristic_runtime.heuristic_normalizer import HeuristicNormalizer
         from agent.services.heuristic_runtime.provenance_tracker import HeuristicProvenanceTracker
 
         raw = {

@@ -40,18 +40,14 @@ class KnowledgeIndexWorkerMaterializationStore:
         index_binding: Mapping[str, Any],
         run_binding: Mapping[str, Any],
     ) -> None:
-        existing_index = self._knowledge_index_repository.get_by_id(
-            index_id
-        )
+        existing_index = self._knowledge_index_repository.get_by_id(index_id)
         if existing_index is not None:
             self._require_existing_binding(
                 existing_index,
                 metadata_field="index_metadata",
                 expected=index_binding,
             )
-        existing_run = self._knowledge_index_run_repository.get_by_id(
-            run_id
-        )
+        existing_run = self._knowledge_index_run_repository.get_by_id(run_id)
         if existing_run is not None:
             if (
                 str(
@@ -64,9 +60,7 @@ class KnowledgeIndexWorkerMaterializationStore:
                 )
                 != index_id
             ):
-                raise ValueError(
-                    "knowledge_index_worker_materialization_binding_conflict"
-                )
+                raise ValueError("knowledge_index_worker_materialization_binding_conflict")
             self._require_existing_binding(
                 existing_run,
                 metadata_field="run_metadata",
@@ -85,9 +79,7 @@ class KnowledgeIndexWorkerMaterializationStore:
     ) -> tuple[Any, Any] | None:
         """Return one exact local replay without reusing Worker authority."""
 
-        existing_index = self._knowledge_index_repository.get_by_id(
-            index_id
-        )
+        existing_index = self._knowledge_index_repository.get_by_id(index_id)
         existing_run = self._knowledge_index_run_repository.get_by_id(run_id)
         if existing_index is None or existing_run is None:
             return None
@@ -112,9 +104,7 @@ class KnowledgeIndexWorkerMaterializationStore:
             metadata_field="run_metadata",
         )
         expected_status = (
-            "completed"
-            if index_projection_state == KNOWLEDGE_INDEX_PROJECTED_STATE
-            else "pending_verification"
+            "completed" if index_projection_state == KNOWLEDGE_INDEX_PROJECTED_STATE else "pending_verification"
         )
         if (
             index_projection_state != run_projection_state
@@ -123,31 +113,16 @@ class KnowledgeIndexWorkerMaterializationStore:
                 PENDING_PROJECTION_STATE,
                 KNOWLEDGE_INDEX_PROJECTED_STATE,
             }
-            or
-            str(getattr(existing_index, "status", "") or "")
-            != expected_status
-            or str(getattr(existing_run, "status", "") or "")
-            != expected_status
-            or str(
-                getattr(existing_run, "knowledge_index_id", "") or ""
-            )
-            != index_id
-            or str(getattr(existing_index, "latest_run_id", "") or "")
-            != run_id
-            or str(getattr(existing_index, "output_dir", "") or "")
-            != expected_output_dir
-            or str(getattr(existing_run, "output_dir", "") or "")
-            != expected_output_dir
-            or str(
-                getattr(existing_index, "manifest_path", "") or ""
-            )
-            != expected_manifest_path
-            or str(getattr(existing_run, "manifest_path", "") or "")
-            != expected_manifest_path
+            or str(getattr(existing_index, "status", "") or "") != expected_status
+            or str(getattr(existing_run, "status", "") or "") != expected_status
+            or str(getattr(existing_run, "knowledge_index_id", "") or "") != index_id
+            or str(getattr(existing_index, "latest_run_id", "") or "") != run_id
+            or str(getattr(existing_index, "output_dir", "") or "") != expected_output_dir
+            or str(getattr(existing_run, "output_dir", "") or "") != expected_output_dir
+            or str(getattr(existing_index, "manifest_path", "") or "") != expected_manifest_path
+            or str(getattr(existing_run, "manifest_path", "") or "") != expected_manifest_path
         ):
-            raise ValueError(
-                "knowledge_index_worker_materialization_binding_conflict"
-            )
+            raise ValueError("knowledge_index_worker_materialization_binding_conflict")
         if output_dir.is_symlink() or not output_dir.is_dir():
             return None
         for role, reference in by_role.items():
@@ -165,13 +140,9 @@ class KnowledgeIndexWorkerMaterializationStore:
         expected: Mapping[str, Any],
     ) -> None:
         metadata = dict(getattr(item, metadata_field, None) or {})
-        existing = metadata.get(
-            MATERIALIZATION_BINDING_METADATA_KEY
-        )
+        existing = metadata.get(MATERIALIZATION_BINDING_METADATA_KEY)
         if not isinstance(existing, Mapping):
-            raise ValueError(
-                "knowledge_index_worker_materialization_binding_conflict"
-            )
+            raise ValueError("knowledge_index_worker_materialization_binding_conflict")
         existing_binding = dict(existing)
         expected_binding = dict(expected)
         existing_state = existing_binding.pop("projection_state", None)
@@ -189,9 +160,7 @@ class KnowledgeIndexWorkerMaterializationStore:
                 KNOWLEDGE_INDEX_PROJECTED_STATE,
             }
         ):
-            raise ValueError(
-                "knowledge_index_worker_materialization_binding_conflict"
-            )
+            raise ValueError("knowledge_index_worker_materialization_binding_conflict")
 
     @staticmethod
     def _existing_projection_state(
@@ -201,11 +170,7 @@ class KnowledgeIndexWorkerMaterializationStore:
     ) -> str:
         metadata = dict(getattr(item, metadata_field, None) or {})
         binding = metadata.get(MATERIALIZATION_BINDING_METADATA_KEY)
-        return str(
-            binding.get("projection_state")
-            if isinstance(binding, Mapping)
-            else ""
-        )
+        return str(binding.get("projection_state") if isinstance(binding, Mapping) else "")
 
     def save_index(
         self,
@@ -229,13 +194,10 @@ class KnowledgeIndexWorkerMaterializationStore:
                     metadata_field="index_metadata",
                 )
                 == KNOWLEDGE_INDEX_PROJECTED_STATE
-                and expected_binding.get("projection_state")
-                == PENDING_PROJECTION_STATE
+                and expected_binding.get("projection_state") == PENDING_PROJECTION_STATE
             ):
                 candidate.status = existing.status
-                candidate.index_metadata = dict(
-                    existing.index_metadata or {}
-                )
+                candidate.index_metadata = dict(existing.index_metadata or {})
             for field in allowed - {"id"}:
                 setattr(existing, field, getattr(candidate, field))
             candidate = existing
@@ -253,9 +215,7 @@ class KnowledgeIndexWorkerMaterializationStore:
         existing = self._knowledge_index_run_repository.get_by_id(candidate.id)
         if existing is not None:
             if existing.knowledge_index_id != candidate.knowledge_index_id:
-                raise ValueError(
-                    "knowledge_index_worker_materialization_binding_conflict"
-                )
+                raise ValueError("knowledge_index_worker_materialization_binding_conflict")
             self._require_existing_binding(
                 existing,
                 metadata_field="run_metadata",
@@ -267,8 +227,7 @@ class KnowledgeIndexWorkerMaterializationStore:
                     metadata_field="run_metadata",
                 )
                 == KNOWLEDGE_INDEX_PROJECTED_STATE
-                and expected_binding.get("projection_state")
-                == PENDING_PROJECTION_STATE
+                and expected_binding.get("projection_state") == PENDING_PROJECTION_STATE
             ):
                 candidate.status = existing.status
                 candidate.run_metadata = dict(existing.run_metadata or {})

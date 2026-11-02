@@ -46,9 +46,7 @@ def load_codecompass_embedding_documents(
                 "file": str(record.get("file") or record.get("path") or "").strip(),
                 "parent_id": str(record.get("parent_id") or "").strip() or None,
                 "role_labels": [
-                    str(item).strip()
-                    for item in list(record.get("role_labels") or [])
-                    if str(item).strip()
+                    str(item).strip() for item in list(record.get("role_labels") or []) if str(item).strip()
                 ],
                 "importance_score": float(record.get("importance_score") or 0.0),
                 "source_scope": str(record.get("source_scope") or source_scope).strip() or source_scope,
@@ -68,4 +66,3 @@ def load_codecompass_embedding_documents(
             "skipped_non_embedding_records": skipped_non_embedding_records,
         },
     }
-

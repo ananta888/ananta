@@ -73,11 +73,13 @@ def neighbor_steps(
             other = str(edge.get("source_id") or "").strip()
             if other:
                 steps.append({**edge, "direction_used": "incoming", "_other_id": other})
-    steps.sort(key=lambda item: (
-        str(item.get("edge_type") or ""),
-        str(item.get("_other_id") or ""),
-        str(item.get("direction_used") or ""),
-    ))
+    steps.sort(
+        key=lambda item: (
+            str(item.get("edge_type") or ""),
+            str(item.get("_other_id") or ""),
+            str(item.get("direction_used") or ""),
+        )
+    )
     return steps
 
 
@@ -95,11 +97,9 @@ def traverse_evidence_paths(
     if direction_name not in {"outgoing", "incoming", "both"}:
         direction_name = "outgoing"
     by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
-    seeds = sorted({
-        str(item).strip()
-        for item in list(seed_ids or [])
-        if str(item).strip() and str(item).strip() in by_id
-    })
+    seeds = sorted(
+        {str(item).strip() for item in list(seed_ids or []) if str(item).strip() and str(item).strip() in by_id}
+    )
     depth_cap = max(0, int(max_depth))
     node_cap = max(1, int(max_nodes))
     path_cap = max(1, int(max_paths_per_node))

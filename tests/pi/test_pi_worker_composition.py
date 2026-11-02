@@ -48,8 +48,8 @@ def test_production_native_factory_uses_pi_only_after_explicit_configuration(tmp
     client, context, _ = composition()
     config = configuration(tmp_path, enabled=enabled)
     runner, shell = Runner(), Mock()
-    credential_read = Mock(side_effect=AssertionError('unreserved Pi must not read credentials'))
-    monkeypatch.setattr(pi_composition.PiProfileCredentialFiles, 'resolve', credential_read)
+    credential_read = Mock(side_effect=AssertionError("unreserved Pi must not read credentials"))
+    monkeypatch.setattr(pi_composition.PiProfileCredentialFiles, "resolve", credential_read)
     monkeypatch.setattr(
         pi_composition,
         "NativePiNodeHandler",
@@ -79,7 +79,7 @@ def test_production_native_factory_uses_pi_only_after_explicit_configuration(tmp
         assert result.status == "failed" and not runner.calls
         assert result.reason_code == "pi_execution_evidence_scope_required"
         credential_read.assert_not_called()
-        assert 'provider_budget_reserve' not in [name for name, _ in client.calls]
+        assert "provider_budget_reserve" not in [name for name, _ in client.calls]
     else:
         assert result.status == "failed" and result.reason_code == "pi_disabled" and not runner.calls
 
@@ -142,8 +142,10 @@ def test_task_kind_router_preserves_existing_handler_and_never_falls_back_for_pi
 def test_runtime_registration_never_advertises_disabled_pi(tmp_path, enabled):
     client, _, _ = composition()
     runtime = build_workflow_adapter_worker_runtime(
-        agent_config=configuration(tmp_path, enabled=enabled), client=client,
-        native_executor=Mock(), native_authorization_verifier=HubBackedNativeAuthorizationVerifier(),
+        agent_config=configuration(tmp_path, enabled=enabled),
+        client=client,
+        native_executor=Mock(),
+        native_authorization_verifier=HubBackedNativeAuthorizationVerifier(),
     )
     assert ("coding.agent.pi" in runtime.capabilities) is enabled
     assert "workflow.adapter.native" in runtime.capabilities

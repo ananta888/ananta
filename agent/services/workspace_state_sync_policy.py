@@ -1,6 +1,8 @@
 """WorkspaceStateSyncPolicy — normalises how workers exchange state via the hub."""
+
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 VALID_SYNC_MODES = frozenset({"artifact_hub_sync", "git_hub_remote", "shared_goal_workspace_dev", "none"})
@@ -46,13 +48,14 @@ class WorkspaceStateSyncPolicy:
             if ws_cfg.get("sync_mode"):
                 return cls.from_config(ws_cfg)
             from flask import current_app, has_app_context
+
             if has_app_context():
                 agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
                 global_ws = dict(agent_cfg.get("workspace") or {})
                 if global_ws.get("sync_mode"):
                     return cls.from_config(global_ws)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("resolve: ignored Exception", exc_info=True)
         return cls()
 
     def to_dict(self) -> dict:

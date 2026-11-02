@@ -4,6 +4,7 @@ Uses ▀ (upper half block) with 24-bit foreground/background colors so each
 terminal character represents 2 pixels vertically. Works in any True-Color
 terminal (xterm-256color, xterm-direct, etc.) without Kitty or Sixel.
 """
+
 from __future__ import annotations
 
 import io
@@ -79,10 +80,7 @@ def png_to_block_art(
             bg_c = _blend(bg_c, ba, bg_g)
             bb = _blend(bb, ba, bg_b)
 
-            parts.append(
-                f"\033[38;2;{tr};{tg};{tb}m"
-                f"\033[48;2;{br};{bg_c};{bb}m▀"
-            )
+            parts.append(f"\033[38;2;{tr};{tg};{tb}m\033[48;2;{br};{bg_c};{bb}m▀")
         lines.append("".join(parts) + _R)
 
     return lines
@@ -91,13 +89,14 @@ def png_to_block_art(
 def _svg_natural_size(svg_bytes: bytes) -> tuple[int, int] | None:
     """Extract natural width/height from SVG viewBox or width/height attributes."""
     import re
+
     text = svg_bytes[:2000].decode("utf-8", errors="replace")
     vb = re.search(r'viewBox=["\'][\s0-9.]*?[\s]+([\d.]+)[\s]+([\d.]+)["\']', text)
     if vb:
         w, h = float(vb.group(1)), float(vb.group(2))
         if w > 0 and h > 0:
             return int(w), int(h)
-    mw = re.search(r'max-width:\s*([\d.]+)px', text)
+    mw = re.search(r"max-width:\s*([\d.]+)px", text)
     if mw:
         w = float(mw.group(1))
         if w > 0:

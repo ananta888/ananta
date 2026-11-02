@@ -1,4 +1,5 @@
 """PromptTrace data model, storage, and service. PTI-001, PTI-002."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +8,7 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ _TRACE_FILE = "prompt_traces.jsonl"
 
 
 # ── Data Model ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class PromptTrace:
@@ -166,6 +168,7 @@ def response_hash(text: str | None) -> str | None:
 
 # ── Storage ───────────────────────────────────────────────────────────────────
 
+
 class PromptTraceStorage:
     """JSONL-backed storage for PromptTrace records."""
 
@@ -176,6 +179,7 @@ class PromptTraceStorage:
         d = self._data_dir
         if not d:
             from agent.utils import get_data_dir
+
             d = get_data_dir()
         os.makedirs(d, exist_ok=True)
         return os.path.join(d, _TRACE_FILE)
@@ -184,6 +188,7 @@ class PromptTraceStorage:
         path = self._get_path()
         try:
             import portalocker
+
             with portalocker.Lock(path, mode="a", encoding="utf-8", timeout=5) as f:
                 f.write(json.dumps(trace.to_dict(), ensure_ascii=True) + "\n")
         except ImportError:
@@ -296,6 +301,7 @@ class PromptTraceStorage:
 
 # ── Service ───────────────────────────────────────────────────────────────────
 
+
 class PromptTraceService:
     """Creates, finalizes, and stores PromptTrace records."""
 
@@ -305,6 +311,7 @@ class PromptTraceService:
     def _is_enabled(self) -> bool:
         try:
             from agent.config import settings
+
             return bool(getattr(settings, "prompt_trace_enabled", True))
         except Exception:
             return True
@@ -312,6 +319,7 @@ class PromptTraceService:
     def _store_raw(self) -> bool:
         try:
             from agent.config import settings
+
             return bool(getattr(settings, "prompt_trace_store_raw_prompts", False))
         except Exception:
             return False
@@ -319,6 +327,7 @@ class PromptTraceService:
     def _max_raw_chars(self) -> int:
         try:
             from agent.config import settings
+
             return int(getattr(settings, "prompt_trace_max_raw_chars", 8000))
         except Exception:
             return 8000
@@ -384,7 +393,9 @@ class PromptTraceService:
         tool_hash = None
         tool_names: list[str] = []
         if tools:
-            tool_names = [t.get("name") or t.get("function", {}).get("name") or "" for t in tools if isinstance(t, dict)]
+            tool_names = [
+                t.get("name") or t.get("function", {}).get("name") or "" for t in tools if isinstance(t, dict)
+            ]
             tool_hash = hashlib.sha256(json.dumps(tools, sort_keys=True, ensure_ascii=True).encode()).hexdigest()
 
         trace = PromptTrace(

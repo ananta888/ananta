@@ -15,7 +15,6 @@ from agent.services.source_index_lifecycle_service import (
     SourceIndexLifecycleError,
 )
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -91,9 +90,7 @@ class SQLSourceControlPurgeApprovalStore:
                     float(existing.expires_at_epoch),
                 )
                 if stored != coordinates:
-                    raise SourceIndexLifecycleError(
-                        "purge_approval_id_conflict"
-                    )
+                    raise SourceIndexLifecycleError("purge_approval_id_conflict")
                 return identifier
             db.add(
                 SourceControlPurgeApprovalDB(
@@ -144,44 +141,31 @@ class SQLSourceControlPurgeApprovalStore:
             if row.state == "consumed":
                 if row.claim_id == claim_id:
                     return
-                raise SourceIndexLifecycleError(
-                    "purge_approval_already_consumed"
-                )
-            if (
-                row.state == "claimed"
-                and row.claim_id == claim_id
-                and float(row.claim_expires_at_epoch or 0) > now
-            ):
+                raise SourceIndexLifecycleError("purge_approval_already_consumed")
+            if row.state == "claimed" and row.claim_id == claim_id and float(row.claim_expires_at_epoch or 0) > now:
                 return
             reclaimable = row.state == "approved" or (
-                row.state == "claimed"
-                and float(row.claim_expires_at_epoch or 0) <= now
+                row.state == "claimed" and float(row.claim_expires_at_epoch or 0) <= now
             )
             if not reclaimable:
-                raise SourceIndexLifecycleError(
-                    "purge_approval_in_progress"
-                )
+                raise SourceIndexLifecycleError("purge_approval_in_progress")
             mutation = db.exec(
                 update(SourceControlPurgeApprovalDB)
                 .where(
                     SourceControlPurgeApprovalDB.approval_id == approval_id,
-                    SourceControlPurgeApprovalDB.lock_version
-                    == row.lock_version,
+                    SourceControlPurgeApprovalDB.lock_version == row.lock_version,
                     SourceControlPurgeApprovalDB.state == row.state,
                 )
                 .values(
                     state="claimed",
                     claim_id=claim_id,
-                    claim_expires_at_epoch=now
-                    + self._claim_lease_seconds,
+                    claim_expires_at_epoch=now + self._claim_lease_seconds,
                     lock_version=row.lock_version + 1,
                 )
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceIndexLifecycleError(
-                    "purge_approval_claim_conflict"
-                )
+                raise SourceIndexLifecycleError("purge_approval_claim_conflict")
             db.commit()
 
     def consume(
@@ -195,22 +179,18 @@ class SQLSourceControlPurgeApprovalStore:
         with Session(self._engine) as db:
             row = db.get(SourceControlPurgeApprovalDB, approval_id)
             if row is None or row.request_digest != request_digest:
-                raise SourceIndexLifecycleError(
-                    "purge_approval_binding_mismatch"
-                )
+                raise SourceIndexLifecycleError("purge_approval_binding_mismatch")
             if row.state == "consumed" and row.claim_id == claim_id:
                 return
             mutation = db.exec(
                 update(SourceControlPurgeApprovalDB)
                 .where(
                     SourceControlPurgeApprovalDB.approval_id == approval_id,
-                    SourceControlPurgeApprovalDB.request_digest
-                    == request_digest,
+                    SourceControlPurgeApprovalDB.request_digest == request_digest,
                     SourceControlPurgeApprovalDB.state == "claimed",
                     SourceControlPurgeApprovalDB.claim_id == claim_id,
                     SourceControlPurgeApprovalDB.claim_expires_at_epoch > now,
-                    SourceControlPurgeApprovalDB.lock_version
-                    == row.lock_version,
+                    SourceControlPurgeApprovalDB.lock_version == row.lock_version,
                 )
                 .values(
                     state="consumed",
@@ -220,9 +200,7 @@ class SQLSourceControlPurgeApprovalStore:
             )
             if mutation.rowcount != 1:
                 db.rollback()
-                raise SourceIndexLifecycleError(
-                    "purge_approval_consume_conflict"
-                )
+                raise SourceIndexLifecycleError("purge_approval_consume_conflict")
             db.commit()
 
     @staticmethod
@@ -247,9 +225,7 @@ class SQLSourceControlPurgeApprovalStore:
             or row.object_id != object_id
             or row.request_digest != request_digest
         ):
-            raise SourceIndexLifecycleError(
-                "purge_approval_binding_mismatch"
-            )
+            raise SourceIndexLifecycleError("purge_approval_binding_mismatch")
 
 
 __all__ = ["SQLSourceControlPurgeApprovalStore"]

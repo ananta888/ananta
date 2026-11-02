@@ -16,11 +16,11 @@ Activation thresholds (from todo):
   - min_activation_score: 0.7
   - max_risk_score: 0.3
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
 
 # Activation thresholds
 MIN_SHADOW_DECISIONS = 50
@@ -36,8 +36,8 @@ class CandidateScore:
     shadow_duration_seconds: float
     shadow_match_rate: float
     fallback_reduction_estimate: float  # 0.0–1.0
-    risk_score: float                   # 0.0 = safe, 1.0 = risky
-    activation_score: float             # 0.0 = not ready, 1.0 = ready
+    risk_score: float  # 0.0 = safe, 1.0 = risky
+    activation_score: float  # 0.0 = not ready, 1.0 = ready
     meets_thresholds: bool = False
     block_reason: str = ""
 

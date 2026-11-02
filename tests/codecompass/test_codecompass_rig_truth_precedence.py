@@ -1,9 +1,8 @@
 """RIG-009: truth-precedence tests."""
+
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_rig_truth_precedence import (
@@ -22,9 +21,12 @@ def _store(tmp_path: Path, *, rig_nodes=(), rig_edges=()) -> CodeCompassGraphSto
 
 def _rig_records_with(name: str):
     return [
-        {"_provenance": {"output_kind": "rig_nodes"},
-         "id": f"bc:{name}", "kind": "buildable_component",
-         "attrs": {"name": name}},
+        {
+            "_provenance": {"output_kind": "rig_nodes"},
+            "id": f"bc:{name}",
+            "kind": "buildable_component",
+            "attrs": {"name": name},
+        },
     ]
 
 
@@ -38,9 +40,12 @@ def test_complete_rig_with_topic_is_strong(tmp_path):
     s.rebuild_from_output_records(
         manifest_hash="m",
         records=[
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "bc:hello", "kind": "buildable_component",
-             "attrs": {"name": "hello"}},
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "bc:hello",
+                "kind": "buildable_component",
+                "attrs": {"name": "hello"},
+            },
         ],
     )
     s._cached_payload = None

@@ -11,7 +11,9 @@ class PlanningOrchestrationDecision:
 
 
 class LLMFirstPlanningOrchestratorService:
-    def decide_strategy_order(self, *, mode: str, use_template: bool, use_repo_context: bool, planning_policy: dict[str, Any] | None = None) -> PlanningOrchestrationDecision:
+    def decide_strategy_order(
+        self, *, mode: str, use_template: bool, use_repo_context: bool, planning_policy: dict[str, Any] | None = None
+    ) -> PlanningOrchestrationDecision:
         policy = dict(planning_policy or {})
         llm_first = bool(policy.get("llm_first", False))
         allow_template = bool(use_template)

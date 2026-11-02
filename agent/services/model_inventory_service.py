@@ -57,9 +57,7 @@ class ModelInventoryService:
             raise ValueError("model_inventory_source_duplicate")
         self._adapters = adapters
         self._cache: dict[str, _CachedSource] = {}
-        self._locks = {
-            adapter.source_id: threading.Lock() for adapter in adapters
-        }
+        self._locks = {adapter.source_id: threading.Lock() for adapter in adapters}
         self._revision_lock = threading.Lock()
         self._catalog_revision = 1
         self._catalog_fingerprint = ""
@@ -80,10 +78,7 @@ class ModelInventoryService:
             catalog_revision=revision,
             models=merged,
             sources=tuple(statuses),
-            partial=any(
-                item.status in {"degraded", "unavailable", "stale"}
-                for item in statuses
-            ),
+            partial=any(item.status in {"degraded", "unavailable", "stale"} for item in statuses),
         )
 
     def _source_snapshot(
@@ -103,59 +98,38 @@ class ModelInventoryService:
             return cached.snapshot, self._status(
                 adapter,
                 cached,
-                status=(
-                    "degraded"
-                    if cached.snapshot.degraded_reason_code
-                    else "healthy"
-                ),
+                status=("degraded" if cached.snapshot.degraded_reason_code else "healthy"),
                 from_cache=True,
                 reason_code=cached.snapshot.degraded_reason_code,
             )
         if (
             not force_refresh
             and cached is not None
-            and requested_at - cached.last_success_monotonic
-            < adapter.cache_ttl_seconds
+            and requested_at - cached.last_success_monotonic < adapter.cache_ttl_seconds
         ):
             return cached.snapshot, self._status(
                 adapter,
                 cached,
-                status=(
-                    "degraded"
-                    if cached.snapshot.degraded_reason_code
-                    else "healthy"
-                ),
+                status=("degraded" if cached.snapshot.degraded_reason_code else "healthy"),
                 from_cache=True,
                 reason_code=cached.snapshot.degraded_reason_code,
             )
 
         with self._locks[adapter.source_id]:
             cached = self._cache.get(adapter.source_id)
-            if (
-                cached is not None
-                and (
-                    (
-                        force_refresh
-                        and cached.last_refresh_was_forced
-                        and time.monotonic() - cached.last_attempt_monotonic < 1.0
-                    )
-                    or
-                    cached.last_attempt_monotonic >= requested_at
-                    or (
-                        not force_refresh
-                        and time.monotonic() - cached.last_success_monotonic
-                        < adapter.cache_ttl_seconds
-                    )
+            if cached is not None and (
+                (
+                    force_refresh
+                    and cached.last_refresh_was_forced
+                    and time.monotonic() - cached.last_attempt_monotonic < 1.0
                 )
+                or cached.last_attempt_monotonic >= requested_at
+                or (not force_refresh and time.monotonic() - cached.last_success_monotonic < adapter.cache_ttl_seconds)
             ):
                 return cached.snapshot, self._status(
                     adapter,
                     cached,
-                    status=(
-                        "degraded"
-                        if cached.snapshot.degraded_reason_code
-                        else "healthy"
-                    ),
+                    status=("degraded" if cached.snapshot.degraded_reason_code else "healthy"),
                     from_cache=True,
                     reason_code=cached.snapshot.degraded_reason_code,
                 )
@@ -181,9 +155,7 @@ class ModelInventoryService:
                 return snapshot, self._status(
                     adapter,
                     successful,
-                    status=(
-                        "degraded" if snapshot.degraded_reason_code else "healthy"
-                    ),
+                    status=("degraded" if snapshot.degraded_reason_code else "healthy"),
                     from_cache=False,
                     reason_code=snapshot.degraded_reason_code,
                 )
@@ -205,10 +177,7 @@ class ModelInventoryService:
                 cached.last_attempt_monotonic = attempted_monotonic
                 cached.last_attempt_at = attempted_at
                 cached.last_refresh_was_forced = force_refresh
-                stale = (
-                    time.monotonic() - cached.last_success_monotonic
-                    >= adapter.stale_after_seconds
-                )
+                stale = time.monotonic() - cached.last_success_monotonic >= adapter.stale_after_seconds
                 return cached.snapshot, ModelInventorySourceStatus(
                     source_id=adapter.source_id,
                     source_kind=adapter.source_kind,
@@ -230,10 +199,7 @@ class ModelInventoryService:
         from_cache: bool,
         reason_code: str | None = None,
     ) -> ModelInventorySourceStatus:
-        stale = (
-            time.monotonic() - cached.last_success_monotonic
-            >= adapter.stale_after_seconds
-        )
+        stale = time.monotonic() - cached.last_success_monotonic >= adapter.stale_after_seconds
         return ModelInventorySourceStatus(
             source_id=adapter.source_id,
             source_kind=adapter.source_kind,
@@ -252,13 +218,8 @@ class ModelInventoryService:
     ) -> tuple[ModelInventoryDescriptor, ...]:
         grouped: dict[tuple[str, str, str], list[ModelInventoryDescriptor]] = {}
         for item in descriptors:
-            grouped.setdefault(
-                (item.provider_id, item.model_id, item.executor_id), []
-            ).append(item)
-        return tuple(
-            ModelInventoryService._merge_group(group)
-            for _identity, group in sorted(grouped.items())
-        )
+            grouped.setdefault((item.provider_id, item.model_id, item.executor_id), []).append(item)
+        return tuple(ModelInventoryService._merge_group(group) for _identity, group in sorted(grouped.items()))
 
     @staticmethod
     def _merge_group(
@@ -275,16 +236,20 @@ class ModelInventoryService:
             known = {item.value for item in values if item.value != "unknown"}
             if len(known) > 1:
                 conflicts.add(f"capability:{capability_id}")
-                merged_claims.append(ModelCapabilityClaim(
-                    capability_id=capability_id,
-                    value="unknown",
-                    evidence=ModelMetadataEvidence.UNKNOWN,
-                ))
+                merged_claims.append(
+                    ModelCapabilityClaim(
+                        capability_id=capability_id,
+                        value="unknown",
+                        evidence=ModelMetadataEvidence.UNKNOWN,
+                    )
+                )
             else:
-                merged_claims.append(next(
-                    (item for item in values if item.value != "unknown"),
-                    values[0],
-                ))
+                merged_claims.append(
+                    next(
+                        (item for item in values if item.value != "unknown"),
+                        values[0],
+                    )
+                )
         availabilities = {item.availability for item in group}
         availability = (
             ModelAvailability.AVAILABLE
@@ -311,10 +276,7 @@ class ModelInventoryService:
             conflicts.add("runtime")
 
         def scalar(name: str):
-            values = {
-                getattr(item, name) for item in group
-                if getattr(item, name) is not None
-            }
+            values = {getattr(item, name) for item in group if getattr(item, name) is not None}
             if len(values) > 1:
                 conflicts.add(name)
                 return None
@@ -331,56 +293,52 @@ class ModelInventoryService:
                 conflicts.add(f"metadata:{fact_id}")
             else:
                 facts.extend(values)
-        return ModelInventoryDescriptor.model_validate({
-            **first.model_dump(mode="python", by_alias=True),
-            "source_ids": tuple(
-                value for item in group for value in item.source_ids
-            ),
-            "source_kinds": tuple(sorted(
-                {value for item in group for value in item.source_kinds},
-                key=lambda value: value.value,
-            )),
-            "profile_ids": tuple(
-                value for item in group for value in item.profile_ids
-            ),
-            "aliases": tuple(value for item in group for value in item.aliases),
-            "availability": availability,
-            "health": health,
-            "runtime": runtime,
-            "configured": any(item.configured for item in group),
-            "installed": (
-                True if any(item.installed is True for item in group)
-                else False if all(item.installed is False for item in group)
-                else None
-            ),
-            "loaded": (
-                True if any(item.loaded is True for item in group)
-                else False if all(item.loaded is False for item in group)
-                else None
-            ),
-            "listing_supported": any(item.listing_supported for item in group),
-            "context_window": scalar("context_window"),
-            "quantization": scalar("quantization"),
-            "price_input_per_million": scalar("price_input_per_million"),
-            "price_output_per_million": scalar("price_output_per_million"),
-            "input_modalities": tuple(
-                value for item in group for value in item.input_modalities
-            ),
-            "output_modalities": tuple(
-                value for item in group for value in item.output_modalities
-            ),
-            "capabilities": tuple(merged_claims),
-            "metadata_facts": tuple(facts),
-            "conflicts": tuple(sorted(conflicts)),
-            "used_by_consumers": tuple(
-                value for item in group for value in item.used_by_consumers
-            ),
-        })
+        return ModelInventoryDescriptor.model_validate(
+            {
+                **first.model_dump(mode="python", by_alias=True),
+                "source_ids": tuple(value for item in group for value in item.source_ids),
+                "source_kinds": tuple(
+                    sorted(
+                        {value for item in group for value in item.source_kinds},
+                        key=lambda value: value.value,
+                    )
+                ),
+                "profile_ids": tuple(value for item in group for value in item.profile_ids),
+                "aliases": tuple(value for item in group for value in item.aliases),
+                "availability": availability,
+                "health": health,
+                "runtime": runtime,
+                "configured": any(item.configured for item in group),
+                "installed": (
+                    True
+                    if any(item.installed is True for item in group)
+                    else False
+                    if all(item.installed is False for item in group)
+                    else None
+                ),
+                "loaded": (
+                    True
+                    if any(item.loaded is True for item in group)
+                    else False
+                    if all(item.loaded is False for item in group)
+                    else None
+                ),
+                "listing_supported": any(item.listing_supported for item in group),
+                "context_window": scalar("context_window"),
+                "quantization": scalar("quantization"),
+                "price_input_per_million": scalar("price_input_per_million"),
+                "price_output_per_million": scalar("price_output_per_million"),
+                "input_modalities": tuple(value for item in group for value in item.input_modalities),
+                "output_modalities": tuple(value for item in group for value in item.output_modalities),
+                "capabilities": tuple(merged_claims),
+                "metadata_facts": tuple(facts),
+                "conflicts": tuple(sorted(conflicts)),
+                "used_by_consumers": tuple(value for item in group for value in item.used_by_consumers),
+            }
+        )
 
     def _revision(self, models: tuple[ModelInventoryDescriptor, ...]) -> int:
-        payload = "\n".join(
-            item.model_dump_json(by_alias=True) for item in models
-        )
+        payload = "\n".join(item.model_dump_json(by_alias=True) for item in models)
         fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         with self._revision_lock:
             if self._catalog_fingerprint and fingerprint != self._catalog_fingerprint:
@@ -406,7 +364,8 @@ class ModelInventoryService:
         from agent import metrics
 
         metrics.MODEL_INVENTORY_SOURCE_OUTCOMES_TOTAL.labels(
-            source_kind=source_kind.value, status=status,
+            source_kind=source_kind.value,
+            status=status,
         ).inc()
 
 

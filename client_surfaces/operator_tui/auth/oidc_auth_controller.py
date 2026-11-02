@@ -8,6 +8,7 @@ Security invariants:
 - Token values are NEVER logged or exposed in error messages.
 - All secrets are generated with cryptographically secure random.
 """
+
 from __future__ import annotations
 
 import base64
@@ -154,9 +155,7 @@ class OidcAuthController:
 
         code = params.get("code", "").strip()
         if not code:
-            raise ValueError(
-                "OIDC callback missing authorization code."
-            )
+            raise ValueError("OIDC callback missing authorization code.")
 
         return self._exchange_code(code, request, provider)
 
@@ -220,9 +219,7 @@ class OidcAuthController:
         Returns:
             The authorization endpoint URL string.
         """
-        discovery_url = (
-            provider.issuer.rstrip("/") + "/.well-known/openid-configuration"
-        )
+        discovery_url = provider.issuer.rstrip("/") + "/.well-known/openid-configuration"
         try:
             req = urllib.request.Request(
                 discovery_url,
@@ -248,9 +245,7 @@ class OidcAuthController:
         Returns:
             The token endpoint URL string.
         """
-        discovery_url = (
-            provider.issuer.rstrip("/") + "/.well-known/openid-configuration"
-        )
+        discovery_url = provider.issuer.rstrip("/") + "/.well-known/openid-configuration"
         try:
             req = urllib.request.Request(
                 discovery_url,
@@ -286,13 +281,15 @@ class OidcAuthController:
             ``OidcAuthResult`` with tokens on success, error details on failure.
         """
         token_endpoint = self._discover_token_endpoint(provider)
-        body = urllib.parse.urlencode({
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": request.redirect_uri,
-            "client_id": provider.client_id,
-            "code_verifier": request.pkce_verifier,
-        }).encode()
+        body = urllib.parse.urlencode(
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": request.redirect_uri,
+                "client_id": provider.client_id,
+                "code_verifier": request.pkce_verifier,
+            }
+        ).encode()
         req = urllib.request.Request(
             token_endpoint,
             data=body,
@@ -317,10 +314,10 @@ class OidcAuthController:
                 error=f"token_exchange_failed: {error_desc}",
                 provider_id=request.provider_id,
             )
-        except Exception as exc:
+        except Exception:
             return OidcAuthResult(
                 ok=False,
-                error=f"token_exchange_failed: network_error",
+                error="token_exchange_failed: network_error",
                 provider_id=request.provider_id,
             )
 
@@ -373,12 +370,7 @@ class OidcAuthController:
             payload_bytes = base64.urlsafe_b64decode(payload_b64)
             claims = json.loads(payload_bytes)
             subject = str(claims.get("sub") or "")
-            username = str(
-                claims.get("preferred_username")
-                or claims.get("email")
-                or claims.get("name")
-                or ""
-            )
+            username = str(claims.get("preferred_username") or claims.get("email") or claims.get("name") or "")
             return subject, username
         except Exception:
             return "", ""
@@ -415,12 +407,7 @@ class OidcAuthController:
                 return "", ""
 
         subject = str(claims.get("sub") or "")
-        username = str(
-            claims.get("preferred_username")
-            or claims.get("email")
-            or claims.get("name")
-            or ""
-        )
+        username = str(claims.get("preferred_username") or claims.get("email") or claims.get("name") or "")
         return subject, username
 
     @staticmethod

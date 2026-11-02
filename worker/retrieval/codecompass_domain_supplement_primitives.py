@@ -140,18 +140,12 @@ def _valid_prefixed_sha256(value: object) -> bool:
 
 def _valid_sha256(value: object) -> bool:
     normalized = str(value or "")
-    return len(normalized) == 64 and all(
-        character in "0123456789abcdef" for character in normalized
-    )
+    return len(normalized) == 64 and all(character in "0123456789abcdef" for character in normalized)
 
 
 def _valid_source_revision_id(value: object) -> bool:
     normalized = str(value or "")
-    return (
-        len(normalized) == 69
-        and normalized.startswith("srev_")
-        and _valid_sha256(normalized[5:])
-    )
+    return len(normalized) == 69 and normalized.startswith("srev_") and _valid_sha256(normalized[5:])
 
 
 def _read_only_uri(path: Path) -> str:
@@ -163,12 +157,7 @@ def _bounded_decompress(payload: bytes, *, expected_size: int) -> bytes:
         raise ValueError("codecompass_domain_supplement_chunk_size_invalid")
     decoder = zlib.decompressobj()
     raw = decoder.decompress(payload, expected_size + 1)
-    if (
-        len(raw) != expected_size
-        or decoder.unconsumed_tail
-        or decoder.unused_data
-        or not decoder.eof
-    ):
+    if len(raw) != expected_size or decoder.unconsumed_tail or decoder.unused_data or not decoder.eof:
         raise ValueError("codecompass_domain_supplement_chunk_invalid")
     return raw
 

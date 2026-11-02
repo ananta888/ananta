@@ -10,4 +10,3 @@ def test_run_startup_phase_returns_action_result():
 def test_run_startup_phase_reraises_failures():
     with pytest.raises(RuntimeError, match="boom"):
         run_startup_phase("failing_unit_phase", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-

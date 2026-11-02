@@ -18,8 +18,12 @@ class CompanionMediaPreparationProcess:
     def __init__(self, *, command=None, environment=None, timeout_seconds=120):
         command = command or (sys.executable, "-m", "worker.meet_media.companion_media_runtime")
         self._transport = CompanionProcessTransport(
-            command, environment=environment, timeout_seconds=timeout_seconds,
-            input_limit=MAX_REQUEST_BYTES, output_limit=MAX_RESPONSE_BYTES)
+            command,
+            environment=environment,
+            timeout_seconds=timeout_seconds,
+            input_limit=MAX_REQUEST_BYTES,
+            output_limit=MAX_RESPONSE_BYTES,
+        )
 
     def idle(self, state, *, cooperate):
         if not isinstance(state, str) or state not in IDLE_STATES:
@@ -36,8 +40,9 @@ class CompanionMediaPreparationProcess:
             receipt = self._transport.exchange({"kind": kind, "value": value}, cooperate=cooperate)
             if not isinstance(receipt, dict) or set(receipt) != {"kind", "result"} or receipt["kind"] != kind:
                 raise CompanionExecutionError("meet_companion_media_receipt_invalid")
-            return (validate_clip(receipt["result"], repeat="loop") if kind == "idle"
-                    else validate_clips(receipt["result"]))
+            return (
+                validate_clip(receipt["result"], repeat="loop") if kind == "idle" else validate_clips(receipt["result"])
+            )
         except BaseException:
             self.close()
             raise

@@ -30,8 +30,12 @@ from agent.services.wiki_import_checkpoint_service import WikiImportCheckpointSe
 from agent.services.wiki_jsonl_importer import WikiJsonlImporter
 from agent.services.wiki_mediawiki_xml_parser import MediaWikiXmlDumpParser
 from agent.services.wiki_normalizer import WikiRecordNormalizer
-from agent.services.wiki_record_writer import sort_wiki_records, write_wiki_jsonl_cache
-from agent.services.wiki_xml_import_run import WikiXmlImportPaths, WikiXmlImportRun, prepare_resume, resolve_wiki_xml_sources
+from agent.services.wiki_xml_import_run import (
+    WikiXmlImportPaths,
+    WikiXmlImportRun,
+    prepare_resume,
+    resolve_wiki_xml_sources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +140,9 @@ class IngestionService:
         checkpoint()
         return artifact, version, collection
 
-    def extract_artifact(self, artifact_id: str) -> tuple[ArtifactDB | None, ArtifactVersionDB | None, ExtractedDocumentDB | None]:
+    def extract_artifact(
+        self, artifact_id: str
+    ) -> tuple[ArtifactDB | None, ArtifactVersionDB | None, ExtractedDocumentDB | None]:
         artifact = artifact_repo.get_by_id(artifact_id)
         if artifact is None or not artifact.latest_version_id:
             return artifact, None, None
@@ -223,7 +229,9 @@ class IngestionService:
                 try:
                     xml_fragment = bz2.decompress(compressed_block)
                 except OSError as exc:
-                    logger.warning("Wiki multistream block could not be decompressed", extra={"offset": offset, "error": str(exc)})
+                    logger.warning(
+                        "Wiki multistream block could not be decompressed", extra={"offset": offset, "error": str(exc)}
+                    )
                     continue
                 wrapped = b"<mediawiki>" + xml_fragment + b"</mediawiki>"
                 context = ET.iterparse(BytesIO(wrapped), events=("end",))
@@ -336,9 +344,7 @@ class IngestionService:
             )
             or {}
         )
-        resume_from_item, chunks_per_article = prepare_resume(
-            paths, checkpoint, write_jsonl_cache=write_jsonl_cache
-        )
+        resume_from_item, chunks_per_article = prepare_resume(paths, checkpoint, write_jsonl_cache=write_jsonl_cache)
         run = WikiXmlImportRun(
             path=path,
             index_path=resolved_index_path,
@@ -423,19 +429,22 @@ class IngestionService:
         # Fast-path: if normalized.jsonl already exists, skip download and extraction entirely.
         # Infer corpus path from the compressed/extracted path without actually downloading.
         _pre_corpus = local_compressed or local_extracted
-        _pre_jsonl  = _pre_corpus.parent / (_pre_corpus.name + ".normalized.jsonl")
-        _pre_links  = _pre_corpus.parent / (_pre_corpus.name + ".links.jsonl")
+        _pre_jsonl = _pre_corpus.parent / (_pre_corpus.name + ".normalized.jsonl")
+        _pre_links = _pre_corpus.parent / (_pre_corpus.name + ".links.jsonl")
         if _pre_jsonl.exists() and _pre_jsonl.stat().st_size > 0:
             logger.info(
                 "import_wiki_jsonl_from_url: pre-check JSONL cache hit %s — skipping download/extraction",
                 _pre_jsonl.name,
             )
             normalized_source_id = str(source_id or "").strip() or _pre_corpus.stem
-            checkpoint = self._wiki_checkpoint_service.load(
-                source_id=normalized_source_id,
-                corpus_path=str(_pre_corpus),
-                index_path=None,
-            ) or {}
+            checkpoint = (
+                self._wiki_checkpoint_service.load(
+                    source_id=normalized_source_id,
+                    corpus_path=str(_pre_corpus),
+                    index_path=None,
+                )
+                or {}
+            )
             return {
                 "source_scope": "wiki",
                 "source_id": normalized_source_id,
@@ -445,10 +454,10 @@ class IngestionService:
                 "records": [],
                 "issues": [],
                 "stats": {
-                    "page_count":   checkpoint.get("page_count", 0),
-                    "doc_count":    checkpoint.get("doc_count", 0),
+                    "page_count": checkpoint.get("page_count", 0),
+                    "doc_count": checkpoint.get("doc_count", 0),
                     "record_count": checkpoint.get("normalized_records", 0),
-                    "link_count":   checkpoint.get("link_count", 0),
+                    "link_count": checkpoint.get("link_count", 0),
                 },
                 "deterministic_order": "parse_order_compact_filtered",
                 "format": "jsonl_cache",
@@ -476,7 +485,7 @@ class IngestionService:
         else:
             local_corpus = local_compressed or local_extracted
 
-        lower_name = str(local_corpus.name).lower()
+        str(local_corpus.name).lower()
         local_index_path = None
         index_download = None
         if index_url:
@@ -486,7 +495,11 @@ class IngestionService:
             index_name = Path(parsed_index.path or "").name or "wiki-index.txt.bz2"
             safe_index_name = re.sub(r"[^A-Za-z0-9._-]+", "-", index_name).strip("-") or "wiki-index.txt.bz2"
             local_index_compressed = wiki_corpus_dir / safe_index_name
-            local_index_path = wiki_corpus_dir / Path(safe_index_name).stem if safe_index_name.endswith(".bz2") else local_index_compressed
+            local_index_path = (
+                wiki_corpus_dir / Path(safe_index_name).stem
+                if safe_index_name.endswith(".bz2")
+                else local_index_compressed
+            )
             index_report = self._corpus_downloader.download(
                 url=str(index_url).strip(),
                 destination=local_index_compressed,
@@ -514,11 +527,14 @@ class IngestionService:
                 jsonl_cache_candidate.stat().st_size,
             )
             normalized_source_id = str(source_id or "").strip() or local_corpus.stem
-            checkpoint = self._wiki_checkpoint_service.load(
-                source_id=normalized_source_id,
-                corpus_path=str(local_corpus),
-                index_path=str(local_index_path) if local_index_path else None,
-            ) or {}
+            checkpoint = (
+                self._wiki_checkpoint_service.load(
+                    source_id=normalized_source_id,
+                    corpus_path=str(local_corpus),
+                    index_path=str(local_index_path) if local_index_path else None,
+                )
+                or {}
+            )
             report = {
                 "source_scope": "wiki",
                 "source_id": normalized_source_id,
@@ -528,10 +544,10 @@ class IngestionService:
                 "records": [],
                 "issues": [],
                 "stats": {
-                    "page_count":    checkpoint.get("page_count", 0),
-                    "doc_count":     checkpoint.get("doc_count", 0),
-                    "record_count":  checkpoint.get("normalized_records", 0),
-                    "link_count":    checkpoint.get("link_count", 0),
+                    "page_count": checkpoint.get("page_count", 0),
+                    "doc_count": checkpoint.get("doc_count", 0),
+                    "record_count": checkpoint.get("normalized_records", 0),
+                    "link_count": checkpoint.get("link_count", 0),
                 },
                 "deterministic_order": "parse_order_compact_filtered",
                 "format": "jsonl_cache",

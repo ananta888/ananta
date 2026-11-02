@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from worker.core.execution_profile import normalize_execution_profile
 from worker.core.execution_envelope import (
     ApprovalRef,
     CapabilityGrant,
@@ -11,6 +10,7 @@ from worker.core.execution_envelope import (
     RepairProcedure,
     RepairResultVerdict,
 )
+from worker.core.execution_profile import normalize_execution_profile
 from worker.core.plan_artifact import build_plan_artifact, update_plan_step_state
 from worker.loop.budgets import WorkerLoopBudgets, budgets_for_profile
 from worker.loop.progress_events import build_progress_event
@@ -311,10 +311,7 @@ def _run_deterministic_repair_loop(
     denied_operations: list[str] | None = None,
 ) -> dict[str, Any]:
     steps_data = [s.model_dump() for s in repair_procedure.steps]
-    plan_steps = [
-        {"step_id": s["step_id"], "title": s.get("title", ""), "state": "ready"}
-        for s in steps_data
-    ]
+    plan_steps = [{"step_id": s["step_id"], "title": s.get("title", ""), "state": "ready"} for s in steps_data]
     state = {
         "schema": "worker_loop_state.v1",
         "task_id": str(task_id).strip(),
@@ -370,11 +367,7 @@ def _run_deterministic_repair_loop(
 
     _approval_refs: list[ApprovalRef] = []
     if approval_ref:
-        ref_id = (
-            approval_ref.get("approval_id", "")
-            or approval_ref.get("ref_id", "")
-            or "approval-unknown"
-        )
+        ref_id = approval_ref.get("approval_id", "") or approval_ref.get("ref_id", "") or "approval-unknown"
         operation = approval_ref.get("operation", "") or "deterministic_repair"
         _approval_refs.append(
             ApprovalRef(

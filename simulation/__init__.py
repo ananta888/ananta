@@ -10,4 +10,5 @@ Entry-points
 
 No hard dependency on LangGraph, n8n, Ollama or remote APIs at import time.
 """
+
 __version__ = "0.1.0"

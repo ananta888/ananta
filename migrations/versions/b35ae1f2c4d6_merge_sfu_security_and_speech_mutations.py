@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-
 revision: str = "b35ae1f2c4d6"
 down_revision: str | Sequence[str] | None = (
     "4f9c2a7e1b6d",

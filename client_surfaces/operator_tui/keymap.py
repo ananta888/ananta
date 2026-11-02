@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from client_surfaces.operator_tui.models import KeyBinding, OperatorMode
 from client_surfaces.operator_tui.keybindings_config import display_for_action
-
+from client_surfaces.operator_tui.models import KeyBinding, OperatorMode
 
 KEYBINDINGS: tuple[KeyBinding, ...] = (
     KeyBinding("j", "selection_down", "Move selection down", (OperatorMode.NORMAL, OperatorMode.INSPECT)),
@@ -16,7 +15,12 @@ KEYBINDINGS: tuple[KeyBinding, ...] = (
     KeyBinding("r", "refresh", "Refresh active section", (OperatorMode.NORMAL,)),
     KeyBinding("?", "help", "Toggle help overlay", (OperatorMode.NORMAL, OperatorMode.INSPECT)),
     KeyBinding("enter", "inspect", "Inspect selected item", (OperatorMode.NORMAL,)),
-    KeyBinding("esc", "normal_mode", "Close overlay or return to normal mode", (OperatorMode.COMMAND, OperatorMode.INSPECT, OperatorMode.EDIT)),
+    KeyBinding(
+        "esc",
+        "normal_mode",
+        "Close overlay or return to normal mode",
+        (OperatorMode.COMMAND, OperatorMode.INSPECT, OperatorMode.EDIT),
+    ),
     KeyBinding("q", "quit", "Quit operator TUI", (OperatorMode.NORMAL,)),
 )
 

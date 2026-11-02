@@ -1,4 +1,5 @@
 """Obsidian Vault CLI commands for ANANTA (OBS-010)."""
+
 from __future__ import annotations
 
 import argparse
@@ -94,8 +95,7 @@ def _load_vault_profile(vault_name: str):
         profiles = load_vault_profiles(raw)
         if vault_name not in profiles:
             print(
-                f"Error: vault '{vault_name}' not found in config. "
-                f"Available: {list(profiles.keys())}",
+                f"Error: vault '{vault_name}' not found in config. Available: {list(profiles.keys())}",
                 file=sys.stderr,
             )
             return None
@@ -141,7 +141,7 @@ def _cmd_scan_vault(parsed) -> int:
 
 def _cmd_sync_rag(parsed) -> int:
     print(
-        f"Error: 'ananta rag obsidian sync-rag' is not yet fully implemented.",
+        "Error: 'ananta rag obsidian sync-rag' is not yet fully implemented.",
         file=sys.stderr,
     )
     return 1
@@ -149,7 +149,7 @@ def _cmd_sync_rag(parsed) -> int:
 
 def _cmd_export_graph(parsed) -> int:
     print(
-        f"Error: 'ananta rag obsidian export-graph' is not yet fully implemented.",
+        "Error: 'ananta rag obsidian export-graph' is not yet fully implemented.",
         file=sys.stderr,
     )
     return 1
@@ -160,8 +160,8 @@ def _cmd_list_excluded(parsed) -> int:
     if profile is None:
         return 1
     try:
-        from rag_helper.application.vault_scanner import scan
         from rag_helper.application.privacy_filter import list_excluded
+        from rag_helper.application.vault_scanner import scan
 
         files = scan(profile)
         excluded = list_excluded(profile, files)

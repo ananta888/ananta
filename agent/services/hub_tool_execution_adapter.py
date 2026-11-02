@@ -19,6 +19,7 @@ Result kinds (contract ``docs/contracts/hub-direct-execution.md``):
 ``hub_direct_fallback_to_worker``, which the router/integration layer
 emits before this adapter is reached.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -294,7 +295,12 @@ class HubToolExecutionAdapter:
         runtime_config: dict[str, Any] = {
             "max_result_chars": int(direct_cfg.get("max_result_chars") or 8000),
         }
-        for block in ("ananta_worker_workspace_mutation", "shell_command_policy", "ananta_worker_tool_loop", "worker_runtime"):
+        for block in (
+            "ananta_worker_workspace_mutation",
+            "shell_command_policy",
+            "ananta_worker_tool_loop",
+            "worker_runtime",
+        ):
             if isinstance(cfg.get(block), dict):
                 runtime_config[block] = dict(cfg[block])
         if direct_cfg.get("env_allowlist"):

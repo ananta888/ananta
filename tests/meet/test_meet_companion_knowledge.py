@@ -102,9 +102,9 @@ def companion(port, retriever=None, tool_choice=None):
     retriever = Retriever() if retriever is None else retriever
     tools = llm_tools.codecompass_toolbox(retriever)
     dialog = CompanionDialog(
-        llm=lambda text, context, system: llm.generate(
-            text, context=context, system=system, tools=tools, transport=port
-        ).text,
+        llm=lambda text, context, system: (
+            llm.generate(text, context=context, system=system, tools=tools, transport=port).text
+        ),
         codecompass_enabled=False,
         model_name=MODEL,
         system=PERSONA_SYSTEM_WITH_TOOLS,
@@ -286,8 +286,7 @@ def test_a_long_reply_without_a_source_is_still_clamped_below_the_client_limit()
 
 def test_meta_sentences_about_the_reply_are_dropped():
     reply = (
-        "Ich habe keine Details zum rag-helper geliefert. "
-        "Der RAG-Helper indexiert Repository-Pfade mit einem Profil."
+        "Ich habe keine Details zum rag-helper geliefert. Der RAG-Helper indexiert Repository-Pfade mit einem Profil."
     )
     assert strip_meta(reply) == "Der RAG-Helper indexiert Repository-Pfade mit einem Profil."
     assert strip_meta("Meine Antwort basiert auf dem Index. Klar!") == "Klar!"

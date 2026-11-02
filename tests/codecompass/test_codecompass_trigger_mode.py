@@ -16,6 +16,7 @@ and the classified domain is kept (never raises).
 
 These tests are deterministic — no LLM, no network, no DB.
 """
+
 from __future__ import annotations
 
 import os
@@ -53,9 +54,7 @@ class TestTriggerModeAuto:
     def test_auto_no_override_keeps_keyword_classification(self):
         # "codecompass" appears in the question → domain must be CODECOMPASS
         # under the auto path (no trigger_mode override).
-        domain, _intent = classify_retrieval_intent(
-            "Was macht codecompass?", _base_cfg()
-        )
+        domain, _intent = classify_retrieval_intent("Was macht codecompass?", _base_cfg())
         assert domain == DOMAIN_CODECOMPASS
 
     def test_auto_unset_equals_explicit_auto(self):
@@ -281,13 +280,13 @@ class TestSourceTypeToggleTaskMemory:
     def test_task_memory_enabled_by_default(self):
         # The default is True (opt-out, preserving old behaviour).
         from agent.services.retrieval_profile_service import _apply_ui_source_constraints
-        result = _apply_ui_source_constraints(
-            ["repo", "artifact", "wiki", "task_memory"], _base_cfg()
-        )
+
+        result = _apply_ui_source_constraints(["repo", "artifact", "wiki", "task_memory"], _base_cfg())
         assert "task_memory" in result
 
     def test_task_memory_disabled_removes_source(self):
         from agent.services.retrieval_profile_service import _apply_ui_source_constraints
+
         result = _apply_ui_source_constraints(
             ["repo", "artifact", "wiki", "task_memory"],
             _base_cfg(chat_include_task_memory=False),
@@ -303,6 +302,7 @@ class TestSourceTypeToggleTaskMemory:
         # `wiki` is already filtered out by _apply_ui_source_constraints
         # before this assertion runs.
         from agent.services.retrieval_profile_service import _apply_ui_source_constraints
+
         result = _apply_ui_source_constraints(
             ["repo", "artifact", "wiki", "task_memory"],
             _base_cfg(chat_include_task_memory=False),
@@ -315,6 +315,7 @@ class TestSourceTypeToggleTaskMemory:
         # Regression: chat_use_codecompass, chat_include_local_project,
         # chat_include_wikipedia must still remove their respective sources.
         from agent.services.retrieval_profile_service import _apply_ui_source_constraints
+
         result = _apply_ui_source_constraints(
             ["repo", "artifact", "wiki", "task_memory"],
             _base_cfg(

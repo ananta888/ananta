@@ -17,6 +17,7 @@ Ananta's own audio decoding and limits (``SafeAudioDecoder``/``AudioDecodeLimits
 before the upload; clips longer than 30 s are rejected locally and never sent. Audio,
 transcripts, labels and the API key are never logged.
 """
+
 from __future__ import annotations
 
 import http.client

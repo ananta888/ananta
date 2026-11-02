@@ -16,9 +16,6 @@ def test_redacts_private_key_block():
 
 
 def test_redacts_messages_before_forward():
-    msgs, meta = SecretRedactor().redact_messages(
-        [{"role": "user", "content": "token: supersecret12345"}]
-    )
+    msgs, meta = SecretRedactor().redact_messages([{"role": "user", "content": "token: supersecret12345"}])
     assert "[REDACTED]" in msgs[0]["content"]
     assert meta["redaction_hits"] >= 1
-

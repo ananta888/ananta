@@ -531,7 +531,9 @@ class ReferenceProfileService:
                 continue
             seen.add(profile_id)
             deduped.append({"profile": profile, "reason": reason})
-        deduped.sort(key=lambda item: (-float((item.get("reason") or {}).get("score") or 0.0), item["profile"]["profile_id"]))
+        deduped.sort(
+            key=lambda item: (-float((item.get("reason") or {}).get("score") or 0.0), item["profile"]["profile_id"])
+        )
         selected_profile = dict((deduped[0] if deduped else {}).get("profile") or {})
         selected_reason = dict((deduped[0] if deduped else {}).get("reason") or {})
         return {
@@ -673,17 +675,25 @@ class ReferenceProfileService:
             "framing": "recommendations_not_judgments",
         }
 
-    def build_project_evolution_mismatch_diagnostics(self, *, profile_id: str, mode_data: dict[str, Any]) -> dict[str, Any]:
+    def build_project_evolution_mismatch_diagnostics(
+        self, *, profile_id: str, mode_data: dict[str, Any]
+    ) -> dict[str, Any]:
         normalized_profile_id = str(profile_id or "").strip()
         affected_areas = str(mode_data.get("affected_areas") or "").strip().lower()
         change_goal = str(mode_data.get("change_goal") or "").strip().lower()
         combined = f"{affected_areas} {change_goal}"
         mismatch_signals: list[str] = []
-        if normalized_profile_id == "ref.angular.ananta_frontend" and any(token in combined for token in ("backend", "api", "worker")):
+        if normalized_profile_id == "ref.angular.ananta_frontend" and any(
+            token in combined for token in ("backend", "api", "worker")
+        ):
             mismatch_signals.append("frontend_profile_for_backend_change")
-        if normalized_profile_id == "ref.python.ananta_backend" and any(token in combined for token in ("frontend", "angular", "ui")):
+        if normalized_profile_id == "ref.python.ananta_backend" and any(
+            token in combined for token in ("frontend", "angular", "ui")
+        ):
             mismatch_signals.append("backend_profile_for_frontend_change")
-        if normalized_profile_id == "ref.java.keycloak" and any(token in combined for token in ("frontend", "angular", "ui")):
+        if normalized_profile_id == "ref.java.keycloak" and any(
+            token in combined for token in ("frontend", "angular", "ui")
+        ):
             mismatch_signals.append("security_java_profile_for_frontend_change")
         if normalized_profile_id == "ref.angular.ananta_frontend" and "security" in combined:
             mismatch_signals.append("frontend_profile_for_security_backend_focus")

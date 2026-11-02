@@ -44,8 +44,9 @@ def test_signed_http_withdrawal_stops_owned_model_and_cannot_restore_old_operati
     value = assignment() | {"session_id": "hub-session", "deadline": fixture.context["deadline"]}
     with running_hub(app) as endpoint:
         gate = CompanionTaskControls(AssignedCompanionGrantClient(value, endpoint, KEY))
-        execution = CompanionExecutionProcess(command=(sys.executable, "-c",
-            "import sys,time;sys.stdin.readline();time.sleep(30)"))
+        execution = CompanionExecutionProcess(
+            command=(sys.executable, "-c", "import sys,time;sys.stdin.readline();time.sleep(30)")
+        )
         try:
             bound = time.monotonic() + 3
             while gate.state is None:
@@ -64,7 +65,9 @@ def test_signed_http_withdrawal_stops_owned_model_and_cannot_restore_old_operati
                     else:
                         fixture.context["controls"]["revision"] = 2
                         fixture.context["controls"]["chat"] = {
-                            "enabled": False, "revision": 2, "since": int(time.time() * 1000),
+                            "enabled": False,
+                            "revision": 2,
+                            "since": int(time.time() * 1000),
                         }
                 gate.step()
                 gate.require_current(checkpoint)

@@ -10,7 +10,9 @@ from worker.retrieval.vector_store_contract import VectorScope, VectorStoreError
 
 
 class CodeCompassDuckDBAnalyticsService:
-    def __init__(self, config: DuckDBVectorStoreConfig | None = None, store: DuckDBAnalyticsStore | None = None) -> None:
+    def __init__(
+        self, config: DuckDBVectorStoreConfig | None = None, store: DuckDBAnalyticsStore | None = None
+    ) -> None:
         self._config = config or DuckDBVectorStoreConfig()
         self._store = store or DuckDBAnalyticsStore(self._config)
 

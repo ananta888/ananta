@@ -1,10 +1,10 @@
 """DSL v2 Loader — lädt und validiert DSL aus HeuristicDefinition JSON."""
+
 from __future__ import annotations
 
 import json
 import os
 from typing import Any
-
 
 _HEURISTICS_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "heuristics")
 _ALLOWED_STATUSES = frozenset({"candidate", "active", "experimental_live"})

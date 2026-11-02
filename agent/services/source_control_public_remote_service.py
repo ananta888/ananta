@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 import time
@@ -19,6 +20,11 @@ from agent.services.git_remote_policy_service import (
     GitRemotePolicyRequest,
     GitTransportAuthorization,
 )
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectAccessPort,
+    ProjectCapability,
+)
 from agent.services.source_control_public_remote_contracts import (
     PublicRemoteCreateSelection,
     PublicRemoteRecord,
@@ -26,11 +32,6 @@ from agent.services.source_control_public_remote_contracts import (
     PublicRemoteValidationBinding,
     SourceControlPublicRemoteContractError,
     audit_binding_digest,
-)
-from agent.services.project_access_authority import (
-    ProjectAccessError,
-    ProjectAccessPort,
-    ProjectCapability,
 )
 from agent.sources.git_source_connector_common import (
     GitConnectorProviderError,
@@ -95,9 +96,7 @@ class SourceControlPublicRemoteService:
         connector_registry_ready: bool,
         ttl_seconds: int = 300,
         clock: Callable[[], float] = time.time,
-        token_factory: Callable[[], str] = (
-            lambda: secrets.token_urlsafe(32)
-        ),
+        token_factory: Callable[[], str] = (lambda: secrets.token_urlsafe(32)),
     ) -> None:
         if not 30 <= int(ttl_seconds) <= 900:
             raise ValueError("public_remote_ttl_invalid")
@@ -148,22 +147,14 @@ class SourceControlPublicRemoteService:
                 or authorized.host != selection.host
                 or authorized.port != 443
                 or authorized.credential_ref is not None
-                or authorized.canonical_url
-                != selection.internal_remote_url
+                or authorized.canonical_url != selection.internal_remote_url
             ):
-                raise SourceControlPublicRemoteError(
-                    "public_remote_policy_projection_invalid"
-                )
+                raise SourceControlPublicRemoteError("public_remote_policy_projection_invalid")
             transport_authorization = GitTransportAuthorization.create(
                 authorized=authorized,
                 request=policy_request,
             )
-            if (
-                self._transport is None
-                or not self._transport.supports_authorization(
-                    transport_authorization
-                )
-            ):
+            if self._transport is None or not self._transport.supports_authorization(transport_authorization):
                 raise SourceControlPublicRemoteError(
                     "public_remote_transport_unavailable",
                     status_code=503,
@@ -177,9 +168,7 @@ class SourceControlPublicRemoteService:
                 scope=scope,
                 selection=selection,
                 commit_sha=commit_sha,
-                policy_digest=(
-                    transport_authorization.authorization_digest
-                ),
+                policy_digest=(transport_authorization.authorization_digest),
             )
         except (GitRemotePolicyError, GitConnectorProviderError) as exc:
             self._record_denial(
@@ -204,9 +193,7 @@ class SourceControlPublicRemoteService:
         expires_at = float(self._clock()) + self._ttl_seconds
         for _attempt in range(3):
             handle = f"prv1_{self._token_factory()}"
-            handle_digest = hashlib.sha256(
-                handle.encode("ascii")
-            ).hexdigest()
+            handle_digest = hashlib.sha256(handle.encode("ascii")).hexdigest()
             try:
                 self._repository.store_validation(
                     handle_digest=handle_digest,
@@ -219,10 +206,7 @@ class SourceControlPublicRemoteService:
                     expires_at_epoch=expires_at,
                 )
             except SourceControlPublicRemotePersistenceError as exc:
-                if (
-                    exc.reason_code
-                    == "public_remote_validation_handle_collision"
-                ):
+                if exc.reason_code == "public_remote_validation_handle_collision":
                     continue
                 raise
         raise SourceControlPublicRemoteError(
@@ -248,15 +232,13 @@ class SourceControlPublicRemoteService:
             ) from None
         normalized_key = str(idempotency_key or "").strip()
         if _IDEMPOTENCY.fullmatch(normalized_key) is None:
-            raise SourceControlPublicRemoteError(
-                "idempotency_key_required"
-            )
-        operation_key = "public-remote:" + hashlib.sha256(
-            (
-                f"{scope.tenant_id}\0{scope.project_id}\0"
-                f"{scope.owner_id}\0{normalized_key}"
-            ).encode("utf-8")
-        ).hexdigest()
+            raise SourceControlPublicRemoteError("idempotency_key_required")
+        operation_key = (
+            "public-remote:"
+            + hashlib.sha256(
+                (f"{scope.tenant_id}\0{scope.project_id}\0{scope.owner_id}\0{normalized_key}").encode("utf-8")
+            ).hexdigest()
+        )
         plan_digest = _digest(
             {
                 "operation": "public_remote_create",
@@ -283,11 +265,7 @@ class SourceControlPublicRemoteService:
                 status_code=409,
             )
         claim_token = getattr(claim, "claim_token", None)
-        if (
-            state != "claimed"
-            or not isinstance(claim_token, str)
-            or not claim_token
-        ):
+        if state != "claimed" or not isinstance(claim_token, str) or not claim_token:
             raise SourceControlPublicRemoteError(
                 "public_remote_idempotency_claim_failed",
                 status_code=409,
@@ -398,7 +376,7 @@ class SourceControlPublicRemoteService:
                 binding_digest=binding_digest,
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_record_denial: ignored Exception", exc_info=True)
 
     @staticmethod
     def _validation_view(

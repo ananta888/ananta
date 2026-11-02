@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 _DEFAULT_GOVERNANCE_MODE = "balanced"
 
 _GOVERNANCE_MODE_CATALOG: dict[str, dict[str, Any]] = {
@@ -60,4 +59,3 @@ def resolve_governance_mode(config: dict | None = None) -> dict[str, Any]:
         "mode": dict(catalog.get(effective) or {}),
         "validation": {"status": validation_status, "message": validation_message},
     }
-

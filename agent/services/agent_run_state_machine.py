@@ -5,11 +5,12 @@ explicit, validated, and fully auditable via state_history.
 
 Design doc: docs/architecture/agent-runtime-state-machine.md
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -27,55 +28,73 @@ class AgentRunState(str, Enum):
     CANCELLED = "cancelled"
 
 
-TERMINAL_STATES = frozenset({
-    AgentRunState.COMPLETED,
-    AgentRunState.FAILED,
-    AgentRunState.CANCELLED,
-})
-
-ALLOWED_TRANSITIONS: dict[AgentRunState, frozenset[AgentRunState]] = {
-    AgentRunState.CREATED: frozenset({
-        AgentRunState.QUEUED,
-        AgentRunState.CANCELLED,
-    }),
-    AgentRunState.QUEUED: frozenset({
-        AgentRunState.PLANNING,
-        AgentRunState.CANCELLED,
-        AgentRunState.FAILED,
-    }),
-    AgentRunState.PLANNING: frozenset({
-        AgentRunState.WAITING_FOR_CONTEXT,
-        AgentRunState.WAITING_FOR_APPROVAL,
-        AgentRunState.RUNNING,
-        AgentRunState.FAILED,
-        AgentRunState.CANCELLED,
-    }),
-    AgentRunState.WAITING_FOR_CONTEXT: frozenset({
-        AgentRunState.PLANNING,
-        AgentRunState.RUNNING,
-        AgentRunState.FAILED,
-        AgentRunState.CANCELLED,
-    }),
-    AgentRunState.WAITING_FOR_APPROVAL: frozenset({
-        AgentRunState.RUNNING,
-        AgentRunState.CANCELLED,
-        AgentRunState.FAILED,
-    }),
-    AgentRunState.RUNNING: frozenset({
-        AgentRunState.VERIFYING,
-        AgentRunState.WAITING_FOR_APPROVAL,
-        AgentRunState.FAILED,
-        AgentRunState.CANCELLED,
-    }),
-    AgentRunState.VERIFYING: frozenset({
+TERMINAL_STATES = frozenset(
+    {
         AgentRunState.COMPLETED,
         AgentRunState.FAILED,
-        AgentRunState.RUNNING,
-    }),
+        AgentRunState.CANCELLED,
+    }
+)
+
+ALLOWED_TRANSITIONS: dict[AgentRunState, frozenset[AgentRunState]] = {
+    AgentRunState.CREATED: frozenset(
+        {
+            AgentRunState.QUEUED,
+            AgentRunState.CANCELLED,
+        }
+    ),
+    AgentRunState.QUEUED: frozenset(
+        {
+            AgentRunState.PLANNING,
+            AgentRunState.CANCELLED,
+            AgentRunState.FAILED,
+        }
+    ),
+    AgentRunState.PLANNING: frozenset(
+        {
+            AgentRunState.WAITING_FOR_CONTEXT,
+            AgentRunState.WAITING_FOR_APPROVAL,
+            AgentRunState.RUNNING,
+            AgentRunState.FAILED,
+            AgentRunState.CANCELLED,
+        }
+    ),
+    AgentRunState.WAITING_FOR_CONTEXT: frozenset(
+        {
+            AgentRunState.PLANNING,
+            AgentRunState.RUNNING,
+            AgentRunState.FAILED,
+            AgentRunState.CANCELLED,
+        }
+    ),
+    AgentRunState.WAITING_FOR_APPROVAL: frozenset(
+        {
+            AgentRunState.RUNNING,
+            AgentRunState.CANCELLED,
+            AgentRunState.FAILED,
+        }
+    ),
+    AgentRunState.RUNNING: frozenset(
+        {
+            AgentRunState.VERIFYING,
+            AgentRunState.WAITING_FOR_APPROVAL,
+            AgentRunState.FAILED,
+            AgentRunState.CANCELLED,
+        }
+    ),
+    AgentRunState.VERIFYING: frozenset(
+        {
+            AgentRunState.COMPLETED,
+            AgentRunState.FAILED,
+            AgentRunState.RUNNING,
+        }
+    ),
     AgentRunState.COMPLETED: frozenset(),
-    AgentRunState.FAILED: frozenset({
-        AgentRunState.QUEUED,
-    }),
+    AgentRunState.FAILED: frozenset(
+        {
+            AgentRunState.QUEUED,
+        }
+    ),
     AgentRunState.CANCELLED: frozenset(),
 }
 
@@ -156,9 +175,7 @@ class AgentRunStateMachine:
             error_reason=None,
             artifacts=[],
             recovery_options=[],
-            state_history=[
-                {"state": AgentRunState.CREATED.value, "timestamp": now, "reason": "created"}
-            ],
+            state_history=[{"state": AgentRunState.CREATED.value, "timestamp": now, "reason": "created"}],
         )
         self._runs[run_id] = record
         return record
@@ -169,39 +186,28 @@ class AgentRunStateMachine:
             raise KeyError(f"Unknown run_id: {run_id}")
         return r
 
-    def _validate_transition(
-        self, record: AgentRunRecord, to_state: AgentRunState
-    ) -> None:
+    def _validate_transition(self, record: AgentRunRecord, to_state: AgentRunState) -> None:
         allowed = ALLOWED_TRANSITIONS.get(record.state, frozenset())
         if to_state not in allowed:
             raise AgentRunStateError(
-                f"Cannot transition {record.state.value} → {to_state.value}. "
-                f"Allowed: {[s.value for s in allowed]}"
+                f"Cannot transition {record.state.value} → {to_state.value}. Allowed: {[s.value for s in allowed]}"
             )
 
-    def _apply_transition(
-        self, record: AgentRunRecord, to_state: AgentRunState, reason: str = ""
-    ) -> AgentRunRecord:
+    def _apply_transition(self, record: AgentRunRecord, to_state: AgentRunState, reason: str = "") -> AgentRunRecord:
         self._validate_transition(record, to_state)
         now = time.time()
         record.state = to_state
         record.updated_at = now
-        record.state_history.append(
-            {"state": to_state.value, "timestamp": now, "reason": reason}
-        )
+        record.state_history.append({"state": to_state.value, "timestamp": now, "reason": reason})
         return record
 
-    def transition(
-        self, run_id: str, to_state: AgentRunState, *, reason: str = ""
-    ) -> AgentRunRecord:
+    def transition(self, run_id: str, to_state: AgentRunState, *, reason: str = "") -> AgentRunRecord:
         return self._apply_transition(self._get_or_raise(run_id), to_state, reason)
 
     def cancel(self, run_id: str, *, reason: str = "") -> AgentRunRecord:
         record = self._get_or_raise(run_id)
         if record.is_terminal():
-            raise AgentRunStateError(
-                f"Cannot cancel terminal run (state={record.state.value})"
-            )
+            raise AgentRunStateError(f"Cannot cancel terminal run (state={record.state.value})")
         return self._apply_transition(record, AgentRunState.CANCELLED, reason or "cancelled")
 
     def fail(
@@ -221,9 +227,7 @@ class AgentRunStateMachine:
         record.recovery_options = list(recovery_options or ["retry", "abort"])
         return self._apply_transition(record, AgentRunState.FAILED, f"failed: {error_code}")
 
-    def complete(
-        self, run_id: str, *, artifacts: list[str] | None = None
-    ) -> AgentRunRecord:
+    def complete(self, run_id: str, *, artifacts: list[str] | None = None) -> AgentRunRecord:
         record = self._get_or_raise(run_id)
         self._validate_transition(record, AgentRunState.COMPLETED)
         if artifacts:
@@ -233,9 +237,7 @@ class AgentRunStateMachine:
     def retry(self, run_id: str) -> AgentRunRecord:
         record = self._get_or_raise(run_id)
         if record.state != AgentRunState.FAILED:
-            raise AgentRunStateError(
-                f"retry() only allowed from FAILED state, got {record.state.value}"
-            )
+            raise AgentRunStateError(f"retry() only allowed from FAILED state, got {record.state.value}")
         record.failed_at_step = None
         record.error_code = None
         record.error_reason = None

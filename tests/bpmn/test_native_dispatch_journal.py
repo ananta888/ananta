@@ -110,11 +110,13 @@ def test_headless_reconciliation_is_bounded_and_preserves_unknown_task(native):
     task = native.repository.get_by_id(native.task_id)
     journal = SQLAlchemyNativeDispatchJournal(native.engine)
     journal.begin(task=task, assignment=worker(task))
-    result = reconcile_native_dispatches(journal=journal, task_repository=native.repository,
-                                        tenant_id=task.tenant_id, limit=1)
+    result = reconcile_native_dispatches(
+        journal=journal, task_repository=native.repository, tenant_id=task.tenant_id, limit=1
+    )
     assert result["scanned"] == result["unresolved"] == 1 and result["accepted"] == 0
     assert native.repository.get_by_id(task.id).status == task.status
     complete(native)
-    result = reconcile_native_dispatches(journal=journal, task_repository=native.repository,
-                                        tenant_id=task.tenant_id, limit=1)
+    result = reconcile_native_dispatches(
+        journal=journal, task_repository=native.repository, tenant_id=task.tenant_id, limit=1
+    )
     assert result["scanned"] == result["accepted"] == 1 and result["unresolved"] == 0

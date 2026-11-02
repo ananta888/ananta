@@ -1,4 +1,5 @@
 """EclipseProblemViewStrategy — snake_eclipse_problem_view_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import ArtifactRefPort, HeuristicStrategyBase, UiMotionPort

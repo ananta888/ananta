@@ -6,33 +6,32 @@ Proves:
 - deterministic_handler is NOT reached when LLM is required but unavailable
 - reachable mock LLM returns executable result
 """
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock
 
+from agent.services.propose_policy import (
+    LLM_MODE_PRIMARY_WITH_GUARDRAILS,
+    LLM_STRATEGY_IDS,
+    STRATEGY_DETERMINISTIC_HANDLER,
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_TOOL_CALLING_LLM,
+    ProposePolicy,
+    build_policy_from_dict,
+    get_task_kind_preset,
+)
+from worker.core.propose import (
+    STATUS_EXECUTABLE,
+    STATUS_NEEDS_REVIEW,
+    ExecutableProposal,
+    ProposeStrategyResult,
+)
 from worker.core.propose_orchestrator import (
     ProposeContext,
     ProposeStrategy,
     ProposeStrategyOrchestrator,
-)
-from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
-    STATUS_DECLINED,
-    STATUS_EXECUTABLE,
-    STATUS_NEEDS_REVIEW,
-)
-from agent.services.propose_policy import (
-    ProposePolicy,
-    LLM_STRATEGY_IDS,
-    STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-    STRATEGY_DETERMINISTIC_HANDLER,
-    LLM_MODE_PRIMARY_WITH_GUARDRAILS,
-    get_task_kind_preset,
-    build_policy_from_dict,
 )
 
 
@@ -57,7 +56,9 @@ def _llm_unavailable_strategy(sid: str) -> Mock:
 
 def _llm_available_strategy(sid: str) -> Mock:
     proposal = ExecutableProposal.from_tool_calls(
-        goal_id="g-fib", task_id="t-fib", strategy_id=sid,
+        goal_id="g-fib",
+        task_id="t-fib",
+        strategy_id=sid,
         tool_calls=[{"name": "write_file", "args": {"path": "app.py", "content": "..."}}],
     )
     s = Mock(spec=ProposeStrategy)
@@ -181,6 +182,7 @@ class TestLlmRequiredEnforcement:
     def test_non_llm_required_policy_falls_through_to_deterministic(self):
         """When llm_required=False, deterministic handler is reached after LLM fails."""
         from agent.services.propose_policy import LLM_MODE_FALLBACK
+
         order = [STRATEGY_TOOL_CALLING_LLM, STRATEGY_DETERMINISTIC_HANDLER]
         policy = ProposePolicy(
             strategy_order=order,
@@ -189,13 +191,10 @@ class TestLlmRequiredEnforcement:
             on_all_strategies_declined="needs_review",
         )
         proposal = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id=STRATEGY_DETERMINISTIC_HANDLER,
-            command="echo deterministic"
+            goal_id="g1", task_id="t1", strategy_id=STRATEGY_DETERMINISTIC_HANDLER, command="echo deterministic"
         )
         det_strategy = Mock(spec=ProposeStrategy)
-        det_strategy.run.return_value = ProposeStrategyResult.executable(
-            STRATEGY_DETERMINISTIC_HANDLER, proposal
-        )
+        det_strategy.run.return_value = ProposeStrategyResult.executable(STRATEGY_DETERMINISTIC_HANDLER, proposal)
         strategies = {
             STRATEGY_TOOL_CALLING_LLM: _llm_unavailable_strategy(STRATEGY_TOOL_CALLING_LLM),
             STRATEGY_DETERMINISTIC_HANDLER: det_strategy,

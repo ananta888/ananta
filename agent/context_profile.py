@@ -49,24 +49,24 @@ CHARS_PER_TOKEN = 4
 
 # Shares of the effective window (tokens), calibrated at 32k: the comment is the former fixed value.
 SHARES: dict[str, float] = {
-    "bundle_compact": 4096 / CALIBRATION_WINDOW,      # context bundle, mode compact
-    "bundle_standard": 12288 / CALIBRATION_WINDOW,    # context bundle, mode standard
-    "bundle_full": 16384 / CALIBRATION_WINDOW,        # context bundle, mode full
-    "evidence": 0.45,                                 # CodeCompass planner / agentic retrieval / RLM synthesis
-    "rag_context": 3000 / CALIBRATION_WINDOW,         # hybrid RAG context (RAG_MAX_CONTEXT_TOKENS)
-    "tool_result": 2000 / CALIBRATION_WINDOW,         # one tool result (8000 chars)
-    "tool_results_total": 0.5,                        # worker tool-loop results (half the window)
-    "diff": 3000 / CALIBRATION_WINDOW,                # workspace-mutation diff (12000 chars)
-    "planning_context": 6000 / CALIBRATION_WINDOW,    # planning segments: 3 x 8000 chars
-    "planning_segment": 2000 / CALIBRATION_WINDOW,    # one planning segment (8000 chars)
-    "compactor_output": 3000 / CALIBRATION_WINDOW,    # propose/recovery compactor output (12000 chars)
-    "recovery_context": 0.25,                         # recovery context: a quarter of the window
+    "bundle_compact": 4096 / CALIBRATION_WINDOW,  # context bundle, mode compact
+    "bundle_standard": 12288 / CALIBRATION_WINDOW,  # context bundle, mode standard
+    "bundle_full": 16384 / CALIBRATION_WINDOW,  # context bundle, mode full
+    "evidence": 0.45,  # CodeCompass planner / agentic retrieval / RLM synthesis
+    "rag_context": 3000 / CALIBRATION_WINDOW,  # hybrid RAG context (RAG_MAX_CONTEXT_TOKENS)
+    "tool_result": 2000 / CALIBRATION_WINDOW,  # one tool result (8000 chars)
+    "tool_results_total": 0.5,  # worker tool-loop results (half the window)
+    "diff": 3000 / CALIBRATION_WINDOW,  # workspace-mutation diff (12000 chars)
+    "planning_context": 6000 / CALIBRATION_WINDOW,  # planning segments: 3 x 8000 chars
+    "planning_segment": 2000 / CALIBRATION_WINDOW,  # one planning segment (8000 chars)
+    "compactor_output": 3000 / CALIBRATION_WINDOW,  # propose/recovery compactor output (12000 chars)
+    "recovery_context": 0.25,  # recovery context: a quarter of the window
     "editor_conversation": 12000 / CALIBRATION_WINDOW,  # visual-process editor, conversation prompt (12000)
-    "curation": 10000 / CALIBRATION_WINDOW,           # context curation pipeline (40000 chars)
-    "worker_file": 1000 / CALIBRATION_WINDOW,         # worker batch loop: one file excerpt (4000 chars)
-    "worker_snippet": 2000 / CALIBRATION_WINDOW,      # worker batch loop: one snippet (8000 chars)
-    "snake_catalog": 5000 / CALIBRATION_WINDOW,       # snake RAG: component catalog (20000 chars)
-    "snake_tool_file": 5000 / CALIBRATION_WINDOW,     # snake RAG: one tool file read (20000 chars)
+    "curation": 10000 / CALIBRATION_WINDOW,  # context curation pipeline (40000 chars)
+    "worker_file": 1000 / CALIBRATION_WINDOW,  # worker batch loop: one file excerpt (4000 chars)
+    "worker_snippet": 2000 / CALIBRATION_WINDOW,  # worker batch loop: one snippet (8000 chars)
+    "snake_catalog": 5000 / CALIBRATION_WINDOW,  # snake RAG: component catalog (20000 chars)
+    "snake_tool_file": 5000 / CALIBRATION_WINDOW,  # snake RAG: one tool file read (20000 chars)
 }
 # The same values as they were hard-coded or persisted before (unit as stored): treated as "not set".
 LEGACY_DEFAULTS: dict[str, int] = {
@@ -140,7 +140,7 @@ def _agent_config(agent_cfg: Mapping[str, Any] | None) -> Mapping[str, Any]:
         if has_app_context():
             return current_app.config.get("AGENT_CONFIG", {}) or {}
     except Exception:  # noqa: BLE001 -- outside Flask: environment only
-        pass
+        logging.getLogger(__name__).debug("_agent_config: ignored Exception", exc_info=True)
     return {}
 
 
@@ -220,8 +220,13 @@ class ProviderLimitProbe:
 
     TTL_SECONDS = 300.0
 
-    def __init__(self, *, http_json: Callable[..., Any] | None = None, clock: Callable[[], float] = time.monotonic,
-                 timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        *,
+        http_json: Callable[..., Any] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        timeout: float = 2.0,
+    ) -> None:
         self._http_json = http_json or _http_json
         self._clock = clock
         self._timeout = timeout
@@ -262,8 +267,12 @@ class ProviderLimitProbe:
             payload = self._http_json("GET", root + "/v1/models", None, self._timeout) or {}
             rows = [row for row in payload.get("data") or [] if isinstance(row, Mapping)]
             chosen = next((row for row in rows if model and row.get("id") == model), rows[0] if rows else {})
-            return _int(chosen.get("loaded_context_length") or chosen.get("context_length")
-                        or chosen.get("max_context_length") or chosen.get("n_ctx"))
+            return _int(
+                chosen.get("loaded_context_length")
+                or chosen.get("context_length")
+                or chosen.get("max_context_length")
+                or chosen.get("n_ctx")
+            )
         if provider == "ollama" and model:
             show = self._http_json("POST", root + "/api/show", {"model": model}, self._timeout) or {}
             info = show.get("model_info") or {}
@@ -315,7 +324,7 @@ def _provider_base_url(provider: str, agent_cfg: Mapping[str, Any]) -> str | Non
         if entry and entry.get("base_url"):
             return str(entry["base_url"])
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("_provider_base_url: ignored Exception", exc_info=True)
     try:
         from flask import current_app, has_app_context
 
@@ -324,7 +333,7 @@ def _provider_base_url(provider: str, agent_cfg: Mapping[str, Any]) -> str | Non
             if url:
                 return str(url)
     except Exception:  # noqa: BLE001
-        pass
+        logging.getLogger(__name__).debug("_provider_base_url: ignored Exception", exc_info=True)
     llm = agent_cfg.get("llm_config") or {}
     if str(llm.get("provider") or "").strip().lower() == provider and llm.get("base_url"):
         return str(llm["base_url"])
@@ -347,7 +356,7 @@ def _declared_model_limit(agent_cfg: Mapping[str, Any], provider: str | None, mo
             if mapped is not None:
                 limits.append(mapped)
         except Exception:  # noqa: BLE001
-            pass
+            logging.getLogger(__name__).debug("_declared_model_limit: ignored Exception", exc_info=True)
     return min(limits) if limits else None
 
 
@@ -362,9 +371,16 @@ class EffectiveWindow:
     limited_by: str = "configured"
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"tokens": self.tokens, "limited_by": self.limited_by, "limits": dict(self.limits),
-                "configured": {"tokens": self.configured.tokens, "profile": self.configured.profile,
-                               "source": self.configured.source}}
+        return {
+            "tokens": self.tokens,
+            "limited_by": self.limited_by,
+            "limits": dict(self.limits),
+            "configured": {
+                "tokens": self.configured.tokens,
+                "profile": self.configured.profile,
+                "source": self.configured.source,
+            },
+        }
 
 
 def combine_limits(*limits: int | None) -> int | None:
@@ -373,9 +389,15 @@ def combine_limits(*limits: int | None) -> int | None:
     return min(known) if known else None
 
 
-def effective_window(*, provider: str | None = None, model: str | None = None,
-                     limits: Mapping[str, int | None] | None = None, agent_cfg: Mapping[str, Any] | None = None,
-                     probe: bool = True, settings: Any = None) -> EffectiveWindow:
+def effective_window(
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    limits: Mapping[str, int | None] | None = None,
+    agent_cfg: Mapping[str, Any] | None = None,
+    probe: bool = True,
+    settings: Any = None,
+) -> EffectiveWindow:
     """The window a request may really use: the smallest of configured, model, provider and runtime limits."""
     cfg = _agent_config(agent_cfg)
     configured = configured_window(cfg, settings=settings)
@@ -384,8 +406,15 @@ def effective_window(*, provider: str | None = None, model: str | None = None,
             from agent.config import settings as _settings
 
             settings = _settings
-        provider = str((cfg.get("llm_config") or {}).get("provider") or cfg.get("default_provider")
-                       or getattr(settings, "default_provider", "") or "") or None
+        provider = (
+            str(
+                (cfg.get("llm_config") or {}).get("provider")
+                or cfg.get("default_provider")
+                or getattr(settings, "default_provider", "")
+                or ""
+            )
+            or None
+        )
     known: dict[str, int] = {"configured": configured.tokens}
     declared = _declared_model_limit(cfg, provider, model)
     if declared is not None:
@@ -410,10 +439,32 @@ def effective_window_tokens(**kwargs: Any) -> int:
 LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio", "lm_studio", "llamacpp"})
 # Cloud/subscription model families as CLI agents and APIs serve them (prompt tokens). The Ananta profile
 # describes the window Ananta sizes its own prompts for on local runtimes; it never limits these.
-CLOUD_MODEL_LIMITS = {"claude": 200_000, "anthropic": 200_000, "codex": 272_000, "gpt-5": 272_000,
-                      "openai": 128_000, "gemini": 1_000_000}
-CLOUD_PROVIDER_PREFIXES = frozenset({"anthropic", "openai", "gemini", "groq", "openrouter", "bedrock", "azure",
-                                     "vertexai", "copilot", "opencode", "google", "mistral", "deepseek", "xai"})
+CLOUD_MODEL_LIMITS = {
+    "claude": 200_000,
+    "anthropic": 200_000,
+    "codex": 272_000,
+    "gpt-5": 272_000,
+    "openai": 128_000,
+    "gemini": 1_000_000,
+}
+CLOUD_PROVIDER_PREFIXES = frozenset(
+    {
+        "anthropic",
+        "openai",
+        "gemini",
+        "groq",
+        "openrouter",
+        "bedrock",
+        "azure",
+        "vertexai",
+        "copilot",
+        "opencode",
+        "google",
+        "mistral",
+        "deepseek",
+        "xai",
+    }
+)
 
 
 def is_local_provider(provider: str | None, agent_cfg: Mapping[str, Any] | None = None) -> bool:
@@ -443,8 +494,9 @@ def cloud_model_limits(agent_cfg: Mapping[str, Any] | None = None) -> dict[str, 
     return limits
 
 
-def cloud_model_limit(model: str | None, default: int | None = None,
-                      agent_cfg: Mapping[str, Any] | None = None) -> int | None:
+def cloud_model_limit(
+    model: str | None, default: int | None = None, agent_cfg: Mapping[str, Any] | None = None
+) -> int | None:
     """The prompt limit of a cloud/subscription model family (``anthropic/claude-...``, ``gpt-5-codex``, ...);
     the longest matching family name wins (``gpt-5-codex`` over ``gpt-5``)."""
     text = str(model or "").strip().lower()
@@ -452,8 +504,13 @@ def cloud_model_limit(model: str | None, default: int | None = None,
     return max(matches)[1] if matches else default
 
 
-def window_for_provider(provider: str | None, *, model: str | None = None, requested: int | None = None,
-                        agent_cfg: Mapping[str, Any] | None = None) -> int | None:
+def window_for_provider(
+    provider: str | None,
+    *,
+    model: str | None = None,
+    requested: int | None = None,
+    agent_cfg: Mapping[str, Any] | None = None,
+) -> int | None:
     """The token window a model call may use. Local runtimes: the effective window (profile capped by what the
     runtime serves), a requested limit only narrows it. Cloud/subscription providers: not bounded by the Ananta
     profile -- only a requested limit or a limit declared for that provider/model (``None``: the provider's own)."""
@@ -529,10 +586,15 @@ class ContextBudgets:
             raise ValueError(f"context_budget_exceeds_window:{total}>{self.window}")
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"window_tokens": self.window, "output_reserve_tokens": self.output_reserve,
-                "safety_margin_tokens": self.safety_margin, "fixed_overhead_tokens": self.fixed_overhead,
-                "input_budget_tokens": self.input_budget, "available_tokens": self.available,
-                "budgets_tokens": {name: self.tokens(name) for name in SHARES}}
+        return {
+            "window_tokens": self.window,
+            "output_reserve_tokens": self.output_reserve,
+            "safety_margin_tokens": self.safety_margin,
+            "fixed_overhead_tokens": self.fixed_overhead,
+            "input_budget_tokens": self.input_budget,
+            "available_tokens": self.available,
+            "budgets_tokens": {name: self.tokens(name) for name in SHARES},
+        }
 
 
 def request_overhead_tokens(agent_cfg: Mapping[str, Any] | None = None) -> int:
@@ -544,8 +606,9 @@ def request_overhead_tokens(agent_cfg: Mapping[str, Any] | None = None) -> int:
         return DEFAULT_REQUEST_OVERHEAD_TOKENS
 
 
-def context_budgets(window: int | None = None, *, agent_cfg: Mapping[str, Any] | None = None,
-                    **window_kwargs: Any) -> ContextBudgets:
+def context_budgets(
+    window: int | None = None, *, agent_cfg: Mapping[str, Any] | None = None, **window_kwargs: Any
+) -> ContextBudgets:
     """Budgets for ``window`` (default: the effective window of the configured provider)."""
     if window is None:
         window = effective_window(agent_cfg=agent_cfg, **window_kwargs).tokens
@@ -578,11 +641,17 @@ def describe_context_window(agent_cfg: Mapping[str, Any] | None = None) -> dict[
     return {
         "schema": "ananta.context_window.v1",
         "profiles": dict(PROFILES),
-        "configured": {"profile": window.configured.profile, "tokens": window.configured.tokens,
-                       "source": window.configured.source},
+        "configured": {
+            "profile": window.configured.profile,
+            "tokens": window.configured.tokens,
+            "source": window.configured.source,
+        },
         "detected_limits": {k: v for k, v in window.limits.items() if k != "configured"},
-        "effective": {"tokens": window.tokens, "profile": profile_for_tokens(window.tokens),
-                      "limited_by": window.limited_by},
+        "effective": {
+            "tokens": window.tokens,
+            "profile": profile_for_tokens(window.tokens),
+            "limited_by": window.limited_by,
+        },
         "budgets": budgets.to_mapping(),
         "bundle_budgets_tokens": {mode: budgets.bundle_tokens(mode) for mode in ("compact", "standard", "full")},
     }
@@ -600,9 +669,26 @@ def budget_override(value: Any, *, legacy: str | None = None) -> int | None:
 
 
 __all__ = [
-    "CALIBRATION_WINDOW", "CUSTOM_PROFILE", "ConfiguredWindow", "ContextBudgets", "DEFAULT_PROFILE",
-    "EffectiveWindow", "LEGACY_DEFAULTS", "PROFILES", "ProviderLimitProbe", "SHARES", "budget_override",
-    "combine_limits", "configured_window", "context_budgets", "effective_window", "effective_window_tokens",
-    "nearest_profile", "normalize_profile", "profile_for_tokens", "provider_limit_probe", "request_overhead_tokens",
+    "CALIBRATION_WINDOW",
+    "CUSTOM_PROFILE",
+    "ConfiguredWindow",
+    "ContextBudgets",
+    "DEFAULT_PROFILE",
+    "EffectiveWindow",
+    "LEGACY_DEFAULTS",
+    "PROFILES",
+    "ProviderLimitProbe",
+    "SHARES",
+    "budget_override",
+    "combine_limits",
+    "configured_window",
+    "context_budgets",
+    "effective_window",
+    "effective_window_tokens",
+    "nearest_profile",
+    "normalize_profile",
+    "profile_for_tokens",
+    "provider_limit_probe",
+    "request_overhead_tokens",
     "set_provider_limit_probe",
 ]

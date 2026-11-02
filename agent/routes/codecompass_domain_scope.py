@@ -7,6 +7,7 @@ POST /api/codecompass/domain-scope/preview    — resolve selected_domain_ids
 A preview never grants anything (CCRDS-DD-001): it only shows what an
 explicit scope *would* allow. No absolute host paths leave the API.
 """
+
 from __future__ import annotations
 
 import os
@@ -15,9 +16,9 @@ from pathlib import Path
 from flask import Blueprint, request
 
 from agent.auth import check_auth
-from agent.common.errors import api_response
 from agent.codecompass.domain_scope import DomainScope
 from agent.codecompass.domain_scope_resolver import DomainScopeResolver
+from agent.common.errors import api_response
 from agent.config import settings
 from agent.routes.source_control_access import authorize_route_request
 from agent.services.source_control_access_policy import SourceControlAction
@@ -29,11 +30,7 @@ codecompass_domain_scope_bp = Blueprint("codecompass_domain_scope", __name__)
 @check_auth
 def _authorize_codecompass_domain_surface():
     endpoint = str(request.endpoint or "").rsplit(".", 1)[-1]
-    action = (
-        SourceControlAction.list
-        if endpoint == "list_codecompass_domains"
-        else SourceControlAction.graph
-    )
+    action = SourceControlAction.list if endpoint == "list_codecompass_domains" else SourceControlAction.graph
     return authorize_route_request(
         action=action,
         resource_kind="codecompass_domain_catalog",

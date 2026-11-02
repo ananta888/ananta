@@ -62,12 +62,16 @@ _SENSITIVE_ENV_RE = re.compile(
     r"(?:secret|password|passwd|token|private.?key|credential|api.?key)",
     re.IGNORECASE,
 )
-APPROVED_SYFT_IMAGES = frozenset({
-    "anchore/syft@sha256:13b53ebabe3d215268c90cf8fb9b875f0183908245f376fd4b3a2cb69d21d484",
-})
-APPROVED_GRYPE_IMAGES = frozenset({
-    "anchore/grype@sha256:fd4ab4d1042b522c896e73bdf09ab8bf384fa417df99d6dd0d6e1008c7e7c821",
-})
+APPROVED_SYFT_IMAGES = frozenset(
+    {
+        "anchore/syft@sha256:13b53ebabe3d215268c90cf8fb9b875f0183908245f376fd4b3a2cb69d21d484",
+    }
+)
+APPROVED_GRYPE_IMAGES = frozenset(
+    {
+        "anchore/grype@sha256:fd4ab4d1042b522c896e73bdf09ab8bf384fa417df99d6dd0d6e1008c7e7c821",
+    }
+)
 PARENT_SBOM_SCHEMA = "ananta.semantic-media-gate-evidence.v1"
 _BUNDLE_LINK_NAME = ".sfu-broadcast-supply-chain-current"
 _BUNDLE_DIRECTORY_PREFIX = ".sfu-broadcast-supply-chain-generation-"
@@ -248,7 +252,7 @@ def normalize_container_inspect(
     host = document.get("HostConfig")
     if not isinstance(config, Mapping) or not isinstance(host, Mapping):
         raise CollectionError("container_inspect_contract_invalid")
-    user = str(config.get("User") or "").split(":", 1)[0].strip().lower()
+    str(config.get("User") or "").split(":", 1)[0].strip().lower()
     cap_drop = {str(value).upper() for value in host.get("CapDrop") or []}
     cap_add = sorted({str(value).upper() for value in host.get("CapAdd") or []})
     security_options = [str(value).lower() for value in host.get("SecurityOpt") or []]
@@ -262,12 +266,7 @@ def normalize_container_inspect(
     secret_env_values = []
     for item in environment:
         name, separator, value = item.partition("=")
-        if (
-            separator
-            and _SENSITIVE_ENV_RE.search(name)
-            and not name.upper().endswith("_FILE")
-            and value
-        ):
+        if separator and _SENSITIVE_ENV_RE.search(name) and not name.upper().endswith("_FILE") and value:
             secret_env_values.append(name)
     if _SENSITIVE_ENV_RE.search(command):
         secret_env_values.append("container_command")
@@ -285,11 +284,7 @@ def normalize_container_inspect(
         "network_policy": False,
         # Absence of a suspicious environment name does not prove secret origin.
         "secret_refs_only": False,
-        "healthcheck": (
-            isinstance(health_test, list)
-            and bool(health_test)
-            and str(health_test[0]).upper() != "NONE"
-        ),
+        "healthcheck": (isinstance(health_test, list) and bool(health_test) and str(health_test[0]).upper() != "NONE"),
         "resource_limits": (
             isinstance(memory, int)
             and memory > 0
@@ -316,11 +311,7 @@ def normalize_container_inspect(
                 "network_policy_requires_external_probe",
                 "responsibility_boundary_requires_external_attestation",
                 "secret_refs_require_external_mount_attestation",
-                *(
-                    {"secret_value_present_in_runtime_configuration"}
-                    if secret_env_values
-                    else set()
-                ),
+                *({"secret_value_present_in_runtime_configuration"} if secret_env_values else set()),
             }
         ),
     }
@@ -353,15 +344,15 @@ class DockerImageAdapter:
                 if expected_repository and repository != expected_repository:
                     continue
                 try:
-                    manifest_digests.add(_normalize_sha256(
-                        digest,
-                        reason="docker_manifest_digest_invalid",
-                    ))
+                    manifest_digests.add(
+                        _normalize_sha256(
+                            digest,
+                            reason="docker_manifest_digest_invalid",
+                        )
+                    )
                 except CollectionError:
                     continue
-        manifest_sha256 = (
-            next(iter(manifest_digests)) if len(manifest_digests) == 1 else None
-        )
+        manifest_sha256 = next(iter(manifest_digests)) if len(manifest_digests) == 1 else None
         return ImageIdentity(
             local_image_sha256=local_image_sha256,
             manifest_sha256=manifest_sha256,
@@ -383,17 +374,19 @@ class DockerSpdxAdapter:
     def collect(self, image_ref: str) -> PackageInventory:
         if not self._syft_image:
             raise CollectionError("syft_collector_unavailable")
-        raw = self._runner.run([
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            "/var/run/docker.sock:/var/run/docker.sock:ro",
-            self._syft_image,
-            image_ref,
-            "-o",
-            "spdx-json",
-        ])
+        raw = self._runner.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                "/var/run/docker.sock:/var/run/docker.sock:ro",
+                self._syft_image,
+                image_ref,
+                "-o",
+                "spdx-json",
+            ]
+        )
         return summarize_spdx(_load_object(raw, reason="sbom_output_invalid"))
 
 
@@ -412,17 +405,19 @@ class GrypeAdapter:
     def collect(self, image_ref: str) -> VulnerabilityInventory:
         if not self._grype_image:
             raise CollectionError("grype_collector_unavailable")
-        raw = self._runner.run([
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            "/var/run/docker.sock:/var/run/docker.sock:ro",
-            self._grype_image,
-            image_ref,
-            "-o",
-            "json",
-        ])
+        raw = self._runner.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                "/var/run/docker.sock:/var/run/docker.sock:ro",
+                self._grype_image,
+                image_ref,
+                "-o",
+                "json",
+            ]
+        )
         return summarize_grype(_load_object(raw, reason="grype_output_invalid"))
 
 
@@ -471,23 +466,15 @@ class SupplyChainInputBuilder:
         security_observations: Mapping[str, Any] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         required_images = [str(value) for value in policy.get("required_image_ids", [])]
-        required_components = [
-            str(value) for value in policy.get("required_components", [])
-        ]
+        required_components = [str(value) for value in policy.get("required_components", [])]
         if set(image_refs) != set(required_images):
             raise CollectionError("required_image_mapping_mismatch")
         unsupported_components = set(required_components) - set(COMPONENT_IMAGE_IDS)
         if unsupported_components:
             raise CollectionError("required_component_mapping_missing")
 
-        image_identities = {
-            image_id: self._images.identity(image_refs[image_id])
-            for image_id in required_images
-        }
-        image_digests = {
-            image_id: image_identities[image_id].manifest_sha256
-            for image_id in required_images
-        }
+        image_identities = {image_id: self._images.identity(image_refs[image_id]) for image_id in required_images}
+        image_digests = {image_id: image_identities[image_id].manifest_sha256 for image_id in required_images}
         bindings = {
             "source_sha256": _normalize_sha256(
                 source_sha256,
@@ -520,20 +507,17 @@ class SupplyChainInputBuilder:
                     sbom_cache[cache_key] = None
                     sbom_errors[image_id] = str(exc).split(":", 1)[0]
             inventory = sbom_cache[cache_key]
-            components.append({
-                "component_id": component_id,
-                "package_count": inventory.package_count if inventory else 0,
-                "unknown_license_count": (
-                    inventory.unknown_license_count if inventory else None
-                ),
-                "floating_reference": not (
-                    _PINNED_IMAGE_RE.search(image_ref)
-                    or image_ref.startswith("sha256:")
-                ),
-                "deployed_digest": image_digests[image_id],
-                "local_image_sha256": image_identity.local_image_sha256,
-                "image_id": image_id,
-            })
+            components.append(
+                {
+                    "component_id": component_id,
+                    "package_count": inventory.package_count if inventory else 0,
+                    "unknown_license_count": (inventory.unknown_license_count if inventory else None),
+                    "floating_reference": not (_PINNED_IMAGE_RE.search(image_ref) or image_ref.startswith("sha256:")),
+                    "deployed_digest": image_digests[image_id],
+                    "local_image_sha256": image_identity.local_image_sha256,
+                    "image_id": image_id,
+                }
+            )
         delta_rows = [
             {
                 "component_id": row["component_id"],
@@ -563,9 +547,7 @@ class SupplyChainInputBuilder:
                 continue
             attempted_scan_digests.add(local_digest)
             try:
-                scan_results[local_digest] = self._vulnerabilities.collect(
-                    image_refs[image_id]
-                )
+                scan_results[local_digest] = self._vulnerabilities.collect(image_refs[image_id])
             except CollectionError as exc:
                 scan_errors[image_id] = str(exc).split(":", 1)[0]
         critical_open: int | None = None
@@ -580,13 +562,15 @@ class SupplyChainInputBuilder:
         for component in components:
             component_id = component["component_id"]
             subject = component["deployed_digest"]
-            provenance.append({
-                "component_id": component_id,
-                "signature_verified": False,
-                "builder_verified": False,
-                "subject_sha256": subject,
-                "verification_source": "unavailable",
-            })
+            provenance.append(
+                {
+                    "component_id": component_id,
+                    "signature_verified": False,
+                    "builder_verified": False,
+                    "subject_sha256": subject,
+                    "verification_source": "unavailable",
+                }
+            )
         scans = {
             "schema": "ananta.sfu-broadcast-child-security-scan.v1",
             "bindings": bindings,
@@ -600,17 +584,13 @@ class SupplyChainInputBuilder:
             "collection_errors": scan_errors,
         }
 
-        required_controls = [
-            str(value) for value in policy.get("required_container_controls", [])
-        ]
+        required_controls = [str(value) for value in policy.get("required_container_controls", [])]
         control_rows = []
         for image_id in required_images:
             container_ref = container_refs.get(image_id)
             if container_ref:
                 try:
-                    controls = dict(
-                        self._containers.controls(container_ref, required_controls)
-                    )
+                    controls = dict(self._containers.controls(container_ref, required_controls))
                 except CollectionError as exc:
                     controls = _unavailable_controls(
                         required_controls,
@@ -728,10 +708,12 @@ def publish_output_set(
     paths = list(documents)
     parent = _bundle_parent(paths)
     parent.mkdir(parents=True, exist_ok=True)
-    generation = Path(tempfile.mkdtemp(
-        prefix=_BUNDLE_DIRECTORY_PREFIX,
-        dir=parent,
-    ))
+    generation = Path(
+        tempfile.mkdtemp(
+            prefix=_BUNDLE_DIRECTORY_PREFIX,
+            dir=parent,
+        )
+    )
     temporary_links: list[Path] = []
     current = parent / _BUNDLE_LINK_NAME
     try:
@@ -822,16 +804,8 @@ def main() -> int:
         validate_parent_sbom(parent_sbom)
         image_refs = _parse_pairs(args.image, option="image")
         container_refs = _parse_pairs(args.container, option="container")
-        security_observations = (
-            read_bounded_json(args.security_observations)
-            if args.security_observations
-            else None
-        )
-        source_files = (
-            list(args.source_file)
-            if args.source_file
-            else _source_files(args.manifest)
-        )
+        security_observations = read_bounded_json(args.security_observations) if args.security_observations else None
+        source_files = list(args.source_file) if args.source_file else _source_files(args.manifest)
         runner = CommandRunner(timeout_seconds=args.timeout_seconds)
         builder = SupplyChainInputBuilder(
             images=DockerImageAdapter(runner),
@@ -844,45 +818,52 @@ def main() -> int:
             image_refs=image_refs,
             container_refs=container_refs,
             source_sha256=digest_named_files(source_files),
-            lockfile_sha256=digest_named_files(
-                _paths(args.lockfile, DEFAULT_LOCKFILES)
-            ),
-            infrastructure_sha256=digest_named_files(
-                _paths(args.infrastructure, DEFAULT_INFRASTRUCTURE_FILES)
-            ),
+            lockfile_sha256=digest_named_files(_paths(args.lockfile, DEFAULT_LOCKFILES)),
+            infrastructure_sha256=digest_named_files(_paths(args.infrastructure, DEFAULT_INFRASTRUCTURE_FILES)),
             parent_sbom=parent_sbom,
             security_observations=security_observations,
         )
-        publish_output_set({
-            args.sbom_output: sbom,
-            args.scan_output: scans,
-            args.container_output: container_evidence,
-        })
+        publish_output_set(
+            {
+                args.sbom_output: sbom,
+                args.scan_output: scans,
+                args.container_output: container_evidence,
+            }
+        )
     except (CollectionError, OSError, ValueError, json.JSONDecodeError) as exc:
-        print(json.dumps({
-            "ok": False,
-            "reason_code": str(exc).split(":", 1)[0],
-        }, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "reason_code": str(exc).split(":", 1)[0],
+                },
+                sort_keys=True,
+            )
+        )
         return 2
 
-    print(json.dumps({
-        "ok": True,
-        "outputs": {
-            "sbom": os.fspath(args.sbom_output),
-            "scans": os.fspath(args.scan_output),
-            "containers": os.fspath(args.container_output),
-        },
-        "collection": {
-            "sbom_errors": sbom["collection_errors"],
-            "scan_errors": scans["collection_errors"],
-            "provenance_verified": all(
-                row["signature_verified"] and row["builder_verified"]
-                for row in scans["provenance"]
-            ),
-            "malware_observed": scans["malware_detected"] is not None,
-            "secrets_observed": scans["secrets_detected"] is not None,
-        },
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "outputs": {
+                    "sbom": os.fspath(args.sbom_output),
+                    "scans": os.fspath(args.scan_output),
+                    "containers": os.fspath(args.container_output),
+                },
+                "collection": {
+                    "sbom_errors": sbom["collection_errors"],
+                    "scan_errors": scans["collection_errors"],
+                    "provenance_verified": all(
+                        row["signature_verified"] and row["builder_verified"] for row in scans["provenance"]
+                    ),
+                    "malware_observed": scans["malware_detected"] is not None,
+                    "secrets_observed": scans["secrets_detected"] is not None,
+                },
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

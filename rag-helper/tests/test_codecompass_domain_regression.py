@@ -80,9 +80,7 @@ class TestDeterministicBuild(unittest.TestCase):
         ]
 
         def _build():
-            inputs = AnalysisInputs(
-                out_dir=None, graph_nodes=nodes, graph_edges=edges
-            )
+            inputs = AnalysisInputs(out_dir=None, graph_nodes=nodes, graph_edges=edges)
             inputs.relation_records = relations
             return DomainGraph.build(inputs)
 
@@ -141,9 +139,7 @@ class TestContractStability(unittest.TestCase):
         )
 
         self.assertEqual(DOMAIN_ANALYSIS_SCHEMA, "codecompass_domain_analysis.v1")
-        self.assertEqual(
-            DOMAIN_COUPLING_SCHEMA, "codecompass_domain_coupling.v1"
-        )
+        self.assertEqual(DOMAIN_COUPLING_SCHEMA, "codecompass_domain_coupling.v1")
 
     def test_warning_types_match_documented_set(self) -> None:
         from rag_helper.domain_discovery.contracts import (

@@ -3,6 +3,7 @@
 Pure dataclasses and constants shared by ``RunControlService`` and its
 collaborators; serialization (``as_dict``) key order is part of the API.
 """
+
 from __future__ import annotations
 
 import time
@@ -24,23 +25,47 @@ class RunControlPrincipal:
             subject_id=require_canonical_identity(subject_id, field_name="subject_id"),
         )
 
-COMMAND_TYPES = frozenset({
-    "pause_run", "resume_run", "cancel_run", "retry_run_or_task",
-    "inject_instruction", "select_branch", "approve_gate", "deny_gate",
-})
 
-INSTRUCTION_MODES = frozenset({
-    "next_iteration_instruction", "pause_then_apply", "context_note_only",
-})
+COMMAND_TYPES = frozenset(
+    {
+        "pause_run",
+        "resume_run",
+        "cancel_run",
+        "retry_run_or_task",
+        "inject_instruction",
+        "select_branch",
+        "approve_gate",
+        "deny_gate",
+    }
+)
 
-INSTRUCTION_CLASSES = frozenset({
-    "correction", "constraint", "preference", "branch_hint", "stop_condition",
-})
+INSTRUCTION_MODES = frozenset(
+    {
+        "next_iteration_instruction",
+        "pause_then_apply",
+        "context_note_only",
+    }
+)
 
-BRANCH_TYPES = frozenset({
-    "llm_comparison_variant", "planner_variant", "implementation_strategy",
-    "repair_strategy", "security_hardened_variant",
-})
+INSTRUCTION_CLASSES = frozenset(
+    {
+        "correction",
+        "constraint",
+        "preference",
+        "branch_hint",
+        "stop_condition",
+    }
+)
+
+BRANCH_TYPES = frozenset(
+    {
+        "llm_comparison_variant",
+        "planner_variant",
+        "implementation_strategy",
+        "repair_strategy",
+        "security_hardened_variant",
+    }
+)
 
 
 @dataclass

@@ -54,21 +54,23 @@ def load_rules_from_file(path: Path | None = None) -> list[EquivalenceRule]:
     result = []
     for entry in list(raw or []):
         try:
-            result.append(EquivalenceRule(
-                rule_id=str(entry["rule_id"]),
-                scope=str(entry.get("scope") or ""),
-                source_language=str(entry.get("source_language") or ""),
-                target_language=str(entry.get("target_language") or ""),
-                semantic_kind=str(entry.get("semantic_kind") or ""),
-                preconditions=tuple(str(p) for p in list(entry.get("preconditions") or [])),
-                postconditions=tuple(str(p) for p in list(entry.get("postconditions") or [])),
-                examples=tuple(dict(ex) for ex in list(entry.get("examples") or [])),
-                tests=tuple(str(t) for t in list(entry.get("tests") or [])),
-                status=str(entry.get("status") or "stable"),
-                experimental=bool(entry.get("experimental", False)),
-                deprecated=bool(entry.get("deprecated", False)),
-                known_deviations=tuple(str(d) for d in list(entry.get("known_deviations") or [])),
-            ))
+            result.append(
+                EquivalenceRule(
+                    rule_id=str(entry["rule_id"]),
+                    scope=str(entry.get("scope") or ""),
+                    source_language=str(entry.get("source_language") or ""),
+                    target_language=str(entry.get("target_language") or ""),
+                    semantic_kind=str(entry.get("semantic_kind") or ""),
+                    preconditions=tuple(str(p) for p in list(entry.get("preconditions") or [])),
+                    postconditions=tuple(str(p) for p in list(entry.get("postconditions") or [])),
+                    examples=tuple(dict(ex) for ex in list(entry.get("examples") or [])),
+                    tests=tuple(str(t) for t in list(entry.get("tests") or [])),
+                    status=str(entry.get("status") or "stable"),
+                    experimental=bool(entry.get("experimental", False)),
+                    deprecated=bool(entry.get("deprecated", False)),
+                    known_deviations=tuple(str(d) for d in list(entry.get("known_deviations") or [])),
+                )
+            )
         except (KeyError, TypeError):
             continue
     return result or list(BUILTIN_EQUIVALENCE_RULES)
@@ -113,8 +115,48 @@ class EquivalenceRuleRegistry:
 
 
 BUILTIN_EQUIVALENCE_RULES = [
-    EquivalenceRule("eq.java_record.ts_interface.v1", "dto", "java", "typescript", "data_record", ("all_properties_mapped",), ("target_interface_has_same_property_names",), ({"source": "record User(String name)", "target": "export interface User { name: string; }"},), ("golden:java_record_to_ts_interface",)),
-    EquivalenceRule("eq.java_record.kotlin_data_class.v1", "dto", "java", "kotlin", "data_record", ("all_properties_mapped", "nullability_reviewed"), ("target_data_class_has_same_constructor_properties",), ({"source": "record User(String name)", "target": "data class User(val name: String)"},), ("golden:java_record_to_kotlin_data_class",)),
-    EquivalenceRule("eq.java_enum.ts_enum.v1", "enum", "java", "typescript", "enum_value", ("enum_values_known",), ("target_enum_preserves_values",), ({"source": "enum Status { ACTIVE }", "target": "export enum Status { ACTIVE = 'ACTIVE' }"},), ("golden:java_enum_to_ts_enum",)),
-    EquivalenceRule("eq.java_enum.kotlin_enum.v1", "enum", "java", "kotlin", "enum_value", ("enum_values_known",), ("target_enum_preserves_values",), ({"source": "enum Status { ACTIVE }", "target": "enum class Status { ACTIVE }"},), ("golden:java_enum_to_kotlin_enum",)),
+    EquivalenceRule(
+        "eq.java_record.ts_interface.v1",
+        "dto",
+        "java",
+        "typescript",
+        "data_record",
+        ("all_properties_mapped",),
+        ("target_interface_has_same_property_names",),
+        ({"source": "record User(String name)", "target": "export interface User { name: string; }"},),
+        ("golden:java_record_to_ts_interface",),
+    ),
+    EquivalenceRule(
+        "eq.java_record.kotlin_data_class.v1",
+        "dto",
+        "java",
+        "kotlin",
+        "data_record",
+        ("all_properties_mapped", "nullability_reviewed"),
+        ("target_data_class_has_same_constructor_properties",),
+        ({"source": "record User(String name)", "target": "data class User(val name: String)"},),
+        ("golden:java_record_to_kotlin_data_class",),
+    ),
+    EquivalenceRule(
+        "eq.java_enum.ts_enum.v1",
+        "enum",
+        "java",
+        "typescript",
+        "enum_value",
+        ("enum_values_known",),
+        ("target_enum_preserves_values",),
+        ({"source": "enum Status { ACTIVE }", "target": "export enum Status { ACTIVE = 'ACTIVE' }"},),
+        ("golden:java_enum_to_ts_enum",),
+    ),
+    EquivalenceRule(
+        "eq.java_enum.kotlin_enum.v1",
+        "enum",
+        "java",
+        "kotlin",
+        "enum_value",
+        ("enum_values_known",),
+        ("target_enum_preserves_values",),
+        ({"source": "enum Status { ACTIVE }", "target": "enum class Status { ACTIVE }"},),
+        ("golden:java_enum_to_kotlin_enum",),
+    ),
 ]

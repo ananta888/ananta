@@ -3,17 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Supported content_type values
-CONTENT_TYPES = frozenset({
-    "markdown",
-    "mermaid_markdown",
-    "plain_text",
-    "ansi_text",
-    "source_code",
-    "html_preview",
-    "artifact_preview",
-})
+CONTENT_TYPES = frozenset(
+    {
+        "markdown",
+        "mermaid_markdown",
+        "plain_text",
+        "ansi_text",
+        "source_code",
+        "html_preview",
+        "artifact_preview",
+    }
+)
 
 
 @dataclass
@@ -23,6 +24,7 @@ class CenterContentSnapshot:
     All fields are read-only after construction — snapshotting must not mutate the
     active VisualView state.
     """
+
     content_type: str  # one of CONTENT_TYPES
     title: str
     source_text: str

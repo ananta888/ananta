@@ -157,7 +157,10 @@ def test_resolve_execution_policy_applies_override_without_hiding_explicit_field
 
 
 def test_normalize_allowed_tools_strips_deduplicates_and_drops_empty_values():
-    assert normalize_allowed_tools([" list_teams ", "", "list_teams", None, "create_team"]) == ["list_teams", "create_team"]
+    assert normalize_allowed_tools([" list_teams ", "", "list_teams", None, "create_team"]) == [
+        "list_teams",
+        "create_team",
+    ]
 
 
 def test_resolve_task_scope_allowed_tools_reads_worker_execution_context():

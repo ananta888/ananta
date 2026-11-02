@@ -86,10 +86,23 @@ def _snake_codecompass_capability(repo_root: Path) -> dict[str, Any] | None:
 
     try:
         return issue_capability(
-            subject_id="ai-snake", tenant_id="local", task_id=None, audience="hub",
-            workspace_id=f"snake:{repo_root.name}", ttl_seconds=300,
-            top_level=["agent", "worker", "ananta_codecompass", "rag-helper", "frontend-angular",
-                       "config", "docs", "scripts", "tests"],
+            subject_id="ai-snake",
+            tenant_id="local",
+            task_id=None,
+            audience="hub",
+            workspace_id=f"snake:{repo_root.name}",
+            ttl_seconds=300,
+            top_level=[
+                "agent",
+                "worker",
+                "ananta_codecompass",
+                "rag-helper",
+                "frontend-angular",
+                "config",
+                "docs",
+                "scripts",
+                "tests",
+            ],
         )
     except Exception:  # noqa: BLE001 -- no index or no key: the chat runs without retrieval
         return None
@@ -119,7 +132,7 @@ def _tool_read_file(path: str, repo_root: Path, max_chars: int) -> str:
                     if len(candidates) >= 3:
                         break
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_tool_read_file: ignored Exception", exc_info=True)
         if len(candidates) == 1:
             resolved = _resolve_file(candidates[0], repo_root)
             if resolved is not None:
@@ -130,7 +143,8 @@ def _tool_read_file(path: str, repo_root: Path, max_chars: int) -> str:
                     return f"[Fehler beim Lesen: {exc}]"
         hint = (
             f"\n[Korrekter Pfad: nutze read_file('{candidates[0]}') — Datei gefunden unter: {', '.join(candidates)}]"
-            if candidates else ""
+            if candidates
+            else ""
         )
         return f"[Fehler: Datei nicht gefunden: {path}]{hint}"
     try:
@@ -156,7 +170,7 @@ def _tool_search_codebase(query: str, max_results: int, repo_root: Path) -> str:
             chunk
             for chunk in engine.search(query, top_k=max(1, min(max_results * 3, 40)))
             if not should_skip_initial_pack(str(chunk.source or ""))
-        ][:max(1, min(max_results, 20))]
+        ][: max(1, min(max_results, 20))]
         rendered = "\n".join(f"- {chunk.source}  (score: {chunk.score:.1f})" for chunk in chunks)
         return rendered or "[Keine Treffer für diese Suche]"
     except Exception as exc:
@@ -193,6 +207,7 @@ def _dispatch_tool(name: str, args: dict, *, repo_root: Path, max_chars_per_file
         workspace_dir=str(repo_root),
         tool_call_id=f"snake-{name}",
         config={"codecompass_capability": _snake_codecompass_capability(repo_root)}
-        if mapped_name == "codecompass.retrieve" else None,
+        if mapped_name == "codecompass.retrieve"
+        else None,
     )
     return json.dumps(result, ensure_ascii=False, sort_keys=True)[:20_000]

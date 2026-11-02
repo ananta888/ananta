@@ -9,6 +9,7 @@ docs/vision-decision-llamacpp.md). Optional: ``VISION_DECISION_IT_API_KEY``, ``V
 The route runs with the real provider, gate, task policy and escalation executor; only the Flask test client
 replaces the network in front of the hub.
 """
+
 from __future__ import annotations
 
 import base64
@@ -23,7 +24,11 @@ import pytest
 from PIL import Image
 
 from agent.services.audio_decision_command_executor import VoiceCommandConfirmationStore, VoiceCommandExecutor
-from agent.services.vision_decision_escalation_executor import ChatTargetConfig, VisionEscalationConfig, build_escalation_executor
+from agent.services.vision_decision_escalation_executor import (
+    ChatTargetConfig,
+    VisionEscalationConfig,
+    build_escalation_executor,
+)
 from agent.services.vision_decision_hub_service import VisionHubRuntime, default_vision_action_handlers
 from agent.services.vision_decision_provider import VisionDecisionConfig, VisionDecisionProvider
 from agent.services.vision_decision_task_policy import DEFAULT_VISION_TASK_CATALOG
@@ -55,7 +60,9 @@ def runtime() -> VisionHubRuntime:
         max_media=4,
         models=(model,) if model else (),
     )
-    chat = ChatTargetConfig(url=url, api_key=config.api_key) if os.environ.get("VISION_DECISION_IT_CHAT") == "1" else None
+    chat = (
+        ChatTargetConfig(url=url, api_key=config.api_key) if os.environ.get("VISION_DECISION_IT_CHAT") == "1" else None
+    )
     provider = VisionDecisionProvider(config)
     return VisionHubRuntime(
         provider=provider,
@@ -70,8 +77,9 @@ def _uri(png: bytes) -> str:
 
 
 def _post(client, headers, runtime, png: bytes) -> dict:
-    with patch.dict(os.environ, {"VISION_DECISION_ENABLED": "true"}), patch(
-        "agent.routes.vision_decision.get_vision_hub_runtime", return_value=runtime
+    with (
+        patch.dict(os.environ, {"VISION_DECISION_ENABLED": "true"}),
+        patch("agent.routes.vision_decision.get_vision_hub_runtime", return_value=runtime),
     ):
         res = client.post(ROUTE, headers=headers, json={"task": "shapes-v1", "images": [_uri(png)]})
     assert res.status_code == 200, res.get_data(as_text=True)[:300]
@@ -105,8 +113,14 @@ def test_route_on_real_shapes(client, admin_auth_header, runtime):
         _check_invariants(data)
         assert data["provenance"]["usage"]["media_tokens"] > 0
         acted = {n: e["value"] for n, e in data["fields"].items() if e["hub_action"] == "act"}
-        rows.append({"truth": truth, "act": acted, "actions": {n: (e["hub_action"], e["rule"]) for n, e in data["fields"].items()},
-                     "total_ms": data["provenance"]["timings"]["total_ms"]})
+        rows.append(
+            {
+                "truth": truth,
+                "act": acted,
+                "actions": {n: (e["hub_action"], e["rule"]) for n, e in data["fields"].items()},
+                "total_ms": data["provenance"]["timings"]["total_ms"],
+            }
+        )
         # dark_background is confirm-only (V9): never act, whatever the probability
         assert data["fields"]["dark_background"]["hub_action"] != "act"
     print(json.dumps(rows, indent=1))
@@ -118,6 +132,17 @@ def test_route_escalates_an_ill_posed_question(client, admin_auth_header, runtim
     data = _post(client, admin_auth_header, runtime, out.getvalue())
     _check_invariants(data)
     escalated = [n for n, e in data["fields"].items() if e["hub_action"] == "escalate"]
-    print(json.dumps({n: {k: data["fields"][n][k] for k in ("hub_action", "rule", "probability", "margin")} for n in data["fields"]}))
-    print(json.dumps({n: data["fields"][n]["escalation"] | {"escalation_id": "<redacted>"} for n in escalated}, default=str))
+    print(
+        json.dumps(
+            {
+                n: {k: data["fields"][n][k] for k in ("hub_action", "rule", "probability", "margin")}
+                for n in data["fields"]
+            }
+        )
+    )
+    print(
+        json.dumps(
+            {n: data["fields"][n]["escalation"] | {"escalation_id": "<redacted>"} for n in escalated}, default=str
+        )
+    )
     assert escalated, "a blank grey image must leave at least one field uncertain"

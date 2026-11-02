@@ -4,9 +4,8 @@ DRR-T040: Full E2E deterministic repair flow test.
 DRR-T041: E2E approval-required repair test.
 DRR-T042: E2E verification failure and negative learning test.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from worker.core.execution_envelope import (
     ApprovalRef,
@@ -17,8 +16,8 @@ from worker.core.execution_envelope import (
 )
 from worker.repair.repair_procedure_runner import RepairProcedureRunner
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _port_conflict_procedure(*, with_mutation: bool = False) -> RepairProcedure:
     steps = [
@@ -95,6 +94,7 @@ def _make_envelope(
 
 
 # ── DRR-T040: Full E2E deterministic repair flow ──────────────────────────────
+
 
 class TestHighConfidenceRepairFlowWithoutLLM:
     """DRR-T040: Full deterministic repair E2E without LLM."""
@@ -185,6 +185,7 @@ class TestHighConfidenceRepairFlowWithoutLLM:
 
 # ── DRR-T041: E2E approval-required repair test ───────────────────────────────
 
+
 class TestApprovalRequiredRepair:
     """DRR-T041: Approval-required mutation steps E2E."""
 
@@ -249,6 +250,7 @@ class TestApprovalRequiredRepair:
 
 # ── DRR-T042: E2E verification failure and negative learning ──────────────────
 
+
 class TestVerificationFailureAndNegativeLearning:
     """DRR-T042: Failed/regressed repair persists outcome and influences ranking."""
 
@@ -275,8 +277,6 @@ class TestVerificationFailureAndNegativeLearning:
         """Failed outcomes downgrade procedure ranking. DRR-T042."""
         from agent.services.deterministic_repair_path_service import (
             build_negative_learning_model,
-            build_success_weighted_repair_recommendations,
-            build_initial_repair_procedure_catalog,
         )
 
         failed_entries = [

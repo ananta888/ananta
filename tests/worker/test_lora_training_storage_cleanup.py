@@ -45,10 +45,7 @@ def test_cleanup_deletes_only_exact_delegated_tenant_attempt_path_and_replays(tm
     state_root = tmp_path / "state"
     workspace_root.mkdir()
     state_root.mkdir()
-    relative_ref = (
-        f"tenants/{'a' * 64}/jobs/job-a/attempts/attempt-a/"
-        "exports/export-a.zip"
-    )
+    relative_ref = f"tenants/{'a' * 64}/jobs/job-a/attempts/attempt-a/exports/export-a.zip"
     artifact = state_root / relative_ref
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"verified-export")
@@ -65,9 +62,7 @@ def test_cleanup_deletes_only_exact_delegated_tenant_attempt_path_and_replays(tm
     first = executor.execute(envelope)
     second = executor.execute(envelope)
 
-    assert first["schema"] == (
-        "ananta.unsloth-storage-cleanup-result.v1"
-    )
+    assert first["schema"] == ("ananta.unsloth-storage-cleanup-result.v1")
     assert first["status"] == "completed"
     assert first["deleted_count"] == 1
     assert not artifact.exists()
@@ -105,9 +100,7 @@ def test_cleanup_rejects_paths_outside_delegated_scope(tmp_path, relative_ref):
         state_root=tmp_path / "state",
     )
     with pytest.raises(WorkerStorageCleanupError):
-        executor.execute(
-            _envelope(relative_ref=relative_ref, digest="0" * 64, size_bytes=0)
-        )
+        executor.execute(_envelope(relative_ref=relative_ref, digest="0" * 64, size_bytes=0))
 
 
 def test_cleanup_contract_is_closed_and_worker_profile_is_registered(
@@ -118,10 +111,7 @@ def test_cleanup_contract_is_closed_and_worker_profile_is_registered(
     workspace.mkdir()
     state.mkdir()
     payload = _envelope(
-        relative_ref=(
-            f"tenants/{'a' * 64}/jobs/job-a/attempts/"
-            "attempt-a/exports/export-a.zip"
-        ),
+        relative_ref=(f"tenants/{'a' * 64}/jobs/job-a/attempts/attempt-a/exports/export-a.zip"),
         digest="0" * 64,
         size_bytes=0,
     )
@@ -131,14 +121,10 @@ def test_cleanup_contract_is_closed_and_worker_profile_is_registered(
         {
             "ANANTA_UNSLOTH_WORKER_MODE": STORAGE_CLEANUP_MODE,
             "ANANTA_UNSLOTH_STORAGE_CLEANUP_STATE_ROOT": str(state),
-            "ANANTA_UNSLOTH_STORAGE_CLEANUP_WORKSPACE_ROOT": (
-                str(workspace)
-            ),
+            "ANANTA_UNSLOTH_STORAGE_CLEANUP_WORKSPACE_ROOT": (str(workspace)),
         }
     )
 
     assert runtime.ready is True
     assert runtime.bindings[0].task_kind == "ml.storage.cleanup"
-    assert runtime.bindings[0].capabilities == (
-        "unsloth_storage_cleanup",
-    )
+    assert runtime.bindings[0].capabilities == ("unsloth_storage_cleanup",)

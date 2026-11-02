@@ -88,10 +88,7 @@ except ModuleNotFoundError:
             recompute_live_failover_evidence,
         )
 
-TURN_IMAGE = (
-    "coturn/coturn@sha256:"
-    "71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
-)
+TURN_IMAGE = "coturn/coturn@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
 TURN_USER = "ananta-turn-gate"
 TURN_CREDENTIAL = "ananta-turn-gate-fixture-32-bytes"
 
@@ -103,7 +100,9 @@ def main() -> int:
     args = parser.parse_args()
     if not args.execute_live:
         evidence = run_playwright_gate(
-            gate_id="ASMP-QA-006", spec="semantic-media-group.spec.ts", execute_live=False,
+            gate_id="ASMP-QA-006",
+            spec="semantic-media-group.spec.ts",
+            execute_live=False,
         )
     else:
         environment = dict(os.environ)
@@ -119,9 +118,16 @@ def main() -> int:
             }
         )
         compose = [
-            "docker", "compose", "--project-name", f"ananta-semantic-group-{secrets.token_hex(6)}",
-            "-f", str(COMPOSE), "--profile", "semantic-media-sfu",
-            "--profile", "semantic-media-turn-gate",
+            "docker",
+            "compose",
+            "--project-name",
+            f"ananta-semantic-group-{secrets.token_hex(6)}",
+            "-f",
+            str(COMPOSE),
+            "--profile",
+            "semantic-media-sfu",
+            "--profile",
+            "semantic-media-turn-gate",
         ]
         sfu_capture_name = f"ananta-semantic-sfu-capture-{secrets.token_hex(6)}"
         turn_capture_name = f"ananta-semantic-turn-capture-{secrets.token_hex(6)}"
@@ -215,7 +221,9 @@ def main() -> int:
                 )
             )
             baseline = run_playwright_gate(
-                gate_id="ASMP-QA-006", spec="semantic-media-group.spec.ts", execute_live=False,
+                gate_id="ASMP-QA-006",
+                spec="semantic-media-group.spec.ts",
+                execute_live=False,
             )
             evidence = GateEvidence(
                 gate_id=baseline.gate_id,
@@ -228,12 +236,19 @@ def main() -> int:
         finally:
             for capture_name in (sfu_capture_name, turn_capture_name):
                 subprocess.run(
-                    ["docker", "rm", "-f", capture_name], cwd=ROOT,
-                    check=False, timeout=30, capture_output=True,
+                    ["docker", "rm", "-f", capture_name],
+                    cwd=ROOT,
+                    check=False,
+                    timeout=30,
+                    capture_output=True,
                 )
             subprocess.run(
-                [*compose, "down", "--remove-orphans"], cwd=ROOT, env=environment,
-                check=False, timeout=120, capture_output=True,
+                [*compose, "down", "--remove-orphans"],
+                cwd=ROOT,
+                env=environment,
+                check=False,
+                timeout=120,
+                capture_output=True,
             )
     write_report(args.output, evidence)
     print(json.dumps(evidence.as_document(), sort_keys=True))
@@ -364,18 +379,9 @@ def _failover_measurements(report: Mapping[str, Any] | None) -> dict[str, int | 
     engines = document.get("engines") if isinstance(document.get("engines"), list) else []
     rows = [row for row in engines if isinstance(row, Mapping)]
     runner = document.get("runner") if isinstance(document.get("runner"), Mapping) else {}
-    compute_rows = [
-        row.get("compute") if isinstance(row.get("compute"), Mapping) else {}
-        for row in rows
-    ]
-    outage_rows = [
-        row.get("outage") if isinstance(row.get("outage"), Mapping) else {}
-        for row in rows
-    ]
-    recovery_rows = [
-        row.get("recovery") if isinstance(row.get("recovery"), Mapping) else {}
-        for row in rows
-    ]
+    compute_rows = [row.get("compute") if isinstance(row.get("compute"), Mapping) else {} for row in rows]
+    outage_rows = [row.get("outage") if isinstance(row.get("outage"), Mapping) else {} for row in rows]
+    recovery_rows = [row.get("recovery") if isinstance(row.get("recovery"), Mapping) else {} for row in rows]
     return {
         "live_failover_verified": not recompute_live_failover_evidence(document),
         "live_failover_engine_count": len({str(row.get("engine")) for row in rows}),
@@ -387,9 +393,7 @@ def _failover_measurements(report: Mapping[str, Any] | None) -> dict[str, int | 
         "old_authorization_rejection_count": sum(
             int(item.get("old_authorization_rejected_count") or 0) for item in recovery_rows
         ),
-        "fresh_admission_count": sum(
-            int(item.get("fresh_admission_count") or 0) for item in recovery_rows
-        ),
+        "fresh_admission_count": sum(int(item.get("fresh_admission_count") or 0) for item in recovery_rows),
         "primary_replacement_count": sum(
             int(item.get("replacement_primary_lease_count") or 0) for item in compute_rows
         ),
@@ -440,13 +444,13 @@ def _group_binding(browser_source_sha256: str, browser_config_sha256: str) -> tu
         }
     )
     config_digest = canonical_sha256(
-            {
-                "browser_config_sha256": browser_config_sha256,
-                "capture_image": CAPTURE_IMAGE,
-                "capture_boundaries": ["sfu_network_namespace", "turn_network_namespace"],
-                "turn_image": TURN_IMAGE,
-                "live_failover_required": True,
-            }
+        {
+            "browser_config_sha256": browser_config_sha256,
+            "capture_image": CAPTURE_IMAGE,
+            "capture_boundaries": ["sfu_network_namespace", "turn_network_namespace"],
+            "turn_image": TURN_IMAGE,
+            "live_failover_required": True,
+        }
     )
     return source_digest, config_digest
 

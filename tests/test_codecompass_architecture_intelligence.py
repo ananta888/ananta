@@ -5,13 +5,13 @@ from pathlib import Path
 
 import jsonschema
 
-from ananta_codecompass.architecture_intelligence.analyze import analyze_architecture
-from ananta_codecompass.architecture_intelligence.diff import diff_graphs
-from ananta_codecompass.architecture_intelligence.community import detect_communities
-from ananta_codecompass.architecture_intelligence.graph_projection import project_graph
 from agent.services.codecompass_architecture_intelligence_service import (
     CodeCompassArchitectureIntelligenceService,
 )
+from ananta_codecompass.architecture_intelligence.analyze import analyze_architecture
+from ananta_codecompass.architecture_intelligence.community import detect_communities
+from ananta_codecompass.architecture_intelligence.diff import diff_graphs
+from ananta_codecompass.architecture_intelligence.graph_projection import project_graph
 
 
 def _graph():

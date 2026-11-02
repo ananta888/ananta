@@ -9,10 +9,10 @@ All strategies accept DecisionContext + list[HeuristicDefinition] and return Dec
 Selection of the best HeuristicDefinition for execution is delegated to the registry;
 the strategy encodes HOW to interpret and apply the chosen heuristic.
 """
+
 from __future__ import annotations
 
 import abc
-from typing import Any
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
@@ -39,10 +39,13 @@ class HeuristicStrategy(abc.ABC):
     def _best_candidate(candidates: list[HeuristicDefinition]) -> HeuristicDefinition | None:
         if not candidates:
             return None
-        return max(candidates, key=lambda h: (
-            1 if h.deterministic else 0,
-            _SAFETY_RANK.get(h.safety_class, 0),
-        ))
+        return max(
+            candidates,
+            key=lambda h: (
+                1 if h.deterministic else 0,
+                _SAFETY_RANK.get(h.safety_class, 0),
+            ),
+        )
 
     @staticmethod
     def _no_candidates() -> DecisionResult:
@@ -53,6 +56,7 @@ _SAFETY_RANK: dict[str, int] = {"safety_critical": 3, "bounded": 2, "low_risk": 
 
 
 # ── TUI Snake ─────────────────────────────────────────────────────────────────
+
 
 class DefaultTuiSnakeStrategy(HeuristicStrategy):
     """Default strategy for tui_snake surface.
@@ -94,6 +98,7 @@ class DefaultTuiSnakeStrategy(HeuristicStrategy):
 
 # ── Eclipse Snake ─────────────────────────────────────────────────────────────
 
+
 class DefaultEclipseSnakeStrategy(HeuristicStrategy):
     """Default strategy for eclipse_snake surface.
 
@@ -133,6 +138,7 @@ def _panel_to_motion(panel: str) -> tuple[int, int]:
 
 
 # ── Chat CodeCompass ──────────────────────────────────────────────────────────
+
 
 class DefaultChatCodeCompassStrategy(HeuristicStrategy):
     """Default strategy for chat_codecompass surface.

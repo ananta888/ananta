@@ -4,6 +4,7 @@ ModelProfileLoader — AMR-007
 Loads and validates ModelProfile configs from JSON or YAML files.
 Supports legacy planning_model_profiles.default.json format migration.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,21 +16,45 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_PROVIDERS = frozenset({
-    "ollama", "lmstudio", "openai", "openrouter", "openai_compatible", "mock", "fake",
-})
+ALLOWED_PROVIDERS = frozenset(
+    {
+        "ollama",
+        "lmstudio",
+        "openai",
+        "openrouter",
+        "openai_compatible",
+        "mock",
+        "fake",
+    }
+)
 
-ALLOWED_MODEL_ROLES = frozenset({
-    "planner", "coder", "reviewer", "embedder", "summarizer", "chat", "reasoning", "any",
-})
+ALLOWED_MODEL_ROLES = frozenset(
+    {
+        "planner",
+        "coder",
+        "reviewer",
+        "embedder",
+        "summarizer",
+        "chat",
+        "reasoning",
+        "any",
+    }
+)
 
 ALLOWED_TOOL_CALLING_MODES = frozenset({"native_tools", "prompt_json", "both", "none"})
 ALLOWED_JSON_RELIABILITY_CLASSES = frozenset({"unknown", "experimental", "usable", "strict"})
 ALLOWED_CAPABILITY_VALUES = frozenset({"supported", "unsupported", "unknown"})
 ALLOWED_CAPABILITY_EVIDENCE = frozenset({"declared", "detected", "benchmark", "unknown"})
-ALLOWED_RELEASE_STATES = frozenset({
-    "unavailable", "experimental", "shadow", "opt_in", "preferred", "disabled",
-})
+ALLOWED_RELEASE_STATES = frozenset(
+    {
+        "unavailable",
+        "experimental",
+        "shadow",
+        "opt_in",
+        "preferred",
+        "disabled",
+    }
+)
 ALLOWED_TRUST_CLASSES = frozenset({"standard", "standard_candidate", "unsafe_research"})
 
 
@@ -73,7 +98,7 @@ class ModelProfile:
     # T01/T02 — Token budget extension fields (all safe-defaulted)
     context_window_tokens: int | None = None
     hard_max_output_tokens: int | None = None
-    tokenizer_strategy: str = "chars_per_token"   # "tiktoken_cl100k" | "tiktoken_llama3" | "chars_per_token"
+    tokenizer_strategy: str = "chars_per_token"  # "tiktoken_cl100k" | "tiktoken_llama3" | "chars_per_token"
     tokenizer_name: str | None = None
     input_cost_per_1m_tokens: float | None = None
     output_cost_per_1m_tokens: float | None = None
@@ -113,9 +138,7 @@ class ModelProfile:
             )
         return max(
             1,
-            context_window
-            - max(1, int(self.max_output_tokens or 1))
-            - self.system_prompt_prefix_tokens(),
+            context_window - max(1, int(self.max_output_tokens or 1)) - self.system_prompt_prefix_tokens(),
         )
 
     def system_prompt_prefix_tokens(self) -> int:
@@ -215,6 +238,7 @@ class ModelProfileLoader:
         if path.suffix in {".yaml", ".yml"}:
             try:
                 import yaml
+
                 return yaml.safe_load(text) or {}
             except ImportError:
                 raise ImportError("pyyaml required for YAML model profile files")
@@ -248,27 +272,62 @@ class ModelProfileLoader:
             errors.append(f"profile[{index}]:{pid!r}:cloud_profile_missing_block_secret_context")
 
         known_keys = {
-            "profile_id", "provider_id", "model", "model_role", "local", "cloud",
-            "cloud_allowed", "block_secret_context", "supports_tools", "supports_json",
-            "supports_streaming", "supports_seed", "context_tokens", "max_output_tokens", "timeout_seconds",
-            "temperature", "cost_class", "quality_class", "price_input_per_million",
-            "price_output_per_million", "estimated_latency_class", "json_reliability_class",
-            "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
-            "retry_budget", "fallback_group", "fallback_rank", "api_key_env",
+            "profile_id",
+            "provider_id",
+            "model",
+            "model_role",
+            "local",
+            "cloud",
+            "cloud_allowed",
+            "block_secret_context",
+            "supports_tools",
+            "supports_json",
+            "supports_streaming",
+            "supports_seed",
+            "context_tokens",
+            "max_output_tokens",
+            "timeout_seconds",
+            "temperature",
+            "cost_class",
+            "quality_class",
+            "price_input_per_million",
+            "price_output_per_million",
+            "estimated_latency_class",
+            "json_reliability_class",
+            "tool_calling_mode",
+            "preferred_for",
+            "avoid_for",
+            "max_context_for_profile",
+            "retry_budget",
+            "fallback_group",
+            "fallback_rank",
+            "api_key_env",
             "base_url",
-            "enabled", "notes", "system_prompt_prefix",
+            "enabled",
+            "notes",
+            "system_prompt_prefix",
             # T02 — token budget extension fields
-            "context_window_tokens", "hard_max_output_tokens", "tokenizer_strategy",
-            "tokenizer_name", "input_cost_per_1m_tokens", "output_cost_per_1m_tokens",
-            "aliases", "input_modalities", "output_modalities", "capability_claims",
-            "nominal_context_tokens", "verified_context_tokens", "hardware_class",
-            "artifact_sha256", "release_state",
-            "trust_class", "safety_modified",
+            "context_window_tokens",
+            "hard_max_output_tokens",
+            "tokenizer_strategy",
+            "tokenizer_name",
+            "input_cost_per_1m_tokens",
+            "output_cost_per_1m_tokens",
+            "aliases",
+            "input_modalities",
+            "output_modalities",
+            "capability_claims",
+            "nominal_context_tokens",
+            "verified_context_tokens",
+            "hardware_class",
+            "artifact_sha256",
+            "release_state",
+            "trust_class",
+            "safety_modified",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
         tool_calling_mode = str(
-            raw.get("tool_calling_mode")
-            or ("native_tools" if raw.get("supports_tools") else "none")
+            raw.get("tool_calling_mode") or ("native_tools" if raw.get("supports_tools") else "none")
         ).strip()
         if tool_calling_mode not in ALLOWED_TOOL_CALLING_MODES:
             errors.append(f"profile[{index}]:{pid!r}:invalid_tool_calling_mode:{tool_calling_mode}")
@@ -319,9 +378,7 @@ class ModelProfileLoader:
                 base_url=str(raw["base_url"]) if raw.get("base_url") else None,
                 enabled=bool(raw.get("enabled", True)),
                 notes=str(raw.get("notes") or ""),
-                system_prompt_prefix=_optional_prompt_prefix(
-                    raw.get("system_prompt_prefix")
-                ),
+                system_prompt_prefix=_optional_prompt_prefix(raw.get("system_prompt_prefix")),
                 extra=extra,
                 # T02 — token budget extension fields
                 context_window_tokens=_optional_int(raw.get("context_window_tokens")),
@@ -331,9 +388,7 @@ class ModelProfileLoader:
                 input_cost_per_1m_tokens=_optional_float(raw.get("input_cost_per_1m_tokens")),
                 output_cost_per_1m_tokens=_optional_float(raw.get("output_cost_per_1m_tokens")),
                 aliases=_bounded_identifier_list(raw.get("aliases"), field_name="aliases"),
-                input_modalities=_bounded_identifier_list(
-                    raw.get("input_modalities"), field_name="input_modalities"
-                ),
+                input_modalities=_bounded_identifier_list(raw.get("input_modalities"), field_name="input_modalities"),
                 output_modalities=_bounded_identifier_list(
                     raw.get("output_modalities"), field_name="output_modalities"
                 ),
@@ -398,8 +453,7 @@ def _bounded_identifier_list(value: Any, *, field_name: str) -> list[str]:
     values = _string_list(value)
     normalized = list(dict.fromkeys(values))
     if len(normalized) > 64 or any(
-        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}", item) is None
-        for item in normalized
+        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}", item) is None for item in normalized
     ):
         raise ValueError(f"{field_name} contains invalid identifiers")
     return normalized
@@ -429,12 +483,14 @@ def _capability_claims(value: Any) -> list[dict[str, str]]:
         ):
             raise ValueError("capability_claim_invalid")
         seen.add(capability_id)
-        claims.append({
-            "capability_id": capability_id,
-            "value": claim_value,
-            "evidence": evidence,
-            **({"source_id": source_id} if source_id else {}),
-        })
+        claims.append(
+            {
+                "capability_id": capability_id,
+                "value": claim_value,
+                "evidence": evidence,
+                **({"source_id": source_id} if source_id else {}),
+            }
+        )
     return claims
 
 

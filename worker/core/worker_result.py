@@ -1,13 +1,22 @@
 """WorkerResult v2: unified result type for native worker paths. AWF-T036."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-_VALID_STATUSES = frozenset({
-    "success", "partial_success", "denied", "needs_approval",
-    "failed", "degraded", "cancelled", "timeout",
-})
+_VALID_STATUSES = frozenset(
+    {
+        "success",
+        "partial_success",
+        "denied",
+        "needs_approval",
+        "failed",
+        "degraded",
+        "cancelled",
+        "timeout",
+    }
+)
 
 _NATIVE_STATUS_MAP = {
     "passed": "success",
@@ -32,6 +41,7 @@ class WorkerResultV2:
 
     Statuses: success | partial_success | denied | needs_approval | failed | degraded | cancelled | timeout
     """
+
     status: str
     reason_code: str | None = None
     summary: str | None = None
@@ -75,7 +85,8 @@ def map_native_result_to_v2(native_result: dict[str, Any]) -> WorkerResultV2:
         reason_code=str(native_result.get("reason") or native_result.get("reason_code") or "").strip() or None,
         summary=str(native_result.get("summary") or native_result.get("reason") or "").strip() or None,
         artifacts=list(native_result.get("artifacts") or []),
-        trace_bundle_ref=str(native_result.get("trace_id") or native_result.get("trace_bundle_ref") or "").strip() or None,
+        trace_bundle_ref=str(native_result.get("trace_id") or native_result.get("trace_bundle_ref") or "").strip()
+        or None,
         warnings=list(native_result.get("warnings") or []),
         degraded_state=native_result.get("degraded_state"),
         no_side_effects_confirmed=bool(native_result.get("no_side_effects_confirmed", False)),

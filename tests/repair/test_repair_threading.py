@@ -8,6 +8,7 @@ Tests focus on:
 - Hard-timeout path marks tasks failed
 - Aggregate counter correctness after parallel dispatch
 """
+
 from __future__ import annotations
 
 import threading
@@ -16,12 +17,10 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from agent.routes.tasks.autopilot import AutonomousLoopManager
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _fresh_loop() -> AutonomousLoopManager:
     loop = AutonomousLoopManager()
@@ -34,6 +33,7 @@ def _fake_worker(url: str) -> SimpleNamespace:
 
 
 # ── 1. Counter thread safety ──────────────────────────────────────────────────
+
 
 def test_increment_dispatched_is_thread_safe():
     loop = _fresh_loop()
@@ -96,9 +96,9 @@ def test_set_last_error_is_thread_safe():
 
 # ── 2. Worker cursor uniqueness ───────────────────────────────────────────────
 
+
 def test_assign_worker_cursor_is_unique_under_concurrency():
     """Each thread must get a distinct worker slot — no two threads share a cursor."""
-    from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
 
     loop = _fresh_loop()
     workers = [_fake_worker(f"http://w{i}:5000") for i in range(5)]
@@ -137,6 +137,7 @@ def test_assign_worker_cursor_advances_round_robin():
 
 
 # ── 3. Lock ordering ─────────────────────────────────────────────────────────
+
 
 def test_record_worker_failure_releases_routing_lock_before_counters_lock():
     """Verify _record_worker_failure does NOT hold _routing_lock while touching last_error.
@@ -183,9 +184,10 @@ def test_record_worker_failure_releases_routing_lock_before_counters_lock():
 
 # ── 4. Per-thread Flask app_context in _dispatch_one_task ────────────────────
 
+
 def test_dispatch_one_task_opens_app_context_per_thread(app):
     """_dispatch_one_task must push an app_context in each worker thread."""
-    from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
+    from agent.services.autopilot.tick_engine import _dispatch_one_task
 
     app_contexts_entered = []
     lock = threading.Lock()
@@ -193,6 +195,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
     # Patch the inner function so we only check context, not real execution
     def _fake_inner(**kwargs):
         from flask import current_app
+
         try:
             _ = current_app._get_current_object()
             with lock:
@@ -200,7 +203,8 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
         except RuntimeError:
             with lock:
                 app_contexts_entered.append(False)
-        from agent.routes.tasks.autopilot_tick_engine import TaskDispatchResult
+        from agent.services.autopilot.tick_engine import TaskDispatchResult
+
         return TaskDispatchResult(task_id=kwargs["task"].id)
 
     task = SimpleNamespace(id="t-ctx-test", required_capabilities=[], team_id=None)
@@ -210,7 +214,7 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
     loop._app = app
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         _dispatch_one_task(
@@ -220,7 +224,11 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
             loop=loop,
             services=MagicMock(),
             policy={},
-            fallback_policy={"allow_hub_worker_fallback": True, "escalate_on_fallback_block": False, "fallback_block_status": "blocked"},
+            fallback_policy={
+                "allow_hub_worker_fallback": True,
+                "escalate_on_fallback_block": False,
+                "fallback_block_status": "blocked",
+            },
             runtime_caps={},
             queue_positions={},
             local_worker_url="http://localhost:5000",
@@ -234,10 +242,11 @@ def test_dispatch_one_task_opens_app_context_per_thread(app):
 
 # ── 5. Hard-timeout path marks tasks failed ───────────────────────────────────
 
+
 def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
     """When _dispatch_one_task_inner sleeps longer than the hard timeout,
     the task must be marked 'failed' with error='dispatch_timeout'."""
-    from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task, TaskDispatchResult
+    from agent.services.autopilot.tick_engine import TaskDispatchResult, _dispatch_one_task
 
     status_updates: list[tuple] = []
 
@@ -254,11 +263,12 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
     loop._app = app
 
     import concurrent.futures as cf
+
     future_map: dict[cf.Future, str] = {}
     per_task_hard_timeout = 0.1  # very short for the test
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_slow_inner,
     ):
         with cf.ThreadPoolExecutor(max_workers=1) as executor:
@@ -270,7 +280,11 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
                 loop=loop,
                 services=MagicMock(),
                 policy={},
-                fallback_policy={"allow_hub_worker_fallback": True, "escalate_on_fallback_block": False, "fallback_block_status": "blocked"},
+                fallback_policy={
+                    "allow_hub_worker_fallback": True,
+                    "escalate_on_fallback_block": False,
+                    "fallback_block_status": "blocked",
+                },
                 runtime_caps={},
                 queue_positions={},
                 local_worker_url="http://localhost:5000",
@@ -296,9 +310,10 @@ def test_dispatch_hard_timeout_marks_task_failed(app, monkeypatch):
 
 # ── 6. Aggregate counter correctness after parallel dispatch ──────────────────
 
+
 def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
     """N tasks dispatched in parallel: dispatched_count == N, (completed+failed) == N."""
-    from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task, TaskDispatchResult
+    from agent.services.autopilot.tick_engine import TaskDispatchResult, _dispatch_one_task
 
     n = 8
     loop = _fresh_loop()
@@ -317,10 +332,11 @@ def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
     workers = [_fake_worker("http://w0:5000")]
 
     with patch(
-        "agent.routes.tasks.autopilot_task_dispatcher._dispatch_one_task_inner",
+        "agent.services.autopilot.task_dispatcher._dispatch_one_task_inner",
         side_effect=_fake_inner,
     ):
         import concurrent.futures as cf
+
         results: list[TaskDispatchResult] = []
         with cf.ThreadPoolExecutor(max_workers=n) as executor:
             futures = {
@@ -332,7 +348,11 @@ def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
                     loop=loop,
                     services=MagicMock(),
                     policy={},
-                    fallback_policy={"allow_hub_worker_fallback": True, "escalate_on_fallback_block": False, "fallback_block_status": "blocked"},
+                    fallback_policy={
+                        "allow_hub_worker_fallback": True,
+                        "escalate_on_fallback_block": False,
+                        "fallback_block_status": "blocked",
+                    },
                     runtime_caps={},
                     queue_positions={},
                     local_worker_url="http://localhost:5000",
@@ -359,6 +379,7 @@ def test_parallel_dispatch_counters_aggregate_exactly(app, monkeypatch):
 
 
 # ── 7. Circuit breaker thread safety ─────────────────────────────────────────
+
 
 def test_circuit_breaker_opens_exactly_once_under_concurrent_failures():
     """Multiple threads recording failures simultaneously must not double-open the circuit."""

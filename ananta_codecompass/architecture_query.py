@@ -6,6 +6,7 @@ hits. FTS acts as seed resolver, graph traversal as proof; heuristic edges are
 flagged, never sold as hard truth. Query types are whitelisted — no free-form
 graph query language is executed (CCAQE-DD-003).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -163,7 +164,11 @@ def classify_result_role(node: dict[str, Any]) -> str:
     ):
         return "test"
 
-    labels = {str(item).strip().lower() for item in list(record.get("role_labels") or node.get("role_labels") or []) if str(item).strip()}
+    labels = {
+        str(item).strip().lower()
+        for item in list(record.get("role_labels") or node.get("role_labels") or [])
+        if str(item).strip()
+    }
     for role in ("controller", "service", "repository", "mapper", "entity", "config", "dto"):
         if role in labels:
             return role
@@ -181,7 +186,11 @@ def classify_result_role(node: dict[str, Any]) -> str:
         return "service"
     if name.endswith(("Policy", "Permission", "Guard", "Interceptor")) or kind in {"policy", "permission"}:
         return "policy"
-    if has_annotation("@Configuration") or name.endswith(("Config", "Configuration")) or kind in {"config", "xml_tag", "xml_file"}:
+    if (
+        has_annotation("@Configuration")
+        or name.endswith(("Config", "Configuration"))
+        or kind in {"config", "xml_tag", "xml_file"}
+    ):
         return "config"
     if has_annotation("@Entity", "@Embeddable", "@MappedSuperclass"):
         return "entity"
@@ -328,11 +337,9 @@ def _classify_enforcement(edges: list[dict[str, Any]], seed_reasons: set[str]) -
 
 
 def _collect_operations(edges: list[dict[str, Any]]) -> list[str]:
-    operations = sorted({
-        str(edge.get("operation") or "").strip().lower()
-        for edge in edges
-        if str(edge.get("operation") or "").strip()
-    })
+    operations = sorted(
+        {str(edge.get("operation") or "").strip().lower() for edge in edges if str(edge.get("operation") or "").strip()}
+    )
     return operations
 
 
@@ -365,16 +372,10 @@ def _annotate_security_provenance(
             source_id = str(edge.get("source_id") or "")
             source_node = lookup.get(source_id) if source_id else None
             if "source_file" not in new_edge:
-                new_edge["source_file"] = (
-                    (source_node or {}).get("file")
-                    or edge.get("source_file")
-                    or edge.get("file")
-                )
+                new_edge["source_file"] = (source_node or {}).get("file") or edge.get("source_file") or edge.get("file")
             if "source_record_id" not in new_edge:
                 new_edge["source_record_id"] = (
-                    (source_node or {}).get("record_id")
-                    or edge.get("source_record_id")
-                    or edge.get("record_id")
+                    (source_node or {}).get("record_id") or edge.get("source_record_id") or edge.get("record_id")
                 )
             if edge_type == "frontend_guard_refs_field":
                 new_edge["enforcement_scope"] = "frontend_only"
@@ -434,10 +435,12 @@ def run_architecture_query(
         "candidates": resolution["candidates"],
     }
     base_result["warnings"].extend(resolution["warnings"])
-    base_result["diagnostics"].update({
-        "query_direction": direction_name,
-        "depth_used": effective_depth,
-    })
+    base_result["diagnostics"].update(
+        {
+            "query_direction": direction_name,
+            "depth_used": effective_depth,
+        }
+    )
     if not resolution["resolved_node_ids"]:
         return base_result
 
@@ -451,12 +454,14 @@ def run_architecture_query(
         direction=direction_name,
         max_paths_per_node=bounds.max_paths_per_result,
     )
-    base_result["diagnostics"].update({
-        "traversed_nodes": len(list(traversal.get("nodes") or [])),
-        "expansions": int(traversal.get("expansions") or 0),
-        "truncated": bool(traversal.get("truncated")),
-        "cycle_count": int(traversal.get("cycle_count") or 0),
-    })
+    base_result["diagnostics"].update(
+        {
+            "traversed_nodes": len(list(traversal.get("nodes") or [])),
+            "expansions": int(traversal.get("expansions") or 0),
+            "truncated": bool(traversal.get("truncated")),
+            "cycle_count": int(traversal.get("cycle_count") or 0),
+        }
+    )
     if traversal.get("truncated"):
         base_result["warnings"].append("traversal_truncated_by_limits")
     if query_name == "service-dependency-chain" and int(traversal.get("cycle_count") or 0) > 0:
@@ -479,13 +484,20 @@ def run_architecture_query(
             if not _path_matches_field(edges, field_name):
                 continue
             edges = _annotate_security_provenance(edges, source_nodes=node_lookup)
-            scored_paths.append({
-                "path_score": score_evidence_path(edges),
-                "edges": edges,
-            })
+            scored_paths.append(
+                {
+                    "path_score": score_evidence_path(edges),
+                    "edges": edges,
+                }
+            )
         if not scored_paths:
             continue
-        scored_paths.sort(key=lambda item: (-float(item["path_score"]), str(item["edges"][0].get("edge_type") or "") if item["edges"] else ""))
+        scored_paths.sort(
+            key=lambda item: (
+                -float(item["path_score"]),
+                str(item["edges"][0].get("edge_type") or "") if item["edges"] else "",
+            )
+        )
         scored_paths = scored_paths[: bounds.max_paths_per_result]
         best_path = scored_paths[0]
         best_edges = list(best_path["edges"])
@@ -497,7 +509,11 @@ def run_architecture_query(
         only_heuristics = all(_path_uses_only_heuristics(list(entry["edges"])) for entry in scored_paths)
         if only_heuristics:
             result_warnings.append("heuristic_evidence_only")
-        if any(str(edge.get("edge_type") or "") in HEURISTIC_EDGE_TYPES for entry in scored_paths for edge in entry["edges"]):
+        if any(
+            str(edge.get("edge_type") or "") in HEURISTIC_EDGE_TYPES
+            for entry in scored_paths
+            for edge in entry["edges"]
+        ):
             heuristic_edge_used = True
 
         result_entry: dict[str, Any] = {
@@ -577,7 +593,9 @@ def render_query_result_markdown(result: dict[str, Any], *, max_results: int = 1
     lines.append("")
 
     if not results:
-        lines.append("**Ergebnis: nicht gefunden / nicht belegt.** Es liegen keine Evidence-Pfade vor; das ist kein Beleg fuer Abwesenheit.")
+        lines.append(
+            "**Ergebnis: nicht gefunden / nicht belegt.** Es liegen keine Evidence-Pfade vor; das ist kein Beleg fuer Abwesenheit."
+        )
     else:
         lines.append(f"**{len(results)} Ergebnis(se)** (max. {max_results} gezeigt):")
         lines.append("")

@@ -16,9 +16,7 @@ from scripts.sfu_broadcast_gate_common import (
 
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-ACTIVE_PARENT_STAGES = frozenset(
-    {"single_pair_opt_in", "trusted_small_group", "bounded_pilot", "general_opt_in"}
-)
+ACTIVE_PARENT_STAGES = frozenset({"single_pair_opt_in", "trusted_small_group", "bounded_pilot", "general_opt_in"})
 
 
 def is_sha256(value: Any) -> bool:
@@ -120,8 +118,14 @@ def validate_exceptions(
     reasons: set[str] = set()
     seen: set[tuple[str, str]] = set()
     required = {
-        "rule_id", "scope", "owner", "rationale", "expires_on",
-        "compensating_control", "approval_key_id", "approval_digest",
+        "rule_id",
+        "scope",
+        "owner",
+        "rationale",
+        "expires_on",
+        "compensating_control",
+        "approval_key_id",
+        "approval_digest",
         "approval_signature_verified",
     }
     for item in value:
@@ -201,8 +205,16 @@ def unavailable_report(
 
 
 __all__ = [
-    "IDENTIFIER_RE", "atomic_write_report", "build_report", "canonical_sha256",
-    "content_reasons", "is_sha256", "parse_utc", "parent_activation_reasons",
-    "read_bounded_json", "unavailable_report", "validate_bindings",
+    "IDENTIFIER_RE",
+    "atomic_write_report",
+    "build_report",
+    "canonical_sha256",
+    "content_reasons",
+    "is_sha256",
+    "parse_utc",
+    "parent_activation_reasons",
+    "read_bounded_json",
+    "unavailable_report",
+    "validate_bindings",
     "validate_exceptions",
 ]

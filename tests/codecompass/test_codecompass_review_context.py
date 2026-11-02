@@ -1,14 +1,12 @@
 """CRG-006 + RIG-007: minimal review context tests."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import pytest
-
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_review_context import (
-    DEFAULT_SEED_CAP,
     REVIEW_CONTEXT_VERSION,
     build_minimal_review_context,
 )
@@ -19,48 +17,102 @@ def _seed_store(tmp_path: Path) -> CodeCompassGraphStore:
     s.rebuild_from_output_records(
         manifest_hash="m",
         records=[
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:a.py", "kind": "file", "name": "a.py", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:b.py", "kind": "file", "name": "b.py", "file": "b.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:c.py", "kind": "file", "name": "c.py", "file": "c.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "symbol_function:f:a.py:func_a", "kind": "symbol_function",
-             "name": "func_a", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "symbol_function:f:b.py:func_b", "kind": "symbol_function",
-             "name": "func_b", "file": "b.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "symbol_function:f:c.py:test_a", "kind": "symbol_function",
-             "name": "test_a", "file": "c.py"},
-            {"_provenance": {"output_kind": "graph_edges"},
-             "source": "symbol_function:f:b.py:func_b",
-             "target": "symbol_function:f:a.py:func_a",
-             "type": "calls", "confidence": 1.0},
-            {"_provenance": {"output_kind": "graph_edges"},
-             "source": "symbol_function:f:c.py:test_a",
-             "target": "symbol_function:f:a.py:func_a",
-             "type": "covers", "confidence": 1.0},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "bc:a", "kind": "buildable_component",
-             "attrs": {"name": "a"}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "rn:ctest", "kind": "runner",
-             "attrs": {"kind": "ctest"}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "t:a_test", "kind": "test",
-             "attrs": {"name": "a_test"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "bc:a", "to_id": "rn:ctest", "kind": "tested_by",
-             "evidence": {"source_file": "/ws/CMakeLists.txt",
-                          "source_kind": "spade_cmake_reply",
-                          "source_record_id": "t:a"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "rn:ctest", "to_id": "t:a_test", "kind": "runs",
-             "evidence": {"source_file": "/ws/CTestTestfile.cmake",
-                          "source_kind": "spade_ctest_record",
-                          "source_record_id": "a_test"}},
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "f:a.py",
+                "kind": "file",
+                "name": "a.py",
+                "file": "a.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "f:b.py",
+                "kind": "file",
+                "name": "b.py",
+                "file": "b.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "f:c.py",
+                "kind": "file",
+                "name": "c.py",
+                "file": "c.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:f:a.py:func_a",
+                "kind": "symbol_function",
+                "name": "func_a",
+                "file": "a.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:f:b.py:func_b",
+                "kind": "symbol_function",
+                "name": "func_b",
+                "file": "b.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:f:c.py:test_a",
+                "kind": "symbol_function",
+                "name": "test_a",
+                "file": "c.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "symbol_function:f:b.py:func_b",
+                "target": "symbol_function:f:a.py:func_a",
+                "type": "calls",
+                "confidence": 1.0,
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "symbol_function:f:c.py:test_a",
+                "target": "symbol_function:f:a.py:func_a",
+                "type": "covers",
+                "confidence": 1.0,
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "bc:a",
+                "kind": "buildable_component",
+                "attrs": {"name": "a"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "rn:ctest",
+                "kind": "runner",
+                "attrs": {"kind": "ctest"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "t:a_test",
+                "kind": "test",
+                "attrs": {"name": "a_test"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "bc:a",
+                "to_id": "rn:ctest",
+                "kind": "tested_by",
+                "evidence": {
+                    "source_file": "/ws/CMakeLists.txt",
+                    "source_kind": "spade_cmake_reply",
+                    "source_record_id": "t:a",
+                },
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "rn:ctest",
+                "to_id": "t:a_test",
+                "kind": "runs",
+                "evidence": {
+                    "source_file": "/ws/CTestTestfile.cmake",
+                    "source_kind": "spade_ctest_record",
+                    "source_record_id": "a_test",
+                },
+            },
         ],
     )
     s._cached_payload = None
@@ -157,7 +209,7 @@ def test_review_context_rig_prefers_build_evidence(tmp_path):
         include_repository_intelligence=True,
         task_kind="ci",
     )
-    titles = [s.title for s in ctx.sections]
+    [s.title for s in ctx.sections]
     rig_section = next((s for s in ctx.sections if s.title == "build_test_evidence"), None)
     assert rig_section is not None
     assert rig_section.evidence_paths

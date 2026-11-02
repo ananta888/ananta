@@ -9,7 +9,6 @@ from agent.services.knowledge_hygiene.config import KnowledgeHygieneConfig
 from agent.services.knowledge_hygiene.service import KnowledgeHygieneService
 from agent.services.knowledge_hygiene.writeback import ObsidianMarkdownWritebackAdapter
 
-
 _repository = None
 _lock = threading.Lock()
 

@@ -2,7 +2,7 @@
 
 import subprocess
 
-from tests.meet_speech_worklet_observation import INSTALL
+from tests.meet.meet_speech_worklet_observation import INSTALL
 
 
 def test_observer_forwards_construction_and_only_retains_bounded_known_error_codes():

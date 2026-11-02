@@ -1,37 +1,36 @@
 """OHA-008/009: Tests für MemoryTreeStoreService und MemoryTreeIngestionService."""
+
 import json
-import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
-from agent.services.memory_tree_store_service import (
-    MemoryTreeStoreService,
-    chunk_id,
-    node_id,
-)
 from agent.services.memory_tree_ingestion_service import (
-    IngestionStats,
     MemoryTreeIngestionService,
     _content_from_record,
     _label_from_record,
     _sensitivity_from_record,
 )
+from agent.services.memory_tree_store_service import (
+    MemoryTreeStoreService,
+    chunk_id,
+    node_id,
+)
 from agent.services.memory_vault_export_service import MemoryVaultExportService
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def store(tmp_path, monkeypatch):
     """In-memory SQLite store for tests — fully isolated per test."""
     from sqlmodel import SQLModel, create_engine
-    from agent import db_models  # noqa: F401 — registers all tables
+
     import agent.database as db_module
     import agent.services.memory_tree_store_service as store_module
+    from agent import db_models  # noqa: F401 — registers all tables
 
     test_engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
@@ -45,11 +44,10 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(store_module._db_module, "engine", test_engine)
 
     svc = MemoryTreeStoreService()
-    from tests.security.memory_fixtures import synthetic_memory_access
     from ananta_contracts.memory_access import MemoryScope
+    from tests.security.memory_fixtures import synthetic_memory_access
 
-    with synthetic_memory_access(channels=("hub-memory-tree", "hub-memory-vault"),
-                                 scopes=tuple(MemoryScope)):
+    with synthetic_memory_access(channels=("hub-memory-tree", "hub-memory-vault"), scopes=tuple(MemoryScope)):
         yield svc
 
 
@@ -62,14 +60,25 @@ def ingestion(store):
 def ki_dir(tmp_path):
     """Minimal KnowledgeIndex output directory."""
     records_index = [
-        {"record_id": "r1", "name": "OrderService", "file": "OrderService.java", "content": "Handles orders", "kind": "code"},
+        {
+            "record_id": "r1",
+            "name": "OrderService",
+            "file": "OrderService.java",
+            "content": "Handles orders",
+            "kind": "code",
+        },
         {"record_id": "r2", "name": "PaymentService", "file": "PaymentService.java", "content": "Processes payments"},
     ]
     records_details = [
         {"record_id": "r3", "title": "OrderService docs", "content": "Detailed docs for order service"},
     ]
     records_relations = [
-        {"record_id": "r4", "relation": "uses", "name": "OrderService->PaymentService", "content": "injects dependency"},
+        {
+            "record_id": "r4",
+            "relation": "uses",
+            "name": "OrderService->PaymentService",
+            "content": "injects dependency",
+        },
     ]
 
     (tmp_path / "index.jsonl").write_text("\n".join(json.dumps(r) for r in records_index))
@@ -81,6 +90,7 @@ def ki_dir(tmp_path):
 # ---------------------------------------------------------------------------
 # chunk_id / node_id determinism
 # ---------------------------------------------------------------------------
+
 
 def test_chunk_id_is_deterministic():
     id1 = chunk_id("src-1", "OrderService", "content text")
@@ -113,6 +123,7 @@ def test_node_id_differs_on_type_change():
 # ---------------------------------------------------------------------------
 # MemoryTreeStoreService — ingest_chunk
 # ---------------------------------------------------------------------------
+
 
 def test_ingest_chunk_created(store):
     chunk, created = store.ingest_chunk(
@@ -158,6 +169,7 @@ def test_count_chunks(store):
 # MemoryTreeStoreService — lifecycle
 # ---------------------------------------------------------------------------
 
+
 def test_update_lifecycle_to_sealed(store):
     chunk, _ = store.ingest_chunk(source_id="ki-001", source_type="code", label="A", content="a")
     ok = store.update_lifecycle(chunk.id, "sealed")
@@ -185,6 +197,7 @@ def test_seal_source(store):
 # ---------------------------------------------------------------------------
 # MemoryTreeStoreService — nodes
 # ---------------------------------------------------------------------------
+
 
 def test_upsert_node_create(store):
     node = store.upsert_node(node_type="source", label="ki-001-source")
@@ -215,6 +228,7 @@ def test_get_node(store):
 # ---------------------------------------------------------------------------
 # MemoryTreeStoreService — jobs
 # ---------------------------------------------------------------------------
+
 
 def test_enqueue_job(store):
     job = store.enqueue_job(kind="ingest_source", payload={"source_id": "ki-001"})
@@ -265,6 +279,7 @@ def test_process_next_queue_job_seals_source(store):
 # Record parsing helpers
 # ---------------------------------------------------------------------------
 
+
 def test_sensitivity_from_record_known():
     assert _sensitivity_from_record({"sensitivity": "public"}) == "public"
     assert _sensitivity_from_record({"sensitivity": "secret"}) == "secret"
@@ -291,6 +306,7 @@ def test_content_from_record():
 # ---------------------------------------------------------------------------
 # MemoryTreeIngestionService — KnowledgeIndex ingest
 # ---------------------------------------------------------------------------
+
 
 def test_ingest_knowledge_index_creates_chunks(ingestion, ki_dir):
     stats = ingestion.ingest_knowledge_index(
@@ -354,11 +370,20 @@ def test_ingest_sensitivity_ceiling(ingestion, tmp_path):
 # MemoryTreeIngestionService — CodeCompass graph ingest
 # ---------------------------------------------------------------------------
 
+
 def test_ingest_codecompass_graph_nodes(ingestion):
     artifact = {
         "nodes": [
-            {"node_id": "n1", "node_type": "java_type", "attributes": {"name": "OrderService", "content": "handles orders", "file": "OrderService.java"}},
-            {"node_id": "n2", "node_type": "java_method", "attributes": {"name": "placeOrder", "content": "places order", "file": "OrderService.java"}},
+            {
+                "node_id": "n1",
+                "node_type": "java_type",
+                "attributes": {"name": "OrderService", "content": "handles orders", "file": "OrderService.java"},
+            },
+            {
+                "node_id": "n2",
+                "node_type": "java_method",
+                "attributes": {"name": "placeOrder", "content": "places order", "file": "OrderService.java"},
+            },
         ],
         "edges": [],
     }
@@ -371,7 +396,12 @@ def test_ingest_codecompass_graph_edges(ingestion):
     artifact = {
         "nodes": [],
         "edges": [
-            {"source_id": "n1", "target_id": "n2", "relation": "calls_probable_target", "attributes": {"confidence": 0.9}},
+            {
+                "source_id": "n1",
+                "target_id": "n2",
+                "relation": "calls_probable_target",
+                "attributes": {"confidence": 0.9},
+            },
         ],
     }
     stats = ingestion.ingest_codecompass_graph(knowledge_index_id="ki-cc2", graph_artifact=artifact)
@@ -380,7 +410,10 @@ def test_ingest_codecompass_graph_edges(ingestion):
 
 
 def test_ingest_codecompass_graph_idempotent(ingestion):
-    artifact = {"nodes": [{"node_id": "n1", "node_type": "java_type", "attributes": {"name": "X", "content": "y"}}], "edges": []}
+    artifact = {
+        "nodes": [{"node_id": "n1", "node_type": "java_type", "attributes": {"name": "X", "content": "y"}}],
+        "edges": [],
+    }
     ingestion.ingest_codecompass_graph(knowledge_index_id="ki-cc3", graph_artifact=artifact)
     s2 = ingestion.ingest_codecompass_graph(knowledge_index_id="ki-cc3", graph_artifact=artifact)
     assert s2.created == 0
@@ -428,7 +461,15 @@ def test_tree_rejects_legacy_rows_and_sensitivity_metadata_drift(store):
         row = session.get(MemoryTreeChunkDB, chunk.id)
         row.sensitivity = "secret"
         session.add(row)
-        session.add(MemoryTreeChunkDB(id="unbound-old-row", source_id="protected", source_type="code",
-                                     label="old", content="legacy canary", sensitivity="internal"))
+        session.add(
+            MemoryTreeChunkDB(
+                id="unbound-old-row",
+                source_id="protected",
+                source_type="code",
+                label="old",
+                content="legacy canary",
+                sensitivity="internal",
+            )
+        )
         session.commit()
     assert store.get_chunks_by_source("protected") == []

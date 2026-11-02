@@ -99,9 +99,7 @@ def upgrade() -> None:
             ),
         )
         for column in ("session_id", "pair_id", "sender_id", "epoch", "traffic_class", "expires_at_ms"):
-            op.create_index(
-                f"ix_speech_evidence_replay_states_{column}", "speech_evidence_replay_states", [column]
-            )
+            op.create_index(f"ix_speech_evidence_replay_states_{column}", "speech_evidence_replay_states", [column])
         op.create_index(
             "ix_speech_evidence_replay_expiry",
             "speech_evidence_replay_states",
@@ -233,9 +231,7 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("transfer_id", "chunk_index", name="uq_speech_evidence_transfer_chunk_index"),
             sa.UniqueConstraint("transfer_id", "message_id", name="uq_speech_evidence_transfer_chunk_message"),
-            sa.UniqueConstraint(
-                "nonce_scope_digest", name="uq_speech_evidence_transfer_nonce"
-            ),
+            sa.UniqueConstraint("nonce_scope_digest", name="uq_speech_evidence_transfer_nonce"),
         )
         for column in (
             "transfer_id",
@@ -248,9 +244,7 @@ def upgrade() -> None:
             "direction",
             "acknowledged",
         ):
-            op.create_index(
-                f"ix_speech_evidence_transfer_chunks_{column}", "speech_evidence_transfer_chunks", [column]
-            )
+            op.create_index(f"ix_speech_evidence_transfer_chunks_{column}", "speech_evidence_transfer_chunks", [column])
 
 
 def downgrade() -> None:

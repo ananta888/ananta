@@ -14,7 +14,6 @@ from worker.training.backends.unsloth_checkpoint import UnslothCheckpointLifecyc
 from worker.training.exports import ExportError, ExportFormat, ExportRequest, UnslothExportExecutor
 from worker.training.vram_admission import VramAdmissionError, VramAdmissionPolicy
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,9 +28,7 @@ class UnslothTrainingBackend(PeftTrlTrainingBackend):
     ) -> None:
         self._admission_policy = admission_policy or VramAdmissionPolicy.from_environment()
         self._export_executor_factory = export_executor_factory
-        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(
-            backend_name=self.name
-        )
+        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(backend_name=self.name)
 
     def availability(self) -> tuple[bool, str | None]:
         available, detail = super().availability()
@@ -198,9 +195,7 @@ class UnslothTrainingBackend(PeftTrlTrainingBackend):
                     retryable=False,
                 ) from exc
             artifacts.extend(
-                path
-                for path in sorted(export_root.rglob("*"))
-                if path.is_file() and not path.is_symlink()
+                path for path in sorted(export_root.rglob("*")) if path.is_file() and not path.is_symlink()
             )
         return TrainingOutcome(
             metrics=outcome.metrics,

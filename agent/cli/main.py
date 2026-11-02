@@ -82,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  ananta llm log tail --limit 10\n"
             "  ananta runtime operations --health degraded\n"
             "  ananta prompt goal-traces --goal-id <id>\n"
-            "  ananta dev acceptance --scenario-file scenario_lmstudio.json --sla-seconds 900\n"
+            "  ananta dev acceptance --scenario-file config/scenario_lmstudio.json --sla-seconds 900\n"
             "  ananta dev check cycles\n"
             '  ananta ask "What should I do next?"\n'
         ),

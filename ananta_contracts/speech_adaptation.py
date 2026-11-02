@@ -7,20 +7,30 @@ uses an independent wire version and job type.
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from ananta_contracts.speech_adaptation_bindings import (
+    SpeechArtifactTarget,
+    SpeechAttemptBinding,
+    SpeechBaseModelBinding,
+    SpeechConsentBinding,
+    SpeechDatasetBinding,
+    SpeechFencingBinding,
+    SpeechResourceBudget,
+    SpeechResumeBinding,
+    SpeechScopeBinding,
+    SpeechTrainingConfiguration,
+    speech_attempt_digest,
+    speech_budget_digest,
+    speech_configuration_digest,
+    speech_fencing_digest,
+    speech_job_binding_digest,
+    speech_scope_digest,
+)
 from ananta_contracts.speech_adaptation_primitives import (
-    _artifact_ref,
-    canonical_json,
-    canonical_sha256,
-    _closed,
     CONTRACT_VERSION,
-    _digest,
-    _identifier,
-    _integer,
     MAX_ARTIFACT_BYTES,
     MAX_BATCH_SIZE,
     MAX_CHECKPOINTS,
@@ -32,30 +42,19 @@ from ananta_contracts.speech_adaptation_primitives import (
     MAX_VRAM_BYTES,
     MAX_WALL_SECONDS,
     RESULT_TYPE,
-    SpeechAdaptationContractError,
     SUPPORTED_BACKENDS,
     SUPPORTED_DIRECTIONS,
     SUPPORTED_SCENARIOS,
-    _text,
     TRAIN_JOB_TYPE,
-)
-from ananta_contracts.speech_adaptation_bindings import (
-    speech_attempt_digest,
-    speech_budget_digest,
-    speech_configuration_digest,
-    speech_fencing_digest,
-    speech_job_binding_digest,
-    speech_scope_digest,
-    SpeechArtifactTarget,
-    SpeechAttemptBinding,
-    SpeechBaseModelBinding,
-    SpeechConsentBinding,
-    SpeechDatasetBinding,
-    SpeechFencingBinding,
-    SpeechResourceBudget,
-    SpeechResumeBinding,
-    SpeechScopeBinding,
-    SpeechTrainingConfiguration,
+    SpeechAdaptationContractError,
+    _artifact_ref,
+    _closed,
+    _digest,
+    _identifier,
+    _integer,
+    _text,
+    canonical_json,
+    canonical_sha256,
 )
 
 

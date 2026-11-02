@@ -501,7 +501,9 @@ def _validate_context(context: VerificationContext) -> list[str]:
         reasons.append(ReasonCode.EXPECTED_GIT_SOURCE_DIGEST_INVALID.value)
     for category in DIGEST_CATEGORIES:
         digests = context.digests_for(category)
-        if not isinstance(digests, Mapping) or any(not _identifier(key) or not _sha256(value) for key, value in digests.items()):
+        if not isinstance(digests, Mapping) or any(
+            not _identifier(key) or not _sha256(value) for key, value in digests.items()
+        ):
             reasons.append(ReasonCode.EXPECTED_DIGEST_SET_INVALID.value)
     return reasons
 

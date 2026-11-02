@@ -96,11 +96,7 @@ def _admin_identity() -> tuple[str, str] | None:
     identity = dict(get_request_auth_context() or {})
     role = str(identity.get("role") or "").lower()
     roles = identity.get("roles")
-    role_values = (
-        {str(value).lower() for value in roles}
-        if isinstance(roles, (list, tuple, set, frozenset))
-        else set()
-    )
+    role_values = {str(value).lower() for value in roles} if isinstance(roles, (list, tuple, set, frozenset)) else set()
     if role != "admin" and "admin" not in role_values:
         return None
     try:

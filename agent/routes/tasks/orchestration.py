@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from contextlib import contextmanager
 import uuid
+from contextlib import contextmanager
 from typing import Any
 from urllib.parse import urlparse
 
@@ -13,13 +13,15 @@ from flask import Blueprint, g, request
 from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.config import settings
+from agent.db_models import AgentInfoDB
 from agent.models import TaskClaimRequest, TaskCreateRequest, TaskDelegationRequest
-from agent.routes.tasks.orchestration_policy import (
-    DelegationPolicy,
-)
+from agent.repository import agent_repo
 from agent.services.context_bundle_ingress_policy import (
     find_reserved_context_bundle_marker,
     reserved_context_bundle_ingress_error,
+)
+from agent.services.orchestration_policy import (
+    DelegationPolicy,
 )
 from agent.services.retrieval_vector_scope_ingress_policy import (
     find_reserved_retrieval_vector_scope_marker,
@@ -31,8 +33,6 @@ from agent.services.vector_index_task_ingress_policy import (
     find_reserved_vector_index_marker,
     reserved_vector_index_ingress_error,
 )
-from agent.repository import agent_repo
-from agent.db_models import AgentInfoDB
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -112,10 +112,7 @@ def _claim_task_lock(task_id: str) -> object:
 
 def _retryable_claim_error(exc: Exception) -> bool:
     message = str(exc or "").lower()
-    return any(
-        marker in message
-        for marker in {"database is locked", "timeout", "connection", "lock", "sqlite"}
-    )
+    return any(marker in message for marker in {"database is locked", "timeout", "connection", "lock", "sqlite"})
 
 
 @orchestration_bp.route("/tasks/<tid>/delegate", methods=["POST"])
@@ -165,13 +162,9 @@ def ingest_task():
             data=result["data"],
             code=result["code"],
         )
-    reserved_scope_marker = (
-        find_reserved_retrieval_vector_scope_marker(payload)
-    )
+    reserved_scope_marker = find_reserved_retrieval_vector_scope_marker(payload)
     if reserved_scope_marker:
-        result = reserved_retrieval_vector_scope_ingress_error(
-            reserved_scope_marker
-        )
+        result = reserved_retrieval_vector_scope_ingress_error(reserved_scope_marker)
         return api_response(
             status="error",
             message=result["error"],
@@ -283,9 +276,7 @@ def claim_task():
             message="claim_request_failed",
             data={
                 "error": (
-                    str(claim_task_exception)
-                    if claim_task_exception is not None
-                    else "claim_handler_unexpected_state"
+                    str(claim_task_exception) if claim_task_exception is not None else "claim_handler_unexpected_state"
                 )
             },
             code=500,
@@ -332,9 +323,7 @@ def complete_task():
 @check_auth
 @admin_required
 def orchestration_read_model():
-    raw_rag_include_content = request.args.get(
-        "artifact_flow_rag_include_content"
-    )
+    raw_rag_include_content = request.args.get("artifact_flow_rag_include_content")
     rag_include_content = _parse_bool(raw_rag_include_content)
     if raw_rag_include_content is not None and rag_include_content is None:
         return api_response(

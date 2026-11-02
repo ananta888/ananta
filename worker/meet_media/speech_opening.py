@@ -1,5 +1,6 @@
 """One owned browser setup, polled by its assigned runtime without inner waits."""
 
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -69,4 +70,4 @@ class BrowserSpeechOpening:
             try:
                 self.browser.cancel_open(token)
             except Exception:
-                pass  # The independent browser generation/lease watchdog still applies.
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)

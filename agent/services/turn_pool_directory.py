@@ -131,8 +131,7 @@ class TurnPoolDirectory:
             endpoints = tuple(
                 endpoint
                 for endpoint in node.endpoints
-                if endpoint.get("consumer") == query.consumer
-                and endpoint.get("transport") == query.transport
+                if endpoint.get("consumer") == query.consumer and endpoint.get("transport") == query.transport
             )
             if (
                 node.instance_id not in excluded
@@ -172,9 +171,9 @@ class TurnPoolDirectory:
         )
 
     def _stable_rank(self, query: TurnPoolSelectionQuery, node: TurnPoolNode) -> bytes:
-        payload = "\x1f".join(
-            (query.receiver_stability_ref, query.pool_id, query.region, node.instance_id)
-        ).encode("utf-8")
+        payload = "\x1f".join((query.receiver_stability_ref, query.pool_id, query.region, node.instance_id)).encode(
+            "utf-8"
+        )
         return hmac.new(self._selection_hmac_key, payload, hashlib.sha256).digest()
 
     def _validate_registration(self, registration: TurnPoolRegistration) -> None:

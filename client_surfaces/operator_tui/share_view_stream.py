@@ -5,32 +5,29 @@
 - Hash-Mismatch löst Resync per Full Snapshot aus
 - Stream läuft nicht im Render-Hotpath
 """
+
 from __future__ import annotations
 
 import hashlib
-import json
-import time
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from client_surfaces.operator_tui.tui_snapshot import rendered_tui_snapshot_text
+from client_surfaces.operator_tui.share_crypto import (
+    DecryptionFailedError,
+    decrypt_view,
+    encrypt_view,
+)
 from client_surfaces.operator_tui.share_view_policy import (
     ViewSharePolicy,
     build_default_policy,
     check_and_redact_snapshot,
 )
-from client_surfaces.operator_tui.share_crypto import (
-    encrypt_view,
-    decrypt_view,
-    DecryptionFailedError,
-    SessionKeyPair,
-)
 
-
-_SNAPSHOT_INTERVAL = 5.0   # Sekunden zwischen initialen Snapshots
-_DELTA_INTERVAL = 1.0      # Sekunden zwischen Delta-Checks
+_SNAPSHOT_INTERVAL = 5.0  # Sekunden zwischen initialen Snapshots
+_DELTA_INTERVAL = 1.0  # Sekunden zwischen Delta-Checks
 _MAX_PAYLOAD_BYTES = 256 * 1024  # 256 KB
 
 
@@ -169,6 +166,7 @@ class ViewStreamReceiver:
         if not enc_dict:
             return False
         from client_surfaces.operator_tui.share_crypto import EncryptedPayload
+
         try:
             payload = EncryptedPayload.from_dict(enc_dict)
             text_bytes = decrypt_view(payload, self._shared_key)

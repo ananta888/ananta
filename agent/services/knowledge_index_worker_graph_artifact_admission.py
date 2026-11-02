@@ -58,13 +58,8 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
             ("graph_index", graph_reference),
             ("graph_visual_metrics", metrics_reference),
         ):
-            if (
-                str(reference.get("media_type") or "").lower()
-                != GRAPH_MEDIA_TYPES[role]
-            ):
-                raise ValueError(
-                    "knowledge_index_worker_graph_artifact_media_type_invalid"
-                )
+            if str(reference.get("media_type") or "").lower() != GRAPH_MEDIA_TYPES[role]:
+                raise ValueError("knowledge_index_worker_graph_artifact_media_type_invalid")
         graph = strict_json_object(staged_paths["graph_index"])
         state = graph.get("state")
         if not isinstance(state, Mapping):
@@ -76,11 +71,9 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
         metrics = strict_json_object(staged_paths["graph_visual_metrics"])
         if (
             graph_schema != "codecompass_graph_index.v1"
-            or str(graph_reference.get("artifact_schema") or "")
-            != "codecompass_graph_index.v1"
+            or str(graph_reference.get("artifact_schema") or "") != "codecompass_graph_index.v1"
             or str(metrics.get("schema") or "") != "graph_visual_metrics.v1"
-            or str(metrics_reference.get("artifact_schema") or "")
-            != "graph_visual_metrics.v1"
+            or str(metrics_reference.get("artifact_schema") or "") != "graph_visual_metrics.v1"
             or not graph_revision
             or str(metrics.get("graph_revision") or "") != graph_revision
             or str(graph_reference.get("graph_revision") or "") != graph_revision
@@ -92,12 +85,8 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
 
         graph_file_hash = "sha256:" + file_sha256(staged_paths["graph_index"])
         if str(graph_reference.get("graph_content_hash") or "") != graph_file_hash:
-            raise ValueError(
-                "knowledge_index_worker_graph_artifact_content_hash_mismatch"
-            )
-        unsigned_metrics = {
-            key: value for key, value in metrics.items() if key != "content_hash"
-        }
+            raise ValueError("knowledge_index_worker_graph_artifact_content_hash_mismatch")
+        unsigned_metrics = {key: value for key, value in metrics.items() if key != "content_hash"}
         try:
             canonical_metrics = json.dumps(
                 unsigned_metrics,
@@ -107,18 +96,13 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
                 allow_nan=False,
             ).encode("utf-8")
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                "knowledge_index_worker_graph_visual_metrics_invalid"
-            ) from exc
+            raise ValueError("knowledge_index_worker_graph_visual_metrics_invalid") from exc
         metrics_content_hash = "sha256:" + hashlib.sha256(canonical_metrics).hexdigest()
         if (
             str(metrics.get("content_hash") or "") != metrics_content_hash
-            or str(metrics_reference.get("graph_content_hash") or "")
-            != metrics_content_hash
+            or str(metrics_reference.get("graph_content_hash") or "") != metrics_content_hash
         ):
-            raise ValueError(
-                "knowledge_index_worker_graph_visual_metrics_hash_mismatch"
-            )
+            raise ValueError("knowledge_index_worker_graph_visual_metrics_hash_mismatch")
         binding: dict[str, Any] = {
             "schema": "codecompass_graph_artifact_binding.v1",
             "graph_revision": graph_revision,
@@ -131,29 +115,20 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
         logical_content_hash = str(supplement_reference.get("graph_content_hash") or "")
         artifact_sha256 = str(supplement_reference.get("sha256") or "").lower()
         if (
-            str(supplement_reference.get("media_type") or "").lower()
-            != DOMAIN_SUPPLEMENT_MEDIA_TYPE
-            or str(supplement_reference.get("artifact_schema") or "")
-            != DOMAIN_SUPPLEMENT_SCHEMA
+            str(supplement_reference.get("media_type") or "").lower() != DOMAIN_SUPPLEMENT_MEDIA_TYPE
+            or str(supplement_reference.get("artifact_schema") or "") != DOMAIN_SUPPLEMENT_SCHEMA
             or str(supplement_reference.get("graph_revision") or "") != graph_revision
-            or str(supplement_reference.get("source_revision_id") or "")
-            != source_revision_id
-            or str(supplement_reference.get("source_revision_digest") or "")
-            != source_revision_digest
+            or str(supplement_reference.get("source_revision_id") or "") != source_revision_id
+            or str(supplement_reference.get("source_revision_digest") or "") != source_revision_digest
             or not logical_content_hash.startswith("sha256:")
             or len(logical_content_hash) != 71
-            or any(
-                character not in "0123456789abcdef"
-                for character in logical_content_hash[7:]
-            )
+            or any(character not in "0123456789abcdef" for character in logical_content_hash[7:])
             or len(artifact_sha256) != 64
             or any(character not in "0123456789abcdef" for character in artifact_sha256)
         ):
             raise ValueError("knowledge_index_worker_domain_supplement_binding_invalid")
         validation_options = (
-            {"checkpoint": transfer_deadline.require_remaining_seconds}
-            if transfer_deadline is not None
-            else {}
+            {"checkpoint": transfer_deadline.require_remaining_seconds} if transfer_deadline is not None else {}
         )
         catalog = self._domain_supplement_reader.validate_artifact(
             path=staged_paths[DOMAIN_SUPPLEMENT_OUTPUT_ROLE],
@@ -171,19 +146,12 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
         )
         expected_counts = {
             "domain_count": len(catalog.domains),
-            "semantic_node_count": sum(
-                domain.semantic_node_count for domain in catalog.domains
-            ),
-            "semantic_edge_count": sum(
-                domain.semantic_edge_count for domain in catalog.domains
-            ),
-            "declaration_edge_count": sum(
-                domain.declaration_edge_count for domain in catalog.domains
-            ),
+            "semantic_node_count": sum(domain.semantic_node_count for domain in catalog.domains),
+            "semantic_edge_count": sum(domain.semantic_edge_count for domain in catalog.domains),
+            "declaration_edge_count": sum(domain.declaration_edge_count for domain in catalog.domains),
         }
         if any(
-            isinstance(supplement_reference.get(field), bool)
-            or supplement_reference.get(field) != expected
+            isinstance(supplement_reference.get(field), bool) or supplement_reference.get(field) != expected
             for field, expected in expected_counts.items()
         ):
             raise ValueError("knowledge_index_worker_domain_supplement_count_mismatch")
@@ -222,22 +190,14 @@ class KnowledgeIndexWorkerGraphArtifactAdmission:
                     {
                         "media_type": str(reference.get("media_type") or ""),
                         "graph_revision": str(reference.get("graph_revision") or ""),
-                        "source_scope": str(
-                            reference.get("source_scope") or "repo_path"
-                        ),
+                        "source_scope": str(reference.get("source_scope") or "repo_path"),
                         "source_id": str(reference.get("source_id") or ""),
-                        "source_revision_id": str(
-                            reference.get("source_revision_id") or ""
-                        ),
-                        "source_revision_digest": str(
-                            reference.get("source_revision_digest") or ""
-                        ),
+                        "source_revision_id": str(reference.get("source_revision_id") or ""),
+                        "source_revision_digest": str(reference.get("source_revision_digest") or ""),
                         "domain_count": reference.get("domain_count"),
                         "semantic_node_count": reference.get("semantic_node_count"),
                         "semantic_edge_count": reference.get("semantic_edge_count"),
-                        "declaration_edge_count": reference.get(
-                            "declaration_edge_count"
-                        ),
+                        "declaration_edge_count": reference.get("declaration_edge_count"),
                     }
                 )
             return projected

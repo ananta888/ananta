@@ -4,12 +4,12 @@ Regression tests for sandbox isolation assumptions.
 These tests verify that hardened profiles cannot be silently weakened and that
 key denial assumptions hold across isolation classes.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from agent.services.sandbox_policy_service import get_sandbox_policy_service
-
 
 SVC = get_sandbox_policy_service()
 
@@ -78,6 +78,7 @@ def test_bounded_commands_resolve_to_bounded_class(cmd):
 # Filesystem boundary: workspace root enforcement is on by default
 # ---------------------------------------------------------------------------
 
+
 def test_filesystem_defaults_enforce_boundary_block_sensitive_dirs_and_allow_workspace():
     normalized = SVC.normalize({})
     assert normalized["filesystem"]["enforce_workspace_boundary"] is True
@@ -93,6 +94,7 @@ def test_filesystem_defaults_enforce_boundary_block_sensitive_dirs_and_allow_wor
 # ---------------------------------------------------------------------------
 # Network egress: default mode must be restricted
 # ---------------------------------------------------------------------------
+
 
 def test_network_egress_mode_is_restricted_by_default():
     normalized = SVC.normalize({})
@@ -114,6 +116,7 @@ def test_network_egress_custom_allowlist_preserved():
 # ---------------------------------------------------------------------------
 # Hardened profile cannot be silently weakened by partial config
 # ---------------------------------------------------------------------------
+
 
 def test_hardened_profile_not_weakened_by_missing_keys():
     """Omitting keys from a hardened config must not downgrade defaults."""
@@ -143,6 +146,7 @@ def test_sandbox_wrappers_disabled_bypasses_class_check():
 # ---------------------------------------------------------------------------
 # Terminal policy: blocked target types enforcement
 # ---------------------------------------------------------------------------
+
 
 def test_terminal_defaults_block_hub_as_worker_and_enforce():
     normalized = SVC.normalize({})

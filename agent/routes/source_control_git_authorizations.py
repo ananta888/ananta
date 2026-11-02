@@ -26,9 +26,7 @@ from agent.services.source_control_access_policy import SourceControlAction
 
 _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
-_IDEMPOTENCY_KEY = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$"
-)
+_IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$")
 _ETAG = re.compile(r'^"git-auth-v1:(?P<revision>[1-9][0-9]*)"$')
 _TRANSITION_FIELDS = frozenset({"repository"})
 
@@ -132,15 +130,11 @@ def create_source_control_git_authorizations_blueprint(
             "project_id",
         }
         if unknown:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_query_fields_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_query_fields_invalid")
         try:
             limit = int(request.args.get("limit", "50"))
         except ValueError:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_limit_invalid"
-            ) from None
+            raise HubGitAuthorizationProvisioningError("git_authorization_limit_invalid") from None
         result = service.list_authorizations(
             principal=_scoped_principal(),
             cursor=request.args.get("cursor"),
@@ -155,9 +149,7 @@ def create_source_control_git_authorizations_blueprint(
     @_access_guard
     @_boundary
     def authorization_health():
-        result = service.health(
-            principal=_scoped_principal()
-        )
+        result = service.health(principal=_scoped_principal())
         status_code = 200 if result.get("status") == "healthy" else 503
         return _success(result, status_code=status_code)
 
@@ -168,9 +160,7 @@ def create_source_control_git_authorizations_blueprint(
     def authorization_detail(authorization_ref: str):
         unknown = set(request.args) - {"repository", "project_id"}
         if unknown:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_query_fields_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_query_fields_invalid")
         result = service.detail(
             principal=_scoped_principal(),
             authorization_ref=authorization_ref,
@@ -178,9 +168,7 @@ def create_source_control_git_authorizations_blueprint(
         )
         return _success(result, etag=str(result.get("etag") or ""))
 
-    @blueprint.post(
-        "/git-authorizations/<authorization_ref>/actions/revoke"
-    )
+    @blueprint.post("/git-authorizations/<authorization_ref>/actions/revoke")
     @check_auth
     @_access_guard
     @_boundary
@@ -194,9 +182,7 @@ def create_source_control_git_authorizations_blueprint(
         )
         return _success(result, etag=str(result.get("etag") or ""))
 
-    @blueprint.post(
-        "/git-authorizations/<authorization_ref>/actions/scope-loss"
-    )
+    @blueprint.post("/git-authorizations/<authorization_ref>/actions/scope-loss")
     @check_auth
     @_access_guard
     @_boundary
@@ -221,20 +207,12 @@ def _access_guard(function: Callable):
         try:
             authenticated = get_authenticated_source_control_principal()
             principal = bind_source_control_project_selector(
-                str(
-                    request.args.get("project_id")
-                    or getattr(authenticated, "project_id", None)
-                    or ""
-                ),
+                str(request.args.get("project_id") or getattr(authenticated, "project_id", None) or ""),
                 principal=authenticated,
             )
         except SourceControlProjectScopeError as exc:
             return _error(exc.reason_code, exc.status_code)
-        action = (
-            SourceControlAction.list
-            if request.method == "GET"
-            else SourceControlAction.refresh
-        )
+        action = SourceControlAction.list if request.method == "GET" else SourceControlAction.refresh
         denied = authorize_route_request(
             action=action,
             resource_kind="git_authorization",
@@ -262,18 +240,14 @@ def _scoped_principal():
 def _json_object() -> Mapping[str, object]:
     payload = request.get_json(silent=True)
     if not isinstance(payload, Mapping):
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_payload_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_payload_invalid")
     return dict(payload)
 
 
 def _transition_repository() -> str | None:
     payload = _json_object()
     if set(payload) != _TRANSITION_FIELDS:
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_transition_fields_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_transition_fields_invalid")
     repository = payload.get("repository")
     return str(repository) if repository is not None else None
 
@@ -281,9 +255,7 @@ def _transition_repository() -> str | None:
 def _idempotency_key() -> str:
     value = str(request.headers.get("Idempotency-Key") or "").strip()
     if _IDEMPOTENCY_KEY.fullmatch(value) is None:
-        raise HubGitAuthorizationProvisioningError(
-            "idempotency_key_required"
-        )
+        raise HubGitAuthorizationProvisioningError("idempotency_key_required")
     return value
 
 
@@ -345,10 +317,7 @@ def _boundary(function: Callable):
             )
             return _error(reason_code, status_code)
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "")
-                or "git_authorization_internal_error"
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or "git_authorization_internal_error")
             status_code = int(getattr(exc, "status_code", 500) or 500)
             if not 400 <= status_code <= 599:
                 status_code = 500

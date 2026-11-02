@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 
 from agent.services.path_ai_mode_policy_service import (
+    AI_MODE_CODECOMPASS_ONLY,
     AI_MODE_DIRECT_LLM,
     AI_MODE_FULL_LLM,
-    AI_MODE_CODECOMPASS_ONLY,
     AI_MODE_RESTRICTED_TRANSFORMER,
     PathAiModePolicyService,
     PathAiModeRule,
@@ -17,14 +17,18 @@ from agent.services.restricted_model_inference_service import MockInferenceAdapt
 
 @pytest.mark.integration
 def test_path_rule_blocks_full_llm_but_allows_codecompass_rtipm_context() -> None:
-    policy = PathAiModePolicyService(rules=[
-        PathAiModeRule.from_raw({
-            "path_glob": "agent/services/**",
-            "allowed_ai_modes": [AI_MODE_CODECOMPASS_ONLY, AI_MODE_RESTRICTED_TRANSFORMER],
-            "blocked_ai_modes": [AI_MODE_FULL_LLM, AI_MODE_DIRECT_LLM],
-            "allowed_model_engines": ["mock"],
-        })
-    ])
+    policy = PathAiModePolicyService(
+        rules=[
+            PathAiModeRule.from_raw(
+                {
+                    "path_glob": "agent/services/**",
+                    "allowed_ai_modes": [AI_MODE_CODECOMPASS_ONLY, AI_MODE_RESTRICTED_TRANSFORMER],
+                    "blocked_ai_modes": [AI_MODE_FULL_LLM, AI_MODE_DIRECT_LLM],
+                    "allowed_model_engines": ["mock"],
+                }
+            )
+        ]
+    )
     resolved = policy.resolve("agent/services/auth.py")
     assert not resolved.is_mode_allowed(AI_MODE_FULL_LLM)
     assert not resolved.is_mode_allowed(AI_MODE_DIRECT_LLM)
@@ -38,7 +42,12 @@ def test_path_rule_blocks_full_llm_but_allows_codecompass_rtipm_context() -> Non
     )
     orc = PreModelContextOrchestrator(
         retrieve_fn=lambda _task, _domain, _workspace, _budget: [
-            {"path": "agent/services/auth.py", "record_id": "auth", "excerpt": "token validation", "embedding_score": 0.2},
+            {
+                "path": "agent/services/auth.py",
+                "record_id": "auth",
+                "excerpt": "token validation",
+                "embedding_score": 0.2,
+            },
             {"path": "agent/services/log.py", "record_id": "log", "excerpt": "logging", "embedding_score": 0.9},
         ],
         restricted_inference_service=inference,

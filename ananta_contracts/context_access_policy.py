@@ -6,11 +6,12 @@ preflight verification with the same deterministic evaluator.
 """
 
 from __future__ import annotations
+
 import hashlib
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 
 class Sensitivity(str, Enum):
@@ -178,15 +179,17 @@ class ContextAccessPolicyEvaluator:
                 "worker_kind": destination.worker_kind,
                 "runtime_kind": destination.runtime_kind,
                 "model_scope": destination.model_scope,
-                "provider_id": destination.provider_id
+                "provider_id": destination.provider_id,
             },
-            "operation": destination.requested_operation
+            "operation": destination.requested_operation,
         }
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
-    def get_decision(self, block_metadata: Dict[str, Any], destination: DestinationContext) -> ContextBlockAccessDecision:
+    def get_decision(
+        self, block_metadata: Dict[str, Any], destination: DestinationContext
+    ) -> ContextBlockAccessDecision:
         matched_rules = [r for r in self.policy.rules if self._match_source(r, block_metadata)]
-        
+
         decision_hash = self.compute_decision_hash(block_metadata, destination)
 
         decision = Decision.deny
@@ -203,7 +206,7 @@ class ContextAccessPolicyEvaluator:
                 reason_detail="Approval override active",
                 effective_sensitivity=effective_sensitivity,
                 policy_version=self.policy.version,
-                decision_hash=decision_hash
+                decision_hash=decision_hash,
             )
         if block_metadata.get("approval_override_id"):
             return ContextBlockAccessDecision(
@@ -215,7 +218,7 @@ class ContextAccessPolicyEvaluator:
                 reason_detail="Approval override present but scope mismatch",
                 effective_sensitivity=effective_sensitivity,
                 policy_version=self.policy.version,
-                decision_hash=decision_hash
+                decision_hash=decision_hash,
             )
 
         if self.policy.defaults:
@@ -260,7 +263,7 @@ class ContextAccessPolicyEvaluator:
             reason_code=reason_code,
             effective_sensitivity=effective_sensitivity,
             policy_version=self.policy.version,
-            decision_hash=decision_hash
+            decision_hash=decision_hash,
         )
 
     def _is_approval_override_allowed(self, block_metadata: Dict[str, Any], destination: DestinationContext) -> bool:
@@ -289,6 +292,7 @@ class ContextAccessPolicyEvaluator:
         if valid_until is not None:
             try:
                 import time
+
                 if float(valid_until) < time.time():
                     return False
             except Exception:
@@ -302,6 +306,7 @@ class ContextAccessPolicyEvaluator:
 
         if rule.source_match:
             import fnmatch
+
             source_ref = block_metadata.get("source_ref", "")
             if not fnmatch.fnmatch(source_ref, rule.source_match):
                 origin_id = block_metadata.get("origin_id", "")
@@ -373,8 +378,12 @@ def build_destination_context(
 ) -> DestinationContext:
     rk = (runtime_kind or "").lower()
     pk = (provider_location or "").lower()
-    cloud_effective = ("cloud" in rk) or ("remote" in rk) or pk in {"public", "external", "cloud", "public_cloud", "approved_cloud"}
-    external_effective = ("external" in rk) or ("remote" in rk) or pk in {"external", "public", "public_cloud", "approved_cloud"}
+    cloud_effective = (
+        ("cloud" in rk) or ("remote" in rk) or pk in {"public", "external", "cloud", "public_cloud", "approved_cloud"}
+    )
+    external_effective = (
+        ("external" in rk) or ("remote" in rk) or pk in {"external", "public", "public_cloud", "approved_cloud"}
+    )
     local_effective = not cloud_effective and not external_effective
     if local_effective:
         model_scope = ModelScope.local_model

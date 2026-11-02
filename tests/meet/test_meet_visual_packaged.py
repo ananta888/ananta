@@ -19,7 +19,7 @@ pytestmark = [
 def test_real_packaged_visual_source_is_grant_control_and_worker_bound(
     app, tmp_path, monkeypatch, record_property, source
 ):
-    from tests.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_dialog_browser_fixture import docker
     from tests.meet.meet_receive_packaged_fixture import packaged_receive
 
     with packaged_receive(app, tmp_path, monkeypatch, source=source, image=os.environ["MEET_VISUAL_WORKER_IMAGE"]) as f:

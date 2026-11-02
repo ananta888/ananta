@@ -5,15 +5,15 @@ from threading import Barrier
 
 import pytest
 from sqlalchemy.pool import NullPool
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import create_engine
 
 from agent.db_models.source_control import (
     SourceControlBulkTargetCheckpointDB,
     SourceControlOperationDB,
 )
 from agent.services.source_control_api_runtime import (
-    SQLSourceControlOperationStore,
     SourceControlApiRuntimeError,
+    SQLSourceControlOperationStore,
 )
 
 

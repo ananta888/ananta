@@ -5,6 +5,7 @@ workspace mutation security policy; callers use it after path/scope
 checks to decide whether a source-size change is ok, warning,
 follow-up-required, or blocked.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -12,7 +13,6 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
 
 CATEGORY_PRODUCTION_SOURCE = "production_source"
 CATEGORY_FACADE_OR_ROUTES = "facade_or_routes"
@@ -279,11 +279,18 @@ class GeneratedSourceLinePolicyService:
             }
         name = Path(rel).name
         if _matches_any(name, GENERATED_PATTERNS):
-            return {"path": rel, "extension": extension, "category": CATEGORY_GENERATED, "reason": f"generated_pattern:{name}"}
+            return {
+                "path": rel,
+                "extension": extension,
+                "category": CATEGORY_GENERATED,
+                "reason": f"generated_pattern:{name}",
+            }
         normalized = f"/{rel}"
         if any(marker in normalized for marker in TEST_PATH_MARKERS) or _matches_any(name, TEST_NAME_PATTERNS):
             return {"path": rel, "extension": extension, "category": CATEGORY_TESTS, "reason": "test_path_or_name"}
-        if extension in DATA_SCHEMA_CONFIG_EXTENSIONS or any(marker in normalized for marker in DATA_SCHEMA_CONFIG_MARKERS):
+        if extension in DATA_SCHEMA_CONFIG_EXTENSIONS or any(
+            marker in normalized for marker in DATA_SCHEMA_CONFIG_MARKERS
+        ):
             return {
                 "path": rel,
                 "extension": extension,
@@ -297,7 +304,12 @@ class GeneratedSourceLinePolicyService:
                 "category": CATEGORY_FACADE_OR_ROUTES,
                 "reason": "facade_or_route_path",
             }
-        return {"path": rel, "extension": extension, "category": CATEGORY_PRODUCTION_SOURCE, "reason": "source_extension"}
+        return {
+            "path": rel,
+            "extension": extension,
+            "category": CATEGORY_PRODUCTION_SOURCE,
+            "reason": "source_extension",
+        }
 
     def count_file_lines(self, path: Path) -> LineCountResult:
         try:
@@ -307,7 +319,9 @@ class GeneratedSourceLinePolicyService:
         except OSError as exc:
             return LineCountResult(line_count=0, file_size_bytes=0, unreadable_reason=exc.__class__.__name__)
 
-    def build_baseline(self, *, workspace_dir: str | Path, changed_rel_paths: list[str] | None) -> dict[str, int | None]:
+    def build_baseline(
+        self, *, workspace_dir: str | Path, changed_rel_paths: list[str] | None
+    ) -> dict[str, int | None]:
         workspace = Path(workspace_dir).resolve()
         baseline: dict[str, int | None] = {}
         for rel in list(changed_rel_paths or []):
@@ -558,7 +572,9 @@ class GeneratedSourceLinePolicyService:
         return list(by_key.values())
 
     @staticmethod
-    def _persist_followups(*, workspace_dir: Path, followups: list[dict[str, Any]], enabled: bool) -> list[dict[str, Any]]:
+    def _persist_followups(
+        *, workspace_dir: Path, followups: list[dict[str, Any]], enabled: bool
+    ) -> list[dict[str, Any]]:
         if not enabled or not followups:
             return followups
         path = workspace_dir / ".ananta" / "source-line-followups.json"

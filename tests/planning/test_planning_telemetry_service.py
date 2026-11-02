@@ -27,7 +27,11 @@ def test_build_learning_record_unifies_planning_signals():
         dependency_mode_distribution={"strict": 1},
         materialized_task_ids=["task-a", "task-b"],
         parse_warnings=["truncate"],
-        mode_data={"__output_shape__": "partial_json", "__parser_trace__": {"used_step": "json_extract"}, "__truncated__": True},
+        mode_data={
+            "__output_shape__": "partial_json",
+            "__parser_trace__": {"used_step": "json_extract"},
+            "__truncated__": True,
+        },
     )
 
     record = PlanningTelemetryService().build_learning_record(run)

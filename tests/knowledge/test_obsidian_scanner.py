@@ -1,18 +1,15 @@
 """Tests for ObsidianVaultScanner (OBS-002)."""
+
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
-
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.application.vault_scanner import (
     VaultFile,
-    VaultDiff,
     compute_diff,
     load_manifest,
     save_manifest,
@@ -97,6 +94,7 @@ def test_vault_file_has_sha256():
 
 # ── Manifest ─────────────────────────────────────────────────────────────────
 
+
 def test_save_and_load_manifest(tmp_path):
     manifest = {"index.md": {"sha256": "abc123", "mtime": 1000.0, "last_indexed_at": 2000.0, "indexed_record_count": 5}}
     path = tmp_path / "vault_manifest.json"
@@ -120,6 +118,7 @@ def test_save_manifest_atomic(tmp_path):
 
 
 # ── compute_diff ─────────────────────────────────────────────────────────────
+
 
 def test_compute_diff_all_new():
     profile = _FakeProfile(VAULT_DIR)
@@ -154,15 +153,14 @@ def test_compute_diff_detects_changed():
 def test_compute_diff_detects_deleted():
     profile = _FakeProfile(VAULT_DIR)
     files = scan(profile)
-    manifest = {
-        vf.rel_path: {"sha256": vf.sha256, "mtime": vf.mtime} for vf in files
-    }
+    manifest = {vf.rel_path: {"sha256": vf.sha256, "mtime": vf.mtime} for vf in files}
     manifest["deleted_file.md"] = {"sha256": "xyz", "mtime": 0.0}
     diff = compute_diff(files, manifest)
     assert "deleted_file.md" in diff.deleted
 
 
 # ── update_manifest_entry ────────────────────────────────────────────────────
+
 
 def test_update_manifest_entry():
     profile = _FakeProfile(VAULT_DIR)

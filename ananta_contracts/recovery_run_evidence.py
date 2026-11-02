@@ -15,14 +15,9 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-
-RECOVERY_TOOL_RUN_CONTEXT_SCHEMA = (
-    "ananta.recovery_tool_run_context.v1"
-)
+RECOVERY_TOOL_RUN_CONTEXT_SCHEMA = "ananta.recovery_tool_run_context.v1"
 RECOVERY_RUN_SOURCE_ID_PATTERN = re.compile(r"^RUN_[0-9]{4}$")
-_CONTEXT_FIELDS = frozenset(
-    {"schema", "task_id", "records", "digest"}
-)
+_CONTEXT_FIELDS = frozenset({"schema", "task_id", "records", "digest"})
 _RECORD_FIELDS = frozenset(
     {
         "record_id",
@@ -47,17 +42,11 @@ def _canonical(value: Any) -> bytes:
             allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        raise RecoveryRunEvidenceContractError(
-            "recovery_tool_run_context_not_json"
-        ) from exc
+        raise RecoveryRunEvidenceContractError("recovery_tool_run_context_not_json") from exc
 
 
 def _digest(value: Mapping[str, Any]) -> str:
-    payload = {
-        key: value[key]
-        for key in value
-        if key != "digest"
-    }
+    payload = {key: value[key] for key in value if key != "digest"}
     return hashlib.sha256(_canonical(payload)).hexdigest()
 
 
@@ -72,12 +61,8 @@ def build_recovery_tool_run_context(
         {
             "record_id": str(value.get("record_id") or "").strip(),
             "source_id": str(value.get("source_id") or "").strip(),
-            "source_type": str(
-                value.get("source_type") or ""
-            ).strip(),
-            "allowed_for_llm_scope": (
-                value.get("allowed_for_llm_scope")
-            ),
+            "source_type": str(value.get("source_type") or "").strip(),
+            "allowed_for_llm_scope": (value.get("allowed_for_llm_scope")),
         }
         for value in records
         if isinstance(value, Mapping)
@@ -102,14 +87,10 @@ def validate_recovery_tool_run_context(
     """Validate task binding, identifiers, shape, and canonical digest."""
 
     if not isinstance(value, Mapping):
-        raise RecoveryRunEvidenceContractError(
-            "recovery_tool_run_context_required"
-        )
+        raise RecoveryRunEvidenceContractError("recovery_tool_run_context_required")
     raw = dict(value)
     if set(raw) != _CONTEXT_FIELDS:
-        raise RecoveryRunEvidenceContractError(
-            "recovery_tool_run_context_fields_invalid"
-        )
+        raise RecoveryRunEvidenceContractError("recovery_tool_run_context_fields_invalid")
     expected_task_id = str(task_id or "").strip()
     records = raw.get("records")
     if (
@@ -120,37 +101,28 @@ def validate_recovery_tool_run_context(
         or not records
         or len(records) > 32
     ):
-        raise RecoveryRunEvidenceContractError(
-            "recovery_tool_run_context_binding_invalid"
-        )
+        raise RecoveryRunEvidenceContractError("recovery_tool_run_context_binding_invalid")
     normalized_records: list[dict[str, Any]] = []
     source_ids: set[str] = set()
     record_ids: set[str] = set()
     for value_record in records:
         if not isinstance(value_record, Mapping):
-            raise RecoveryRunEvidenceContractError(
-                "recovery_tool_run_context_record_invalid"
-            )
+            raise RecoveryRunEvidenceContractError("recovery_tool_run_context_record_invalid")
         record = dict(value_record)
         if set(record) != _RECORD_FIELDS:
-            raise RecoveryRunEvidenceContractError(
-                "recovery_tool_run_context_record_invalid"
-            )
+            raise RecoveryRunEvidenceContractError("recovery_tool_run_context_record_invalid")
         record_id = str(record.get("record_id") or "").strip()
         source_id = str(record.get("source_id") or "").strip()
         if (
             not record_id
             or len(record_id) > 200
             or record_id in record_ids
-            or RECOVERY_RUN_SOURCE_ID_PATTERN.fullmatch(source_id)
-            is None
+            or RECOVERY_RUN_SOURCE_ID_PATTERN.fullmatch(source_id) is None
             or source_id in source_ids
             or record.get("source_type") != "tool_run"
             or record.get("allowed_for_llm_scope") is not True
         ):
-            raise RecoveryRunEvidenceContractError(
-                "recovery_tool_run_context_record_invalid"
-            )
+            raise RecoveryRunEvidenceContractError("recovery_tool_run_context_record_invalid")
         normalized_records.append(
             {
                 "record_id": record_id,
@@ -169,13 +141,8 @@ def validate_recovery_tool_run_context(
     }
     actual_digest = normalized["digest"]
     expected_digest = _digest(normalized)
-    if (
-        len(actual_digest) != 64
-        or not hmac.compare_digest(actual_digest, expected_digest)
-    ):
-        raise RecoveryRunEvidenceContractError(
-            "recovery_tool_run_context_digest_mismatch"
-        )
+    if len(actual_digest) != 64 or not hmac.compare_digest(actual_digest, expected_digest):
+        raise RecoveryRunEvidenceContractError("recovery_tool_run_context_digest_mismatch")
     return normalized
 
 

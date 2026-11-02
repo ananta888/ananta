@@ -3,12 +3,11 @@
 All tests are fully deterministic: no external calls, fixed random seed,
 predictable vectors from FakeEmbeddingProvider.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
-import pytest
 
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
 from worker.retrieval.vector_encoding import (
@@ -16,10 +15,10 @@ from worker.retrieval.vector_encoding import (
     VectorEncodingProfile,
 )
 
-
 # ---------------------------------------------------------------------------
 # Deterministic fake embedding provider
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class FakeEmbeddingProvider:
@@ -31,10 +30,7 @@ class FakeEmbeddingProvider:
         return "fakehash"
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        return [
-            [0.1 * i + 0.01 * j for j in range(self.dimensions)]
-            for i, _ in enumerate(texts)
-        ]
+        return [[0.1 * i + 0.01 * j for j in range(self.dimensions)] for i, _ in enumerate(texts)]
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +107,7 @@ _REQUIRED_FIELDS = {"record_id", "kind", "file", "embedding_text"}
 # TQ-022-001  fixture documents have required fields
 # ---------------------------------------------------------------------------
 
+
 def test_fixture_documents_have_required_fields():
     """Every fixture document must have all required fields set to non-empty strings."""
     assert len(FIXTURE_DOCUMENTS) == 10
@@ -123,6 +120,7 @@ def test_fixture_documents_have_required_fields():
 # ---------------------------------------------------------------------------
 # TQ-022-002  vector store indexes all fixture documents
 # ---------------------------------------------------------------------------
+
 
 def test_vector_store_indexes_all_fixture_documents(tmp_path):
     """After rebuild the entry count must equal len(FIXTURE_DOCUMENTS)."""
@@ -147,6 +145,7 @@ def test_vector_store_indexes_all_fixture_documents(tmp_path):
 # TQ-022-003  search returns at most top_k results
 # ---------------------------------------------------------------------------
 
+
 def test_vector_engine_returns_top_k_results(tmp_path):
     """search() must return at most top_k results."""
     store = CodeCompassVectorStore(index_path=tmp_path / "index.json")
@@ -167,6 +166,7 @@ def test_vector_engine_returns_top_k_results(tmp_path):
 # ---------------------------------------------------------------------------
 # TQ-022-004  allowed_paths filter works correctly
 # ---------------------------------------------------------------------------
+
 
 def test_search_with_allowed_paths_filter(tmp_path):
     """Results can be post-filtered by file prefix; only matching entries returned."""
@@ -197,6 +197,7 @@ def test_search_with_allowed_paths_filter(tmp_path):
 # TQ-022-005  search is deterministic (same query + same index → same ranking)
 # ---------------------------------------------------------------------------
 
+
 def test_fixture_search_deterministic(tmp_path):
     """Calling search() twice with the same query must return the same ranking order."""
     store = CodeCompassVectorStore(index_path=tmp_path / "index.json")
@@ -219,6 +220,7 @@ def test_fixture_search_deterministic(tmp_path):
 # ---------------------------------------------------------------------------
 # TQ-022-006  int8 encoding does not collapse the top result
 # ---------------------------------------------------------------------------
+
 
 def test_fixture_with_int8_encoding(tmp_path):
     """With int8 encoding the top-scored result must still have a positive score."""

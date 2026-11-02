@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from agent.services.wiki_chunking_policy import split_wiki_content
 from agent.services.wiki_mediawiki_xml_parser import MediaWikiXmlDumpParser
@@ -106,4 +106,3 @@ def ingest_wikipedia_dump(
         "chunks": chunks,
         "issues": issues,
     }
-

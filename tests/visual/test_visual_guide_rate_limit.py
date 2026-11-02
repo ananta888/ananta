@@ -7,6 +7,7 @@ Tests:
 - DecisionService suppression when pug disabled
 - time.time mock simulates 60s passage
 """
+
 from __future__ import annotations
 
 import time
@@ -14,15 +15,16 @@ import unittest.mock as mock
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def reset_visual_state(app):
     """Ensure Flask is initialized; also reset legacy module-level state."""
     import agent.routes.snakes_execution_routes as ser
+
     ser._visual_last_delta_snapshot = ""
     ser._visual_last_reply_snapshot = ""
     ser._visual_last_reply_at = 0.0
@@ -36,13 +38,16 @@ def reset_visual_state(app):
 def svc(monkeypatch):
     """VisualGuideService with background-thread check bypassed.
     Clears _visual_state before and after to prevent cross-test leakage."""
-    from agent.services.visual_guide.service import VisualGuideService
     import agent.services.visual_guide.service as svc_mod
+    from agent.services.visual_guide.service import VisualGuideService
+
     svc_mod._visual_state.clear()
     monkeypatch.setattr(svc_mod, "_background_threads_disabled", lambda: False)
-    monkeypatch.setattr(svc_mod, "_visual_session_settings",
-                        lambda: {"predictive_guide_enabled": True,
-                                 "predictive_guide_multi_candidates": 1})
+    monkeypatch.setattr(
+        svc_mod,
+        "_visual_session_settings",
+        lambda: {"predictive_guide_enabled": True, "predictive_guide_multi_candidates": 1},
+    )
     service = VisualGuideService()
     yield service
     svc_mod._visual_state.clear()
@@ -56,14 +61,15 @@ def _fake_config():
 # Tests: VisualGuideService throttle via _visual_state (per-snake)
 # ---------------------------------------------------------------------------
 
+
 class TestVisualReplyThrottle:
     def test_throttle_prevents_second_call_within_window(self, svc, monkeypatch):
         """A second handle_ui_tick within _VISUAL_THROTTLE_S is suppressed."""
         import agent.services.visual_guide.service as svc_mod
+
         appended = []
 
-        monkeypatch.setattr(svc_mod, "_append_room_ai_message",
-                            lambda **kw: appended.append(kw))
+        monkeypatch.setattr(svc_mod, "_append_room_ai_message", lambda **kw: appended.append(kw))
 
         with mock.patch.object(svc, "_call_llm_for_ui_tick", return_value="Guide text"):
             # First call — should produce a reply
@@ -75,17 +81,15 @@ class TestVisualReplyThrottle:
             second_count = len(appended)
 
         assert first_count >= 1, "First call should have produced a reply"
-        assert second_count == first_count, (
-            "Second call within throttle window should not append another message"
-        )
+        assert second_count == first_count, "Second call within throttle window should not append another message"
 
     def test_throttle_allows_call_after_window_expires(self, svc, monkeypatch):
         """After the throttle window elapses, a new snapshot can produce a reply."""
         import agent.services.visual_guide.service as svc_mod
+
         appended = []
 
-        monkeypatch.setattr(svc_mod, "_append_room_ai_message",
-                            lambda **kw: appended.append(kw))
+        monkeypatch.setattr(svc_mod, "_append_room_ai_message", lambda **kw: appended.append(kw))
 
         with mock.patch.object(svc, "_call_llm_for_ui_tick", return_value="Guide text"):
             # First call to set up state
@@ -93,6 +97,7 @@ class TestVisualReplyThrottle:
 
             # Manually wind back the reply_at timestamp
             from agent.services.visual_guide.service import _get_visual_state
+
             state = _get_visual_state("s1")
             state["reply_at"] = time.time() - 30.0  # past throttle window (>25s)
 
@@ -104,6 +109,7 @@ class TestVisualReplyThrottle:
     def test_throttle_constant_is_positive(self, reset_visual_state):
         """The throttle constant must be positive to be meaningful."""
         import agent.services.visual_guide.service as svc_mod
+
         assert svc_mod._VISUAL_THROTTLE_S > 0
 
     def test_same_snapshot_suppressed_on_llm_path(self, svc, monkeypatch):
@@ -113,10 +119,10 @@ class TestVisualReplyThrottle:
         The rule path returns without updating reply_snapshot by design (rules are cheap).
         """
         import agent.services.visual_guide.service as svc_mod
+
         appended = []
 
-        monkeypatch.setattr(svc_mod, "_append_room_ai_message",
-                            lambda **kw: appended.append(kw))
+        monkeypatch.setattr(svc_mod, "_append_room_ai_message", lambda **kw: appended.append(kw))
 
         # Use /unknown-route — not in ROUTE_TIPS → forces LLM path which updates reply_snapshot
         with mock.patch.object(svc, "_call_llm_for_ui_tick", return_value="Guide text"):
@@ -126,6 +132,7 @@ class TestVisualReplyThrottle:
 
             # Wind back time past throttle window
             from agent.services.visual_guide.service import _get_visual_state
+
             state = _get_visual_state("s1")
             state["reply_at"] = 0.0
 
@@ -151,14 +158,13 @@ class TestVisualReplyThrottle:
         # Wind back by 60 seconds
         state["reply_at"] = now - 60.0
         elapsed_after = time.time() - state["reply_at"]
-        assert elapsed_after >= svc_mod._VISUAL_THROTTLE_S, (
-            "After 60s the throttle window must have elapsed"
-        )
+        assert elapsed_after >= svc_mod._VISUAL_THROTTLE_S, "After 60s the throttle window must have elapsed"
 
 
 # ---------------------------------------------------------------------------
 # Tests: VisualGuideService._check_rate_limit (4 calls per minute cap)
 # ---------------------------------------------------------------------------
+
 
 class TestServiceRateLimit:
     def test_first_four_calls_allowed(self, svc):
@@ -191,6 +197,7 @@ class TestServiceRateLimit:
 # ---------------------------------------------------------------------------
 # Tests: DecisionService suppression (visual_guide package)
 # ---------------------------------------------------------------------------
+
 
 class TestDecisionServiceRateLimit:
     """Tests for VisualGuideDecisionService.decide() suppression logic."""

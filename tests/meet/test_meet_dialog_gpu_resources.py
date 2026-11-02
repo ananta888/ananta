@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_gpu_resources import receive_gpu_arguments
-from tests.meet_dialog_worker_container import DialogWorkerContainer
+from tests.meet.meet_dialog_gpu_resources import receive_gpu_arguments
+from tests.meet.meet_dialog_worker_container import DialogWorkerContainer
 from tests.meet.test_meet_dialog_worker_container_fixture import HUB, IMAGE, NETWORK
 from tests.meet.test_meet_gpu_source_fixture import mounts
 

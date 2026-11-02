@@ -41,11 +41,7 @@ class ArtifactStore:
         if execution_checkpoint is None:
             storage_path.write_bytes(content)
             digest = hashlib.sha256(content).hexdigest()
-            detected_media_type = (
-                media_type
-                or mimetypes.guess_type(safe_filename)[0]
-                or "application/octet-stream"
-            )
+            detected_media_type = media_type or mimetypes.guess_type(safe_filename)[0] or "application/octet-stream"
             return {
                 "storage_path": str(storage_path),
                 "sha256": digest,
@@ -58,9 +54,7 @@ class ArtifactStore:
         # process error can therefore remove only the incomplete temporary
         # file, while os.replace preserves the store's existing overwrite and
         # idempotent-replay contract.
-        temporary_path = artifact_dir / (
-            f".{storage_name}.tmp-{uuid.uuid4().hex}"
-        )
+        temporary_path = artifact_dir / (f".{storage_name}.tmp-{uuid.uuid4().hex}")
         hasher = hashlib.sha256()
         try:
             with temporary_path.open("xb") as handle:
@@ -100,8 +94,7 @@ class ArtifactStore:
         """Create a content-addressed artifact once and never overwrite it."""
 
         if (
-            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", artifact_id)
-            is None
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", artifact_id) is None
             or re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None
             or hashlib.sha256(content).hexdigest() != expected_sha256
         ):
@@ -113,23 +106,11 @@ class ArtifactStore:
         storage_name = f"v{version_number:04d}__{safe_filename}"
         storage_path = artifact_dir / storage_name
         directory_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
-        create_flags = (
-            os.O_WRONLY
-            | os.O_CREAT
-            | os.O_EXCL
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        create_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         read_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_NONBLOCK", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
         base_fd: int | None = None
         artifact_fd: int | None = None
@@ -142,9 +123,7 @@ class ArtifactStore:
                     os.fsync(base_fd)
                 except FileExistsError:
                     pass
-                artifact_fd = os.open(
-                    artifact_id, directory_flags, dir_fd=base_fd
-                )
+                artifact_fd = os.open(artifact_id, directory_flags, dir_fd=base_fd)
                 try:
                     descriptor = os.open(
                         storage_name,
@@ -162,9 +141,7 @@ class ArtifactStore:
                     if existing != content:
                         raise ValueError("immutable_artifact_conflict")
                 else:
-                    temporary_name = (
-                        f".{storage_name}.tmp-{uuid.uuid4().hex}"
-                    )
+                    temporary_name = f".{storage_name}.tmp-{uuid.uuid4().hex}"
                     descriptor = os.open(
                         temporary_name,
                         create_flags,
@@ -273,8 +250,7 @@ class ArtifactStore:
     ) -> bytes:
         safe_filename = Path(filename or "").name
         if (
-            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", artifact_id)
-            is None
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", artifact_id) is None
             or version_number < 1
             or safe_filename != filename
             or expected_size < 0
@@ -282,24 +258,16 @@ class ArtifactStore:
         ):
             raise ValueError("immutable_artifact_reference_invalid")
         directory_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_DIRECTORY", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
         read_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_NONBLOCK", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         )
         base_fd: int | None = None
         artifact_fd: int | None = None
         try:
             base_fd = os.open(self.base_dir, directory_flags)
-            artifact_fd = os.open(
-                artifact_id, directory_flags, dir_fd=base_fd
-            )
+            artifact_fd = os.open(artifact_id, directory_flags, dir_fd=base_fd)
             descriptor = os.open(
                 f"v{version_number:04d}__{safe_filename}",
                 read_flags,

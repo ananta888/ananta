@@ -32,4 +32,3 @@ def derive_workspace_revision(*, path_hashes: dict[str, str], revision_hint: str
         return str(revision_hint).strip()
     canonical = "|".join(f"{path}:{path_hashes[path]}" for path in sorted(path_hashes))
     return sha256(canonical.encode("utf-8")).hexdigest()
-

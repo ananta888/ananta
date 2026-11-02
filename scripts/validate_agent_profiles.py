@@ -9,6 +9,7 @@ Checks:
 
 Exit code 0 = all OK, 1 = validation errors found.
 """
+
 from __future__ import annotations
 
 import json
@@ -61,27 +62,21 @@ def main() -> int:
         try:
             resolved = (REPO_ROOT / agents_file_rel).resolve()
             if not str(resolved).startswith(str(REPO_ROOT)):
-                errors.append(
-                    f"profile '{profile_id}' agents_file escapes repo root: {agents_file_rel}"
-                )
+                errors.append(f"profile '{profile_id}' agents_file escapes repo root: {agents_file_rel}")
                 continue
         except Exception as exc:
             errors.append(f"profile '{profile_id}' agents_file resolve error: {exc}")
             continue
 
         if not resolved.exists():
-            errors.append(
-                f"profile '{profile_id}' agents_file not found: {agents_file_rel}"
-            )
+            errors.append(f"profile '{profile_id}' agents_file not found: {agents_file_rel}")
         else:
             mapped_agent_files.add(agents_file_rel)
 
         # Warn about missing optional fields
         missing_optional = OPTIONAL_FIELDS - set(cfg.keys())
         if missing_optional:
-            warnings.append(
-                f"profile '{profile_id}' missing optional fields: {sorted(missing_optional)}"
-            )
+            warnings.append(f"profile '{profile_id}' missing optional fields: {sorted(missing_optional)}")
 
         # Warn about empty activation list
         activation = list(cfg.get("activation") or [])
@@ -92,9 +87,7 @@ def main() -> int:
     for agents_md in PROFILE_DIR.glob("*/AGENTS.md"):
         rel = str(agents_md.relative_to(REPO_ROOT)).replace("\\", "/")
         if rel not in mapped_agent_files:
-            warnings.append(
-                f"orphaned AGENTS.md without profile-map entry: {rel}"
-            )
+            warnings.append(f"orphaned AGENTS.md without profile-map entry: {rel}")
 
     # --- 4. global_profile file check ---
     global_profile_rel = str(profile_map.get("global_profile") or "").strip()

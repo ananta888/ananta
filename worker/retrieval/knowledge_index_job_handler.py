@@ -13,12 +13,26 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
+# Compatibility re-exports: names that were importable from this module
+# before its collaborators were extracted.
+from ananta_contracts.codecompass_domain_supplement import (  # noqa: F401,I001
+    DOMAIN_SUPPLEMENT_FILENAME,
+    DOMAIN_SUPPLEMENT_MEDIA_TYPE,
+    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
+)
+from ananta_contracts.codecompass_graph_limits import (  # noqa: F401
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+from ananta_contracts.knowledge_index_execution import (  # noqa: F401
+    MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
+)
 from worker.retrieval.knowledge_index_artifact_publisher import (
     WorkerKnowledgeIndexArtifactPublisher,
 )
-from worker.retrieval.knowledge_index_execution_guard import (
+from worker.retrieval.knowledge_index_execution_guard import (  # noqa: F401
     DeadlineAwareKnowledgeIndexExecutionRunner,
     KnowledgeIndexExecutionDeadlineError,
+    KnowledgeIndexExecutionDeadlinePort,
     KnowledgeIndexExecutionGuardPort,
     MonotonicKnowledgeIndexExecutionGuard,
 )
@@ -36,32 +50,13 @@ from worker.retrieval.knowledge_index_job_contract import (
     KnowledgeIndexPayloadLoaderPort,
     KnowledgeIndexWorkerDispatchAdmissionPort,
 )
-from worker.retrieval.knowledge_index_payload_loader import (
+from worker.retrieval.knowledge_index_payload_loader import (  # noqa: F401
+    _PAYLOAD_READ_CHUNK_BYTES,
     HubArtifactKnowledgeIndexPayloadLoader,
     _KnowledgeIndexPayloadNoRedirectHandler,
 )
 from worker.retrieval.knowledge_index_rag_helper_execution import (
     RagHelperKnowledgeIndexExecution,
-)
-
-# Compatibility re-exports: names that were importable from this module
-# before its collaborators were extracted.
-from ananta_contracts.codecompass_domain_supplement import (  # noqa: F401,I001
-    DOMAIN_SUPPLEMENT_FILENAME,
-    DOMAIN_SUPPLEMENT_MEDIA_TYPE,
-    DOMAIN_SUPPLEMENT_OUTPUT_ROLE,
-)
-from ananta_contracts.codecompass_graph_limits import (  # noqa: F401
-    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
-)
-from ananta_contracts.knowledge_index_execution import (  # noqa: F401
-    MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES,
-)
-from worker.retrieval.knowledge_index_execution_guard import (  # noqa: F401
-    KnowledgeIndexExecutionDeadlinePort,
-)
-from worker.retrieval.knowledge_index_payload_loader import (  # noqa: F401
-    _PAYLOAD_READ_CHUNK_BYTES,
 )
 
 
@@ -75,32 +70,20 @@ class KnowledgeIndexWorkerTaskHandler:
         source_access_manifest_verifier: Any | None = None,
         worker_id: str | None = None,
         allow_legacy_unsigned_source_dispatch: bool = False,
-        worker_dispatch_admission: (
-            KnowledgeIndexWorkerDispatchAdmissionPort | None
-        ) = None,
+        worker_dispatch_admission: (KnowledgeIndexWorkerDispatchAdmissionPort | None) = None,
         require_bound_dispatch_marker: bool = False,
         execution_guard: KnowledgeIndexExecutionGuardPort | None = None,
         execution_runner: DeadlineAwareKnowledgeIndexExecutionRunner | None = None,
         clock_ms=lambda: int(time.time() * 1000),
     ) -> None:
         self._execution = execution
-        self._source_access_manifest_verifier = (
-            source_access_manifest_verifier
-        )
+        self._source_access_manifest_verifier = source_access_manifest_verifier
         self._worker_id = str(worker_id or "").strip()
-        self._allow_legacy_unsigned_source_dispatch = bool(
-            allow_legacy_unsigned_source_dispatch
-        )
+        self._allow_legacy_unsigned_source_dispatch = bool(allow_legacy_unsigned_source_dispatch)
         self._worker_dispatch_admission = worker_dispatch_admission
-        self._require_bound_dispatch_marker = bool(
-            require_bound_dispatch_marker
-        )
-        self._execution_guard = (
-            execution_guard or MonotonicKnowledgeIndexExecutionGuard()
-        )
-        self._execution_runner = (
-            execution_runner or DeadlineAwareKnowledgeIndexExecutionRunner()
-        )
+        self._require_bound_dispatch_marker = bool(require_bound_dispatch_marker)
+        self._execution_guard = execution_guard or MonotonicKnowledgeIndexExecutionGuard()
+        self._execution_runner = execution_runner or DeadlineAwareKnowledgeIndexExecutionRunner()
         self._clock_ms = clock_ms
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
@@ -172,13 +155,9 @@ class KnowledgeIndexWorkerTaskHandler:
                     parse_execution_job,
                 )
 
-                parsed_job = parse_execution_job(
-                    self._bound_contract_payload(job)
-                )
+                parsed_job = parse_execution_job(self._bound_contract_payload(job))
                 execution_deadline = self._execution_guard.start(
-                    max_runtime_seconds=(
-                        parsed_job.resources.max_runtime_seconds
-                    ),
+                    max_runtime_seconds=(parsed_job.resources.max_runtime_seconds),
                 )
                 raw_result = dict(
                     self._execution_runner.execute(
@@ -206,10 +185,7 @@ class KnowledgeIndexWorkerTaskHandler:
                 self._result(
                     job,
                     status="failed",
-                    reason_code=(
-                        "worker_execution_failed:"
-                        f"{type(exc).__name__}"
-                    ),
+                    reason_code=(f"worker_execution_failed:{type(exc).__name__}"),
                     error=str(exc)[:1000],
                 ),
             )
@@ -229,9 +205,7 @@ class KnowledgeIndexWorkerTaskHandler:
                     job,
                     status="failed",
                     reason_code="worker_result_fields_unknown",
-                    error=(
-                        "execution port returned unauthorized fields"
-                    ),
+                    error=("execution port returned unauthorized fields"),
                 ),
             )
         status = str(raw_result.get("status") or "").strip().lower()
@@ -242,9 +216,7 @@ class KnowledgeIndexWorkerTaskHandler:
                     job,
                     status="failed",
                     reason_code="worker_result_status_invalid",
-                    error=(
-                        "execution port returned a non-terminal status"
-                    ),
+                    error=("execution port returned a non-terminal status"),
                 ),
             )
         return self._complete_claimed_result(
@@ -252,15 +224,11 @@ class KnowledgeIndexWorkerTaskHandler:
             self._result(
                 job,
                 status=status,
-                reason_code=(
-                    str(raw_result.get("reason_code") or "") or None
-                ),
+                reason_code=(str(raw_result.get("reason_code") or "") or None),
                 knowledge_index=raw_result.get("knowledge_index"),
                 run=raw_result.get("run"),
                 results=raw_result.get("results"),
-                artifact_refs=list(
-                    raw_result.get("artifact_refs") or []
-                ),
+                artifact_refs=list(raw_result.get("artifact_refs") or []),
                 error=str(raw_result.get("error") or "") or None,
             ),
         )
@@ -274,9 +242,7 @@ class KnowledgeIndexWorkerTaskHandler:
             return dict(result_payload)
         admission = self._worker_dispatch_admission
         if admission is None:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_admission_unavailable"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_admission_unavailable")
         return dict(
             admission.complete_execute_result(
                 claimed=claimed_dispatch,
@@ -289,11 +255,7 @@ class KnowledgeIndexWorkerTaskHandler:
         envelope: Mapping[str, Any] | None,
         kwargs: Mapping[str, Any],
     ) -> dict[str, Any]:
-        if (
-            isinstance(envelope, Mapping)
-            and str(envelope.get("schema") or "")
-            in {JOB_SCHEMA, BOUND_JOB_SCHEMA}
-        ):
+        if isinstance(envelope, Mapping) and str(envelope.get("schema") or "") in {JOB_SCHEMA, BOUND_JOB_SCHEMA}:
             return dict(envelope)
         task = kwargs.get("task")
         if isinstance(task, Mapping):
@@ -319,9 +281,7 @@ class KnowledgeIndexWorkerTaskHandler:
             # composition always enables the network dispatch boundary.
             return None
         if admission is None:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_admission_unavailable"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_admission_unavailable")
         task = kwargs.get("task")
         if not isinstance(task, Mapping):
             raise ValueError("knowledge_index_worker_dispatch_task_missing")
@@ -356,21 +316,14 @@ class KnowledgeIndexWorkerTaskHandler:
                 parse_execution_job,
             )
 
-            parsed = parse_execution_job(
-                self._bound_contract_payload(job)
-            )
-            if (
-                int(self._clock_ms())
-                >= parsed.assignment.lease_expires_epoch_ms
-            ):
+            parsed = parse_execution_job(self._bound_contract_payload(job))
+            if int(self._clock_ms()) >= parsed.assignment.lease_expires_epoch_ms:
                 raise ValueError("knowledge_index_execution_lease_stale")
             self._validate_bound_worker_assignment(parsed)
             if require_source_access:
                 self._validate_source_access_manifest(job, parsed)
             elif job.get(SOURCE_ACCESS_MANIFEST_FIELD) is not None:
-                raise ValueError(
-                    "knowledge_index_proposal_source_access_forbidden"
-                )
+                raise ValueError("knowledge_index_proposal_source_access_forbidden")
             return
         if str(job.get("schema") or "") != JOB_SCHEMA:
             raise ValueError("knowledge_index_job_schema_invalid")
@@ -386,16 +339,12 @@ class KnowledgeIndexWorkerTaskHandler:
 
     def _validate_bound_worker_assignment(self, parsed: Any) -> None:
         if not self._worker_id:
-            raise ValueError(
-                "knowledge_index_authenticated_worker_missing"
-            )
+            raise ValueError("knowledge_index_authenticated_worker_missing")
         if not hmac.compare_digest(
             self._worker_id,
             parsed.assignment.worker_id,
         ):
-            raise ValueError(
-                "knowledge_index_assignment_worker_mismatch"
-            )
+            raise ValueError("knowledge_index_assignment_worker_mismatch")
 
     def _validate_source_access_manifest(
         self,
@@ -406,44 +355,26 @@ class KnowledgeIndexWorkerTaskHandler:
         if raw_manifest is None:
             if self._allow_legacy_unsigned_source_dispatch:
                 return
-            raise ValueError(
-                "knowledge_index_source_access_manifest_missing"
-            )
+            raise ValueError("knowledge_index_source_access_manifest_missing")
         if not isinstance(raw_manifest, Mapping):
-            raise ValueError(
-                "knowledge_index_source_access_manifest_invalid"
-            )
+            raise ValueError("knowledge_index_source_access_manifest_invalid")
         verifier = self._source_access_manifest_verifier
         if verifier is None or not verifier.verify_manifest(raw_manifest):
-            raise ValueError(
-                "knowledge_index_source_access_signature_invalid"
-            )
-        if int(self._clock_ms()) >= int(
-            raw_manifest["grant_expires_at_epoch_ms"]
-        ):
-            raise ValueError(
-                "knowledge_index_source_access_grant_expired"
-            )
+            raise ValueError("knowledge_index_source_access_signature_invalid")
+        if int(self._clock_ms()) >= int(raw_manifest["grant_expires_at_epoch_ms"]):
+            raise ValueError("knowledge_index_source_access_grant_expired")
         authority = parsed.authority_binding
         expected = {
             "tenant_id": authority.tenant_id,
             "project_id": authority.project_id,
             "source_revision_id": authority.source_revision_id,
-            "source_revision_digest": (
-                authority.source_revision_digest
-            ),
+            "source_revision_digest": (authority.source_revision_digest),
             "destination_id": authority.destination_id,
             "destination_digest": authority.destination_digest,
-            "source_access_grant_id": (
-                authority.source_access_grant_id
-            ),
-            "source_access_grant_digest": (
-                authority.source_access_grant_digest
-            ),
+            "source_access_grant_id": (authority.source_access_grant_id),
+            "source_access_grant_digest": (authority.source_access_grant_digest),
             "policy_digest": authority.policy_snapshot_digest,
-            "content_manifest_digest": (
-                parsed.file_manifest.manifest_digest
-            ),
+            "content_manifest_digest": (parsed.file_manifest.manifest_digest),
             "assignment_id": parsed.assignment.assignment_id,
             "lease_id": parsed.assignment.lease_id,
         }
@@ -452,19 +383,13 @@ class KnowledgeIndexWorkerTaskHandler:
                 str(raw_manifest.get(field) or ""),
                 str(expected_value),
             ):
-                raise ValueError(
-                    f"knowledge_index_source_access_{field}_mismatch"
-                )
+                raise ValueError(f"knowledge_index_source_access_{field}_mismatch")
 
     @staticmethod
     def _bound_contract_payload(
         job: Mapping[str, Any],
     ) -> dict[str, Any]:
-        return {
-            key: value
-            for key, value in job.items()
-            if key != SOURCE_ACCESS_MANIFEST_FIELD
-        }
+        return {key: value for key, value in job.items() if key != SOURCE_ACCESS_MANIFEST_FIELD}
 
     @staticmethod
     def _result(
@@ -485,32 +410,13 @@ class KnowledgeIndexWorkerTaskHandler:
             )
 
             return KnowledgeIndexExecutionResult.create(
-                parse_execution_job(
-                    KnowledgeIndexWorkerTaskHandler._bound_contract_payload(
-                        job
-                    )
-                ),
+                parse_execution_job(KnowledgeIndexWorkerTaskHandler._bound_contract_payload(job)),
                 status=status,
                 reason_code=reason_code,
-                knowledge_index=(
-                    knowledge_index
-                    if isinstance(knowledge_index, Mapping)
-                    else None
-                ),
+                knowledge_index=(knowledge_index if isinstance(knowledge_index, Mapping) else None),
                 run=run if isinstance(run, Mapping) else None,
-                results=(
-                    [
-                        item
-                        for item in list(results or [])
-                        if isinstance(item, Mapping)
-                    ]
-                    or None
-                ),
-                artifact_refs=[
-                    item
-                    for item in list(artifact_refs or [])
-                    if isinstance(item, Mapping)
-                ],
+                results=([item for item in list(results or []) if isinstance(item, Mapping)] or None),
+                artifact_refs=[item for item in list(artifact_refs or []) if isinstance(item, Mapping)],
                 error=error,
             ).to_wire()
         return {
@@ -536,9 +442,7 @@ def build_knowledge_index_task_handler(
     source_access_manifest_verifier: Any | None = None,
     worker_id: str | None = None,
     allow_legacy_unsigned_source_dispatch: bool = False,
-    worker_dispatch_admission: (
-        KnowledgeIndexWorkerDispatchAdmissionPort | None
-    ) = None,
+    worker_dispatch_admission: (KnowledgeIndexWorkerDispatchAdmissionPort | None) = None,
     require_bound_dispatch_marker: bool = False,
     execution_guard: KnowledgeIndexExecutionGuardPort | None = None,
     execution_runner: DeadlineAwareKnowledgeIndexExecutionRunner | None = None,
@@ -553,9 +457,7 @@ def build_knowledge_index_task_handler(
 
         # The Worker owns graph execution: bind its CodeCompass bridge to
         # the Hub-owned RepositoryGraphOutputBuilderPort of the service.
-        index_service = get_rag_helper_index_service().with_repository_graph_builder(
-            RepositoryCodeCompassBridge()
-        )
+        index_service = get_rag_helper_index_service().with_repository_graph_builder(RepositoryCodeCompassBridge())
     return KnowledgeIndexWorkerTaskHandler(
         RagHelperKnowledgeIndexExecution(
             index_service,
@@ -565,9 +467,7 @@ def build_knowledge_index_task_handler(
         ),
         source_access_manifest_verifier=source_access_manifest_verifier,
         worker_id=worker_id,
-        allow_legacy_unsigned_source_dispatch=(
-            allow_legacy_unsigned_source_dispatch
-        ),
+        allow_legacy_unsigned_source_dispatch=(allow_legacy_unsigned_source_dispatch),
         worker_dispatch_admission=worker_dispatch_admission,
         require_bound_dispatch_marker=require_bound_dispatch_marker,
         execution_guard=execution_guard,

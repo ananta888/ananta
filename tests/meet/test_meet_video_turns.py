@@ -10,11 +10,11 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_media_result import validate_response_budget, validate_result
 from agent.services.meet_persona_videos import MeetPersonaVideos
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
-from tests.test_meet_media import result, turn
 from tests.persona.test_persona_inspection_tasks import runtime as runtime
 from tests.persona.test_persona_video_asset_service import admit
 from tests.persona.test_persona_video_asset_service import video_assets as video_assets
 from tests.persona.test_persona_video_tasks import video_task as video_task
+from tests.test_meet_media import result, turn
 from worker.meet_media.contract import validate_turn
 from worker.meet_media.persona_visual import render_visual
 
@@ -30,12 +30,15 @@ def clip_turn(request):
 
 def runtime_for(f, *, tasks=None, issuer=None):
     worker = Mock()
-    worker.execute.side_effect = lambda request: result() | {
-        "task_id": request["task_id"],
-        "lease_id": request["lease_id"],
-        "persona_video": request["persona_video"]["reference"],
-        "engines": result()["engines"] | {"video": "persona-clip-h264_nvenc"},
-    }
+    worker.execute.side_effect = lambda request: (
+        result()
+        | {
+            "task_id": request["task_id"],
+            "lease_id": request["lease_id"],
+            "persona_video": request["persona_video"]["reference"],
+            "engines": result()["engines"] | {"video": "persona-clip-h264_nvenc"},
+        }
+    )
     tasks = tasks if tasks is not None else Mock()
     if isinstance(tasks, Mock):
         tasks.finish.return_value = True

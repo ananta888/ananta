@@ -49,9 +49,7 @@ def test_valid_worker_profile_is_redacted_and_does_not_enable_legacy_local() -> 
                 "production_profile": True,
                 "execution_mode": "worker",
                 "worker_url": "http://restricted-inference:8091/internal/v1/restricted-inference",
-                "worker_allowed_endpoints": [
-                    "http://restricted-inference:8091/internal/v1/restricted-inference"
-                ],
+                "worker_allowed_endpoints": ["http://restricted-inference:8091/internal/v1/restricted-inference"],
                 "legacy_local_enabled": False,
                 "allow_mock_fallback": False,
                 "default_engine": "huggingface-transformers",
@@ -82,19 +80,13 @@ def test_worker_config_requires_exact_internal_endpoint_allowlist() -> None:
             "restricted_inference": {
                 "execution_mode": "worker",
                 "worker_url": "http://restricted-inference:8091/internal/v1/restricted-inference",
-                "worker_allowed_endpoints": [
-                    "http://other-worker:8091/internal/v1/restricted-inference"
-                ],
+                "worker_allowed_endpoints": ["http://other-worker:8091/internal/v1/restricted-inference"],
             }
         }
     )
 
-    assert "worker_endpoint_allowlist_missing" in {
-        item.reason_code for item in missing.diagnostics()
-    }
-    assert "worker_url_not_allowlisted" in {
-        item.reason_code for item in mismatched.diagnostics()
-    }
+    assert "worker_endpoint_allowlist_missing" in {item.reason_code for item in missing.diagnostics()}
+    assert "worker_url_not_allowlisted" in {item.reason_code for item in mismatched.diagnostics()}
 
 
 def test_status_serialization_hides_absolute_paths_and_remote_urls() -> None:

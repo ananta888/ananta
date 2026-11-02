@@ -272,16 +272,26 @@ class MlInternTrainingJobService:
         )
         status = summary.get("status", "unknown")
         (artifact_dir / "status.json").write_text(
-            json.dumps({"status": status, "job_type": job_type,
-                        "job_id": summary.get("job_id"), "finished_at": summary.get("finished_at")}, indent=2) + "\n",
+            json.dumps(
+                {
+                    "status": status,
+                    "job_type": job_type,
+                    "job_id": summary.get("job_id"),
+                    "finished_at": summary.get("finished_at"),
+                },
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
 
     @staticmethod
     def _write_status_file(artifact_dir: Path, status: str, job_id: str) -> None:
         (artifact_dir / "status.json").write_text(
-            json.dumps({"status": status, "job_id": job_id,
-                        "finished_at": datetime.now(timezone.utc).isoformat()}, indent=2) + "\n",
+            json.dumps(
+                {"status": status, "job_id": job_id, "finished_at": datetime.now(timezone.utc).isoformat()}, indent=2
+            )
+            + "\n",
             encoding="utf-8",
         )
 
@@ -309,9 +319,13 @@ class MlInternTrainingJobService:
         finished = datetime.now(timezone.utc).isoformat()
         MlInternTrainingJobService._write_status_file(artifact_dir, "failed", job_id)
         return TrainingJobResult(
-            job_id=job_id, job_type=job_type, status="failed",
-            artifact_dir=str(artifact_dir), errors=errors,
-            started_at=started_at, finished_at=finished,
+            job_id=job_id,
+            job_type=job_type,
+            status="failed",
+            artifact_dir=str(artifact_dir),
+            errors=errors,
+            started_at=started_at,
+            finished_at=finished,
             duration_ms=int((time.monotonic() - t0) * 1000),
         )
 

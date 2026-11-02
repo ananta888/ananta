@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
+from typing import Protocol
+
+from agent.models.sfu_route_reconciliation import (
+    ReconciliationAction,
+    ReconciliationDesiredState,
+    ReconciliationPhase,
+    ReconciliationRunStatus,
+    RouteReconciliationAuthority,
+    RouteReconciliationCandidate,
+    RouteReconciliationCursor,
+    RouteReconciliationItemOutcome,
+    RouteReconciliationLease,
+    RouteReconciliationPage,
+    RouteReconciliationScope,
+)
 from agent.services.sfu_broadcast_control_observability import (
     SfuBroadcastControlObservationPort,
     control_observer_or_null,
     observed_control_path,
 )
-
-from dataclasses import dataclass, replace
-from typing import Protocol
-
 from agent.services.sfu_broadcast_route_port import (
     ApplyRouteCommandV1,
     ApplyRoutePortV1,
@@ -27,19 +39,6 @@ from agent.services.sfu_broadcast_route_port import (
     RouteVersionV1,
     UpdateRouteCommandV1,
     UpdateRoutePortV1,
-)
-from agent.models.sfu_route_reconciliation import (
-    ReconciliationAction,
-    ReconciliationDesiredState,
-    ReconciliationPhase,
-    ReconciliationRunStatus,
-    RouteReconciliationAuthority,
-    RouteReconciliationCandidate,
-    RouteReconciliationCursor,
-    RouteReconciliationItemOutcome,
-    RouteReconciliationLease,
-    RouteReconciliationPage,
-    RouteReconciliationScope,
 )
 
 
@@ -193,9 +192,7 @@ class SfuFanoutRouteReconciliationService:
                 cursor,
             )
         if lease is None:
-            return self._empty_result(
-                ReconciliationRunStatus.BUSY, "reconcile_lease_busy", cursor
-            )
+            return self._empty_result(ReconciliationRunStatus.BUSY, "reconcile_lease_busy", cursor)
         if lease.scope != scope or lease.expires_at_ms <= started_at_ms:
             return self._release_with_result(
                 lease,
@@ -205,9 +202,7 @@ class SfuFanoutRouteReconciliationService:
                     cursor,
                 ),
             )
-        active_cursor = cursor or RouteReconciliationCursor(
-            ReconciliationPhase.REVOKE, None
-        )
+        active_cursor = cursor or RouteReconciliationCursor(ReconciliationPhase.REVOKE, None)
         counters = {
             "processed": 0,
             "converged": 0,
@@ -218,9 +213,7 @@ class SfuFanoutRouteReconciliationService:
         }
         result: SfuFanoutReconciliationResult
         try:
-            result = self._run(
-                lease, active_cursor, deadline_ms, counters
-            )
+            result = self._run(lease, active_cursor, deadline_ms, counters)
         except Exception:
             result = self._result(
                 ReconciliationRunStatus.FAILED,
@@ -275,9 +268,7 @@ class SfuFanoutRouteReconciliationService:
                     self._checkpoints.save(lease=lease, cursor=cursor)
                     continue
                 if cursor.phase is ReconciliationPhase.REVOKE:
-                    cursor = RouteReconciliationCursor(
-                        ReconciliationPhase.ENSURE, None
-                    )
+                    cursor = RouteReconciliationCursor(ReconciliationPhase.ENSURE, None)
                     self._checkpoints.save(lease=lease, cursor=cursor)
                     continue
                 self._checkpoints.save(lease=lease, cursor=None)
@@ -303,18 +294,14 @@ class SfuFanoutRouteReconciliationService:
                         counters,
                         cursor,
                     )
-                observation = self._observe_routes.observe(
-                    ObserveRouteQueryV1(candidate.key)
-                )
+                observation = self._observe_routes.observe(ObserveRouteQueryV1(candidate.key))
                 authority = self._authority.resolve(
                     candidate=candidate,
                     observation=observation,
                     lease=lease,
                     now_ms=self._now_ms(),
                 )
-                outcome = self._reconcile_candidate(
-                    candidate, authority, observation, lease, self._now_ms()
-                )
+                outcome = self._reconcile_candidate(candidate, authority, observation, lease, self._now_ms())
                 self._outcomes.record(lease=lease, outcome=outcome)
                 counters["processed"] += 1
                 if outcome.action is ReconciliationAction.CONVERGED:
@@ -329,9 +316,7 @@ class SfuFanoutRouteReconciliationService:
                     counters["deferred"] += 1
                 else:
                     counters["failed"] += 1
-                cursor = RouteReconciliationCursor(
-                    cursor.phase, candidate.resume_cursor
-                )
+                cursor = RouteReconciliationCursor(cursor.phase, candidate.resume_cursor)
                 self._checkpoints.save(lease=lease, cursor=cursor)
                 if counters["processed"] >= self._config.reconcile_items_max:
                     return self._result(
@@ -344,9 +329,7 @@ class SfuFanoutRouteReconciliationService:
             self._checkpoints.save(lease=lease, cursor=cursor)
             if page.next_cursor is None:
                 if cursor.phase is ReconciliationPhase.REVOKE:
-                    cursor = RouteReconciliationCursor(
-                        ReconciliationPhase.ENSURE, None
-                    )
+                    cursor = RouteReconciliationCursor(ReconciliationPhase.ENSURE, None)
                     self._checkpoints.save(lease=lease, cursor=cursor)
                 else:
                     self._checkpoints.save(lease=lease, cursor=None)
@@ -405,12 +388,8 @@ class SfuFanoutRouteReconciliationService:
                 observation.retryable,
             )
         if observation.presence is RoutePresenceV1.ABSENT:
-            mutation = self._apply_routes.apply(
-                ApplyRouteCommandV1(authority.operation_id, desired)
-            )
-            return self._from_mutation(
-                candidate, ReconciliationAction.APPLIED, mutation
-            )
+            mutation = self._apply_routes.apply(ApplyRouteCommandV1(authority.operation_id, desired))
+            return self._from_mutation(candidate, ReconciliationAction.APPLIED, mutation)
         observed = observation.projection
         if observed is None:
             return self._item(
@@ -426,23 +405,14 @@ class SfuFanoutRouteReconciliationService:
                 "reconcile_projection_current",
                 False,
             )
-        if (
-            authority.expected_version != observed.version
-            or not _is_successor(desired.version, observed.version)
-        ):
+        if authority.expected_version != observed.version or not _is_successor(desired.version, observed.version):
             return self._revoke(candidate, authority, observation, now_ms)
         try:
-            command = UpdateRouteCommandV1(
-                authority.operation_id, observed.version, desired
-            )
+            command = UpdateRouteCommandV1(authority.operation_id, observed.version, desired)
         except RouteContractViolationV1 as exc:
-            return self._item(
-                candidate, ReconciliationAction.DEFERRED, exc.reason_code, False
-            )
+            return self._item(candidate, ReconciliationAction.DEFERRED, exc.reason_code, False)
         mutation = self._update_routes.update(command)
-        return self._from_mutation(
-            candidate, ReconciliationAction.UPDATED, mutation
-        )
+        return self._from_mutation(candidate, ReconciliationAction.UPDATED, mutation)
 
     def _revoke(
         self,
@@ -484,13 +454,9 @@ class SfuFanoutRouteReconciliationService:
                 now_ms,
             )
         except RouteContractViolationV1 as exc:
-            return self._item(
-                candidate, ReconciliationAction.DEFERRED, exc.reason_code, False
-            )
+            return self._item(candidate, ReconciliationAction.DEFERRED, exc.reason_code, False)
         mutation = self._revoke_routes.revoke(command)
-        return self._from_mutation(
-            candidate, ReconciliationAction.REVOKED, mutation
-        )
+        return self._from_mutation(candidate, ReconciliationAction.REVOKED, mutation)
 
     @staticmethod
     def _from_mutation(
@@ -502,10 +468,7 @@ class SfuFanoutRouteReconciliationService:
             action = successful_action
         elif mutation.retryable or mutation.outcome is RouteOutcomeV1.UNKNOWN:
             action = ReconciliationAction.DEFERRED
-        elif (
-            successful_action is ReconciliationAction.REVOKED
-            and mutation.reason_code is RouteReasonCodeV1.NOT_FOUND
-        ):
+        elif successful_action is ReconciliationAction.REVOKED and mutation.reason_code is RouteReasonCodeV1.NOT_FOUND:
             action = ReconciliationAction.CONVERGED
         else:
             action = ReconciliationAction.FAILED
@@ -570,9 +533,7 @@ class SfuFanoutRouteReconciliationService:
 
     @staticmethod
     def _empty_result(status, reason, cursor):
-        return SfuFanoutReconciliationResult(
-            status, reason, 0, 0, 0, 0, 0, 0, cursor
-        )
+        return SfuFanoutReconciliationResult(status, reason, 0, 0, 0, 0, 0, 0, cursor)
 
 
 def _is_successor(candidate: RouteVersionV1, predecessor: RouteVersionV1) -> bool:

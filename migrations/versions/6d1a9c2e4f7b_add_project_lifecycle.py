@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from collections import Counter, defaultdict
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "6d1a9c2e4f7b"
 down_revision = "5c0f3b8d1e4a"
@@ -50,12 +50,7 @@ def _source_control_scopes(
         for row in bind.execute(statement):
             tenant_id = str(row[0] or "").strip()
             project_id = str(row[1] or "").strip()
-            if (
-                not tenant_id
-                or not project_id
-                or len(tenant_id) > 191
-                or len(project_id) > 191
-            ):
+            if not tenant_id or not project_id or len(tenant_id) > 191 or len(project_id) > 191:
                 continue
             scope_owners = scopes[(tenant_id, project_id)]
             if has_owner:

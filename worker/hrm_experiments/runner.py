@@ -138,10 +138,7 @@ class HrmExperimentRunner:
         expected_authority = payload.get("expected_authority")
         admission = payload.get("admission")
         dataset = payload.get("dataset")
-        if not all(
-            isinstance(item, Mapping)
-            for item in (run_request, expected_authority, admission, dataset)
-        ):
+        if not all(isinstance(item, Mapping) for item in (run_request, expected_authority, admission, dataset)):
             raise HrmRunnerError("hrm.execution_envelope_invalid")
         request_copy = deepcopy(dict(run_request))
         self._contracts.validate("run_request", request_copy)
@@ -159,9 +156,7 @@ class HrmExperimentRunner:
         except HrmRunnerError:
             raise
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "") or "hrm.puzzle_execution_failed"
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or "hrm.puzzle_execution_failed")
             raise HrmRunnerError(reason_code) from exc
         if self._clock_ms() > request_copy["authority"]["deadline_epoch_ms"]:
             raise HrmRunnerError("hrm.execution_deadline_exceeded")
@@ -174,9 +169,7 @@ class HrmExperimentRunner:
             }
         )
         if any(
-            not math.isfinite(float(metric.get("value", math.nan)))
-            for metric in metrics
-            if isinstance(metric, Mapping)
+            not math.isfinite(float(metric.get("value", math.nan))) for metric in metrics if isinstance(metric, Mapping)
         ):
             raise HrmRunnerError("hrm.non_finite_metric")
         unsigned = {
@@ -194,10 +187,7 @@ class HrmExperimentRunner:
         return result
 
     def _verify_isolation(self) -> None:
-        if not all(
-            self._configuration.isolation.get(control) is True
-            for control in _ISOLATION_CONTROLS
-        ):
+        if not all(self._configuration.isolation.get(control) is True for control in _ISOLATION_CONTROLS):
             raise HrmRunnerError("hrm.runner_isolation_unverified")
 
     def _verify_authority(
@@ -267,9 +257,7 @@ class HrmExperimentRunner:
         ):
             if int(requested[key]) > int(maximum[key]):
                 raise HrmRunnerError("hrm.resource_limit_exceeded")
-        if not set(requested["gpu_device_ids"]).issubset(
-            set(maximum["gpu_device_ids"])
-        ):
+        if not set(requested["gpu_device_ids"]).issubset(set(maximum["gpu_device_ids"])):
             raise HrmRunnerError("hrm.gpu_device_forbidden")
 
     def _verify_dataset(
@@ -293,10 +281,7 @@ class HrmExperimentRunner:
         if manifest_copy["scope"] != run_request["scope"]:
             raise HrmRunnerError("hrm.dataset_scope_mismatch")
         record_digest = canonical_digest({"records": records})
-        if (
-            record_digest != run_request["dataset_digest"]
-            or record_digest != manifest_copy["canonical_content_digest"]
-        ):
+        if record_digest != run_request["dataset_digest"] or record_digest != manifest_copy["canonical_content_digest"]:
             raise HrmRunnerError("hrm.dataset_content_digest_mismatch")
         if manifest_copy["plugin"]["signature_verified"] is not True:
             raise HrmRunnerError("hrm.dataset_plugin_unverified")
@@ -325,12 +310,7 @@ def run_payload_digest(run_request: Mapping[str, Any]) -> str:
 
 
 def hrm_contract_schema_digest() -> str:
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "schemas"
-        / "hrm-experiments"
-        / "contracts.v1.json"
-    )
+    path = Path(__file__).resolve().parents[2] / "schemas" / "hrm-experiments" / "contracts.v1.json"
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -338,29 +318,24 @@ def build_environment_runner() -> HrmExperimentRunner:
     image_digest = os.environ.get("ANANTA_HRM_RUNTIME_IMAGE_DIGEST", "").strip()
     if not _valid_digest(image_digest):
         raise HrmRunnerError("hrm.runtime_image_digest_required")
-    isolation_attested = os.environ.get(
-        "ANANTA_HRM_ISOLATION_ATTESTED", "0"
-    ).strip().lower() in {"1", "true", "yes", "on"}
+    isolation_attested = os.environ.get("ANANTA_HRM_ISOLATION_ATTESTED", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     device_ids = tuple(
-        item.strip()
-        for item in os.environ.get("ANANTA_HRM_GPU_DEVICE_IDS", "").split(",")
-        if item.strip()
+        item.strip() for item in os.environ.get("ANANTA_HRM_GPU_DEVICE_IDS", "").split(",") if item.strip()
     )
     configuration = HrmRunnerConfiguration(
-        worker_id=os.environ.get("AGENT_NAME", "hrm-experiment-runner").strip()
-        or "hrm-experiment-runner",
+        worker_id=os.environ.get("AGENT_NAME", "hrm-experiment-runner").strip() or "hrm-experiment-runner",
         runtime={
-            "engine_version": os.environ.get(
-                "ANANTA_HRM_ENGINE_VERSION", "hrm-runner-v1"
-            ).strip(),
+            "engine_version": os.environ.get("ANANTA_HRM_ENGINE_VERSION", "hrm-runner-v1").strip(),
             "image_digest": image_digest,
             "python_version": platform.python_version(),
             "torch_version": os.environ.get("ANANTA_HRM_TORCH_VERSION") or None,
             "cuda_version": os.environ.get("ANANTA_HRM_CUDA_VERSION") or None,
-            "flash_attention_version": os.environ.get(
-                "ANANTA_HRM_FLASH_ATTENTION_VERSION"
-            )
-            or None,
+            "flash_attention_version": os.environ.get("ANANTA_HRM_FLASH_ATTENTION_VERSION") or None,
         },
         device={
             "kind": "nvidia" if device_ids else "cpu",
@@ -368,9 +343,7 @@ def build_environment_runner() -> HrmExperimentRunner:
             "vram_bytes": int(os.environ.get("ANANTA_HRM_VRAM_BYTES", "0")),
         },
         isolation={
-            "profile_version": os.environ.get(
-                "ANANTA_HRM_ISOLATION_PROFILE_VERSION", "hrm-container-v1"
-            ).strip(),
+            "profile_version": os.environ.get("ANANTA_HRM_ISOLATION_PROFILE_VERSION", "hrm-container-v1").strip(),
             **{control: isolation_attested for control in _ISOLATION_CONTROLS},
         },
         max_limits={

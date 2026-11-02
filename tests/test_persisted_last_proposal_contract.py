@@ -3,6 +3,7 @@
 Proves that a proposal produced by any real strategy can be persisted as a dict
 and later reloaded by validate_executable_proposal without shape mismatch.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -11,7 +12,6 @@ from worker.core.propose import (
     ExecutableProposal,
     ProposeStrategyResult,
     validate_executable_proposal,
-    AdvisoryProposalArtifact,
 )
 
 
@@ -81,7 +81,9 @@ class TestToolCallsProposalRoundtrip:
         assert tcs[0]["name"] == "write_file"
 
     def test_tool_calls_from_flexible_normalization(self):
-        tool_calls = [{"name": "write_file", "args": {"path": "main.py", "content": "..."}}, ]
+        tool_calls = [
+            {"name": "write_file", "args": {"path": "main.py", "content": "..."}},
+        ]
         raw = _make_proposal_dict(
             tool_calls=tool_calls,
             strategy="flexible_llm_normalization",
@@ -123,36 +125,43 @@ class TestExecutableProposalToDict:
     """Validate that ExecutableProposal.to_dict() produces the canonical schema for persistence."""
 
     def test_schema_field_present(self):
-        p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="echo hi"
-        )
+        p = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="echo hi")
         d = p.to_dict()
         assert d["schema"] == "executable_proposal.v1"
 
     def test_all_required_fields_in_dict(self):
         p = ExecutableProposal.from_tool_calls(
-            goal_id="g1", task_id="t1", strategy_id="s1",
+            goal_id="g1",
+            task_id="t1",
+            strategy_id="s1",
             tool_calls=[{"name": "run", "args": {}}],
         )
         d = p.to_dict()
-        for field in ("proposal_id", "goal_id", "task_id", "strategy_id", "command",
-                      "tool_calls", "required_tools", "expected_artifacts", "safety_flags",
-                      "reason", "created_at", "metadata"):
+        for field in (
+            "proposal_id",
+            "goal_id",
+            "task_id",
+            "strategy_id",
+            "command",
+            "tool_calls",
+            "required_tools",
+            "expected_artifacts",
+            "safety_flags",
+            "reason",
+            "created_at",
+            "metadata",
+        ):
             assert field in d, f"missing field: {field}"
 
     def test_roundtrip_command_via_validate(self):
-        p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="make test"
-        )
+        p = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="make test")
         d = p.to_dict()
         cmd, tcs, _ = validate_executable_proposal(d)
         assert cmd == "make test"
 
     def test_roundtrip_tool_calls_via_validate(self):
         tc = [{"name": "write_file", "args": {"path": "f.py"}}]
-        p = ExecutableProposal.from_tool_calls(
-            goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc
-        )
+        p = ExecutableProposal.from_tool_calls(goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc)
         d = p.to_dict()
         _, tcs, _ = validate_executable_proposal(d)
         assert tcs == tc

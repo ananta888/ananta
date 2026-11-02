@@ -58,9 +58,7 @@ class ConfidenceRerunStage:
             else self._config.confidence_threshold
         )
         low = [
-            segment
-            for segment in result.segments
-            if segment.confidence is not None and segment.confidence < threshold
+            segment for segment in result.segments if segment.confidence is not None and segment.confidence < threshold
         ][: self._config.rerun_max_segments]
         if not low:
             return result, {"stage": "confidence_rerun", "backend": self._config.rerun_backend, "rerun_count": 0}
@@ -89,9 +87,7 @@ class ConfidenceRerunStage:
             duration_ms = max(0, segment.end_ms - segment.start_ms)
             region_id = f"confidence-rerun-{index:04d}-{segment.start_ms}-{segment.end_ms}"
             if duration_ms <= 0 or duration_ms > remaining_audio_ms:
-                outcomes.append(
-                    {"region_id": region_id, "status": "budget_skipped"}
-                )
+                outcomes.append({"region_id": region_id, "status": "budget_skipped"})
                 continue
             remaining_deadline = shared_deadline - time.monotonic()
             if remaining_deadline <= 0:
@@ -134,9 +130,7 @@ class ConfidenceRerunStage:
                     {
                         "region_id": region_id,
                         "status": "failed",
-                        "reason_code": candidate.error.code
-                        if candidate.error
-                        else "empty_result",
+                        "reason_code": candidate.error.code if candidate.error else "empty_result",
                     }
                 )
                 continue
@@ -160,9 +154,7 @@ class ConfidenceRerunStage:
             **dict(result.decision_trace),
             "confidence_rerun": {
                 "threshold": threshold,
-                "threshold_source": calibration.dataset_version
-                if calibration
-                else "runtime_config",
+                "threshold_source": calibration.dataset_version if calibration else "runtime_config",
                 "outcomes": outcomes,
                 "full_audio_fallback": False,
                 "max_segments": self._config.rerun_max_segments,
@@ -186,16 +178,12 @@ class ConfidenceRerunStage:
                 "full_audio_fallback": False,
                 "outcomes": outcomes,
             }
-        confidences = [
-            item.confidence for item in merged_segments if item.confidence is not None
-        ]
+        confidences = [item.confidence for item in merged_segments if item.confidence is not None]
         return replace(
             result,
             text=" ".join(item.text for item in merged_segments if item.text).strip(),
             segments=merged_segments,
-            confidence=sum(confidences) / len(confidences)
-            if confidences
-            else result.confidence,
+            confidence=sum(confidences) / len(confidences) if confidences else result.confidence,
             warnings=tuple([*result.warnings, "confidence_rerun_applied"]),
             rerun_backend=self._config.rerun_backend,
             decision_trace=trace,

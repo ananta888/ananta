@@ -8,6 +8,7 @@ Validates:
 
 reason_codes: schema_invalid, capability_violation:<cap>, ttl_out_of_range, base_heuristic_not_found
 """
+
 from __future__ import annotations
 
 import json
@@ -15,11 +16,10 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.repositories.heuristic_lease_repo import _DOMAIN_TTL_DEFAULTS
 from agent.services.heuristic_runtime.heuristic_registry_service import (
-    HeuristicRegistry,
-    _SNAKE_FORBIDDEN_CAPS,
     _CHAT_ALLOWED_CAPS,
+    _SNAKE_FORBIDDEN_CAPS,
+    HeuristicRegistry,
     get_heuristic_registry,
 )
 
@@ -90,8 +90,15 @@ def _load_schema() -> dict[str, Any] | None:
         return None
 
 
-_REQUIRED_FIELDS = {"proposal_id", "proposed_by", "domain", "strategy_kind", "description",
-                    "capabilities", "requested_ttl_seconds"}
+_REQUIRED_FIELDS = {
+    "proposal_id",
+    "proposed_by",
+    "domain",
+    "strategy_kind",
+    "description",
+    "capabilities",
+    "requested_ttl_seconds",
+}
 _VALID_DOMAINS = {"tui_snake", "eclipse_snake", "chat_codecompass"}
 _VALID_PROPOSERS = {"ananta-worker", "operator", "system"}
 
@@ -143,16 +150,13 @@ class HeuristicProposalValidator:
 
         # 3 — TTL policy (bounds per domain, independent of _DOMAIN_TTL_DEFAULTS float)
         _TTL_BOUNDS: dict[str, tuple[float, float]] = {
-            "tui_snake":        (5.0, 10.0),
-            "eclipse_snake":    (5.0, 10.0),
+            "tui_snake": (5.0, 10.0),
+            "eclipse_snake": (5.0, 10.0),
             "chat_codecompass": (10.0, 20.0),
         }
         ttl_min, ttl_max = _TTL_BOUNDS.get(domain, (1.0, 60.0))
         if not (ttl_min <= proposal.requested_ttl_seconds <= ttl_max):
-            reason_codes.append(
-                f"ttl_out_of_range:{proposal.requested_ttl_seconds:.1f}s "
-                f"(allowed {ttl_min}–{ttl_max})"
-            )
+            reason_codes.append(f"ttl_out_of_range:{proposal.requested_ttl_seconds:.1f}s (allowed {ttl_min}–{ttl_max})")
 
         # 4 — base_heuristic_ref must exist in registry (active or deprecated)
         if proposal.base_heuristic_ref:

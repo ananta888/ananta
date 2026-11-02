@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import tempfile
+import unittest
 from pathlib import Path
 from types import SimpleNamespace
-import unittest
 
 try:
-    from tree_sitter import Language, Parser
     import tree_sitter_c_sharp as tscsharp
+    from tree_sitter import Language, Parser
 except ModuleNotFoundError:  # pragma: no cover - environment dependent
     Language = None
     Parser = None
@@ -31,75 +31,105 @@ class _StubCSharpExtractor:
         return {"file": rel_path, "namespace": "Demo.App", "usings": ["System"], "type_names": ["UserService"]}
 
     def parse(self, rel_path: str, text: str, known_namespace_types: dict[str, set[str]]):
-        return [{
-            "kind": "cs_file",
-            "file": rel_path,
-            "id": "cs_file:1",
-            "namespace": "Demo.App",
-            "usings": ["System"],
-            "types": [{"name": "UserService", "type_kind": "class", "property_count": 1, "method_count": 1, "constructor_count": 1, "field_count": 1, "role_labels": ["service"]}],
-            "embedding_text": "cs file",
-            "summary": {"using_count": 1, "type_count": 1, "property_count": 1, "method_count": 1, "constructor_count": 1},
-        }, {
-            "kind": "cs_type",
-            "file": rel_path,
-            "id": "cs_type:1",
-            "parent_id": "cs_file:1",
-            "namespace": "Demo.App",
-            "usings": ["System"],
-            "name": "UserService",
-            "type_kind": "class",
-            "modifiers": ["public"],
-            "attributes": [],
-            "documentation": "Service docs.",
-            "documentation_summary": "Service docs.",
-            "extends": None,
-            "extends_resolved": [],
-            "implements": [],
-            "implements_resolved": [],
-            "fields": [{"name": "_repo", "type": "IRepo", "resolved_types": ["Demo.App.IRepo"], "attributes": []}],
-            "properties": ["Name: string"],
-            "methods": ["RunAsync(User user): Task<User>"],
-            "constructors": ["UserService(IRepo repo)"],
-            "used_types": ["Demo.App.IRepo"],
-            "called_methods": ["repo.Save(user)"],
-            "role_labels": ["service"],
-            "roles": {"role_labels": ["service"]},
-            "type_resolution_conflicts": [],
-            "embedding_text": "cs type",
-            "summary": "class UserService",
-        }], [{
-            "kind": "cs_property",
-            "file": rel_path,
-            "id": "cs_property:1",
-            "parent_id": "cs_type:1",
-            "class": "UserService",
-            "name": "Name",
-            "property_type": "string",
-            "resolved_property_types": ["string"],
-            "modifiers": ["public"],
-            "attributes": [],
-            "documentation": "Name docs.",
-            "documentation_summary": "Name docs.",
-            "accessors": ["get", "set"],
-            "is_auto_property": True,
-            "is_trivial": True,
-            "embedding_text": "property",
-        }], [{
-            "kind": "relation",
-            "file": rel_path,
-            "id": "relation:1",
-            "source_id": "cs_file:1",
-            "source_kind": "cs_file",
-            "source_name": rel_path,
-            "relation": "contains_type",
-            "target": "UserService",
-            "target_resolved": "cs_type:1",
-            "weight": 1,
-            "from": "cs_file:1",
-            "to": "cs_type:1",
-            "type": "contains_type",
-        }], {"kind": "cs", "file": rel_path, "namespace": "Demo.App"}
+        return (
+            [
+                {
+                    "kind": "cs_file",
+                    "file": rel_path,
+                    "id": "cs_file:1",
+                    "namespace": "Demo.App",
+                    "usings": ["System"],
+                    "types": [
+                        {
+                            "name": "UserService",
+                            "type_kind": "class",
+                            "property_count": 1,
+                            "method_count": 1,
+                            "constructor_count": 1,
+                            "field_count": 1,
+                            "role_labels": ["service"],
+                        }
+                    ],
+                    "embedding_text": "cs file",
+                    "summary": {
+                        "using_count": 1,
+                        "type_count": 1,
+                        "property_count": 1,
+                        "method_count": 1,
+                        "constructor_count": 1,
+                    },
+                },
+                {
+                    "kind": "cs_type",
+                    "file": rel_path,
+                    "id": "cs_type:1",
+                    "parent_id": "cs_file:1",
+                    "namespace": "Demo.App",
+                    "usings": ["System"],
+                    "name": "UserService",
+                    "type_kind": "class",
+                    "modifiers": ["public"],
+                    "attributes": [],
+                    "documentation": "Service docs.",
+                    "documentation_summary": "Service docs.",
+                    "extends": None,
+                    "extends_resolved": [],
+                    "implements": [],
+                    "implements_resolved": [],
+                    "fields": [
+                        {"name": "_repo", "type": "IRepo", "resolved_types": ["Demo.App.IRepo"], "attributes": []}
+                    ],
+                    "properties": ["Name: string"],
+                    "methods": ["RunAsync(User user): Task<User>"],
+                    "constructors": ["UserService(IRepo repo)"],
+                    "used_types": ["Demo.App.IRepo"],
+                    "called_methods": ["repo.Save(user)"],
+                    "role_labels": ["service"],
+                    "roles": {"role_labels": ["service"]},
+                    "type_resolution_conflicts": [],
+                    "embedding_text": "cs type",
+                    "summary": "class UserService",
+                },
+            ],
+            [
+                {
+                    "kind": "cs_property",
+                    "file": rel_path,
+                    "id": "cs_property:1",
+                    "parent_id": "cs_type:1",
+                    "class": "UserService",
+                    "name": "Name",
+                    "property_type": "string",
+                    "resolved_property_types": ["string"],
+                    "modifiers": ["public"],
+                    "attributes": [],
+                    "documentation": "Name docs.",
+                    "documentation_summary": "Name docs.",
+                    "accessors": ["get", "set"],
+                    "is_auto_property": True,
+                    "is_trivial": True,
+                    "embedding_text": "property",
+                }
+            ],
+            [
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": "relation:1",
+                    "source_id": "cs_file:1",
+                    "source_kind": "cs_file",
+                    "source_name": rel_path,
+                    "relation": "contains_type",
+                    "target": "UserService",
+                    "target_resolved": "cs_type:1",
+                    "weight": 1,
+                    "from": "cs_file:1",
+                    "to": "cs_type:1",
+                    "type": "contains_type",
+                }
+            ],
+            {"kind": "cs", "file": rel_path, "namespace": "Demo.App"},
+        )
 
 
 class _NoopExtractor:
@@ -109,11 +139,7 @@ class _NoopExtractor:
 
 class CSharpDocumentationHelperTests(unittest.TestCase):
     def test_extract_xml_documentation_normalizes_summary_and_param_tags(self) -> None:
-        src = (
-            b"/// <summary>Saves a user.</summary>\n"
-            b"/// <param name=\"id\">User id.</param>\n"
-            b"void Save() {}"
-        )
+        src = b'/// <summary>Saves a user.</summary>\n/// <param name="id">User id.</param>\nvoid Save() {}'
         node = SimpleNamespace(start_point=(2, 0))
 
         documentation = extract_xml_documentation(node, src)
@@ -131,7 +157,9 @@ def _parse_first_type(code: str):
     return src, type_node
 
 
-@unittest.skipUnless(Language is not None and Parser is not None and tscsharp is not None, "tree_sitter C# dependencies missing")
+@unittest.skipUnless(
+    Language is not None and Parser is not None and tscsharp is not None, "tree_sitter C# dependencies missing"
+)
 class CSharpTypeExtractorTests(unittest.TestCase):
     def test_extract_type_includes_properties_methods_and_documentation(self) -> None:
         src, type_node = _parse_first_type(
@@ -188,7 +216,9 @@ class CSharpTypeExtractorTests(unittest.TestCase):
         self.assertTrue(property_record["is_auto_property"])
         self.assertEqual(constructor_record["documentation_summary"], "Create service.")
         self.assertEqual(method_record["documentation_summary"], "Runs work.")
-        self.assertTrue(any(target["target_resolved"] == "Demo.App.IRepo.Save" for target in method_record["resolved_call_targets"]))
+        self.assertTrue(
+            any(target["target_resolved"] == "Demo.App.IRepo.Save" for target in method_record["resolved_call_targets"])
+        )
         self.assertTrue(any(rel["relation"] == "declares_property" for rel in relation_records))
         self.assertEqual(stats["property_count"], 1)
 

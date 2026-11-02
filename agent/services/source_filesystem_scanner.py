@@ -25,10 +25,7 @@ from agent.sources.registered_workspace_connector import (
     WorkspaceInventoryManifest,
 )
 
-
-_ARCHIVE_TYPES = frozenset(
-    {"zip", "tar", "tgz", "gz", "bz2", "xz", "7z", "rar"}
-)
+_ARCHIVE_TYPES = frozenset({"zip", "tar", "tgz", "gz", "bz2", "xz", "7z", "rar"})
 _TEXT_CONTROL = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 _SECRET_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
@@ -162,9 +159,7 @@ class ProductionFilesystemSourceScanner:
                 binaries += 1
                 continue
             secrets += sum(bool(pattern.search(text)) for pattern in _SECRET_PATTERNS)
-            injections += sum(
-                bool(pattern.search(text)) for pattern in _INJECTION_PATTERNS
-            )
+            injections += sum(bool(pattern.search(text)) for pattern in _INJECTION_PATTERNS)
 
         inventory = SourceInventoryEvidence(
             revision_digest=snapshot.revision_digest,

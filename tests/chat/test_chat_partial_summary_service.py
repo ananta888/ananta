@@ -1,4 +1,5 @@
 """Unit-Tests für ChatPartialSummaryService (LLM-first, extraktiver Fallback)."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -23,6 +24,7 @@ def _service() -> ChatPartialSummaryService:
 
 
 # ── LLM path ──────────────────────────────────────────────────────────────
+
 
 def test_llm_success_uses_llm_method_and_text():
     fixed = "Parser-Fehler in tokenizer.py Zeile 12, Fix vorgeschlagen."
@@ -61,6 +63,7 @@ def test_llm_exception_falls_back_to_extractive_and_never_raises():
 
 # ── Extractive fallback ───────────────────────────────────────────────────
 
+
 def test_extractive_is_deterministic():
     with patch(LLM_PATCH_TARGET, return_value=""):
         first = _service().summarize(MESSAGES, target_chars=300)
@@ -94,6 +97,7 @@ def test_extractive_respects_target_chars_and_ends_with_ellipsis():
 
 # ── target_chars clamping ─────────────────────────────────────────────────
 
+
 def test_target_chars_below_minimum_is_clamped_to_100():
     captured: dict = {}
 
@@ -119,10 +123,7 @@ def test_target_chars_above_maximum_is_clamped_to_5000():
         return ""
 
     # Extractive material well beyond 5000 chars
-    long_messages = [
-        {"sender": f"user{i}", "text": ("wort " * 300).strip() + "."}
-        for i in range(5)
-    ]
+    long_messages = [{"sender": f"user{i}", "text": ("wort " * 300).strip() + "."} for i in range(5)]
     with patch(LLM_PATCH_TARGET, side_effect=fake_llm):
         result = _service().summarize(long_messages, target_chars=99999)
     assert "Maximal 5000 Zeichen." in captured["prompt"]
@@ -132,14 +133,17 @@ def test_target_chars_above_maximum_is_clamped_to_5000():
 
 # ── Degenerate inputs ─────────────────────────────────────────────────────
 
+
 def test_empty_and_invalid_messages_handled_gracefully():
     with patch(LLM_PATCH_TARGET, side_effect=AssertionError("LLM must not be called")):
-        result = _service().summarize([
-            {"sender": "user", "text": ""},
-            {"sender": "ai", "text": "   "},
-            "not-a-dict",
-            42,
-        ])
+        result = _service().summarize(
+            [
+                {"sender": "user", "text": ""},
+                {"sender": "ai", "text": "   "},
+                "not-a-dict",
+                42,
+            ]
+        )
     assert result.summary == ""
     assert result.method == "extractive"
     assert result.source_count == 0

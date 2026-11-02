@@ -29,21 +29,23 @@ def app(monkeypatch):
     app.extensions["meet_binding_service"] = Mock()
     app.extensions["meet_media_worker_key"] = KEY
     retrieval = Mock()
-    retrieval.search_records_page.return_value = page([
-        {
-            "path": "worker/meet_media/companion.py",
-            "content": "x" * 2000,
-            "score": 0.8,
-            "symbol": "speak",
-            "metadata": {
-                "source_revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a",
-                "private_host_path": "/srv/x",
-                "line_start": 42,
+    retrieval.search_records_page.return_value = page(
+        [
+            {
+                "path": "worker/meet_media/companion.py",
+                "content": "x" * 2000,
+                "score": 0.8,
+                "symbol": "speak",
+                "metadata": {
+                    "source_revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a",
+                    "private_host_path": "/srv/x",
+                    "line_start": 42,
+                },
             },
-        },
-        {"path": "", "content": "no symbol", "score": 0.1, "metadata": {}},
-        "not-a-record",
-    ])
+            {"path": "", "content": "no symbol", "score": 0.1, "metadata": {}},
+            "not-a-record",
+        ]
+    )
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -71,11 +73,14 @@ def test_snippets_carry_path_symbol_revision_and_bounded_excerpt(app):
     assert second["symbol"] == "" and second["revision"] == ""
 
 
-@pytest.mark.parametrize("body, signed, status", [
-    (encode({"query": "x"}), False, 401),
-    (encode({"query": ""}), True, 400),
-    (encode({"query": "x" * 1001}), True, 400),
-])
+@pytest.mark.parametrize(
+    "body, signed, status",
+    [
+        (encode({"query": "x"}), False, 401),
+        (encode({"query": ""}), True, 400),
+        (encode({"query": "x" * 1001}), True, 400),
+    ],
+)
 def test_unsigned_or_invalid_queries_are_rejected(app, body, signed, status):
     response = post(app.test_client(), body, signed=signed)
     assert response.status_code == status
@@ -84,16 +89,18 @@ def test_unsigned_or_invalid_queries_are_rejected(app, body, signed, status):
 def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
     """MCK-008: a pathless blob must not displace hits the companion can cite."""
     retrieval = Mock()
-    retrieval.search_records_page.return_value = page([
-        {"path": "", "content": "registry blob", "score": 242.4, "metadata": {}},
-        {
-            "path": "",
-            "content": "class RagHelperIndexService",
-            "score": 16.2,
-            "metadata": {"display_path": "agent/services/rag_helper_index_service.py"},
-        },
-        {"path": "docs/rag-helper.md", "content": "RAG-Helper", "score": 8.4, "metadata": {}},
-    ])
+    retrieval.search_records_page.return_value = page(
+        [
+            {"path": "", "content": "registry blob", "score": 242.4, "metadata": {}},
+            {
+                "path": "",
+                "content": "class RagHelperIndexService",
+                "score": 16.2,
+                "metadata": {"display_path": "agent/services/rag_helper_index_service.py"},
+            },
+            {"path": "docs/rag-helper.md", "content": "RAG-Helper", "score": 8.4, "metadata": {}},
+        ]
+    )
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -121,26 +128,44 @@ def _live_shaped_index(tmp_path):
     records = [
         record("config/codecompass/file_type_support.v1.json", registry, "json"),
         {"id": "registry-without-path", "content": registry},
-        record("agent/services/rag_helper_index_service.py",
-               "class RagHelperIndexService: runs the rag_helper pipeline for a repository path"),
-        record("agent/services/rag_helper_file_type_policy.py",
-               "class RagHelperFileTypePolicy: which files the rag_helper pipeline reads"),
-        record("tests/rag/test_rag_helper_index_service.py",
-               "def test_rag_helper_index_service(): RagHelperIndexService rag_helper pipeline"),
+        record(
+            "agent/services/rag_helper_index_service.py",
+            "class RagHelperIndexService: runs the rag_helper pipeline for a repository path",
+        ),
+        record(
+            "agent/services/rag_helper_file_type_policy.py",
+            "class RagHelperFileTypePolicy: which files the rag_helper pipeline reads",
+        ),
+        record(
+            "tests/rag/test_rag_helper_index_service.py",
+            "def test_rag_helper_index_service(): RagHelperIndexService rag_helper pipeline",
+        ),
         record("docs/rag-helper.md", "# RAG Helper\n\nWhat the rag-helper is good for.", "text"),
         record(".hermes/plans/e2e-pipeline.md", "# E2E pipeline plan: pipeline stages of the pipeline", "text"),
     ]
     output_dir = tmp_path / "records-index"
     output_dir.mkdir()
     (output_dir / "index.jsonl").write_text("\n".join(json.dumps(item) for item in records), encoding="utf-8")
-    repository = SimpleNamespace(list_completed=lambda: [SimpleNamespace(
-        id="idx-live-shape", artifact_id=None, source_scope="repo_path", profile_name="deep_code",
-        output_dir=str(output_dir))])
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-live-shape",
+                artifact_id=None,
+                source_scope="repo_path",
+                profile_name="deep_code",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
     return KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
 
 
-@pytest.mark.parametrize("query", ["rag-helper", "rag_helper", "rag helper", "rag_helper pipeline", "RAG helper Ananta"])
-def test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_registry(app, monkeypatch, tmp_path, query):
+@pytest.mark.parametrize(
+    "query", ["rag-helper", "rag_helper", "rag helper", "rag_helper pipeline", "RAG helper Ananta"]
+)
+def test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_registry(
+    app, monkeypatch, tmp_path, query
+):
     """Live regression: "rag-helper" answered from a registry blob without a citable path."""
     service = _live_shaped_index(tmp_path)
     monkeypatch.setattr(

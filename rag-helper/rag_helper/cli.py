@@ -39,9 +39,8 @@ def run_cli(
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
     config_args, _ = config_parser.parse_known_args()
-    config_defaults, config_path = load_profile_config(
-        Path(config_args.config) if config_args.config else None
-    )
+    config_defaults, config_path = load_profile_config(Path(config_args.config) if config_args.config else None)
+
     def config_default(key, fallback=None):
         return config_defaults.get(key, fallback)
 
@@ -105,9 +104,7 @@ def run_cli(
     parser.add_argument(
         "--max-parser-records-per-file",
         type=positive_int,
-        default=config_default(
-            "max_parser_records_per_file", ProcessingLimits.max_parser_records_per_file
-        ),
+        default=config_default("max_parser_records_per_file", ProcessingLimits.max_parser_records_per_file),
         help="Interne Obergrenze fuer Records eines strukturierten Formatparsers",
     )
     parser.add_argument(
@@ -119,9 +116,7 @@ def run_cli(
     parser.add_argument(
         "--max-document-code-block-chars",
         type=positive_int,
-        default=config_default(
-            "max_document_code_block_chars", ProcessingLimits.max_document_code_block_chars
-        ),
+        default=config_default("max_document_code_block_chars", ProcessingLimits.max_document_code_block_chars),
         help="Maximale inert gespeicherte Zeichenzahl pro Dokument-Codeblock",
     )
     parser.add_argument(
@@ -145,9 +140,7 @@ def run_cli(
     parser.add_argument(
         "--max-notebook-cell-chars",
         type=positive_int,
-        default=config_default(
-            "max_notebook_cell_chars", ProcessingLimits.max_notebook_cell_chars
-        ),
+        default=config_default("max_notebook_cell_chars", ProcessingLimits.max_notebook_cell_chars),
         help="Maximale inert gespeicherte Zeichenzahl pro Notebook-Zelle",
     )
     parser.add_argument(
@@ -159,9 +152,7 @@ def run_cli(
     parser.add_argument(
         "--max-tabular-sample-rows",
         type=positive_int,
-        default=config_default(
-            "max_tabular_sample_rows", ProcessingLimits.max_tabular_sample_rows
-        ),
+        default=config_default("max_tabular_sample_rows", ProcessingLimits.max_tabular_sample_rows),
         help="Maximale Zahl fuer die CSV-/TSV-Typinferenz verwendeter Zeilen",
     )
     parser.add_argument(
@@ -173,9 +164,7 @@ def run_cli(
     parser.add_argument(
         "--max-tabular-cell-chars",
         type=positive_int,
-        default=config_default(
-            "max_tabular_cell_chars", ProcessingLimits.max_tabular_cell_chars
-        ),
+        default=config_default("max_tabular_cell_chars", ProcessingLimits.max_tabular_cell_chars),
         help="Maximale Zeichenzahl einer gelesenen CSV-/TSV-Zelle",
     )
     parser.add_argument(
@@ -196,9 +185,7 @@ def run_cli(
     parser.add_argument(
         "--max-xml-input-size-kb",
         type=positive_int,
-        default=config_default(
-            "max_xml_input_size_kb", ProcessingLimits.max_xml_input_size_kb
-        ),
+        default=config_default("max_xml_input_size_kb", ProcessingLimits.max_xml_input_size_kb),
         help="XML/XSD-Eingaben oberhalb dieser Groesse in KB sicher ablehnen",
     )
     parser.add_argument(
@@ -569,11 +556,7 @@ def run_cli(
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
         n8n_extractor_cls=n8n_extractor_cls,
-        teaching_extractor_cls=(
-            teaching_extractor_cls
-            if bool(config_default("teaching_materials", False))
-            else None
-        ),
+        teaching_extractor_cls=(teaching_extractor_cls if bool(config_default("teaching_materials", False)) else None),
         dry_run=args.dry_run,
         show_progress=args.progress,
         error_log_file=error_log_file,

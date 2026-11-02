@@ -24,9 +24,7 @@ from agent.services.hub_git_authorization_registry import (
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
-_OPAQUE_REFERENCE = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"
-)
+_OPAQUE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _REPOSITORY = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/"
     r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})$"
@@ -38,9 +36,7 @@ _REQUIRED_SCOPES = {
     "github_oauth": frozenset({"contents:read"}),
     "generic_git": frozenset({"repository:read"}),
 }
-_SELECTION_FIELDS = frozenset(
-    {"authorization_handle", "authorization_kind", "repository"}
-)
+_SELECTION_FIELDS = frozenset({"authorization_handle", "authorization_kind", "repository"})
 
 
 class HubGitAuthorizationProvisioningError(ValueError):
@@ -66,38 +62,22 @@ class GitAuthorizationSelection:
     repository: str | None
 
     @classmethod
-    def from_mapping(
-        cls, payload: Mapping[str, object]
-    ) -> "GitAuthorizationSelection":
+    def from_mapping(cls, payload: Mapping[str, object]) -> "GitAuthorizationSelection":
         if set(payload) != _SELECTION_FIELDS:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_selection_fields_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_selection_fields_invalid")
         handle = str(payload.get("authorization_handle") or "").strip()
         kind = str(payload.get("authorization_kind") or "").strip()
         raw_repository = payload.get("repository")
-        repository = (
-            str(raw_repository).strip()
-            if raw_repository is not None
-            else None
-        )
+        repository = str(raw_repository).strip() if raw_repository is not None else None
         if _OPAQUE_REFERENCE.fullmatch(handle) is None:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_handle_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_handle_invalid")
         if kind not in _KINDS:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_kind_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_kind_invalid")
         if kind.startswith("github_"):
             if repository is None or _REPOSITORY.fullmatch(repository) is None:
-                raise HubGitAuthorizationProvisioningError(
-                    "git_authorization_repository_invalid"
-                )
+                raise HubGitAuthorizationProvisioningError("git_authorization_repository_invalid")
         elif repository is not None:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_repository_forbidden"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_repository_forbidden")
         return cls(
             authorization_handle=handle,
             authorization_kind=kind,
@@ -152,10 +132,7 @@ class GitAuthorizationProviderHealth:
                 "git_authorization_provider_health_invalid",
                 status_code=503,
             )
-        if (
-            self.reason_code is not None
-            and _REASON_CODE.fullmatch(str(self.reason_code)) is None
-        ):
+        if self.reason_code is not None and _REASON_CODE.fullmatch(str(self.reason_code)) is None:
             raise HubGitAuthorizationProvisioningError(
                 "git_authorization_provider_health_invalid",
                 status_code=503,
@@ -165,13 +142,9 @@ class GitAuthorizationProviderHealth:
 class HubGitAuthorizationProvisioningPort(Protocol):
     """External GitHub/OAuth/remote callback integration boundary."""
 
-    def resolve_authorization(
-        self, request: GitAuthorizationProvisioningRequest
-    ) -> ProvisionedGitAuthorization: ...
+    def resolve_authorization(self, request: GitAuthorizationProvisioningRequest) -> ProvisionedGitAuthorization: ...
 
-    def health(
-        self, *, scope: GitSourceScope
-    ) -> GitAuthorizationProviderHealth: ...
+    def health(self, *, scope: GitSourceScope) -> GitAuthorizationProviderHealth: ...
 
 
 class HubGitAuthorizationRepositoryPort(Protocol):
@@ -222,9 +195,7 @@ class HubGitAuthorizationRepositoryPort(Protocol):
 
 
 class HubGitProvisioningIdempotencyPort(Protocol):
-    def claim(
-        self, *, idempotency_key: str, plan_digest: str
-    ) -> object: ...
+    def claim(self, *, idempotency_key: str, plan_digest: str) -> object: ...
 
     def complete(
         self,
@@ -239,18 +210,14 @@ class HubGitProvisioningIdempotencyPort(Protocol):
 class UnavailableHubGitAuthorizationProvisioner:
     """Fail-closed default until an external provider adapter is installed."""
 
-    def resolve_authorization(
-        self, request: GitAuthorizationProvisioningRequest
-    ) -> ProvisionedGitAuthorization:
+    def resolve_authorization(self, request: GitAuthorizationProvisioningRequest) -> ProvisionedGitAuthorization:
         del request
         raise HubGitAuthorizationProvisioningError(
             "git_authorization_provider_unavailable",
             status_code=503,
         )
 
-    def health(
-        self, *, scope: GitSourceScope
-    ) -> GitAuthorizationProviderHealth:
+    def health(self, *, scope: GitSourceScope) -> GitAuthorizationProviderHealth:
         del scope
         return GitAuthorizationProviderHealth(
             status="unavailable",
@@ -348,9 +315,7 @@ class HubGitAuthorizationProvisioningService:
     ) -> Mapping[str, object]:
         scope = self._scope(principal)
         if not 1 <= int(limit) <= 200:
-            raise HubGitAuthorizationProvisioningError(
-                "git_authorization_limit_invalid"
-            )
+            raise HubGitAuthorizationProvisioningError("git_authorization_limit_invalid")
         after = _decode_cursor(cursor)
         rows = list(
             self._repository.list_authorizations(
@@ -361,24 +326,12 @@ class HubGitAuthorizationProvisioningService:
         )
         if authorization_kind is not None:
             if authorization_kind not in _KINDS:
-                raise HubGitAuthorizationProvisioningError(
-                    "git_authorization_kind_invalid"
-                )
-            rows = [
-                row
-                for row in rows
-                if row.authorization_kind == authorization_kind
-            ]
+                raise HubGitAuthorizationProvisioningError("git_authorization_kind_invalid")
+            rows = [row for row in rows if row.authorization_kind == authorization_kind]
         if authorization_state is not None:
             if authorization_state not in {"active", "revoked", "scope_loss"}:
-                raise HubGitAuthorizationProvisioningError(
-                    "git_authorization_state_invalid"
-                )
-            rows = [
-                row
-                for row in rows
-                if row.authorization_state == authorization_state
-            ]
+                raise HubGitAuthorizationProvisioningError("git_authorization_state_invalid")
+            rows = [row for row in rows if row.authorization_state == authorization_state]
         rows.sort(key=_record_key)
         if after is not None:
             rows = [row for row in rows if _record_key(row) > after]
@@ -392,11 +345,7 @@ class HubGitAuthorizationProvisioningService:
                 )
                 for row in selected
             ],
-            "next_cursor": (
-                _encode_cursor(_record_key(selected[-1]))
-                if len(rows) > limit and selected
-                else None
-            ),
+            "next_cursor": (_encode_cursor(_record_key(selected[-1])) if len(rows) > limit and selected else None),
         }
 
     def detail(
@@ -475,9 +424,7 @@ class HubGitAuthorizationProvisioningService:
             project_id=str(scope.project_id),
             owner_id=str(scope.owner_id),
         )
-        active = sum(
-            row.authorization_state == "active" for row in rows
-        )
+        active = sum(row.authorization_state == "active" for row in rows)
         status = provider.status
         reason_code = provider.reason_code
         if not all(connector_ready.values()):
@@ -519,10 +466,7 @@ class HubGitAuthorizationProvisioningService:
                 status_code=503,
             ) from None
         if (
-            _OPAQUE_REFERENCE.fullmatch(
-                str(resolved.connection_ref or "").strip()
-            )
-            is None
+            _OPAQUE_REFERENCE.fullmatch(str(resolved.connection_ref or "").strip()) is None
             or resolved.authorization_kind != selection.authorization_kind
             or resolved.authorization_state != "active"
             or resolved.repository != selection.repository
@@ -554,9 +498,7 @@ class HubGitAuthorizationProvisioningService:
         except HubGitAuthorizationProvisioningError:
             raise
         except Exception as exc:
-            reason_code = getattr(
-                exc, "reason_code", "git_remote_policy_rejected"
-            )
+            reason_code = getattr(exc, "reason_code", "git_remote_policy_rejected")
             raise HubGitAuthorizationProvisioningError(
                 str(reason_code),
                 status_code=403,
@@ -608,10 +550,7 @@ class HubGitAuthorizationProvisioningService:
             repository=normalized_repository,
         )
         current_revision = self._revision(scope=scope, record=current)
-        if (
-            current.authorization_state == state
-            and current_revision == expected_revision + 1
-        ):
+        if current.authorization_state == state and current_revision == expected_revision + 1:
             result = self._view(
                 current,
                 revision=current_revision,
@@ -685,9 +624,7 @@ class HubGitAuthorizationProvisioningService:
             )
         return int(revision)
 
-    def _claim(
-        self, *, idempotency_key: str, plan_digest: str
-    ) -> tuple[Mapping[str, object] | None, str | None]:
+    def _claim(self, *, idempotency_key: str, plan_digest: str) -> tuple[Mapping[str, object] | None, str | None]:
         claim = self._idempotency.claim(
             idempotency_key=idempotency_key,
             plan_digest=plan_digest,
@@ -718,16 +655,9 @@ class HubGitAuthorizationProvisioningService:
                 status_code=403,
             )
         tenant_id = str(getattr(principal, "tenant_id", "") or "").strip()
-        project_id = str(
-            getattr(principal, "project_id", "") or ""
-        ).strip()
-        owner_id = str(
-            getattr(principal, "subject_id", "") or ""
-        ).strip()
-        if not all(
-            _OPAQUE_REFERENCE.fullmatch(value)
-            for value in (tenant_id, project_id, owner_id)
-        ):
+        project_id = str(getattr(principal, "project_id", "") or "").strip()
+        owner_id = str(getattr(principal, "subject_id", "") or "").strip()
+        if not all(_OPAQUE_REFERENCE.fullmatch(value) for value in (tenant_id, project_id, owner_id)):
             raise HubGitAuthorizationProvisioningError(
                 "source_control_principal_scope_required",
                 status_code=403,
@@ -754,14 +684,8 @@ class HubGitAuthorizationProvisioningService:
             "credential_configured": bool(record.credential_ref),
             "persisted": bool(persisted),
             "current_revision": int(revision),
-            "etag": (
-                f'"git-auth-v1:{int(revision)}"' if persisted else None
-            ),
-            "next_actions": (
-                ["revoke", "record_scope_loss"]
-                if record.authorization_state == "active"
-                else []
-            ),
+            "etag": (f'"git-auth-v1:{int(revision)}"' if persisted else None),
+            "next_actions": (["revoke", "record_scope_loss"] if record.authorization_state == "active" else []),
         }
 
 
@@ -776,9 +700,7 @@ def _record_key(record: RegisteredGitAuthorization) -> str:
 
 
 def _encode_cursor(value: str) -> str:
-    return base64.urlsafe_b64encode(value.encode("utf-8")).decode(
-        "ascii"
-    ).rstrip("=")
+    return base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii").rstrip("=")
 
 
 def _decode_cursor(value: str | None) -> str | None:
@@ -786,25 +708,17 @@ def _decode_cursor(value: str | None) -> str | None:
         return None
     normalized = str(value).strip()
     if not normalized or len(normalized) > 1024:
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_cursor_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_cursor_invalid")
     try:
-        return base64.urlsafe_b64decode(
-            normalized + "=" * (-len(normalized) % 4)
-        ).decode("utf-8")
+        return base64.urlsafe_b64decode(normalized + "=" * (-len(normalized) % 4)).decode("utf-8")
     except (ValueError, UnicodeDecodeError):
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_cursor_invalid"
-        ) from None
+        raise HubGitAuthorizationProvisioningError("git_authorization_cursor_invalid") from None
 
 
 def _require_ref(value: str) -> str:
     normalized = str(value or "").strip()
     if _OPAQUE_REFERENCE.fullmatch(normalized) is None:
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_ref_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_ref_invalid")
     return normalized
 
 
@@ -813,9 +727,7 @@ def _normalize_repository(value: str | None) -> str | None:
         return None
     normalized = str(value).strip()
     if _REPOSITORY.fullmatch(normalized) is None:
-        raise HubGitAuthorizationProvisioningError(
-            "git_authorization_repository_invalid"
-        )
+        raise HubGitAuthorizationProvisioningError("git_authorization_repository_invalid")
     return normalized
 
 

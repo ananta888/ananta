@@ -33,8 +33,9 @@ BUILDER_ENVIRONMENT = {"builder": "worker.incremental_index.chunk_builder", "ver
 class LayerRunEvidencePort(Protocol):
     def reserve(self, *, envelope: Mapping[str, Any], assignment_id: str, dispatch_lease_id: str) -> str: ...
 
-    def complete(self, *, run_id: str, assignment_id: str, dispatch_lease_id: str, succeeded: bool,
-                 result_digest: str) -> None: ...
+    def complete(
+        self, *, run_id: str, assignment_id: str, dispatch_lease_id: str, succeeded: bool, result_digest: str
+    ) -> None: ...
 
 
 class TaskIngressPort(Protocol):
@@ -76,8 +77,9 @@ class HubEvidenceLayerRuns:
         )
         return str(run.run_id)
 
-    def complete(self, *, run_id: str, assignment_id: str, dispatch_lease_id: str, succeeded: bool,
-                 result_digest: str) -> None:
+    def complete(
+        self, *, run_id: str, assignment_id: str, dispatch_lease_id: str, succeeded: bool, result_digest: str
+    ) -> None:
         self._registry.record_result(
             tenant_id=self._tenant,
             project_id=self._project,
@@ -102,10 +104,16 @@ class HubTaskQueueLayerDispatcher:
         task_id = str(envelope["task_id"])
         assignment_id = f"cc_assign_{str(envelope['intent_digest'])[:32]}"
         dispatch_lease_id = f"hub-task:{task_id}"
-        run_id = self._evidence.reserve(envelope=envelope, assignment_id=assignment_id,
-                                        dispatch_lease_id=dispatch_lease_id)
-        ticket = JobTicket(task_id=task_id, assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
-                           intent_digest=str(envelope["intent_digest"]), run_id=run_id)
+        run_id = self._evidence.reserve(
+            envelope=envelope, assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id
+        )
+        ticket = JobTicket(
+            task_id=task_id,
+            assignment_id=assignment_id,
+            dispatch_lease_id=dispatch_lease_id,
+            intent_digest=str(envelope["intent_digest"]),
+            run_id=run_id,
+        )
         plan = dict(envelope.get("plan") or {})
         self._queue.ingest_task(
             task_id=task_id,
@@ -129,8 +137,13 @@ class HubTaskQueueLayerDispatcher:
                 "worker_execution_context": {CONTEXT_KEY: ticket.to_dict()},
             },
         )
-        return {"task_id": task_id, "assignment_id": assignment_id, "dispatch_lease_id": dispatch_lease_id,
-                "run_id": run_id, "content_parts": self._content_parts(plan)}
+        return {
+            "task_id": task_id,
+            "assignment_id": assignment_id,
+            "dispatch_lease_id": dispatch_lease_id,
+            "run_id": run_id,
+            "content_parts": self._content_parts(plan),
+        }
 
     @staticmethod
     def _content_parts(plan: Mapping[str, Any]) -> list[list[str]]:
@@ -173,8 +186,9 @@ def job_spec(dispatch: Mapping[str, Any]) -> dict[str, Any]:
 class HubCodeCompassLayerPublisher:
     """``CodeCompassLayerPublisherPort``: verify the uploaded layer and advance the head."""
 
-    def __init__(self, *, layers: Any, heads: Any, evidence: LayerRunEvidencePort,
-                 observers: list[Any] | None = None) -> None:
+    def __init__(
+        self, *, layers: Any, heads: Any, evidence: LayerRunEvidencePort, observers: list[Any] | None = None
+    ) -> None:
         self._layers = layers
         self._heads = heads
         self._evidence = evidence
@@ -226,8 +240,13 @@ class HubCodeCompassLayerPublisher:
         profile_id = spec["profile_id"]
         head = self._heads.get_head(profile_id)
         if head is None:
-            outcome = self._heads.create_head(profile_id, layer_id=layer_id, layer_set={"chunks": layer_id},
-                                              snapshot_revision=spec["input_revision"], reason="base")
+            outcome = self._heads.create_head(
+                profile_id,
+                layer_id=layer_id,
+                layer_set={"chunks": layer_id},
+                snapshot_revision=spec["input_revision"],
+                reason="base",
+            )
         else:
             outcome = self._heads.update_head(
                 profile_id,
@@ -254,7 +273,10 @@ class HubCodeCompassLayerPublisher:
 
     def _complete(self, spec: Mapping[str, Any], result: Mapping[str, Any], *, succeeded: bool) -> None:
         if spec["run_id"]:
-            self._evidence.complete(run_id=spec["run_id"], assignment_id=spec["assignment_id"],
-                                    dispatch_lease_id=spec["dispatch_lease_id"], succeeded=succeeded,
-                                    result_digest=canonical_digest(dict(result)))
-
+            self._evidence.complete(
+                run_id=spec["run_id"],
+                assignment_id=spec["assignment_id"],
+                dispatch_lease_id=spec["dispatch_lease_id"],
+                succeeded=succeeded,
+                result_digest=canonical_digest(dict(result)),
+            )

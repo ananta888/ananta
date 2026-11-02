@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 
 from agent.models import TaskCreateRequest
-from agent.services import _task_scoped_runtime as task_scoped_runtime
 from agent.services import task_management_service as task_management_module
 from agent.services.context_bundle_ingress_policy import (
     RESERVED_CONTEXT_BUNDLE_INGRESS_REASON,
@@ -23,6 +22,7 @@ from agent.services.task_context_bundle_access_service import (
     TaskContextBundleAccessService,
 )
 from agent.services.task_management_service import TaskManagementService
+from agent.services.task_scoped import runtime as task_scoped_runtime
 
 
 class _BundleRepository:

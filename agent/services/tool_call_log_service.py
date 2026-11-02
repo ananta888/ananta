@@ -3,6 +3,7 @@
 Strukturierter Nachweis für jeden Tool-Call.
 Input/Output werden niemals raw gespeichert — nur SHA-256-Hashes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -51,11 +52,11 @@ class ToolCallRecord:
     worker_id: str | None
     tool_name: str
     timestamp: float
-    input_hash: str          # sha256 of canonical (redacted) input
-    output_hash: str         # sha256 of canonical output, "blocked", or "redacted"
-    policy_decision: str     # "allowed" | "denied" | "redacted"
+    input_hash: str  # sha256 of canonical (redacted) input
+    output_hash: str  # sha256 of canonical output, "blocked", or "redacted"
+    policy_decision: str  # "allowed" | "denied" | "redacted"
     duration_ms: int
-    status: str              # "success" | "error" | "timeout" | "blocked"
+    status: str  # "success" | "error" | "timeout" | "blocked"
     error_code: str | None
     redaction_applied: bool
     correlation_id: str | None

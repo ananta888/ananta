@@ -8,7 +8,6 @@ from pathlib import Path
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
-
 PROJECT_ROOT = Path(__file__).parent.parent / "fixtures" / "mini_coding_project"
 REFERENCE_ROOT = Path(__file__).parent.parent / "fixtures" / "java_security_mini"
 
@@ -41,7 +40,9 @@ def _mini_rag_search(chunks: list[MiniRagChunk], query: str, *, top_k: int = 5) 
         haystack = f"{chunk.source}\n{chunk.symbol}\n{chunk.text}".lower()
         return sum(1 for token in tokens if token and token in haystack)
 
-    return sorted((chunk for chunk in chunks if score(chunk) > 0), key=lambda chunk: (-score(chunk), chunk.source))[:top_k]
+    return sorted((chunk for chunk in chunks if score(chunk) > 0), key=lambda chunk: (-score(chunk), chunk.source))[
+        :top_k
+    ]
 
 
 def _build_rag_context() -> dict:

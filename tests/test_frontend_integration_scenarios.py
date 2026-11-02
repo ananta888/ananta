@@ -1,13 +1,13 @@
-import pytest
 import time
 import uuid
-from flask import Flask
-from agent.ai_agent import create_app
-from agent.db_models import TaskDB, UserDB
-from agent.repository import task_repo, user_repo
-from werkzeug.security import generate_password_hash
+
 import jwt
+import pytest
+
 from agent.config import settings
+from agent.db_models import TaskDB
+from agent.repository import task_repo
+
 
 @pytest.fixture
 def auth_headers():
@@ -15,6 +15,7 @@ def auth_headers():
     payload = {"sub": username, "role": "admin", "exp": time.time() + 3600}
     token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
     return {"Authorization": f"Bearer {token}"}
+
 
 def test_frontend_governance_read_model(client, auth_headers):
     """
@@ -34,6 +35,7 @@ def test_frontend_governance_read_model(client, auth_headers):
     assert "artifact_flow" in data
     assert "active_leases" in data
 
+
 def test_frontend_task_verification_details(client, auth_headers):
     """
     Simuliert den Frontend-Abruf von Verifikations-Details (TST-042).
@@ -50,6 +52,7 @@ def test_frontend_task_verification_details(client, auth_headers):
     assert data["task_id"] == tid
     assert "verification_spec" in data
     assert data["verification_status"]["status"] == "passed"
+
 
 def test_high_risk_path_blocking_simulation(client, auth_headers):
     """

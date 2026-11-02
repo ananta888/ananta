@@ -75,9 +75,7 @@ class SQLSourceGrantStore:
                         or record.owner_id != owner_id
                         or record.grant_family_id != grant_family_id
                     ):
-                        raise SourceControlPersistenceError(
-                            "source_control_grant_identity_conflict"
-                        )
+                        raise SourceControlPersistenceError("source_control_grant_identity_conflict")
                     return record
                 require_scoped_revision(
                     db,
@@ -88,17 +86,12 @@ class SQLSourceGrantStore:
                 )
                 latest = db.exec(
                     select(SourceAccessGrantDB)
-                    .where(
-                        SourceAccessGrantDB.grant_family_id
-                        == grant_family_id
-                    )
+                    .where(SourceAccessGrantDB.grant_family_id == grant_family_id)
                     .order_by(SourceAccessGrantDB.grant_version.desc())
                 ).first()
                 required_version = 1 if latest is None else latest.grant_version + 1
                 if contract.version != required_version:
-                    raise SourceControlPersistenceError(
-                        "source_control_grant_version_invalid"
-                    )
+                    raise SourceControlPersistenceError("source_control_grant_version_invalid")
                 now = float(self._clock())
                 row = new_grant_row(
                     contract,
@@ -202,21 +195,16 @@ class SQLSourceGrantStore:
                     grant_id=grant_id,
                 )
                 if row.lock_version != expected_lock_version:
-                    raise SourceControlPersistenceError(
-                        "source_control_version_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_version_conflict")
                 if target not in GRANT_TRANSITIONS[row.state]:
-                    raise SourceControlPersistenceError(
-                        "source_control_grant_transition_invalid"
-                    )
+                    raise SourceControlPersistenceError("source_control_grant_transition_invalid")
                 previous = row.state
                 now = float(self._clock())
                 result = db.execute(
                     update(SourceAccessGrantDB)
                     .where(
                         SourceAccessGrantDB.grant_id == grant_id,
-                        SourceAccessGrantDB.lock_version
-                        == expected_lock_version,
+                        SourceAccessGrantDB.lock_version == expected_lock_version,
                     )
                     .values(
                         state=target,
@@ -225,9 +213,7 @@ class SQLSourceGrantStore:
                     )
                 )
                 if result.rowcount != 1:
-                    raise SourceControlPersistenceError(
-                        "source_control_version_conflict"
-                    )
+                    raise SourceControlPersistenceError("source_control_version_conflict")
                 row.state = target
                 row.lock_version = expected_lock_version + 1
                 row.updated_at_epoch = now
@@ -266,28 +252,17 @@ class SQLSourceGrantStore:
                     previous.lock_version != expected_previous_lock_version
                     or previous.state not in {"superseded", "revoked"}
                     or previous.grant_family_id != grant_family_id
-                    or derive_grant_family_id(replacement)
-                    != grant_family_id
+                    or derive_grant_family_id(replacement) != grant_family_id
                     or replacement.state is not GrantState.ACTIVE
                 ):
-                    raise SourceControlPersistenceError(
-                        "source_control_grant_rollback_invalid"
-                    )
+                    raise SourceControlPersistenceError("source_control_grant_rollback_invalid")
                 latest = db.exec(
                     select(SourceAccessGrantDB)
-                    .where(
-                        SourceAccessGrantDB.grant_family_id
-                        == grant_family_id
-                    )
+                    .where(SourceAccessGrantDB.grant_family_id == grant_family_id)
                     .order_by(SourceAccessGrantDB.grant_version.desc())
                 ).first()
-                if (
-                    latest is None
-                    or replacement.version != latest.grant_version + 1
-                ):
-                    raise SourceControlPersistenceError(
-                        "source_control_grant_version_invalid"
-                    )
+                if latest is None or replacement.version != latest.grant_version + 1:
+                    raise SourceControlPersistenceError("source_control_grant_version_invalid")
                 require_scoped_revision(
                     db,
                     tenant_id=replacement.tenant_id,
@@ -316,9 +291,7 @@ class SQLSourceGrantStore:
                 )
             return grant_record(row)
 
-    def list_grant_audit(
-        self, *, grant_id: str
-    ) -> tuple[SourceAccessGrantAuditRecord, ...]:
+    def list_grant_audit(self, *, grant_id: str) -> tuple[SourceAccessGrantAuditRecord, ...]:
         with Session(self._engine) as db:
             rows = db.exec(
                 select(SourceAccessGrantAuditDB)

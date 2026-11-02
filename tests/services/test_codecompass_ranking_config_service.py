@@ -12,23 +12,25 @@ def test_default_ranking_config_keeps_restricted_rerank_disabled() -> None:
 
 
 def test_ranking_config_accepts_known_weights_only() -> None:
-    cfg = CodeCompassRankingConfig.from_config({
-        "codecompass_ranking": {
-            "restricted_inference_rerank_enabled": True,
-            "score_weights": {
-                "embedding_score": "0.1",
-                "unknown": 99,
-            },
-            "override_metadata": {
-                "owner": "ranking-test",
-                "reason": "deterministic test",
-                "scope": "test",
-                "version": "test-v1",
-                "expires_at": "2099-01-01T00:00:00Z",
-            },
-            "trace_scores": True,
+    cfg = CodeCompassRankingConfig.from_config(
+        {
+            "codecompass_ranking": {
+                "restricted_inference_rerank_enabled": True,
+                "score_weights": {
+                    "embedding_score": "0.1",
+                    "unknown": 99,
+                },
+                "override_metadata": {
+                    "owner": "ranking-test",
+                    "reason": "deterministic test",
+                    "scope": "test",
+                    "version": "test-v1",
+                    "expires_at": "2099-01-01T00:00:00Z",
+                },
+                "trace_scores": True,
+            }
         }
-    })
+    )
 
     assert cfg.restricted_inference_rerank_enabled is True
     assert cfg.score_weights["embedding_score"] == 0.1
@@ -38,9 +40,7 @@ def test_ranking_config_accepts_known_weights_only() -> None:
 
 
 def test_ranking_config_rejects_ungoverned_weights() -> None:
-    cfg = CodeCompassRankingConfig.from_config({
-        "codecompass_ranking": {"score_weights": {"embedding_score": 0.01}}
-    })
+    cfg = CodeCompassRankingConfig.from_config({"codecompass_ranking": {"score_weights": {"embedding_score": 0.01}}})
 
     assert cfg.score_weights["embedding_score"] == 0.45
     assert cfg.override_status == "rejected_missing_governance"

@@ -49,13 +49,21 @@ def same_run(row: HubRunEvidenceIdentityDB, identity: RunEvidenceIdentity) -> Ru
 def _immutable_json(identity, mutable: set[str]) -> str:
     return json.dumps(
         {key: value for key, value in asdict(identity).items() if key not in mutable},
-        sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
     )
 
 
 def apply_run_result(
-    row: HubRunEvidenceIdentityDB | None, *, assignment_id: str, dispatch_lease_id: str,
-    terminal_state: str, result_digest: str, updated_at_epoch: float,
+    row: HubRunEvidenceIdentityDB | None,
+    *,
+    assignment_id: str,
+    dispatch_lease_id: str,
+    terminal_state: str,
+    result_digest: str,
+    updated_at_epoch: float,
 ) -> None:
     if row is None:
         raise EvidenceIdentityPersistenceError("evidence_run_identity_not_found")

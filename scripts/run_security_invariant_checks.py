@@ -117,8 +117,7 @@ def main() -> int:
         status = "PASS" if check["ok"] else "FAIL"
         print(f"[{status}] {check['name']}: {check['command']}")
     print(
-        "[INFO] deferred_hardening: "
-        "KRITIS/Enterprise controls are reported separately and are not OSS blocking checks."
+        "[INFO] deferred_hardening: KRITIS/Enterprise controls are reported separately and are not OSS blocking checks."
     )
 
     if args.out:
@@ -133,4 +132,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

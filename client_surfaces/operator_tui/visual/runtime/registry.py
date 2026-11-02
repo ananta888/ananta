@@ -54,4 +54,3 @@ class RegistryBundle:
     views: ViewRegistry
     renderers: RendererRegistry
     adapters: OutputAdapterRegistry
-

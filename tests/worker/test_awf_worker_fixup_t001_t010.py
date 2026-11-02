@@ -2,13 +2,10 @@
 capability vocabulary normalization, CapabilitySnapshot, fail-closed audit, WorkerToolRegistry,
 ToolInvocationEnvelope, tool-registry gate, and ToolResult contract.
 """
+
 from __future__ import annotations
 
-import time
-import uuid
-from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -30,8 +27,8 @@ from worker.runtime.standalone_runtime import (
 from worker.shell.command_executor import execute_command_plan
 from worker.shell.command_planner import build_command_plan_artifact
 
-
 # ── Fakes ──────────────────────────────────────────────────────────────────────
+
 
 class _AllowPolicyPort:
     def classify_command(self, *, command: str, profile: str, hub_decision: str = "allow") -> dict[str, Any]:
@@ -132,6 +129,7 @@ def _todo_contract(*, mode: str = "assistant_execute", hub_decision: str = "allo
 # AWF-T001: Hub-issued decisions
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT001HubIssuedDecision:
     def test_hub_deny_blocks_standalone(self):
         rt, tp, ap = _make_runtime()
@@ -196,6 +194,7 @@ class TestT001HubIssuedDecision:
 # AWF-T002: PreflightGate wired into runtime
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT002PreflightGate:
     def test_preflight_gate_exists_on_runtime(self):
         rt, _, _ = _make_runtime()
@@ -225,9 +224,11 @@ class TestT002PreflightGate:
 # AWF-T003: CapabilityGrant enforcement
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT003CapabilityGrant:
     def test_envelope_has_shell_capabilities(self):
         from worker.runtime.standalone_runtime import _build_standalone_envelope
+
         env = _build_standalone_envelope(
             task_id="t-1",
             task_contract={"task_id": "t-1"},
@@ -239,6 +240,7 @@ class TestT003CapabilityGrant:
 
     def test_envelope_capability_grant_snapshot_hash_computed(self):
         from worker.runtime.standalone_runtime import _build_standalone_envelope
+
         env = _build_standalone_envelope(
             task_id="t-2",
             task_contract={},
@@ -261,6 +263,7 @@ class TestT003CapabilityGrant:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T004: Capability vocabulary normalization
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT004CapabilityVocab:
     def test_normalize_worker_command_plan(self):
@@ -289,11 +292,19 @@ class TestT004CapabilityVocab:
 
     def test_native_service_uses_shell_execute(self):
         from agent.services.native_worker_runtime_service import NativeWorkerRuntimeService
+
         svc = NativeWorkerRuntimeService()
         cfg = {"worker_runtime": {"native_worker_runtime": {"enabled": True}}}
         out = svc.prepare_native_command_plan(
-            tid="t-1", task={}, command="ls", reason="test", worker_profile="balanced",
-            profile_source="agent_default", trace_id="tr-1", context_bundle_id="ctx-1", agent_cfg=cfg,
+            tid="t-1",
+            task={},
+            command="ls",
+            reason="test",
+            worker_profile="balanced",
+            profile_source="agent_default",
+            trace_id="tr-1",
+            context_bundle_id="ctx-1",
+            agent_cfg=cfg,
         )
         plan = (out.get("worker_context_updates") or {}).get("native_runtime", {}).get("command_plan_artifact") or {}
         assert plan.get("capability_id") == "shell_plan"
@@ -302,6 +313,7 @@ class TestT004CapabilityVocab:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T005: CapabilitySnapshot in trace events
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT005CapabilitySnapshot:
     def test_started_event_carries_snapshot_hash_and_hub_decision(self):
@@ -335,6 +347,7 @@ class TestT005CapabilitySnapshot:
 # AWF-T006: Fail-closed audit pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT006FailClosedAudit:
     def test_audit_preflight_event_emitted_before_publish(self):
         rt, tp, ap = _make_runtime()
@@ -367,6 +380,7 @@ class TestT006FailClosedAudit:
 # AWF-T007: WorkerToolRegistry in runtime
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT007WorkerToolRegistry:
     def test_default_registry_loaded_on_init(self):
         rt, _, _ = _make_runtime()
@@ -376,10 +390,14 @@ class TestT007WorkerToolRegistry:
 
     def test_custom_registry_accepted(self):
         custom = WorkerToolRegistry()
-        custom.register(WorkerToolEntry(
-            id="plan_shell", kind="shell",
-            capability_classes=("shell_plan",), risk_class="low",
-        ))
+        custom.register(
+            WorkerToolEntry(
+                id="plan_shell",
+                kind="shell",
+                capability_classes=("shell_plan",),
+                risk_class="low",
+            )
+        )
         rt, _, _ = _make_runtime(tool_registry=custom)
         assert rt._tool_registry is custom
 
@@ -400,6 +418,7 @@ class TestT007WorkerToolRegistry:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T008: ToolInvocationEnvelope
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT008ToolInvocationEnvelope:
     def test_invocation_envelope_construction(self):
@@ -440,7 +459,8 @@ class TestT008ToolInvocationEnvelope:
         registry = build_default_registry()
         plan = {
             "schema": "command_plan_artifact.v1",
-            "task_id": "t-1", "capability_id": "shell_execute",
+            "task_id": "t-1",
+            "capability_id": "shell_execute",
             "command": "echo hello",
             "command_hash": "abc",
             "explanation": "test",
@@ -467,14 +487,19 @@ class TestT008ToolInvocationEnvelope:
 # AWF-T009: Tool registry gate in command_executor and command_planner
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT009ToolRegistryGate:
     def _make_plan(self, command: str = "echo hi") -> dict:
         return {
             "schema": "command_plan_artifact.v1",
-            "task_id": "t-1", "capability_id": "shell_execute",
-            "command": command, "command_hash": "abc",
-            "explanation": "test", "risk_classification": "low",
-            "required_approval": False, "working_directory": ".",
+            "task_id": "t-1",
+            "capability_id": "shell_execute",
+            "command": command,
+            "command_hash": "abc",
+            "explanation": "test",
+            "risk_classification": "low",
+            "required_approval": False,
+            "working_directory": ".",
             "expected_effects": [],
         }
 
@@ -486,8 +511,11 @@ class TestT009ToolRegistryGate:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan(),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
             tool_registry=empty,
         )
         assert isinstance(result, ToolResult)
@@ -499,8 +527,11 @@ class TestT009ToolRegistryGate:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan(),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
             tool_registry=registry,
         )
         assert isinstance(result, ToolResult)
@@ -509,8 +540,11 @@ class TestT009ToolRegistryGate:
     def test_plan_shell_not_registered_returns_critical_plan(self):
         empty = WorkerToolRegistry()
         plan = build_command_plan_artifact(
-            task_id="t-1", capability_id="shell_plan",
-            command="ls", explanation="test", expected_effects=["ls"],
+            task_id="t-1",
+            capability_id="shell_plan",
+            command="ls",
+            explanation="test",
+            expected_effects=["ls"],
             policy={"allowlist": ["ls"], "approval_required_commands": [], "denylist_tokens": []},
             tool_registry=empty,
         )
@@ -521,8 +555,11 @@ class TestT009ToolRegistryGate:
     def test_plan_shell_registered_produces_normal_plan(self):
         registry = build_default_registry()
         plan = build_command_plan_artifact(
-            task_id="t-1", capability_id="shell_plan",
-            command="ls", explanation="test", expected_effects=["ls"],
+            task_id="t-1",
+            capability_id="shell_plan",
+            command="ls",
+            explanation="test",
+            expected_effects=["ls"],
             policy={"allowlist": ["ls"], "approval_required_commands": [], "denylist_tokens": []},
             tool_registry=registry,
         )
@@ -533,8 +570,11 @@ class TestT009ToolRegistryGate:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan(),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
             tool_registry=None,
         )
         assert isinstance(result, ToolResult)
@@ -544,14 +584,19 @@ class TestT009ToolRegistryGate:
 # AWF-T010: ToolResult contract
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT010ToolResult:
     def _make_plan(self, command: str = "echo hello") -> dict:
         return {
             "schema": "command_plan_artifact.v1",
-            "task_id": "t-1", "capability_id": "shell_execute",
-            "command": command, "command_hash": "abc",
-            "explanation": "test", "risk_classification": "low",
-            "required_approval": False, "working_directory": ".",
+            "task_id": "t-1",
+            "capability_id": "shell_execute",
+            "command": command,
+            "command_hash": "abc",
+            "explanation": "test",
+            "risk_classification": "low",
+            "required_approval": False,
+            "working_directory": ".",
             "expected_effects": [],
         }
 
@@ -566,8 +611,11 @@ class TestT010ToolResult:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan(),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
         )
         assert isinstance(result, ToolResult)
 
@@ -575,8 +623,11 @@ class TestT010ToolResult:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan("echo hello"),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
         )
         assert result.success
         assert result.exit_code == 0
@@ -585,8 +636,11 @@ class TestT010ToolResult:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan("echo hello"),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
         )
         assert "hello" in result.stdout
 
@@ -594,8 +648,11 @@ class TestT010ToolResult:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan("ls /nonexistent_path_xyz"),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(["ls"]), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(["ls"]),
+            hub_policy_decision="allow",
         )
         assert not result.success
         assert result.exit_code != 0
@@ -604,15 +661,25 @@ class TestT010ToolResult:
         result = execute_command_plan(
             repository_root=tmp_path,
             command_plan_artifact=self._make_plan("echo hi"),
-            task_id="t-1", capability_id="shell_execute", context_hash="ctx",
-            shell_policy=self._shell_policy(), hub_policy_decision="allow",
+            task_id="t-1",
+            capability_id="shell_execute",
+            context_hash="ctx",
+            shell_policy=self._shell_policy(),
+            hub_policy_decision="allow",
         )
         assert result.duration_seconds is not None
         assert result.duration_seconds >= 0
 
     def test_to_test_result_artifact_passed(self):
-        tr = ToolResult(tool_id="run_shell", execution_id="exec-1", success=True,
-                        stdout="hello\n", stderr="", exit_code=0, duration_seconds=0.1)
+        tr = ToolResult(
+            tool_id="run_shell",
+            execution_id="exec-1",
+            success=True,
+            stdout="hello\n",
+            stderr="",
+            exit_code=0,
+            duration_seconds=0.1,
+        )
         artifact = tr.to_test_result_artifact(task_id="t-1", command="echo hello")
         assert artifact["schema"] == "test_result_artifact.v1"
         assert artifact["status"] == "passed"
@@ -620,8 +687,7 @@ class TestT010ToolResult:
         assert artifact["task_id"] == "t-1"
 
     def test_to_test_result_artifact_failed(self):
-        tr = ToolResult(tool_id="run_shell", execution_id="exec-2", success=False,
-                        stdout="", stderr="err", exit_code=1)
+        tr = ToolResult(tool_id="run_shell", execution_id="exec-2", success=False, stdout="", stderr="err", exit_code=1)
         artifact = tr.to_test_result_artifact(task_id="t-1", command="ls /bad")
         assert artifact["status"] == "failed"
         assert artifact["exit_code"] == 1
@@ -639,13 +705,20 @@ class TestT010ToolResult:
 
     def test_native_service_uses_tool_result(self, tmp_path):
         from agent.services.native_worker_runtime_service import NativeWorkerRuntimeService
+
         svc = NativeWorkerRuntimeService()
         cfg = {"worker_runtime": {"native_worker_runtime": {"enabled": True}}}
         result = svc.execute_and_verify_command(
-            tid="t-1", task={}, command="echo hello", trace_id="tr-1",
-            worker_profile="balanced", profile_source="test",
-            timeout_seconds=30, workspace_dir=tmp_path,
-            native_runtime_payload=None, agent_cfg=cfg,
+            tid="t-1",
+            task={},
+            command="echo hello",
+            trace_id="tr-1",
+            worker_profile="balanced",
+            profile_source="test",
+            timeout_seconds=30,
+            workspace_dir=tmp_path,
+            native_runtime_payload=None,
+            agent_cfg=cfg,
         )
         assert result["status"] in {"completed", "failed"}
         assert "native_runtime" in result

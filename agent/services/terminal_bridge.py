@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import select
+import struct
 import subprocess
 import threading
-from dataclasses import dataclass
-import struct
 import time
+from dataclasses import dataclass
 
 try:
     import fcntl
@@ -57,7 +58,7 @@ class PtyBridge:
         master_fd, slave_fd = pty.openpty()
         self.master_fd = master_fd
         command = list(self.argv or [self.shell])
-        env = ({**os.environ, **self.env} if self.env else None)
+        env = {**os.environ, **self.env} if self.env else None
 
         def _child_setup() -> None:
             """Make the slave PTY the controlling terminal of the new session."""
@@ -217,7 +218,7 @@ class PtyBridge:
             try:
                 self.process.terminate()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
         if self.master_fd is not None:
             # Capture and invalidate first, then close. This is the same
             # pattern used by subprocess.Popen._close_fds to avoid the
@@ -257,7 +258,7 @@ class PipeBridge:
         if os.name == "nt":
             creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         command = list(self.argv or [self.shell])
-        env = ({**os.environ, **self.env} if self.env else None)
+        env = {**os.environ, **self.env} if self.env else None
         self.process = subprocess.Popen(  # noqa: S603
             command,
             stdin=subprocess.PIPE,
@@ -302,7 +303,7 @@ class PipeBridge:
             self.process.stdin.write(data.encode("utf-8", errors="ignore"))
             self.process.stdin.flush()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("write: ignored Exception", exc_info=True)
 
     def resize(self, cols: int, rows: int) -> None:
         _ = (cols, rows)
@@ -338,7 +339,7 @@ class PipeBridge:
             try:
                 self.process.terminate()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("close: ignored Exception", exc_info=True)
 
 
 def build_terminal_bridge(

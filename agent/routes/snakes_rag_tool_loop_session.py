@@ -43,8 +43,7 @@ _REPAIR_TOOL_REQUEST = (
     "Erwaehne keine TOOL_REQUEST-Bloecke und kein JSON."
 )
 _REPEATED_TOOL_REQUEST_FALLBACK = (
-    "Unklar, bitte Kontext pruefen. Das Modell hat statt einer finalen Antwort "
-    "erneut einen Tool-Aufruf ausgegeben."
+    "Unklar, bitte Kontext pruefen. Das Modell hat statt einer finalen Antwort erneut einen Tool-Aufruf ausgegeben."
 )
 
 
@@ -76,12 +75,14 @@ def _tool_call_details(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]
             parsed_args = json.loads(raw_args)
         except Exception:
             parsed_args = {"_raw": raw_args}
-        details.append({
-            "id": str(tc.get("id") or ""),
-            "name": str(fn.get("name") or "?"),
-            "arguments": parsed_args,
-            "raw_arguments": raw_args[:2000],
-        })
+        details.append(
+            {
+                "id": str(tc.get("id") or ""),
+                "name": str(fn.get("name") or "?"),
+                "arguments": parsed_args,
+                "raw_arguments": raw_args[:2000],
+            }
+        )
     return details
 
 
@@ -121,9 +122,7 @@ class RagToolLoopSession:
         # ``max_tool_calls == 0`` means no configured tool-call limit. Keep a
         # defensive iteration cap so ambiguous-path hints can be resolved without
         # risking an infinite LLM/tool loop.
-        max_iterations = (
-            state.max_tool_calls + 2 if state.max_tool_calls > 0 else UNLIMITED_TOOL_LOOP_MAX_ITERATIONS
-        )
+        max_iterations = state.max_tool_calls + 2 if state.max_tool_calls > 0 else UNLIMITED_TOOL_LOOP_MAX_ITERATIONS
         try:
             for iteration in range(max_iterations + 1):
                 self._iterate(iteration, max_iterations)
@@ -139,6 +138,7 @@ class RagToolLoopSession:
         # Write full initial context to dump file (overwrites each run for easy inspection)
         try:
             from agent.utils import get_data_dir
+
             (_pl.Path(get_data_dir()) / "last_llm_context.txt").write_text(initial_user_content, encoding="utf-8")
         except Exception as _dump_exc:
             _log.debug("context dump failed: %s", _dump_exc)
@@ -162,7 +162,8 @@ class RagToolLoopSession:
             input_preview="\n".join(
                 "{}.  {}  (relevanz: {})".format(i, s["path"], s.get("score", s.get("chars", "?")))
                 for i, s in enumerate(file_sections, 1)
-            ) or "(keine Dateien)",
+            )
+            or "(keine Dateien)",
         )
 
     # ── one iteration ────────────────────────────────────────────────────────
@@ -189,8 +190,10 @@ class RagToolLoopSession:
         if (not reply.tool_calls or reply.finish_reason == "stop" or not use_tools) and textual_tool_request:
             self._handle_textual_tool_request(reply, use_tools, iteration)
             return
-        if self._transport.use_profile_routing and use_tools and (
-            not reply.tool_calls or reply.finish_reason == "stop"
+        if (
+            self._transport.use_profile_routing
+            and use_tools
+            and (not reply.tool_calls or reply.finish_reason == "stop")
         ):
             self._hand_off_to_final_synthesis(reply.content)
             return
@@ -215,7 +218,7 @@ class RagToolLoopSession:
                 state.max_search_calls = new_max_search_calls
                 state.trace["max_search_calls_effective"] = budget_label(new_max_search_calls)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_refresh_tool_budgets: ignored Exception", exc_info=True)
 
     def _search_only_exhausted(self) -> bool:
         state = self._state
@@ -230,8 +233,8 @@ class RagToolLoopSession:
         context_chars = total_context_chars(messages)
         count = self._state.llm_call_count
         if use_tools:
-            return f"LLM-Call {count} (Tool-Loop, {len(messages)} Msgs, ~{context_chars//1000}K Zeichen)"
-        return f"LLM-Call {count} (Finale Antwort, ~{context_chars//1000}K Zeichen)"
+            return f"LLM-Call {count} (Tool-Loop, {len(messages)} Msgs, ~{context_chars // 1000}K Zeichen)"
+        return f"LLM-Call {count} (Finale Antwort, ~{context_chars // 1000}K Zeichen)"
 
     def _log_call_start(self, iteration: int, use_tools: bool, label: str) -> None:
         options = self._options
@@ -433,9 +436,12 @@ class RagToolLoopSession:
                     self._routed_trace.get("inference") if self._transport.use_profile_routing else None
                 ),
             },
-            output_preview=reply.content if reply.content else (
+            output_preview=reply.content
+            if reply.content
+            else (
                 "\n".join(f"→ Tool-Call: {item['name']}({item['raw_arguments']})" for item in details)
-                if details else None
+                if details
+                else None
             ),
         )
         if textual:
@@ -466,14 +472,15 @@ class RagToolLoopSession:
             result_parts = self._tools.run_textual_calls(parsed_calls, iteration)
             if result_parts is None:
                 raise _Finished("")
-            state.messages.append({
-                "role": "user",
-                "content": (
-                    "\n\n".join(result_parts)
-                    + "\n\nBitte beantworte jetzt die Frage auf Basis dieser Ergebnisse "
-                    "und des vorhandenen Kontexts."
-                ),
-            })
+            state.messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "\n\n".join(result_parts) + "\n\nBitte beantworte jetzt die Frage auf Basis dieser Ergebnisse "
+                        "und des vorhandenen Kontexts."
+                    ),
+                }
+            )
             self._evidence.compact_initial_packed_context()
             self._evidence.replace_or_append_message(self._evidence.prompt())
             if state.duplicate_call_streak >= 2:
@@ -504,8 +511,7 @@ class RagToolLoopSession:
         if research_content:
             state.messages.append({"role": "assistant", "content": "[LFM-Recherchehinweis]\n" + research_content})
         self._evidence.replace_or_append_message(
-            self._evidence.prompt()
-            + "\n\nDie Recherchephase ist abgeschlossen. Erzeuge jetzt als Coding-Modell "
+            self._evidence.prompt() + "\n\nDie Recherchephase ist abgeschlossen. Erzeuge jetzt als Coding-Modell "
             "die verbindliche finale Antwort aus der gesammelten Evidenz."
         )
         self._event(
@@ -557,8 +563,7 @@ class RagToolLoopSession:
         state.trace["forced_final_reason"] = "repeated_duplicate_tool_call"
         state.trace["duplicate_calls_blocked"] = state.duplicate_calls_blocked
         self._evidence.replace_or_append_message(
-            self._evidence.prompt()
-            + "\n\nDie Recherchephase ist beendet, weil derselbe Tool-Aufruf wiederholt wurde. "
+            self._evidence.prompt() + "\n\nDie Recherchephase ist beendet, weil derselbe Tool-Aufruf wiederholt wurde. "
             "Erzeuge jetzt zwingend eine normale abschliessende Antwort aus der vorhandenen Evidenz."
         )
         self._event(

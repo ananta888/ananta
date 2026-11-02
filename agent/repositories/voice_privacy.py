@@ -142,9 +142,7 @@ class VoicePrivacyRepository:
                 *related_session_ids,
             }
             related_session_ids.update(
-                str(item.configuration_session_id)
-                for item in live_runs
-                if item.configuration_session_id
+                str(item.configuration_session_id) for item in live_runs if item.configuration_session_id
             )
             related_resource_ids.update(related_session_ids)
             if live_run_ids:

@@ -12,8 +12,11 @@ WORKSPACE = HANDLED_FS & ~((1 << 6) | (1 << 11) | (1 << 15))
 
 
 class Ruleset(ctypes.Structure):
-    _fields_ = [("handled_access_fs", ctypes.c_uint64), ("handled_access_net", ctypes.c_uint64),
-                ("scoped", ctypes.c_uint64)]
+    _fields_ = [
+        ("handled_access_fs", ctypes.c_uint64),
+        ("handled_access_net", ctypes.c_uint64),
+        ("scoped", ctypes.c_uint64),
+    ]
 
 
 class PathRule(ctypes.Structure):

@@ -94,9 +94,7 @@ def test_default_composition_is_profile_gated_and_route_fail_closed() -> None:
     assert app.extensions["sfu_broadcast_group_key_repository"] is not None
     assert app.extensions["sfu_group_projection_service"] is not None
     assert app.extensions.get("sfu_layer_projection_service") is None
-    assert composition.statuses["layer_projection_signing"].reason_code == (
-        "sfu_projection_private_key_unavailable"
-    )
+    assert composition.statuses["layer_projection_signing"].reason_code == ("sfu_projection_private_key_unavailable")
     assert app.extensions["sfu_browser_capability_ingestion_service"] is not None
     assert isinstance(app.extensions["sfu_broadcast_retention_job"], SfuBroadcastRetentionJob)
 
@@ -105,13 +103,11 @@ def test_route_adapter_requires_contract_attestation_before_internal_wiring() ->
     app = _app()
     adapter = _CompleteRouteAdapter()
     app.extensions["sfu_broadcast_route_adapter"] = adapter
-    app.extensions["sfu_broadcast_route_adapter_attestation"] = (
-        SfuBroadcastRouteAdapterAttestation(
-            adapter_id="selected-runtime-adapter",
-            contract_version=ROUTE_PORT_CONTRACT_V1,
-            contract_suite_digest="a" * 64,
-            passed=True,
-        )
+    app.extensions["sfu_broadcast_route_adapter_attestation"] = SfuBroadcastRouteAdapterAttestation(
+        adapter_id="selected-runtime-adapter",
+        contract_version=ROUTE_PORT_CONTRACT_V1,
+        contract_suite_digest="a" * 64,
+        passed=True,
     )
 
     composition = initialize_sfu_broadcast_hub_composition(app)
@@ -119,9 +115,7 @@ def test_route_adapter_requires_contract_attestation_before_internal_wiring() ->
     assert composition.route_ports is not None
     assert composition.statuses["route_adapter"].ready is True
     assert app.extensions["sfu_broadcast_apply_route_port"] is adapter
-    assert composition.statuses["route_reconciler"].reason_code == (
-        "sfu_route_reconciliation_state_ports_unavailable"
-    )
+    assert composition.statuses["route_reconciler"].reason_code == ("sfu_route_reconciliation_state_ports_unavailable")
 
 
 def test_composite_retention_job_keeps_key_and_projection_receipts_bounded() -> None:

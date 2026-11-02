@@ -14,22 +14,35 @@ from worker.runtime.native_graph.pi_context import HubPiTaskContextReader, pi_co
 
 
 def context_setup(tmp_path, *, context_bundles=None):
-    prompt = json.dumps({
-        "task": "Explain this code.",
-        "context_bundle": {"id": "bundle-1", "content": "approved code context"},
-    }, ensure_ascii=True)
+    prompt = json.dumps(
+        {
+            "task": "Explain this code.",
+            "context_bundle": {"id": "bundle-1", "content": "approved code context"},
+        },
+        ensure_ascii=True,
+    )
     runner = Runner(prompt=prompt)
     tasks, bundles, policy = Mock(), Mock(), Mock()
     reader = context_bundles or NativeContextBundleService(
-        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
+        tasks=tasks,
+        bundles=TaskContextBundleAccessService(bundles),
+        policy=policy,
     )
     adapter, task, runner, client, credentials = native_setup(
-        tmp_path, runner=runner, context_reader_factory=HubPiTaskContextReader,
-        mutate_task=lambda task: task | {
-            "tenant_id": "tenant-1", "project_id": "project-1",
-            "task_kind": "pi_coding_agent", "derivation_reason": "native_graph_hub_delegation",
-            "status": "running", "context_bundle_id": "bundle-1",
-        },
+        tmp_path,
+        runner=runner,
+        context_reader_factory=HubPiTaskContextReader,
+        mutate_task=lambda task: (
+            task
+            | {
+                "tenant_id": "tenant-1",
+                "project_id": "project-1",
+                "task_kind": "pi_coding_agent",
+                "derivation_reason": "native_graph_hub_delegation",
+                "status": "running",
+                "context_bundle_id": "bundle-1",
+            }
+        ),
         context_bundles=reader,
     )
     bundle = {"id": "bundle-1", "task_id": "hub-task-1", "context_text": "unapproved original"}
@@ -73,9 +86,14 @@ def test_context_changes_or_revocation_block_before_execution_or_discard_output(
     assert len(runner.calls) == int(change_at == 5)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("hub_task_id", "foreign-task"), ("bundle_id", "foreign-bundle"), ("command_digest", "a" * 64),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hub_task_id", "foreign-task"),
+        ("bundle_id", "foreign-bundle"),
+        ("command_digest", "a" * 64),
+    ],
+)
 def test_worker_rejects_well_formed_but_foreign_projection_before_credentials(tmp_path, field, value):
     adapter, task, runner, client, credentials, _ = context_setup(tmp_path)
     original = client.command
@@ -93,10 +111,16 @@ def test_worker_rejects_well_formed_but_foreign_projection_before_credentials(tm
     credentials.assert_not_called()
 
 
-@pytest.mark.parametrize("top,nested,context", [
-    ("bundle-1", "bundle-2", None), (True, None, None), (None, {}, None),
-    ("", None, None), (None, None, "unbound text"),
-])
+@pytest.mark.parametrize(
+    "top,nested,context",
+    [
+        ("bundle-1", "bundle-2", None),
+        (True, None, None),
+        (None, {}, None),
+        ("", None, None),
+        (None, None, "unbound text"),
+    ],
+)
 def test_unbound_or_ambiguous_context_references_are_not_accepted(top, nested, context):
     task = {"context_bundle_id": top, "worker_execution_context": {"context_bundle_id": nested, "context": context}}
     with pytest.raises(ValueError):

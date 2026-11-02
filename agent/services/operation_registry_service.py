@@ -229,8 +229,11 @@ def mcp_resource_operation_id(uri: str) -> str:
     return operation_id
 
 
-ANANTA_TOOL_GROUPS = {"read_only": "ananta.tool.read.v1", "controlled_write": "ananta.tool.write.v1",
-                      "controlled_execution": "ananta.tool.execution.v1"}
+ANANTA_TOOL_GROUPS = {
+    "read_only": "ananta.tool.read.v1",
+    "controlled_write": "ananta.tool.write.v1",
+    "controlled_execution": "ananta.tool.execution.v1",
+}
 _ANANTA_TOOL_RISK = {"read": "low", "execution": "medium", "write": "high"}
 
 
@@ -249,13 +252,20 @@ def _register_ananta_tools(registry: "OperationRegistryService") -> None:
         if not _OPERATION_ID_RE.fullmatch(operation_id) or registry.get(operation_id) is not None:
             continue
         access_class = "read" if spec.category == "read_only" else "write"
-        registry.register(OperationDescriptor(
-            operation_id=operation_id, transport="ananta.tool", target=spec.name, access_class=access_class,
-            risk_class=_ANANTA_TOOL_RISK.get(spec.risk_class, "high"),
-            lifecycle="disabled" if spec.category == "blocked" else "enabled",
-            description=spec.description or spec.name, owner="hub-worker-tools",
-            side_effecting=access_class != "read", default_enabled=access_class == "read",
-        ))
+        registry.register(
+            OperationDescriptor(
+                operation_id=operation_id,
+                transport="ananta.tool",
+                target=spec.name,
+                access_class=access_class,
+                risk_class=_ANANTA_TOOL_RISK.get(spec.risk_class, "high"),
+                lifecycle="disabled" if spec.category == "blocked" else "enabled",
+                description=spec.description or spec.name,
+                owner="hub-worker-tools",
+                side_effecting=access_class != "read",
+                default_enabled=access_class == "read",
+            )
+        )
         group = ANANTA_TOOL_GROUPS.get(spec.category)
         if group:
             groups[group].append(operation_id)
@@ -297,25 +307,61 @@ def _build_default_registry() -> OperationRegistryService:
     registry.register_many(
         (
             OperationDescriptor(
-                "api.config.get", "api", "/config", "read", "low", "enabled",
-                "Read the redacted Hub configuration.", "hub-governance", http_method="GET",
+                "api.config.get",
+                "api",
+                "/config",
+                "read",
+                "low",
+                "enabled",
+                "Read the redacted Hub configuration.",
+                "hub-governance",
+                http_method="GET",
             ),
             OperationDescriptor(
-                "api.config.update.post", "api", "/config", "admin", "high", "enabled",
-                "Update validated Hub configuration.", "hub-governance", http_method="POST", side_effecting=True,
+                "api.config.update.post",
+                "api",
+                "/config",
+                "admin",
+                "high",
+                "enabled",
+                "Update validated Hub configuration.",
+                "hub-governance",
+                http_method="POST",
+                side_effecting=True,
             ),
             OperationDescriptor(
-                "api.config.operation_policy.rollback.post", "api", "/config/operation-policy/rollback",
-                "admin", "high", "enabled", "Rollback to a validated operation-policy revision.",
-                "hub-governance", http_method="POST", side_effecting=True,
+                "api.config.operation_policy.rollback.post",
+                "api",
+                "/config/operation-policy/rollback",
+                "admin",
+                "high",
+                "enabled",
+                "Rollback to a validated operation-policy revision.",
+                "hub-governance",
+                http_method="POST",
+                side_effecting=True,
             ),
             OperationDescriptor(
-                "api.governance.policy.get", "api", "/governance/policy", "read", "low", "enabled",
-                "Read the effective platform-governance policy.", "hub-governance", http_method="GET",
+                "api.governance.policy.get",
+                "api",
+                "/governance/policy",
+                "read",
+                "low",
+                "enabled",
+                "Read the effective platform-governance policy.",
+                "hub-governance",
+                http_method="GET",
             ),
             OperationDescriptor(
-                "api.governance.operations.get", "api", "/governance/operations", "read", "low", "enabled",
-                "Read the admin-only operation catalog and effective decisions.", "hub-governance", http_method="GET",
+                "api.governance.operations.get",
+                "api",
+                "/governance/operations",
+                "read",
+                "low",
+                "enabled",
+                "Read the admin-only operation catalog and effective decisions.",
+                "hub-governance",
+                http_method="GET",
             ),
         )
     )

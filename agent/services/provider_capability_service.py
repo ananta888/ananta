@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol, Sequence
 
-_FORBIDDEN_METADATA_KEY_PARTS = frozenset(
-    {"api_key", "authorization", "credential", "password", "secret", "token"}
-)
+_FORBIDDEN_METADATA_KEY_PARTS = frozenset({"api_key", "authorization", "credential", "password", "secret", "token"})
 
 
 def _assert_safe_metadata(value: Any, *, path: str = "metadata") -> None:
@@ -75,9 +73,7 @@ class ProviderCapabilityPort(Protocol):
 
     def list_capabilities(self) -> list[ProviderCapability]: ...
 
-    def select(
-        self, requirement: "ProviderSelectionRequirement"
-    ) -> "ProviderCapabilityDecision": ...
+    def select(self, requirement: "ProviderSelectionRequirement") -> "ProviderCapabilityDecision": ...
 
 
 @dataclass(frozen=True)
@@ -216,10 +212,7 @@ class WorkerProviderRegistryCapabilitySource:
         self._registry = registry
 
     def list_capabilities(self) -> list[ProviderCapability]:
-        diagnostics = {
-            str(item.get("provider_id") or "").lower(): item
-            for item in self._registry.diagnostics()
-        }
+        diagnostics = {str(item.get("provider_id") or "").lower(): item for item in self._registry.diagnostics()}
         rows: list[ProviderCapability] = []
         provider_info = getattr(self._registry, "capability_info", self._registry.provider_info)
         for item in provider_info():

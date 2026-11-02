@@ -55,13 +55,17 @@ def test_rtipm_codecompass_pipeline_mock_reranks_and_traces() -> None:
 
 
 def test_rtipm_codecompass_pipeline_policy_block_falls_back_without_model_error() -> None:
-    policy = PathAiModePolicyService(rules=[
-        PathAiModeRule.from_raw({
-            "path_glob": "agent/**",
-            "allowed_ai_modes": ["codecompass_only"],
-            "blocked_ai_modes": ["restricted_transformer_inference", "full_llm", "direct_llm"],
-        })
-    ])
+    policy = PathAiModePolicyService(
+        rules=[
+            PathAiModeRule.from_raw(
+                {
+                    "path_glob": "agent/**",
+                    "allowed_ai_modes": ["codecompass_only"],
+                    "blocked_ai_modes": ["restricted_transformer_inference", "full_llm", "direct_llm"],
+                }
+            )
+        ]
+    )
     svc = RestrictedModelInferenceService(
         adapters=[MockInferenceAdapter()],
         policy_service=policy,

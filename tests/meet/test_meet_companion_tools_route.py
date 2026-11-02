@@ -78,11 +78,18 @@ def app(monkeypatch, registry):
     app.extensions["meet_media_worker_key"] = KEY
     app.extensions["meet_turn_service"] = Mock(companion_principal=Mock(side_effect=_principal))
     retrieval = Mock()
-    retrieval.search_records_page.return_value = page([
-        {"path": "", "content": "pathless", "score": 9.0, "metadata": {}},
-        {"path": "worker/meet_media/llm_tools.py", "content": "class ToolBox", "score": 0.8,
-         "symbol": "ToolBox", "metadata": {"line_start": 12}},
-    ])
+    retrieval.search_records_page.return_value = page(
+        [
+            {"path": "", "content": "pathless", "score": 9.0, "metadata": {}},
+            {
+                "path": "worker/meet_media/llm_tools.py",
+                "content": "class ToolBox",
+                "score": 0.8,
+                "symbol": "ToolBox",
+                "metadata": {"line_start": 12},
+            },
+        ]
+    )
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -217,10 +224,8 @@ def test_each_tool_is_dispatched_through_the_mcp_registry(app, registry, tool):
     payload = json.loads(response.data)
     assert payload["schema"] == route.SCHEMA and payload["tool"] == tool
     assert json.loads(payload["text"]) == registry.result and payload["truncated"] is False
-    assert payload["sources"] == [
-        {"path": "docs/meet.md", "line": 3, "symbol": "", "revision": "", "excerpt": "Meet"}
-    ]
-    (name, arguments, context), = registry.calls
+    assert payload["sources"] == [{"path": "docs/meet.md", "line": 3, "symbol": "", "revision": "", "excerpt": "Meet"}]
+    ((name, arguments, context),) = registry.calls
     assert name == tool and arguments == VALID[tool]
     # Only the (fail-closed) capability reaches the tool; no repositories, no services.
     assert context == {"codecompass_capability": None}
@@ -296,7 +301,8 @@ def test_an_oversized_body_or_a_query_string_is_rejected_before_authentication(a
     assert call(app, "codecompass.layers_plan", big).status_code == 400
     body = encode({"project_id": PROJECT, "tool": "codecompass.layers_heads", "arguments": {}})
     response = app.test_client().post(
-        PATH + "?debug=1", data=body,
+        PATH + "?debug=1",
+        data=body,
         headers={"Content-Type": "application/json", "X-Ananta-Task-Signature": signature(KEY, body)},
     )
     assert response.status_code == 400 and registry.calls == []

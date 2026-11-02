@@ -14,23 +14,10 @@ from werkzeug.serving import make_server
 
 from agent.db_models import TaskDB
 
-
 REPOSITORY_ROOT = Path(__file__).parents[3]
-FIXTURE_PATH = (
-    REPOSITORY_ROOT
-    / "tests"
-    / "fixtures"
-    / "kanban_model_dashboard"
-    / "kanban-model-dashboard.v1.json"
-)
+FIXTURE_PATH = REPOSITORY_ROOT / "tests" / "fixtures" / "kanban_model_dashboard" / "kanban-model-dashboard.v1.json"
 FRONTEND_ROOT = REPOSITORY_ROOT / "frontend-angular"
-TUI_PROBE_PATH = (
-    REPOSITORY_ROOT
-    / "tests"
-    / "client_surfaces"
-    / "operator_tui"
-    / "kanban_cross_surface_probe.py"
-)
+TUI_PROBE_PATH = REPOSITORY_ROOT / "tests" / "client_surfaces" / "operator_tui" / "kanban_cross_surface_probe.py"
 
 
 def _fixture() -> dict:
@@ -66,9 +53,7 @@ def test_angular_and_tui_share_real_hub_projection_bidirectionally(
     fixture = _fixture()
     fixture_card = fixture["card"]
     _enable_cross_surface_kanban(app)
-    timestamp = datetime.fromisoformat(
-        fixture_card["updated_at"].replace("Z", "+00:00")
-    ).timestamp()
+    timestamp = datetime.fromisoformat(fixture_card["updated_at"].replace("Z", "+00:00")).timestamp()
     db_session.add(
         TaskDB(
             id=fixture_card["id"],
@@ -113,9 +98,7 @@ def test_angular_and_tui_share_real_hub_projection_bidirectionally(
             check=False,
         )
         assert tui_preflight.returncode == 0, (
-            "TUI live-Hub preflight failed\n"
-            f"stdout:\n{tui_preflight.stdout}\n"
-            f"stderr:\n{tui_preflight.stderr}"
+            f"TUI live-Hub preflight failed\nstdout:\n{tui_preflight.stdout}\nstderr:\n{tui_preflight.stderr}"
         )
         tui_snapshot = json.loads(tui_preflight.stdout)
         assert tui_snapshot["ok"] is True
@@ -168,9 +151,7 @@ def test_angular_and_tui_share_real_hub_projection_bidirectionally(
             check=False,
         )
         assert completed.returncode == 0, (
-            "cross-surface Playwright failed\n"
-            f"stdout:\n{completed.stdout}\n"
-            f"stderr:\n{completed.stderr}"
+            f"cross-surface Playwright failed\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
         )
 
         db_session.expire_all()

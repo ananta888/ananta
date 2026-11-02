@@ -8,8 +8,11 @@ def path_allowed(path, prefixes):
     candidate = str(path or "").replace("\\", "/")
     if not candidate or candidate.startswith("/") or any(part in {"..", ""} for part in candidate.split("/")):
         return False
-    return any(candidate == prefix.rstrip("/") or candidate.startswith(prefix.rstrip("/") + "/")
-               for prefix in prefixes if prefix.rstrip("/"))
+    return any(
+        candidate == prefix.rstrip("/") or candidate.startswith(prefix.rstrip("/") + "/")
+        for prefix in prefixes
+        if prefix.rstrip("/")
+    )
 
 
 def load_scoped_graph(capability, *, snapshot_ref="", revision="", resolve=None):
@@ -25,7 +28,10 @@ def load_scoped_graph(capability, *, snapshot_ref="", revision="", resolve=None)
     if store is None or index_id not in allowed:
         raise ValueError("codecompass_graph_scope_unavailable")
     payload = store.load()
-    nodes = [node for node in (payload or {}).get("nodes", [])
-             if isinstance(node, dict) and path_allowed(node.get("path") or node.get("file"), scope["allowed_paths"])]
+    nodes = [
+        node
+        for node in (payload or {}).get("nodes", [])
+        if isinstance(node, dict) and path_allowed(node.get("path") or node.get("file"), scope["allowed_paths"])
+    ]
     projection = project_graph(nodes=nodes, edges=(payload or {}).get("edges", []))
     return {"nodes": projection["nodes"], "edges": projection["edges"]}, index_id, scope["revision"]

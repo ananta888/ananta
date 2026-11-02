@@ -16,7 +16,9 @@ from agent.services.ml_intern_training_repository_port import MlInternTrainingPr
 from agent.services.ml_intern_training_result_publisher import RegistryTrainingResultPublisher
 
 
-def _setup(tmp_path: Path, *, adapter_loss: float) -> tuple[
+def _setup(
+    tmp_path: Path, *, adapter_loss: float
+) -> tuple[
     RegistryTrainingResultPublisher,
     MlInternAdapterRegistryService,
     MlInternEvaluationStoreService,

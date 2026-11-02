@@ -19,15 +19,15 @@ from threading import RLock
 from typing import Any, Protocol
 from urllib.parse import quote
 
+from agent.repositories.kanban_projection import (
+    KanbanScope,
+    SqlKanbanProjectionStore,
+)
 from ananta_contracts.kanban_events import (
     KanbanAuthRenewalContract,
     KanbanEvent,
     KanbanEventBatch,
     KanbanEventGapReason,
-)
-from agent.repositories.kanban_projection import (
-    KanbanScope,
-    SqlKanbanProjectionStore,
 )
 
 
@@ -117,9 +117,7 @@ class InMemoryKanbanEventJournal:
             raise ValueError("kanban_event_capacity_invalid")
         self._max_events = max_events_per_board
         self._dedupe_capacity = (
-            dedupe_capacity_per_board
-            if dedupe_capacity_per_board is not None
-            else max_events_per_board * 4
+            dedupe_capacity_per_board if dedupe_capacity_per_board is not None else max_events_per_board * 4
         )
         if self._dedupe_capacity < self._max_events:
             raise ValueError("kanban_event_dedupe_capacity_invalid")
@@ -174,11 +172,7 @@ class InMemoryKanbanEventJournal:
         with self._lock:
             journal = self._boards.get(board_id)
             if journal is None:
-                gap = (
-                    KanbanEventGapReason.CLIENT_SEQUENCE_AHEAD
-                    if after_sequence > 0
-                    else None
-                )
+                gap = KanbanEventGapReason.CLIENT_SEQUENCE_AHEAD if after_sequence > 0 else None
                 return KanbanEventJournalRead(
                     events=(),
                     latest_sequence=0,
@@ -210,9 +204,7 @@ class InMemoryKanbanEventJournal:
                     gap_reason=KanbanEventGapReason.BOUNDED_HISTORY_OVERFLOW,
                 )
 
-            available = tuple(
-                event for event in retained if event.sequence > after_sequence
-            )
+            available = tuple(event for event in retained if event.sequence > after_sequence)
             expected = after_sequence + 1
             for event in available:
                 if event.sequence != expected:
@@ -251,11 +243,7 @@ class InMemoryKanbanEventJournal:
                 journal.dedupe.move_to_end(key)
                 return KanbanEventPublishResult(event=existing, deduped=True)
             same_sequence = next(
-                (
-                    retained
-                    for retained in journal.events
-                    if retained.sequence == event.sequence
-                ),
+                (retained for retained in journal.events if retained.sequence == event.sequence),
                 None,
             )
             if same_sequence is not None and same_sequence != event:
@@ -356,11 +344,7 @@ def _task_revision(task: Any, details: Mapping[str, Any]) -> int:
             continue
         for key in ("kanban_revision", "revision"):
             revision = value.get(key)
-            if (
-                isinstance(revision, int)
-                and not isinstance(revision, bool)
-                and revision >= 0
-            ):
+            if isinstance(revision, int) and not isinstance(revision, bool) and revision >= 0:
                 return revision
     return 0
 
@@ -415,11 +399,7 @@ def _minimal_payload(
             continue
         value = details.get(key)
         if isinstance(value, (list, tuple, set, frozenset)):
-            count_key = (
-                "dependency_count"
-                if normalized == "dependencies"
-                else f"{normalized[:57]}_count"
-            )
+            count_key = "dependency_count" if normalized == "dependencies" else f"{normalized[:57]}_count"
             payload[count_key] = len(value)
         elif isinstance(value, bool) or value is None:
             payload[normalized] = value
@@ -522,15 +502,8 @@ class KanbanEventReconnectService:
             limit=limit,
         )
         gap = read.gap_reason is not None
-        next_sequence = (
-            read.events[-1].sequence if read.events else after_sequence
-        )
-        overflow_reason = (
-            read.gap_reason
-            if read.gap_reason
-            == KanbanEventGapReason.BOUNDED_HISTORY_OVERFLOW
-            else None
-        )
+        next_sequence = read.events[-1].sequence if read.events else after_sequence
+        overflow_reason = read.gap_reason if read.gap_reason == KanbanEventGapReason.BOUNDED_HISTORY_OVERFLOW else None
         return KanbanEventBatch(
             board_id=board_id,
             requested_after_sequence=after_sequence,
@@ -544,9 +517,7 @@ class KanbanEventReconnectService:
             gap_detected=gap,
             gap_reason=read.gap_reason,
             snapshot_required=gap,
-            snapshot_url=(
-                self._snapshots.snapshot_url(board_id) if gap else None
-            ),
+            snapshot_url=(self._snapshots.snapshot_url(board_id) if gap else None),
             auth_renewal=self._auth_renewal,
         )
 
@@ -581,9 +552,7 @@ def build_kanban_event_stream_service(
     *,
     max_events_per_board: int = 512,
 ) -> KanbanEventStreamService:
-    journal = InMemoryKanbanEventJournal(
-        max_events_per_board=max_events_per_board
-    )
+    journal = InMemoryKanbanEventJournal(max_events_per_board=max_events_per_board)
     return KanbanEventStreamService(
         KanbanEventPublisher(journal),
         KanbanEventReconnectService(journal),
@@ -599,9 +568,7 @@ def _configured_capacity() -> int:
     return min(10_000, max(16, value))
 
 
-_mirror_journal = InMemoryKanbanEventJournal(
-    max_events_per_board=_configured_capacity()
-)
+_mirror_journal = InMemoryKanbanEventJournal(max_events_per_board=_configured_capacity())
 _event_stream_service = KanbanEventStreamService(
     KanbanEventPublisher(_mirror_journal),
     KanbanEventReconnectService(SqlKanbanEventJournal()),

@@ -141,8 +141,7 @@ class MlInternDatasetRepositoryBridgeService:
                 job_id=catalog_id,
                 attempt_id=f"revision-{revision}",
                 artifact_sha256=str(values["content_sha256"]),
-                size_bytes=int(train["size_bytes"])
-                + int(validation["size_bytes"] if validation else 0),
+                size_bytes=int(train["size_bytes"]) + int(validation["size_bytes"] if validation else 0),
             )
         if existing is None:
             projected, _ = self._repository.create_dataset(

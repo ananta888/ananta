@@ -130,11 +130,7 @@ class KnowledgeIndexRecordReader:
             filename = str(binding.get("record_file") or "").strip()
             source_id = str(binding.get("source_id") or "").strip()
             expected_hash = str(binding.get("content_hash") or "").strip().lower()
-            if (
-                filename not in self.OUTPUT_FILENAMES
-                or not source_id
-                or not _is_sha256(expected_hash)
-            ):
+            if filename not in self.OUTPUT_FILENAMES or not source_id or not _is_sha256(expected_hash):
                 raise ValueError("knowledge_index_bound_record_selector_invalid")
             key = (
                 filename,
@@ -173,21 +169,15 @@ class KnowledgeIndexRecordReader:
                         try:
                             payload = json.loads(raw_line.decode("utf-8"))
                         except (UnicodeError, json.JSONDecodeError) as exc:
-                            raise ValueError(
-                                "knowledge_index_bound_record_json_invalid"
-                            ) from exc
+                            raise ValueError("knowledge_index_bound_record_json_invalid") from exc
                         if not isinstance(payload, dict):
                             continue
                         key = (
                             filename,
                             str(payload.get("id") or "").strip(),
                             str(payload.get("path") or payload.get("file") or "").strip(),
-                            self._bound_line(
-                                payload.get("line_start", payload.get("start_line"))
-                            ),
-                            self._bound_line(
-                                payload.get("line_end", payload.get("end_line"))
-                            ),
+                            self._bound_line(payload.get("line_start", payload.get("start_line"))),
+                            self._bound_line(payload.get("line_end", payload.get("end_line"))),
                         )
                         binding = selectors.get(key)
                         if binding is None:
@@ -195,9 +185,7 @@ class KnowledgeIndexRecordReader:
                         if key in matches:
                             raise ValueError("knowledge_index_bound_record_ambiguous")
                         content = self.record_text(payload)
-                        content_hash = hashlib.sha256(
-                            content.encode("utf-8", errors="strict")
-                        ).hexdigest()
+                        content_hash = hashlib.sha256(content.encode("utf-8", errors="strict")).hexdigest()
                         if content_hash != str(binding["content_hash"]).lower():
                             raise ValueError("knowledge_index_bound_record_content_mismatch")
                         matches[key] = {

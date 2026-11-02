@@ -6,25 +6,40 @@ Versionierung und Rollback werden über den Ordner active/ / archive/ gesteuert.
 
 Policy-Referenz: docs/security/heuristic-runtime-policy.md
 """
+
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-_VALID_STATUSES = frozenset({"active", "experimental_live", "candidate", "rejected", "quarantined", "deprecated", "archived"})
+_VALID_STATUSES = frozenset(
+    {"active", "experimental_live", "candidate", "rejected", "quarantined", "deprecated", "archived"}
+)
 
 # Capabilities die für snake domains verboten sind
-_SNAKE_FORBIDDEN_CAPS = frozenset({"file_write", "network_access", "secret_access", "send_to_worker", "request_context_extension"})
+_SNAKE_FORBIDDEN_CAPS = frozenset(
+    {"file_write", "network_access", "secret_access", "send_to_worker", "request_context_extension"}
+)
 # Capabilities die für chat erlaubt sind (als Obermenge)
-_CHAT_ALLOWED_CAPS = frozenset({
-    "read_local_context", "read_artifact_refs", "read_source_refs", "read_active_task",
-    "write_local_notes", "send_to_chat",
-})
-_SNAKE_ALLOWED_CAPS = frozenset({
-    "read_local_context", "read_artifact_refs", "read_active_task",
-})
+_CHAT_ALLOWED_CAPS = frozenset(
+    {
+        "read_local_context",
+        "read_artifact_refs",
+        "read_source_refs",
+        "read_active_task",
+        "write_local_notes",
+        "send_to_chat",
+    }
+)
+_SNAKE_ALLOWED_CAPS = frozenset(
+    {
+        "read_local_context",
+        "read_artifact_refs",
+        "read_active_task",
+    }
+)
 
 
 @dataclass(frozen=True)

@@ -5,13 +5,13 @@ boundaries (cross-domain, cross-layer, cross-language). The detection
 uses node ``role_labels`` / ``domain`` attributes set by the importer
 or by hand-written fixtures; it does not rely on bare name heuristics.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
-
 
 SURPRISING_CONNECTIONS_SCHEMA_VERSION = "surprising_connections.v1"
 
@@ -122,9 +122,7 @@ def find_surprising_connections(
                 # confidence / confidence_kind live on the edge record;
                 # the store's top-level edge dict carries ``confidence``
                 # but not ``confidence_kind`` (kept in source_record).
-                confidence_kind = (
-                    str(edge.get("confidence_kind") or "").upper()
-                )
+                confidence_kind = str(edge.get("confidence_kind") or "").upper()
                 if not confidence_kind:
                     sr = edge.get("source_record") or {}
                     confidence_kind = str(sr.get("confidence_kind") or "EXTRACTED").upper()
@@ -133,17 +131,19 @@ def find_surprising_connections(
                     confidence = float(confidence_raw)
                 except (TypeError, ValueError):
                     confidence = 0.5
-                candidates.append(SurprisingConnection(
-                    edge_kind=edge_type,
-                    from_node=src_id,
-                    to_node=tgt_id,
-                    score=round(min(1.0, score), 4),
-                    reason="+".join(reasons),
-                    confidence=round(confidence, 4),
-                    confidence_kind=confidence_kind,
-                    from_attrs=src_attrs,
-                    to_attrs=tgt_attrs,
-                ))
+                candidates.append(
+                    SurprisingConnection(
+                        edge_kind=edge_type,
+                        from_node=src_id,
+                        to_node=tgt_id,
+                        score=round(min(1.0, score), 4),
+                        reason="+".join(reasons),
+                        confidence=round(confidence, 4),
+                        confidence_kind=confidence_kind,
+                        from_attrs=src_attrs,
+                        to_attrs=tgt_attrs,
+                    )
+                )
 
     if len(candidates) > max_results:
         warnings.append("max_results_truncated")

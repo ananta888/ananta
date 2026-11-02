@@ -10,6 +10,7 @@ Quarantine immediately moves to quarantine/ and emits heuristic_quarantined audi
 
 Auto-activation is technically blocked: activate() fails without human_approval_ref.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,11 +22,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
-from agent.services.heuristic_runtime.proposal_validator import HeuristicProposal, HeuristicProposalValidator, ValidationResult
+from agent.services.heuristic_runtime.proposal_validator import (
+    HeuristicProposal,
+    HeuristicProposalValidator,
+)
 from agent.services.heuristic_runtime.simulation_harness import SimulationReport
 
-
 # ── Results ───────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ActivationResult:
@@ -55,12 +59,14 @@ _MAX_AUDIT = 500
 
 def _emit_audit(event_type: str, **kwargs: Any) -> str:
     event_id = str(uuid.uuid4())
-    _AUDIT.append({
-        "event_id": event_id,
-        "event_type": event_type,
-        "timestamp": time.time(),
-        **kwargs,
-    })
+    _AUDIT.append(
+        {
+            "event_id": event_id,
+            "event_type": event_type,
+            "timestamp": time.time(),
+            **kwargs,
+        }
+    )
     if len(_AUDIT) > _MAX_AUDIT:
         del _AUDIT[:-_MAX_AUDIT]
     return event_id
@@ -82,6 +88,7 @@ def register_human_approval(proposal_id: str, *, approved_by: str = "operator") 
 
 
 # ── Gate ──────────────────────────────────────────────────────────────────────
+
 
 class HeuristicActivationGate:
     def __init__(
@@ -138,9 +145,7 @@ class HeuristicActivationGate:
 
         # Verify the approval ref exists in audit log
         approved_events = [
-            e for e in _AUDIT
-            if e.get("event_type") == "heuristic_proposal_approved"
-            and e.get("proposal_id") == hid
+            e for e in _AUDIT if e.get("event_type") == "heuristic_proposal_approved" and e.get("proposal_id") == hid
         ]
         if not approved_events:
             return ActivationResult(

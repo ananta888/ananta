@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import datetime, timezone
 import hashlib
 import json
+from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from sqlmodel import Session, select
@@ -55,51 +55,32 @@ class RegisteredWorkspaceSourceAdmissionService:
     ) -> Mapping[str, object]:
         tenant_id = str(descriptor.get("tenant_id") or "").strip()
         project_id = str(descriptor.get("project_id") or "").strip()
-        workspace_id = str(
-            descriptor.get("workspace_id")
-            or descriptor.get("source_id")
-            or ""
-        ).strip()
-        connector_type = str(
-            descriptor.get("connector_type") or "registered_workspace"
-        ).strip()
+        workspace_id = str(descriptor.get("workspace_id") or descriptor.get("source_id") or "").strip()
+        connector_type = str(descriptor.get("connector_type") or "registered_workspace").strip()
         relative_path = str(descriptor.get("relative_path") or ".").strip()
         if not all((tenant_id, project_id, workspace_id, connector_type)):
-            raise RegisteredWorkspaceSourceAdmissionError(
-                "source_admission_descriptor_invalid"
-            )
+            raise RegisteredWorkspaceSourceAdmissionError("source_admission_descriptor_invalid")
         with Session(self._engine) as session:
             selectors = session.exec(
                 select(SourceConnectionSelectorDB).where(
                     SourceConnectionSelectorDB.tenant_id == tenant_id,
                     SourceConnectionSelectorDB.project_id == project_id,
-                    SourceConnectionSelectorDB.public_connector_type
-                    == connector_type,
+                    SourceConnectionSelectorDB.public_connector_type == connector_type,
                     SourceConnectionSelectorDB.selector_id == workspace_id,
                 )
             ).all()
-            selectors = [
-                item
-                for item in selectors
-                if (item.relative_path or ".") == relative_path
-            ]
+            selectors = [item for item in selectors if (item.relative_path or ".") == relative_path]
             if len(selectors) != 1:
-                raise RegisteredWorkspaceSourceAdmissionError(
-                    "source_admission_connection_selector_required"
-                )
+                raise RegisteredWorkspaceSourceAdmissionError("source_admission_connection_selector_required")
             selector = selectors[0]
-            connection = session.get(
-                SourceConnectionDB, selector.connection_id
-            )
+            connection = session.get(SourceConnectionDB, selector.connection_id)
         if (
             connection is None
             or connection.state != "active"
             or connection.tenant_id != tenant_id
             or connection.project_id != project_id
         ):
-            raise RegisteredWorkspaceSourceAdmissionError(
-                "source_admission_connection_inactive"
-            )
+            raise RegisteredWorkspaceSourceAdmissionError("source_admission_connection_inactive")
         workspace = self._workspaces.get(
             workspace_id=workspace_id,
             tenant_id=tenant_id,
@@ -107,9 +88,7 @@ class RegisteredWorkspaceSourceAdmissionService:
             owner_id=connection.owner_id,
         )
         if workspace is None:
-            raise RegisteredWorkspaceSourceAdmissionError(
-                "source_admission_workspace_unavailable"
-            )
+            raise RegisteredWorkspaceSourceAdmissionError("source_admission_workspace_unavailable")
         snapshot = self._connector.inventory(
             tenant_id=tenant_id,
             project_id=project_id,
@@ -117,21 +96,15 @@ class RegisteredWorkspaceSourceAdmissionService:
             relative_path=relative_path,
         )
         if (
-            str(getattr(revision, "revision_digest", ""))
-            != snapshot.revision_digest
-            or str(getattr(inventory, "manifest_digest", ""))
-            != snapshot.manifest_digest
+            str(getattr(revision, "revision_digest", "")) != snapshot.revision_digest
+            or str(getattr(inventory, "manifest_digest", "")) != snapshot.manifest_digest
         ):
-            raise RegisteredWorkspaceSourceAdmissionError(
-                "source_admission_refresh_snapshot_stale"
-            )
+            raise RegisteredWorkspaceSourceAdmissionError("source_admission_refresh_snapshot_stale")
         with Session(self._engine) as session:
             existing_revision = session.exec(
                 select(SourceRevisionDB).where(
-                    SourceRevisionDB.connection_id
-                    == connection.connection_id,
-                    SourceRevisionDB.revision_digest
-                    == snapshot.revision_digest,
+                    SourceRevisionDB.connection_id == connection.connection_id,
+                    SourceRevisionDB.revision_digest == snapshot.revision_digest,
                 )
             ).first()
         captured_at = (
@@ -161,9 +134,7 @@ class RegisteredWorkspaceSourceAdmissionService:
             "decision": result.decision.state.value,
             "reason_codes": list(result.decision.reason_codes),
             "admission_digest": result.decision.admission_digest,
-            "inventory_evidence_digest": (
-                result.decision.inventory_evidence_digest
-            ),
+            "inventory_evidence_digest": (result.decision.inventory_evidence_digest),
             "scan_evidence_digest": result.decision.scan_evidence_digest,
             "file_count": result.scan_result.inventory.file_count,
             "total_bytes": result.scan_result.inventory.total_bytes,

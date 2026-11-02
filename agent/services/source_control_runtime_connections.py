@@ -1,5 +1,4 @@
-"""Connection creation and content admission commands of the Source Control API runtime.
-"""
+"""Connection creation and content admission commands of the Source Control API runtime."""
 
 from __future__ import annotations
 
@@ -44,9 +43,7 @@ class SourceControlConnectionCommands:
         self._connection_intents = connection_intents
         self._admission_port = content_admission
 
-    def validate_connection(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def validate_connection(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         contract = self._connection_contract(principal, payload)
         return {"valid": True, "connection": contract.to_wire()}
 
@@ -66,21 +63,13 @@ class SourceControlConnectionCommands:
                 "connection": contract.to_wire(),
             }
         )
-        key = operation_key(
-            "create", actor.tenant_id, idempotency_key
-        )
-        claim = self._idempotency.claim(
-            idempotency_key=key, plan_digest=request_digest
-        )
+        key = operation_key("create", actor.tenant_id, idempotency_key)
+        claim = self._idempotency.claim(idempotency_key=key, plan_digest=request_digest)
         if claim.state == "completed":
             return dict(claim.result or {})
         if claim.state == "in_progress":
-            raise SourceControlApiRuntimeError(
-                "idempotency_in_progress", status_code=409
-            )
-        record = SQLSourceControlRepository(
-            self._engine
-        ).save_connection_with_selector(
+            raise SourceControlApiRuntimeError("idempotency_in_progress", status_code=409)
+        record = SQLSourceControlRepository(self._engine).save_connection_with_selector(
             contract,
             resolved.binding(
                 connection_id=contract.connection_id,
@@ -100,9 +89,7 @@ class SourceControlConnectionCommands:
         )
         return result
 
-    def validate_content_admission(
-        self, *, principal: object, payload: Mapping[str, object]
-    ) -> Mapping[str, object]:
+    def validate_content_admission(self, *, principal: object, payload: Mapping[str, object]) -> Mapping[str, object]:
         actor = runtime_principal(principal)
         return dict(
             self._content_admission().validate(
@@ -131,14 +118,10 @@ class SourceControlConnectionCommands:
             )
         )
 
-    def _connection_contract(
-        self, principal: object, payload: Mapping[str, object]
-    ) -> SourceConnection:
+    def _connection_contract(self, principal: object, payload: Mapping[str, object]) -> SourceConnection:
         return self._resolved_connection(principal, payload)[0]
 
-    def _resolved_connection(
-        self, principal: object, payload: Mapping[str, object]
-    ) -> tuple[SourceConnection, object]:
+    def _resolved_connection(self, principal: object, payload: Mapping[str, object]) -> tuple[SourceConnection, object]:
         actor = runtime_principal(principal)
         if self._connection_intents is None:
             raise SourceControlApiRuntimeError(
@@ -154,12 +137,8 @@ class SourceControlConnectionCommands:
                 tenant_id=actor.tenant_id,
                 project_id=actor.project_id,
                 owner_id=actor.subject_id,
-                connector_type=ConnectorType(
-                    str(resolved.connector_type)
-                ),
-                connection_identity_digest=str(
-                    resolved.connection_identity_digest
-                ),
+                connector_type=ConnectorType(str(resolved.connector_type)),
+                connection_identity_digest=str(resolved.connection_identity_digest),
                 display_name=str(resolved.display_name),
                 sensitivity=Sensitivity(str(resolved.sensitivity)),
                 state=ConnectionState.DRAFT,
@@ -173,15 +152,11 @@ class SourceControlConnectionCommands:
                     reason_code,
                     status_code=int(getattr(exc, "status_code", 400)),
                 ) from exc
-            raise SourceControlApiRuntimeError(
-                "source_connection_invalid"
-            ) from exc
+            raise SourceControlApiRuntimeError("source_connection_invalid") from exc
 
     def _content_admission(self):
         if self._admission_port is None:
-            raise SourceControlApiRuntimeError(
-                "content_admission_unavailable", status_code=503
-            )
+            raise SourceControlApiRuntimeError("content_admission_unavailable", status_code=503)
         return self._admission_port
 
 

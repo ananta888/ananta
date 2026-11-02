@@ -1,4 +1,5 @@
 """Neutral, fail-closed contract for workflow runtime fallbacks."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -45,12 +46,8 @@ class RuntimeFallbackRequest:
             target_runtime=str(target_runtime or "").strip(),
             reason_code=str(reason_code or "").strip(),
             semantic_class=semantic_class,
-            source_capabilities=frozenset(
-                str(value).strip() for value in source_capabilities if str(value).strip()
-            ),
-            target_capabilities=frozenset(
-                str(value).strip() for value in target_capabilities if str(value).strip()
-            ),
+            source_capabilities=frozenset(str(value).strip() for value in source_capabilities if str(value).strip()),
+            target_capabilities=frozenset(str(value).strip() for value in target_capabilities if str(value).strip()),
             explicitly_enabled=bool(explicitly_enabled),
         )
 
@@ -113,4 +110,3 @@ class WorkflowRuntimeFallbackPolicy:
 
 
 workflow_runtime_fallback_policy = WorkflowRuntimeFallbackPolicy()
-

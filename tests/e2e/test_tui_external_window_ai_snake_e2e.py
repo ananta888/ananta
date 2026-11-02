@@ -26,7 +26,11 @@ class _MockSurface:
         return WindowHealth(state=self._state, backend=self.backend_name)
 
     def health(self) -> WindowHealth:
-        return WindowHealth(state=self._state, backend=self.backend_name, pid=(4242 if self._state == ExternalWindowState.ACTIVE else None))
+        return WindowHealth(
+            state=self._state,
+            backend=self.backend_name,
+            pid=(4242 if self._state == ExternalWindowState.ACTIVE else None),
+        )
 
 
 def test_tui_external_window_ai_snake_e2e_generates_evidence(tmp_path: Path) -> None:

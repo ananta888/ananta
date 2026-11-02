@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_resource_observation import DialogResourceObservation
+from tests.meet.meet_dialog_resource_observation import DialogResourceObservation
 from tests.meet.test_meet_dialog_resources import value
 
 

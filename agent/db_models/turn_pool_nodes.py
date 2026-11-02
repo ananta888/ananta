@@ -4,7 +4,7 @@ import time
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -55,9 +55,7 @@ class TurnPoolNodeDB(SQLModel, table=True):
 
 class TurnPoolNodeMutationDB(SQLModel, table=True):
     __tablename__ = "turn_pool_node_mutations"
-    __table_args__ = (
-        sa.UniqueConstraint("actor", "idempotency_key_digest", name="uq_turn_pool_mutation_actor_key"),
-    )
+    __table_args__ = (sa.UniqueConstraint("actor", "idempotency_key_digest", name="uq_turn_pool_mutation_actor_key"),)
 
     id: str = Field(default_factory=lambda: f"turn-pool-mutation-{uuid.uuid4().hex}", primary_key=True)
     pool_id: str = Field(index=True)

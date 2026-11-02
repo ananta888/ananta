@@ -22,7 +22,6 @@ from worker.training.unsloth_worker_runtime import (
     build_unsloth_worker_runtime,
 )
 
-
 SOURCE_ID = "SRC_supplied-model"
 RUN_ID = "RUN_supplied-evaluation"
 
@@ -69,18 +68,14 @@ def _task(
     return {
         "id": task_id,
         "worker_execution_context": {
-            "schema": (
-                "ananta.unsloth-worker-task-context.v1"
-            ),
+            "schema": ("ananta.unsloth-worker-task-context.v1"),
             "unsloth_task": {
                 "task_type": task_type,
                 "tenant_id": "tenant-a",
                 "payload": payload,
                 "payload_sha256": _payload_hash(payload),
                 "result_handler": (
-                    "unsloth_model_import_v1"
-                    if task_type == "ml.model.import"
-                    else "unsloth_data_recipe_v1"
+                    "unsloth_model_import_v1" if task_type == "ml.model.import" else "unsloth_data_recipe_v1"
                 ),
                 "followup_task_creation_allowed": False,
             },
@@ -101,9 +96,7 @@ def test_model_handler_returns_hash_bound_queue_result() -> None:
 
     payload = _model_payload()
     task_id = "unsloth-" + "1" * 32
-    result = UnslothModelImportTaskHandler(
-        Executor()
-    ).execute(
+    result = UnslothModelImportTaskHandler(Executor()).execute(
         task=_task(
             task_id,
             "ml.model.import",
@@ -111,13 +104,9 @@ def test_model_handler_returns_hash_bound_queue_result() -> None:
         )
     )
 
-    assert result["schema"] == (
-        "ananta.unsloth-worker-task-result.v1"
-    )
+    assert result["schema"] == ("ananta.unsloth-worker-task-result.v1")
     assert result["task_id"] == task_id
-    assert result["payload_sha256"] == _payload_hash(
-        payload
-    )
+    assert result["payload_sha256"] == _payload_hash(payload)
     assert result["status"] == "completed"
 
 
@@ -128,10 +117,7 @@ def test_recipe_materializer_is_attempt_scoped_and_offline(
     output_root = tmp_path / "attempt-output"
     dataset_root.mkdir()
     output_root.mkdir()
-    content = (
-        b'{"answer":"A","prompt":"P"}\n'
-        b'{"answer":"B","prompt":"Q"}\n'
-    )
+    content = b'{"answer":"A","prompt":"P"}\n{"answer":"B","prompt":"Q"}\n'
     source = dataset_root / "train.jsonl"
     source.write_bytes(content)
     unsigned = {
@@ -139,9 +125,7 @@ def test_recipe_materializer_is_attempt_scoped_and_offline(
         "dataset_id": "dataset-a",
         "dataset_hash": "d" * 64,
         "dataset_ref": "train.jsonl",
-        "dataset_partition_sha256": (
-            hashlib.sha256(content).hexdigest()
-        ),
+        "dataset_partition_sha256": (hashlib.sha256(content).hexdigest()),
         "source_id": SOURCE_ID,
         "run_id": RUN_ID,
         "objective": "causal_lm",
@@ -175,9 +159,7 @@ def test_recipe_materializer_is_attempt_scoped_and_offline(
     assert result["attempt_id"] == attempt_id
     assert result["total_rows"] == 2
     assert result["output_ref"] == recipe_id
-    assert (
-        output_root / recipe_id / "result.json"
-    ).is_file()
+    assert (output_root / recipe_id / "result.json").is_file()
 
 
 def test_hub_completion_projects_model_result(
@@ -204,11 +186,7 @@ def test_hub_completion_projects_model_result(
         "result": worker_result,
     }
     projector = HubUnslothWorkerResultProjector(
-        UnslothModelImportResultHandler(
-            SqliteUnslothModelCatalogRegistry(
-                tmp_path / "catalog.sqlite3"
-            )
-        )
+        UnslothModelImportResultHandler(SqliteUnslothModelCatalogRegistry(tmp_path / "catalog.sqlite3"))
     )
 
     projected = projector.project(
@@ -222,12 +200,8 @@ def test_hub_completion_projects_model_result(
     )
 
     assert projected is not None
-    assert projected["unsloth_model_import"][
-        "import_task_id"
-    ] == task_id
-    assert projected["unsloth_worker_result"][
-        "status"
-    ] == "completed"
+    assert projected["unsloth_model_import"]["import_task_id"] == task_id
+    assert projected["unsloth_worker_result"]["status"] == "completed"
 
 
 def test_recipe_runtime_advertises_queue_capability(
@@ -240,13 +214,8 @@ def test_recipe_runtime_advertises_queue_capability(
     runtime = build_unsloth_worker_runtime(
         {
             "ANANTA_UNSLOTH_WORKER_MODE": "data_recipe",
-            "ANANTA_UNSLOTH_RECIPE_DATASET_ROOT": str(
-                datasets
-            ),
-            (
-                "ANANTA_UNSLOTH_RECIPE_"
-                "ATTEMPT_OUTPUT_ROOT"
-            ): str(output),
+            "ANANTA_UNSLOTH_RECIPE_DATASET_ROOT": str(datasets),
+            ("ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_ROOT"): str(output),
             "HF_DATASETS_OFFLINE": "1",
             "HF_HUB_OFFLINE": "1",
             "TRANSFORMERS_OFFLINE": "1",
@@ -262,9 +231,7 @@ def test_recipe_runtime_advertises_queue_capability(
 
 
 def test_compose_keeps_recipe_off_egress_network() -> None:
-    compose = Path(
-        "docker/compose-next/compose.unsloth.yml"
-    ).read_text(encoding="utf-8")
+    compose = Path("docker/compose-next/compose.unsloth.yml").read_text(encoding="utf-8")
 
     assert "unsloth-model-import-network" in compose
     assert "unsloth-model-download-egress" in compose
@@ -276,13 +243,7 @@ def test_compose_keeps_recipe_off_egress_network() -> None:
         "unsloth-model-import-worker:",
         1,
     )[0]
-    assert (
-        "unsloth-model-download-egress"
-        not in recipe_section
-    )
+    assert "unsloth-model-download-egress" not in recipe_section
     assert "<<: *unsloth-hardening" in recipe_section
     assert "read_only: true" in compose
-    assert (
-        "ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_ROOT: "
-        "/attempt-output"
-    ) in recipe_section
+    assert ("ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_ROOT: /attempt-output") in recipe_section

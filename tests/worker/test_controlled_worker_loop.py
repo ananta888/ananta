@@ -43,7 +43,15 @@ def test_controlled_loop_stops_on_missing_approval() -> None:
 def test_budget_validation_and_stop_condition_helpers() -> None:
     event = build_progress_event(task_id="t", trace_id="tr", phase="plan", iteration=1, artifact_refs=["x"], detail="d")
     assert event["schema"] == "worker_progress_event.v1"
-    assert should_stop_loop({"policy_state": "deny", "approval": None, "repeated_failure": False, "no_progress_detected": False, "budget_exhausted": False}) == (True, "policy_denied")
+    assert should_stop_loop(
+        {
+            "policy_state": "deny",
+            "approval": None,
+            "repeated_failure": False,
+            "no_progress_detected": False,
+            "budget_exhausted": False,
+        }
+    ) == (True, "policy_denied")
 
 
 def test_profile_budgets_are_distinct_and_bounded() -> None:

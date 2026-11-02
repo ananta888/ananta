@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Callable
+from typing import Any
 
 from flask import Blueprint, current_app, g, request
 
@@ -110,9 +110,7 @@ def _credential_mutation(operation: str, *, path_node_id: str | None = None):
             public_key_pem=str(body.get("public_key_pem") or ""),
             credential_kind=str(body.get("credential_kind") or ""),
             credential_fingerprint=(
-                str(body["credential_fingerprint"]).lower()
-                if body.get("credential_fingerprint") is not None
-                else None
+                str(body["credential_fingerprint"]).lower() if body.get("credential_fingerprint") is not None else None
             ),
             certificate_pem=(str(body["certificate_pem"]) if body.get("certificate_pem") else None),
             proof=SfuProofOfPossession(

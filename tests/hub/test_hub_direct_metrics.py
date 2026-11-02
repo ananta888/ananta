@@ -1,4 +1,5 @@
 """HDE-021: metrics for saved LLM calls and tool reuse."""
+
 import pytest
 
 from agent.services.task_execution_metrics import (
@@ -30,7 +31,9 @@ def test_counters_increment():
 
 
 def test_blocked_and_fallback_counters():
-    record_hub_direct_metric("direct_execution_blocked_count", tool_name="repo.write_file", reason_code="mutation_mode_gate")
+    record_hub_direct_metric(
+        "direct_execution_blocked_count", tool_name="repo.write_file", reason_code="mutation_mode_gate"
+    )
     record_hub_direct_metric("fallback_to_worker_count", reason_code="no_rule_match")
     record_hub_direct_metric("custom_tool_reuse_count", tool_name="custom.count_todos")
     snapshot = hub_direct_metrics_snapshot()
@@ -66,10 +69,10 @@ def test_snapshot_contains_no_prompts_or_outputs():
 
 def test_proposal_response_carries_zero_token_cost_summary(monkeypatch, tmp_path):
     """TaskExecutionService adds a zero-LLM cost_summary for direct runs."""
-    from agent.models import TaskStepProposeRequest
-    from agent.services.task_execution_service import TaskExecutionService
     import agent.services.hub_tool_execution_adapter as adapter_module
+    from agent.models import TaskStepProposeRequest
     from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter
+    from agent.services.task_execution_service import TaskExecutionService
     from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter
 
     class _Runtime:

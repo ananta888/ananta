@@ -34,8 +34,16 @@ class _RecordingPort:
 
 def _context(*, current=True):
     lease = SfuBroadcastBackgroundJobLease(
-        "job-1", "maintenance", "global", "hub-1", 7, 3,
-        120.0, "previous", 5, 2000,
+        "job-1",
+        "maintenance",
+        "global",
+        "hub-1",
+        7,
+        3,
+        120.0,
+        "previous",
+        5,
+        2000,
     )
     return SfuBroadcastJobContext(lease, lambda: current)
 

@@ -274,9 +274,7 @@ def _worker_environment(token: str = "x" * 32) -> dict[str, str]:
 
 def test_environment_worker_configuration_is_exactly_allowlisted_and_secret_safe() -> None:
     token = "secret-worker-token-value-123456"
-    configuration = SpeechReconciliationWorkerConfiguration.from_environment(
-        _worker_environment(token)
-    )
+    configuration = SpeechReconciliationWorkerConfiguration.from_environment(_worker_environment(token))
     assert configuration.max_offline_assignments == 2
     assert configuration.location == "local"
     assert token not in repr(configuration)
@@ -296,9 +294,7 @@ def test_environment_worker_configuration_is_exactly_allowlisted_and_secret_safe
         SpeechReconciliationQueuePumpConfigurationError,
         match="worker_token_invalid",
     ):
-        SpeechReconciliationWorkerConfiguration.from_environment(
-            _worker_environment("too-short")
-        )
+        SpeechReconciliationWorkerConfiguration.from_environment(_worker_environment("too-short"))
 
 
 def test_default_composition_builds_real_scheduler_transport_through_narrow_dispatcher_factory(
@@ -315,9 +311,7 @@ def test_default_composition_builds_real_scheduler_transport_through_narrow_disp
 
     class _App:
         extensions = {
-            "speech_reconciliation_dispatcher_factory": lambda worker: (
-                captured.append(worker) or _Dispatcher()
-            )
+            "speech_reconciliation_dispatcher_factory": lambda worker: captured.append(worker) or _Dispatcher()
         }
 
     service = build_speech_reconciliation_queue_pump(_App())
@@ -337,16 +331,10 @@ class _Readiness:
 
 
 def test_directory_only_projects_fresh_healthy_candidate() -> None:
-    configuration = SpeechReconciliationWorkerConfiguration.from_environment(
-        _worker_environment()
-    )
-    unavailable = ConfiguredSpeechReconciliationWorkerDirectory(
-        configuration, _Readiness(False)
-    )
+    configuration = SpeechReconciliationWorkerConfiguration.from_environment(_worker_environment())
+    unavailable = ConfiguredSpeechReconciliationWorkerDirectory(configuration, _Readiness(False))
     assert unavailable.healthy_candidates() == ()
-    available = ConfiguredSpeechReconciliationWorkerDirectory(
-        configuration, _Readiness(True)
-    )
+    available = ConfiguredSpeechReconciliationWorkerDirectory(configuration, _Readiness(True))
     candidates = available.healthy_candidates()
     assert len(candidates) == 1
     assert candidates[0].max_offline_assignments == 1
@@ -384,12 +372,8 @@ def test_authenticated_readiness_probe_pins_dns_and_validates_closed_payload(mon
             calls.append(("close",))
 
     monkeypatch.setattr(pump_module.http.client, "HTTPConnection", _Connection)
-    configuration = SpeechReconciliationWorkerConfiguration.from_environment(
-        _worker_environment()
-    )
-    probe = HttpSpeechReconciliationWorkerReadinessProbe(
-        resolver=lambda host, port: ["10.44.0.9"]
-    )
+    configuration = SpeechReconciliationWorkerConfiguration.from_environment(_worker_environment())
+    probe = HttpSpeechReconciliationWorkerReadinessProbe(resolver=lambda host, port: ["10.44.0.9"])
     assert probe.ready(configuration) is True
     assert calls[0] == ("connect", "10.44.0.9", 8098, 3.0)
     request = calls[1]
@@ -493,23 +477,17 @@ def test_sql_queue_source_loads_durable_jobs_latest_checkpoint_and_tenant_activi
                     key_epoch=1,
                     checkpoint_sequence=sequence,
                     checkpoint_digest=digest(f"queue-checkpoint-{sequence}"),
-                    checkpoint_ref=(
-                        f"artifact://speech-reconciliation-checkpoints/queue/{sequence}.enc"
-                    ),
+                    checkpoint_ref=(f"artifact://speech-reconciliation-checkpoints/queue/{sequence}.enc"),
                     stage="slow_asr",
                     state_digest=digest(f"queue-state-{sequence}"),
                     created_at_ms=now + sequence,
                 )
             )
         session.commit()
-    source = SqlSpeechReconciliationQueuedJobSource(
-        allowed_locations=frozenset({"local"})
-    )
+    source = SqlSpeechReconciliationQueuedJobSource(allowed_locations=frozenset({"local"}))
     queued = source.list_queued(now_ms=now, limit=100)
     selected = next(item for item in queued if item.job.job_id == queued_id)
-    assert selected.checkpoint_ref == (
-        "artifact://speech-reconciliation-checkpoints/queue/2.enc"
-    )
+    assert selected.checkpoint_ref == ("artifact://speech-reconciliation-checkpoints/queue/2.enc")
     assert selected.requested_resources == vector
     assert source.tenant_active_assignments()["tenant-queue-source"] == 1
 

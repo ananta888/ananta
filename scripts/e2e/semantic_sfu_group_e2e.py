@@ -77,8 +77,16 @@ def parse_size(value: str) -> int:
     if not match:
         raise LiveSfuError("live_sfu_memory_stat_invalid")
     unit = match.group(2)
-    factors = {"B": 1, "KB": 1000, "MB": 1000**2, "GB": 1000**3,
-               "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3, "TiB": 1024**4}
+    factors = {
+        "B": 1,
+        "KB": 1000,
+        "MB": 1000**2,
+        "GB": 1000**3,
+        "KiB": 1024,
+        "MiB": 1024**2,
+        "GiB": 1024**3,
+        "TiB": 1024**4,
+    }
     return int(float(match.group(1)) * factors[unit])
 
 
@@ -97,7 +105,8 @@ def run_spike(
             "ANANTA_SEMANTIC_MEDIA_SFU_RECEIVER_COUNT": str(receiver_count),
             "ANANTA_SEMANTIC_MEDIA_SFU_WRONG_KEY_PROBE": "1" if wrong_key else "0",
             "ANANTA_SEMANTIC_MEDIA_SFU_SPIKE_OUTPUT": output.relative_to(ROOT).as_posix()
-            if output.is_relative_to(ROOT) else str(output),
+            if output.is_relative_to(ROOT)
+            else str(output),
         }
     )
     started = time.monotonic_ns()
@@ -138,14 +147,18 @@ def load_report(samples: dict[int, list[dict[str, Any]]]) -> dict[str, Any]:
                 "p99": percentile(latency, 0.99),
             },
         }
-        level["verdict"] = "pass" if (
-            min(ingress) > 0
-            and min(egress) > 0
-            and max(cpus) <= thresholds["max_cpu_percent"]
-            and max(memory) <= thresholds["max_memory_bytes"]
-            and max(drops) <= thresholds["max_dropped_video_frames"]
-            and level["scenario_completion_latency_ms"]["p99"] <= thresholds["max_completion_p99_ms"]
-        ) else "fail"
+        level["verdict"] = (
+            "pass"
+            if (
+                min(ingress) > 0
+                and min(egress) > 0
+                and max(cpus) <= thresholds["max_cpu_percent"]
+                and max(memory) <= thresholds["max_memory_bytes"]
+                and max(drops) <= thresholds["max_dropped_video_frames"]
+                and level["scenario_completion_latency_ms"]["p99"] <= thresholds["max_completion_p99_ms"]
+            )
+            else "fail"
+        )
         levels.append(level)
     return {
         "schema": "ananta.semantic-sfu-load.v1",
@@ -196,8 +209,14 @@ def main() -> int:
         }
     )
     compose = [
-        "docker", "compose", "--project-name", f"ananta-semantic-sfu-{secrets.token_hex(6)}",
-        "-f", str(COMPOSE), "--profile", "semantic-media-sfu",
+        "docker",
+        "compose",
+        "--project-name",
+        f"ananta-semantic-sfu-{secrets.token_hex(6)}",
+        "-f",
+        str(COMPOSE),
+        "--profile",
+        "semantic-media-sfu",
     ]
     try:
         run_command([*compose, "up", "-d", "--wait", "semantic-media-sfu"], env=env, timeout=120)
@@ -207,15 +226,21 @@ def main() -> int:
         with tempfile.TemporaryDirectory(prefix="ananta-sfu-e2e-") as temporary:
             root = Path(temporary)
             functional, _ = run_spike(
-                env=env, output=root / "functional.json", engines="chromium,firefox",
-                receiver_count=2, wrong_key=True,
+                env=env,
+                output=root / "functional.json",
+                engines="chromium,firefox",
+                receiver_count=2,
+                wrong_key=True,
             )
             samples: dict[int, list[dict[str, Any]]] = {2: [], 4: []}
             for participants in samples:
                 for index in range(args.samples):
                     report, latency = run_spike(
-                        env=env, output=root / f"load-{participants}-{index}.json", engines="chromium",
-                        receiver_count=participants - 1, wrong_key=False,
+                        env=env,
+                        output=root / f"load-{participants}-{index}.json",
+                        engines="chromium",
+                        receiver_count=participants - 1,
+                        wrong_key=False,
                     )
                     cpu, memory = container_stats(container_id, env)
                     samples[participants].append(sample_metrics(report, latency, cpu, memory))

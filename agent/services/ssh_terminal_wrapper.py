@@ -8,6 +8,7 @@ Never opens a raw shell for managed terminal accounts.
 Never exposes raw tmux sockets.
 Path traversal for workspace paths is rejected.
 """
+
 from __future__ import annotations
 
 import logging
@@ -164,17 +165,22 @@ class AnantaSshTerminalWrapper:
 
         if target_type == "worker":
             terminal_permissions = [
-                "terminal.worker.create", "terminal.worker.attach",
-                "terminal.worker.read", "terminal.worker.write",
+                "terminal.worker.create",
+                "terminal.worker.attach",
+                "terminal.worker.read",
+                "terminal.worker.write",
             ]
         elif target_type == "hub":
             terminal_permissions = [
-                "terminal.hub.create", "terminal.hub.attach",
-                "terminal.hub.read", "terminal.hub.write",
+                "terminal.hub.create",
+                "terminal.hub.attach",
+                "terminal.hub.read",
+                "terminal.hub.write",
             ]
         elif target_type == "hub_as_worker":
             terminal_permissions = [
-                "terminal.hub_as_worker.create", "terminal.hub_as_worker.attach",
+                "terminal.hub_as_worker.create",
+                "terminal.hub_as_worker.attach",
             ]
 
         return {
@@ -214,7 +220,6 @@ class AnantaSshTerminalWrapper:
                 tmux_session_name=None,
             )
 
-        from agent.services.tmux_backend import TmuxSessionBackend
         safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", f"ananta-{ctx.target_type}-{ctx.user_id[:16]}")[:48]
         return WrapperDecision(
             allowed=True,
@@ -263,35 +268,45 @@ class AnantaSshTerminalWrapper:
 
     def _audit_denied(self, ctx: WrapperContext, decision: WrapperDecision) -> None:
         from agent.config import settings
+
         if not settings.ssh_audit_enabled:
             return
         try:
             from agent.common.audit import log_audit
-            log_audit("ssh_terminal_wrapper_denied", {
-                "user_id": ctx.user_id[:40],
-                "principal": ctx.principal[:80],
-                "target_type": ctx.target_type,
-                "target_id": ctx.target_id[:40],
-                "reason_code": decision.reason_code,
-            })
+
+            log_audit(
+                "ssh_terminal_wrapper_denied",
+                {
+                    "user_id": ctx.user_id[:40],
+                    "principal": ctx.principal[:80],
+                    "target_type": ctx.target_type,
+                    "target_id": ctx.target_id[:40],
+                    "reason_code": decision.reason_code,
+                },
+            )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_denied: ignored Exception", exc_info=True)
 
     def _audit_started(self, ctx: WrapperContext, session_id: str) -> None:
         from agent.config import settings
+
         if not settings.ssh_audit_enabled:
             return
         try:
             from agent.common.audit import log_audit
-            log_audit("ssh_terminal_session_started", {
-                "user_id": ctx.user_id[:40],
-                "principal": ctx.principal[:80],
-                "target_type": ctx.target_type,
-                "target_id": ctx.target_id[:40],
-                "session_id": session_id,
-            })
+
+            log_audit(
+                "ssh_terminal_session_started",
+                {
+                    "user_id": ctx.user_id[:40],
+                    "principal": ctx.principal[:80],
+                    "target_type": ctx.target_type,
+                    "target_id": ctx.target_id[:40],
+                    "session_id": session_id,
+                },
+            )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_audit_started: ignored Exception", exc_info=True)
 
 
 def main() -> None:

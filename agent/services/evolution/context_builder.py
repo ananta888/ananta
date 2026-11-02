@@ -89,9 +89,7 @@ class EvolutionContextBuilder:
         bundle_id = str(task.get("context_bundle_id") or "").strip()
         if not bundle_id:
             return {}
-        bundle = TaskContextBundleAccessService(
-            repos.context_bundle_repo
-        ).resolve_task_reference_or_none(task=task)
+        bundle = TaskContextBundleAccessService(repos.context_bundle_repo).resolve_task_reference_or_none(task=task)
         return self._dump(bundle) if bundle is not None else {"id": bundle_id, "status": "missing"}
 
     def _task_signal(self, task: dict[str, Any]) -> dict[str, Any]:
@@ -238,9 +236,7 @@ class EvolutionContextBuilder:
             str(payload.get("trace_id") or details.get("trace_id") or ""),
         }
         return bool(
-            (task_id and task_id in values)
-            or (goal_id and goal_id in values)
-            or (trace_id and trace_id in values)
+            (task_id and task_id in values) or (goal_id and goal_id in values) or (trace_id and trace_id in values)
         )
 
     def _dump(self, value: Any) -> dict[str, Any]:

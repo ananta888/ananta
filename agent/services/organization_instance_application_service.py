@@ -173,9 +173,7 @@ class OrganizationInstanceApplicationService:
         self._catalog = catalog
         self._session_factory = session_factory
         self._active_work = active_work or SqlOrganizationActiveWorkService()
-        self._topology_lifecycle = (
-            topology_lifecycle or SqlOrganizationTopologyLifecycleService()
-        )
+        self._topology_lifecycle = topology_lifecycle or SqlOrganizationTopologyLifecycleService()
 
     def recover_applied_instantiation(
         self,
@@ -360,10 +358,7 @@ class OrganizationInstanceApplicationService:
             uow.operations.add(operation)
             now = time.time()
             active_work_result: dict[str, Any] | None = None
-            if (
-                locked_activity.has_active_work
-                and lifecycle_plan.to_state in {"completed", "archived"}
-            ):
+            if locked_activity.has_active_work and lifecycle_plan.to_state in {"completed", "archived"}:
                 try:
                     active_work_result = self._active_work.execute(
                         session=uow.session,
@@ -395,11 +390,7 @@ class OrganizationInstanceApplicationService:
                     target_state=lifecycle_plan.to_state,
                     now=now,
                 )
-            topology_activation = (
-                topology_projection
-                if lifecycle_plan.to_state == "active"
-                else None
-            )
+            topology_activation = topology_projection if lifecycle_plan.to_state == "active" else None
             organization.lifecycle = lifecycle_plan.to_state
             organization.lock_version += 1
             organization.updated_at = now

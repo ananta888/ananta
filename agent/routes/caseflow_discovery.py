@@ -7,6 +7,7 @@ GET  /api/caseflow/discovery/runs/<run_id>/results         — list results
 POST /api/caseflow/discovery/results/<result_id>/convert   — convert to case
 POST /api/caseflow/discovery/results/<result_id>/ignore    — ignore result
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -22,15 +23,13 @@ from agent.caseflow.discovery import (
     convert_result_to_case,
 )
 
-discovery_bp = Blueprint(
-    "caseflow_discovery", __name__, url_prefix="/api/caseflow/discovery"
-)
+discovery_bp = Blueprint("caseflow_discovery", __name__, url_prefix="/api/caseflow/discovery")
 
 # In-memory stores
 _profiles: dict[str, SearchProfile] = {}
 _runs: dict[str, DiscoveryRun] = {}
-_results: dict[str, DiscoveryResult] = {}   # result_id -> result
-_run_results: dict[str, list[str]] = {}     # run_id -> [result_ids]
+_results: dict[str, DiscoveryResult] = {}  # result_id -> result
+_run_results: dict[str, list[str]] = {}  # run_id -> [result_ids]
 
 
 def _profile_to_dict(p: SearchProfile) -> dict[str, Any]:
@@ -123,7 +122,8 @@ def convert_result(result_id: str):
             options=options,
         )
         # Store the newly created case in the caseflow store
-        from agent.routes.caseflow import _cases, _artifacts, _actions
+        from agent.routes.caseflow import _actions, _artifacts, _cases
+
         _cases[case.id] = case
         _artifacts[case.id] = []
         _actions[case.id] = []

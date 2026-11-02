@@ -63,10 +63,7 @@ def test_hub_private_signer_and_worker_public_verifier_are_separate(
 
     verifier.verify(signed)
     assert signed["hub_attestation"]["algorithm"] == "ed25519"
-    assert (
-        signed["hub_attestation"]["schema"]
-        == VECTOR_INDEX_TASK_ATTESTATION_SCHEMA
-    )
+    assert signed["hub_attestation"]["schema"] == VECTOR_INDEX_TASK_ATTESTATION_SCHEMA
     assert not hasattr(signer, "verify")
     assert not hasattr(verifier, "attest")
 
@@ -86,13 +83,7 @@ def test_hub_accepts_owner_read_only_private_keyring(tmp_path) -> None:
     signing_path = tmp_path / "signing.json"
     _write_keyring(signing_path, SIGNING_KEYRING_MAPPING, mode=0o400)
 
-    signer = load_vector_index_task_signer(
-        {
-            "ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE": str(
-                signing_path
-            )
-        }
-    )
+    signer = load_vector_index_task_signer({"ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE": str(signing_path)})
 
     assert signer.attest(_envelope())["hub_attestation"]["signature"]
 
@@ -109,13 +100,7 @@ def test_hub_rejects_group_or_world_readable_private_keyring(
         VectorIndexTaskSigningConfigurationError,
         match="vector_index_task_signing_keyring_unsafe",
     ):
-        load_vector_index_task_signer(
-            {
-                "ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE": str(
-                    signing_path
-                )
-            }
-        )
+        load_vector_index_task_signer({"ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE": str(signing_path)})
 
 
 @pytest.mark.parametrize("mode", (0o444, 0o644))
@@ -131,11 +116,7 @@ def test_worker_accepts_readable_public_verification_keyring(
     )
 
     verifier = load_vector_index_task_verifier(
-        {
-            "ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_FILE": str(
-                verification_path
-            )
-        }
+        {"ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_FILE": str(verification_path)}
     )
     verifier.verify(TASK_SIGNER.attest(_envelope()))
 
@@ -178,9 +159,7 @@ def test_tampered_signed_envelope_is_rejected(tmp_path) -> None:
 def test_attestation_rejects_key_id_relabeling_with_same_public_key() -> None:
     signed = TASK_SIGNER.attest(_envelope())
     original_key_id = str(signed["hub_attestation"]["key_id"])
-    public_value = VERIFICATION_KEYRING_MAPPING["public_keys"][
-        original_key_id
-    ]
+    public_value = VERIFICATION_KEYRING_MAPPING["public_keys"][original_key_id]
     alias_key_id = "unrevoked-key-alias"
     alias_ring = Ed25519VerificationKeyRing.from_mapping(
         {
@@ -199,12 +178,8 @@ def test_attestation_rejects_key_id_relabeling_with_same_public_key() -> None:
 
 
 def test_verification_keyring_rejects_duplicate_public_key_material() -> None:
-    original_key_id = next(
-        iter(VERIFICATION_KEYRING_MAPPING["public_keys"])
-    )
-    public_value = VERIFICATION_KEYRING_MAPPING["public_keys"][
-        original_key_id
-    ]
+    original_key_id = next(iter(VERIFICATION_KEYRING_MAPPING["public_keys"]))
+    public_value = VERIFICATION_KEYRING_MAPPING["public_keys"][original_key_id]
 
     with pytest.raises(
         RuntimeAuthorizationCryptoError,

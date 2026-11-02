@@ -20,9 +20,7 @@ class SqlCognitiveStyleStateRepository:
         with Session(engine) as session:
             row = session.exec(select(ConfigDB).where(ConfigDB.key == _KEY)).first()
             if row is None:
-                return CognitiveStylePersistedState(
-                    configuration=CognitiveStyleConfiguration(revision=0)
-                )
+                return CognitiveStylePersistedState(configuration=CognitiveStyleConfiguration(revision=0))
             return CognitiveStylePersistedState.model_validate_json(row.value_json)
 
     def save_if_revision(

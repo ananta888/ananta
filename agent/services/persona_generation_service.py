@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import logging
 import re
 import time
 import uuid
@@ -180,7 +181,7 @@ class HubPersonaGenerationService:
                     try:
                         self._record(assignment, "failed", hashlib.sha256(b"persona_generation_failed").hexdigest())
                     except Exception:
-                        pass  # Unknown terminal state never authorizes a returned asset.
+                        logging.getLogger(__name__).debug("generate: ignored Exception", exc_info=True)
             raise
 
     def _record(self, assignment, state, digest):

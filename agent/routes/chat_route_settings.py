@@ -117,11 +117,15 @@ def _validated_process_ref(
     principal: ChatSessionPrincipal,
 ) -> dict[str, str] | None:
     ref = normalize_process_ref(raw)
-    if ref is not None and load_graph(
-        ref["graph_id"],
-        ref["version"],
-        tenant_id=principal.tenant_id,
-        subject_id=principal.subject_id,
-    ) is None:
+    if (
+        ref is not None
+        and load_graph(
+            ref["graph_id"],
+            ref["version"],
+            tenant_id=principal.tenant_id,
+            subject_id=principal.subject_id,
+        )
+        is None
+    ):
         raise LookupError("process_definition_not_found")
     return ref

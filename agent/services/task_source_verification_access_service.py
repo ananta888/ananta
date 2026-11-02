@@ -61,9 +61,7 @@ class TaskSourceVerificationAccessService:
         task: Mapping[str, Any],
         principal: HubSourcePrincipal,
         project_access: TaskSourceProjectAccessPort | None,
-        organization_membership: (
-            TaskSourceOrganizationMembershipPort | None
-        ) = None,
+        organization_membership: (TaskSourceOrganizationMembershipPort | None) = None,
     ) -> None:
         tenant_id = str(task.get("tenant_id") or "").strip()
         project_id = str(task.get("project_id") or "").strip()
@@ -129,8 +127,7 @@ class TaskSourceVerificationAccessService:
         events = [
             event
             for event in list(task.get("history") or [])
-            if isinstance(event, Mapping)
-            and str(event.get("event_type") or "") == "task_ingested"
+            if isinstance(event, Mapping) and str(event.get("event_type") or "") == "task_ingested"
         ]
         if len(events) != 1:
             return ""
@@ -147,9 +144,7 @@ class TaskSourceVerificationAccessService:
 _SERVICE = TaskSourceVerificationAccessService()
 
 
-def get_task_source_verification_access_service() -> (
-    TaskSourceVerificationAccessService
-):
+def get_task_source_verification_access_service() -> TaskSourceVerificationAccessService:
     return _SERVICE
 
 

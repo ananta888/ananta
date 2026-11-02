@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Protocol
 
@@ -112,9 +112,7 @@ class LiveKitOperationReservation:
 class LiveKitRouteOperationLedgerPort(Protocol):
     """Atomic, durable operation ledger owned by the Hub."""
 
-    def reserve(
-        self, record: LiveKitRouteOperationRecord
-    ) -> LiveKitOperationReservation: ...
+    def reserve(self, record: LiveKitRouteOperationRecord) -> LiveKitOperationReservation: ...
 
     def complete(
         self,
@@ -153,9 +151,7 @@ class LiveKitBroadcastRouteAdapter:
             "command_supported": True,
             "authoritative_observation_supported": observation_supported,
             "reason_code": (
-                "route_adapter_supported"
-                if observation_supported
-                else RouteReasonCodeV1.OBSERVATION_UNSUPPORTED.value
+                "route_adapter_supported" if observation_supported else RouteReasonCodeV1.OBSERVATION_UNSUPPORTED.value
             ),
             "client": client,
         }
@@ -193,17 +189,11 @@ class LiveKitBroadcastRouteAdapter:
             endpoint_verified = self._endpoint_identity.verify()
             authorized = self._observation_authorization.authorize_observation(query)
         except Exception:
-            return self._unknown_observation(
-                query.key, RouteReasonCodeV1.RUNTIME_UNAVAILABLE, now_ms, True
-            )
+            return self._unknown_observation(query.key, RouteReasonCodeV1.RUNTIME_UNAVAILABLE, now_ms, True)
         if not endpoint_verified:
-            return self._unknown_observation(
-                query.key, RouteReasonCodeV1.ENDPOINT_IDENTITY_INVALID, now_ms, False
-            )
+            return self._unknown_observation(query.key, RouteReasonCodeV1.ENDPOINT_IDENTITY_INVALID, now_ms, False)
         if not authorized:
-            return self._unknown_observation(
-                query.key, RouteReasonCodeV1.AUTHORIZATION_FAILED, now_ms, False
-            )
+            return self._unknown_observation(query.key, RouteReasonCodeV1.AUTHORIZATION_FAILED, now_ms, False)
         try:
             observation = self._client.observe(query)
         except LiveKitControlApiError as exc:
@@ -214,15 +204,11 @@ class LiveKitBroadcastRouteAdapter:
                 exc.retryable,
             )
         if not observation.authoritative:
-            return self._unknown_observation(
-                query.key, RouteReasonCodeV1.OBSERVATION_UNSUPPORTED, now_ms, False
-            )
+            return self._unknown_observation(query.key, RouteReasonCodeV1.OBSERVATION_UNSUPPORTED, now_ms, False)
         # The pinned public client currently never reaches this branch.  It is
         # intentionally fail-closed until a future client supplies an exact,
         # authoritative RouteProjectionV1 rather than participant presence.
-        return self._unknown_observation(
-            query.key, RouteReasonCodeV1.OBSERVATION_UNSUPPORTED, now_ms, False
-        )
+        return self._unknown_observation(query.key, RouteReasonCodeV1.OBSERVATION_UNSUPPORTED, now_ms, False)
 
     def _mutate(
         self,
@@ -235,16 +221,12 @@ class LiveKitBroadcastRouteAdapter:
     ) -> RouteMutationResultV1:
         now_ms = self._now_ms()
         digest = _canonical_digest(command)
-        authorization, rejection = self._authorize(
-            operation, command, key, projection, digest, now_ms
-        )
+        authorization, rejection = self._authorize(operation, command, key, projection, digest, now_ms)
         if rejection is not None:
             return rejection
         assert authorization is not None
         assert authorization.signed_projection is not None
-        record = self._operation_record(
-            operation, command, authorization.signed_projection, digest
-        )
+        record = self._operation_record(operation, command, authorization.signed_projection, digest)
         try:
             reservation = self._operation_ledger.reserve(record)
         except Exception:
@@ -284,9 +266,7 @@ class LiveKitBroadcastRouteAdapter:
                 previous.outcome if previous is not None else RouteOutcomeV1.UNKNOWN,
                 RouteReasonCodeV1.DUPLICATE_IDEMPOTENT,
                 now_ms,
-                observed_version=(
-                    previous.observed_version if previous is not None else None
-                ),
+                observed_version=(previous.observed_version if previous is not None else None),
                 retryable=(previous.retryable if previous is not None else True),
             )
         try:
@@ -302,9 +282,7 @@ class LiveKitBroadcastRouteAdapter:
                 retryable=exc.retryable,
             )
         else:
-            result = self._control_result(
-                operation, command.operation_id, key, control_result, now_ms
-            )
+            result = self._control_result(operation, command.operation_id, key, control_result, now_ms)
         try:
             self._operation_ledger.complete(record, result)
         except Exception:
@@ -357,13 +335,10 @@ class LiveKitBroadcastRouteAdapter:
             reason = decision.reason_code
         elif projection is not None and decision.signed_projection != projection:
             reason = RouteReasonCodeV1.AUTHORIZATION_FAILED
-        elif operation is RouteOperationV1.REVOKE and (
-            decision.signed_projection.version != command.expected_version
-        ):
+        elif operation is RouteOperationV1.REVOKE and (decision.signed_projection.version != command.expected_version):
             reason = RouteReasonCodeV1.AUTHORIZATION_FAILED
         elif operation in (RouteOperationV1.APPLY, RouteOperationV1.UPDATE) and (
-            decision.signed_projection.runtime_control_mode
-            is not RuntimeControlModeV1.LIVEKIT_CONTROL_API
+            decision.signed_projection.runtime_control_mode is not RuntimeControlModeV1.LIVEKIT_CONTROL_API
         ):
             reason = RouteReasonCodeV1.AUTHORIZATION_FAILED
         elif operation in (RouteOperationV1.APPLY, RouteOperationV1.UPDATE) and (
@@ -378,9 +353,7 @@ class LiveKitBroadcastRouteAdapter:
             if decision.current_version is not None:
                 reason = RouteReasonCodeV1.ALREADY_EXISTS
             elif decision.tombstone_version is not None:
-                reason = _successor_error(
-                    decision.signed_projection.version, decision.tombstone_version
-                )
+                reason = _successor_error(decision.signed_projection.version, decision.tombstone_version)
         else:
             expected = command.expected_version
             reason = _expected_version_error(expected, decision.current_version)
@@ -403,11 +376,7 @@ class LiveKitBroadcastRouteAdapter:
         projection: RouteProjectionV1,
         command_digest: str,
     ) -> LiveKitRouteOperationRecord:
-        version = (
-            command.revoke_version
-            if isinstance(command, RevokeRouteCommandV1)
-            else projection.version
-        )
+        version = command.revoke_version if isinstance(command, RevokeRouteCommandV1) else projection.version
         return LiveKitRouteOperationRecord(
             operation_id=command.operation_id,
             idempotency_key=command.operation_id,
@@ -512,15 +481,11 @@ class LiveKitBroadcastRouteAdapter:
 
 def _canonical_digest(value: object) -> str:
     payload = asdict(value) if hasattr(value, "__dataclass_fields__") else value
-    encoded = json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("utf-8")
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _expected_version_error(
-    expected: RouteVersionV1, actual: RouteVersionV1 | None
-) -> RouteReasonCodeV1 | None:
+def _expected_version_error(expected: RouteVersionV1, actual: RouteVersionV1 | None) -> RouteReasonCodeV1 | None:
     if actual is None:
         return RouteReasonCodeV1.NOT_FOUND
     comparisons = (
@@ -545,9 +510,7 @@ def _expected_version_error(
     return None
 
 
-def _successor_error(
-    candidate: RouteVersionV1, predecessor: RouteVersionV1
-) -> RouteReasonCodeV1 | None:
+def _successor_error(candidate: RouteVersionV1, predecessor: RouteVersionV1) -> RouteReasonCodeV1 | None:
     if candidate.route_epoch <= predecessor.route_epoch:
         return RouteReasonCodeV1.STALE_ROUTE_EPOCH
     if candidate.projection_version <= predecessor.projection_version:

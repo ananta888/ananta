@@ -138,10 +138,16 @@ def test_evolver_adapter_reports_real_transport_health():
 def test_evolver_adapter_keeps_only_public_scalar_runtime_metadata():
     class RuntimeTransport(FakeEvolverTransport):
         def health(self):
-            return {"status": "available", "runtime": {
-                "version": "synthetic", "commit": "1" * 40, "analyze_only": True,
-                "headers": {"Authorization": "sensitive-marker"}, "license": {"secret": "nested-marker"},
-            }}
+            return {
+                "status": "available",
+                "runtime": {
+                    "version": "synthetic",
+                    "commit": "1" * 40,
+                    "analyze_only": True,
+                    "headers": {"Authorization": "sensitive-marker"},
+                    "license": {"secret": "nested-marker"},
+                },
+            }
 
     metadata = EvolverAdapter(transport=RuntimeTransport()).describe().provider_metadata["runtime"]
     assert metadata == {"version": "synthetic", "commit": "1" * 40, "analyze_only": True}

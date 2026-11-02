@@ -5,6 +5,7 @@ a tenant-scoped principal from the execution context.  Keeping these seams in
 one small module lets both adapters depend on narrow Protocols instead of on
 each other's concrete services.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Protocol
@@ -86,9 +87,7 @@ def _ml_intern_training_principal(context: Mapping[str, Any], principal_type: ty
             or context.get("subject")
             or "hub-admin"
         ).strip()
-        tenant = str(
-            identity.get("tenant_id") or identity.get("tenant") or context.get("tenant_id") or subject
-        ).strip()
+        tenant = str(identity.get("tenant_id") or identity.get("tenant") or context.get("tenant_id") or subject).strip()
     else:
         subject = str(getattr(identity, "subject", None) or context.get("subject") or "hub-admin").strip()
         tenant = str(getattr(identity, "tenant_id", None) or context.get("tenant_id") or subject).strip()

@@ -6,35 +6,33 @@ Proves:
 - attempted_strategies metadata is complete
 - T003: llm_required enforcement stops the chain before deterministic fallback
 """
+
 from __future__ import annotations
 
 from unittest.mock import Mock
 
-import pytest
-
-from worker.core.propose_orchestrator import (
-    ProposeContext,
-    ProposeStrategy,
-    ProposeStrategyOrchestrator,
+from agent.services.propose_policy import (
+    STRATEGY_ADVISORY_PROPOSAL,
+    STRATEGY_DETERMINISTIC_HANDLER,
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    STRATEGY_HUMAN_REVIEW,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_TOOL_CALLING_LLM,
+    STRATEGY_WORKER,
+    ProposePolicy,
 )
 from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
     STATUS_DECLINED,
     STATUS_EXECUTABLE,
     STATUS_FAILED,
     STATUS_NEEDS_REVIEW,
+    ExecutableProposal,
+    ProposeStrategyResult,
 )
-from agent.services.propose_policy import (
-    ProposePolicy,
-    STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-    STRATEGY_DETERMINISTIC_HANDLER,
-    STRATEGY_ADVISORY_PROPOSAL,
-    STRATEGY_HUMAN_REVIEW,
-    STRATEGY_WORKER,
-    LLM_MODE_PRIMARY_WITH_GUARDRAILS,
+from worker.core.propose_orchestrator import (
+    ProposeContext,
+    ProposeStrategy,
+    ProposeStrategyOrchestrator,
 )
 
 
@@ -45,9 +43,7 @@ def _declining_strategy(strategy_id: str) -> Mock:
 
 
 def _executable_strategy(strategy_id: str) -> Mock:
-    proposal = ExecutableProposal.from_command(
-        goal_id="g1", task_id="t1", strategy_id=strategy_id, command="echo ok"
-    )
+    proposal = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id=strategy_id, command="echo ok")
     s = Mock(spec=ProposeStrategy)
     s.run.return_value = ProposeStrategyResult.executable(strategy_id, proposal)
     return s
@@ -192,7 +188,7 @@ class TestNewSoftwareProjectChain:
     """T002: new_software_project reaches flexible_llm_normalization when LLM strategies decline."""
 
     def test_flexible_llm_normalization_reachable_after_llm_declines(self):
-        from agent.services.propose_policy import get_task_kind_preset, build_policy_from_dict
+        from agent.services.propose_policy import build_policy_from_dict, get_task_kind_preset
 
         preset = get_task_kind_preset("new_software_project")
         policy = build_policy_from_dict(preset)
@@ -210,7 +206,7 @@ class TestNewSoftwareProjectChain:
         assert idx_fl > idx_js
 
     def test_deterministic_handler_comes_after_llm_strategies_for_new_project(self):
-        from agent.services.propose_policy import get_task_kind_preset, build_policy_from_dict
+        from agent.services.propose_policy import build_policy_from_dict, get_task_kind_preset
 
         preset = get_task_kind_preset("new_software_project")
         policy = build_policy_from_dict(preset)

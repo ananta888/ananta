@@ -24,7 +24,8 @@ def pi_sdk_command(binary: str, *, path_environment: str = os.defpath) -> tuple[
         raise ValueError("pi_runtime_metadata_invalid")
     metadata = json.loads(raw)
     if (
-        not isinstance(metadata, dict) or metadata.get("name") != "@earendil-works/pi-coding-agent"
+        not isinstance(metadata, dict)
+        or metadata.get("name") != "@earendil-works/pi-coding-agent"
         or metadata.get("version") != PI_VERSION
     ):
         raise ValueError("pi_runtime_metadata_invalid")

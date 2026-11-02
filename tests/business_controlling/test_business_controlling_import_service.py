@@ -85,10 +85,13 @@ def test_mapping_requires_explicit_valid_confirmation() -> None:
         confirmed_by="operator-a",
     )
     assert confirmation.profile_digest == profile.profile_digest
-    assert confirmation.confirmation_digest == service.confirm_mapping(
-        profile,
-        {"period": "period", "amount": "amount"},
-        confirmed_by="operator-a",
-    ).confirmation_digest
+    assert (
+        confirmation.confirmation_digest
+        == service.confirm_mapping(
+            profile,
+            {"period": "period", "amount": "amount"},
+            confirmed_by="operator-a",
+        ).confirmation_digest
+    )
     with pytest.raises(BusinessControllingImportError, match="controlling_mapping_confirmation_invalid"):
         service.confirm_mapping(profile, {"unknown": "amount"}, confirmed_by="operator-a")

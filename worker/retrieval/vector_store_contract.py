@@ -297,10 +297,7 @@ class VectorIndexWritePlan:
     batch_size: int = 128
 
     def __post_init__(self) -> None:
-        if (
-            type(self.batch_size) is not int
-            or not 1 <= self.batch_size <= 1000
-        ):
+        if type(self.batch_size) is not int or not 1 <= self.batch_size <= 1000:
             raise ValueError("vector_batch_size_invalid")
 
 

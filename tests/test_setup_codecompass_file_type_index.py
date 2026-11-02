@@ -112,11 +112,7 @@ def test_scan_file_limit_balances_p0_families(monkeypatch, tmp_path, registry):
         "documentation",
     }
     assert plan.truncated is True
-    excluded = [
-        item
-        for item in plan.coverage.as_dict()["files"]
-        if item["exclusion_reason"] == "max_files_fair_share"
-    ]
+    excluded = [item for item in plan.coverage.as_dict()["files"] if item["exclusion_reason"] == "max_files_fair_share"]
     assert excluded
 
 
@@ -167,13 +163,13 @@ def test_record_builder_redacts_secret_values_and_persists_registry_evidence(
 
 
 def test_secret_redaction_preserves_python_parser_input():
-    source = '''\
+    source = """\
 API_TOKEN: str = "sensitive"
 SECOND_TOKEN = "sensitive"
 
 def validate_token_file(metadata: object) -> bool:
     return metadata is not None
-'''
+"""
 
     redacted, changed = setup_index._redact_sensitive_values(source)
 
@@ -183,9 +179,7 @@ def validate_token_file(metadata: object) -> bool:
     ast.parse(redacted)
 
 
-def test_whole_file_index_preserves_source_lines_through_redaction_and_retrieval(
-    monkeypatch, tmp_path, registry
-):
+def test_whole_file_index_preserves_source_lines_through_redaction_and_retrieval(monkeypatch, tmp_path, registry):
     from types import SimpleNamespace
 
     from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
@@ -197,27 +191,25 @@ def test_whole_file_index_preserves_source_lines_through_redaction_and_retrieval
     )
     (tmp_path / "sample.py").write_text(source, encoding="utf-8")
     _configure_scan(monkeypatch, tmp_path, registry, ["sample.py"])
-    records, _coverage = setup_index._build_records_from_plan(
-        setup_index._collect_index_plan(max_records=20)
-    )
+    records, _coverage = setup_index._build_records_from_plan(setup_index._collect_index_plan(max_records=20))
     record = next(item for item in records if item.get("path") == "sample.py")
     assert record["start_line"] == 1
     assert record["end_line"] == 8
     assert "secret-material" not in record["content"]
     assert record["content"].count("\n") == source.count("\n") + record["content_line_offset"]
-    normalized = normalize_source_records(
-        normalized_scope="repo_path", source_id="test-repository", records=[record]
-    )
+    normalized = normalize_source_records(normalized_scope="repo_path", source_id="test-repository", records=[record])
     output = tmp_path / "index"
     output.mkdir()
     (output / "index.jsonl").write_text(json.dumps(normalized[0]), encoding="utf-8")
     index = SimpleNamespace(
-        id="test-index", artifact_id=None, source_scope="repo_path",
-        profile_name="default", output_dir=str(output), status="completed",
+        id="test-index",
+        artifact_id=None,
+        source_scope="repo_path",
+        profile_name="default",
+        output_dir=str(output),
+        status="completed",
     )
-    service = KnowledgeIndexRetrievalService(
-        knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index])
-    )
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=lambda: [index]))
     hit = service.search_records_page("rag_helper_target", passage_chars=500)["records"][0]
     assert hit["metadata"]["line_start"] == 1
     assert hit["metadata"]["line_end"] == 8

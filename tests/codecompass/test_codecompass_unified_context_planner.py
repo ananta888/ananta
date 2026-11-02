@@ -10,10 +10,10 @@ Acceptance (from todo):
 * budget decisions are recorded in context_package
 * tests cover review, ci_failure, architecture_question, security_policy_task
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -34,6 +34,7 @@ def planner() -> CodeCompassContextPlanner:
 # ---------------------------------------------------------------------------
 # weights
 # ---------------------------------------------------------------------------
+
 
 def test_weights_for_review_prioritises_symbol_neighbors(planner):
     w = planner.weights_for("review")
@@ -65,6 +66,7 @@ def test_all_weights_sum_to_one(planner):
 # buckets
 # ---------------------------------------------------------------------------
 
+
 def test_plan_unified_context_produces_all_buckets(planner):
     res = planner.plan_unified_context(
         query="hello",
@@ -79,8 +81,11 @@ def test_plan_unified_context_produces_all_buckets(planner):
     )
     assert res["schema"] == SCHEMA_UNIFIED_CONTEXT
     assert set(res["buckets"]) == {
-        "changed_files", "symbol_neighbors", "build_test_evidence",
-        "semantic_chunks", "policy_evidence",
+        "changed_files",
+        "symbol_neighbors",
+        "build_test_evidence",
+        "semantic_chunks",
+        "policy_evidence",
     }
 
 
@@ -89,8 +94,7 @@ def test_plan_unified_context_records_budget_decisions(planner):
         query="x",
         task_kind="review",
         bucket_inputs={
-            "changed_files": [{"path": f"f{i}.py", "line_start": 1, "line_end": 1}
-                              for i in range(50)],
+            "changed_files": [{"path": f"f{i}.py", "line_start": 1, "line_end": 1} for i in range(50)],
         },
     )
     decisions = res["decisions"]
@@ -137,13 +141,22 @@ def test_plan_unified_context_weighted_total(planner):
 # task_kind acceptance tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("task_kind", [
-    "review", "bugfix", "ci", "build",
-    "architecture_question", "security_policy_task",
-])
+
+@pytest.mark.parametrize(
+    "task_kind",
+    [
+        "review",
+        "bugfix",
+        "ci",
+        "build",
+        "architecture_question",
+        "security_policy_task",
+    ],
+)
 def test_all_required_task_kinds_supported(planner, task_kind):
     res = planner.plan_unified_context(
-        query="x", task_kind=task_kind,
+        query="x",
+        task_kind=task_kind,
         bucket_inputs={"symbol_neighbors": [{"path": "a.py"}]},
     )
     assert res["task_kind"] == task_kind
@@ -170,21 +183,19 @@ def test_review_task_prioritises_symbol_neighbors_in_decisions(planner):
 # source-grounded: no synthetic IDs
 # ---------------------------------------------------------------------------
 
+
 def test_plan_unified_context_single_ref_result_is_grounded_stable_and_serialisable(planner):
     bucket_inputs = {"symbol_neighbors": [{"path": "a.py"}]}  # no id at all
-    res = planner.plan_unified_context(query="x", task_kind="review",
-                                       bucket_inputs=bucket_inputs)
+    res = planner.plan_unified_context(query="x", task_kind="review", bucket_inputs=bucket_inputs)
     # No synthetic 'unknown-1' or similar IDs introduced.
     refs = res["buckets"]["symbol_neighbors"]
     for ref in refs:
         # either the caller supplied an id, or none — but never a synthetic
-        synthetic = [v for v in ref.values()
-                     if isinstance(v, str) and v.startswith("synth:")]
+        synthetic = [v for v in ref.values() if isinstance(v, str) and v.startswith("synth:")]
         assert synthetic == []
 
     # bundle_id is stable across identical calls
-    again = planner.plan_unified_context(query="x", task_kind="review",
-                                         bucket_inputs=bucket_inputs)
+    again = planner.plan_unified_context(query="x", task_kind="review", bucket_inputs=bucket_inputs)
     assert res["bundle_id"] == again["bundle_id"]
 
     # result is JSON-serialisable
@@ -200,8 +211,7 @@ def test_legacy_fallback_when_bucket_inputs_empty(planner):
     # backend is wired in production; the bucket key is still present
     # and the decision is recorded.
     assert "symbol_neighbors" in res["buckets"]
-    assert any(d["reason"] == "legacy_plan_context_fallback"
-               for d in res["decisions"])
+    assert any(d["reason"] == "legacy_plan_context_fallback" for d in res["decisions"])
     # decision reason list contains the legacy fallback reason
     reasons = [d["reason"] for d in res["decisions"]]
     assert "legacy_plan_context_fallback" in reasons

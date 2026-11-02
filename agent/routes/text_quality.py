@@ -8,11 +8,11 @@ from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.services.repository_registry import get_repository_registry
+from agent.services.text_quality.config import normalize_text_quality_config
 from agent.services.text_quality.criteria_extractor_service import (
     CriteriaExtractorService,
 )
 from agent.services.text_quality.criteria_review_service import CriteriaReviewService
-from agent.services.text_quality.config import normalize_text_quality_config
 from agent.services.text_quality.models import ContentKind
 from agent.services.text_quality.runtime_service import (
     get_text_quality_runtime_service,

@@ -9,6 +9,11 @@ from typing import Any, Callable
 from flask import current_app, request
 
 from agent.models.semantic_principal import SemanticPrincipal
+from agent.routes.semantic_media_contract_route_parsing import (
+    _bounded_int,
+    _identifier,
+    _optional_identifier,
+)
 from agent.services.semantic_contract_service import (
     SemanticContractServiceError,
     get_semantic_contract_service,
@@ -22,12 +27,6 @@ from agent.services.share_session_permissions import (
 )
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
-from agent.routes.semantic_media_contract_route_parsing import (
-    _bounded_int,
-    _identifier,
-    _optional_identifier,
-)
-
 
 _SEMANTIC_CONTROL_DATA_TYPE = "application/vnd.ananta.semantic-media-control+json"
 _SEMANTIC_CONTROL_PURPOSE = "semantic_media_control"
@@ -78,7 +77,6 @@ class SemanticContractRouteAuthority:
             expires_at=float(expires_at) if isinstance(expires_at, (int, float)) else None,
         )
 
-
     def share_membership_authority(
         self,
         principal: SemanticPrincipal,
@@ -101,15 +99,13 @@ class SemanticContractRouteAuthority:
             (
                 item
                 for item in self._share_sessions().get_participants(session_id)
-                if str(item.get("user_id") or "") == principal.subject
-                and item.get("revoked_at") is None
+                if str(item.get("user_id") or "") == principal.subject and item.get("revoked_at") is None
             ),
             None,
         )
         if participant is None:
             raise SemanticContractServiceError("session_not_found", status_code=404)
         return share, dict(participant.get("permissions") or {})
-
 
     def capability_issuance_authority(
         self,
@@ -133,15 +129,13 @@ class SemanticContractRouteAuthority:
             (
                 item
                 for item in self._share_sessions().get_participants(session_id)
-                if str(item.get("user_id") or "") == subject_id
-                and item.get("revoked_at") is None
+                if str(item.get("user_id") or "") == subject_id and item.get("revoked_at") is None
             ),
             None,
         )
         if participant is None:
             raise SemanticMediaPermissionError("capability_subject_not_found", status_code=404)
         return share, dict(participant.get("permissions") or {})
-
 
     def attenuated_capabilities(
         self,
@@ -176,15 +170,18 @@ def _training_capability_authorised(
     resolver = current_app.extensions.get("semantic_media_training_capability_resolver")
     if not callable(resolver):
         return False
-    return resolver(
-        tenant_id=principal.tenant_id,
-        owner_id=principal.subject,
-        subject_id=str(body.get("subject_id") or ""),
-        session_id=str(body.get("session_id") or ""),
-        epoch=body.get("epoch"),
-        purpose=str(body.get("purpose") or ""),
-        data_type=str(body.get("data_type") or ""),
-    ) is True
+    return (
+        resolver(
+            tenant_id=principal.tenant_id,
+            owner_id=principal.subject,
+            subject_id=str(body.get("subject_id") or ""),
+            session_id=str(body.get("session_id") or ""),
+            epoch=body.get("epoch"),
+            purpose=str(body.get("purpose") or ""),
+            data_type=str(body.get("data_type") or ""),
+        )
+        is True
+    )
 
 
 def _semantic_permission_service(*, required: bool) -> SemanticMediaPermissionService | None:

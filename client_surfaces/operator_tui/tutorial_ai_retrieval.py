@@ -4,6 +4,7 @@ Split out of ``tutorial_ai_engine`` (which re-exports every name) so that the
 engine module keeps the LLM/worker interaction and this module the pure,
 file-based retrieval helpers.
 """
+
 from __future__ import annotations
 
 import json
@@ -67,15 +68,9 @@ def _embedding_vector_for_text(text: str) -> list[float]:
     if not api_base:
         return []
     model = str(
-        os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_MODEL")
-        or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
-        or ""
+        os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_MODEL") or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or ""
     ).strip()
-    token = str(
-        os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
-        or os.environ.get("OPENAI_API_KEY")
-        or ""
-    ).strip()
+    token = str(os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN") or os.environ.get("OPENAI_API_KEY") or "").strip()
     body = json.dumps({"model": model, "input": text[:1200]}).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if token:
@@ -112,10 +107,10 @@ def _embedding_vector_for_text(text: str) -> list[float]:
 def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
     try:
         from worker.retrieval.codecompass_candidate_resolver import (
-            CodeCompassCandidateResolver,
             ResolverConfig,
             _classify_path,
         )
+
         mode = ResolverConfig.from_env()
     except Exception:
         return []
@@ -125,16 +120,30 @@ def _load_codecompass_hints_from_dir(out_dir: Path) -> list[str]:
         if not index_path.exists():
             return []
         _FILE_KINDS = {
-            "python_file", "python", "py_file",
-            "md_file", "markdown_file",
-            "java_file", "java",
-            "typescript_file", "ts_file", "tsx_file",
-            "javascript_file", "js_file",
-            "yaml_file", "yml_file",
-            "json_file", "toml_file",
-            "shell_file", "bash_file",
-            "config_file", "compose_file", "dockerfile",
-            "xml_file", "html_file", "css_file",
+            "python_file",
+            "python",
+            "py_file",
+            "md_file",
+            "markdown_file",
+            "java_file",
+            "java",
+            "typescript_file",
+            "ts_file",
+            "tsx_file",
+            "javascript_file",
+            "js_file",
+            "yaml_file",
+            "yml_file",
+            "json_file",
+            "toml_file",
+            "shell_file",
+            "bash_file",
+            "config_file",
+            "compose_file",
+            "dockerfile",
+            "xml_file",
+            "html_file",
+            "css_file",
         }
         seen: set[str] = set()
         ordered: list[tuple[str, float]] = []
@@ -176,15 +185,16 @@ def _load_rag_context_from_dir(
     max_records_per_file: int,
     scope_filter: str = "tui_only",
 ) -> list[str]:
-    scope_full = scope_filter == "full" or str(
-        os.environ.get("ANANTA_TUI_RAG_SCOPE_FILTER", "")
-    ).strip().lower() == "full"
+    scope_full = (
+        scope_filter == "full" or str(os.environ.get("ANANTA_TUI_RAG_SCOPE_FILTER", "")).strip().lower() == "full"
+    )
 
     try:
         from worker.retrieval.codecompass_candidate_resolver import (
             CodeCompassCandidateResolver,
             ResolverConfig,
         )
+
         mode = ResolverConfig.from_env()
         resolver = CodeCompassCandidateResolver(max_candidates=top_k * 4)
         question_text = " ".join(query_tokens)
@@ -211,11 +221,20 @@ def _load_rag_context_from_dir(
         resolver_top_files = [c["path"] for c in candidates[: top_k * 2]]
         files_to_scan: list[str] = []
         seen: set[str] = set()
-        for rel in manifest_files + resolver_top_files + [
-            "context.jsonl", "details.jsonl", "index.jsonl",
-            "xml_overview.jsonl", "embedding.jsonl",
-            "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
-        ]:
+        for rel in (
+            manifest_files
+            + resolver_top_files
+            + [
+                "context.jsonl",
+                "details.jsonl",
+                "index.jsonl",
+                "xml_overview.jsonl",
+                "embedding.jsonl",
+                "graph_nodes.jsonl",
+                "graph_edges.jsonl",
+                "relations.jsonl",
+            ]
+        ):
             norm = rel.strip().lstrip("/")
             if norm and norm not in seen:
                 seen.add(norm)
@@ -223,14 +242,24 @@ def _load_rag_context_from_dir(
         files_to_scan = files_to_scan[:24]
     except Exception:
         files_to_scan = [
-            "context.jsonl", "details.jsonl", "index.jsonl",
-            "xml_overview.jsonl", "embedding.jsonl",
-            "graph_nodes.jsonl", "graph_edges.jsonl", "relations.jsonl",
+            "context.jsonl",
+            "details.jsonl",
+            "index.jsonl",
+            "xml_overview.jsonl",
+            "embedding.jsonl",
+            "graph_nodes.jsonl",
+            "graph_edges.jsonl",
+            "relations.jsonl",
         ]
 
     candidates_list: list[tuple[float, str]] = []
     embedding_api_calls = 0
-    use_embedding_api = str(os.environ.get("ANANTA_TUI_CHAT_USE_EMBEDDING_API", "")).strip().lower() in {"1", "true", "yes", "on"}
+    use_embedding_api = str(os.environ.get("ANANTA_TUI_CHAT_USE_EMBEDDING_API", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     query_embedding = _embedding_vector_for_text(" ".join(query_tokens)) if use_embedding_api and query_tokens else []
 
     for rel in files_to_scan:
@@ -255,9 +284,13 @@ def _load_rag_context_from_dir(
             if not isinstance(parsed, dict):
                 continue
             source_file = str(
-                parsed.get("file") or parsed.get("path") or parsed.get("source_file")
-                or parsed.get("source_path") or parsed.get("target_file")
-                or parsed.get("target_path") or ""
+                parsed.get("file")
+                or parsed.get("path")
+                or parsed.get("source_file")
+                or parsed.get("source_path")
+                or parsed.get("target_file")
+                or parsed.get("target_path")
+                or ""
             ).strip()
             if not scope_full and source_kind in {"graph_nodes", "graph_edges"} and source_file:
                 sl = source_file.lower()
@@ -287,7 +320,9 @@ def _load_rag_context_from_dir(
             compact = f"{source_kind} · {compact}"
             score = _score_rag_record_with_embedding(compact, embedding_text, query_tokens, source_kind)
             if query_embedding and embedding_text:
-                embedding_api_limit = max(1, min(128, int(os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_API_MAX_RECORDS", "64"))))
+                embedding_api_limit = max(
+                    1, min(128, int(os.environ.get("ANANTA_TUI_CHAT_EMBEDDING_API_MAX_RECORDS", "64")))
+                )
                 if embedding_api_calls < embedding_api_limit:
                     embedding_api_calls += 1
                     candidate_embedding = _embedding_vector_for_text(embedding_text)
@@ -311,15 +346,26 @@ def _name_lookup_from_details(
     already_found: set[str],
 ) -> list[str]:
     name_stopwords = {
-        "was", "wie", "ist", "sind", "und", "oder", "the", "what", "how", "does",
-        "erkläre", "erklaere", "zeige", "mir", "bitte",
+        "was",
+        "wie",
+        "ist",
+        "sind",
+        "und",
+        "oder",
+        "the",
+        "what",
+        "how",
+        "does",
+        "erkläre",
+        "erklaere",
+        "zeige",
+        "mir",
+        "bitte",
     }
     name_tokens = [
         t.lower()
         for t in query_tokens
-        if len(t) >= 3
-        and t.lower() not in name_stopwords
-        and (t.startswith("_") or "_" in t or len(t) >= 5)
+        if len(t) >= 3 and t.lower() not in name_stopwords and (t.startswith("_") or "_" in t or len(t) >= 5)
     ]
     if not name_tokens:
         return []

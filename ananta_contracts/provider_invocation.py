@@ -89,9 +89,7 @@ class ProviderInvocationContext:
             raise ProviderInvocationBlocked("provider_context_invalid")
         raw = dict(value)
         return cls(
-            schema=str(
-                raw.get("schema") or PROVIDER_INVOCATION_CONTEXT_SCHEMA
-            ).strip(),
+            schema=str(raw.get("schema") or PROVIDER_INVOCATION_CONTEXT_SCHEMA).strip(),
             tenant_id=str(raw.get("tenant_id") or "").strip(),
             run_id=str(raw.get("run_id") or "").strip(),
             workflow_id=str(raw.get("workflow_id") or "").strip(),
@@ -104,26 +102,14 @@ class ProviderInvocationContext:
             max_total_tokens=int(raw.get("max_total_tokens", 0)),
             max_cost_micros=int(raw.get("max_cost_micros", 0)),
             deadline_epoch_seconds=(
-                float(raw["deadline_epoch_seconds"])
-                if raw.get("deadline_epoch_seconds") is not None
-                else None
+                float(raw["deadline_epoch_seconds"]) if raw.get("deadline_epoch_seconds") is not None else None
             ),
-            max_completion_tokens_per_call=int(
-                raw.get("max_completion_tokens_per_call", 0)
-            ),
-            estimated_cost_micros_per_1000_tokens=int(
-                raw.get("estimated_cost_micros_per_1000_tokens", 0)
-            ),
+            max_completion_tokens_per_call=int(raw.get("max_completion_tokens_per_call", 0)),
+            estimated_cost_micros_per_1000_tokens=int(raw.get("estimated_cost_micros_per_1000_tokens", 0)),
             cache_enabled=bool(raw.get("cache_enabled", False)),
-            require_hub_provider_budget=bool(
-                raw.get("require_hub_provider_budget", False)
-            ),
-            require_hub_provider_attempt_budget=bool(
-                raw.get("require_hub_provider_attempt_budget", False)
-            ),
-            require_hub_retry_budget=bool(
-                raw.get("require_hub_retry_budget", False)
-            ),
+            require_hub_provider_budget=bool(raw.get("require_hub_provider_budget", False)),
+            require_hub_provider_attempt_budget=bool(raw.get("require_hub_provider_attempt_budget", False)),
+            require_hub_retry_budget=bool(raw.get("require_hub_retry_budget", False)),
             combined_retry_maximum=int(raw.get("combined_retry_maximum", 0)),
             retry_attempt=int(raw.get("retry_attempt", 0)),
             retry_id=str(raw.get("retry_id") or "").strip(),
@@ -132,21 +118,13 @@ class ProviderInvocationContext:
             authorization_envelope=dict(raw.get("authorization_envelope") or {}),
             attempt_id=str(raw.get("attempt_id") or "").strip(),
             fencing_token=int(raw.get("fencing_token") or 0),
-            provider_profile_id=str(
-                raw.get("provider_profile_id") or ""
-            ).strip(),
+            provider_profile_id=str(raw.get("provider_profile_id") or "").strip(),
             selected_provider_id=str(raw.get("selected_provider_id") or "").strip(),
             selected_model_id=str(raw.get("selected_model_id") or "").strip(),
             provider_binding_id=str(raw.get("provider_binding_id") or "").strip(),
-            provider_endpoint_identity=str(
-                raw.get("provider_endpoint_identity") or ""
-            ).strip(),
-            provider_transport_mode=str(
-                raw.get("provider_transport_mode") or ""
-            ).strip(),
-            provider_decision_reason=str(
-                raw.get("provider_decision_reason") or ""
-            ).strip(),
+            provider_endpoint_identity=str(raw.get("provider_endpoint_identity") or "").strip(),
+            provider_transport_mode=str(raw.get("provider_transport_mode") or "").strip(),
+            provider_decision_reason=str(raw.get("provider_decision_reason") or "").strip(),
             provider_call_id=str(raw.get("provider_call_id") or "").strip(),
         )
 
@@ -179,27 +157,19 @@ class ProviderInvocationContext:
             raise ProviderInvocationBlocked("provider_selection_binding_incomplete")
         if self.provider_endpoint_identity:
             if not self.selected_provider_id:
-                raise ProviderInvocationBlocked(
-                    "provider_endpoint_binding_incomplete"
-                )
+                raise ProviderInvocationBlocked("provider_endpoint_binding_incomplete")
             try:
                 normalized_endpoint = normalize_provider_endpoint_identity(
                     provider_id=self.selected_provider_id,
                     endpoint_url=self.provider_endpoint_identity,
                 )
             except ValueError as exc:
-                raise ProviderInvocationBlocked(
-                    "provider_endpoint_identity_invalid"
-                ) from exc
+                raise ProviderInvocationBlocked("provider_endpoint_identity_invalid") from exc
             if normalized_endpoint != self.provider_endpoint_identity:
-                raise ProviderInvocationBlocked(
-                    "provider_endpoint_identity_not_canonical"
-                )
+                raise ProviderInvocationBlocked("provider_endpoint_identity_not_canonical")
         if self.provider_transport_mode not in {"", "legacy", "none", "hub_bound"}:
             raise ProviderInvocationBlocked("provider_transport_mode_invalid")
-        if self.provider_call_id and not _PROVIDER_CALL_ID.fullmatch(
-            self.provider_call_id
-        ):
+        if self.provider_call_id and not _PROVIDER_CALL_ID.fullmatch(self.provider_call_id):
             raise ProviderInvocationBlocked("provider_call_id_invalid")
         if self.require_hub_provider_budget and (
             not self.selected_provider_id
@@ -209,20 +179,12 @@ class ProviderInvocationContext:
             or not self.provider_decision_reason
         ):
             raise ProviderInvocationBlocked("provider_selection_binding_required")
-        if (
-            self.require_hub_provider_attempt_budget
-            and (
-                not self.require_hub_provider_budget
-                or not self.provider_profile_id
-            )
+        if self.require_hub_provider_attempt_budget and (
+            not self.require_hub_provider_budget or not self.provider_profile_id
         ):
-            raise ProviderInvocationBlocked(
-                "provider_attempt_budget_binding_required"
-            )
+            raise ProviderInvocationBlocked("provider_attempt_budget_binding_required")
         if self.provider_transport_mode == "none" and (
-            self.selected_provider_id
-            or self.selected_model_id
-            or self.require_hub_provider_budget
+            self.selected_provider_id or self.selected_model_id or self.require_hub_provider_budget
         ):
             raise ProviderInvocationBlocked("provider_transport_binding_mismatch")
         if (self.require_hub_retry_budget or self.require_hub_provider_budget) and (
@@ -294,4 +256,3 @@ class ProviderBudgetPort(Protocol):
         actual_total_tokens: int | None,
         reservation_id: str = "",
     ) -> None: ...
-

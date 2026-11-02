@@ -1,18 +1,26 @@
 """Tests for Chain of Responsibility — chain.py, snake_rules.py, chat_selectors.py."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agent.services.heuristic_runtime.chain import ChainResult, HeuristicRuleChainElement, RuleChain
 from agent.services.heuristic_runtime.chat_selectors import (
-    ActiveGoalSelector, ErrorHelpcenterSelector, NoMatchSelector,
-    SelectedArtifactSelector, SymbolSelector, TodoSelector, build_chat_selector_chain,
+    ActiveGoalSelector,
+    ErrorHelpcenterSelector,
+    NoMatchSelector,
+    SelectedArtifactSelector,
+    SymbolSelector,
+    TodoSelector,
+    build_chat_selector_chain,
 )
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.snake_rules import (
-    ArtifactHoverRule, DefaultFollowRule, DiffFocusRule, ErrorFocusRule,
-    IdleLurkRule, build_snake_rule_chain,
+    ArtifactHoverRule,
+    DefaultFollowRule,
+    DiffFocusRule,
+    ErrorFocusRule,
+    IdleLurkRule,
+    build_snake_rule_chain,
 )
 
 
@@ -28,6 +36,7 @@ def _ctx(surface="tui_snake", goal=None, panel=None, artifacts=None, events=None
 
 
 # ── ChainResult factories ─────────────────────────────────────────────────────
+
 
 def test_chain_result_handled():
     r = DecisionResult.heuristic_follow()
@@ -50,17 +59,26 @@ def test_chain_result_continue():
 
 # ── RuleChain execution ───────────────────────────────────────────────────────
 
+
 class AlwaysAbstain(HeuristicRuleChainElement):
     priority = 1
-    def handle(self, ctx, result): return ChainResult.abstain(rule_id="abstain")
+
+    def handle(self, ctx, result):
+        return ChainResult.abstain(rule_id="abstain")
+
 
 class AlwaysHandle(HeuristicRuleChainElement):
     priority = 2
-    def handle(self, ctx, result): return ChainResult.handled(DecisionResult.heuristic_lurk(), rule_id="handle")
+
+    def handle(self, ctx, result):
+        return ChainResult.handled(DecisionResult.heuristic_lurk(), rule_id="handle")
+
 
 class AlwaysContinue(HeuristicRuleChainElement):
     priority = 3
-    def handle(self, ctx, result): return ChainResult.continue_(rule_id="cont")
+
+    def handle(self, ctx, result):
+        return ChainResult.continue_(rule_id="cont")
 
 
 def test_chain_short_circuits_on_handled():
@@ -87,6 +105,7 @@ def test_chain_add_element_keeps_sorted():
 
 
 # ── Snake Rules ───────────────────────────────────────────────────────────────
+
 
 def test_artifact_hover_rule_triggers_on_event():
     ctx = _ctx(events=[{"kind": "artifact_select", "normalized_value": "ref1"}])
@@ -147,6 +166,7 @@ def test_snake_chain_with_artifact_event_returns_follow():
 
 
 # ── Chat Selectors ────────────────────────────────────────────────────────────
+
 
 def test_selected_artifact_selector_triggers():
     ctx = _ctx(artifacts=["ref1"])

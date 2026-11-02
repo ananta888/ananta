@@ -9,29 +9,27 @@ Proves the full chain with mocked OpenAI-compatible provider:
 sgpt is patched to raise in the entire module — if called, the test fails.
 The mocked provider simulates a local Ollama/LMStudio endpoint returning tool_calls.
 """
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock, patch
 
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
-from worker.core.propose import ExecutableProposal, STATUS_EXECUTABLE
+import pytest
+
+from agent.services.model_invocation_service import LLMUnavailableError
 from agent.services.propose_policy import (
-    get_task_kind_preset,
-    build_policy_from_dict,
-    STRATEGY_TOOL_CALLING_LLM,
     STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    STRATEGY_TOOL_CALLING_LLM,
+    build_policy_from_dict,
+    get_task_kind_preset,
 )
 from agent.services.propose_strategy_registry import build_strategy_registry
-from agent.services.model_invocation_service import LLMUnavailableError
-
 from tests.fixtures.mock_openai_compatible_provider import (
-    make_mock_invoke_with_tools,
     make_mock_invoke_with_json_schema,
-    make_mock_invoke,
+    make_mock_invoke_with_tools,
 )
-
+from worker.core.propose import STATUS_EXECUTABLE, ExecutableProposal
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
 FIBONACCI_TOOL_CALLS = [
     {"name": "write_file", "args": {"path": "app.py", "content": "from flask import Flask\napp=Flask(__name__)\n"}},
@@ -43,8 +41,9 @@ FIBONACCI_TOOL_CALLS = [
 @pytest.fixture(autouse=True)
 def _block_sgpt():
     """sgpt must never be called in this test module."""
-    with patch("agent.cli_backends.sgpt.run_sgpt_command",
-               side_effect=RuntimeError("sgpt_blocked_in_AFR-T008"), create=True):
+    with patch(
+        "agent.cli_backends.sgpt.run_sgpt_command", side_effect=RuntimeError("sgpt_blocked_in_AFR-T008"), create=True
+    ):
         yield
 
 
@@ -82,9 +81,7 @@ class TestNewProjectLLMFirstWithMockedProvider:
 
         result = orch.run(fibonacci_context)
 
-        assert result.status == STATUS_EXECUTABLE, (
-            f"Expected executable, got {result.status}: {result.reason}"
-        )
+        assert result.status == STATUS_EXECUTABLE, f"Expected executable, got {result.status}: {result.reason}"
         assert isinstance(result.proposal, ExecutableProposal)
         assert result.metadata.get("selected_strategy") == STRATEGY_TOOL_CALLING_LLM
 
@@ -150,6 +147,7 @@ class TestNewProjectLLMFirstWithMockedProvider:
     def test_proposal_schema_matches_execute_contract(self, fibonacci_context, monkeypatch):
         """ExecutableProposal returned by tool_calling_llm can be validated by execute path."""
         from worker.core.propose import validate_executable_proposal
+
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
@@ -229,6 +227,4 @@ class TestNewProjectLLMRequired:
         )
         assert not result.is_executable
         reason_text = (result.reason or "") + " ".join(result.reason_codes or [])
-        assert "llm" in reason_text.lower(), (
-            f"Result reason must mention LLM unavailability, got: {result.reason}"
-        )
+        assert "llm" in reason_text.lower(), f"Result reason must mention LLM unavailability, got: {result.reason}"

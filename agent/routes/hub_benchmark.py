@@ -5,9 +5,9 @@ from flask import Blueprint, current_app, g, request
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import NotFoundError, api_response
-from agent.hub_benchmark import HUB_BENCH_TASK_KINDS, load_hub_benchmark_config
-from agent.services.hub_benchmark_service import get_hub_benchmark_service
+from agent.hub_benchmark import HUB_BENCH_TASK_KINDS
 from agent.services.benchmark_job_service import get_benchmark_job_service
+from agent.services.hub_benchmark_service import get_hub_benchmark_service
 
 hub_benchmark_bp = Blueprint("hub_benchmark", __name__)
 

@@ -16,15 +16,31 @@ _MEDIA_KINDS = frozenset({"audio", "camera", "screenshare", "semantic_reference"
 _CODECS = frozenset({"audio_opus", "video_vp8", "video_h264", "video_vp9", "video_av1"})
 _SCALABILITY = frozenset({"none", "simulcast", "svc_l1t2", "svc_l1t3", "svc_l2t2", "svc_l3t3"})
 _FALLBACKS = frozenset({"ordinary_fallback", "deny"})
-_ROOT_KEYS = frozenset({
-    "schema", "schema_version", "profile_revision", "publisher_profile_version",
-    "receiver_profile_version", "profiles",
-})
-_PROFILE_KEYS = frozenset({
-    "profile_id", "codec_classes", "scalability_classes", "max_encodings", "max_width_px",
-    "max_height_px", "max_fps", "max_aggregate_bitrate_bps", "max_keyframe_interval_ms",
-    "fallbacks", "e2ee_required",
-})
+_ROOT_KEYS = frozenset(
+    {
+        "schema",
+        "schema_version",
+        "profile_revision",
+        "publisher_profile_version",
+        "receiver_profile_version",
+        "profiles",
+    }
+)
+_PROFILE_KEYS = frozenset(
+    {
+        "profile_id",
+        "codec_classes",
+        "scalability_classes",
+        "max_encodings",
+        "max_width_px",
+        "max_height_px",
+        "max_fps",
+        "max_aggregate_bitrate_bps",
+        "max_keyframe_interval_ms",
+        "fallbacks",
+        "e2ee_required",
+    }
+)
 
 
 class SfuBroadcastLayerProfileError(RuntimeError):
@@ -151,14 +167,23 @@ class SfuBroadcastLayerProfilePolicy:
         limits = EffectiveLayerLimits(
             codec_classes=tuple(sorted(codecs)),
             scalability_classes=tuple(sorted(scalability)),
-            max_encodings=values[0], max_width_px=values[1], max_height_px=values[2],
-            max_fps=values[3], max_aggregate_bitrate_bps=values[4],
+            max_encodings=values[0],
+            max_width_px=values[1],
+            max_height_px=values[2],
+            max_fps=values[3],
+            max_aggregate_bitrate_bps=values[4],
             max_keyframe_interval_ms=values[5],
         )
         return ResolvedLayerProfile(
-            profile.profile_id, int(root["profile_revision"]), digest,
-            str(root["publisher_profile_version"]), str(root["receiver_profile_version"]),
-            "planned", "apply_projection", "layer_profile_intersection_applied", limits,
+            profile.profile_id,
+            int(root["profile_revision"]),
+            digest,
+            str(root["publisher_profile_version"]),
+            str(root["receiver_profile_version"]),
+            "planned",
+            "apply_projection",
+            "layer_profile_intersection_applied",
+            limits,
         )
 
     def _fallback(
@@ -173,9 +198,15 @@ class SfuBroadcastLayerProfilePolicy:
         outcome = "deny" if force_deny or "ordinary_fallback" not in profile.fallbacks else "ordinary_fallback"
         resolution = "unsupported" if force_deny else "unknown"
         return ResolvedLayerProfile(
-            profile.profile_id, int(root["profile_revision"]), digest,
-            str(root["publisher_profile_version"]), str(root["receiver_profile_version"]),
-            resolution, outcome, reason, None,
+            profile.profile_id,
+            int(root["profile_revision"]),
+            digest,
+            str(root["publisher_profile_version"]),
+            str(root["receiver_profile_version"]),
+            resolution,
+            outcome,
+            reason,
+            None,
         )
 
     def _profiles(self) -> tuple[dict[str, _AdministrativeProfile], Mapping[str, Any], str]:
@@ -196,8 +227,10 @@ class SfuBroadcastLayerProfilePolicy:
         if raw["schema"] != _SCHEMA or raw["schema_version"] != 1:
             raise SfuBroadcastLayerProfileError("layer_profile_schema_unsupported")
         _positive(raw["profile_revision"], "layer_profile_revision_invalid")
-        if raw["publisher_profile_version"] != "publisher-layer-profile-v1" \
-                or raw["receiver_profile_version"] != "receiver-layer-profile-v1":
+        if (
+            raw["publisher_profile_version"] != "publisher-layer-profile-v1"
+            or raw["receiver_profile_version"] != "receiver-layer-profile-v1"
+        ):
             raise SfuBroadcastLayerProfileError("layer_profile_contract_version_invalid")
         rows = raw["profiles"]
         if not isinstance(rows, dict) or set(rows) != _MEDIA_KINDS:
@@ -225,7 +258,11 @@ def _parse_profile(kind: str, value: object) -> _AdministrativeProfile:
         _bounded(value["max_keyframe_interval_ms"], 0, 60_000, "layer_profile_keyframe_invalid"),
     )
     if kind == "audio":
-        if codecs != frozenset({"audio_opus"}) or modes != frozenset({"none"}) or any(maximums[index] for index in (1, 2, 3, 5)):
+        if (
+            codecs != frozenset({"audio_opus"})
+            or modes != frozenset({"none"})
+            or any(maximums[index] for index in (1, 2, 3, 5))
+        ):
             raise SfuBroadcastLayerProfileError("layer_profile_audio_invalid")
     elif "audio_opus" in codecs or any(maximums[index] == 0 for index in (1, 2, 3, 5)):
         raise SfuBroadcastLayerProfileError("layer_profile_video_invalid")
@@ -250,8 +287,12 @@ def _validate_source(source: LayerSourceCapability, media_kind: str) -> None:
 
 def _source_maximums(source: LayerSourceCapability) -> tuple[int, int, int, int, int, int]:
     values = (
-        source.max_encodings, source.max_width_px, source.max_height_px, source.max_fps,
-        source.max_aggregate_bitrate_bps, source.max_keyframe_interval_ms,
+        source.max_encodings,
+        source.max_width_px,
+        source.max_height_px,
+        source.max_fps,
+        source.max_aggregate_bitrate_bps,
+        source.max_keyframe_interval_ms,
     )
     if any(type(value) is not int for value in values):
         raise SfuBroadcastLayerProfileError("layer_capability_limit_missing")
@@ -278,6 +319,10 @@ def _positive(value: object, reason: str) -> int:
 
 
 __all__ = [
-    "EffectiveLayerLimits", "LayerProfileRequest", "LayerSourceCapability", "ResolvedLayerProfile",
-    "SfuBroadcastLayerProfileError", "SfuBroadcastLayerProfilePolicy",
+    "EffectiveLayerLimits",
+    "LayerProfileRequest",
+    "LayerSourceCapability",
+    "ResolvedLayerProfile",
+    "SfuBroadcastLayerProfileError",
+    "SfuBroadcastLayerProfilePolicy",
 ]

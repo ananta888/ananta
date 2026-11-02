@@ -4,6 +4,7 @@ HCCA-007 — Smart Compressor
 Deterministic, strategy-based content compressor. Pure Python, no LLM calls,
 no external dependencies. Routes by content_type to the right strategy.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,9 +21,7 @@ _PRESERVE_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 # Common log noise — lines that are safe to drop
-_LOG_NOISE: re.Pattern[str] = re.compile(
-    r"^\s*(?:DEBUG|TRACE|VERBOSE)\b", re.IGNORECASE | re.MULTILINE
-)
+_LOG_NOISE: re.Pattern[str] = re.compile(r"^\s*(?:DEBUG|TRACE|VERBOSE)\b", re.IGNORECASE | re.MULTILINE)
 
 # Timestamp prefix pattern (ISO-ish or epoch): drop it as "redundant" indicator
 _TIMESTAMP_PREFIX: re.Pattern[str] = re.compile(
@@ -46,10 +45,10 @@ class SmartCompressor:
 
     # Content-type → strategy method name
     _STRATEGY_MAP: dict[str, str] = {
-        "json":                    "_compress_json",
-        "log":                     "_compress_log",
-        "search_results":          "_compress_search_results",
-        "rag_results":             "_compress_search_results",
+        "json": "_compress_json",
+        "log": "_compress_log",
+        "search_results": "_compress_search_results",
+        "rag_results": "_compress_search_results",
         "codecompass_symbol_list": "_compress_search_results",
     }
 
@@ -81,9 +80,7 @@ class SmartCompressor:
     # Strategy: JSON
     # ------------------------------------------------------------------
 
-    def _compress_json(
-        self, content: str, target_reduction_percent: float
-    ) -> SmartCompressionResult:
+    def _compress_json(self, content: str, target_reduction_percent: float) -> SmartCompressionResult:
         char_before = len(content)
         strategy = "json"
 
@@ -122,9 +119,7 @@ class SmartCompressor:
     # Strategy: Log
     # ------------------------------------------------------------------
 
-    def _compress_log(
-        self, content: str, target_reduction_percent: float
-    ) -> SmartCompressionResult:
+    def _compress_log(self, content: str, target_reduction_percent: float) -> SmartCompressionResult:
         char_before = len(content)
         lines = content.splitlines()
         original_count = len(lines)
@@ -169,9 +164,7 @@ class SmartCompressor:
     # Strategy: Search / RAG / symbol list results
     # ------------------------------------------------------------------
 
-    def _compress_search_results(
-        self, content: str, target_reduction_percent: float
-    ) -> SmartCompressionResult:
+    def _compress_search_results(self, content: str, target_reduction_percent: float) -> SmartCompressionResult:
         char_before = len(content)
         lines = content.splitlines()
         original_count = len(lines)
@@ -220,9 +213,7 @@ class SmartCompressor:
     # Strategy: Generic (fallback)
     # ------------------------------------------------------------------
 
-    def _compress_generic(
-        self, content: str, target_reduction_percent: float
-    ) -> SmartCompressionResult:
+    def _compress_generic(self, content: str, target_reduction_percent: float) -> SmartCompressionResult:
         char_before = len(content)
         lines = content.splitlines()
         original_count = len(lines)
@@ -287,10 +278,7 @@ class SmartCompressor:
 
         if isinstance(obj, list):
             # Deduplicate simple scalar lists; for complex lists just prune each item
-            pruned_list = [
-                SmartCompressor._prune_json(item, max_depth, max_str_len, _depth + 1)
-                for item in obj
-            ]
+            pruned_list = [SmartCompressor._prune_json(item, max_depth, max_str_len, _depth + 1) for item in obj]
             # Remove exact duplicates while preserving order
             seen: list = []
             for item in pruned_list:
@@ -317,7 +305,7 @@ class SmartCompressor:
         if head_n + tail_n >= total:
             return "\n".join(lines)
         head = lines[:head_n]
-        tail = lines[total - tail_n:]
+        tail = lines[total - tail_n :]
         omitted = total - head_n - tail_n
         return "\n".join(head) + f"\n… [{omitted} lines omitted] …\n" + "\n".join(tail)
 

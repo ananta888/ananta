@@ -49,6 +49,8 @@ _CONTRACT_CONNECTOR_TYPES = {
     "generic_git": "git",
     "github_repository": "github",
 }
+
+
 class RemoteGitSourceAdmissionService:
     def __init__(
         self,
@@ -98,14 +100,8 @@ class RemoteGitSourceAdmissionService:
         if connector_type not in _REMOTE_TYPES:
             raise SourceConnectorError("source_scan_connector_unsupported")
         scope = GitSourceScope.from_descriptor(descriptor)
-        connection_ref = str(
-            descriptor.get("github_authorization_ref")
-            or descriptor.get("remote_id")
-            or ""
-        ).strip()
-        repository = (
-            str(descriptor.get("repository") or "").strip() or None
-        )
+        connection_ref = str(descriptor.get("github_authorization_ref") or descriptor.get("remote_id") or "").strip()
+        repository = str(descriptor.get("repository") or "").strip() or None
         _record, authorization_digest = require_active_authorization(
             registry=self._registry,
             scope=scope,
@@ -113,9 +109,7 @@ class RemoteGitSourceAdmissionService:
             repository_identifier=repository,
         )
         metadata = getattr(revision, "metadata", {})
-        commit_sha = str(
-            metadata.get("commit_sha") if isinstance(metadata, Mapping) else ""
-        ).strip()
+        commit_sha = str(metadata.get("commit_sha") if isinstance(metadata, Mapping) else "").strip()
         payload = self._payloads.load_for_revision(
             scope=scope,
             connector_type=connector_type,
@@ -136,25 +130,20 @@ class RemoteGitSourceAdmissionService:
             revision_digest=payload.source_revision_digest,
         )
         file_types = Counter(
-            (PurePosixPath(item.relative_path).suffix.lower().lstrip(".") or "text")
-            for item in payload.files
+            (PurePosixPath(item.relative_path).suffix.lower().lstrip(".") or "text") for item in payload.files
         )
         secret_findings = 0
         injection_findings = 0
         for item in payload.files:
             if not self._secrets.scan_and_redact_text(item.content).clean:
                 secret_findings += 1
-            injection_findings += remote_source_prompt_injection_count(
-                item.content
-            )
+            injection_findings += remote_source_prompt_injection_count(item.content)
         evidence = SourceInventoryEvidence(
             revision_digest=payload.source_revision_digest,
             manifest_digest=payload.manifest_digest,
             file_count=len(payload.files),
             total_bytes=sum(item.byte_size for item in payload.files),
-            largest_file_bytes=max(
-                (item.byte_size for item in payload.files), default=0
-            ),
+            largest_file_bytes=max((item.byte_size for item in payload.files), default=0),
             archive_expansion_ratio=1.0,
             file_type_counts=dict(file_types),
         )
@@ -180,18 +169,12 @@ class RemoteGitSourceAdmissionService:
         with Session(self._engine) as db:
             existing_revision = db.exec(
                 select(SourceRevisionDB).where(
-                    SourceRevisionDB.connection_id
-                    == connection.connection_id,
-                    SourceRevisionDB.revision_digest
-                    == payload.source_revision_digest,
+                    SourceRevisionDB.connection_id == connection.connection_id,
+                    SourceRevisionDB.revision_digest == payload.source_revision_digest,
                 )
             ).first()
         captured_at = datetime.fromtimestamp(
-            (
-                existing_revision.captured_at_epoch
-                if existing_revision is not None
-                else float(self._clock())
-            ),
+            (existing_revision.captured_at_epoch if existing_revision is not None else float(self._clock())),
             tz=timezone.utc,
         )
         self._revisions.append_revision(
@@ -256,56 +239,38 @@ class RemoteGitSourceAdmissionService:
         }
 
     def _connection(self, descriptor: Mapping[str, Any], payload: Any):
-        supplied_id, supplied_binding_digest = (
-            self._bound_connection_coordinates(descriptor)
-        )
+        supplied_id, supplied_binding_digest = self._bound_connection_coordinates(descriptor)
         with Session(self._engine) as db:
-            selector = (
-                db.get(SourceConnectionSelectorDB, supplied_id)
-                if supplied_id
-                else None
-            )
+            selector = db.get(SourceConnectionSelectorDB, supplied_id) if supplied_id else None
             if selector is None:
                 matches = db.exec(
                     select(SourceConnectionSelectorDB).where(
                         SourceConnectionSelectorDB.tenant_id == payload.tenant_id,
                         SourceConnectionSelectorDB.project_id == payload.project_id,
                         SourceConnectionSelectorDB.owner_id == payload.owner_id,
-                        SourceConnectionSelectorDB.public_connector_type
-                        == payload.connector_type,
+                        SourceConnectionSelectorDB.public_connector_type == payload.connector_type,
                     )
                 ).all()
                 selector = next(
                     (
                         item
                         for item in matches
-                        if item.selector_id
-                        in {payload.source_id, payload.connection_ref}
-                        and (item.repository_identifier or None)
-                        == payload.repository_identifier
+                        if item.selector_id in {payload.source_id, payload.connection_ref}
+                        and (item.repository_identifier or None) == payload.repository_identifier
                     ),
                     None,
                 )
-            connection = (
-                db.get(SourceConnectionDB, selector.connection_id)
-                if selector is not None
-                else None
-            )
+            connection = db.get(SourceConnectionDB, selector.connection_id) if selector is not None else None
         if (
             selector is None
             or connection is None
-            or (
-                supplied_binding_digest is not None
-                and selector.binding_digest != supplied_binding_digest
-            )
+            or (supplied_binding_digest is not None and selector.binding_digest != supplied_binding_digest)
             or selector.tenant_id != payload.tenant_id
             or selector.project_id != payload.project_id
             or selector.owner_id != payload.owner_id
-            or selector.implementation_connector_type
-            != payload.connector_type
+            or selector.implementation_connector_type != payload.connector_type
             or selector.selector_id != payload.connection_ref
-            or (selector.repository_identifier or None)
-            != payload.repository_identifier
+            or (selector.repository_identifier or None) != payload.repository_identifier
             or connection.state != "active"
             or connection.disabled_at_epoch is not None
             or connection.tombstoned_at_epoch is not None
@@ -322,24 +287,14 @@ class RemoteGitSourceAdmissionService:
     ) -> tuple[str, str | None]:
         direct_id = str(descriptor.get("connection_id") or "").strip()
         extensions = descriptor.get("extensions")
-        source_control = (
-            extensions.get("source_control")
-            if isinstance(extensions, Mapping)
-            else None
-        )
+        source_control = extensions.get("source_control") if isinstance(extensions, Mapping) else None
         if source_control is None:
             return direct_id, None
         if not isinstance(source_control, Mapping):
             raise SourceConnectorError("source_connection_binding_invalid")
         bound_id = str(source_control.get("connection_id") or "").strip()
-        binding_digest = str(
-            source_control.get("binding_digest") or ""
-        ).strip()
-        if (
-            not bound_id
-            or len(binding_digest) != 64
-            or (direct_id and direct_id != bound_id)
-        ):
+        binding_digest = str(source_control.get("binding_digest") or "").strip()
+        if not bound_id or len(binding_digest) != 64 or (direct_id and direct_id != bound_id):
             raise SourceConnectorError("source_connection_binding_invalid")
         return bound_id, binding_digest
 
@@ -350,11 +305,7 @@ class SourceScanServiceRouter:
 
     def scan_source(self, **kwargs: Any) -> Mapping[str, Any]:
         descriptor = kwargs.get("descriptor")
-        connector_type = (
-            str(descriptor.get("source_type") or "").strip()
-            if isinstance(descriptor, Mapping)
-            else ""
-        )
+        connector_type = str(descriptor.get("source_type") or "").strip() if isinstance(descriptor, Mapping) else ""
         service = self._services.get(connector_type)
         if service is None:
             raise SourceConnectorError("source_scan_connector_unsupported")

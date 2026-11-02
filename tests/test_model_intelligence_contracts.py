@@ -29,14 +29,7 @@ FIXTURE_ROOT = ROOT / "tests" / "fixtures" / "model_intelligence"
 VALID_FIXTURE = FIXTURE_ROOT / "contracts.v1.valid.json"
 INVALID_FIXTURE = FIXTURE_ROOT / "contracts.v1.invalid.json"
 CONTRACT_MODULE = ROOT / "ananta_contracts" / "model_intelligence.py"
-TYPESCRIPT_CONTRACT = (
-    ROOT
-    / "frontend-angular"
-    / "src"
-    / "app"
-    / "contracts"
-    / "model-intelligence.contract.ts"
-)
+TYPESCRIPT_CONTRACT = ROOT / "frontend-angular" / "src" / "app" / "contracts" / "model-intelligence.contract.ts"
 SCHEMA_ROOT = ROOT / "schemas" / "model-intelligence"
 SCHEMA_PATHS = {
     "model_identity": SCHEMA_ROOT / "model_identity.v1.json",
@@ -66,9 +59,7 @@ def _schema(kind: str) -> dict:
 
 def test_positive_golden_fixture_roundtrips_all_contracts() -> None:
     fixture = _json(VALID_FIXTURE)
-    assert fixture["fixture_version"] == (
-        "ananta.model-intelligence.contracts.valid.v1"
-    )
+    assert fixture["fixture_version"] == ("ananta.model-intelligence.contracts.valid.v1")
     assert fixture["_meta"]["deterministic"] is True
 
     for kind, payload in fixture["contracts"].items():
@@ -83,11 +74,7 @@ def test_negative_golden_fixture_is_rejected_by_schema_and_python() -> None:
     assert fixture["_meta"]["deterministic"] is True
 
     for case in fixture["cases"]:
-        errors = list(
-            Draft202012Validator(_schema(case["contract"])).iter_errors(
-                case["payload"]
-            )
-        )
+        errors = list(Draft202012Validator(_schema(case["contract"])).iter_errors(case["payload"]))
         assert errors
         with pytest.raises(ModelIntelligenceContractError) as raised:
             parse_model_intelligence_contract(
@@ -104,10 +91,7 @@ def test_canonical_coordinates_derive_the_same_id_one_hundred_times() -> None:
         "revision": "0123456789abcdef",
         "content_sha256": "a" * 64,
     }
-    expected = (
-        "model_4f992bdd84a4efa805bf8bebb7c06cbd"
-        "5755e3406a4b6fe49abcc08907d63ba7"
-    )
+    expected = "model_4f992bdd84a4efa805bf8bebb7c06cbd5755e3406a4b6fe49abcc08907d63ba7"
     assert {derive_model_id(**coordinates) for _ in range(100)} == {expected}
     assert ModelIdentity.create(**coordinates).model_id == expected
 
@@ -115,11 +99,7 @@ def test_canonical_coordinates_derive_the_same_id_one_hundred_times() -> None:
 def test_model_identity_rejects_a_well_formed_but_wrong_derived_id() -> None:
     valid = _json(VALID_FIXTURE)["contracts"]["model_identity"]
     mismatched = dict(valid, model_id=f"model_{'0' * 64}")
-    assert list(
-        Draft202012Validator(_schema("model_identity")).iter_errors(
-            mismatched
-        )
-    ) == []
+    assert list(Draft202012Validator(_schema("model_identity")).iter_errors(mismatched)) == []
     with pytest.raises(ModelIntelligenceContractError):
         parse_model_intelligence_contract("model_identity", mismatched)
 
@@ -146,16 +126,9 @@ def test_error_details_are_sanitized_and_retryability_is_policy_derived() -> Non
 
 def test_contract_module_has_no_route_or_worker_dependencies() -> None:
     tree = ast.parse(CONTRACT_MODULE.read_text(encoding="utf-8"))
-    imported_modules = {
-        node.module or ""
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-    }
+    imported_modules = {node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
     imported_modules.update(
-        alias.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import)
-        for alias in node.names
+        alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
     )
     assert not any(
         module == "flask"
@@ -182,10 +155,7 @@ def test_python_schema_and_typescript_version_markers_do_not_drift() -> None:
 
 
 def test_golden_fixtures_have_stable_content_digests() -> None:
-    digests = {
-        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in (VALID_FIXTURE, INVALID_FIXTURE)
-    }
+    digests = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (VALID_FIXTURE, INVALID_FIXTURE)}
     assert set(digests) == {
         "contracts.v1.valid.json",
         "contracts.v1.invalid.json",

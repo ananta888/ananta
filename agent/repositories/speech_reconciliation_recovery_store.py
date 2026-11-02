@@ -24,7 +24,6 @@ class SpeechReconciliationRecoveryStore:
     def __init__(self, *, audit: SpeechReconciliationAuditStager) -> None:
         self._audit = audit
 
-
     def list_collectible_attempts(
         self,
         *,

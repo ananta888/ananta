@@ -1,7 +1,61 @@
 {
-  "artifact_hash": "b601ae8265508168f6e830c2eb4025e84e2fb2adfe114641b1ffa5af03d5a7b2",
+  "artifact_hash": "a67aafa2d395edd3fb5066eacbe1921d1140d87283768967b6f7c59dbf82235a",
   "catalog": {
     "groups": {
+      "ananta.tool.execution.v1": [
+        "ananta.tool.aider.propose",
+        "ananta.tool.codex.propose",
+        "ananta.tool.hermes.review",
+        "ananta.tool.opencode.propose",
+        "ananta.tool.performance.profile",
+        "ananta.tool.performance.run_benchmark",
+        "ananta.tool.shell.run_allowlisted",
+        "ananta.tool.test.discover",
+        "ananta.tool.test.run",
+        "ananta.tool.webcrawler.publish_profile",
+        "ananta.tool.webcrawler.record_flow",
+        "ananta.tool.webcrawler.run_profile",
+        "ananta.tool.webcrawler.validate_profile"
+      ],
+      "ananta.tool.read.v1": [
+        "ananta.tool.codecompass.architecture_dependencies",
+        "ananta.tool.codecompass.architecture_diagram",
+        "ananta.tool.codecompass.architecture_evidence",
+        "ananta.tool.codecompass.architecture_expand",
+        "ananta.tool.codecompass.architecture_overview",
+        "ananta.tool.codecompass.architecture_query",
+        "ananta.tool.codecompass.component_context",
+        "ananta.tool.codecompass.expand_graph",
+        "ananta.tool.codecompass.get_domain_map",
+        "ananta.tool.codecompass.get_file_context",
+        "ananta.tool.codecompass.plan_context",
+        "ananta.tool.codecompass.resolve_context",
+        "ananta.tool.codecompass.retrieve",
+        "ananta.tool.codecompass.rlm_analyze",
+        "ananta.tool.codecompass.search",
+        "ananta.tool.codecompass.search_symbols",
+        "ananta.tool.codecompass.semantic_equivalents",
+        "ananta.tool.codecompass.symbol_context",
+        "ananta.tool.codecompass.translation_plan",
+        "ananta.tool.codecompass.verify_translation",
+        "ananta.tool.git.diff_readonly",
+        "ananta.tool.git.status",
+        "ananta.tool.performance.compare",
+        "ananta.tool.performance.create_experiment_plan",
+        "ananta.tool.performance.report",
+        "ananta.tool.repo.grep",
+        "ananta.tool.repo.list_files",
+        "ananta.tool.repo.read_file_range",
+        "ananta.tool.webcrawler.get_profile_status",
+        "ananta.tool.webcrawler.list_profiles",
+        "ananta.tool.workspace.diff"
+      ],
+      "ananta.tool.write.v1": [
+        "ananta.tool.git.add_selected",
+        "ananta.tool.repo.apply_patch",
+        "ananta.tool.repo.write_file",
+        "ananta.tool.todo.create_or_update"
+      ],
       "api.admin.v1": [
         "api.config.operation_policy.rollback.post",
         "api.config.update.post"
@@ -41,7 +95,7 @@
         "mcp.tool.evolution.analyze"
       ]
     },
-    "operation_count": 30
+    "operation_count": 86
   },
   "effective_migration_policy": {
     "allow_groups": [
@@ -87,12 +141,12 @@
     "legacy_write_default_denied": true,
     "prioritized_routes_have_operation_ids": true,
     "registry_ids_unique": true,
-    "selected_tests_passed": true,
+    "selected_tests_passed": false,
     "unknown_operation_fail_closed": true,
     "versioned_groups_expand": true
   },
   "schema": "ananta.mcp_api_operation_allowlists_gate.v1",
-  "status": "passed",
+  "status": "failed",
   "verification_commands": [
     "python -m pytest -q tests/test_operation_policy.py tests/test_mcp_route.py tests/test_mcp_tool_registry.py tests/client_surfaces/operator_tui/test_operation_policy_inventory.py",
     "cd frontend-angular && npm run test:unit -- src/app/services/operation-policy-api.service.spec.ts",

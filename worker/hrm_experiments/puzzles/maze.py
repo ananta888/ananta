@@ -54,12 +54,7 @@ def solve_maze(grid: tuple[str, ...], *, node_budget: int = 4096) -> tuple[tuple
         for row_delta, column_delta in _DIRECTIONS:
             neighbor = (current[0] + row_delta, current[1] + column_delta)
             row, column = neighbor
-            if (
-                0 <= row < rows
-                and 0 <= column < columns
-                and grid[row][column] != "#"
-                and neighbor not in parents
-            ):
+            if 0 <= row < rows and 0 <= column < columns and grid[row][column] != "#" and neighbor not in parents:
                 parents[neighbor] = current
                 queue.append(neighbor)
     raise PuzzleValidationError("hrm.maze_unsatisfiable")
@@ -75,11 +70,7 @@ def validate_maze_record(record: Mapping[str, Any]) -> tuple[tuple[str, ...], tu
         raise PuzzleValidationError("hrm.maze_solution_invalid")
     solution: list[tuple[int, int]] = []
     for point in raw_solution:
-        if (
-            not isinstance(point, list)
-            or len(point) != 2
-            or any(type(value) is not int for value in point)
-        ):
+        if not isinstance(point, list) or len(point) != 2 or any(type(value) is not int for value in point):
             raise PuzzleValidationError("hrm.maze_solution_invalid")
         solution.append((point[0], point[1]))
     expected = solve_maze(grid)

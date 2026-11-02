@@ -30,7 +30,9 @@ class PolicyDecisionRepository:
             )
             return session.exec(statement).all()
 
-    def get_by_goal_or_task_ids(self, goal_id: str, task_ids: list[str] | None = None, limit: int = 500) -> List[PolicyDecisionDB]:
+    def get_by_goal_or_task_ids(
+        self, goal_id: str, task_ids: list[str] | None = None, limit: int = 500
+    ) -> List[PolicyDecisionDB]:
         with Session(_engine()) as session:
             statement = select(PolicyDecisionDB).order_by(PolicyDecisionDB.created_at.desc())
             filters = [PolicyDecisionDB.goal_id == goal_id]
@@ -130,7 +132,8 @@ class AuditLogRepository:
             rows = [
                 row
                 for row in rows
-                if str((row.details or {}).get("operation_type") or row.action or "").strip().lower() == normalized_class
+                if str((row.details or {}).get("operation_type") or row.action or "").strip().lower()
+                == normalized_class
             ]
         safe_offset = max(0, int(offset))
         safe_limit = max(1, min(int(limit), 1000))
@@ -225,7 +228,7 @@ class ActionPackRepository:
         with Session(_engine()) as session:
             statement = select(ActionPackDB)
             if enabled_only:
-                statement = statement.where(ActionPackDB.enabled == True)
+                statement = statement.where(ActionPackDB.enabled)
             return session.exec(statement).all()
 
     def save(self, action_pack: ActionPackDB):

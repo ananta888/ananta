@@ -75,7 +75,7 @@ def detect_terminal_graphics_capabilities(env: dict[str, str] | None = None) -> 
     no_color = values.get("NO_COLOR", "").strip().lower() in {"1", "true", "yes", "on"}
     colorterm = values.get("COLORTERM", "").lower()
     term = values.get("TERM", "").lower()
-    truecolor = (("truecolor" in colorterm or "24bit" in colorterm or term.endswith("-direct")) and not no_color)
+    truecolor = ("truecolor" in colorterm or "24bit" in colorterm or term.endswith("-direct")) and not no_color
     return GraphicsCapabilities(
         kitty=detect_kitty_support(values),
         sixel=detect_sixel_support(values),
@@ -93,7 +93,10 @@ def select_graphics_backend(
 ) -> GraphicsBackendName:
     values = env or os.environ
     force_pixel = values.get("ANANTA_TUI_FORCE_PIXEL_GRAPHICS", "").strip().lower() in {"1", "true", "yes", "on"}
-    forced = (values.get("ANANTA_TUI_GRAPHICS", "").strip().lower() or values.get("ANANTA_TUI_LOGO_RENDERER", "").strip().lower())
+    forced = (
+        values.get("ANANTA_TUI_GRAPHICS", "").strip().lower()
+        or values.get("ANANTA_TUI_LOGO_RENDERER", "").strip().lower()
+    )
     if forced in {"kitty", "sixel", "iterm2", "halfblock", "ascii"}:
         return forced  # explicit override wins
     if forced == "ansi":

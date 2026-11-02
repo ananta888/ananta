@@ -21,13 +21,17 @@ from agent.services.sfu_receiver_group_projector import (
 class Digests:
     def create_digest(self, *, member_identifier, scope):
         raw = hmac.new(hashlib.sha256(scope.encode()).digest(), member_identifier.encode(), hashlib.sha256).digest()
-        return SfuMemberDigest("HMAC-SHA256", "hub-member-key", scope, base64.urlsafe_b64encode(raw).decode().rstrip("="))
+        return SfuMemberDigest(
+            "HMAC-SHA256", "hub-member-key", scope, base64.urlsafe_b64encode(raw).decode().rstrip("=")
+        )
 
 
 class CollidingDigests:
     def create_digest(self, *, member_identifier, scope):
         raw = b"x" * 32
-        return SfuMemberDigest("HMAC-SHA256", "hub-member-key", scope, base64.urlsafe_b64encode(raw).decode().rstrip("="))
+        return SfuMemberDigest(
+            "HMAC-SHA256", "hub-member-key", scope, base64.urlsafe_b64encode(raw).decode().rstrip("=")
+        )
 
 
 def member(ref, privacy="team", layer="medium"):
@@ -63,7 +67,12 @@ def test_seeded_incremental_matches_full_rebuild_under_reorder_and_join_leave_st
             event = ReceiverGroupEvent(f"event-{index}", sequence, ReceiverGroupEventKind.JOIN, member=item)
         result = projector().project(ReceiverGroupProjectionRequest(state, (event,), tuple(authoritative.values())))
         assert result.accepted
-        expected = projector().full_rebuild(result.state, tuple(reversed(tuple(authoritative.values()))), last_sequence=sequence, event_receipts=result.state.event_receipts)
+        expected = projector().full_rebuild(
+            result.state,
+            tuple(reversed(tuple(authoritative.values()))),
+            last_sequence=sequence,
+            event_receipts=result.state.event_receipts,
+        )
         assert result.state.groups == expected.groups
         state = result.state
 
@@ -93,8 +102,12 @@ def test_digest_collision_never_authorizes_partial_state() -> None:
 def test_digest_has_no_cross_room_or_cross_epoch_linkability() -> None:
     item = member("receiver-a")
     room_a = projector().full_rebuild(empty_state(), (item,)).groups[0].membership_digest
-    room_b_item = ReceiverGroupMember("receiver-a", "sub-a", "tenant-a", "room-b", "publication-a", "team", "medium", 4, 5)
+    room_b_item = ReceiverGroupMember(
+        "receiver-a", "sub-a", "tenant-a", "room-b", "publication-a", "team", "medium", 4, 5
+    )
     room_b = projector().full_rebuild(empty_state(room="room-b"), (room_b_item,)).groups[0].membership_digest
-    epoch_item = ReceiverGroupMember("receiver-a", "sub-a", "tenant-a", "room-a", "publication-a", "team", "medium", 4, 6)
+    epoch_item = ReceiverGroupMember(
+        "receiver-a", "sub-a", "tenant-a", "room-a", "publication-a", "team", "medium", 4, 6
+    )
     epoch = projector().full_rebuild(empty_state(key_epoch=6), (epoch_item,)).groups[0].membership_digest
     assert len({room_a, room_b, epoch}) == 3

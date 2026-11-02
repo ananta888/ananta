@@ -38,12 +38,16 @@ def upgrade() -> None:
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.UniqueConstraint(
-                "tenant_id", "session_id", "member_subject", "epoch",
+                "tenant_id",
+                "session_id",
+                "member_subject",
+                "epoch",
                 name="uq_semantic_membership_scope_epoch",
             ),
         )
         op.create_index(
-            "ix_semantic_membership_scope", "semantic_session_memberships",
+            "ix_semantic_membership_scope",
+            "semantic_session_memberships",
             ["tenant_id", "session_id", "epoch", "status"],
         )
 
@@ -70,17 +74,22 @@ def upgrade() -> None:
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.Column("updated_at", sa.Float(), nullable=False),
             sa.UniqueConstraint(
-                "tenant_id", "session_id", "epoch", "revision",
+                "tenant_id",
+                "session_id",
+                "epoch",
+                "revision",
                 name="uq_semantic_contract_scope_revision",
             ),
             sa.UniqueConstraint("active_scope_key", name="uq_semantic_contract_active_scope"),
         )
         op.create_index(
-            "ix_semantic_contract_owner_scope", "semantic_compute_contracts",
+            "ix_semantic_contract_owner_scope",
+            "semantic_compute_contracts",
             ["tenant_id", "owner_subject", "session_id"],
         )
         op.create_index(
-            "ix_semantic_contract_scope_status", "semantic_compute_contracts",
+            "ix_semantic_contract_scope_status",
+            "semantic_compute_contracts",
             ["tenant_id", "session_id", "epoch", "status"],
         )
 
@@ -101,7 +110,10 @@ def upgrade() -> None:
             sa.Column("result_payload", sa.JSON(), nullable=False),
             sa.Column("created_at", sa.Float(), nullable=False),
             sa.UniqueConstraint(
-                "tenant_id", "owner_subject", "operation", "idempotency_key_digest",
+                "tenant_id",
+                "owner_subject",
+                "operation",
+                "idempotency_key_digest",
                 name="uq_semantic_mutation_idempotency",
             ),
         )
@@ -147,7 +159,8 @@ def upgrade() -> None:
             sa.UniqueConstraint("scope_key", "fencing_token", name="uq_semantic_lease_fence"),
         )
         op.create_index(
-            "ix_semantic_lease_scope_status", "semantic_compute_leases",
+            "ix_semantic_lease_scope_status",
+            "semantic_compute_leases",
             ["tenant_id", "session_id", "epoch", "status"],
         )
 

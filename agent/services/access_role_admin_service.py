@@ -28,19 +28,36 @@ _CACHE_SECONDS = 10.0
 
 
 def _role_row(role: Any) -> dict[str, Any]:
-    return {"id": role.id, "name": role.name, "description": role.description, "builtin": bool(role.builtin),
-            "grants": dict(role.grants or {})}
+    return {
+        "id": role.id,
+        "name": role.name,
+        "description": role.description,
+        "builtin": bool(role.builtin),
+        "grants": dict(role.grants or {}),
+    }
 
 
 def _binding_row(binding: Any) -> dict[str, Any]:
-    return {"id": binding.id, "subject_kind": binding.subject_kind, "subject": binding.subject,
-            "role_id": binding.role_id, "tenant_id": binding.tenant_id, "project_id": binding.project_id,
-            "created_at": binding.created_at, "created_by": binding.created_by}
+    return {
+        "id": binding.id,
+        "subject_kind": binding.subject_kind,
+        "subject": binding.subject,
+        "role_id": binding.role_id,
+        "tenant_id": binding.tenant_id,
+        "project_id": binding.project_id,
+        "created_at": binding.created_at,
+        "created_by": binding.created_by,
+    }
 
 
 class AccessRoleAdminService:
-    def __init__(self, repository: Any, *, audit: Callable[[str, dict[str, Any]], None] | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        repository: Any,
+        *,
+        audit: Callable[[str, dict[str, Any]], None] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._repo = repository
         self._audit = audit or (lambda _event, _details: None)
         self._clock = clock
@@ -59,14 +76,23 @@ class AccessRoleAdminService:
         for role_id, spec in BUILTIN_ROLES.items():
             current = self._repo.get_role(role_id)
             if current is None or not current.builtin or dict(current.grants or {}) != spec["grants"]:
-                self._repo.save_role(AccessRoleDB(id=role_id, name=spec["name"], description=spec["description"],
-                                                  builtin=True, grants=spec["grants"]))
+                self._repo.save_role(
+                    AccessRoleDB(
+                        id=role_id,
+                        name=spec["name"],
+                        description=spec["description"],
+                        builtin=True,
+                        grants=spec["grants"],
+                    )
+                )
         self._seeded = True
 
     def snapshot(self) -> dict[str, Any]:
         self.ensure_builtin_roles()
-        return {"roles": [_role_row(role) for role in self._repo.list_roles()],
-                "bindings": [_binding_row(binding) for binding in self._repo.list_bindings()]}
+        return {
+            "roles": [_role_row(role) for role in self._repo.list_roles()],
+            "bindings": [_binding_row(binding) for binding in self._repo.list_bindings()],
+        }
 
     def _current(self) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         with self._lock:
@@ -94,8 +120,9 @@ class AccessRoleAdminService:
         with self._lock:
             self._cache = None
         revision = self._repo.add_revision(self.snapshot(), actor=actor, reason=reason)
-        self._audit("access_policy_changed", {**details, "revision": revision.revision, "actor": actor,
-                                              "reason": reason})
+        self._audit(
+            "access_policy_changed", {**details, "revision": revision.revision, "actor": actor, "reason": reason}
+        )
         return revision.revision
 
     def save_role(self, role_id: str, *, name: str, description: str = "", grants: Any, actor: str) -> int:
@@ -105,8 +132,9 @@ class AccessRoleAdminService:
         role_id, name, grants = validate_role(role_id, name, grants)
         if role_id in BUILTIN_ROLES:
             raise AccessRoleError("builtin_role_is_read_only")
-        self._repo.save_role(AccessRoleDB(id=role_id, name=name, description=str(description or "")[:500],
-                                          builtin=False, grants=grants))
+        self._repo.save_role(
+            AccessRoleDB(id=role_id, name=name, description=str(description or "")[:500], builtin=False, grants=grants)
+        )
         return self._changed(actor, "role_saved", {"role_id": role_id})
 
     def delete_role(self, role_id: str, *, actor: str) -> int:
@@ -117,8 +145,16 @@ class AccessRoleAdminService:
             raise AccessRoleError("role_not_found")
         return self._changed(actor, "role_deleted", {"role_id": role_id})
 
-    def add_binding(self, subject_kind: str, subject: str, role_id: str, *, actor: str,
-                    tenant_id: str | None = None, project_id: str | None = None) -> tuple[str, int]:
+    def add_binding(
+        self,
+        subject_kind: str,
+        subject: str,
+        role_id: str,
+        *,
+        actor: str,
+        tenant_id: str | None = None,
+        project_id: str | None = None,
+    ) -> tuple[str, int]:
         from agent.db_models import AccessRoleBindingDB
 
         self.ensure_builtin_roles()
@@ -126,14 +162,29 @@ class AccessRoleAdminService:
         if self._repo.get_role(role_id) is None:
             raise AccessRoleError("role_not_found")
         for existing in self._repo.list_bindings():
-            if (existing.subject_kind, existing.subject, existing.role_id, existing.tenant_id,
-                    existing.project_id) == (subject_kind, subject, role_id, tenant_id or None, project_id or None):
+            if (existing.subject_kind, existing.subject, existing.role_id, existing.tenant_id, existing.project_id) == (
+                subject_kind,
+                subject,
+                role_id,
+                tenant_id or None,
+                project_id or None,
+            ):
                 raise AccessRoleError("binding_exists")
-        binding = self._repo.save_binding(AccessRoleBindingDB(
-            subject_kind=subject_kind, subject=subject, role_id=role_id, tenant_id=tenant_id or None,
-            project_id=project_id or None, created_by=actor))
-        revision = self._changed(actor, "binding_added", {"binding_id": binding.id, "subject_kind": subject_kind,
-                                                          "subject": subject, "role_id": role_id})
+        binding = self._repo.save_binding(
+            AccessRoleBindingDB(
+                subject_kind=subject_kind,
+                subject=subject,
+                role_id=role_id,
+                tenant_id=tenant_id or None,
+                project_id=project_id or None,
+                created_by=actor,
+            )
+        )
+        revision = self._changed(
+            actor,
+            "binding_added",
+            {"binding_id": binding.id, "subject_kind": subject_kind, "subject": subject, "role_id": role_id},
+        )
         return binding.id, revision
 
     def delete_binding(self, binding_id: str, *, actor: str) -> int:
@@ -142,9 +193,17 @@ class AccessRoleAdminService:
         return self._changed(actor, "binding_deleted", {"binding_id": binding_id})
 
     def revisions(self, limit: int = 50) -> list[dict[str, Any]]:
-        return [{"revision": row.revision, "actor": row.actor, "reason": row.reason, "created_at": row.created_at,
-                 "roles": len(row.snapshot.get("roles") or []), "bindings": len(row.snapshot.get("bindings") or [])}
-                for row in self._repo.list_revisions(limit)]
+        return [
+            {
+                "revision": row.revision,
+                "actor": row.actor,
+                "reason": row.reason,
+                "created_at": row.created_at,
+                "roles": len(row.snapshot.get("roles") or []),
+                "bindings": len(row.snapshot.get("bindings") or []),
+            }
+            for row in self._repo.list_revisions(limit)
+        ]
 
     def rollback(self, revision: int, *, actor: str) -> int:
         """Restore the roles and bindings of ``revision``; the restore itself becomes a new revision."""

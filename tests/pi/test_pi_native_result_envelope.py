@@ -23,7 +23,8 @@ def actual_route(tmp_path, *, malformed=False):
     adapter, task, _, client, _ = native_setup(tmp_path, runner=Runner(malformed=malformed))
     app = Flask(__name__)
     app.extensions["workflow_adapter_task_consumer"] = WorkflowAdapterTaskConsumer(
-        authorization=HubExecutionAuthorizationAdapter(client), native_adapter=adapter,
+        authorization=HubExecutionAuthorizationAdapter(client),
+        native_adapter=adapter,
     )
     with app.app_context():
         response = consume_delegated_workflow_task(task)
@@ -42,11 +43,20 @@ def test_actual_worker_route_has_one_consistent_pi_terminal(tmp_path, malformed)
     assert response == before
 
 
-@pytest.mark.parametrize("field,value", [
-    ("status", "failed"), ("exit_code", False), ("exit_code", 1), ("reason_code", "failure"),
-    ("adapter_kind", "langgraph"), ("output", "unbound answer"), ("artifacts", [{"path": "/private"}]),
-    ("sources", ["not-registry-evidence"]), ("unknown", "hidden"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("status", "failed"),
+        ("exit_code", False),
+        ("exit_code", 1),
+        ("reason_code", "failure"),
+        ("adapter_kind", "langgraph"),
+        ("output", "unbound answer"),
+        ("artifacts", [{"path": "/private"}]),
+        ("sources", ["not-registry-evidence"]),
+        ("unknown", "hidden"),
+    ],
+)
 def test_worker_route_cannot_disagree_with_its_native_result(completed_route, field, value):
     response, command, task_id = completed_route
     response[field] = value
@@ -54,11 +64,18 @@ def test_worker_route_cannot_disagree_with_its_native_result(completed_route, fi
         pi_native_result_candidate(response, command=command, hub_task_id=task_id)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("hub_task_id", "foreign"), ("status", "failed"), ("reason_code", "failure"),
-    ("adapter_kind", "langgraph"), ("artifacts", [{"path": "/private"}]),
-    ("sources", [{"source_id": "unregistered"}]), ("unknown", "hidden"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hub_task_id", "foreign"),
+        ("status", "failed"),
+        ("reason_code", "failure"),
+        ("adapter_kind", "langgraph"),
+        ("artifacts", [{"path": "/private"}]),
+        ("sources", [{"source_id": "unregistered"}]),
+        ("unknown", "hidden"),
+    ],
+)
 def test_adapter_projection_cannot_broaden_or_hide_result_scope(completed_route, field, value):
     response, command, task_id = completed_route
     response["workflow_adapter_verification"]["workflow_adapter_task_result"][field] = value

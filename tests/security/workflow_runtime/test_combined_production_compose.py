@@ -72,9 +72,7 @@ def _secret_sources(service: dict) -> set[str]:
 
 def _mount_at(service: dict, target: str) -> dict:
     matches = [
-        mount
-        for mount in service.get("volumes", ())
-        if isinstance(mount, dict) and mount.get("target") == target
+        mount for mount in service.get("volumes", ()) if isinstance(mount, dict) and mount.get("target") == target
     ]
     assert len(matches) == 1
     return matches[0]
@@ -223,9 +221,7 @@ def test_combined_production_runtime_stack_preserves_one_least_privilege_hub_uni
         "ANANTA_FRONTEND_DISABLE_HOST_CHECK": "0",
         "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
     }
-    assert set(services["angular-frontend"]["networks"]) == {
-        "workflow-ui-control"
-    }
+    assert set(services["angular-frontend"]["networks"]) == {"workflow-ui-control"}
     assert not services["angular-frontend"].get("volumes")
     assert _secret_sources(services["ananta-temporal-worker"]) == {
         AUTH_VERIFICATION_KEYRING,

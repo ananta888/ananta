@@ -4,8 +4,7 @@ from dataclasses import dataclass
 
 from flask import Flask
 
-from agent.routes.source_control_v1 import SourceControlV1RequestGuard
-from agent.routes.source_control_v1 import create_source_control_v1_blueprint
+from agent.routes.source_control_v1 import SourceControlV1RequestGuard, create_source_control_v1_blueprint
 from tests.project_access_fakes import AllowProjectAccess
 
 
@@ -83,7 +82,8 @@ def _app(monkeypatch):
     )
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             api,
             request_guard=request_guard,
             auth_decorator=lambda view: view,
@@ -105,8 +105,7 @@ def _payload():
 def test_prepare_index_access_route_exposes_canonical_etags(monkeypatch) -> None:
     client, api = _app(monkeypatch)
     path = (
-        "/api/source-control/v1/connections/connection-example/actions/"
-        "prepare-index-access?project_id=project-example"
+        "/api/source-control/v1/connections/connection-example/actions/prepare-index-access?project_id=project-example"
     )
 
     options = client.get(path)
@@ -132,17 +131,14 @@ def test_prepare_index_access_route_exposes_canonical_etags(monkeypatch) -> None
 def test_prepare_index_access_route_rejects_unsafe_intent_shapes(monkeypatch) -> None:
     client, api = _app(monkeypatch)
     path = (
-        "/api/source-control/v1/connections/connection-example/actions/"
-        "prepare-index-access?project_id=project-example"
+        "/api/source-control/v1/connections/connection-example/actions/prepare-index-access?project_id=project-example"
     )
     headers = {
         "If-Match": f'"{"b" * 64}"',
         "Idempotency-Key": "prepare-route-example",
     }
 
-    unconfirmed = client.post(
-        path, json={**_payload(), "confirmed": False}, headers=headers
-    )
+    unconfirmed = client.post(path, json={**_payload(), "confirmed": False}, headers=headers)
     client_policy = client.post(
         path,
         json={**_payload(), "policy_id": "browser-policy"},
@@ -151,12 +147,8 @@ def test_prepare_index_access_route_rejects_unsafe_intent_shapes(monkeypatch) ->
     missing_headers = client.post(path, json=_payload())
 
     assert unconfirmed.status_code == 400
-    assert unconfirmed.get_json()["error"]["code"] == (
-        "index_access_confirmation_required"
-    )
+    assert unconfirmed.get_json()["error"]["code"] == ("index_access_confirmation_required")
     assert client_policy.status_code == 400
-    assert client_policy.get_json()["error"]["code"] == (
-        "request_fields_forbidden"
-    )
+    assert client_policy.get_json()["error"]["code"] == ("request_fields_forbidden")
     assert missing_headers.status_code == 428
     assert api.calls == []

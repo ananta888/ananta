@@ -107,9 +107,7 @@ class SourceControlGrantAdminService:
         )
         self._receipts = receipts or GrantMutationReceipts(engine=engine)
 
-    def list_presets(
-        self, *, actor: GrantAdminActor
-    ) -> tuple[GrantPreset, ...]:
+    def list_presets(self, *, actor: GrantAdminActor) -> tuple[GrantPreset, ...]:
         validate_actor(actor)
         return self._presets.list()
 
@@ -126,16 +124,9 @@ class SourceControlGrantAdminService:
         normalized_etag = normalize_etag(if_match)
         preset = self._presets.get(request.preset_id)
         if preset is None:
-            raise SourceControlGrantAdminError(
-                "grant_preset_not_found", status_code=404
-            )
-        if (
-            request.duration_seconds < 60
-            or request.duration_seconds > preset.max_duration_seconds
-        ):
-            raise SourceControlGrantAdminError(
-                "grant_duration_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_preset_not_found", status_code=404)
+        if request.duration_seconds < 60 or request.duration_seconds > preset.max_duration_seconds:
+            raise SourceControlGrantAdminError("grant_duration_invalid", status_code=400)
         operation_key, request_digest = self._receipts.mutation_identity(
             actor=actor,
             operation="grant_create",
@@ -199,14 +190,10 @@ class SourceControlGrantAdminService:
                     mutation = db.exec(
                         update(SourceAccessGrantDB)
                         .where(
-                            SourceAccessGrantDB.grant_id
-                            == latest.grant_id,
-                            SourceAccessGrantDB.tenant_id
-                            == actor.tenant_id,
-                            SourceAccessGrantDB.project_id
-                            == actor.project_id,
-                            SourceAccessGrantDB.lock_version
-                            == latest.lock_version,
+                            SourceAccessGrantDB.grant_id == latest.grant_id,
+                            SourceAccessGrantDB.tenant_id == actor.tenant_id,
+                            SourceAccessGrantDB.project_id == actor.project_id,
+                            SourceAccessGrantDB.lock_version == latest.lock_version,
                             SourceAccessGrantDB.state == "active",
                         )
                         .values(
@@ -223,9 +210,7 @@ class SourceControlGrantAdminService:
                         )
                         if replay is not None:
                             return replay
-                        raise SourceControlGrantAdminError(
-                            "grant_version_conflict", status_code=409
-                        )
+                        raise SourceControlGrantAdminError("grant_version_conflict", status_code=409)
                     db.add(
                         grant_audit_row(
                             row=latest,
@@ -239,9 +224,7 @@ class SourceControlGrantAdminService:
                         )
                     )
                 issued_at = datetime.fromtimestamp(now, tz=timezone.utc)
-                expires_at = datetime.fromtimestamp(
-                    now + request.duration_seconds, tz=timezone.utc
-                )
+                expires_at = datetime.fromtimestamp(now + request.duration_seconds, tz=timezone.utc)
                 contract = SourceAccessGrant.create(
                     tenant_id=actor.tenant_id,
                     project_id=actor.project_id,
@@ -282,9 +265,7 @@ class SourceControlGrantAdminService:
                     SourceAccessGrantExecutionPolicyDB(
                         grant_id=contract.grant_id,
                         grant_digest=source_access_grant_digest(contract),
-                        destination_digest=source_destination_digest(
-                            destination
-                        ),
+                        destination_digest=source_destination_digest(destination),
                         consumption_mode=preset.consumption_mode,
                         grant_lock_version=1,
                         concurrency_version=1,
@@ -323,9 +304,7 @@ class SourceControlGrantAdminService:
             )
             if replay is not None:
                 return replay
-            raise SourceControlGrantAdminError(
-                "grant_version_conflict", status_code=409
-            ) from exc
+            raise SourceControlGrantAdminError("grant_version_conflict", status_code=409) from exc
 
     def list_grants(
         self,
@@ -339,13 +318,9 @@ class SourceControlGrantAdminService:
     ) -> GrantListPage:
         validate_actor(actor)
         if limit < 1 or limit > 200:
-            raise SourceControlGrantAdminError(
-                "grant_limit_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_limit_invalid", status_code=400)
         if state is not None and state not in GRANT_STATES:
-            raise SourceControlGrantAdminError(
-                "grant_state_invalid", status_code=400
-            )
+            raise SourceControlGrantAdminError("grant_state_invalid", status_code=400)
         if source_revision_id is not None:
             require_pattern(
                 source_revision_id,
@@ -364,39 +339,20 @@ class SourceControlGrantAdminService:
             SourceAccessGrantDB.project_id == actor.project_id,
         )
         if after is not None:
-            statement = statement.where(
-                SourceAccessGrantDB.grant_id > after
-            )
+            statement = statement.where(SourceAccessGrantDB.grant_id > after)
         if state is not None:
-            statement = statement.where(
-                SourceAccessGrantDB.state == state
-            )
+            statement = statement.where(SourceAccessGrantDB.state == state)
         if source_revision_id is not None:
-            statement = statement.where(
-                SourceAccessGrantDB.source_revision_id
-                == source_revision_id
-            )
+            statement = statement.where(SourceAccessGrantDB.source_revision_id == source_revision_id)
         if destination_id is not None:
-            statement = statement.where(
-                SourceAccessGrantDB.destination_id == destination_id
-            )
+            statement = statement.where(SourceAccessGrantDB.destination_id == destination_id)
         with Session(self._engine) as db:
-            selected = list(
-                db.exec(
-                    statement.order_by(SourceAccessGrantDB.grant_id).limit(
-                        limit + 1
-                    )
-                ).all()
-            )
+            selected = list(db.exec(statement.order_by(SourceAccessGrantDB.grant_id).limit(limit + 1)).all())
         visible = selected[:limit]
         now = float(self._clock())
         return GrantListPage(
             items=tuple(self._view(row=row, now=now) for row in visible),
-            next_cursor=(
-                encode_cursor(visible[-1].grant_id)
-                if len(selected) > limit and visible
-                else None
-            ),
+            next_cursor=(encode_cursor(visible[-1].grant_id) if len(selected) > limit and visible else None),
         )
 
     def revoke_grant(
@@ -410,13 +366,8 @@ class SourceControlGrantAdminService:
     ) -> GrantView:
         require_mutator(actor)
         require_pattern(grant_id, GRANT_ID, "grant_id_invalid")
-        if (
-            not OPAQUE_ID.fullmatch(request.reason_code)
-            or len(request.reason_code) > 128
-        ):
-            raise SourceControlGrantAdminError(
-                "grant_revoke_reason_invalid", status_code=400
-            )
+        if not OPAQUE_ID.fullmatch(request.reason_code) or len(request.reason_code) > 128:
+            raise SourceControlGrantAdminError("grant_revoke_reason_invalid", status_code=400)
         normalized_etag = normalize_etag(if_match)
         operation_key, request_digest = self._receipts.mutation_identity(
             actor=actor,
@@ -444,17 +395,11 @@ class SourceControlGrantAdminService:
                 )
             ).first()
             if row is None:
-                raise SourceControlGrantAdminError(
-                    "grant_not_found", status_code=404
-                )
+                raise SourceControlGrantAdminError("grant_not_found", status_code=404)
             if row.state != "active":
-                raise SourceControlGrantAdminError(
-                    "grant_not_active", status_code=409
-                )
+                raise SourceControlGrantAdminError("grant_not_active", status_code=409)
             if normalized_etag != grant_etag(row):
-                raise SourceControlGrantAdminError(
-                    "grant_version_conflict", status_code=412
-                )
+                raise SourceControlGrantAdminError("grant_version_conflict", status_code=412)
             next_version = row.lock_version + 1
             mutation = db.exec(
                 update(SourceAccessGrantDB)
@@ -479,9 +424,7 @@ class SourceControlGrantAdminService:
                 )
                 if replay is not None:
                     return replay
-                raise SourceControlGrantAdminError(
-                    "grant_version_conflict", status_code=412
-                )
+                raise SourceControlGrantAdminError("grant_version_conflict", status_code=412)
             db.add(
                 grant_audit_row(
                     row=row,
@@ -517,9 +460,7 @@ class SourceControlGrantAdminService:
                 )
                 if replay is not None:
                     return replay
-                raise SourceControlGrantAdminError(
-                    "grant_version_conflict", status_code=409
-                ) from exc
+                raise SourceControlGrantAdminError("grant_version_conflict", status_code=409) from exc
 
     def _require_source_revision(
         self,
@@ -530,30 +471,24 @@ class SourceControlGrantAdminService:
     ) -> None:
         revision = db.exec(
             select(SourceRevisionDB).where(
-                SourceRevisionDB.source_revision_id
-                == source_revision_id,
+                SourceRevisionDB.source_revision_id == source_revision_id,
                 SourceRevisionDB.tenant_id == actor.tenant_id,
                 SourceRevisionDB.project_id == actor.project_id,
                 SourceRevisionDB.admission_state == "admitted",
             )
         ).first()
         if revision is None:
-            raise SourceControlGrantAdminError(
-                "grant_resource_not_found", status_code=404
-            )
+            raise SourceControlGrantAdminError("grant_resource_not_found", status_code=404)
         connection = db.exec(
             select(SourceConnectionDB).where(
-                SourceConnectionDB.connection_id
-                == revision.connection_id,
+                SourceConnectionDB.connection_id == revision.connection_id,
                 SourceConnectionDB.tenant_id == actor.tenant_id,
                 SourceConnectionDB.project_id == actor.project_id,
                 SourceConnectionDB.state == "active",
             )
         ).first()
         if connection is None:
-            raise SourceControlGrantAdminError(
-                "grant_resource_not_found", status_code=404
-            )
+            raise SourceControlGrantAdminError("grant_resource_not_found", status_code=404)
 
     @staticmethod
     def _require_current_policy(
@@ -571,14 +506,11 @@ class SourceControlGrantAdminService:
                 ContextPolicyVersionDB.version == policy.version,
                 ContextPolicyVersionDB.state == "active",
                 ContextPolicyVersionDB.etag == expected_etag,
-                ContextPolicyVersionDB.policy_digest
-                == policy.policy_digest,
+                ContextPolicyVersionDB.policy_digest == policy.policy_digest,
             )
         ).first()
         if current is None:
-            raise SourceControlGrantAdminError(
-                "grant_policy_version_conflict", status_code=412
-            )
+            raise SourceControlGrantAdminError("grant_policy_version_conflict", status_code=412)
 
     def _view(self, *, row: SourceAccessGrantDB, now: float) -> GrantView:
         return GrantView(

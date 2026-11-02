@@ -5,7 +5,6 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-
 RETRIEVAL_BENCHMARK_SCENARIOS: list[dict[str, Any]] = [
     {
         "id": "bugfix-timeout",
@@ -71,7 +70,11 @@ def evaluate_payload_against_scenario(payload: dict[str, Any], scenario: dict[st
     candidate_counts = dict(fusion.get("candidate_counts") or {})
     all_candidates = max(1, int(candidate_counts.get("all") or 0))
     final_candidates = max(0, int(candidate_counts.get("final") or 0))
-    duplicate_rate = min(1.0, float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0)) / float(all_candidates))
+    duplicate_rate = min(
+        1.0,
+        float((dedupe.get("identity_duplicates") or 0) + (dedupe.get("content_duplicates") or 0))
+        / float(all_candidates),
+    )
     noise_rate = min(1.0, max(0.0, float(all_candidates - final_candidates) / float(all_candidates)))
     budget = dict(payload.get("budget") or {})
     retrieval_utilization = float(budget.get("retrieval_utilization") or 0.0)

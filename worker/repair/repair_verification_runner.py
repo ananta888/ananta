@@ -5,6 +5,7 @@ command_result, functional_probe) and returns structured results.
 Every mutation step requires post-step verification when verification_after_step
 is set. Final verification is required before success.
 """
+
 from __future__ import annotations
 
 import time
@@ -49,7 +50,7 @@ def run_verification_probe(
 
     Unsupported probe types are denied (fail-closed).
     """
-    started = time.time()
+    time.time()
     if probe_type not in _SUPPORTED_PROBE_TYPES:
         return VerificationResult(
             probe_type=ProbeType.command_result,
@@ -133,14 +134,8 @@ def verify_final(
     Returns a verification summary dict. Final verification is required
     before RepairExecutionResult can be marked 'success'.
     """
-    all_passed = all(
-        r.status == RepairStepResultStatus.success
-        for r in step_results
-    )
-    has_verification_failed = any(
-        r.status == RepairStepResultStatus.verification_failed
-        for r in step_results
-    )
+    all_passed = all(r.status == RepairStepResultStatus.success for r in step_results)
+    has_verification_failed = any(r.status == RepairStepResultStatus.verification_failed for r in step_results)
     return {
         "procedure_id": procedure_id,
         "all_passed": all_passed,

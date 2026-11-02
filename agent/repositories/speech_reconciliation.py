@@ -112,9 +112,7 @@ class SpeechReconciliationRepository:
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[SpeechReconciliationJobRecord, ...]:
-        return self._admission.list_jobs(
-            tenant_id=tenant_id, owner_subject=owner_subject, offset=offset, limit=limit
-        )
+        return self._admission.list_jobs(tenant_id=tenant_id, owner_subject=owner_subject, offset=offset, limit=limit)
 
     # -- operator mutations ------------------------------------------------------
 
@@ -359,9 +357,7 @@ class SpeechReconciliationRepository:
         owner_subject: str,
         job_id: str,
     ) -> tuple[str, str, int] | None:
-        return self._outcomes.latest_checkpoint_ref(
-            tenant_id=tenant_id, owner_subject=owner_subject, job_id=job_id
-        )
+        return self._outcomes.latest_checkpoint_ref(tenant_id=tenant_id, owner_subject=owner_subject, job_id=job_id)
 
     # -- collector and recovery --------------------------------------------------
 

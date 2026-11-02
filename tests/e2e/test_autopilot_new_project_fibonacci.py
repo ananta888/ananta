@@ -12,29 +12,34 @@ Proves the full chain:
 run_sgpt_command is monkeypatched to raise for the entire test to guarantee
 the legacy path is never taken.
 """
+
 from __future__ import annotations
 
 import hashlib
 import uuid
-import pytest
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from worker.core.propose import ProposeStrategyResult
 from unittest.mock import patch
 
-from worker.core.propose import ExecutableProposal, STATUS_EXECUTABLE
-from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
-from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
-from worker.core.template_propose_handler import TemplateProposeHandler
-from worker.core.artifact_manifest import build_artifact_manifest, write_manifest
-from agent.services.task_handler_registry import TaskHandlerRegistry
-from agent.services.propose_policy import ProposePolicy
+import pytest
+
 from agent.services.planning_utils import parse_followup_analysis
+from agent.services.propose_policy import ProposePolicy
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
+from agent.services.task_handler_registry import TaskHandlerRegistry
 from agent.services.task_retry_policy_service import (
-    get_task_retry_policy_service,
     REASON_ADVISORY_JSON_PARSE_FAILED,
+    get_task_retry_policy_service,
 )
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
-
+from worker.core.artifact_manifest import build_artifact_manifest, write_manifest
+from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
+from worker.core.propose import STATUS_EXECUTABLE, ExecutableProposal
+from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
+from worker.core.template_propose_handler import TemplateProposeHandler
 
 FIBONACCI_FILES = {
     "app.py": "from flask import Flask\napp = Flask(__name__)\n@app.route('/fib/<int:n>')\ndef fib(n): return str(n)\n",
@@ -46,8 +51,11 @@ FIBONACCI_FILES = {
 @pytest.fixture(autouse=True)
 def _block_sgpt():
     """Guarantee sgpt is never called anywhere in this test module."""
-    with patch("agent.services.task_scoped_execution_service.run_sgpt_command",
-               side_effect=RuntimeError("sgpt_blocked_in_FA-T017"), create=True):
+    with patch(
+        "agent.services.task_scoped_execution_service.run_sgpt_command",
+        side_effect=RuntimeError("sgpt_blocked_in_FA-T017"),
+        create=True,
+    ):
         yield
 
 
@@ -83,18 +91,20 @@ def fibonacci_workspace(tmp_path: Path) -> Path:
 def fibonacci_manifest(fibonacci_workspace: Path) -> dict:
     artifacts = []
     for name, content in FIBONACCI_FILES.items():
-        artifacts.append({
-            "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
-            "kind": "generated_file",
-            "relative_path": name,
-            "content_hash": hashlib.sha256(content.encode()).hexdigest(),
-            "size_bytes": len(content.encode()),
-            "classification": "internal",
-            "operation": "created",
-            "required": True,
-            "verification_status": "pending",
-            "metadata": {},
-        })
+        artifacts.append(
+            {
+                "artifact_id": f"art-{uuid.uuid4().hex[:8]}",
+                "kind": "generated_file",
+                "relative_path": name,
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "size_bytes": len(content.encode()),
+                "classification": "internal",
+                "operation": "created",
+                "required": True,
+                "verification_status": "pending",
+                "metadata": {},
+            }
+        )
     return build_artifact_manifest(
         goal_id="goal-fib-001",
         task_id="task-fib-001",
@@ -180,8 +190,11 @@ class TestFibonacciArtifactCompletion:
 
         collector = get_worker_output_collector_service()
         collection = collector.collect(
-            task_id="task-fib-001", goal_id="goal-fib-001", execution_id="exec-fib-001",
-            trace_id="tr-fib-001", workspace_root=fibonacci_workspace,
+            task_id="task-fib-001",
+            goal_id="goal-fib-001",
+            execution_id="exec-fib-001",
+            trace_id="tr-fib-001",
+            workspace_root=fibonacci_workspace,
             manifest_relative_path=".ananta/handoff/exec-fib-001/artifact_manifest.v1.json",
             allow_synthesized_fallback=False,
         )
@@ -218,7 +231,8 @@ class TestFibonacciRetryPrevention:
         strategies = {"deterministic_handler": DeterministicHandlerStrategy()}
         orch = ProposeStrategyOrchestrator(policy, strategies)
         context = ProposeContext(
-            goal_id="g", task_id="t",
+            goal_id="g",
+            task_id="t",
             task={"task_kind": "unsupported_kind"},
             base_prompt="do something",
         )

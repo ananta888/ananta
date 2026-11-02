@@ -3,6 +3,7 @@
 Allows injecting modified system prompts or goal overrides into specific agents
 for controlled ablation studies.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,14 +16,15 @@ from simulation.models.world_state import AgentState, WorldState
 @dataclass
 class PromptIntervention:
     """An intervention applied to one or more agents' prompts."""
+
     name: str
-    target_agent_ids: list[str]     # empty = all agents
-    system_prefix: str = ""         # prepended to system prompt
+    target_agent_ids: list[str]  # empty = all agents
+    system_prefix: str = ""  # prepended to system prompt
     system_suffix: str = ""
     user_prefix: str = ""
     user_suffix: str = ""
-    goal_override: str = ""         # replaces goals section
-    active_ticks: list[int] = field(default_factory=list)   # empty = always active
+    goal_override: str = ""  # replaces goals section
+    active_ticks: list[int] = field(default_factory=list)  # empty = always active
 
     def applies_to(self, agent_id: str, tick: int) -> bool:
         if self.target_agent_ids and agent_id not in self.target_agent_ids:
@@ -41,9 +43,9 @@ class InterventionRenderer(PromptRenderer):
     def add(self, intervention: PromptIntervention) -> None:
         self._interventions.append(intervention)
 
-    def render(self, state: WorldState, agent: AgentState,
-                profile: Any, memory: Any,
-                allowed_actions: list[str] | None = None) -> RenderedPrompt:
+    def render(
+        self, state: WorldState, agent: AgentState, profile: Any, memory: Any, allowed_actions: list[str] | None = None
+    ) -> RenderedPrompt:
         prompt = super().render(state, agent, profile, memory, allowed_actions)
         return self._apply(prompt, agent.id, state.tick)
 
@@ -58,22 +60,21 @@ class InterventionRenderer(PromptRenderer):
             user = iv.user_prefix + user + iv.user_suffix
             if iv.goal_override:
                 import re
-                system = re.sub(r"Goals:.*?\n", f"Goals: {iv.goal_override}\n",
-                                 system, flags=re.DOTALL)
 
-        from dataclasses import replace
-        return RenderedPrompt(system=system, user=user,
-                               agent_id=prompt.agent_id, tick=prompt.tick)
+                system = re.sub(r"Goals:.*?\n", f"Goals: {iv.goal_override}\n", system, flags=re.DOTALL)
+
+        return RenderedPrompt(system=system, user=user, agent_id=prompt.agent_id, tick=prompt.tick)
 
 
 @dataclass
 class ExperimentConfig:
     """Configuration for a prompt intervention experiment."""
+
     name: str
     description: str = ""
-    baseline_ticks: int = 5   # ticks before intervention starts
+    baseline_ticks: int = 5  # ticks before intervention starts
     interventions: list[PromptIntervention] = field(default_factory=list)
-    metrics_focus: list[str] = field(default_factory=list)   # e.g. ["crime_rate", "survival"]
+    metrics_focus: list[str] = field(default_factory=list)  # e.g. ["crime_rate", "survival"]
 
 
 class PromptExperimentRunner:
@@ -90,26 +91,19 @@ class PromptExperimentRunner:
 
         # Baseline run
         baseline_scenario = scenario_factory()
-        baseline_patched = baseline_scenario.model_copy(
-            update={"budget": BudgetConfig(max_ticks=tick_limit)}
-        )
+        baseline_patched = baseline_scenario.model_copy(update={"budget": BudgetConfig(max_ticks=tick_limit)})
         runner = BatchRunner()
         baseline_results = runner.run([baseline_patched])
 
         # Intervention run (same scenario, different prompts applied separately)
         # For now, returns both result sets for comparison
         intervention_scenario = scenario_factory()
-        intervention_patched = intervention_scenario.model_copy(
-            update={"budget": BudgetConfig(max_ticks=tick_limit)}
-        )
+        intervention_patched = intervention_scenario.model_copy(update={"budget": BudgetConfig(max_ticks=tick_limit)})
         intervention_results = runner.run([intervention_patched])
 
         return {
             "experiment": experiment.name,
             "baseline": baseline_results[0].report,
             "intervention": intervention_results[0].report,
-            "interventions": [
-                {"name": iv.name, "targets": iv.target_agent_ids}
-                for iv in experiment.interventions
-            ],
+            "interventions": [{"name": iv.name, "targets": iv.target_agent_ids} for iv in experiment.interventions],
         }

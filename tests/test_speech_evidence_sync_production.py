@@ -76,18 +76,20 @@ def _key_b64(seed: bytes = b"\x11" * 32) -> str:
 
 def _offer(*, groups=("group-a", "group-b"), total_bytes=128) -> SpeechEvidenceOfferRecord:
     previews = tuple(
-        SpeechEvidenceGroupPreview.from_mapping({
-            "preview_version": "ananta.speech-evidence-group-preview.v1",
-            "group_id": group_id,
-            "source_group_digest": digest(f"source-{group_id}"),
-            "speaker_scope_digest": digest("speaker-scope"),
-            "quality_basis": "policy",
-            "quality_digest": digest("quality"),
-            "resolution_digest": digest(f"resolution-{group_id}"),
-            **comparison_preview(digest(f"source-{group_id}"), 1, group_id),
-            "revision": 1,
-            "size_bytes": 4 if index == 0 else max(1, total_bytes - 4),
-        })
+        SpeechEvidenceGroupPreview.from_mapping(
+            {
+                "preview_version": "ananta.speech-evidence-group-preview.v1",
+                "group_id": group_id,
+                "source_group_digest": digest(f"source-{group_id}"),
+                "speaker_scope_digest": digest("speaker-scope"),
+                "quality_basis": "policy",
+                "quality_digest": digest("quality"),
+                "resolution_digest": digest(f"resolution-{group_id}"),
+                **comparison_preview(digest(f"source-{group_id}"), 1, group_id),
+                "revision": 1,
+                "size_bytes": 4 if index == 0 else max(1, total_bytes - 4),
+            }
+        )
         for index, group_id in enumerate(groups)
     )
     return SpeechEvidenceOfferRecord(
@@ -201,10 +203,7 @@ def test_offer_repository_uses_durable_versioned_compare_and_set() -> None:
     first_hub = SqlSpeechEvidenceOfferRepository(clock_ms=lambda: NOW_MS)
     second_hub = SqlSpeechEvidenceOfferRepository(clock_ms=lambda: NOW_MS)
     preview_payload = payload("offer")["group_previews"]
-    previews = tuple(
-        SpeechEvidenceGroupPreview.from_mapping(value)
-        for value in preview_payload
-    )
+    previews = tuple(SpeechEvidenceGroupPreview.from_mapping(value) for value in preview_payload)
     proposed = replace(
         _offer(groups=tuple(row.group_id for row in previews)),
         state="proposed",
@@ -496,11 +495,14 @@ def test_transfer_and_curation_rebind_the_locked_signed_preview_record() -> None
         row.group_preview_digest = digest("tampered-preview-set")
         session.add(row)
         session.commit()
-    assert transfers.curation_binding(
-        tenant_id="tenant-test",
-        offer_id=offer.offer_id,
-        group_id=preview.group_id,
-    ) is None
+    assert (
+        transfers.curation_binding(
+            tenant_id="tenant-test",
+            offer_id=offer.offer_id,
+            group_id=preview.group_id,
+        )
+        is None
+    )
 
     with Session(engine) as session:
         row = session.get(SpeechEvidenceOfferDB, offer.offer_id)
@@ -509,11 +511,14 @@ def test_transfer_and_curation_rebind_the_locked_signed_preview_record() -> None
         row.state = "invalidated"
         session.add(row)
         session.commit()
-    assert transfers.curation_binding(
-        tenant_id="tenant-test",
-        offer_id=offer.offer_id,
-        group_id=preview.group_id,
-    ) is None
+    assert (
+        transfers.curation_binding(
+            tenant_id="tenant-test",
+            offer_id=offer.offer_id,
+            group_id=preview.group_id,
+        )
+        is None
+    )
 
 
 def test_receiver_to_sender_offer_reverses_chunk_and_ack_authority() -> None:

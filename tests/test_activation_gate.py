@@ -1,16 +1,15 @@
 """Tests for HeuristicActivationGate — T07.03."""
+
 from __future__ import annotations
 
-import os
 import json
-import shutil
-import tempfile
+import os
 
 import pytest
 
 from agent.services.heuristic_runtime.activation_gate import (
-    HeuristicActivationGate,
     _AUDIT,
+    HeuristicActivationGate,
     get_audit_events,
     register_human_approval,
 )
@@ -63,14 +62,20 @@ def _gate(base_path):
 
 def _sim_report_pass(hid):
     return SimulationReport(
-        candidate_id=hid, candidate_version="1.0.0",
-        total_runs=5, success_count=5, no_match_count=0,
-        wrong_context_count=0, policy_violation_count=0,
-        expired_usage_count=0, total_latency_ms=10.0,
+        candidate_id=hid,
+        candidate_version="1.0.0",
+        total_runs=5,
+        success_count=5,
+        no_match_count=0,
+        wrong_context_count=0,
+        policy_violation_count=0,
+        expired_usage_count=0,
+        total_latency_ms=10.0,
     )
 
 
 # ── Activation blocked without approval ──────────────────────────────────────
+
 
 def test_activation_blocked_without_human_approval(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
@@ -90,6 +95,7 @@ def test_activation_blocked_when_approval_not_in_audit(tmp_heuristic_dir):
 
 
 # ── Activation succeeds with all gates ───────────────────────────────────────
+
 
 def test_activation_succeeds_with_approval(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
@@ -122,6 +128,7 @@ def test_activation_writes_json_file(tmp_heuristic_dir):
 
 # ── Activation blocked by failed validation ───────────────────────────────────
 
+
 def test_activation_blocked_by_capability_violation(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
     proposal = _make_proposal(capabilities=["network_access"])
@@ -134,16 +141,22 @@ def test_activation_blocked_by_capability_violation(tmp_heuristic_dir):
 
 # ── Activation blocked by simulation failure ──────────────────────────────────
 
+
 def test_activation_blocked_by_simulation_failure(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
     proposal = _make_proposal(proposal_id="prop-sim-fail")
     ref = register_human_approval("prop-sim-fail")
     proposal.human_approval_ref = ref
     bad_report = SimulationReport(
-        candidate_id="prop-sim-fail", candidate_version="1.0.0",
-        total_runs=5, success_count=3, no_match_count=2,
-        wrong_context_count=0, policy_violation_count=2,
-        expired_usage_count=0, total_latency_ms=10.0,
+        candidate_id="prop-sim-fail",
+        candidate_version="1.0.0",
+        total_runs=5,
+        success_count=3,
+        no_match_count=2,
+        wrong_context_count=0,
+        policy_violation_count=2,
+        expired_usage_count=0,
+        total_latency_ms=10.0,
     )
     result = gate.activate(proposal, simulation_report=bad_report)
     assert not result.success
@@ -151,6 +164,7 @@ def test_activation_blocked_by_simulation_failure(tmp_heuristic_dir):
 
 
 # ── Archives existing on second activation ────────────────────────────────────
+
 
 def test_second_activation_archives_first(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
@@ -169,6 +183,7 @@ def test_second_activation_archives_first(tmp_heuristic_dir):
 
 
 # ── Rollback ──────────────────────────────────────────────────────────────────
+
 
 def test_rollback_restores_archived_version(tmp_heuristic_dir):
     gate = _gate(tmp_heuristic_dir)
@@ -194,6 +209,7 @@ def test_rollback_fails_if_archive_not_found(tmp_heuristic_dir):
 
 
 # ── Quarantine ────────────────────────────────────────────────────────────────
+
 
 def test_quarantine_moves_active_to_quarantine(tmp_heuristic_dir):
     active_dir = os.path.join(str(tmp_heuristic_dir), "active")
@@ -228,6 +244,7 @@ def test_quarantine_fails_if_not_active(tmp_heuristic_dir):
 
 
 # ── Audit events ──────────────────────────────────────────────────────────────
+
 
 def test_register_human_approval_emits_event():
     ref = register_human_approval("test-proposal")

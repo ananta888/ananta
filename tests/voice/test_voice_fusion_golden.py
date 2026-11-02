@@ -79,15 +79,11 @@ def _projection(candidates: tuple[TranscriptionCandidate, ...]) -> dict[str, Any
     return {
         "alignment": {
             candidate.candidate_id: [
-                asdict(item)
-                for item in align_tokens_to_anchor(anchor_tokens, tokenize(candidate.text))
+                asdict(item) for item in align_tokens_to_anchor(anchor_tokens, tokenize(candidate.text))
             ]
             for candidate in candidates
         },
-        "candidate_scores": {
-            candidate.candidate_id: scorer.score(candidate)[1]
-            for candidate in candidates
-        },
+        "candidate_scores": {candidate.candidate_id: scorer.score(candidate)[1] for candidate in candidates},
         "disagreement_regions": [item.as_dict() for item in outcome.result.disagreement_regions],
         "fusion_provenance": dict(outcome.result.provenance),
         "result_hash": outcome.result_hash,
@@ -140,8 +136,7 @@ def test_fusion_goldens_are_complete_provenanced_and_bit_stable() -> None:
         known_ids = {candidate.candidate_id for candidate in candidates}
         assert all(item["candidate_id"] in known_ids for item in first["token_provenance"])
         assert all(
-            item["time_source"] in {"word", "segment_bounds", "unavailable"}
-            for item in first["token_provenance"]
+            item["time_source"] in {"word", "segment_bounds", "unavailable"} for item in first["token_provenance"]
         )
         assert all(
             item["start_ms"] is None and item["end_ms"] is None

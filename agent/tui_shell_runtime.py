@@ -108,9 +108,7 @@ class TuiShellRuntime:
         with self._lock:
             current = self._state.mode
             if mode not in _VALID_TRANSITIONS.get(current, set()):
-                raise ShellModeTransitionError(
-                    f"Invalid transition: {current.value} → {mode.value}"
-                )
+                raise ShellModeTransitionError(f"Invalid transition: {current.value} → {mode.value}")
             new_state = TuiPaneState(
                 mode=mode,
                 session_id=str(ctx.get("session_id") or ""),

@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_companion_gpu_resources import gpu_tts_arguments
+from tests.meet.meet_companion_gpu_resources import gpu_tts_arguments
 
 STORE = "/usr/lib/wsl/drivers/nv_dispig.inf_amd64_" + "a" * 16
 

@@ -63,10 +63,7 @@ class TokenizerAnalyzer:
         tokenizer_path = root / "tokenizer.json"
         config_path = root / "tokenizer_config.json"
         special_path = root / "special_tokens_map.json"
-        if not any(
-            candidate.is_file()
-            for candidate in (tokenizer_path, config_path, special_path)
-        ):
+        if not any(candidate.is_file() for candidate in (tokenizer_path, config_path, special_path)):
             return TokenizerAnalysis(
                 schema_version="tokenizer_analysis.v1",
                 status="not_available",
@@ -102,9 +99,7 @@ class TokenizerAnalyzer:
             model_max_length=max_length,
             special_tokens=special_tokens,
             normalizer=self._component_type(tokenizer.get("normalizer")),
-            pre_tokenizer=self._component_type(
-                tokenizer.get("pre_tokenizer")
-            ),
+            pre_tokenizer=self._component_type(tokenizer.get("pre_tokenizer")),
             prompt_template_status=template_status,
             prompt_template_digest=template_digest,
         )
@@ -169,11 +164,7 @@ class TokenizerAnalyzer:
 
     @staticmethod
     def _bounded_integer(value: object) -> int | None:
-        if (
-            isinstance(value, int)
-            and not isinstance(value, bool)
-            and 0 <= value <= 2**31 - 1
-        ):
+        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 2**31 - 1:
             return value
         return None
 

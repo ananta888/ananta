@@ -10,12 +10,19 @@ class SfuLayerProjectionDB(SQLModel, table=True):
     __tablename__ = "sfu_layer_projections"
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "room_id", "projection_kind", "subject_ref",
+            "tenant_id",
+            "room_id",
+            "projection_kind",
+            "subject_ref",
             name="uq_sfu_layer_projection_scope",
         ),
         sa.Index(
             "ix_sfu_layer_projection_current",
-            "tenant_id", "room_id", "projection_kind", "status", "expires_at_ms",
+            "tenant_id",
+            "room_id",
+            "projection_kind",
+            "status",
+            "expires_at_ms",
         ),
         sa.CheckConstraint("projection_kind IN ('room','publisher','receiver')", name="ck_sfu_layer_projection_kind"),
         sa.CheckConstraint("projection_version > 0 AND fencing_token > 0", name="ck_sfu_layer_projection_version"),
@@ -56,7 +63,10 @@ class SfuLayerProjectionReceiptDB(SQLModel, table=True):
     __tablename__ = "sfu_layer_projection_receipts"
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "projection_ref", "actor_digest", "receipt_sequence",
+            "tenant_id",
+            "projection_ref",
+            "actor_digest",
+            "receipt_sequence",
             name="uq_sfu_layer_projection_receipt_sequence",
         ),
         sa.Index("ix_sfu_layer_projection_receipt_retention", "projection_ref", "expires_at_ms"),

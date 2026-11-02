@@ -18,5 +18,10 @@ class NativeResultAuthority:
 
 class NativeResultAuthorityPort(Protocol):
     def require_current(
-        self, *, session: Any, command: NativeNodeCommand, task: Any, now: float,
+        self,
+        *,
+        session: Any,
+        command: NativeNodeCommand,
+        task: Any,
+        now: float,
     ) -> NativeResultAuthority: ...

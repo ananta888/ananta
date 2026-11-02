@@ -24,10 +24,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
+from agent.services.notation_renderer import (
+    NotationArtifact,
+    NotationRenderer,
+    NotationRenderError,
+    get_notation_renderer,
+)
 from agent.services.pattern_proposal_normalizer import (
     PatternProposal,
     PatternProposalNormalizer,
@@ -42,12 +47,6 @@ from agent.services.pattern_template_renderer import (
     PatternTemplateRenderer,
     RenderManifest,
     TemplateFile,
-)
-from agent.services.notation_renderer import (
-    NotationArtifact,
-    NotationRenderError,
-    NotationRenderer,
-    get_notation_renderer,
 )
 
 
@@ -139,9 +138,7 @@ class PatternExecutionContextResolver:
         for entry in self._registry.list():
             if isinstance(entry, dict) and isinstance(entry.get("pattern_id"), str):
                 catalogue_ids.add(entry["pattern_id"])
-        proposal: PatternProposal = self._normalizer.normalize(
-            proposal=raw_proposal, catalogue_ids=catalogue_ids
-        )
+        proposal: PatternProposal = self._normalizer.normalize(proposal=raw_proposal, catalogue_ids=catalogue_ids)
 
         warnings: list[str] = []
         manifest_dict: Optional[dict[str, Any]] = None
@@ -162,26 +159,19 @@ class PatternExecutionContextResolver:
         # from the catalogue entry is the source of truth — it is the
         # only field that distinguishes a notation pattern from a code
         # pattern with a structural payload.
-        catalogue_entry = (
-            self._registry.get(proposal.pattern_id) if proposal.pattern_id else None
-        )
-        is_notation = (
-            isinstance(catalogue_entry, dict)
-            and catalogue_entry.get("category") == "diagram_notation"
-        )
+        catalogue_entry = self._registry.get(proposal.pattern_id) if proposal.pattern_id else None
+        is_notation = isinstance(catalogue_entry, dict) and catalogue_entry.get("category") == "diagram_notation"
 
         if is_notation:
             if target_root is not None:
                 try:
-                    notation_artifact: NotationArtifact = (
-                        self._notation_renderer.render(
-                            pattern_plan={
-                                "pattern_id": proposal.pattern_id,
-                                "language": proposal.language,
-                                "parameters": proposal.parameters_provided,
-                            },
-                            target_root=target_root,
-                        )
+                    notation_artifact: NotationArtifact = self._notation_renderer.render(
+                        pattern_plan={
+                            "pattern_id": proposal.pattern_id,
+                            "language": proposal.language,
+                            "parameters": proposal.parameters_provided,
+                        },
+                        target_root=target_root,
                     )
                     notation_artifact_dict = notation_artifact.to_dict()
                     manifest_sha = notation_artifact.manifest_sha256
@@ -277,11 +267,7 @@ class PatternExecutionContextResolver:
             "blocked_reason": proposal.blocked_reason,
             "risk_level": proposal.risk_level,
             "manifest_sha256": manifest_sha,
-            "notation_sha256": (
-                notation_artifact_dict.get("sha256")
-                if notation_artifact_dict
-                else None
-            ),
+            "notation_sha256": (notation_artifact_dict.get("sha256") if notation_artifact_dict else None),
         }
         # Stable hash: sort_keys gives byte-identical input -> output.
         encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")

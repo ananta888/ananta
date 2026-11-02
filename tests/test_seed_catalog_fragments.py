@@ -9,7 +9,6 @@ from agent.services.organization_definition_catalog_service import (
 from agent.services.seed_blueprint_catalog import SeedBlueprintCatalog
 from agent.services.seed_template_catalog import SeedTemplateCatalog
 
-
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_ROOT = ROOT / "config/blueprints/standard"
 
@@ -34,10 +33,7 @@ def test_story_domain_template_fragment_loads() -> None:
         "Story Domain - Implementation Coder",
         "Story Domain - Verification Tester",
     }
-    assert all(
-        "Story/domain-first working contract" in template["prompt_template"]
-        for template in templates
-    )
+    assert all("Story/domain-first working contract" in template["prompt_template"] for template in templates)
 
 
 def test_story_domain_blueprint_fragment_loads() -> None:
@@ -104,19 +100,13 @@ def test_fragment_assembly_has_unique_versioned_references() -> None:
 
 
 def test_eight_team_fixture_matches_catalog_fragment() -> None:
-    fragment = _json(
-        CONFIG_ROOT / "organizations.d/enterprise-scrum-organization.json"
-    )
-    fixture = _json(
-        ROOT / "tests/fixtures/scenarios/enterprise-scrum-medium-eight-team.json"
-    )
+    fragment = _json(CONFIG_ROOT / "organizations.d/enterprise-scrum-organization.json")
+    fixture = _json(ROOT / "tests/fixtures/scenarios/enterprise-scrum-medium-eight-team.json")
     source = fragment["acceptance_fixtures"][0]
 
     assert fixture["fixture_key"] == source["key"]
     assert fixture["parameters"] == source["parameter_overrides"]
-    assert fixture["expected"]["team_blueprint_counts"] == source[
-        "expected_team_blueprint_counts"
-    ]
+    assert fixture["expected"]["team_blueprint_counts"] == source["expected_team_blueprint_counts"]
     assert fixture["expected"]["topology_counts"]["team"] == 8
     assert fixture["expected"]["topology_counts"]["contains_edges"] == 12
     assert fixture["expected"]["topology_counts"]["organization_edges"] == 8
@@ -124,12 +114,8 @@ def test_eight_team_fixture_matches_catalog_fragment() -> None:
 
 
 def test_small_fixtures_are_isolated_and_match_source_definitions() -> None:
-    fragment = _json(
-        CONFIG_ROOT / "organizations.d/enterprise-scrum-organization.json"
-    )
-    fixture_catalog = _json(
-        ROOT / "tests/fixtures/scenarios/organization-small-compositions.json"
-    )
+    fragment = _json(CONFIG_ROOT / "organizations.d/enterprise-scrum-organization.json")
+    fixture_catalog = _json(ROOT / "tests/fixtures/scenarios/organization-small-compositions.json")
     source = {row["key"]: row for row in fragment["test_only_fixtures"]}
 
     assert fixture_catalog["production_seed_allowed"] is False
@@ -143,9 +129,8 @@ def test_small_fixtures_are_isolated_and_match_source_definitions() -> None:
     for row in fixture_catalog["fixtures"]:
         source_row = source[row["key"]]
         assert source_row["production_seed_allowed"] is False
-        assert row["team_blueprint_counts"] == source_row["composition_overrides"][
-            "custom_composition"
-        ]["team_blueprint_counts"]
-        assert row["expected_diagnostic_codes"] == source_row[
-            "expected_diagnostic_codes"
-        ]
+        assert (
+            row["team_blueprint_counts"]
+            == source_row["composition_overrides"]["custom_composition"]["team_blueprint_counts"]
+        )
+        assert row["expected_diagnostic_codes"] == source_row["expected_diagnostic_codes"]

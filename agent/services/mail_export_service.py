@@ -43,19 +43,22 @@ class MailExportService:
         safe_body = str(body_text) if include_body else ""
         meta = metadata.to_dict()
         if fmt == "json":
-            rendered = json.dumps(
-                {
-                    "schema": "mail_export.v2",
-                    "mail_ref_id": message_ref.mail_ref_id,
-                    "account_id": message_ref.account_id,
-                    "thread_ref_id": message_ref.thread_ref_id,
-                    "metadata": meta,
-                    "body": safe_body,
-                    "body_included": include_body,
-                },
-                ensure_ascii=False,
-                indent=2,
-            ) + "\n"
+            rendered = (
+                json.dumps(
+                    {
+                        "schema": "mail_export.v2",
+                        "mail_ref_id": message_ref.mail_ref_id,
+                        "account_id": message_ref.account_id,
+                        "thread_ref_id": message_ref.thread_ref_id,
+                        "metadata": meta,
+                        "body": safe_body,
+                        "body_included": include_body,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n"
+            )
         elif fmt == "text":
             rendered = (
                 f"From: {meta['from']}\nTo: {', '.join(meta['to'])}\nDate: {meta['date']}\n"

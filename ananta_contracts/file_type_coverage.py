@@ -53,8 +53,7 @@ class FileCoverageRecord:
         if self.symbol_count < 0 or self.edge_count < 0:
             raise ValueError("coverage_record_counts_must_be_non_negative")
         if self.content_sha256 is not None and (
-            len(self.content_sha256) != 64
-            or any(char not in "0123456789abcdef" for char in self.content_sha256)
+            len(self.content_sha256) != 64 or any(char not in "0123456789abcdef" for char in self.content_sha256)
         ):
             raise ValueError("coverage_content_sha256_invalid")
         if self.indexed != (self.outcome is CoverageOutcome.INDEXED):
@@ -101,11 +100,7 @@ class FileTypeCoverageReport:
         self.pipeline = pipeline
         self.runtime_availability = dict(runtime_availability or {})
         matrix = registry.support_matrix(runtime_availability=self.runtime_availability)
-        self._matrix_by_type = {
-            str(row["format_id"]): row
-            for row in matrix["rows"]
-            if row["pipeline"] == pipeline
-        }
+        self._matrix_by_type = {str(row["format_id"]): row for row in matrix["rows"] if row["pipeline"] == pipeline}
         self._records: dict[str, FileCoverageRecord] = {}
 
     def add(
@@ -134,8 +129,7 @@ class FileTypeCoverageReport:
             detected_type=format_id,
             support_level=self._support_level(format_id, descriptor),
             parser_strategy=str(
-                parser_strategy
-                or (descriptor.parser_strategy if descriptor else "unknown_text_probe")
+                parser_strategy or (descriptor.parser_strategy if descriptor else "unknown_text_probe")
             ),
             indexed=normalized_outcome is CoverageOutcome.INDEXED,
             outcome=normalized_outcome,
@@ -166,15 +160,9 @@ class FileTypeCoverageReport:
         type_counts = Counter(record.detected_type for record in records)
         support_counts = Counter(record.support_level for record in records)
         parser_counts = Counter(record.parser_strategy for record in records)
-        exclusion_counts = Counter(
-            record.exclusion_reason for record in records if record.exclusion_reason
-        )
-        diagnostic_counts = Counter(
-            code for record in records for code in record.diagnostics
-        )
-        fallback_counts = Counter(
-            record.fallback_reason for record in records if record.fallback_reason
-        )
+        exclusion_counts = Counter(record.exclusion_reason for record in records if record.exclusion_reason)
+        diagnostic_counts = Counter(code for record in records for code in record.diagnostics)
+        fallback_counts = Counter(record.fallback_reason for record in records if record.fallback_reason)
         return {
             "schema": "codecompass.file-type-coverage.v1",
             "registry_version": self.registry.registry_version,
@@ -223,16 +211,10 @@ class FileTypeCoverageReport:
         for format_id, records in sorted(by_type.items()):
             outcomes = Counter(record.outcome.value for record in records)
             diagnostics = Counter(code for record in records for code in record.diagnostics)
-            fallbacks = Counter(
-                record.fallback_reason for record in records if record.fallback_reason
-            )
+            fallbacks = Counter(record.fallback_reason for record in records if record.fallback_reason)
             durations = {
                 outcome: round(
-                    sum(
-                        record.duration_seconds
-                        for record in records
-                        if record.outcome.value == outcome
-                    ),
+                    sum(record.duration_seconds for record in records if record.outcome.value == outcome),
                     6,
                 )
                 for outcome in sorted(outcomes)
@@ -291,18 +273,11 @@ class FileTypeCoverageReport:
         normalized_rules = tuple(RequiredPathRule.from_value(value) for value in required_path_rules)
         required_gate = evaluate_required_paths(files=files, rules=normalized_rules)
         outcome_counts = Counter(record.outcome.value for record in self.records)
-        cap_truncated = sum(
-            record.exclusion_reason == "max_files_fair_share" for record in self.records
-        )
-        oversized = sum(
-            record.exclusion_reason == "file_size_limit" for record in self.records
-        )
+        cap_truncated = sum(record.exclusion_reason == "max_files_fair_share" for record in self.records)
+        oversized = sum(record.exclusion_reason == "file_size_limit" for record in self.records)
         budget_exceeded = sum(
             record.exclusion_reason not in {None, "file_size_limit", "max_files_fair_share"}
-            and (
-                "limit" in str(record.exclusion_reason)
-                or any("limit" in code for code in record.diagnostics)
-            )
+            and ("limit" in str(record.exclusion_reason) or any("limit" in code for code in record.diagnostics))
             for record in self.records
         )
         budget_visibility = {
@@ -343,10 +318,7 @@ class FileTypeCoverageReport:
             and (
                 capabilities["symbols"]["effective"]
                 or capabilities["relationships"]["effective"]
-                or (
-                    capabilities["indexed"]["effective"]
-                    and capabilities["indexed"]["implementation"] == "parser"
-                )
+                or (capabilities["indexed"]["effective"] and capabilities["indexed"]["implementation"] == "parser")
             )
         ):
             return "domain_parser"
@@ -419,9 +391,7 @@ def evaluate_required_paths(
     results: list[dict[str, Any]] = []
     for rule in sorted(rules, key=lambda item: item.pattern):
         matching = sorted(
-            str(row.get("path") or "")
-            for row in rows
-            if fnmatch.fnmatchcase(str(row.get("path") or ""), rule.pattern)
+            str(row.get("path") or "") for row in rows if fnmatch.fnmatchcase(str(row.get("path") or ""), rule.pattern)
         )
         indexed = sorted(
             str(row.get("path") or "")

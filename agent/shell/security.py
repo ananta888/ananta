@@ -12,6 +12,7 @@ except (ImportError, ModuleNotFoundError):
     def has_app_context():
         return False
 
+
 from .runtime import settings
 
 
@@ -189,7 +190,9 @@ def analyze_command_intent(command: str) -> tuple[bool, str]:
             "anthropic": runtime_urls.get("anthropic") or settings.anthropic_url,
         }
         api_key = current_app.config.get("OPENAI_API_KEY") if has_app_context() else None
-        raw = _call_llm(provider=provider, model=model, prompt=prompt, urls=urls, api_key=api_key or settings.openai_api_key)
+        raw = _call_llm(
+            provider=provider, model=model, prompt=prompt, urls=urls, api_key=api_key or settings.openai_api_key
+        )
         try:
             cleaned = raw.strip()
             if cleaned.startswith("```"):

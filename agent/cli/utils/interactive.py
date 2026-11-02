@@ -10,16 +10,17 @@ Usage:
         display=lambda g: f"{g['id']}  {g.get('status',''):16} {g.get('created_at','')}",
     )
 """
+
 from __future__ import annotations
 
-import os
+import logging
 import sys
 import termios
 import tty
 from typing import Any, Callable
 
-
 # ── Low-level terminal key reader ──────────────────────────────────────────────
+
 
 def _getch() -> str:
     """Read one keypress (or escape sequence) from stdin."""
@@ -37,8 +38,8 @@ def _getch() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-_KEY_UP    = "\x1b[A"
-_KEY_DOWN  = "\x1b[B"
+_KEY_UP = "\x1b[A"
+_KEY_DOWN = "\x1b[B"
 _KEY_ENTER = "\r"
 _KEY_CTRL_C = "\x03"
 _KEY_Q = "q"
@@ -49,6 +50,7 @@ def _is_tty() -> bool:
 
 
 # ── Core picker ────────────────────────────────────────────────────────────────
+
 
 def pick_from_list(
     items: list[Any],
@@ -73,7 +75,7 @@ def pick_from_list(
         print(f"\n{title}:", file=out)
         for i, item in enumerate(items):
             print(f"  [{i + 1}] {disp(item)}", file=out)
-        print(f"  [0] cancel", file=out)
+        print("  [0] cancel", file=out)
         try:
             raw = input("Enter number: ").strip()
             idx = int(raw)
@@ -89,7 +91,7 @@ def pick_from_list(
 
     def _render(cursor: int) -> None:
         # Move cursor up by (n+2) lines to redraw in place after first render
-        lines = n + 2
+        n + 2
         print(f"\n\033[1m{title}\033[0m", file=out)
         for i, item in enumerate(items):
             prefix = "\033[32m> \033[0m" if i == cursor else "  "
@@ -124,6 +126,7 @@ def pick_from_list(
 
 
 # ── ID resolution helpers ──────────────────────────────────────────────────────
+
 
 def resolve_id(
     partial: str | None,
@@ -192,6 +195,7 @@ def fetch_goals(base_url: str, token: str, limit: int = 20) -> list[dict]:
     """Fetch recent goals from the hub for interactive selection."""
     try:
         import requests
+
         r = requests.get(
             f"{base_url}/goals?limit={limit}",
             headers={"Authorization": f"Bearer {token}"},
@@ -201,7 +205,7 @@ def fetch_goals(base_url: str, token: str, limit: int = 20) -> list[dict]:
             data = r.json().get("data") or []
             return data if isinstance(data, list) else []
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("fetch_goals: ignored Exception", exc_info=True)
     return []
 
 
@@ -209,6 +213,7 @@ def fetch_tasks(base_url: str, token: str, goal_id: str = "", limit: int = 30) -
     """Fetch recent tasks (optionally for one goal) for interactive selection."""
     try:
         import requests
+
         params = f"limit={limit}"
         if goal_id:
             params += f"&goal_id={goal_id}"
@@ -221,5 +226,5 @@ def fetch_tasks(base_url: str, token: str, goal_id: str = "", limit: int = 30) -
             data = r.json().get("data") or []
             return data if isinstance(data, list) else []
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("fetch_tasks: ignored Exception", exc_info=True)
     return []

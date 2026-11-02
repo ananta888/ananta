@@ -1,4 +1,5 @@
 """WFG-004: tests for the workflow definition service."""
+
 from __future__ import annotations
 
 import os
@@ -50,7 +51,15 @@ def test_reconcile_steps_persists_validated_block(session: Session) -> None:
         "steps": [
             {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0},
             {"id": "build", "role": "Developer", "task_kind": "coding", "depends_on": ["plan"], "sort_order": 1},
-            {"id": "review", "role": "Reviewer", "task_kind": "gate_review", "gate": True, "checks": {"min_artifacts": ["x"]}, "depends_on": ["build"], "sort_order": 2},
+            {
+                "id": "review",
+                "role": "Reviewer",
+                "task_kind": "gate_review",
+                "gate": True,
+                "checks": {"min_artifacts": ["x"]},
+                "depends_on": ["build"],
+                "sort_order": 2,
+            },
         ],
     }
     svc = WorkflowDefinitionService()
@@ -63,10 +72,13 @@ def test_reconcile_steps_persists_validated_block(session: Session) -> None:
 
 def test_reconcile_steps_is_idempotent(session: Session) -> None:
     bp = _blueprint(session)
-    block = {"mode": "gated", "steps": [
-        {"id": "a", "role": "X", "task_kind": "coding", "sort_order": 0},
-        {"id": "b", "role": "X", "task_kind": "coding", "depends_on": ["a"], "sort_order": 1},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "a", "role": "X", "task_kind": "coding", "sort_order": 0},
+            {"id": "b", "role": "X", "task_kind": "coding", "depends_on": ["a"], "sort_order": 1},
+        ],
+    }
     svc = WorkflowDefinitionService()
     rows1 = svc.reconcile_steps(session, bp, block)
     rows2 = svc.reconcile_steps(session, bp, block)
@@ -78,9 +90,12 @@ def test_reconcile_steps_is_idempotent(session: Session) -> None:
 
 def test_reconcile_steps_off_mode_clears_existing(session: Session) -> None:
     bp = _blueprint(session)
-    block = {"mode": "gated", "steps": [
-        {"id": "a", "role": "X", "task_kind": "coding", "sort_order": 0},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "a", "role": "X", "task_kind": "coding", "sort_order": 0},
+        ],
+    }
     svc = WorkflowDefinitionService()
     svc.reconcile_steps(session, bp, block)
     assert len(svc.get_steps(session, bp.id)) == 1
@@ -102,10 +117,13 @@ def test_reconcile_steps_rejects_missing_steps(session: Session) -> None:
 def test_reconcile_steps_rejects_duplicate_id(session: Session) -> None:
     bp = _blueprint(session)
     svc = WorkflowDefinitionService()
-    block = {"mode": "gated", "steps": [
-        {"id": "a", "role": "X"},
-        {"id": "a", "role": "X"},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "a", "role": "X"},
+            {"id": "a", "role": "X"},
+        ],
+    }
     with pytest.raises(WorkflowDefinitionError, match="duplicate"):
         svc.reconcile_steps(session, bp, block)
 
@@ -121,9 +139,12 @@ def test_reconcile_steps_rejects_missing_role(session: Session) -> None:
 def test_reconcile_steps_rejects_unknown_dependency(session: Session) -> None:
     bp = _blueprint(session)
     svc = WorkflowDefinitionService()
-    block = {"mode": "gated", "steps": [
-        {"id": "a", "role": "X", "depends_on": ["ghost"]},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "a", "role": "X", "depends_on": ["ghost"]},
+        ],
+    }
     with pytest.raises(WorkflowDefinitionError, match="unknown step"):
         svc.reconcile_steps(session, bp, block)
 
@@ -131,11 +152,14 @@ def test_reconcile_steps_rejects_unknown_dependency(session: Session) -> None:
 def test_get_steps_returns_sorted_by_sort_order(session: Session) -> None:
     bp = _blueprint(session)
     # Insert out of order to verify sort_order is the source of truth
-    block = {"mode": "gated", "steps": [
-        {"id": "b", "role": "X", "sort_order": 5},
-        {"id": "a", "role": "X", "sort_order": 1},
-        {"id": "c", "role": "X", "sort_order": 9},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "b", "role": "X", "sort_order": 5},
+            {"id": "a", "role": "X", "sort_order": 1},
+            {"id": "c", "role": "X", "sort_order": 9},
+        ],
+    }
     svc = WorkflowDefinitionService()
     svc.reconcile_steps(session, bp, block)
     rows = svc.get_steps(session, bp.id)
@@ -145,10 +169,13 @@ def test_get_steps_returns_sorted_by_sort_order(session: Session) -> None:
 def test_topological_order_follows_depends_on(session: Session) -> None:
     bp = _blueprint(session)
     # Sort order does NOT match topological order
-    block = {"mode": "gated", "steps": [
-        {"id": "b", "role": "X", "depends_on": ["a"], "sort_order": 1},
-        {"id": "a", "role": "X", "sort_order": 0},
-    ]}
+    block = {
+        "mode": "gated",
+        "steps": [
+            {"id": "b", "role": "X", "depends_on": ["a"], "sort_order": 1},
+            {"id": "a", "role": "X", "sort_order": 0},
+        ],
+    }
     svc = WorkflowDefinitionService()
     rows = svc.reconcile_steps(session, bp, block)
     topo = svc.topological_order(rows)
@@ -158,12 +185,20 @@ def test_topological_order_follows_depends_on(session: Session) -> None:
 def test_topological_order_raises_on_cycle(session: Session) -> None:
     # Bypass the catalog normalizer to feed a cycle directly
     a = BlueprintWorkflowStepDB(
-        id=str(uuid.uuid4()), blueprint_id="x", step_id="a", role_name="X",
-        depends_on=["b"], sort_order=0,
+        id=str(uuid.uuid4()),
+        blueprint_id="x",
+        step_id="a",
+        role_name="X",
+        depends_on=["b"],
+        sort_order=0,
     )
     b = BlueprintWorkflowStepDB(
-        id=str(uuid.uuid4()), blueprint_id="x", step_id="b", role_name="X",
-        depends_on=["a"], sort_order=1,
+        id=str(uuid.uuid4()),
+        blueprint_id="x",
+        step_id="b",
+        role_name="X",
+        depends_on=["a"],
+        sort_order=1,
     )
     svc = WorkflowDefinitionService()
     with pytest.raises(WorkflowDefinitionError, match="cycle"):
@@ -172,8 +207,12 @@ def test_topological_order_raises_on_cycle(session: Session) -> None:
 
 def test_topological_order_raises_on_unknown_dep(session: Session) -> None:
     a = BlueprintWorkflowStepDB(
-        id=str(uuid.uuid4()), blueprint_id="x", step_id="a", role_name="X",
-        depends_on=["ghost"], sort_order=0,
+        id=str(uuid.uuid4()),
+        blueprint_id="x",
+        step_id="a",
+        role_name="X",
+        depends_on=["ghost"],
+        sort_order=0,
     )
     svc = WorkflowDefinitionService()
     with pytest.raises(WorkflowDefinitionError, match="unknown step"):
@@ -195,18 +234,14 @@ def test_insert_default_gates_no_planner_returns_unchanged() -> None:
     steps = [
         {"id": "a", "role": "Reviewer", "task_kind": "review", "sort_order": 0, "depends_on": []},
     ]
-    assert WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x"
-    ) == steps
+    assert WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x") == steps
 
 
 def test_insert_default_gates_no_developer_returns_unchanged() -> None:
     steps = [
         {"id": "a", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
     ]
-    assert WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x"
-    ) == steps
+    assert WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x") == steps
 
 
 def test_insert_default_gates_planner_to_developer_adds_reviewer() -> None:
@@ -216,9 +251,7 @@ def test_insert_default_gates_planner_to_developer_adds_reviewer() -> None:
         {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
         {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
     ]
-    out = WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x"
-    )
+    out = WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x")
     assert len(out) == 3
     gate = next(s for s in out if s["task_kind"] == "gate_review")
     assert gate["role"] == "Reviewer"
@@ -235,14 +268,19 @@ def test_insert_default_gates_idempotent_when_explicit_gate_present() -> None:
     no default gate is inserted."""
     steps = [
         {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
-        {"id": "gate", "role": "Reviewer", "task_kind": "gate_review", "gate": True,
-         "sort_order": 1, "depends_on": ["plan"],
-         "checks": {"min_artifacts": ["x"]}, "failure_policy": "block"},
+        {
+            "id": "gate",
+            "role": "Reviewer",
+            "task_kind": "gate_review",
+            "gate": True,
+            "sort_order": 1,
+            "depends_on": ["plan"],
+            "checks": {"min_artifacts": ["x"]},
+            "failure_policy": "block",
+        },
         {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 2, "depends_on": ["gate"]},
     ]
-    out = WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x"
-    )
+    out = WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x")
     # No new step inserted, and the explicit gate's id is preserved
     assert len(out) == 3
     assert sum(1 for s in out if s["task_kind"] == "gate_review") == 1
@@ -255,6 +293,7 @@ def test_insert_default_gates_uses_deployment_default_policy() -> None:
         WorkflowMode,
         WorkflowSettings,
     )
+
     settings = WorkflowSettings(
         mode=WorkflowMode.AUTO,
         default_gate_policy=GateFailurePolicy.SKIP,
@@ -266,9 +305,7 @@ def test_insert_default_gates_uses_deployment_default_policy() -> None:
         {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
         {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
     ]
-    out = WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x", settings=settings
-    )
+    out = WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x", settings=settings)
     gate = next(s for s in out if s["task_kind"] == "gate_review")
     assert gate["failure_policy"] == "skip"
 
@@ -283,6 +320,7 @@ def test_insert_default_gates_per_step_policy_overrides() -> None:
         WorkflowMode,
         WorkflowSettings,
     )
+
     settings = WorkflowSettings(
         mode=WorkflowMode.AUTO,
         default_gate_policy=GateFailurePolicy.BLOCK,
@@ -292,12 +330,16 @@ def test_insert_default_gates_per_step_policy_overrides() -> None:
     )
     steps = [
         {"id": "plan", "role": "Planner", "task_kind": "planning", "sort_order": 0, "depends_on": []},
-        {"id": "build", "role": "Developer", "task_kind": "coding",
-         "failure_policy": "manual", "sort_order": 1, "depends_on": ["plan"]},
+        {
+            "id": "build",
+            "role": "Developer",
+            "task_kind": "coding",
+            "failure_policy": "manual",
+            "sort_order": 1,
+            "depends_on": ["plan"],
+        },
     ]
-    out = WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x", settings=settings
-    )
+    out = WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x", settings=settings)
     gate = next(s for s in out if s["task_kind"] == "gate_review")
     assert gate["failure_policy"] == "manual"
 
@@ -310,9 +352,7 @@ def test_insert_default_gates_preserves_dag_validity() -> None:
         {"id": "build", "role": "Developer", "task_kind": "coding", "sort_order": 1, "depends_on": ["plan"]},
         {"id": "deploy", "role": "Operator", "task_kind": "ops", "sort_order": 2, "depends_on": ["build"]},
     ]
-    out = WorkflowDefinitionService().insert_default_gates(
-        steps, blueprint_name="x"
-    )
+    out = WorkflowDefinitionService().insert_default_gates(steps, blueprint_name="x")
     # Validate DAG
     ids = {s["id"] for s in out}
     for s in out:
@@ -326,6 +366,7 @@ def test_insert_default_gates_preserves_dag_validity() -> None:
             in_deg[s["id"]] += 1
             edges[d].append(s["id"])
     from collections import deque
+
     ready = deque(sid for sid, deg in in_deg.items() if deg == 0)
     seen = 0
     while ready:

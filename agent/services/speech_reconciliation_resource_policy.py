@@ -98,22 +98,15 @@ class SpeechReconciliationResourcePolicy:
             ("minute_of_day", request.minute_of_day, 0, 1439),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
-                raise SpeechReconciliationResourcePolicyError(
-                    f"speech_reconciliation_{name}_invalid"
-                )
+                raise SpeechReconciliationResourcePolicyError(f"speech_reconciliation_{name}_invalid")
         schedule = (request.schedule_start_minute, request.schedule_end_minute)
         if request.mode == "scheduled":
             if any(
-                isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 1439
-                for value in schedule
+                isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 1439 for value in schedule
             ):
-                raise SpeechReconciliationResourcePolicyError(
-                    "speech_reconciliation_schedule_invalid"
-                )
+                raise SpeechReconciliationResourcePolicyError("speech_reconciliation_schedule_invalid")
         elif any(value is not None for value in schedule):
-            raise SpeechReconciliationResourcePolicyError(
-                "speech_reconciliation_schedule_forbidden"
-            )
+            raise SpeechReconciliationResourcePolicyError("speech_reconciliation_schedule_forbidden")
 
 
 __all__ = [

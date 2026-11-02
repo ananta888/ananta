@@ -67,7 +67,8 @@ class GoalConfigRuntimeService:
         return GoalEffectiveConfig(
             config=scoped_config,
             source="snapshot",
-            profile_id=str(snapshot.get("profile_id") or execution_preferences.get("config_profile") or "").strip() or None,
+            profile_id=str(snapshot.get("profile_id") or execution_preferences.get("config_profile") or "").strip()
+            or None,
             checksum=str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
         )
 

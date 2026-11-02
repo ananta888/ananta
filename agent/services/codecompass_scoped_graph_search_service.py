@@ -24,26 +24,14 @@ class CodeCompassScopedGraphSearchService:
         )
 
         allowed_index_ids = {
-            str(item)
-            for item in list(scope.get("allowed_index_ids") or [])
-            if str(item).strip()
+            str(item) for item in list(scope.get("allowed_index_ids") or []) if str(item).strip()
         } or None
-        store, _index_id, _diagnostics = resolve_codecompass_graph_store(
-            {}, allowed_index_ids=allowed_index_ids
-        )
+        store, _index_id, _diagnostics = resolve_codecompass_graph_store({}, allowed_index_ids=allowed_index_ids)
         if store is None:
             raise RuntimeError("graph_index_unavailable")
         payload = store.load()
-        nodes = [
-            dict(item)
-            for item in list(payload.get("nodes") or [])
-            if isinstance(item, Mapping)
-        ]
-        edges = [
-            dict(item)
-            for item in list(payload.get("edges") or [])
-            if isinstance(item, Mapping)
-        ]
+        nodes = [dict(item) for item in list(payload.get("nodes") or []) if isinstance(item, Mapping)]
+        edges = [dict(item) for item in list(payload.get("edges") or []) if isinstance(item, Mapping)]
         return self._rank_and_expand(
             query=query,
             nodes=nodes,
@@ -61,18 +49,12 @@ class CodeCompassScopedGraphSearchService:
         limit: int,
         depth: int,
     ) -> list[dict[str, Any]]:
-        tokens = {
-            token.lower()
-            for token in re.findall(r"[A-Za-z_][A-Za-z0-9_-]{2,}", query)
-        }
+        tokens = {token.lower() for token in re.findall(r"[A-Za-z_][A-Za-z0-9_-]{2,}", query)}
         by_id = {str(node.get("id") or ""): node for node in nodes}
         scored: list[tuple[float, str]] = []
         for node_id, node in by_id.items():
             path = str(node.get("file") or node.get("path") or "").replace("\\", "/")
-            haystack = " ".join(
-                str(node.get(key) or "")
-                for key in ("name", "kind", "file", "path")
-            ).lower()
+            haystack = " ".join(str(node.get(key) or "") for key in ("name", "kind", "file", "path")).lower()
             overlap = sum(1 for token in tokens if token in haystack)
             if overlap and path:
                 scored.append((float(overlap), node_id))
@@ -115,13 +97,7 @@ class CodeCompassScopedGraphSearchService:
         for node_id in selected:
             node = by_id[node_id]
             path = str(node.get("file") or node.get("path") or "").replace("\\", "/")
-            relations = sorted(
-                {
-                    relation
-                    for _neighbor, relation in adjacency.get(node_id, [])
-                    if relation
-                }
-            )
+            relations = sorted({relation for _neighbor, relation in adjacency.get(node_id, []) if relation})
             rows.append(
                 {
                     "id": node_id,

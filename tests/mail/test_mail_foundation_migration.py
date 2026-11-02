@@ -86,8 +86,13 @@ def test_explicit_migration_is_dry_runnable_idempotent_and_preserves_credential_
         )
     )
     assert applied.status == "complete"
-    assert MailAccountService(store_path=command.target_accounts_path).get_account("imap-a").credential_ref == "secret://imap/a"
-    first_ref = MailMetadataStore(store_path=command.target_metadata_path).list_messages()[0]["message_ref"]["mail_ref_id"]
+    assert (
+        MailAccountService(store_path=command.target_accounts_path).get_account("imap-a").credential_ref
+        == "secret://imap/a"
+    )
+    first_ref = MailMetadataStore(store_path=command.target_metadata_path).list_messages()[0]["message_ref"][
+        "mail_ref_id"
+    ]
     repeated = MailMigrationService().execute(
         MailMigrationCommand(
             command_id=command.command_id,
@@ -100,5 +105,8 @@ def test_explicit_migration_is_dry_runnable_idempotent_and_preserves_credential_
         )
     )
     assert repeated.reason_code == "already_complete"
-    assert MailMetadataStore(store_path=command.target_metadata_path).list_messages()[0]["message_ref"]["mail_ref_id"] == first_ref
+    assert (
+        MailMetadataStore(store_path=command.target_metadata_path).list_messages()[0]["message_ref"]["mail_ref_id"]
+        == first_ref
+    )
     assert Path(applied.backup_dir).exists()

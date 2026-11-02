@@ -2,15 +2,15 @@
 
 Used in tests and dry-runs. Never makes network calls.
 """
+
 from __future__ import annotations
 
 import json
 import random
-from typing import Any, Callable
+from typing import Any
 
 from simulation.adapters.base import AdapterResponse, SimulationModelAdapter
-from simulation.models.action import ActionProposal, KNOWN_ACTION_TYPES
-
+from simulation.models.action import ActionProposal
 
 _DEFAULT_ACTIONS = ["noop", "rest", "move", "eat", "harvest"]
 
@@ -43,8 +43,7 @@ class DummyModelAdapter(SimulationModelAdapter):
     def model_id(self) -> str:
         return "dummy-v1"
 
-    def generate(self, messages: list[dict[str, str]],
-                  agent_id: str, **kwargs: Any) -> AdapterResponse:
+    def generate(self, messages: list[dict[str, str]], agent_id: str, **kwargs: Any) -> AdapterResponse:
         if self._script:
             idx = self._call_count % len(self._script)
             action_dict = dict(self._script[idx])
@@ -61,8 +60,7 @@ class DummyModelAdapter(SimulationModelAdapter):
             return AdapterResponse(raw_text=raw, proposal=proposal, model_id=self.model_id)
         except Exception as exc:
             fallback = ActionProposal.invalid_fallback(agent_id, action_dict)
-            return AdapterResponse(raw_text=raw, proposal=fallback,
-                                    parse_error=str(exc), model_id=self.model_id)
+            return AdapterResponse(raw_text=raw, proposal=fallback, parse_error=str(exc), model_id=self.model_id)
 
 
 class ScriptedAdapter(DummyModelAdapter):

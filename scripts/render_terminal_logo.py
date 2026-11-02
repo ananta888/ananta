@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from client_surfaces.operator_tui.logo_renderer.ansi_halfblock import render_halfblock_text
 
@@ -70,7 +70,7 @@ def pixel_density(r, g, b, a, cfg: RenderConfig) -> float:
     d = 1.0 - (luma(r, g, b) / 255.0)
     d = ((d - 0.5) * cfg.contrast) + 0.5
     d = max(0.0, min(1.0, d))
-    d = d ** cfg.gamma
+    d = d**cfg.gamma
     if cfg.invert:
         d = 1.0 - d
     return d
@@ -79,6 +79,7 @@ def pixel_density(r, g, b, a, cfg: RenderConfig) -> float:
 def svg_to_png(svg_path: str, png_path: str, width: int = 800) -> None:
     try:
         from cairosvg import svg2png
+
         svg2png(url=svg_path, write_to=png_path, output_width=width, output_height=width)
         return
     except ImportError:
@@ -86,27 +87,35 @@ def svg_to_png(svg_path: str, png_path: str, width: int = 800) -> None:
     try:
         subprocess.run(
             ["rsvg-convert", "--width", str(width), "--height", str(width), "-o", png_path, svg_path],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         return
     except FileNotFoundError:
         pass
     try:
         subprocess.run(
-            ["inkscape", "--export-width", str(width), "--export-height", str(width),
-             "--export-filename", png_path, svg_path],
-            check=True, capture_output=True,
+            [
+                "inkscape",
+                "--export-width",
+                str(width),
+                "--export-height",
+                str(width),
+                "--export-filename",
+                png_path,
+                svg_path,
+            ],
+            check=True,
+            capture_output=True,
         )
         return
     except FileNotFoundError:
         pass
-    raise RuntimeError(
-        "No SVG renderer found. Install cairosvg (`pip install cairosvg`), rsvg-convert, or inkscape."
-    )
+    raise RuntimeError("No SVG renderer found. Install cairosvg (`pip install cairosvg`), rsvg-convert, or inkscape.")
 
 
 def _trim_image(img, cfg: RenderConfig):
-    from PIL import Image
+
     px = list(img.get_flattened_data())
     w, h = img.size
     min_x, min_y = w, h
@@ -138,6 +147,7 @@ def _trim_image(img, cfg: RenderConfig):
 
 def load_image(png_path: str, width: int, cfg: RenderConfig):
     from PIL import Image
+
     img = Image.open(png_path).convert("RGBA")
     if cfg.trim:
         img = _trim_image(img, cfg)
@@ -255,12 +265,20 @@ def _compute_edge_map(px, w, h, cfg: RenderConfig):
     for y in range(1, h - 1):
         for x in range(1, w - 1):
             gx = (
-                lum[y - 1][x + 1] + 2 * lum[y][x + 1] + lum[y + 1][x + 1]
-                - lum[y - 1][x - 1] - 2 * lum[y][x - 1] - lum[y + 1][x - 1]
+                lum[y - 1][x + 1]
+                + 2 * lum[y][x + 1]
+                + lum[y + 1][x + 1]
+                - lum[y - 1][x - 1]
+                - 2 * lum[y][x - 1]
+                - lum[y + 1][x - 1]
             )
             gy = (
-                lum[y + 1][x - 1] + 2 * lum[y + 1][x] + lum[y + 1][x + 1]
-                - lum[y - 1][x - 1] - 2 * lum[y - 1][x] - lum[y - 1][x + 1]
+                lum[y + 1][x - 1]
+                + 2 * lum[y + 1][x]
+                + lum[y + 1][x + 1]
+                - lum[y - 1][x - 1]
+                - 2 * lum[y - 1][x]
+                - lum[y - 1][x + 1]
             )
 
             mag = math.sqrt(gx * gx + gy * gy)
@@ -445,7 +463,8 @@ def main() -> None:
 
             if args.ascii_color:
                 art = render_ascii_color(
-                    img, chars,
+                    img,
+                    chars,
                     dither=args.ascii_dither,
                     cfg=cfg,
                     edge_aware=args.ascii_edge_aware,
@@ -460,7 +479,8 @@ def main() -> None:
 
             if args.ascii_only:
                 art = render_ascii(
-                    img, chars,
+                    img,
+                    chars,
                     dither=args.ascii_dither,
                     cfg=cfg,
                     edge_aware=args.ascii_edge_aware,

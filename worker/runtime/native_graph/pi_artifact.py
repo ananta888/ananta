@@ -31,16 +31,22 @@ class PreparedPiAnswerPublication:
 
     def publish(self, answer):
         if not isinstance(answer, str) or len(answer) > 16384:
-            raise ValueError('pi_result_artifact_answer_invalid')
+            raise ValueError("pi_result_artifact_answer_invalid")
         command = NativeNodeCommand.from_mapping(json.loads(self.command_json))
         declaration = pi_answer_artifact(command)
-        content = answer.encode('utf-8')
+        content = answer.encode("utf-8")
         if len(content) > 65536:
-            raise ValueError('pi_result_artifact_answer_invalid')
-        artifact = NativeArtifactBytes(declaration.output_name, declaration.filename,
-            declaration.media_type, content, hashlib.sha256(content).hexdigest())
-        return self.publisher.publish(command=command, hub_task_id=self.task_id,
-            project_id=self.project_id, artifacts=(artifact,))
+            raise ValueError("pi_result_artifact_answer_invalid")
+        artifact = NativeArtifactBytes(
+            declaration.output_name,
+            declaration.filename,
+            declaration.media_type,
+            content,
+            hashlib.sha256(content).hexdigest(),
+        )
+        return self.publisher.publish(
+            command=command, hub_task_id=self.task_id, project_id=self.project_id, artifacts=(artifact,)
+        )
 
 
 class PiAnswerArtifactPublisher:
@@ -49,12 +55,15 @@ class PiAnswerArtifactPublisher:
 
     def prepare(self, *, command, task):
         if pi_answer_artifact(command) is None:
-            raise ValueError('pi_result_artifact_declaration_required')
-        if not task.get('id') or task.get('tenant_id') != command.tenant_id:
-            raise ValueError('pi_result_artifact_task_binding_invalid')
-        return PreparedPiAnswerPublication(self._publisher_factory(),
-            json.dumps(command.to_dict(), sort_keys=True, separators=(',', ':')),
-            task['id'], task.get('project_id'))
+            raise ValueError("pi_result_artifact_declaration_required")
+        if not task.get("id") or task.get("tenant_id") != command.tenant_id:
+            raise ValueError("pi_result_artifact_task_binding_invalid")
+        return PreparedPiAnswerPublication(
+            self._publisher_factory(),
+            json.dumps(command.to_dict(), sort_keys=True, separators=(",", ":")),
+            task["id"],
+            task.get("project_id"),
+        )
 
 
 def configured_pi_answer_publisher():
@@ -63,5 +72,5 @@ def configured_pi_answer_publisher():
 
     transport = NativeArtifactHttpTransport.from_environment()
     if transport is None:
-        raise ValueError('pi_result_artifact_transport_unavailable')
+        raise ValueError("pi_result_artifact_transport_unavailable")
     return NativeArtifactPublisher(transport=transport)

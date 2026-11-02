@@ -30,15 +30,28 @@ class ScratchpadStorePort(Protocol):
 
 
 class ScratchpadAuthorizationPort(Protocol):
-    def authorize_run(self, *, actor: MemoryActor, run_id: str, operation: MemoryOperation,
-                      channel_id: str, security: MemorySecurityMetadata) -> MemoryPolicyDecision: ...
+    def authorize_run(
+        self,
+        *,
+        actor: MemoryActor,
+        run_id: str,
+        operation: MemoryOperation,
+        channel_id: str,
+        security: MemorySecurityMetadata,
+    ) -> MemoryPolicyDecision: ...
 
 
 class EphemeralScratchpadService:
     """No caller-supplied namespaces, persistence or automatic promotion."""
 
-    def __init__(self, *, gateway: ScratchpadAuthorizationPort, store: ScratchpadStorePort,
-                 ttl_seconds: float = 300, clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        *,
+        gateway: ScratchpadAuthorizationPort,
+        store: ScratchpadStorePort,
+        ttl_seconds: float = 300,
+        clock: Callable[[], float] = time.time,
+    ):
         require_memory_timestamp(ttl_seconds, "scratchpad_ttl")
         if ttl_seconds > 3600:
             raise ValueError("scratchpad_ttl_invalid")
@@ -49,8 +62,11 @@ class EphemeralScratchpadService:
 
     def _authorize(self, actor, run_id, operation):
         decision = self._gateway.authorize_run(
-            actor=actor, run_id=run_id, operation=operation,
-            channel_id=SCRATCHPAD_CHANNEL, security=SCRATCHPAD_SECURITY,
+            actor=actor,
+            run_id=run_id,
+            operation=operation,
+            channel_id=SCRATCHPAD_CHANNEL,
+            security=SCRATCHPAD_SECURITY,
         )
         now = self._clock()
         require_memory_timestamp(now, "scratchpad_clock")

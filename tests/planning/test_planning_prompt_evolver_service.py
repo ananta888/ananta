@@ -78,7 +78,10 @@ def test_evolver_is_output_shape_and_family_aware(monkeypatch):
 
     result = PlanningPromptEvolverService().evolve_from_run(
         run=run,
-        planning_policy={"planner_prompt_evolution": {"enabled": True, "min_repair_attempts": 1}, "preferred_output_format": "json"},
+        planning_policy={
+            "planner_prompt_evolution": {"enabled": True, "min_repair_attempts": 1},
+            "preferred_output_format": "json",
+        },
         activate_profile=False,
         enabled=False,
         output_shape="json_in_markdown_fence",

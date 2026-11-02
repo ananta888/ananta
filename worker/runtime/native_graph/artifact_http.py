@@ -22,8 +22,15 @@ from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
 
 class NativeArtifactHttpTransport:
     def __init__(
-        self, *, hub_url, bearer_token, worker_id, worker_url, endpoint_prefix="/api",
-        timeout_seconds=15.0, ssl_context: ssl.SSLContext | None = None,
+        self,
+        *,
+        hub_url,
+        bearer_token,
+        worker_id,
+        worker_url,
+        endpoint_prefix="/api",
+        timeout_seconds=15.0,
+        ssl_context: ssl.SSLContext | None = None,
     ):
         parsed = urllib.parse.urlsplit(hub_url)
         try:
@@ -31,13 +38,19 @@ class NativeArtifactHttpTransport:
         except ValueError as exc:
             raise ValueError("native_artifact_hub_url_invalid") from exc
         if (
-            parsed.scheme not in {"http", "https"} or not parsed.hostname
-            or parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment
-            or any(ord(c) < 33 for c in hub_url) or endpoint_prefix not in {"", "/api"}
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or any(ord(c) < 33 for c in hub_url)
+            or endpoint_prefix not in {"", "/api"}
         ):
             raise ValueError("native_artifact_hub_url_invalid")
         if (
-            not isinstance(bearer_token, str) or not 32 <= len(bearer_token.encode()) <= 16_384
+            not isinstance(bearer_token, str)
+            or not 32 <= len(bearer_token.encode()) <= 16_384
             or any(c.isspace() or ord(c) < 32 for c in bearer_token)
         ):
             raise ValueError("native_artifact_worker_token_invalid")
@@ -60,17 +73,23 @@ class NativeArtifactHttpTransport:
         if not hub_url or not token_file:
             raise ValueError("native_artifact_http_configuration_incomplete")
         token = read_file_managed_token(token_file)
-        return cls(hub_url=hub_url, bearer_token=token, worker_id=source.get("AGENT_NAME", ""),
-                   worker_url=source.get("AGENT_URL", ""))
+        return cls(
+            hub_url=hub_url,
+            bearer_token=token,
+            worker_id=source.get("AGENT_NAME", ""),
+            worker_url=source.get("AGENT_URL", ""),
+        )
 
     def request(self, *, method, path, payload: Mapping | None = None):
         input_request = re.fullmatch(
-            r"/internal/tasks/[A-Za-z0-9_.%~-]+/native-artifact-inputs/[A-Za-z0-9_.%~-]+", path,
+            r"/internal/tasks/[A-Za-z0-9_.%~-]+/native-artifact-inputs/[A-Za-z0-9_.%~-]+",
+            path,
         )
         if (
             method not in {"GET", "POST"}
             or not (re.fullmatch(r"/internal/tasks/[A-Za-z0-9_.%~-]+/native-artifacts", path) or input_request)
-            or input_request and method != "GET"
+            or input_request
+            and method != "GET"
         ):
             raise ValueError("native_artifact_http_target_invalid")
         if (method == "GET" and payload is not None) or (method == "POST" and not isinstance(payload, Mapping)):
@@ -79,8 +98,10 @@ class NativeArtifactHttpTransport:
         if body is not None and len(body) > MAX_TRANSFER_HTTP_BYTES:
             raise ValueError("native_artifact_http_body_too_large")
         request = urllib.request.Request(
-            self._base + self._prefix + path, data=body,
-            headers={**self._headers, "Content-Type": "application/json"}, method=method,
+            self._base + self._prefix + path,
+            data=body,
+            headers={**self._headers, "Content-Type": "application/json"},
+            method=method,
         )
         try:
             response_limit = MAX_INPUT_HTTP_BYTES if input_request else MAX_RECEIPT_HTTP_BYTES

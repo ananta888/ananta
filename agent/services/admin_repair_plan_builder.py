@@ -46,7 +46,11 @@ def _build_repair_action(
         {"rollback_supported": False, "rollback_hint": "manual_recovery_required"},
     )
     advisory_class = _advisory_class_for_action(risk_class=risk_class, mutation_candidate=mutation_candidate)
-    caution_level = "high" if (risk_class == "high" or advisory_class == "blocked") else ("medium" if advisory_class == "confirm-required" else "low")
+    caution_level = (
+        "high"
+        if (risk_class == "high" or advisory_class == "blocked")
+        else ("medium" if advisory_class == "confirm-required" else "low")
+    )
     return {
         "id": action_id,
         "title": title,
@@ -77,7 +81,9 @@ def _build_repair_plan(
     dry_run_default: bool,
 ) -> dict[str, Any]:
     problem_class = str(diagnosis_artifact.get("problem_class") or "service_health")
-    verification_hint = str(PROBLEM_TAXONOMY.get(problem_class, {}).get("verification_hint") or "verification_checks_pass")
+    verification_hint = str(
+        PROBLEM_TAXONOMY.get(problem_class, {}).get("verification_hint") or "verification_checks_pass"
+    )
     actions: list[dict[str, Any]] = [
         _build_repair_action(
             action_id="repair-action-01",

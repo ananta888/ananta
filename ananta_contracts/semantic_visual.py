@@ -69,9 +69,19 @@ def validate_semantic_scene(
     payload = _exact(
         raw,
         required={
-            "schema", "scene_id", "session_id", "contract_id", "contract_digest",
-            "epoch", "sequence", "source_frame_digest", "coordinate_space",
-            "timebase", "provenance", "nodes", "security",
+            "schema",
+            "scene_id",
+            "session_id",
+            "contract_id",
+            "contract_digest",
+            "epoch",
+            "sequence",
+            "source_frame_digest",
+            "coordinate_space",
+            "timebase",
+            "provenance",
+            "nodes",
+            "security",
         },
         reason="invalid_scene",
     )
@@ -145,9 +155,7 @@ def _node(raw: object) -> Mapping[str, Any]:
     if kind["value"] not in {"region", "text_hint", "object_hint", "cursor", "unknown"}:
         _raise("invalid_node_kind", "unknown node kind")
     geometry = _observation(node["geometry"])["value"]
-    geometry = _exact(
-        geometry, required={"x", "y", "width", "height", "outline"}, reason="invalid_geometry"
-    )
+    geometry = _exact(geometry, required={"x", "y", "width", "height", "outline"}, reason="invalid_geometry")
     x = _number(geometry["x"], "x", 0, 1)
     y = _number(geometry["y"], "y", 0, 1)
     width = _number(geometry["width"], "width", 0, 1, exclusive_min=True)
@@ -181,9 +189,7 @@ def _observation(raw: object) -> Mapping[str, Any]:
 
 
 def _provenance(raw: object) -> None:
-    provenance = _exact(
-        raw, required={"source", "algorithm", "version", "authoritative"}, reason="invalid_provenance"
-    )
+    provenance = _exact(raw, required={"source", "algorithm", "version", "authoritative"}, reason="invalid_provenance")
     if provenance["source"] not in {"heuristic", "user", "model_proposal"}:
         _raise("invalid_provenance", "unknown provenance source")
     for field in ("algorithm", "version"):

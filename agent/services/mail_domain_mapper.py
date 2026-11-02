@@ -6,16 +6,13 @@ from typing import Any, Mapping, Protocol, Sequence
 from agent.services.mail_contract_service import MailMessageRefV2, stable_mail_ref_id, subject_hash
 from agent.services.mail_provider_ports import MailMailbox, MailMessage, MailMessageMetadata, MailProviderResult
 
-
 _MAIL_NAMESPACE = uuid.UUID("b1207256-7902-4a24-a946-e979e2894d98")
 
 
 class MailboxLocatorResolver(Protocol):
-    def resolve_mailbox(self, *, account_id: str, mailbox_ref_id: str) -> MailProviderResult[str]:
-        ...
+    def resolve_mailbox(self, *, account_id: str, mailbox_ref_id: str) -> MailProviderResult[str]: ...
 
-    def resolve_role(self, *, account_id: str, role: str) -> MailProviderResult[str]:
-        ...
+    def resolve_role(self, *, account_id: str, role: str) -> MailProviderResult[str]: ...
 
 
 class MailDomainMapper:

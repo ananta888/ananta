@@ -9,21 +9,22 @@ from agent.services.sfu_broadcast_repository_ports import (
     SfuAudienceRetentionFence,
     SfuAudienceRetentionPurgePage,
     SfuAudienceSnapshotRetentionRepositoryPort,
+    SfuBroadcastAudience,
     SfuBroadcastRoomScope,
     SfuProjectionMutationResult,
-    SfuBroadcastAudience,
 )
 
-
 MAX_PURGE_GRACE_SECONDS = 7 * 86_400
-ALLOWED_RETENTION_REASONS = frozenset({
-    "snapshot_expired",
-    "last_route_ended",
-    "consent_revoked",
-    "membership_revoked",
-    "tenant_deleted",
-    "room_deleted",
-})
+ALLOWED_RETENTION_REASONS = frozenset(
+    {
+        "snapshot_expired",
+        "last_route_ended",
+        "consent_revoked",
+        "membership_revoked",
+        "tenant_deleted",
+        "room_deleted",
+    }
+)
 
 
 class SfuAudienceSnapshotRetentionError(RuntimeError):

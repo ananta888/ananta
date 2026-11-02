@@ -70,11 +70,7 @@ def _seed_active_grant(engine, grant_id):
             values[name] = "project-test"
         elif name == "grant_family_id":
             values[name] = f"family-{grant_id}"
-        elif (
-            not column.nullable
-            and column.default is None
-            and column.server_default is None
-        ):
+        elif not column.nullable and column.default is None and column.server_default is None:
             if isinstance(column.type, sa.JSON):
                 values[name] = {}
             elif isinstance(column.type, sa.Boolean):
@@ -88,9 +84,7 @@ def _seed_active_grant(engine, grant_id):
             else:
                 values[name] = f"{name}-test"
     with engine.begin() as connection:
-        connection.execute(
-            SourceAccessGrantDB.__table__.insert().values(**values)
-        )
+        connection.execute(SourceAccessGrantDB.__table__.insert().values(**values))
 
 
 def test_one_time_grant_is_consumed_exactly_once(tmp_path) -> None:
@@ -116,9 +110,7 @@ def test_one_time_grant_is_consumed_exactly_once(tmp_path) -> None:
     assert first is True
     assert replay is False
     with Session(engine) as session:
-        consumptions = session.exec(
-            select(SourceAccessGrantConsumptionDB)
-        ).all()
+        consumptions = session.exec(select(SourceAccessGrantConsumptionDB)).all()
         policy = session.get(
             SourceAccessGrantExecutionPolicyDB,
             "grant-" + "a" * 64,
@@ -164,9 +156,7 @@ def test_exact_consumption_receipt_is_read_only(
             SourceAccessGrantExecutionPolicyDB,
             grant_id,
         )
-        receipts = session.exec(
-            select(SourceAccessGrantConsumptionDB)
-        ).all()
+        receipts = session.exec(select(SourceAccessGrantConsumptionDB)).all()
     assert policy_after is not None
     assert policy_after.concurrency_version == policy_version_before
     assert policy_after.updated_at == policy_updated_at_before

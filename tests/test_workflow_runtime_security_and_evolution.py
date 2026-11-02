@@ -133,17 +133,13 @@ def test_provider_authorization_is_signed_and_empty_extension_preserves_old_enve
         model_id="phi4-mini:latest",
         source="hub_model_profile_routing",
         reason_code="hub_provider_profile_selected",
-        endpoint_identity=(
-            "http://ollama:11434/v1/chat/completions"
-        ),
+        endpoint_identity=("http://ollama:11434/v1/chat/completions"),
     )
     profile_binding = ProviderProfileExecutionBinding(
         profile_id="phi-primary",
         binding=execution_binding,
     )
-    authorization = ProviderBindingAuthorization.from_binding(
-        execution_binding
-    )
+    authorization = ProviderBindingAuthorization.from_binding(execution_binding)
     plan_entry = ProviderProfileAttemptPlanEntry.from_profile_binding(
         profile_binding,
         maximum_attempts=3,
@@ -176,12 +172,8 @@ def test_provider_authorization_is_signed_and_empty_extension_preserves_old_enve
     tampered_model = "gemma4:e4b-it-qat"
     tampered = replace(
         envelope,
-        allowed_provider_bindings=(
-            replace(authorization, model_id=tampered_model),
-        ),
-        provider_attempt_plan=(
-            replace(plan_entry, model_id=tampered_model),
-        ),
+        allowed_provider_bindings=(replace(authorization, model_id=tampered_model),),
+        provider_attempt_plan=(replace(plan_entry, model_id=tampered_model),),
     )
     with pytest.raises(SignatureValidationError, match="signature_invalid"):
         tampered.verify(
@@ -195,9 +187,7 @@ def test_provider_authorization_is_signed_and_empty_extension_preserves_old_enve
             now=120,
         )
 
-    tampered_endpoint = (
-        "http://ollama:11435/v1/chat/completions"
-    )
+    tampered_endpoint = "http://ollama:11435/v1/chat/completions"
     endpoint_tampered = replace(
         envelope,
         allowed_provider_bindings=(

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.visual.markdown.markdown_parser import (
     BlockquoteBlock,
     BulletListBlock,

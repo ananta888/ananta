@@ -168,7 +168,12 @@ def _handle_plan_command(subcommand: str, extra: list[str], args) -> int:
         print_terminal("repo_root: {}", report.get("repo_root", "-"))
         print_terminal("dry_run: {}", "yes" if bool(report.get("dry_run")) else "no")
         print_terminal("convert_epics: {}", "yes" if bool(report.get("convert_epics")) else "no")
-        print_terminal("scanned: {} track_files: {} changed: {}", report.get("scanned", 0), report.get("track_files", 0), report.get("changed", 0))
+        print_terminal(
+            "scanned: {} track_files: {} changed: {}",
+            report.get("scanned", 0),
+            report.get("track_files", 0),
+            report.get("changed", 0),
+        )
         for item in list(report.get("results") or [])[:50]:
             print_terminal(
                 "track: {} changed={} legacy_epics={} repaired_fields={}{}",

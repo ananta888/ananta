@@ -18,11 +18,11 @@ Marker rules:
     [disabled] = disabled control
     [open] = open dialog/dropdown
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
-
+from dataclasses import dataclass, field
 
 # ── Public dataclass ────────────────────────────────────────────────────────
 
@@ -30,6 +30,7 @@ import re
 @dataclass(frozen=True)
 class SnapshotDelta:
     """The structured diff between two compact DOM snapshots."""
+
     lines: list[str] = field(default_factory=list)
     changed_paths: list[str] = field(default_factory=list)
 
@@ -51,9 +52,7 @@ class SnapshotDelta:
 
 _PATH_RE = re.compile(r"^(\/[^\s|]*)")
 _LIST_RE = re.compile(r"\blist:(\d+)\b")
-_FOCUS_RE = re.compile(
-    r'focus:(?P<tag>\w+)\[(?P<label>[^\]]*)\]=\"(?P<value>[^\"]*)\"'
-)
+_FOCUS_RE = re.compile(r"focus:(?P<tag>\w+)\[(?P<label>[^\]]*)\]=\"(?P<value>[^\"]*)\"")
 _HEADING_RE = re.compile(r"\bh:([^|]+?)(?=\s*\||\s*$)")
 _ERROR_RE = re.compile(r"\berr:([^|]+?)(?=\s*\||\s*$)")
 
@@ -117,6 +116,7 @@ def _register_diff(marker: str):
     def _wrap(fn):
         _SECTION_DIFFS.append((marker, fn))
         return fn
+
     return _wrap
 
 
@@ -183,10 +183,10 @@ def _diff_focus(prev_snap: str, curr_snap: str) -> str:
     if p == c:
         return ""
     if not p and c:
-        return f"focus: → {c['tag']}[{c['label']}]=\"{c['value']}\""
+        return f'focus: → {c["tag"]}[{c["label"]}]="{c["value"]}"'
     if p and not c:
         return f"focus: {p['tag']}[{p['label']}] → cleared"
-    return f"focus: {p['tag']}[{p['label']}]=\"{p['value']}\" → {c['tag']}[{c['label']}]=\"{c['value']}\""
+    return f'focus: {p["tag"]}[{p["label"]}]="{p["value"]}" → {c["tag"]}[{c["label"]}]="{c["value"]}"'
 
 
 def diff_snapshots(prev: str, curr: str) -> SnapshotDelta:

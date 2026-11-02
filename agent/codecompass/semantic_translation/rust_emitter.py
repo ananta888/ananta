@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
 from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
+from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
 
 _registry = PythonToRustTypeRegistry()
 _ownership = RustOwnershipPolicyEngine()
@@ -111,7 +111,7 @@ class RustEmitter:
         rust_ret = ret_mapped.rust_type or "()"
         param_str = ", ".join(params)
         async_prefix = "async " if fn.get("is_async") else ""
-        todo_body = "\n    todo!()\n" if not needs_review else "\n    unimplemented!(\"needs_review\")\n"
+        todo_body = "\n    todo!()\n" if not needs_review else '\n    unimplemented!("needs_review")\n'
         source = f"pub {async_prefix}fn {fn['name']}({param_str}) -> {rust_ret} {{{todo_body}}}"
         sorted_uses = sorted(uses)
         return RustEmitResult(source, sorted_uses, warnings, needs_review)

@@ -16,8 +16,8 @@ def mock_admin_ctx():
 
 
 def test_create_session_missing_target_type():
-    from agent.services.terminal_session_service import TerminalSessionService
     from agent.services.terminal_policy_service import TerminalPolicyDecision
+    from agent.services.terminal_session_service import TerminalSessionService
 
     svc = TerminalSessionService.__new__(TerminalSessionService)
 
@@ -88,8 +88,8 @@ def test_get_output_read_only_session_allowed():
 
 
 def test_send_input_read_only_blocked():
-    from agent.services.terminal_session_service import TerminalSessionService
     from agent.db_models import TerminalSessionDB
+    from agent.services.terminal_session_service import TerminalSessionService
 
     svc = TerminalSessionService.__new__(TerminalSessionService)
 
@@ -112,9 +112,9 @@ def test_send_input_read_only_blocked():
 
 
 def test_kill_session_emits_audit_event():
-    from agent.services.terminal_session_service import TerminalSessionService
     from agent.db_models import TerminalSessionDB
     from agent.services.terminal_policy_service import TerminalPolicyDecision
+    from agent.services.terminal_session_service import TerminalSessionService
 
     svc = TerminalSessionService.__new__(TerminalSessionService)
 
@@ -131,9 +131,12 @@ def test_kill_session_emits_audit_event():
     )
 
     allow_decision = TerminalPolicyDecision(
-        allow=True, reason_code="terminal_permission_granted",
-        decision_id="d1", policy_version="v1",
-        matched_rule_id="worker.kill.allow", permission="terminal.worker.kill",
+        allow=True,
+        reason_code="terminal_permission_granted",
+        decision_id="d1",
+        policy_version="v1",
+        matched_rule_id="worker.kill.allow",
+        permission="terminal.worker.kill",
     )
 
     with patch.object(svc, "get_session", return_value=sess):
@@ -152,9 +155,9 @@ def test_kill_session_emits_audit_event():
 
 
 def test_attach_token_single_use():
-    from agent.services.terminal_session_service import TerminalSessionService, _ATTACH_TOKENS
     from agent.db_models import TerminalSessionDB
     from agent.services.terminal_policy_service import TerminalPolicyDecision
+    from agent.services.terminal_session_service import _ATTACH_TOKENS, TerminalSessionService
 
     svc = TerminalSessionService.__new__(TerminalSessionService)
 
@@ -170,9 +173,12 @@ def test_attach_token_single_use():
     )
 
     allow_decision = TerminalPolicyDecision(
-        allow=True, reason_code="terminal_permission_granted",
-        decision_id="d1", policy_version="v1",
-        matched_rule_id="worker.attach.allow", permission="terminal.worker.attach",
+        allow=True,
+        reason_code="terminal_permission_granted",
+        decision_id="d1",
+        policy_version="v1",
+        matched_rule_id="worker.attach.allow",
+        permission="terminal.worker.attach",
     )
 
     with patch.object(svc, "get_session", return_value=sess):

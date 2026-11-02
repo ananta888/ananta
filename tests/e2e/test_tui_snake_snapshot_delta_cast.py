@@ -3,10 +3,10 @@
 T08.01: Verifikation dass CellGrid-Snapshots und Deltas korrekt erzeugt werden.
 Läuft ohne LM Studio (kein ANANTA_E2E_LIVE_LMSTUDIO nötig).
 """
-import pytest
-from client_surfaces.operator_tui.snapshot import CellGrid
-from client_surfaces.operator_tui.snapshot_delta import DeltaEncoder, TuiDelta
+
 from client_surfaces.operator_tui.ansi_replay import AnsiReplayState
+from client_surfaces.operator_tui.snapshot import CellGrid
+from client_surfaces.operator_tui.snapshot_delta import DeltaEncoder
 
 
 def test_snapshot_from_rendered_lines_has_correct_dimensions():
@@ -61,8 +61,9 @@ def test_ansi_replay_produces_valid_snapshot():
 
 def test_snapshot_artifacts_contain_header_and_multiple_frames():
     """Verifies that multiple snapshots can be generated from successive renders."""
-    from agent.services.heuristic_runtime.tui_observation_buffer import TuiObservationBuffer, SnapshotRef
     import time
+
+    from agent.services.heuristic_runtime.tui_observation_buffer import SnapshotRef, TuiObservationBuffer
 
     buf = TuiObservationBuffer(max_snapshots=10)
     for i in range(5):

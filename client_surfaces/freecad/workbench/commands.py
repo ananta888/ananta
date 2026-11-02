@@ -6,7 +6,6 @@ from client_surfaces.freecad.workbench.client import FreecadHubClient
 from client_surfaces.freecad.workbench.context import capture_active_freecad_context
 from client_surfaces.freecad.workbench.context_preview import build_context_preview
 
-
 GOAL_CAPABILITY_ID = "freecad.model.inspect"
 
 
@@ -68,7 +67,11 @@ def preview_active_export_plan(
     )
     selection_only = bool(list(((captured.get("context") or {}).get("selection") or [])))
     response = client.request_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only)
-    return {"status": str(response.get("status") or "degraded"), "preview": captured.get("preview"), "response": response}
+    return {
+        "status": str(response.get("status") or "degraded"),
+        "preview": captured.get("preview"),
+        "response": response,
+    }
 
 
 def preview_active_macro_plan(

@@ -10,13 +10,14 @@ new_software_project task:
 This test is lighter than the full-flow service E2E (test_autopilot_new_project_fibonacci_full_flow.py).
 It verifies the public route contract is not bypassing policy or the proposal registry.
 """
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
-from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools
+import pytest
 
+from tests.fixtures.mock_openai_compatible_provider import make_mock_invoke_with_tools
 
 SMOKE_TASK_ID = "T-API-SMOKE-NEW-PROJECT-001"
 
@@ -73,9 +74,7 @@ def smoke_task(app, admin_auth_header, client):
         },
         headers=admin_auth_header,
     )
-    assert res.status_code in (200, 201), (
-        f"Task creation failed: {res.status_code} {res.json}"
-    )
+    assert res.status_code in (200, 201), f"Task creation failed: {res.status_code} {res.json}"
     return SMOKE_TASK_ID
 
 
@@ -95,9 +94,7 @@ class TestNewProjectApiSmoke:
             headers=admin_auth_header,
         )
 
-        assert res.status_code == 200, (
-            f"Propose route returned {res.status_code}: {res.json}"
-        )
+        assert res.status_code == 200, f"Propose route returned {res.status_code}: {res.json}"
 
     def test_propose_route_selects_tool_calling_llm(self, smoke_task, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
@@ -123,8 +120,7 @@ class TestNewProjectApiSmoke:
         # Route response includes strategy metadata
         strategy = self._selected_strategy(data)
         assert strategy == "tool_calling_llm", (
-            f"Expected tool_calling_llm strategy, got {strategy!r}. "
-            f"Response data: {data}"
+            f"Expected tool_calling_llm strategy, got {strategy!r}. Response data: {data}"
         )
 
     def test_propose_route_returns_tool_calls(self, smoke_task, client, admin_auth_header, monkeypatch):
@@ -143,9 +139,7 @@ class TestNewProjectApiSmoke:
         assert res.status_code == 200
         data = (res.json or {}).get("data") or {}
         tool_calls = self._tool_calls(data)
-        assert tool_calls, (
-            f"Expected tool_calls in propose response, got none. data={data}"
-        )
+        assert tool_calls, f"Expected tool_calls in propose response, got none. data={data}"
         tc_names = [tc.get("name") for tc in tool_calls]
         assert "write_file" in tc_names
 
@@ -165,9 +159,7 @@ class TestNewProjectApiSmoke:
         assert res.status_code == 200
         data = (res.json or {}).get("data") or {}
         status = data.get("status") or data.get("proposal_status")
-        assert status == "executable", (
-            f"Expected status=executable, got {status!r}. data={data}"
-        )
+        assert status == "executable", f"Expected status=executable, got {status!r}. data={data}"
 
     def test_propose_route_sgpt_never_called(self, smoke_task, client, admin_auth_header, monkeypatch):
         """sgpt must not be called for new_software_project — autouse fixture blocks it."""
@@ -207,6 +199,7 @@ class TestNewProjectApiSmoke:
         assert strategy != "deterministic_handler", (
             "deterministic_handler was selected before LLM strategies — LLM-first policy violated"
         )
+
     @staticmethod
     def _selected_strategy(data: dict) -> str | None:
         meta = data.get("propose_strategy_meta") or {}

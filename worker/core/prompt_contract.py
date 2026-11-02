@@ -3,6 +3,7 @@
 Separates control instructions (authoritative) from untrusted retrieved context (data).
 Untrusted context is placed after all control sections and is clearly delimited.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ def _is_injection_risk(text: str) -> bool:
 @dataclass
 class GroundedPromptAssembly:
     """Formalized grounded prompt contract with strict section ordering. AWF-T021."""
+
     prompt: str
     context_hash: str
     retrieval_trace_ref: str
@@ -105,8 +107,11 @@ def assemble_grounded_prompt(
     normalized_hash = str(context_hash).strip()
     normalized_trace_ref = str(retrieval_trace_ref or "").strip()
     binding_data = quote_context_data(
-        "", max_chars=8192, source_type="descriptive_context_binding",
-        origin_id=normalized_hash, provenance=normalized_trace_ref,
+        "",
+        max_chars=8192,
+        source_type="descriptive_context_binding",
+        origin_id=normalized_hash,
+        provenance=normalized_trace_ref,
     )
     if binding_data is None:
         raise ValueError("context_binding_budget_exhausted")

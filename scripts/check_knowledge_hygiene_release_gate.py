@@ -16,7 +16,6 @@ if str(ROOT) not in sys.path:
 
 from scripts.benchmark.knowledge_hygiene import DEFAULT_FIXTURE, run_benchmark
 
-
 SCHEMA_DIR = ROOT / "schemas/knowledge_hygiene"
 TODO = ROOT / "todos/archiv/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json"
 OUTPUT = ROOT / "artifacts/test-gates/knowledge-hygiene-release.json"
@@ -64,15 +63,24 @@ def main() -> int:
     writeback_source = (ROOT / "agent/services/knowledge_hygiene/writeback.py").read_text(encoding="utf-8")
     worker_source = (ROOT / "worker/knowledge_hygiene/handlers.py").read_text(encoding="utf-8")
     route_source = (ROOT / "agent/routes/knowledge_hygiene.py").read_text(encoding="utf-8")
-    ui_source = (ROOT / "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html").read_text(encoding="utf-8")
+    ui_source = (
+        ROOT / "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html"
+    ).read_text(encoding="utf-8")
     static_checks = {
         "default_disabled": '"enabled": False' in config_source and '"mode": "disabled"' in config_source,
         "writeback_separate_default": '"source_writeback_enabled": False' in config_source,
-        "writeback_root_and_symlink_guards": "outside_allowed_roots" in writeback_source and "symlink_writeback_forbidden" in writeback_source,
-        "writeback_hash_race_guard": "source_revision_race" in writeback_source and "portalocker.Lock" in writeback_source,
-        "worker_has_no_queue_or_followup": all(token not in worker_source for token in ("task_queue", "spawn_worker", "followup_task", "enqueue_task")),
-        "api_has_project_and_idempotency_binding": "_project_access" in route_source and "Idempotency-Key" in route_source,
-        "ui_exposes_coverage_and_both_sides": "Interpretationsgrenze" in ui_source and "LINKS" in ui_source and "RECHTS" in ui_source,
+        "writeback_root_and_symlink_guards": "outside_allowed_roots" in writeback_source
+        and "symlink_writeback_forbidden" in writeback_source,
+        "writeback_hash_race_guard": "source_revision_race" in writeback_source
+        and "portalocker.Lock" in writeback_source,
+        "worker_has_no_queue_or_followup": all(
+            token not in worker_source for token in ("task_queue", "spawn_worker", "followup_task", "enqueue_task")
+        ),
+        "api_has_project_and_idempotency_binding": "_project_access" in route_source
+        and "Idempotency-Key" in route_source,
+        "ui_exposes_coverage_and_both_sides": "Interpretationsgrenze" in ui_source
+        and "LINKS" in ui_source
+        and "RECHTS" in ui_source,
     }
     if not all(static_checks.values()):
         failed = sorted(key for key, value in static_checks.items() if not value)

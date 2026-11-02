@@ -22,12 +22,12 @@ Outcome categories:
 Security:
     Token values are NEVER printed.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-import time
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -55,6 +55,7 @@ def _result(provider: str, mode: str, outcome: str, reason: str = "") -> dict[st
 # Mock mode
 # ---------------------------------------------------------------------------
 
+
 def run_mock(provider: str) -> dict[str, Any]:
     """Return a hardcoded success outcome without any network calls.
 
@@ -62,15 +63,18 @@ def run_mock(provider: str) -> dict[str, Any]:
     audit machinery can be exercised without a real provider.
     """
     import sys
+
     sys.path.insert(0, str(_repo_root()))
 
-    from client_surfaces.operator_tui.auth.oidc_models import OidcProviderConfig
-    from client_surfaces.operator_tui.auth.oidc_auth_controller import OidcAuthController
     from client_surfaces.operator_tui.auth.oidc_audit import (
-        OidcAuditLog, OidcAuditEvent,
-        EVENT_LOGIN_START, EVENT_TOKEN_EXCHANGE_SUCCESS,
-        MODE_ANANTA_OWNED, PROFILE_EPHEMERAL,
+        EVENT_LOGIN_START,
+        EVENT_TOKEN_EXCHANGE_SUCCESS,
+        MODE_ANANTA_OWNED,
+        PROFILE_EPHEMERAL,
+        OidcAuditEvent,
+        OidcAuditLog,
     )
+    from client_surfaces.operator_tui.auth.oidc_auth_controller import OidcAuthController
 
     ctrl = OidcAuthController()
     verifier, challenge = ctrl._generate_pkce_pair()
@@ -83,28 +87,33 @@ def run_mock(provider: str) -> dict[str, Any]:
     # Verify S256 challenge
     import base64
     import hashlib
-    expected_challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(verifier.encode("ascii")).digest()
-    ).rstrip(b"=").decode("ascii")
+
+    expected_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
+    )
     if challenge != expected_challenge:
         return _result(provider, "mock", OUTCOME_INVALID_STATE, "pkce challenge mismatch")
 
     # Exercise audit log
     audit = OidcAuditLog()
-    audit.emit(OidcAuditEvent(
-        event_type=EVENT_LOGIN_START,
-        provider_id=provider,
-        mode=MODE_ANANTA_OWNED,
-        profile_mode=PROFILE_EPHEMERAL,
-        error_category="",
-    ))
-    audit.emit(OidcAuditEvent(
-        event_type=EVENT_TOKEN_EXCHANGE_SUCCESS,
-        provider_id=provider,
-        mode=MODE_ANANTA_OWNED,
-        profile_mode=PROFILE_EPHEMERAL,
-        error_category="",
-    ))
+    audit.emit(
+        OidcAuditEvent(
+            event_type=EVENT_LOGIN_START,
+            provider_id=provider,
+            mode=MODE_ANANTA_OWNED,
+            profile_mode=PROFILE_EPHEMERAL,
+            error_category="",
+        )
+    )
+    audit.emit(
+        OidcAuditEvent(
+            event_type=EVENT_TOKEN_EXCHANGE_SUCCESS,
+            provider_id=provider,
+            mode=MODE_ANANTA_OWNED,
+            profile_mode=PROFILE_EPHEMERAL,
+            error_category="",
+        )
+    )
     events = audit.recent()
     if len(events) != 2:
         return _result(provider, "mock", OUTCOME_TOKEN_FAILED, "audit event count mismatch")
@@ -121,6 +130,7 @@ def run_mock(provider: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Live mode (requires real provider config)
 # ---------------------------------------------------------------------------
+
 
 def run_live(
     provider: str,
@@ -149,11 +159,12 @@ def run_live(
         Result dict.
     """
     import sys
+
     sys.path.insert(0, str(_repo_root()))
 
-    from client_surfaces.operator_tui.auth.oidc_models import OidcProviderConfig
-    from client_surfaces.operator_tui.auth.oidc_auth_controller import OidcAuthController
     from client_surfaces.operator_tui.auth.loopback_callback_server import LoopbackCallbackServer
+    from client_surfaces.operator_tui.auth.oidc_auth_controller import OidcAuthController
+    from client_surfaces.operator_tui.auth.oidc_models import OidcProviderConfig
 
     prov_cfg = OidcProviderConfig(
         provider_id=provider,
@@ -201,8 +212,10 @@ def run_live(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _repo_root():
     from pathlib import Path
+
     # Walk up from this script to find the repo root
     here = Path(__file__).resolve().parent
     for _ in range(5):
@@ -216,10 +229,9 @@ def _repo_root():
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Carbonyl OIDC provider compatibility smoke test"
-    )
+    parser = argparse.ArgumentParser(description="Carbonyl OIDC provider compatibility smoke test")
     parser.add_argument(
         "--provider",
         choices=["keycloak", "google"],

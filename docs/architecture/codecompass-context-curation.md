@@ -30,7 +30,7 @@ Entfernt alle Treffer aus `denied_paths` oder mit unzureichenden Zugriffsrechten
 @dataclass
 class FilterResult:
     kept: list[RawCandidate]
-    dropped: list[DroppedCandidate]   # reason_code: "denied_path"
+    dropped: list[DroppedCandidate]  # reason_code: "denied_path"
 ```
 
 Kein Treffer aus `denied_path` passiert diese Stufe. Kein stiller Drop.
@@ -92,7 +92,8 @@ class ContextTrace:
     query: str
     kept: list[ContextItem]
     dropped: list[DroppedCandidate]
-    pipeline_stats: PipelineStats   # Treffer pro Stufe, Laufzeit, Budget-Ausschöpfung
+    pipeline_stats: PipelineStats  # Treffer pro Stufe, Laufzeit, Budget-Ausschöpfung
+
 
 @dataclass
 class DroppedCandidate:

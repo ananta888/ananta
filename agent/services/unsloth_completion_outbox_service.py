@@ -13,7 +13,6 @@ from agent.services.unsloth_model_catalog_service import (
     get_unsloth_model_catalog_registry,
 )
 
-
 _RECONCILABLE_STATUSES = frozenset(
     {
         "created",
@@ -78,24 +77,16 @@ class HubModelImportCompletionTaskAdapter:
         self._compare_and_set = compare_and_set
 
     def get_task(self, task_id: str) -> Any | None:
-        return self._task_repository().get_by_id(
-            str(task_id or "")
-        )
+        return self._task_repository().get_by_id(str(task_id or ""))
 
     def commit_completion(
         self,
         entry: ModelImportCompletionOutboxEntry,
     ) -> bool:
         task = self.get_task(entry.task_id)
-        if (
-            task is None
-            or not _task_matches_entry(task, entry)
-        ):
+        if task is None or not _task_matches_entry(task, entry):
             return False
-        verification = dict(
-            _task_value(task, "verification_status")
-            or {}
-        )
+        verification = dict(_task_value(task, "verification_status") or {})
         for key, expected in entry.projection.items():
             existing = verification.get(key)
             if existing is not None and existing != expected:
@@ -112,16 +103,11 @@ class HubModelImportCompletionTaskAdapter:
                         entry,
                     )
                 ),
-                event_type=(
-                    "unsloth_model_import_completion_"
-                    "reconciled"
-                ),
+                event_type=("unsloth_model_import_completion_reconciled"),
                 event_actor="hub:unsloth-outbox",
                 event_details={
                     "outbox_id": entry.outbox_id,
-                    "catalog_revision": (
-                        entry.catalog_revision
-                    ),
+                    "catalog_revision": (entry.catalog_revision),
                 },
                 force=True,
                 verification_status=verification,
@@ -141,9 +127,7 @@ class HubModelImportCompletionTaskAdapter:
                 compare_and_set_local_task_status,
             )
 
-            self._compare_and_set = (
-                compare_and_set_local_task_status
-            )
+            self._compare_and_set = compare_and_set_local_task_status
         return self._compare_and_set
 
 
@@ -160,9 +144,7 @@ class UnslothCompletionOutboxReconciler:
         self._tasks = tasks
 
     def reconcile_task(self, task_id: str) -> bool:
-        entry = self._outbox.get_completion_outbox(
-            task_id=str(task_id or "")
-        )
+        entry = self._outbox.get_completion_outbox(task_id=str(task_id or ""))
         if entry is None:
             return False
         if entry.state == "terminalized":
@@ -177,21 +159,13 @@ class UnslothCompletionOutboxReconciler:
         if not _task_has_projection(task, entry):
             if not self._tasks.commit_completion(entry):
                 latest = self._tasks.get_task(entry.task_id)
-                if (
-                    latest is None
-                    or not _task_has_projection(latest, entry)
-                ):
+                if latest is None or not _task_has_projection(latest, entry):
                     self._record_failure(
                         entry,
-                        (
-                            "model_import_completion_"
-                            "task_cas_failed"
-                        ),
+                        ("model_import_completion_task_cas_failed"),
                     )
                     return False
-        self._outbox.mark_completion_outbox_terminalized(
-            outbox_id=entry.outbox_id
-        )
+        self._outbox.mark_completion_outbox_terminalized(outbox_id=entry.outbox_id)
         return True
 
     def reconcile_pending(
@@ -199,9 +173,7 @@ class UnslothCompletionOutboxReconciler:
         *,
         limit: int = 100,
     ) -> dict[str, int]:
-        entries = self._outbox.list_pending_completion_outbox(
-            limit=max(1, min(int(limit), 1000))
-        )
+        entries = self._outbox.list_pending_completion_outbox(limit=max(1, min(int(limit), 1000)))
         reconciled = 0
         failed = 0
         for entry in entries:
@@ -213,10 +185,7 @@ class UnslothCompletionOutboxReconciler:
             except Exception:  # noqa: BLE001 - persistent retry boundary
                 self._record_failure(
                     entry,
-                    (
-                        "model_import_completion_"
-                        "reconciliation_failed"
-                    ),
+                    ("model_import_completion_reconciliation_failed"),
                 )
                 failed += 1
         return {
@@ -240,9 +209,7 @@ def _task_has_projection(
     task: Any,
     entry: ModelImportCompletionOutboxEntry,
 ) -> bool:
-    if str(_task_value(task, "status") or "").strip().lower() != (
-        "completed"
-    ):
+    if str(_task_value(task, "status") or "").strip().lower() != ("completed"):
         return False
     verification = _task_value(
         task,
@@ -250,10 +217,7 @@ def _task_has_projection(
     )
     return bool(
         isinstance(verification, Mapping)
-        and all(
-            verification.get(key) == expected
-            for key, expected in entry.projection.items()
-        )
+        and all(verification.get(key) == expected for key, expected in entry.projection.items())
     )
 
 
@@ -267,33 +231,20 @@ def _task_matches_entry(
         task,
         "worker_execution_context",
     )
-    if (
-        not isinstance(context, Mapping)
-        or context.get("schema")
-        != "ananta.unsloth-worker-task-context.v1"
-    ):
+    if not isinstance(context, Mapping) or context.get("schema") != "ananta.unsloth-worker-task-context.v1":
         return False
     envelope = context.get("unsloth_task")
-    worker_result = entry.projection.get(
-        "unsloth_worker_result"
-    )
+    worker_result = entry.projection.get("unsloth_worker_result")
     return bool(
         isinstance(envelope, Mapping)
         and isinstance(worker_result, Mapping)
-        and envelope.get("task_type")
-        == "ml.model.import"
-        and envelope.get("result_handler")
-        == "unsloth_model_import_v1"
-        and envelope.get("tenant_id")
-        == worker_result.get("tenant_id")
-        and envelope.get("payload_sha256")
-        == worker_result.get("payload_sha256")
-        and worker_result.get("task_id")
-        == entry.task_id
-        and worker_result.get("task_type")
-        == "ml.model.import"
-        and worker_result.get("status")
-        == "completed"
+        and envelope.get("task_type") == "ml.model.import"
+        and envelope.get("result_handler") == "unsloth_model_import_v1"
+        and envelope.get("tenant_id") == worker_result.get("tenant_id")
+        and envelope.get("payload_sha256") == worker_result.get("payload_sha256")
+        and worker_result.get("task_id") == entry.task_id
+        and worker_result.get("task_type") == "ml.model.import"
+        and worker_result.get("status") == "completed"
     )
 
 
@@ -303,30 +254,21 @@ def _task_value(task: Any, name: str) -> Any:
     return getattr(task, name, None)
 
 
-def get_unsloth_completion_outbox_reconciler(
-) -> UnslothCompletionOutboxReconciler:
+def get_unsloth_completion_outbox_reconciler() -> UnslothCompletionOutboxReconciler:
     if not has_app_context():
-        raise RuntimeError(
-            "unsloth_completion_outbox_app_context_required"
-        )
-    configured = current_app.extensions.get(
-        "unsloth_completion_outbox_reconciler"
-    )
+        raise RuntimeError("unsloth_completion_outbox_app_context_required")
+    configured = current_app.extensions.get("unsloth_completion_outbox_reconciler")
     if isinstance(
         configured,
         UnslothCompletionOutboxReconciler,
     ):
         return configured
-    registry: SqliteUnslothModelCatalogRegistry = (
-        get_unsloth_model_catalog_registry()
-    )
+    registry: SqliteUnslothModelCatalogRegistry = get_unsloth_model_catalog_registry()
     reconciler = UnslothCompletionOutboxReconciler(
         outbox=registry,
         tasks=HubModelImportCompletionTaskAdapter(),
     )
-    current_app.extensions[
-        "unsloth_completion_outbox_reconciler"
-    ] = reconciler
+    current_app.extensions["unsloth_completion_outbox_reconciler"] = reconciler
     return reconciler
 
 

@@ -32,7 +32,8 @@ from agent.models import (
     TeamBlueprintInstantiateRequest,
     TeamBlueprintUpdateRequest,
 )
-from agent.routes.route_utils import parse_bool_query, parse_parts_query, team_error as _team_error
+from agent.routes.route_utils import parse_bool_query, parse_parts_query
+from agent.routes.route_utils import team_error as _team_error
 from agent.services.blueprint_bundle_service import (
     BUNDLE_SCHEMA_VERSION,
     build_bundle_import_plan,
@@ -87,7 +88,9 @@ def _bundle_plan_error_response(plan) -> tuple:
     )
 
 
-def _resolve_bundle_template_by_name(imported_templates: dict[str, TemplateDB], template_name: str | None) -> TemplateDB | None:
+def _resolve_bundle_template_by_name(
+    imported_templates: dict[str, TemplateDB], template_name: str | None
+) -> TemplateDB | None:
     if not template_name:
         return None
     normalized_name = template_name.strip()
@@ -96,7 +99,9 @@ def _resolve_bundle_template_by_name(imported_templates: dict[str, TemplateDB], 
     return imported_templates.get(normalized_name) or _repos().template_repo.get_by_name(normalized_name)
 
 
-def _resolve_bundle_blueprint_role_id(blueprint_roles: list[BlueprintRoleDB], blueprint_role_name: str | None) -> str | None:
+def _resolve_bundle_blueprint_role_id(
+    blueprint_roles: list[BlueprintRoleDB], blueprint_role_name: str | None
+) -> str | None:
     if not blueprint_role_name:
         return None
     normalized_name = blueprint_role_name.strip().lower()
@@ -106,7 +111,13 @@ def _resolve_bundle_blueprint_role_id(blueprint_roles: list[BlueprintRoleDB], bl
     return None
 
 
-def _apply_bundle_team_members(team_id: str, team_type_id: str | None, blueprint_roles: list[BlueprintRoleDB], members: list[BlueprintBundleMemberAssignment], imported_templates: dict[str, TemplateDB]) -> tuple[bool, tuple | None]:
+def _apply_bundle_team_members(
+    team_id: str,
+    team_type_id: str | None,
+    blueprint_roles: list[BlueprintRoleDB],
+    members: list[BlueprintBundleMemberAssignment],
+    imported_templates: dict[str, TemplateDB],
+) -> tuple[bool, tuple | None]:
     allowed_role_ids = _repos().team_type_role_link_repo.get_allowed_role_ids(team_type_id) if team_type_id else []
     _repos().team_member_repo.delete_by_team(team_id)
     for member in members:
@@ -212,10 +223,14 @@ def _apply_team_blueprint_bundle_import(plan, bundle) -> tuple | dict:
         elif plan.blueprint_spec["action"] == "update":
             imported_blueprint.name = blueprint_bundle.name.strip()
             imported_blueprint.description = blueprint_bundle.description
-            imported_blueprint.base_team_type_name = normalize_team_type_name(blueprint_bundle.base_team_type_name or "") or None
+            imported_blueprint.base_team_type_name = (
+                normalize_team_type_name(blueprint_bundle.base_team_type_name or "") or None
+            )
             imported_blueprint.updated_at = time.time()
             imported_blueprint = _repos().team_blueprint_repo.save(imported_blueprint)
-        imported_roles, imported_artifacts = _persist_blueprint_children(imported_blueprint.id, role_definitions, artifact_definitions)
+        imported_roles, imported_artifacts = _persist_blueprint_children(
+            imported_blueprint.id, role_definitions, artifact_definitions
+        )
 
     if plan.team_spec and plan.team_spec["action"] in {"create", "update", "unchanged"}:
         team_bundle: BlueprintBundleTeamDefinition = plan.team_spec["bundle"]
@@ -229,7 +244,9 @@ def _apply_team_blueprint_bundle_import(plan, bundle) -> tuple | dict:
             imported_roles = _repos().blueprint_role_repo.get_by_blueprint(target_blueprint.id)
             imported_artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(target_blueprint.id)
 
-        normalized_type_name = normalize_team_type_name(team_bundle.team_type_name or target_blueprint.base_team_type_name or "")
+        normalized_type_name = normalize_team_type_name(
+            team_bundle.team_type_name or target_blueprint.base_team_type_name or ""
+        )
         team_type = _repos().team_type_repo.get_by_name(normalized_type_name) if normalized_type_name else None
         if normalized_type_name and team_type is None:
             return _team_error("team_type_not_found", 404, team_type_name=normalized_type_name)
@@ -288,10 +305,14 @@ def _apply_team_blueprint_bundle_import(plan, bundle) -> tuple | dict:
         "templates": [template.model_dump() for template in imported_templates.values()],
     }
     if imported_blueprint is not None:
-        result["blueprint"] = _serialize_blueprint(imported_blueprint, roles=imported_roles, artifacts=imported_artifacts)
+        result["blueprint"] = _serialize_blueprint(
+            imported_blueprint, roles=imported_roles, artifacts=imported_artifacts
+        )
     if imported_team is not None:
         team_payload = imported_team.model_dump()
-        team_payload["members"] = [member.model_dump() for member in _repos().team_member_repo.get_by_team(imported_team.id)]
+        team_payload["members"] = [
+            member.model_dump() for member in _repos().team_member_repo.get_by_team(imported_team.id)
+        ]
         result["team"] = team_payload
     return result
 
@@ -323,19 +344,33 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         worker_selection = role_config.get("worker_selection")
         if worker_selection is not None:
             from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+
             _, err = WorkerSelectionPolicyService().validate_or_error({"worker_selection": worker_selection})
             if err:
-                return False, ("blueprint_role_worker_selection_invalid", 400, {"role_name": normalized_name, "detail": err})
+                return False, (
+                    "blueprint_role_worker_selection_invalid",
+                    400,
+                    {"role_name": normalized_name, "detail": err},
+                )
 
         runtime_target = role_config.get("runtime_target")
         if runtime_target is not None:
             if not isinstance(runtime_target, dict):
-                 return False, ("blueprint_role_runtime_target_invalid", 400, {"role_name": normalized_name, "detail": "must be a dictionary"})
+                return False, (
+                    "blueprint_role_runtime_target_invalid",
+                    400,
+                    {"role_name": normalized_name, "detail": "must be a dictionary"},
+                )
             from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+
             try:
                 WorkerRuntimeTargetService().from_config(runtime_target)
             except Exception as exc:
-                return False, ("blueprint_role_runtime_target_invalid", 400, {"role_name": normalized_name, "detail": str(exc)})
+                return False, (
+                    "blueprint_role_runtime_target_invalid",
+                    400,
+                    {"role_name": normalized_name, "detail": str(exc)},
+                )
 
         preferred_backend = role_config.get("preferred_backend")
         if capability_defaults is not None and not isinstance(capability_defaults, list):
@@ -488,7 +523,9 @@ def create_team_blueprint():
         "team_blueprint_created",
         {"blueprint_id": result.blueprint.id, "name": result.blueprint.name, "changes": result.changes},
     )
-    return api_response(data=_serialize_blueprint(result.blueprint, roles=result.roles, artifacts=result.artifacts), code=201)
+    return api_response(
+        data=_serialize_blueprint(result.blueprint, roles=result.roles, artifacts=result.artifacts), code=201
+    )
 
 
 @blueprint_bp.route("/teams/blueprints/<blueprint_id>", methods=["PATCH"])

@@ -60,9 +60,7 @@ class NativeTaskAdapterPort(Protocol):
 
 
 class LangGraphExecutionAdapterPort(Protocol):
-    def dry_run(
-        self, *, task_id: str, task_type: str, payload: dict[str, Any]
-    ) -> DryRunResult: ...
+    def dry_run(self, *, task_id: str, task_type: str, payload: dict[str, Any]) -> DryRunResult: ...
 
     def execute(
         self,
@@ -133,9 +131,7 @@ class WorkflowAdapterTaskConsumer:
         context: Mapping[str, Any],
     ) -> WorkflowAdapterTaskResult:
         try:
-            command = NativeNodeCommand.from_mapping(
-                dict(context.get("native_node_command") or {})
-            )
+            command = NativeNodeCommand.from_mapping(dict(context.get("native_node_command") or {}))
         except (TypeError, ValueError) as exc:
             return _failure(hub_task_id, "native", _reason(exc, "native_node_command_invalid"))
         try:
@@ -232,9 +228,7 @@ class WorkflowAdapterTaskConsumer:
                     task_id=hub_task_id,
                     task_type=contract.task_type,
                     payload=payload,
-                    resume_token=(
-                        str(raw_resume_token) if raw_resume_token is not None else None
-                    ),
+                    resume_token=(str(raw_resume_token) if raw_resume_token is not None else None),
                 )
                 adapter_result = live_result.as_dict()
                 status = _adapter_status(live_result.status)
@@ -328,9 +322,7 @@ def _native_task_result(
     verification: dict[str, Any],
 ) -> WorkflowAdapterTaskResult:
     adapter_result = result.to_dict()
-    status = {"completed": "success", "cancelled": "cancelled"}.get(
-        result.status, "failed"
-    )
+    status = {"completed": "success", "cancelled": "cancelled"}.get(result.status, "failed")
     artifacts = tuple(
         {
             "artifact_id": str(name),
@@ -344,9 +336,7 @@ def _native_task_result(
         status=status,
         reason_code=result.reason_code,
         summary=(
-            "Native delegated node completed."
-            if status == "success"
-            else "Native delegated node did not complete."
+            "Native delegated node completed." if status == "success" else "Native delegated node did not complete."
         ),
         artifacts=artifacts,
         adapter_result={**adapter_result, "verification": verification},
@@ -359,9 +349,9 @@ def _native_failure_result(
     reason_code: str,
 ) -> WorkflowAdapterTaskResult:
     reason = _reason_code(reason_code, "native_worker_adapter_failed")
-    digest = hashlib.sha256(
-        f"{hub_task_id}:{command.command_id}:{command.attempt_id}:{reason}".encode()
-    ).hexdigest()[:24]
+    digest = hashlib.sha256(f"{hub_task_id}:{command.command_id}:{command.attempt_id}:{reason}".encode()).hexdigest()[
+        :24
+    ]
     native_result = NativeNodeResult(
         result_id=f"nres-consumer-{digest}",
         command_id=command.command_id,
@@ -402,9 +392,7 @@ def _blocked(hub_task_id: str, adapter_kind: str, reason_code: str) -> WorkflowA
     )
 
 
-def _unsupported(
-    hub_task_id: str, adapter_kind: str, reason_code: str
-) -> WorkflowAdapterTaskResult:
+def _unsupported(hub_task_id: str, adapter_kind: str, reason_code: str) -> WorkflowAdapterTaskResult:
     return WorkflowAdapterTaskResult(
         hub_task_id=hub_task_id,
         adapter_kind=adapter_kind,

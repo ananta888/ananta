@@ -26,9 +26,7 @@ def _validated_user_records(users_json):
         try:
             username = local_user_tenant_id(raw_username)
         except UserSessionIdentityError as exc:
-            raise ValueError(
-                f"invalid_migrated_username:{exc.reason_code}"
-            ) from exc
+            raise ValueError(f"invalid_migrated_username:{exc.reason_code}") from exc
         if not isinstance(info, dict):
             raise ValueError(f"invalid_migrated_user:{username}:expected_object")
         password_hash = info.get("password")

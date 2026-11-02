@@ -11,7 +11,6 @@ from typing import Any
 
 import requests
 
-
 TERMINAL = {"completed", "failed", "cancelled", "aborted", "timeout"}
 
 
@@ -205,7 +204,9 @@ def _fetch_json(session: requests.Session, url: str, headers: dict[str, str]) ->
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Goal latency diagnostics (E2E phases + LLM profile + autopilot throughput)")
+    p = argparse.ArgumentParser(
+        description="Goal latency diagnostics (E2E phases + LLM profile + autopilot throughput)"
+    )
     p.add_argument("--base-url", default="http://localhost:5000")
     p.add_argument("--user", default="admin")
     p.add_argument("--password", default="AnantaLocalDevAdmin123!")
@@ -236,7 +237,7 @@ def main() -> int:
 
     goal_id = args.goal_id
     if not goal_id:
-        goals = (_fetch_json(s, f"{base}/goals", headers).get("data") or [])
+        goals = _fetch_json(s, f"{base}/goals", headers).get("data") or []
         if not goals:
             raise RuntimeError("no goals found")
         goal_id = str(goals[0].get("id") or "")
@@ -257,21 +258,6 @@ def main() -> int:
     assign_ts: list[float] = []
     propose_calls = 0
     no_candidates_ticks = 0
-    llm_calls_total = 0
-    llm_calls_real = 0
-    llm_calls_synthetic = 0
-    llm_calls_estimated = 0
-    llm_latency_ms_real: list[int] = []
-    llm_prompt_tokens_real: list[int] = []
-    llm_completion_tokens_real: list[int] = []
-    llm_success = 0
-    llm_fail = 0
-    llm_success_real = 0
-    llm_fail_real = 0
-    llm_by_model: dict[str, int] = {}
-    llm_by_model_real: dict[str, int] = {}
-    llm_by_model_synthetic: dict[str, int] = {}
-    llm_by_source: dict[str, int] = {}
     llm_profile_entries: list[dict[str, Any]] = []
 
     for td in task_details:

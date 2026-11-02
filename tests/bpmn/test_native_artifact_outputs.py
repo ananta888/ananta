@@ -26,36 +26,63 @@ def outputs(tmp_path):
     workspace.mkdir()
     storage = ArtifactStore(tmp_path / "worker-artifacts")
     rows = LocalArtifactRows(engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB)
-    writer = LocalNativeArtifactWriter(engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB,
-                                       storage=storage)
+    writer = LocalNativeArtifactWriter(
+        engine=engine, artifact_model=ArtifactDB, version_model=ArtifactVersionDB, storage=storage
+    )
     materializer = NativeOutputFileMaterializer(writer=writer)
     command = _command_with_declared_output()
-    command = replace(command, node=replace(command.node, metadata={**command.node.metadata, "native_output_files": {
-        "declared-output": {"path": "result.txt", "media_type": "text/plain"},
-    }}))
-    task = {"id": "synthetic-task", "tenant_id": command.tenant_id, "project_id": "project",
-            "worker_execution_context": {"native_node_command": command.to_dict()}}
-    reader = LocalNativeArtifactReader(storage_root=storage.base_dir, load_artifact=rows.load_artifact,
-                                      load_version=rows.load_version)
+    command = replace(
+        command,
+        node=replace(
+            command.node,
+            metadata={
+                **command.node.metadata,
+                "native_output_files": {
+                    "declared-output": {"path": "result.txt", "media_type": "text/plain"},
+                },
+            },
+        ),
+    )
+    task = {
+        "id": "synthetic-task",
+        "tenant_id": command.tenant_id,
+        "project_id": "project",
+        "worker_execution_context": {"native_node_command": command.to_dict()},
+    }
+    reader = LocalNativeArtifactReader(
+        storage_root=storage.base_dir, load_artifact=rows.load_artifact, load_version=rows.load_version
+    )
     try:
-        yield SimpleNamespace(engine=engine, workspace=workspace, storage=storage, materializer=materializer,
-                              command=command, task=task, reader=reader)
+        yield SimpleNamespace(
+            engine=engine,
+            workspace=workspace,
+            storage=storage,
+            materializer=materializer,
+            command=command,
+            task=task,
+            reader=reader,
+        )
     finally:
         engine.dispose()
 
 
 def materialize(outputs):
     command, files = outputs.materializer.prepare(outputs.task)
-    return outputs.materializer.materialize(command=command, files=files, task=outputs.task,
-                                            workspace_dir=outputs.workspace)
+    return outputs.materializer.materialize(
+        command=command, files=files, task=outputs.task, workspace_dir=outputs.workspace
+    )
 
 
 def test_output_snapshot_is_task_bound_immutable_and_retryable(outputs):
     (outputs.workspace / "result.txt").write_bytes(b"synthetic output\n")
     references = materialize(outputs)
     assert materialize(outputs) == references
-    actual = outputs.reader.read(command=outputs.command, task=outputs.task, output_name="declared-output",
-                                  reference=references["declared-output"])
+    actual = outputs.reader.read(
+        command=outputs.command,
+        task=outputs.task,
+        output_name="declared-output",
+        reference=references["declared-output"],
+    )
     assert actual.content == b"synthetic output\n"
     with Session(outputs.engine) as session:
         assert len(session.exec(select(ArtifactDB)).all()) == 1
@@ -76,8 +103,14 @@ def test_invalid_declaration_fails_before_command_execution(outputs, path):
         output_materializer=outputs.materializer,
     )
     with pytest.raises(ValueError, match="native_output_file_path_invalid"):
-        executor.execute(hub_task_id=outputs.task["id"], task=outputs.task, command="synthetic", trace_id="trace",
-                         timeout_seconds=1, agent_config={})
+        executor.execute(
+            hub_task_id=outputs.task["id"],
+            task=outputs.task,
+            command="synthetic",
+            trace_id="trace",
+            timeout_seconds=1,
+            agent_config={},
+        )
     assert calls == []
 
 
@@ -93,11 +126,24 @@ def test_successful_executor_replaces_trace_descriptors_with_stored_outputs(outp
         ),
         output_materializer=outputs.materializer,
     )
-    result = executor.execute(hub_task_id=outputs.task["id"], task=outputs.task, command="synthetic", trace_id="trace",
-                              timeout_seconds=1, agent_config={})
+    result = executor.execute(
+        hub_task_id=outputs.task["id"],
+        task=outputs.task,
+        command="synthetic",
+        trace_id="trace",
+        timeout_seconds=1,
+        agent_config={},
+    )
     assert set(result["artifact_refs"]) == {"declared-output"}
-    assert outputs.reader.read(command=outputs.command, task=outputs.task, output_name="declared-output",
-                               reference=result["artifact_refs"]["declared-output"]).content == b"actual produced bytes"
+    assert (
+        outputs.reader.read(
+            command=outputs.command,
+            task=outputs.task,
+            output_name="declared-output",
+            reference=result["artifact_refs"]["declared-output"],
+        ).content
+        == b"actual produced bytes"
+    )
 
 
 @pytest.mark.parametrize("mode", ["missing", "symlink"])
@@ -127,8 +173,10 @@ def test_handler_propagates_post_execution_materialization_failure(outputs):
         output_materializer=outputs.materializer,
     )
     handler = NativeTaskScopedNodeHandler(
-        agent_config={}, task_snapshots=SimpleNamespace(task_snapshot=lambda **values: outputs.task),
-        executor=executor, artifact_publication=object(),
+        agent_config={},
+        task_snapshots=SimpleNamespace(task_snapshot=lambda **values: outputs.task),
+        executor=executor,
+        artifact_publication=object(),
     )
     with pytest.raises(NativeOutputMaterializationError):
         handler.execute(outputs.command, hub_task_id=outputs.task["id"])
@@ -144,8 +192,14 @@ def test_missing_output_materializer_denies_before_execution(outputs):
         ),
     )
     with pytest.raises(ValueError, match="native_artifact_output_materializer_unavailable"):
-        executor.execute(hub_task_id=outputs.task["id"], task=outputs.task, command="synthetic", trace_id="trace",
-                         timeout_seconds=1, agent_config={})
+        executor.execute(
+            hub_task_id=outputs.task["id"],
+            task=outputs.task,
+            command="synthetic",
+            trace_id="trace",
+            timeout_seconds=1,
+            agent_config={},
+        )
     assert calls == []
 
 
@@ -162,16 +216,32 @@ def test_real_worker_policy_execution_materializes_only_successful_output(output
     )
     script = "from pathlib import Path; Path('result.txt').write_bytes(b'policy-checked output')"
     command = shlex.join([sys.executable, "-c", script])
-    config = {"worker_runtime": {"native_worker_runtime": {"shell_policy": {
-        "allowlist": [sys.executable],
-        "approval_required_commands": [] if allowed else [sys.executable],
-    }}}}
-    result = executor.execute(hub_task_id=outputs.task["id"], task=outputs.task, command=command,
-                              trace_id="synthetic-policy-test", timeout_seconds=10, agent_config=config)
+    config = {
+        "worker_runtime": {
+            "native_worker_runtime": {
+                "shell_policy": {
+                    "allowlist": [sys.executable],
+                    "approval_required_commands": [] if allowed else [sys.executable],
+                }
+            }
+        }
+    }
+    result = executor.execute(
+        hub_task_id=outputs.task["id"],
+        task=outputs.task,
+        command=command,
+        trace_id="synthetic-policy-test",
+        timeout_seconds=10,
+        agent_config=config,
+    )
     if allowed:
         assert result["status"] == "completed", result
-        artifact = outputs.reader.read(command=outputs.command, task=outputs.task, output_name="declared-output",
-                                       reference=result["artifact_refs"]["declared-output"])
+        artifact = outputs.reader.read(
+            command=outputs.command,
+            task=outputs.task,
+            output_name="declared-output",
+            reference=result["artifact_refs"]["declared-output"],
+        )
         assert artifact.content == b"policy-checked output"
     else:
         assert result["status"] == "blocked", result

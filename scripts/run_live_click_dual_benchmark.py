@@ -109,7 +109,9 @@ def build_worker_execution_config(
     }
 
 
-def req(base: str, method: str, path: str, body: Any | None = None, token: str | None = None, timeout: int = 60) -> dict:
+def req(
+    base: str, method: str, path: str, body: Any | None = None, token: str | None = None, timeout: int = 60
+) -> dict:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -234,8 +236,8 @@ def resolve_admin_credentials_via_hub_container(
 
 def _inline_auth_script(admin_user: str, admin_password: str) -> str:
     return f"""
-user = {json.dumps(str(admin_user or '').strip() or 'admin')}
-pwd = {json.dumps(str(admin_password or '').strip())}
+user = {json.dumps(str(admin_user or "").strip() or "admin")}
+pwd = {json.dumps(str(admin_password or "").strip())}
 if not pwd:
     pwd = os.getenv('E2E_ADMIN_PASSWORD') or os.getenv('INITIAL_ADMIN_PASSWORD') or ''
 """
@@ -292,7 +294,9 @@ def get_config_via_hub_container(container_name: str, admin_user: str, admin_pas
         return {}
 
 
-def set_config_via_agent_container(container_name: str, config_patch: dict, admin_user: str, admin_password: str) -> dict:
+def set_config_via_agent_container(
+    container_name: str, config_patch: dict, admin_user: str, admin_password: str
+) -> dict:
     payload = json.dumps(config_patch, ensure_ascii=True)
     script = (
         "import json, urllib.request, os\n"
@@ -359,7 +363,9 @@ def apply_config_to_agent_containers(
     return applied
 
 
-def get_configs_from_agent_containers(agent_containers: list[str], admin_user: str, admin_password: str) -> dict[str, dict]:
+def get_configs_from_agent_containers(
+    agent_containers: list[str], admin_user: str, admin_password: str
+) -> dict[str, dict]:
     captured: dict[str, dict] = {}
     for container_name in agent_containers:
         name = str(container_name or "").strip()
@@ -407,7 +413,9 @@ def collect_benchmark_result(report_path: Path) -> dict[str, Any]:
     return out
 
 
-def run_click_test(report_path: Path, goal_text: str, admin_user: str, admin_password: str, extra_args: list[str]) -> None:
+def run_click_test(
+    report_path: Path, goal_text: str, admin_user: str, admin_password: str, extra_args: list[str]
+) -> None:
     cmd = [
         sys.executable,
         "scripts/firefox_live_click_extended.py",
@@ -443,13 +451,25 @@ def run_click_test(report_path: Path, goal_text: str, admin_user: str, admin_pas
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run full live click benchmark in two modes: single-model and mixed-model.")
+    parser = argparse.ArgumentParser(
+        description="Run full live click benchmark in two modes: single-model and mixed-model."
+    )
     parser.add_argument("--hub-base-url", default=os.getenv("HUB_BASE_URL", "http://127.0.0.1:5000"))
     parser.add_argument("--hub-container", default=os.getenv("ANANTA_HUB_CONTAINER", "ananta-ai-agent-hub-1"))
-    parser.add_argument("--admin-user", default=os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _env_value("INITIAL_ADMIN_USER") or "admin")
+    parser.add_argument(
+        "--admin-user",
+        default=os.getenv("E2E_ADMIN_USER")
+        or os.getenv("INITIAL_ADMIN_USER")
+        or _env_value("INITIAL_ADMIN_USER")
+        or "admin",
+    )
     parser.add_argument(
         "--admin-password",
-        default=os.getenv("E2E_ADMIN_PASSWORD") or os.getenv("INITIAL_ADMIN_PASSWORD") or _env_value("E2E_ADMIN_PASSWORD") or _env_value("INITIAL_ADMIN_PASSWORD") or "test123",
+        default=os.getenv("E2E_ADMIN_PASSWORD")
+        or os.getenv("INITIAL_ADMIN_PASSWORD")
+        or _env_value("E2E_ADMIN_PASSWORD")
+        or _env_value("INITIAL_ADMIN_PASSWORD")
+        or "test123",
     )
     parser.add_argument(
         "--goal-text",
@@ -540,13 +560,18 @@ def main() -> int:
             if use_container_config
             else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
         )
-        container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload, admin_user, admin_password)
+        container_cfg_single = apply_config_to_agent_containers(
+            agent_containers, single_cfg_payload, admin_user, admin_password
+        )
         print("single_config_default_model", cfg_single.get("default_model"), flush=True)
         print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
         print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
         print(
             "single_agent_container_routing",
-            {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_single.items()},
+            {
+                name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None)
+                for name, cfg in container_cfg_single.items()
+            },
             flush=True,
         )
         try:
@@ -579,7 +604,9 @@ def main() -> int:
             if use_container_config
             else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
         )
-        container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload, admin_user, admin_password)
+        container_cfg_mixed = apply_config_to_agent_containers(
+            agent_containers, mixed_cfg_payload, admin_user, admin_password
+        )
         print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
         print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
         print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
@@ -587,7 +614,10 @@ def main() -> int:
         print("mixed_config_routing", cfg_mixed.get("sgpt_routing"), flush=True)
         print(
             "mixed_agent_container_routing",
-            {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_mixed.items()},
+            {
+                name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None)
+                for name, cfg in container_cfg_mixed.items()
+            },
             flush=True,
         )
         try:

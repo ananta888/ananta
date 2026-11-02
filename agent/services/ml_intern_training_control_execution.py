@@ -6,6 +6,7 @@ import base64
 import copy
 import hashlib
 import json
+import logging
 import secrets
 from concurrent.futures import Future
 from pathlib import Path
@@ -276,12 +277,14 @@ class MlInternTrainingControlExecutionMixin:
                 return
             try:
                 self._repository.append_event(
-                    principal, job_id, event_type="evidence_completion_pending",
+                    principal,
+                    job_id,
+                    event_type="evidence_completion_pending",
                     dedupe_key=f"evidence-pending:{projected.active_attempt_id}:{projected.version}",
                     payload={"reason_code": str(getattr(exc, "reason_code", "evidence_completion_failed"))[:128]},
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_complete_job_evidence: ignored Exception", exc_info=True)
 
     def _finalize_execution_dispatch(
         self,
@@ -317,12 +320,12 @@ class MlInternTrainingControlExecutionMixin:
             except Exception:
                 # The domain job/attempt is authoritative. A projection
                 # failure must not rewrite an already durable outcome.
-                pass
+                logging.getLogger(__name__).debug("_finalize_execution_dispatch: ignored Exception", exc_info=True)
         if release_execution_slot:
             try:
                 self._repository.release_execution_slot(job_id)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_finalize_execution_dispatch: ignored Exception", exc_info=True)
         with self._lock:
             self._scheduled_job_ids.discard(job_id)
             if capacity_deferred:

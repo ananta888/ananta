@@ -1,4 +1,5 @@
 """CaseFlow Blueprint Binding — connects cases to VisualProcess workflows."""
+
 from __future__ import annotations
 
 import uuid

@@ -10,6 +10,36 @@ from flask import Blueprint, jsonify, request
 
 from agent.auth import check_service_auth, check_user_auth
 from agent.models.semantic_principal import SemanticPrincipal
+from agent.routes.semantic_media_contract_route_authority import (
+    _capability_record,
+    _hub_fallback_healthy,
+    _hub_security_confirmed,
+    _require_hub_compute_enabled,
+    _semantic_permission_service,
+    _training_capability_authorised,
+)
+from agent.routes.semantic_media_contract_route_dependencies import (
+    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES,
+    SemanticMediaContractRouteDependencies,
+)
+from agent.routes.semantic_media_contract_route_parsing import (
+    _advertisements,
+    _body,
+    _boolean,
+    _bounded_int,
+    _bounded_string,
+    _error,
+    _idempotency_key,
+    _identifier,
+    _mapping,
+    _optional_identifier,
+    _principal,
+    _query_scope,
+    _resource_budget,
+    _revision_precondition,
+    _worker_body,
+    _worker_url,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.semantic_compute_execution_service import (
     SemanticComputeExecutionError,
@@ -35,39 +65,9 @@ from agent.services.semantic_server_compute_service import (
 from agent.services.workflow_worker_service_auth import (
     SEMANTIC_COMPUTE_WORKER_SCOPE,
 )
-from agent.routes.semantic_media_contract_route_parsing import (
-    _advertisements,
-    _body,
-    _boolean,
-    _bounded_int,
-    _bounded_string,
-    _error,
-    _idempotency_key,
-    _identifier,
-    _mapping,
-    _optional_identifier,
-    _principal,
-    _query_scope,
-    _resource_budget,
-    _revision_precondition,
-    _worker_body,
-    _worker_url,
-)
-from agent.routes.semantic_media_contract_route_authority import (
-    _capability_record,
-    _hub_fallback_healthy,
-    _hub_security_confirmed,
-    _require_hub_compute_enabled,
-    _semantic_permission_service,
-    _training_capability_authorised,
-)
-from agent.routes.semantic_media_contract_route_dependencies import (
-    SEMANTIC_MEDIA_CONTRACT_ROUTE_DEPENDENCIES,
-    SemanticMediaContractRouteDependencies,
-)
-
 
 semantic_media_contracts_bp = Blueprint("semantic_media_contracts", __name__)
+
 
 def _dependencies() -> SemanticMediaContractRouteDependencies:
     """This application's route collaborators (per-app seam, production default)."""
@@ -209,10 +209,7 @@ def issue_semantic_media_capability_grant():
             data_type=_bounded_string(body["data_type"], "data_type", 1, 128),
             purpose=_bounded_string(body["purpose"], "purpose", 1, 128),
             epoch=epoch,
-            expires_at=_bounded_int(
-                body["expires_at_ms"], "expires_at_ms", 1, 9_007_199_254_740_991
-            )
-            / 1000.0,
+            expires_at=_bounded_int(body["expires_at_ms"], "expires_at_ms", 1, 9_007_199_254_740_991) / 1000.0,
             idempotency_key=_idempotency_key(),
         )
         payload = _capability_record(grant, revoked_at=None, revoked_by=None, revocation_version=0)
@@ -298,18 +295,22 @@ def create_semantic_contract_offer():
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "publish", direction="egress")
-        result = _dependencies().contract_service().create_offer(
-            principal,
-            session_id=_identifier(body["session_id"], "session_id"),
-            room_id=_optional_identifier(body.get("room_id"), "room_id"),
-            epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
-            policy_version=_identifier(body["policy_version"], "policy_version"),
-            consent_version=_bounded_int(body["consent_version"], "consent_version", 1, 2_147_483_647),
-            security_confirmed=_hub_security_confirmed(),
-            fallback_healthy=_hub_fallback_healthy(),
-            proposal=_mapping(body["proposal"], "proposal"),
-            advertisements=_advertisements(body.get("advertisements", [])),
-            idempotency_key=_idempotency_key(),
+        result = (
+            _dependencies()
+            .contract_service()
+            .create_offer(
+                principal,
+                session_id=_identifier(body["session_id"], "session_id"),
+                room_id=_optional_identifier(body.get("room_id"), "room_id"),
+                epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+                policy_version=_identifier(body["policy_version"], "policy_version"),
+                consent_version=_bounded_int(body["consent_version"], "consent_version", 1, 2_147_483_647),
+                security_confirmed=_hub_security_confirmed(),
+                fallback_healthy=_hub_fallback_healthy(),
+                proposal=_mapping(body["proposal"], "proposal"),
+                advertisements=_advertisements(body.get("advertisements", [])),
+                idempotency_key=_idempotency_key(),
+            )
         )
         return jsonify({"ok": True, "contract": result, "data": result}), 201
     except SemanticContractServiceError as exc:
@@ -329,19 +330,23 @@ def mutate_semantic_contract(contract_id: str, action: str):
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "publish", direction="egress")
-        result = _dependencies().contract_service().mutate(
-            principal,
-            contract_id=_identifier(contract_id, "contract_id"),
-            session_id=_identifier(body["session_id"], "session_id"),
-            epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
-            action=action,
-            expected_revision=_revision_precondition(body),
-            idempotency_key=_idempotency_key(),
-            proposal=_mapping(body.get("proposal", {}), "proposal"),
-            consent_version=_bounded_int(body["consent_version"], "consent_version", 0, 2_147_483_647),
-            security_confirmed=_hub_security_confirmed(),
-            fallback_healthy=_hub_fallback_healthy(),
-            advertisements=_advertisements(body.get("advertisements", [])),
+        result = (
+            _dependencies()
+            .contract_service()
+            .mutate(
+                principal,
+                contract_id=_identifier(contract_id, "contract_id"),
+                session_id=_identifier(body["session_id"], "session_id"),
+                epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+                action=action,
+                expected_revision=_revision_precondition(body),
+                idempotency_key=_idempotency_key(),
+                proposal=_mapping(body.get("proposal", {}), "proposal"),
+                consent_version=_bounded_int(body["consent_version"], "consent_version", 0, 2_147_483_647),
+                security_confirmed=_hub_security_confirmed(),
+                fallback_healthy=_hub_fallback_healthy(),
+                advertisements=_advertisements(body.get("advertisements", [])),
+            )
         )
         return jsonify({"ok": True, "contract": result, "data": result}), 200
     except SemanticContractServiceError as exc:
@@ -356,11 +361,15 @@ def semantic_contract_detail(contract_id: str):
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = _dependencies().contract_service().detail(
-            principal,
-            contract_id=_identifier(contract_id, "contract_id"),
-            session_id=str(body["session_id"]),
-            epoch=int(body["epoch"]),
+        result = (
+            _dependencies()
+            .contract_service()
+            .detail(
+                principal,
+                contract_id=_identifier(contract_id, "contract_id"),
+                session_id=str(body["session_id"]),
+                epoch=int(body["epoch"]),
+            )
         )
         return jsonify({"ok": True, "contract": result, "data": result}), 200
     except SemanticContractServiceError as exc:
@@ -377,12 +386,16 @@ def list_semantic_contracts():
         _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
         offset = _bounded_int(request.args.get("offset", "0"), "offset", 0, 10_000_000)
         limit = _bounded_int(request.args.get("limit", "50"), "limit", 1, 100)
-        result = _dependencies().contract_service().list(
-            principal,
-            session_id=str(body["session_id"]),
-            epoch=int(body["epoch"]),
-            offset=offset,
-            limit=limit,
+        result = (
+            _dependencies()
+            .contract_service()
+            .list(
+                principal,
+                session_id=str(body["session_id"]),
+                epoch=int(body["epoch"]),
+                offset=offset,
+                limit=limit,
+            )
         )
         return jsonify({"ok": True, "contracts": result, "data": result}), 200
     except SemanticContractServiceError as exc:
@@ -397,13 +410,17 @@ def register_semantic_compute_candidate_key():
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
-        result = _dependencies().compute_execution_service().register_candidate_key(
-            principal,
-            session_id=_identifier(body["session_id"], "session_id"),
-            epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
-            key_id=_identifier(body["key_id"], "key_id"),
-            public_key_b64=_bounded_string(body["public_key_b64"], "public_key_b64", 40, 128),
-            expires_at_ms=_bounded_int(body["expires_at_ms"], "expires_at_ms", 1, 9_007_199_254_740_991),
+        result = (
+            _dependencies()
+            .compute_execution_service()
+            .register_candidate_key(
+                principal,
+                session_id=_identifier(body["session_id"], "session_id"),
+                epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+                key_id=_identifier(body["key_id"], "key_id"),
+                public_key_b64=_bounded_string(body["public_key_b64"], "public_key_b64", 40, 128),
+                expires_at_ms=_bounded_int(body["expires_at_ms"], "expires_at_ms", 1, 9_007_199_254_740_991),
+            )
         )
         return jsonify({"ok": True, "candidate_key": result, "data": result}), 201
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
@@ -433,11 +450,15 @@ def list_semantic_compute_candidate_claims():
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = _dependencies().compute_execution_service().list_candidate_claims(
-            principal,
-            session_id=str(body["session_id"]),
-            epoch=int(body["epoch"]),
-            room_id=_optional_identifier(request.args.get("room_id"), "room_id"),
+        result = (
+            _dependencies()
+            .compute_execution_service()
+            .list_candidate_claims(
+                principal,
+                session_id=str(body["session_id"]),
+                epoch=int(body["epoch"]),
+                room_id=_optional_identifier(request.args.get("room_id"), "room_id"),
+            )
         )
         return jsonify({"ok": True, "capabilities": result, "data": result}), 200
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
@@ -453,21 +474,27 @@ def schedule_semantic_compute(contract_id: str):
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "compute", direction="egress")
         expected_revision = _revision_precondition(body)
-        result = _dependencies().compute_execution_service().schedule(
-            principal,
-            contract_id=_identifier(contract_id, "contract_id"),
-            session_id=_identifier(body["session_id"], "session_id"),
-            epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
-            expected_revision=expected_revision,
-            task_type=_identifier(body["task_type"], "task_type"),
-            audience=_identifier(body["audience"], "audience"),
-            sequence_start=_bounded_int(body["sequence_start"], "sequence_start", 0, 2_147_483_647),
-            sequence_end=_bounded_int(body["sequence_end"], "sequence_end", 0, 2_147_483_647),
-            resource_budget=_resource_budget(body["resource_budget"]),
-            deadline_epoch_ms=_bounded_int(body["deadline_epoch_ms"], "deadline_epoch_ms", 1, 9_007_199_254_740_991),
-            validator_count=_bounded_int(body["validator_count"], "validator_count", 0, 2),
-            hot_standby=_boolean(body["hot_standby"], "hot_standby"),
-            idempotency_key=_idempotency_key(),
+        result = (
+            _dependencies()
+            .compute_execution_service()
+            .schedule(
+                principal,
+                contract_id=_identifier(contract_id, "contract_id"),
+                session_id=_identifier(body["session_id"], "session_id"),
+                epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+                expected_revision=expected_revision,
+                task_type=_identifier(body["task_type"], "task_type"),
+                audience=_identifier(body["audience"], "audience"),
+                sequence_start=_bounded_int(body["sequence_start"], "sequence_start", 0, 2_147_483_647),
+                sequence_end=_bounded_int(body["sequence_end"], "sequence_end", 0, 2_147_483_647),
+                resource_budget=_resource_budget(body["resource_budget"]),
+                deadline_epoch_ms=_bounded_int(
+                    body["deadline_epoch_ms"], "deadline_epoch_ms", 1, 9_007_199_254_740_991
+                ),
+                validator_count=_bounded_int(body["validator_count"], "validator_count", 0, 2),
+                hot_standby=_boolean(body["hot_standby"], "hot_standby"),
+                idempotency_key=_idempotency_key(),
+            )
         )
         return jsonify({"ok": True, "schedule": result, "data": result}), 201
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
@@ -482,12 +509,16 @@ def list_semantic_compute_leases(contract_id: str):
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        result = _dependencies().compute_execution_service().list_leases(
-            principal,
-            session_id=str(body["session_id"]),
-            epoch=int(body["epoch"]),
-            contract_id=_identifier(contract_id, "contract_id"),
-            limit=_bounded_int(request.args.get("limit", "100"), "limit", 1, 200),
+        result = (
+            _dependencies()
+            .compute_execution_service()
+            .list_leases(
+                principal,
+                session_id=str(body["session_id"]),
+                epoch=int(body["epoch"]),
+                contract_id=_identifier(contract_id, "contract_id"),
+                limit=_bounded_int(request.args.get("limit", "100"), "limit", 1, 200),
+            )
         )
         return jsonify({"ok": True, "leases": result, "data": result}), 200
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
@@ -751,11 +782,15 @@ def semantic_compute_explanation(contract_id: str):
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "subscribe", direction="ingress")
-        detail = _dependencies().contract_service().detail(
-            principal,
-            contract_id=_identifier(contract_id, "contract_id"),
-            session_id=str(body["session_id"]),
-            epoch=int(body["epoch"]),
+        detail = (
+            _dependencies()
+            .contract_service()
+            .detail(
+                principal,
+                contract_id=_identifier(contract_id, "contract_id"),
+                session_id=str(body["session_id"]),
+                epoch=int(body["epoch"]),
+            )
         )
         expected_revision = _bounded_int(request.args.get("expected_revision"), "expected_revision", 1, 2_147_483_647)
         expected_digest = str(request.args.get("expected_digest") or "")
@@ -799,11 +834,15 @@ def semantic_compute_suggestion(contract_id: str):
         principal = _principal()
         _establish_membership(principal, body)
         _dependencies().require_semantic_capability(principal, body, "validate", direction="egress")
-        detail = _dependencies().contract_service().detail(
-            principal,
-            contract_id=_identifier(contract_id, "contract_id"),
-            session_id=_identifier(body["session_id"], "session_id"),
-            epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+        detail = (
+            _dependencies()
+            .contract_service()
+            .detail(
+                principal,
+                contract_id=_identifier(contract_id, "contract_id"),
+                session_id=_identifier(body["session_id"], "session_id"),
+                epoch=_bounded_int(body["epoch"], "epoch", 1, 2_147_483_647),
+            )
         )
         expected_revision = _bounded_int(body["expected_revision"], "expected_revision", 1, 2_147_483_647)
         expected_digest = str(body["expected_digest"] or "")

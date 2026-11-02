@@ -1,5 +1,4 @@
-"""Source operation, index lifecycle, bulk and event routes of the Source Control v1 API.
-"""
+"""Source operation, index lifecycle, bulk and event routes of the Source Control v1 API."""
 
 from __future__ import annotations
 
@@ -46,7 +45,8 @@ def register_lifecycle_routes(
             required=frozenset({"dry_run"}),
         )
         if_match, idempotency_key = require_execution_contract(payload)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=action,
             resource_kind=resource_kind,
             resource_id=resource_id,
@@ -79,7 +79,8 @@ def register_lifecycle_routes(
             required=required_fields,
         )
         if_match, idempotency_key = require_execution_contract(payload)
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=action,
             resource_kind="source_connection",
             resource_id=connection_id,
@@ -204,7 +205,8 @@ def register_bulk_and_event_routes(
     @check_auth
     @boundary
     def bulk_plan():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_connection",
             collection=True,
@@ -220,7 +222,8 @@ def register_bulk_and_event_routes(
     @check_auth
     @boundary
     def bulk_execute():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.DELETE,
             resource_kind="source_connection",
             collection=True,
@@ -242,7 +245,8 @@ def register_bulk_and_event_routes(
     @check_auth
     @boundary
     def poll_events():
-        denied = request_guard.authorize(api,
+        denied = request_guard.authorize(
+            api,
             action=SourceControlAction.LIST,
             resource_kind="source_control_event",
             collection=True,

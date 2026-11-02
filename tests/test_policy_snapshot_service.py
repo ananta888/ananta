@@ -1,14 +1,15 @@
 """Tests for PolicySnapshotService (TRANS-002)."""
+
 from __future__ import annotations
 
 import json
 
 from agent.services.policy_snapshot_service import PolicySnapshot, PolicySnapshotService
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_service() -> PolicySnapshotService:
     return PolicySnapshotService()
@@ -22,6 +23,7 @@ def _minimal_snap(run_id: str = "run-001") -> PolicySnapshot:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_capture_has_stable_hash() -> None:
     """Same policy configuration must produce the same config_hash."""

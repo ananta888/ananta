@@ -1,4 +1,5 @@
 """Round 7 tests: chat_codecompass Python strategies and their bootstrap JSON files."""
+
 from __future__ import annotations
 
 import json
@@ -40,11 +41,13 @@ def _ctx(
 
 # ── SelectedArtifactFirstStrategy ────────────────────────────────────────────
 
+
 class TestSelectedArtifactFirstStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.selected_artifact_first import (
             SelectedArtifactFirstStrategy,
         )
+
         return SelectedArtifactFirstStrategy()
 
     def test_no_action_when_no_artifact(self):
@@ -61,17 +64,17 @@ class TestSelectedArtifactFirstStrategy:
         assert any("selected_artifact:" in rc for rc in r.reason_codes)
 
     def test_reason_code_reports_scope_count(self):
-        r = self._s().evaluate(
-            _ctx(artifacts=["X.py"], scopes=["scope_a", "scope_b"]), _def()
-        )
+        r = self._s().evaluate(_ctx(artifacts=["X.py"], scopes=["scope_a", "scope_b"]), _def())
         assert any("scope_count:2" in rc for rc in r.reason_codes)
 
 
 # ── SymbolLookupStrategy ──────────────────────────────────────────────────────
 
+
 class TestSymbolLookupStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.symbol_lookup import SymbolLookupStrategy
+
         return SymbolLookupStrategy()
 
     def test_no_action_on_empty_query(self):
@@ -80,9 +83,7 @@ class TestSymbolLookupStrategy:
 
     def test_no_action_when_no_scopes(self):
         # query has enough symbol keywords to pass score threshold but no scopes
-        r = self._s().evaluate(
-            _ctx(query="class method function interface implements extends"), _def()
-        )
+        r = self._s().evaluate(_ctx(query="class method function interface implements extends"), _def())
         assert r.action_kind == "no_action"
         assert any("no_scopes" in rc for rc in r.reason_codes)
 
@@ -95,9 +96,7 @@ class TestSymbolLookupStrategy:
 
     def test_confidence_scales_with_score(self):
         # Both queries exceed threshold; higher keyword density → higher confidence
-        r_low = self._s().evaluate(
-            _ctx(query="class method import", scopes=["s"]), _def()
-        )
+        r_low = self._s().evaluate(_ctx(query="class method import", scopes=["s"]), _def())
         r_high = self._s().evaluate(
             _ctx(query="class method function interface implements extends import override enum def", scopes=["s"]),
             _def(),
@@ -118,9 +117,11 @@ class TestSymbolLookupStrategy:
 
 # ── ErrorLookupStrategy ───────────────────────────────────────────────────────
 
+
 class TestErrorLookupStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.error_lookup import ErrorLookupStrategy
+
         return ErrorLookupStrategy()
 
     def test_no_action_on_non_error_query(self):
@@ -149,9 +150,11 @@ class TestErrorLookupStrategy:
 
 # ── TodoStatusStrategy ────────────────────────────────────────────────────────
 
+
 class TestTodoStatusStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.todo_status import TodoStatusStrategy
+
         return TodoStatusStrategy()
 
     def test_no_action_on_unrelated_query(self):
@@ -182,11 +185,13 @@ class TestTodoStatusStrategy:
 
 # ── SourcePackLookupStrategy ──────────────────────────────────────────────────
 
+
 class TestSourcePackLookupStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.sourcepack_lookup import (
             SourcePackLookupStrategy,
         )
+
         return SourcePackLookupStrategy()
 
     def test_no_action_without_scopes(self):
@@ -217,9 +222,11 @@ class TestSourcePackLookupStrategy:
 
 # ── NoGoodMatchStrategy ───────────────────────────────────────────────────────
 
+
 class TestNoGoodMatchStrategy:
     def _s(self):
         from agent.heuristics.strategies.chat_codecompass.no_good_match import NoGoodMatchStrategy
+
         return NoGoodMatchStrategy()
 
     def test_always_no_action(self):
@@ -287,6 +294,7 @@ class TestRound7BootstrapFiles:
 
     def test_python_strategy_modules_allowlisted(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         loader = PythonStrategyLoader()
         for fn in _CHAT_NEW_FILES:
             d = self._load(fn)
@@ -295,9 +303,7 @@ class TestRound7BootstrapFiles:
             assert loader.is_allowlisted(mod, cls), f"{fn}: not allowlisted: {mod}.{cls}"
 
     def test_index_includes_all_new_entries(self):
-        index = json.load(
-            open(os.path.join(os.path.dirname(__file__), "..", "heuristics", "index.json"))
-        )
+        index = json.load(open(os.path.join(os.path.dirname(__file__), "..", "heuristics", "index.json")))
         ids = {h["heuristic_id"] for h in index["heuristics"]}
         for fn in _CHAT_NEW_FILES:
             hid = fn.replace(".heuristic.json", "")

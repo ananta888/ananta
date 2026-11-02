@@ -26,10 +26,14 @@ class ProviderBudgetLimits:
     maximum_cost_micros: int
 
     def assert_valid(self) -> None:
-        if self.maximum_attempts < 0 or min(
-            self.maximum_tokens,
-            self.maximum_cost_micros,
-        ) < 0:
+        if (
+            self.maximum_attempts < 0
+            or min(
+                self.maximum_tokens,
+                self.maximum_cost_micros,
+            )
+            < 0
+        ):
             raise ProviderBudgetError("provider_budget_limits_invalid")
 
 
@@ -39,12 +43,7 @@ class ProviderAttemptScope:
     maximum_attempts: int
 
     def assert_valid(self) -> None:
-        if (
-            not self.scope_id
-            or len(self.scope_id) > 256
-            or "\x00" in self.scope_id
-            or self.maximum_attempts < 1
-        ):
+        if not self.scope_id or len(self.scope_id) > 256 or "\x00" in self.scope_id or self.maximum_attempts < 1:
             raise ProviderBudgetError("provider_attempt_scope_invalid")
 
 
@@ -58,11 +57,7 @@ class ProviderProfileAttemptReservation:
 
     def assert_valid(self) -> None:
         self.current.assert_valid()
-        if (
-            not self.reservation_id
-            or len(self.reservation_id) > 256
-            or "\x00" in self.reservation_id
-        ):
+        if not self.reservation_id or len(self.reservation_id) > 256 or "\x00" in self.reservation_id:
             raise ProviderBudgetError("provider_attempt_reservation_invalid")
         seen: set[str] = {self.current.scope_id}
         for predecessor in self.predecessors:
@@ -85,11 +80,7 @@ class ProviderScopedBudgetReservation:
     limits: ProviderBudgetLimits
 
     def assert_valid(self) -> None:
-        if (
-            not self.scope_id
-            or len(self.scope_id) > 256
-            or "\x00" in self.scope_id
-        ):
+        if not self.scope_id or len(self.scope_id) > 256 or "\x00" in self.scope_id:
             raise ProviderBudgetError("provider_scoped_budget_invalid")
         self.limits.assert_valid()
 
@@ -132,31 +123,23 @@ class ProviderBudgetSnapshot:
             "maximum_cost_micros": self.limits.maximum_cost_micros,
             "remaining_attempts": max(0, self.limits.maximum_attempts - self.attempts),
             "remaining_tokens": (
-                max(0, self.limits.maximum_tokens - self.tokens)
-                if self.limits.maximum_tokens
-                else None
+                max(0, self.limits.maximum_tokens - self.tokens) if self.limits.maximum_tokens else None
             ),
             "remaining_cost_micros": (
-                max(0, self.limits.maximum_cost_micros - self.cost_micros)
-                if self.limits.maximum_cost_micros
-                else None
+                max(0, self.limits.maximum_cost_micros - self.cost_micros) if self.limits.maximum_cost_micros else None
             ),
             "reconciled": self.reconciled,
             "reason_code": self.reason_code,
         }
         if self.profile_attempts is not None:
             payload["profile_attempts"] = self.profile_attempts
-            payload["profile_maximum_attempts"] = (
-                self.profile_maximum_attempts
-            )
+            payload["profile_maximum_attempts"] = self.profile_maximum_attempts
         if self.scoped_tokens is not None:
             payload.update(
                 {
                     "scoped_tokens": self.scoped_tokens,
                     "scoped_cost_micros": self.scoped_cost_micros,
-                    "scoped_budget_overrun": (
-                        self.scoped_budget_overrun
-                    ),
+                    "scoped_budget_overrun": (self.scoped_budget_overrun),
                 }
             )
         return payload
@@ -218,12 +201,8 @@ class InMemoryProviderBudgetStore:
     def __init__(self) -> None:
         self._usage: dict[tuple[str, str, str], _Usage] = {}
         self._reservations: dict[tuple[str, str, str], _Reservation] = {}
-        self._profile_attempt_usage: dict[
-            tuple[str, str], _ProfileAttemptUsage
-        ] = {}
-        self._profile_attempt_reservations: set[
-            tuple[str, str, str]
-        ] = set()
+        self._profile_attempt_usage: dict[tuple[str, str], _ProfileAttemptUsage] = {}
+        self._profile_attempt_reservations: set[tuple[str, str, str]] = set()
         self._lock = threading.RLock()
 
     def reserve(
@@ -249,42 +228,24 @@ class InMemoryProviderBudgetStore:
                 raise ProviderBudgetError("provider_scoped_budget_invalid")
         usage_key = (tenant_id, run_id, policy_version)
         reservation_key = (tenant_id, run_id, reservation_id)
-        scoped_usage_key = (
-            (tenant_id, scoped_budget.scope_id, policy_version)
-            if scoped_budget is not None
-            else None
-        )
+        scoped_usage_key = (tenant_id, scoped_budget.scope_id, policy_version) if scoped_budget is not None else None
         scoped_reservation_key = (
-            (tenant_id, scoped_budget.scope_id, reservation_id)
-            if scoped_budget is not None
-            else None
+            (tenant_id, scoped_budget.scope_id, reservation_id) if scoped_budget is not None else None
         )
         with self._lock:
             usage = self._usage.get(usage_key)
             if usage is not None and usage.limits != limits:
                 raise ProviderBudgetError("provider_budget_limits_mismatch")
-            scoped_usage = (
-                self._usage.get(scoped_usage_key)
-                if scoped_usage_key is not None
-                else None
-            )
-            if (
-                scoped_usage is not None
-                and scoped_budget is not None
-                and scoped_usage.limits != scoped_budget.limits
-            ):
+            scoped_usage = self._usage.get(scoped_usage_key) if scoped_usage_key is not None else None
+            if scoped_usage is not None and scoped_budget is not None and scoped_usage.limits != scoped_budget.limits:
                 raise ProviderBudgetError("provider_budget_limits_mismatch")
             existing = self._reservations.get(reservation_key)
             scoped_existing = (
-                self._reservations.get(scoped_reservation_key)
-                if scoped_reservation_key is not None
-                else None
+                self._reservations.get(scoped_reservation_key) if scoped_reservation_key is not None else None
             )
             if existing is not None:
                 if usage is None:
-                    raise ProviderBudgetError(
-                        "provider_budget_aggregate_missing"
-                    )
+                    raise ProviderBudgetError("provider_budget_aggregate_missing")
                 _assert_reservation_binding(
                     existing,
                     policy_version=policy_version,
@@ -314,9 +275,7 @@ class InMemoryProviderBudgetStore:
                     scoped_usage=scoped_usage,
                 )
             if scoped_existing is not None:
-                raise ProviderBudgetError(
-                    "provider_budget_atomic_binding_mismatch"
-                )
+                raise ProviderBudgetError("provider_budget_atomic_binding_mismatch")
             profile_usage = self._assert_profile_attempt_capacity(
                 tenant_id=tenant_id,
                 profile_attempt=profile_attempt,
@@ -327,13 +286,8 @@ class InMemoryProviderBudgetStore:
                 reserved_tokens,
                 reserved_cost_micros,
             )
-            candidate_scoped_usage = (
-                scoped_usage
-                or (
-                    _Usage(limits=scoped_budget.limits)
-                    if scoped_budget is not None
-                    else None
-                )
+            candidate_scoped_usage = scoped_usage or (
+                _Usage(limits=scoped_budget.limits) if scoped_budget is not None else None
             )
             if candidate_scoped_usage is not None:
                 _assert_capacity(
@@ -344,11 +298,7 @@ class InMemoryProviderBudgetStore:
             if usage is None:
                 usage = candidate_usage
                 self._usage[usage_key] = usage
-            if (
-                scoped_usage is None
-                and scoped_usage_key is not None
-                and candidate_scoped_usage is not None
-            ):
+            if scoped_usage is None and scoped_usage_key is not None and candidate_scoped_usage is not None:
                 scoped_usage = candidate_scoped_usage
                 self._usage[scoped_usage_key] = scoped_usage
             reservation = _Reservation(
@@ -360,10 +310,7 @@ class InMemoryProviderBudgetStore:
             usage.attempts += 1
             usage.tokens += reserved_tokens
             usage.cost_micros += reserved_cost_micros
-            if (
-                scoped_usage is not None
-                and scoped_reservation_key is not None
-            ):
+            if scoped_usage is not None and scoped_reservation_key is not None:
                 scoped_usage.attempts += 1
                 scoped_usage.tokens += reserved_tokens
                 scoped_usage.cost_micros += reserved_cost_micros
@@ -377,9 +324,7 @@ class InMemoryProviderBudgetStore:
                     profile_usage = _ProfileAttemptUsage(
                         maximum=profile_attempt.current.maximum_attempts,
                     )
-                    self._profile_attempt_usage[
-                        (tenant_id, profile_attempt.current.scope_id)
-                    ] = profile_usage
+                    self._profile_attempt_usage[(tenant_id, profile_attempt.current.scope_id)] = profile_usage
                 profile_usage.used += 1
                 self._profile_attempt_reservations.add(
                     (
@@ -427,16 +372,12 @@ class InMemoryProviderBudgetStore:
             if reservation.policy_version != policy_version:
                 raise ProviderBudgetError("provider_budget_reservation_binding_mismatch")
             scoped_usage = (
-                self._usage.get(
-                    (tenant_id, scoped_budget.scope_id, policy_version)
-                )
+                self._usage.get((tenant_id, scoped_budget.scope_id, policy_version))
                 if scoped_budget is not None
                 else None
             )
             scoped_reservation = (
-                self._reservations.get(
-                    (tenant_id, scoped_budget.scope_id, reservation_id)
-                )
+                self._reservations.get((tenant_id, scoped_budget.scope_id, reservation_id))
                 if scoped_budget is not None
                 else None
             )
@@ -455,14 +396,8 @@ class InMemoryProviderBudgetStore:
             if reservation.actual_total_tokens is not None:
                 if reservation.actual_total_tokens != actual_total_tokens:
                     raise ProviderBudgetError("provider_budget_reconciliation_conflict")
-                if (
-                    scoped_reservation is not None
-                    and scoped_reservation.actual_total_tokens
-                    != actual_total_tokens
-                ):
-                    raise ProviderBudgetError(
-                        "provider_budget_reconciliation_conflict"
-                    )
+                if scoped_reservation is not None and scoped_reservation.actual_total_tokens != actual_total_tokens:
+                    raise ProviderBudgetError("provider_budget_reconciliation_conflict")
                 return _snapshot(
                     tenant_id,
                     run_id,
@@ -478,23 +413,14 @@ class InMemoryProviderBudgetStore:
                 usage.tokens + actual_total_tokens - reservation.reserved_tokens,
             )
             reservation.actual_total_tokens = actual_total_tokens
-            if (
-                scoped_usage is not None
-                and scoped_reservation is not None
-            ):
+            if scoped_usage is not None and scoped_reservation is not None:
                 if scoped_reservation.actual_total_tokens is not None:
-                    raise ProviderBudgetError(
-                        "provider_budget_atomic_binding_mismatch"
-                    )
+                    raise ProviderBudgetError("provider_budget_atomic_binding_mismatch")
                 scoped_usage.tokens = max(
                     0,
-                    scoped_usage.tokens
-                    + actual_total_tokens
-                    - scoped_reservation.reserved_tokens,
+                    scoped_usage.tokens + actual_total_tokens - scoped_reservation.reserved_tokens,
                 )
-                scoped_reservation.actual_total_tokens = (
-                    actual_total_tokens
-                )
+                scoped_reservation.actual_total_tokens = actual_total_tokens
             return _snapshot(
                 tenant_id,
                 run_id,
@@ -515,22 +441,15 @@ class InMemoryProviderBudgetStore:
         if profile_attempt is None:
             return None
         for predecessor in profile_attempt.predecessors:
-            usage = self._profile_attempt_usage.get(
-                (tenant_id, predecessor.scope_id)
-            )
+            usage = self._profile_attempt_usage.get((tenant_id, predecessor.scope_id))
             used = int(usage.used if usage is not None else 0)
             if usage is not None and usage.maximum != predecessor.maximum_attempts:
                 raise ProviderBudgetError("retry_budget_maximum_mismatch")
             if used != predecessor.maximum_attempts:
-                raise ProviderBudgetError(
-                    "provider_attempt_plan_sequence_denied"
-                )
+                raise ProviderBudgetError("provider_attempt_plan_sequence_denied")
         key = (tenant_id, profile_attempt.current.scope_id)
         usage = self._profile_attempt_usage.get(key)
-        if (
-            usage is not None
-            and usage.maximum != profile_attempt.current.maximum_attempts
-        ):
+        if usage is not None and usage.maximum != profile_attempt.current.maximum_attempts:
             raise ProviderBudgetError("retry_budget_maximum_mismatch")
         if (
             tenant_id,
@@ -538,10 +457,7 @@ class InMemoryProviderBudgetStore:
             profile_attempt.reservation_id,
         ) in self._profile_attempt_reservations:
             raise ProviderBudgetError("provider_budget_atomic_binding_mismatch")
-        if (
-            usage is not None
-            and usage.used >= profile_attempt.current.maximum_attempts
-        ):
+        if usage is not None and usage.used >= profile_attempt.current.maximum_attempts:
             raise ProviderBudgetError("provider_retry_budget_exceeded")
         return usage
 
@@ -595,17 +511,11 @@ def _assert_capacity(
     reserved_tokens: int,
     reserved_cost_micros: int,
 ) -> None:
-    if (
-        usage.limits.maximum_attempts
-        and usage.attempts >= usage.limits.maximum_attempts
-    ):
+    if usage.limits.maximum_attempts and usage.attempts >= usage.limits.maximum_attempts:
         raise ProviderBudgetError("provider_retry_budget_exceeded")
     if usage.limits.maximum_tokens and usage.tokens + reserved_tokens > usage.limits.maximum_tokens:
         raise ProviderBudgetError("provider_token_budget_exceeded")
-    if (
-        usage.limits.maximum_cost_micros
-        and usage.cost_micros + reserved_cost_micros > usage.limits.maximum_cost_micros
-    ):
+    if usage.limits.maximum_cost_micros and usage.cost_micros + reserved_cost_micros > usage.limits.maximum_cost_micros:
         raise ProviderBudgetError("provider_cost_budget_exceeded")
 
 
@@ -635,19 +545,11 @@ def _assert_scoped_budget_replay(
 ) -> None:
     if scoped_budget is None:
         if usage is not None or reservation is not None:
-            raise ProviderBudgetError(
-                "provider_budget_atomic_binding_mismatch"
-            )
+            raise ProviderBudgetError("provider_budget_atomic_binding_mismatch")
         return
-    if (
-        usage is None
-        or reservation is None
-        or usage.limits != scoped_budget.limits
-    ):
+    if usage is None or reservation is None or usage.limits != scoped_budget.limits:
         if usage is None and reservation is None:
-            raise ProviderBudgetError(
-                "provider_scoped_budget_migration_required"
-            )
+            raise ProviderBudgetError("provider_scoped_budget_migration_required")
         raise ProviderBudgetError("provider_budget_atomic_binding_mismatch")
     _assert_reservation_binding(
         reservation,
@@ -668,21 +570,14 @@ def _snapshot(
     profile_usage: _ProfileAttemptUsage | None = None,
     scoped_usage: _Usage | None = None,
 ) -> ProviderBudgetSnapshot:
-    overrun = bool(
-        usage.limits.maximum_tokens and usage.tokens > usage.limits.maximum_tokens
-    )
+    overrun = bool(usage.limits.maximum_tokens and usage.tokens > usage.limits.maximum_tokens)
     scoped_overrun = bool(
         scoped_usage is not None
         and (
-            (
-                scoped_usage.limits.maximum_tokens
-                and scoped_usage.tokens
-                > scoped_usage.limits.maximum_tokens
-            )
+            (scoped_usage.limits.maximum_tokens and scoped_usage.tokens > scoped_usage.limits.maximum_tokens)
             or (
                 scoped_usage.limits.maximum_cost_micros
-                and scoped_usage.cost_micros
-                > scoped_usage.limits.maximum_cost_micros
+                and scoped_usage.cost_micros > scoped_usage.limits.maximum_cost_micros
             )
         )
     )
@@ -709,20 +604,10 @@ def _snapshot(
                 else "provider_budget_reserved"
             )
         ),
-        profile_attempts=(
-            profile_usage.used if profile_usage is not None else None
-        ),
-        profile_maximum_attempts=(
-            profile_usage.maximum if profile_usage is not None else None
-        ),
-        scoped_tokens=(
-            scoped_usage.tokens if scoped_usage is not None else None
-        ),
-        scoped_cost_micros=(
-            scoped_usage.cost_micros
-            if scoped_usage is not None
-            else None
-        ),
+        profile_attempts=(profile_usage.used if profile_usage is not None else None),
+        profile_maximum_attempts=(profile_usage.maximum if profile_usage is not None else None),
+        scoped_tokens=(scoped_usage.tokens if scoped_usage is not None else None),
+        scoped_cost_micros=(scoped_usage.cost_micros if scoped_usage is not None else None),
         scoped_budget_overrun=scoped_overrun,
     )
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
 
 import pytest
 
@@ -28,7 +27,6 @@ from agent.services.unsloth_runtime_handoff_service import (
     RuntimeHandoffRequest,
     UnslothRuntimeHandoffService,
 )
-
 
 SOURCE_ID = "SRC_supplied-model"
 RUN_ID = "RUN_supplied-evaluation"

@@ -7,6 +7,7 @@ Flow:
 
 Alles non-blocking: Polling läuft im Hintergrund-Thread, Ergebnis landet in game state.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,13 +16,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 
 @dataclass
 class DeviceFlowState:
-    status: str           # "starting" | "waiting" | "polling" | "done" | "error" | "expired"
+    status: str  # "starting" | "waiting" | "polling" | "done" | "error" | "expired"
     device_code: str = ""
     user_code: str = ""
     verification_uri: str = ""
@@ -74,11 +74,13 @@ def poll_device_flow(state: DeviceFlowState) -> DeviceFlowState:
         return DeviceFlowState(**{**state.__dict__, "status": "expired", "error": "Device code expired"})
 
     url = f"{state.issuer.rstrip('/')}/protocol/openid-connect/token"
-    body = urllib.parse.urlencode({
-        "client_id": state.client_id,
-        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-        "device_code": state.device_code,
-    }).encode()
+    body = urllib.parse.urlencode(
+        {
+            "client_id": state.client_id,
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "device_code": state.device_code,
+        }
+    ).encode()
     req = urllib.request.Request(
         url,
         data=body,

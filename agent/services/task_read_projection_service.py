@@ -198,22 +198,10 @@ class TaskReadProjectionService:
 
     def summary(self, value: Any) -> dict[str, Any]:
         task = _mapping(value)
-        projected = {
-            field: _safe_scalar(task.get(field))
-            for field in _SUMMARY_SCALAR_FIELDS
-            if field in task
-        }
-        projected.update(
-            {
-                field: _safe_string_list(task.get(field))
-                for field in _SUMMARY_LIST_FIELDS
-                if field in task
-            }
-        )
+        projected = {field: _safe_scalar(task.get(field)) for field in _SUMMARY_SCALAR_FIELDS if field in task}
+        projected.update({field: _safe_string_list(task.get(field)) for field in _SUMMARY_LIST_FIELDS if field in task})
         if "verification_status" in task:
-            projected["verification_status"] = self.verification_summary(
-                task.get("verification_status")
-            )
+            projected["verification_status"] = self.verification_summary(task.get("verification_status"))
         return projected
 
     def detail(
@@ -226,24 +214,15 @@ class TaskReadProjectionService:
         projected = self.summary(task)
         projected["last_exit_code"] = _safe_scalar(task.get("last_exit_code"))
         projected["context_bundle_id"] = _safe_scalar(task.get("context_bundle_id"))
-        projected["worker_execution_context"] = self.worker_context_summary(
-            task.get("worker_execution_context")
-        )
-        projected["verification_status"] = self.verification_summary(
-            task.get("verification_status")
-        )
+        projected["worker_execution_context"] = self.worker_context_summary(task.get("worker_execution_context"))
+        projected["verification_status"] = self.verification_summary(task.get("verification_status"))
         projected["history"] = [
             event
-            for event in (
-                self.history_event(item)
-                for item in list(task.get("history") or [])
-            )
+            for event in (self.history_event(item) for item in list(task.get("history") or []))
             if event is not None
         ]
         if instruction_layers is not None:
-            projected["instruction_layers"] = self.instruction_summary(
-                instruction_layers
-            )
+            projected["instruction_layers"] = self.instruction_summary(instruction_layers)
         return projected
 
     @staticmethod
@@ -252,13 +231,10 @@ class TaskReadProjectionService:
         projected = {
             field: scalar
             for field in _WORKER_CONTEXT_SCALAR_FIELDS
-            if field in payload
-            and (scalar := _safe_scalar(payload.get(field))) is not None
+            if field in payload and (scalar := _safe_scalar(payload.get(field))) is not None
         }
         if "allowed_tools" in payload:
-            projected["allowed_tools"] = _safe_string_list(
-                payload.get("allowed_tools")
-            )
+            projected["allowed_tools"] = _safe_string_list(payload.get("allowed_tools"))
         return projected
 
     @staticmethod
@@ -267,8 +243,7 @@ class TaskReadProjectionService:
         return {
             key: scalar
             for key, raw in payload.items()
-            if key in _VERIFICATION_FIELDS
-            and (scalar := _safe_scalar(raw)) is not None
+            if key in _VERIFICATION_FIELDS and (scalar := _safe_scalar(raw)) is not None
         }
 
     def verification_detail(self, value: Any) -> dict[str, Any]:
@@ -305,8 +280,7 @@ class TaskReadProjectionService:
         projected = {
             field: scalar
             for field in _HISTORY_EVENT_FIELDS
-            if field in event
-            and (scalar := _safe_scalar(event.get(field))) is not None
+            if field in event and (scalar := _safe_scalar(event.get(field))) is not None
         }
         projected["event_type"] = event_type
         details = self._history_details(event.get("details"))
@@ -326,10 +300,7 @@ class TaskReadProjectionService:
             return None
         children = [
             child
-            for child in (
-                self.tree(item, can_read=can_read)
-                for item in list(node.get("children") or [])
-            )
+            for child in (self.tree(item, can_read=can_read) for item in list(node.get("children") or []))
             if child is not None
         ]
         projected: dict[str, Any] = {
@@ -354,8 +325,7 @@ class TaskReadProjectionService:
                 projected[field] = {
                     key: scalar
                     for key, item in entity.items()
-                    if key in _INSTRUCTION_ENTITY_FIELDS
-                    and (scalar := _safe_scalar(item)) is not None
+                    if key in _INSTRUCTION_ENTITY_FIELDS and (scalar := _safe_scalar(item)) is not None
                 } or None
             else:
                 projected[field] = _safe_scalar(raw)
@@ -390,8 +360,7 @@ class TaskReadProjectionService:
         return {
             key: scalar
             for key, raw in payload.items()
-            if key in allowed_fields
-            and (scalar := _safe_scalar(raw)) is not None
+            if key in allowed_fields and (scalar := _safe_scalar(raw)) is not None
         }
 
 

@@ -3,6 +3,7 @@
 DRR-T014: Hub-driven step-by-step repair execution. The Hub sends one
 authorized step at a time and evaluates the result before authorizing next.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,13 +14,12 @@ from worker.core.execution_envelope import (
     ApprovalRef,
     CapabilityGrant,
     ExecutionEnvelope,
+    ModelPolicy,
     RepairProcedure,
     RepairStep,
     ToolPolicy,
-    ModelPolicy,
 )
 from worker.repair.repair_procedure_runner import RepairProcedureRunner
-
 
 _TERMINAL_STEP_STATUSES = frozenset({"failed", "denied", "escalated", "verification_failed"})
 
@@ -63,9 +63,7 @@ class RepairExecutionOrchestrator:
         capability_grant: CapabilityGrant | None = None,
     ) -> dict[str, Any]:
         """Build the dict expected by RepairProcedureRunner.run_step(). DRR-T014."""
-        cap_grant = capability_grant or CapabilityGrant(
-            capabilities=["admin_repair", "deterministic_repair"]
-        )
+        cap_grant = capability_grant or CapabilityGrant(capabilities=["admin_repair", "deterministic_repair"])
         approvals = [approval_ref] if approval_ref else []
         exec_env = ExecutionEnvelope(
             task_id=self.task_id,
@@ -144,9 +142,7 @@ class RepairExecutionOrchestrator:
             self._finished = True
             self._outcome = "completed"
             return {"status": "completed", "step_id": None}
-        return self.execute_step(
-            step, approval_ref=approval_ref, capability_grant=capability_grant
-        )
+        return self.execute_step(step, approval_ref=approval_ref, capability_grant=capability_grant)
 
     def run_all(
         self,
@@ -156,9 +152,7 @@ class RepairExecutionOrchestrator:
     ) -> dict[str, Any]:
         """Run all steps until completion or stop condition. DRR-T014."""
         while not self._finished:
-            result = self.advance(
-                approval_ref=approval_ref, capability_grant=capability_grant
-            )
+            result = self.advance(approval_ref=approval_ref, capability_grant=capability_grant)
             stop_status = result.get("status", "")
             if stop_status in _TERMINAL_STEP_STATUSES | {"needs_approval", "terminal"}:
                 break

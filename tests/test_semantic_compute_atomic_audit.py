@@ -419,7 +419,4 @@ def test_concurrent_schedule_and_contract_revision_cannot_expose_old_digest_auth
     if isinstance(scheduled, str):
         assert scheduled == "stale_contract_authority"
     rows = _rows(engine, SemanticComputeLeaseDB)
-    assert all(
-        row.status != "active" or row.contract_digest == revised.digest
-        for row in rows
-    )
+    assert all(row.status != "active" or row.contract_digest == revised.digest for row in rows)

@@ -37,10 +37,8 @@ class DashboardFeatureFlags:
     def from_mapping(cls, values: Mapping[str, str] | None = None) -> DashboardFeatureFlags:
         source = os.environ if values is None else values
         return cls(
-            kanban=str(source.get("ANANTA_TUI_KANBAN_ENABLED") or "").strip().lower()
-            in _TRUE_VALUES,
-            models=str(source.get("ANANTA_TUI_MODEL_MENU_ENABLED") or "").strip().lower()
-            in _TRUE_VALUES,
+            kanban=str(source.get("ANANTA_TUI_KANBAN_ENABLED") or "").strip().lower() in _TRUE_VALUES,
+            models=str(source.get("ANANTA_TUI_MODEL_MENU_ENABLED") or "").strip().lower() in _TRUE_VALUES,
         )
 
     def enabled_section_ids(self) -> tuple[str, ...]:
@@ -528,29 +526,19 @@ class KanbanContentPlugin(ContentPlugin):
             height=h,
             selected_index=selected,
         )
-        lines = [
-            f"  layout:{plan.layout} revision:{payload.get('revision', '-')}"
-        ]
+        lines = [f"  layout:{plan.layout} revision:{payload.get('revision', '-')}"]
         if plan.layout == "list":
             for slot in plan.list_slots:
                 task = slot.task
                 marker = ">" if slot.flat_index == selected else " "
                 blocker = " BLOCKED" if task.get("blocked") else ""
-                label = (
-                    f"{marker} [{slot.column_title}] {task.get('title')} "
-                    f"({task.get('priority') or '-'}){blocker}"
-                )
+                label = f"{marker} [{slot.column_title}] {task.get('title')} ({task.get('priority') or '-'}){blocker}"
                 lines.append(_clip(label, w))
         else:
             visible_columns = plan.columns
             count = max(1, len(visible_columns))
             cell_width = max(12, (w - (count - 1) * 3) // count)
-            lines.append(
-                " | ".join(
-                    _clip(column.title, cell_width)
-                    for column in visible_columns
-                )
-            )
+            lines.append(" | ".join(_clip(column.title, cell_width) for column in visible_columns))
             row_count = max(
                 (len(column.slots) for column in visible_columns),
                 default=0,
@@ -602,8 +590,7 @@ class ModelCatalogContentPlugin(ContentPlugin):
             diagnostics += f" conflicts={conflicts}" if conflicts else ""
             lines.append(
                 _clip(
-                    f"{marker} {model.get('provider')}/{model.get('id')} "
-                    f"{health} {available}{default}{diagnostics}",
+                    f"{marker} {model.get('provider')}/{model.get('id')} {health} {available}{default}{diagnostics}",
                     w,
                 )
             )

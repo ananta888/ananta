@@ -1,4 +1,5 @@
 """Loss-aware projections from Ananta's canonical OpenAI tool schemas."""
+
 from __future__ import annotations
 
 import copy
@@ -11,7 +12,10 @@ class ToolSchemaDialectAdapter:
     """Projects schemas only; it never obtains tools from another registry."""
 
     def project(
-        self, tools: Sequence[Mapping[str, Any]], *, dialect: str,
+        self,
+        tools: Sequence[Mapping[str, Any]],
+        *,
+        dialect: str,
     ) -> SchemaProjection:
         canonical = tuple(self._validate_canonical(item) for item in tools)
         normalized = str(dialect or "").strip().lower()
@@ -31,14 +35,14 @@ class ToolSchemaDialectAdapter:
                 if parameters.get("required"):
                     losses.append("required_not_represented:" + str(function["name"]))
                 if parameters.get("additionalProperties") is False:
-                    losses.append(
-                        "additional_properties_not_represented:" + str(function["name"])
-                    )
-                rows.append({
-                    "name": function["name"],
-                    "description": function.get("description") or "",
-                    "parameters": copy.deepcopy(parameters.get("properties") or {}),
-                })
+                    losses.append("additional_properties_not_represented:" + str(function["name"]))
+                rows.append(
+                    {
+                        "name": function["name"],
+                        "description": function.get("description") or "",
+                        "parameters": copy.deepcopy(parameters.get("properties") or {}),
+                    }
+                )
             return SchemaProjection(normalized, tuple(rows), tuple(sorted(set(losses))))
         raise ValueError("unsupported_tool_schema_dialect:" + normalized)
 

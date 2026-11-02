@@ -53,9 +53,7 @@ class PeerOverlayObservabilityService:
             "scope": "tenant" if tenant else "global_aggregate",
             "tenant_ref": self._reference("tenant", tenant) if tenant else None,
             "room_ref": self._reference("room", room) if tenant and room else None,
-            "memberships": [self._membership(item) for item in membership_rows[: self._maximum]]
-            if tenant
-            else [],
+            "memberships": [self._membership(item) for item in membership_rows[: self._maximum]] if tenant else [],
             "plans": publications,
             "aggregate": {
                 "retained_publication_count": len(retained),

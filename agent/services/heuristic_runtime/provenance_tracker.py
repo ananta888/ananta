@@ -9,12 +9,12 @@ Provenance record fields:
   - normalized_at: ISO timestamp when normalization occurred
   - activation_ref: audit_event_id from HeuristicActivationGate (set on activation)
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 

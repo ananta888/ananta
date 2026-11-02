@@ -22,14 +22,24 @@ def test_automatically_prepared_task_reaches_pi_only_through_active_hub_policy(t
     hub_task_id = "wfn-" + hashlib.sha256(b"pi-test-command").hexdigest()[:24]
 
     def with_context(command):
-        return replace(command, node=replace(command.node, metadata={
-            "context_bundle_mode": "control_task", "context_policy_id": "policy-1",
-            "context_destination_id": destination_id,
-        }))
+        return replace(
+            command,
+            node=replace(
+                command.node,
+                metadata={
+                    "context_bundle_mode": "control_task",
+                    "context_policy_id": "policy-1",
+                    "context_destination_id": destination_id,
+                },
+            ),
+        )
 
     context_reader = LateBoundContextReader()
     worker, initial_task, runner, client, credentials = native_setup(
-        tmp_path, mutate=with_context, hub_task_id=hub_task_id, context_reader_factory=HubPiTaskContextReader,
+        tmp_path,
+        mutate=with_context,
+        hub_task_id=hub_task_id,
+        context_reader_factory=HubPiTaskContextReader,
         context_bundles=context_reader,
     )
     command = NativeNodeCommand.from_mapping(initial_task["worker_execution_context"]["native_node_command"])
@@ -38,7 +48,10 @@ def test_automatically_prepared_task_reaches_pi_only_through_active_hub_policy(t
     assert receipt.accepted and receipt.hub_task_id == hub_task_id
     ingested = preparation.queue.ingested_values[0]
     stored = TaskDB(
-        id=receipt.hub_task_id, status=ingested["status"], team_id=ingested["team_id"], **ingested["extra_fields"],
+        id=receipt.hub_task_id,
+        status=ingested["status"],
+        team_id=ingested["team_id"],
+        **ingested["extra_fields"],
     )
     bundle = preparation.bundles.get_by_id(stored.context_bundle_id)
     task_payload, bundle_payload = stored.model_dump(), bundle.model_dump()
@@ -47,26 +60,41 @@ def test_automatically_prepared_task_reaches_pi_only_through_active_hub_policy(t
     elif mutation == "parent":
         task_payload["parent_task_id"] = "foreign"
     app, reader, lifecycle, actor, active = configured_app(
-        tmp_path, policy_setup, task=task_payload, bundle=bundle_payload,
+        tmp_path,
+        policy_setup,
+        task=task_payload,
+        bundle=bundle_payload,
     )
     context_reader.target = reader
-    content = json.dumps([
-        {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
-    ], ensure_ascii=True, separators=(",", ":"))
-    runner.prompt = json.dumps({
-        "task": "Explain this code.", "context_bundle": {"id": bundle.id, "content": content},
-    }, ensure_ascii=True)
+    content = json.dumps(
+        [
+            {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
+        ],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    runner.prompt = json.dumps(
+        {
+            "task": "Explain this code.",
+            "context_bundle": {"id": bundle.id, "content": content},
+        },
+        ensure_ascii=True,
+    )
     with app.app_context():
         if mutation == "revoked":
             lifecycle.revoke(
-                actor=actor, policy_id="policy-1", version=active.version,
-                if_match=active.etag, idempotency_key="synthetic-revoked-before-execution",
+                actor=actor,
+                policy_id="policy-1",
+                version=active.version,
+                if_match=active.etag,
+                idempotency_key="synthetic-revoked-before-execution",
             )
         result = worker.execute_task(stored.model_dump())
     if mutation is not None:
         assert result.status == "failed" and not runner.calls
         assert result.reason_code == (
-            "native_context_active_policy_required" if mutation == "revoked"
+            "native_context_active_policy_required"
+            if mutation == "revoked"
             else "native_context_snapshot_binding_mismatch"
         )
         credentials.assert_not_called()

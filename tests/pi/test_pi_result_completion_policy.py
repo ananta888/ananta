@@ -43,23 +43,37 @@ def admission(tmp_path, monkeypatch):
     clock = SimpleNamespace(now=now)
     keys = HmacKeyRing({"key-1": b"x" * 32}, active_key_id="key-1")
     worker = AgentInfoDB(
-        url="http://worker-1:5000", name="worker-1", registration_validated=True,
+        url="http://worker-1:5000",
+        name="worker-1",
+        registration_validated=True,
         registration_provenance=STRICT_WORKER_REGISTRATION_PROVENANCE,
         authorized_capabilities=["workflow.adapter.native", "coding.agent.pi", "text_generation"],
     )
     task = TaskDB(
-        id=task_id, tenant_id=command.tenant_id, status="in_progress", task_kind="pi_coding_agent",
-        derivation_reason="native_graph_hub_delegation", assigned_agent_url=worker.url,
+        id=task_id,
+        tenant_id=command.tenant_id,
+        status="in_progress",
+        task_kind="pi_coding_agent",
+        derivation_reason="native_graph_hub_delegation",
+        assigned_agent_url=worker.url,
         worker_execution_context={
-            "schema": "ananta.native_graph_worker_context.v1", "runtime_path": "native_graph_node",
+            "schema": "ananta.native_graph_worker_context.v1",
+            "runtime_path": "native_graph_node",
             "native_node_command": command.to_dict(),
         },
     )
     ownership = ExecutionOwnership(
-        tenant_id=command.tenant_id, workflow_id=command.workflow_id, run_id=command.run_id,
-        step_id=command.node.node_id, attempt_id=command.attempt_id, fencing_token=command.fencing_token,
-        owner_id=f"hub-native:{command.run_id}:{command.node.node_id}", revision=1, status="active",
-        lease_expires_at=now + 300, last_heartbeat_at=now - 1,
+        tenant_id=command.tenant_id,
+        workflow_id=command.workflow_id,
+        run_id=command.run_id,
+        step_id=command.node.node_id,
+        attempt_id=command.attempt_id,
+        fencing_token=command.fencing_token,
+        owner_id=f"hub-native:{command.run_id}:{command.node.node_id}",
+        revision=1,
+        status="active",
+        lease_expires_at=now + 300,
+        last_heartbeat_at=now - 1,
     )
     fields = asdict(ownership)
     for name in ("schema", "result_ack_key", "failure_code"):
@@ -67,25 +81,45 @@ def admission(tmp_path, monkeypatch):
     with Session(engine, expire_on_commit=False) as session:
         session.add(worker)
         session.add(task)
-        session.add(WorkflowExecutionOwnershipDB(
-            id=stable_row_id("wfro", command.tenant_id, command.run_id, command.node.node_id),
-            ownership=ownership.to_dict(), **fields,
-        ))
+        session.add(
+            WorkflowExecutionOwnershipDB(
+                id=stable_row_id("wfro", command.tenant_id, command.run_id, command.node.node_id),
+                ownership=ownership.to_dict(),
+                **fields,
+            )
+        )
         session.commit()
-    SQLAlchemyWorkflowWorkerAssignmentStore(engine).bind(WorkflowWorkerAssignment(
-        tenant_id=command.tenant_id, workflow_id=command.workflow_id, run_id=command.run_id,
-        step_id=command.node.node_id, attempt_id=command.attempt_id, fencing_token=command.fencing_token,
-        hub_task_id=task_id, worker_id=worker.name, worker_url=worker.url, assigned_at=now - 1,
-    ))
+    SQLAlchemyWorkflowWorkerAssignmentStore(engine).bind(
+        WorkflowWorkerAssignment(
+            tenant_id=command.tenant_id,
+            workflow_id=command.workflow_id,
+            run_id=command.run_id,
+            step_id=command.node.node_id,
+            attempt_id=command.attempt_id,
+            fencing_token=command.fencing_token,
+            hub_task_id=task_id,
+            worker_id=worker.name,
+            worker_url=worker.url,
+            assigned_at=now - 1,
+        )
+    )
     grants = SQLAlchemyWorkflowAuthorizationGrantService(engine, clock=lambda: now)
     grants.grant(command.authorization)
     policy = PiResultCompletionPolicy(
-        authority=SQLAlchemyPiResultAuthority(key_ring=lambda: keys), clock=lambda: clock.now,
+        authority=SQLAlchemyPiResultAuthority(key_ring=lambda: keys),
+        clock=lambda: clock.now,
     )
     repository = TaskRepository(completion_policy=policy)
     yield SimpleNamespace(
-        repository=repository, policy=policy, engine=engine, command=command, task_id=task_id,
-        response=response, clock=clock, grants=grants, keys=keys,
+        repository=repository,
+        policy=policy,
+        engine=engine,
+        command=command,
+        task_id=task_id,
+        response=response,
+        clock=clock,
+        grants=grants,
+        keys=keys,
     )
     engine.dispose()
 
@@ -93,26 +127,31 @@ def admission(tmp_path, monkeypatch):
 def result_fields(response):
     outer = copy.deepcopy(response["workflow_adapter_verification"]["workflow_adapter_task_result"])
     fields = {
-        "last_output": response["output"], "last_exit_code": response["exit_code"],
+        "last_output": response["output"],
+        "last_exit_code": response["exit_code"],
         "verification_status": {
             "workflow_adapter_task_result": outer,
             "native_node_result": copy.deepcopy(outer["adapter_result"]["verification"]["native_node_result"]),
         },
     }
-    if response['artifacts']:
-        fields['verification_status']['execution_artifacts'] = copy.deepcopy(response['artifacts'])
+    if response["artifacts"]:
+        fields["verification_status"]["execution_artifacts"] = copy.deepcopy(response["artifacts"])
     return fields
 
 
 def complete(admission, mode="save"):
     fields = result_fields(admission.response)
     if mode == "cas":
+
         def mutate(task):
             for field, value in fields.items():
                 setattr(task, field, value)
 
         result = admission.repository.compare_and_set_status(
-            admission.task_id, expected_statuses={"in_progress"}, target_status="completed", mutate=mutate,
+            admission.task_id,
+            expected_statuses={"in_progress"},
+            target_status="completed",
+            mutate=mutate,
         )
         assert result.updated
         return result.task
@@ -138,19 +177,22 @@ def test_pi_completion_commits_exact_hub_receipt_with_task(admission, mode):
     assert len(accepted) == 1 and accepted[0].output_data["output"] == "A\u2028B"
 
 
-@pytest.mark.parametrize("model,field,value", [
-    (WorkflowExecutionOwnershipDB, "attempt_id", "new-attempt"),
-    (WorkflowExecutionOwnershipDB, "fencing_token", 2),
-    (WorkflowExecutionOwnershipDB, "status", "failed"),
-    (WorkflowWorkerAssignmentDB, "hub_task_id", "foreign-task"),
-    (WorkflowWorkerAssignmentDB, "worker_url", "http://foreign:5000"),
-    (WorkflowWorkerAssignmentDB, "worker_id", "foreign-worker"),
-    (WorkflowWorkerAssignmentDB, "attempt_id", "foreign-attempt"),
-    (AgentInfoDB, "registration_validated", False),
-    (AgentInfoDB, "registration_provenance", "legacy"),
-    (AgentInfoDB, "authorized_capabilities", ["workflow.adapter.native", "text_generation"]),
-    (WorkflowAuthorizationGrantDB, "grant_digest", "a" * 64),
-])
+@pytest.mark.parametrize(
+    "model,field,value",
+    [
+        (WorkflowExecutionOwnershipDB, "attempt_id", "new-attempt"),
+        (WorkflowExecutionOwnershipDB, "fencing_token", 2),
+        (WorkflowExecutionOwnershipDB, "status", "failed"),
+        (WorkflowWorkerAssignmentDB, "hub_task_id", "foreign-task"),
+        (WorkflowWorkerAssignmentDB, "worker_url", "http://foreign:5000"),
+        (WorkflowWorkerAssignmentDB, "worker_id", "foreign-worker"),
+        (WorkflowWorkerAssignmentDB, "attempt_id", "foreign-attempt"),
+        (AgentInfoDB, "registration_validated", False),
+        (AgentInfoDB, "registration_provenance", "legacy"),
+        (AgentInfoDB, "authorized_capabilities", ["workflow.adapter.native", "text_generation"]),
+        (WorkflowAuthorizationGrantDB, "grant_digest", "a" * 64),
+    ],
+)
 def test_authority_change_never_commits_worker_completion(admission, model, field, value):
     with Session(admission.engine) as session:
         row = session.exec(select(model)).one()
@@ -219,17 +261,20 @@ def test_production_composition_keeps_pi_policy_after_organization_policy(admiss
     from agent.repository import _HubTaskCompletionPolicy
 
     monkeypatch.setattr(
-        "agent.services.workflow_hub_task_gateway_runtime.get_workflow_authorization_key_ring", lambda: admission.keys,
+        "agent.services.workflow_hub_task_gateway_runtime.get_workflow_authorization_key_ring",
+        lambda: admission.keys,
     )
     admission.repository = TaskRepository(completion_policy=_HubTaskCompletionPolicy())
     assert complete(admission).verification_status[PI_RESULT_RECEIPT]["authority"]["worker_id"] == "worker-1"
 
 
 def test_forwarded_worker_route_reaches_real_task_status_persistence(
-    admission, monkeypatch, forwarding_dependencies,  # noqa: F811 - imported pytest fixture
+    admission,
+    monkeypatch,
+    forwarding_dependencies,  # noqa: F811 - imported pytest fixture
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import task_runtime_service
+    from agent.services.task_scoped import forwarding as forwarding
 
     forwarding_dependencies(
         repositories=lambda: SimpleNamespace(task_repo=admission.repository),
@@ -237,7 +282,10 @@ def test_forwarded_worker_route_reaches_real_task_status_persistence(
     monkeypatch.setattr(task_runtime_service, "task_repo", admission.repository)
     task = admission.repository.get_by_id(admission.task_id).model_dump()
     forwarding.persist_forwarded_execution(
-        tid=admission.task_id, response=admission.response, task=task, request_data=SimpleNamespace(command=None),
+        tid=admission.task_id,
+        response=admission.response,
+        task=task,
+        request_data=SimpleNamespace(command=None),
     )
     stored = admission.repository.get_by_id(admission.task_id)
     assert stored.status == "completed"
@@ -246,9 +294,12 @@ def test_forwarded_worker_route_reaches_real_task_status_persistence(
 
 @pytest.mark.parametrize("change", ["missing_result", "extra_field", "wrong_worker", "hidden_kind"])
 def test_original_forwarding_response_cannot_bypass_pi_policy(
-    admission, monkeypatch, forwarding_dependencies, change,  # noqa: F811 - imported pytest fixture
+    admission,
+    monkeypatch,
+    forwarding_dependencies,
+    change,  # noqa: F811 - imported pytest fixture
 ):
-    from agent.services import _task_scoped_forwarding as forwarding
+    from agent.services.task_scoped import forwarding as forwarding
 
     forwarding_dependencies(
         repositories=lambda: SimpleNamespace(task_repo=admission.repository),
@@ -265,7 +316,10 @@ def test_original_forwarding_response_cannot_bypass_pi_policy(
         task["worker_execution_context"] = {}
     with pytest.raises(ValueError, match="^pi_native_result_"):
         forwarding.persist_forwarded_execution(
-            tid=admission.task_id, response=admission.response, task=task, request_data=SimpleNamespace(command=None),
+            tid=admission.task_id,
+            response=admission.response,
+            task=task,
+            request_data=SimpleNamespace(command=None),
         )
     assert admission.repository.get_by_id(admission.task_id).status == "in_progress"
 
@@ -310,7 +364,9 @@ def test_poll_rejects_missing_or_corrupted_admission_receipt(admission, change):
     hub = AnantaHubTaskQueueAdapter(task_queue=None, task_repository=admission.repository, task_runtime=None)
     with pytest.raises(ValueError, match="^pi_native_result_receipt_"):
         hub.poll(
-            tenant_id=admission.command.tenant_id, run_id=admission.command.run_id, hub_task_ids=(admission.task_id,),
+            tenant_id=admission.command.tenant_id,
+            run_id=admission.command.run_id,
+            hub_task_ids=(admission.task_id,),
         )
 
 

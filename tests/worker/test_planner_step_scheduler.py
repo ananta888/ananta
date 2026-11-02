@@ -25,4 +25,3 @@ def test_step_budget_exhaustion_is_explicit() -> None:
     )
     assert status["budget_exhausted"] is True
     assert status["stop_reason"] == "budget_exhausted"
-

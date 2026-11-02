@@ -35,9 +35,7 @@ class AudienceReasonCode(str, Enum):
     DUPLICATE_RECEIVER = "audience_duplicate_receiver"
 
 
-KNOWN_AUDIENCE_ROLES = frozenset(
-    {"publisher", "subscriber", "viewer", "moderator"}
-)
+KNOWN_AUDIENCE_ROLES = frozenset({"publisher", "subscriber", "viewer", "moderator"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,15 +107,11 @@ class AudienceCapabilitySnapshot:
 
 
 class AudienceParentReadPort(Protocol):
-    def get_parent(
-        self, *, tenant_id: str, room_ref: str, publication_ref: str
-    ) -> AudienceParentSnapshot | None: ...
+    def get_parent(self, *, tenant_id: str, room_ref: str, publication_ref: str) -> AudienceParentSnapshot | None: ...
 
 
 class AudienceGrantReadPort(Protocol):
-    def get_grant(
-        self, *, tenant_id: str, room_ref: str, subject_ref: str
-    ) -> AudienceGrantSnapshot | None: ...
+    def get_grant(self, *, tenant_id: str, room_ref: str, subject_ref: str) -> AudienceGrantSnapshot | None: ...
 
 
 class AudienceConsentReadPort(Protocol):
@@ -179,9 +173,7 @@ class SfuAudiencePolicyCompiler:
         ordered_receivers = tuple(sorted(request.receiver_refs))
         request = replace(request, receiver_refs=ordered_receivers)
         if len(set(ordered_receivers)) != len(ordered_receivers):
-            return self._deny_all(
-                request, ordered_receivers, AudienceReasonCode.DUPLICATE_RECEIVER
-            )
+            return self._deny_all(request, ordered_receivers, AudienceReasonCode.DUPLICATE_RECEIVER)
         parent = self._parents.get_parent(
             tenant_id=request.tenant_id,
             room_ref=request.room_ref,
@@ -200,13 +192,8 @@ class SfuAudiencePolicyCompiler:
         if publisher_reason is not None:
             return self._deny_all(request, ordered_receivers, publisher_reason)
 
-        decisions = tuple(
-            self._receiver_decision(request, receiver_ref)
-            for receiver_ref in ordered_receivers
-        )
-        eligible = tuple(
-            decision.receiver_ref for decision in decisions if decision.eligible
-        )
+        decisions = tuple(self._receiver_decision(request, receiver_ref) for receiver_ref in ordered_receivers)
+        eligible = tuple(decision.receiver_ref for decision in decisions if decision.eligible)
         return self._projection(request, eligible, decisions)
 
     def _parent_reason(
@@ -247,9 +234,7 @@ class SfuAudiencePolicyCompiler:
             return AudienceReasonCode.PUBLISH_GRANT_MISSING
         return None
 
-    def _receiver_decision(
-        self, request: AudienceCompileRequest, receiver_ref: str
-    ) -> AudienceDecision:
+    def _receiver_decision(self, request: AudienceCompileRequest, receiver_ref: str) -> AudienceDecision:
         grant = self._grants.get_grant(
             tenant_id=request.tenant_id,
             room_ref=request.room_ref,
@@ -316,17 +301,11 @@ class SfuAudiencePolicyCompiler:
             return AudienceReasonCode.CROSS_TENANT
         if consent.room_ref != request.room_ref:
             return AudienceReasonCode.CROSS_ROOM
-        if (
-            consent.receiver_ref != receiver_ref
-            or consent.publication_ref != request.publication_ref
-        ):
+        if consent.receiver_ref != receiver_ref or consent.publication_ref != request.publication_ref:
             return AudienceReasonCode.CROSS_PUBLICATION
         if consent.revoked:
             return AudienceReasonCode.CONSENT_REVOKED
-        if (
-            consent.valid_until_ms <= request.evaluated_at_ms
-            or consent.membership_epoch != request.membership_epoch
-        ):
+        if consent.valid_until_ms <= request.evaluated_at_ms or consent.membership_epoch != request.membership_epoch:
             return AudienceReasonCode.CONSENT_STALE
         if request.consent_scope not in consent.consent_scopes:
             return AudienceReasonCode.CONSENT_MISSING
@@ -362,10 +341,7 @@ class SfuAudiencePolicyCompiler:
         receiver_refs: tuple[str, ...],
         reason: AudienceReasonCode,
     ) -> CompiledAudienceProjection:
-        decisions = tuple(
-            AudienceDecision(receiver_ref, False, reason)
-            for receiver_ref in receiver_refs
-        )
+        decisions = tuple(AudienceDecision(receiver_ref, False, reason) for receiver_ref in receiver_refs)
         return self._projection(request, (), decisions)
 
     @staticmethod
@@ -421,9 +397,7 @@ class SfuAudiencePolicyCompiler:
 
 
 def _canonical_digest(value: object) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("utf-8")
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 

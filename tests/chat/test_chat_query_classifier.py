@@ -1,11 +1,11 @@
 """Tests for ChatQueryClassifier — T05.02."""
+
 from __future__ import annotations
 
 import pytest
 
 from agent.services.heuristic_runtime.chat_query_classifier import (
     ChatQueryClassifier,
-    ClassificationResult,
     IntentKind,
 )
 from agent.services.heuristic_runtime.decision_context import DecisionContext
@@ -24,14 +24,18 @@ clf = ChatQueryClassifier()
 
 # ── explain_file ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("query", [
-    "Erkläre was diese Datei macht",
-    "explain this module",
-    "what does this file do",
-    "was ist in diesem Modul",
-    "zeig mir eine Übersicht",
-    "show me an overview of this",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Erkläre was diese Datei macht",
+        "explain this module",
+        "what does this file do",
+        "was ist in diesem Modul",
+        "zeig mir eine Übersicht",
+        "show me an overview of this",
+    ],
+)
 def test_explain_file_intent(query):
     result = clf.classify(query, _ctx())
     assert result.intent_kind == IntentKind.EXPLAIN_FILE, f"failed for: {query}"
@@ -40,14 +44,18 @@ def test_explain_file_intent(query):
 
 # ── find_symbol ───────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("query", [
-    "wo ist MyClass definiert",
-    "where is the function parseInput",
-    "find the method getUserById",
-    "suche nach Symbol Authenticator",
-    "where is class DataManager declared",
-    "definition of processPayment",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "wo ist MyClass definiert",
+        "where is the function parseInput",
+        "find the method getUserById",
+        "suche nach Symbol Authenticator",
+        "where is class DataManager declared",
+        "definition of processPayment",
+    ],
+)
 def test_find_symbol_intent(query):
     result = clf.classify(query, _ctx())
     assert result.intent_kind == IntentKind.FIND_SYMBOL, f"failed for: {query}"
@@ -56,15 +64,19 @@ def test_find_symbol_intent(query):
 
 # ── explain_error ─────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("query", [
-    "Warum gibt es diesen Fehler",
-    "error in my code",
-    "exception thrown at line 42",
-    "traceback shows NullPointerException",
-    "why is this failing",
-    "crash beim Start",
-    "bug in der Authentifizierung",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Warum gibt es diesen Fehler",
+        "error in my code",
+        "exception thrown at line 42",
+        "traceback shows NullPointerException",
+        "why is this failing",
+        "crash beim Start",
+        "bug in der Authentifizierung",
+    ],
+)
 def test_explain_error_intent(query):
     result = clf.classify(query, _ctx())
     assert result.intent_kind == IntentKind.EXPLAIN_ERROR, f"failed for: {query}"
@@ -73,14 +85,18 @@ def test_explain_error_intent(query):
 
 # ── todo_status ───────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("query", [
-    "was sind die offenen Aufgaben",
-    "todo status",
-    "open tasks in this sprint",
-    "was steht noch aus",
-    "what's left to do",
-    "zeig Fortschritt",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "was sind die offenen Aufgaben",
+        "todo status",
+        "open tasks in this sprint",
+        "was steht noch aus",
+        "what's left to do",
+        "zeig Fortschritt",
+    ],
+)
 def test_todo_status_intent(query):
     result = clf.classify(query, _ctx())
     assert result.intent_kind == IntentKind.TODO_STATUS, f"failed for: {query}"
@@ -88,19 +104,24 @@ def test_todo_status_intent(query):
 
 # ── helpcenter_lookup ─────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("query", [
-    "how to configure this",
-    "wie geht das mit der Authentifizierung",
-    "guide for deployment",
-    "FAQ zu Berechtigungen",
-    "wie kann ich einen Benutzer anlegen",
-])
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "how to configure this",
+        "wie geht das mit der Authentifizierung",
+        "guide for deployment",
+        "FAQ zu Berechtigungen",
+        "wie kann ich einen Benutzer anlegen",
+    ],
+)
 def test_helpcenter_intent(query):
     result = clf.classify(query, _ctx())
     assert result.intent_kind == IntentKind.HELPCENTER_LOOKUP, f"failed for: {query}"
 
 
 # ── artifact_lookup with selection ────────────────────────────────────────────
+
 
 def test_selected_artifact_boosts_confidence():
     # plain phrase with no intent keyword → falls back to ARTIFACT_LOOKUP
@@ -116,6 +137,7 @@ def test_selected_artifact_plus_keyword_gives_full_confidence():
 
 
 # ── general / unknown ─────────────────────────────────────────────────────────
+
 
 def test_question_without_keywords_is_general():
     result = clf.classify("Was denkst du über dieses Projekt?", _ctx())
@@ -136,6 +158,7 @@ def test_gibberish_is_unknown():
 
 # ── confidence levels ─────────────────────────────────────────────────────────
 
+
 def test_multiple_keywords_boost_confidence():
     result = clf.classify("error exception traceback", _ctx())
     assert result.intent_kind == IntentKind.EXPLAIN_ERROR
@@ -149,6 +172,7 @@ def test_single_keyword_confidence():
 
 
 # ── reason codes ─────────────────────────────────────────────────────────────
+
 
 def test_reason_codes_present():
     result = clf.classify("where is MyClass", _ctx())

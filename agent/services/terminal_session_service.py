@@ -245,6 +245,7 @@ class TerminalSessionService:
             return {"ok": False, "status": "backend_error", "reason_code": str(exc)}
 
         from agent.services.terminal_recording_service import redact_secrets
+
         output = redact_secrets(raw)
 
         now = time.time()

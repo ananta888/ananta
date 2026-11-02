@@ -90,10 +90,7 @@ class _ClientModule:
 class _FailingClientModule:
     class QdrantClient:
         def __init__(self, **values):
-            raise RuntimeError(
-                "Authorization: constructor-secret "
-                f"api_key={values.get('api_key')}"
-            )
+            raise RuntimeError(f"Authorization: constructor-secret api_key={values.get('api_key')}")
 
 
 class _HttpStatusError(RuntimeError):
@@ -273,9 +270,7 @@ def test_adapter_scopes_private_ca_to_qdrant_rest_and_grpc(monkeypatch) -> None:
 
     assert context.loaded_ca == "private-ca-pem"
     assert adapter._client.constructor_values["verify"] is context
-    assert adapter._client.constructor_values["grpc_options"][
-        "root_certificates"
-    ] == b"private-ca-pem"
+    assert adapter._client.constructor_values["grpc_options"]["root_certificates"] == b"private-ca-pem"
 
 
 def test_adapter_rejects_invalid_private_ca_without_exposing_it(

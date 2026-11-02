@@ -53,7 +53,6 @@ class SpeechReconciliationAttemptOutcomes:
         self._states = states
         self._audit = audit
 
-
     def save_checkpoint(
         self,
         *,

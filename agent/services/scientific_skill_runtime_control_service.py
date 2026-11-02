@@ -134,8 +134,7 @@ class ScientificSkillRuntimeControl:
             or len(set(self.disabled_entry_ids)) != len(self.disabled_entry_ids)
             or tuple(sorted(self.disabled_entry_ids)) != self.disabled_entry_ids
             or any(
-                not isinstance(value, str) or _ENTRY_ID.fullmatch(value) is None
-                for value in self.disabled_entry_ids
+                not isinstance(value, str) or _ENTRY_ID.fullmatch(value) is None for value in self.disabled_entry_ids
             )
             or not isinstance(self.actor_id, str)
             or _ACTOR.fullmatch(self.actor_id) is None

@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from flask import current_app, g as flask_g, has_app_context, has_request_context
+from flask import current_app, has_app_context, has_request_context
+from flask import g as flask_g
 
 from agent.config import settings
 from agent.services.output_dir_lock_service import get_output_dir_lock_service
@@ -39,8 +40,10 @@ class WorkerWorkspaceContext:
 
 
 from agent.services._worker_workspace_context_writer import (
-    prepare_opencode_context_files as _prepare_opencode_context_files,
     prepare_ananta_worker_context_files as _prepare_ananta_worker_context_files,
+)
+from agent.services._worker_workspace_context_writer import (
+    prepare_opencode_context_files as _prepare_opencode_context_files,
 )
 
 
@@ -81,7 +84,15 @@ class WorkerWorkspaceService:
         except Exception:
             return False
 
-    def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str, explicit_scope_key: bool = False) -> Path:
+    def _resolve_workspace_dir(
+        self,
+        *,
+        output_dir: str | None,
+        workspace_root: str,
+        agent_name: str,
+        scope_key: str,
+        explicit_scope_key: bool = False,
+    ) -> Path:
         workspace_root_path = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
         if output_dir:
             requested = self._normalize_requested_output_dir(
@@ -238,12 +249,7 @@ class WorkerWorkspaceService:
             workspace_root = str(Path(settings.data_dir) / "worker-runtime")
 
         resolved_agent_name = _safe_segment(
-            agent_name
-            or (
-                current_app.config.get("AGENT_NAME")
-                if has_app_context()
-                else settings.agent_name
-            ),
+            agent_name or (current_app.config.get("AGENT_NAME") if has_app_context() else settings.agent_name),
             fallback="worker",
         )
         task_id = _safe_segment(workspace_cfg.get("task_id") or task.get("id"), fallback="task")
@@ -255,12 +261,16 @@ class WorkerWorkspaceService:
         scope_key = _safe_segment(explicit_scope_key_str, fallback=f"{task_id}-{worker_job_id}")
         explicit_scope_key = bool(explicit_scope_key_str)
         effective_runtime_cfg = dict(((task or {}).get("effective_config") or {}).get("worker_runtime") or {})
-        workspace_reuse_mode = str(
-            workspace_cfg.get("workspace_reuse_mode")
-            or runtime_cfg.get("workspace_reuse_mode")
-            or effective_runtime_cfg.get("workspace_reuse_mode")
-            or ""
-        ).strip().lower()
+        workspace_reuse_mode = (
+            str(
+                workspace_cfg.get("workspace_reuse_mode")
+                or runtime_cfg.get("workspace_reuse_mode")
+                or effective_runtime_cfg.get("workspace_reuse_mode")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         if workspace_reuse_mode == "goal_worker":
             goal_id_raw = _safe_segment((task or {}).get("goal_id"), fallback="")
             if goal_id_raw:
@@ -268,18 +278,132 @@ class WorkerWorkspaceService:
                 explicit_scope_key = True
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
-        return self._resolve_workspace_dir(
+        resolved = self._resolve_workspace_dir(
             output_dir=output_dir,
             workspace_root=workspace_root,
             agent_name=resolved_agent_name,
             scope_key=scope_key,
             explicit_scope_key=explicit_scope_key,
         )
+        if not output_dir:
+            return resolved
+        return self._task_owned_workspace_dir(resolved=resolved, task=task, workspace_root=workspace_root)
+
+    _TASK_OWNED_WORKSPACE_PREFIX = "self-dev-"
+
+    def _task_owned_workspace_dir(self, *, resolved: Path, task: dict, workspace_root: str) -> Path:
+        """The task's own workspace instead of a declared directory that declares no scope.
+
+        A declared ``output_dir`` without a materialization manifest is a shared checkout: one
+        task's residue and baseline bleed into the next and no per-task scope can be decided --
+        live, the shared ``ananta-self-development`` checkout kept a leftover test file and
+        ``.pytest_cache`` from the task before. Such a task gets a copy under ``workspace_root``
+        instead. Everything that *is* declared sharing stays untouched: a goal-scoped task (its
+        siblings work in that directory on purpose -- ``workspace_reuse_mode`` defaults to
+        ``goal_worker``, so it cannot be the signal), a directory that already carries a manifest
+        and a directory that does not exist yet (a normal per-task workspace).
+        """
+        if str((task or {}).get("goal_id") or "").strip():
+            return resolved
+        if not resolved.is_dir():
+            return resolved
+        if (resolved / ".ananta" / "materialization-manifest.json").exists():
+            return resolved
+        task_id = _safe_segment((task or {}).get("id"), fallback="task")
+        root = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
+        target = root / f"{self._TASK_OWNED_WORKSPACE_PREFIX}{task_id}"
+        return resolved if target == resolved else target
+
+    def materialize_isolated_workspace(self, *, task: dict, workspace_dir: Path) -> Path:
+        """Copy the declared shared directory into the task's own workspace, once.
+
+        The copy starts from the pristine baseline (runtime junk excluded) and gets its own
+        materialization manifest, so the mutation policy evaluates this task's scope instead of
+        a shared one. Repeated calls and workspaces that already carry a manifest are left alone.
+        """
+        if (workspace_dir / ".ananta" / "materialization-manifest.json").exists():
+            return workspace_dir
+        workspace_cfg = dict(((task or {}).get("worker_execution_context") or {}).get("workspace") or {})
+        declared = str(workspace_cfg.get("output_dir") or "").strip()
+        if not declared:
+            return workspace_dir
+        try:
+            source = Path(declared).expanduser().resolve()
+            target = workspace_dir.resolve()
+        except OSError:
+            return workspace_dir
+        if source == target or not source.is_dir() or workspace_dir.exists():
+            return workspace_dir
+        workspace_dir.parent.mkdir(parents=True, exist_ok=True)
+        root = source
+
+        def _ignore(directory: str, names: list[str]) -> set[str]:
+            # `artifacts` is runtime output only at the workspace root; a source
+            # module may carry the same name (agent/artifacts) and must be copied.
+            base = Path(directory).resolve()
+            dropped = {
+                name
+                for name in names
+                if name in {".git", "__pycache__", ".pytest_cache", ".venv", "project-workspaces"}
+                or name.endswith(".log")
+            }
+            if base == root:
+                dropped |= {name for name in names if name == "artifacts"}
+            return dropped
+
+        shutil.copytree(source, workspace_dir, ignore=_ignore)
+        self._write_isolation_manifest(task=task, workspace_dir=workspace_dir, workspace_cfg=workspace_cfg)
+        return workspace_dir
+
+    # The two declarations that name a task's write scope. Files a task merely mentions for
+    # reading ("Read worker/training/growth/corpus.py") must never become writable.
+    _DECLARED_WRITE_PATTERNS = (
+        re.compile(r"Only change these files:\s*(.+?)(?:\.\s|\n|$)", re.IGNORECASE),
+        re.compile(r"Create only\s+(\S+)", re.IGNORECASE),
+    )
+
+    @staticmethod
+    def _declared_write_files(description: str) -> list[str]:
+        """The files a task brief declares for change -- parsed deterministically, no model."""
+        found: list[str] = []
+        for pattern in WorkerWorkspaceService._DECLARED_WRITE_PATTERNS:
+            for match in pattern.finditer(str(description or "")):
+                for candidate in match.group(1).replace("\n", " ").split(","):
+                    for token in candidate.split():
+                        value = token.strip().strip(".,;:")
+                        parts = value.split("/")
+                        if value and "/" in value and ".." not in parts and not value.startswith("/"):
+                            found.append(value)
+        return sorted(set(found))
+
+    def _write_isolation_manifest(self, *, task: dict, workspace_dir: Path, workspace_cfg: dict) -> None:
+        """Declare the copied baseline's scope -- only what the task actually named.
+
+        The scope comes from ``workspace.materialized_files`` or, failing that, from the write
+        declarations of the task brief ("Only change these files: ...", "Create only ..."): both
+        are deterministic, and reading files the task merely mentions must never make them
+        writable. Without any declaration no manifest is written and the policy keeps reporting
+        ``no_materialization_manifest`` -- a warning, never a blocker.
+        """
+        declared = [
+            str(item).strip().replace("\\", "/")
+            for item in list(workspace_cfg.get("materialized_files") or [])
+            if str(item).strip()
+        ]
+        if not declared:
+            declared = self._declared_write_files(str((task or {}).get("description") or ""))
+        if not declared:
+            return
+        rows = [
+            {"workspace_path": rel, "allowed_operations": ["read", "write", "patch", "replace"]} for rel in declared
+        ]
+        self._write_json(workspace_dir / ".ananta" / "materialization-manifest.json", rows)
 
     def resolve_workspace_context(self, *, task: dict) -> WorkerWorkspaceContext:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         artifact_sync_cfg = dict(execution_context.get("artifact_sync") or {})
         workspace_dir = self.resolve_workspace_dir_for_read(task=task)
+        workspace_dir = self.materialize_isolated_workspace(task=task, workspace_dir=workspace_dir)
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
         workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -294,7 +418,9 @@ class WorkerWorkspaceService:
             "sync_to_hub": bool(artifact_sync_cfg.get("sync_to_hub", True)),
             "collection_name": str(artifact_sync_cfg.get("collection_name") or "task-execution-results").strip(),
             "max_changed_files": max(1, min(int(artifact_sync_cfg.get("max_changed_files") or 30), 200)),
-            "max_file_size_bytes": max(1024, min(int(artifact_sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024)), 25 * 1024 * 1024)),
+            "max_file_size_bytes": max(
+                1024, min(int(artifact_sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024)), 25 * 1024 * 1024)
+            ),
         }
 
         git_context = self._init_git_context(task=task, workspace_dir=workspace_dir)
@@ -362,14 +488,20 @@ class WorkerWorkspaceService:
         try:
             execution_context = dict((task or {}).get("worker_execution_context") or {})
             effective_config = dict((task or {}).get("effective_config") or {})
-            runtime_sync_mode = str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
+            runtime_sync_mode = (
+                str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
+            )
             agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
-            sync_mode = str(
-                (execution_context.get("workspace") or {}).get("sync_mode")
-                or agent_cfg.get("workspace", {}).get("sync_mode")
-                or runtime_sync_mode
-                or ""
-            ).strip().lower()
+            sync_mode = (
+                str(
+                    (execution_context.get("workspace") or {}).get("sync_mode")
+                    or agent_cfg.get("workspace", {}).get("sync_mode")
+                    or runtime_sync_mode
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             if sync_mode != "artifact_hub_sync":
                 return None
             goal_id = str((task or {}).get("goal_id") or "").strip()
@@ -377,6 +509,7 @@ class WorkerWorkspaceService:
             if not goal_id or not task_id:
                 return None
             from agent.services.task_artifact_materializer import get_task_artifact_materializer
+
             return get_task_artifact_materializer().materialize_predecessor_artifacts(
                 goal_id=goal_id,
                 task_id=task_id,
@@ -389,14 +522,14 @@ class WorkerWorkspaceService:
     def _resolve_context_policy(self, *, task: dict):
         try:
             from agent.services.workspace_context_policy import get_workspace_context_policy_resolver
+
             effective_config = dict((task or {}).get("effective_config") or {})
             task_kind = str((task or {}).get("task_kind") or "")
             agent_template = str((task or {}).get("agent_template") or "")
-            return get_workspace_context_policy_resolver().resolve(
-                effective_config, task_kind, agent_template or None
-            )
+            return get_workspace_context_policy_resolver().resolve(effective_config, task_kind, agent_template or None)
         except Exception:
             from agent.services.workspace_context_policy import WorkspaceContextPolicy
+
             return WorkspaceContextPolicy()
 
     def acquire_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> tuple[bool, str | None]:
@@ -430,6 +563,7 @@ class WorkerWorkspaceService:
         tool_definitions: list[dict] | None,
         research_context: dict | None,
         include_response_contract: bool = True,
+        response_contract_text: str | None = None,
         allow_complex_shell: bool = False,
         task_brief_char_limit: int | None = None,
         context_text_char_limit: int | None = None,
@@ -446,6 +580,7 @@ class WorkerWorkspaceService:
             tool_definitions=tool_definitions,
             research_context=research_context,
             include_response_contract=include_response_contract,
+            response_contract_text=response_contract_text,
             allow_complex_shell=allow_complex_shell,
             task_brief_char_limit=task_brief_char_limit,
             context_text_char_limit=context_text_char_limit,
@@ -502,6 +637,7 @@ class WorkerWorkspaceService:
                 AUDIT_WORKSPACE_BASELINE_CREATED,
                 audit_workspace_mutation_event,
             )
+
             manifest_path = Path(str(meta.get("baseline_dir") or "")) / "manifest.json"
             baseline_hash: str | None = None
             if manifest_path.is_file():
@@ -517,7 +653,7 @@ class WorkerWorkspaceService:
             )
         except Exception:
             # Audit must never fail the refresh.
-            pass
+            logging.getLogger(__name__).debug("refresh_mutation_baseline: ignored Exception", exc_info=True)
         return meta
 
     def materialize_allowed_workspace_files(
@@ -624,7 +760,9 @@ class WorkerWorkspaceService:
         return payload if isinstance(payload, dict) else None
 
     @classmethod
-    def _mutation_sync_filter(cls, *, workspace_dir: Path, changed_rel_paths: list[str]) -> tuple[list[str], str | None]:
+    def _mutation_sync_filter(
+        cls, *, workspace_dir: Path, changed_rel_paths: list[str]
+    ) -> tuple[list[str], str | None]:
         """AWWPI-017: drop blocked paths (or everything on policy_blocked).
 
         Without a mutation report the change list passes through unchanged
@@ -797,6 +935,7 @@ class WorkerWorkspaceService:
             changed_rel_paths=changed_rel_paths,
             sync_cfg=sync_cfg,
         )
+
 
 worker_workspace_service = WorkerWorkspaceService()
 

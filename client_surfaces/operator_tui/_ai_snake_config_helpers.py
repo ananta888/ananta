@@ -12,7 +12,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-
 _PERSISTENT_TUI_CONFIG_KEYS = {
     "tutorial_mode",
     "chat_panel_open",
@@ -212,10 +211,12 @@ def _persist_tui_chat_settings(game: dict[str, object]) -> None:
             payload[key] = value
     try:
         from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
         get_manager().save(payload)
     except Exception:
         pass
     from client_surfaces.operator_tui.snake_persistence import save_tui_chat_settings
+
     save_tui_chat_settings(payload)
     _propagate_advanced_chat_to_env(game, override_existing=True)
 

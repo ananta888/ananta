@@ -14,8 +14,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ananta_contracts.specialist_decision import canonical_digest
 from agent.services.specialist_training_examples import TrainingExample, dataset_digest
+from ananta_contracts.specialist_decision import canonical_digest
 
 SPLIT_SCHEMA = "ananta.specialist-split-manifest.v1"
 PARTITIONS = ("train", "validation", "holdout")
@@ -78,7 +78,9 @@ def check_leakage(visible: Iterable[TrainingExample], holdout: FrozenHoldout) ->
         group_overlap=sum(
             1
             for e in visible
-            if e.example_id not in ids and e.input_digest not in holdout.input_digests and e.group_key in holdout.group_keys
+            if e.example_id not in ids
+            and e.input_digest not in holdout.input_digests
+            and e.group_key in holdout.group_keys
         ),
     )
 
@@ -203,9 +205,10 @@ def admit_training_partitions(
     validation = list(partitions.get("validation") or ())
     if not train:
         raise SpecialistSplitError("specialist_train_partition_empty")
-    if tuple(e.example_id for e in train) != manifest.partitions["train"] or tuple(
-        e.example_id for e in validation
-    ) != manifest.partitions["validation"]:
+    if (
+        tuple(e.example_id for e in train) != manifest.partitions["train"]
+        or tuple(e.example_id for e in validation) != manifest.partitions["validation"]
+    ):
         raise SpecialistSplitError("specialist_partition_manifest_mismatch")
     leakage = check_leakage(train + validation, manifest.holdout)
     if leakage.leaked:

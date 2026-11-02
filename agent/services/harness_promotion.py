@@ -25,8 +25,13 @@ class PromotionDecision:
     canary_fraction: float = 0.0
 
     def to_mapping(self) -> dict:
-        return {"candidate_id": self.candidate_id, "baseline_id": self.baseline_id, "action": self.action,
-                "reason": self.reason, "canary_fraction": self.canary_fraction}
+        return {
+            "candidate_id": self.candidate_id,
+            "baseline_id": self.baseline_id,
+            "action": self.action,
+            "reason": self.reason,
+            "canary_fraction": self.canary_fraction,
+        }
 
 
 @dataclass
@@ -40,19 +45,24 @@ class PromotionController:
 
     def decide(self, *, candidate: Candidate, baseline: Candidate, gate_report: GateReport | None) -> PromotionDecision:
         if gate_report is None:
-            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "reject",
-                                     "promotion_requires_gate_report")
+            return PromotionDecision(
+                candidate.candidate_id, baseline.candidate_id, "reject", "promotion_requires_gate_report"
+            )
         if gate_report.disqualified:
-            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "reject",
-                                     f"gate_disqualified:{gate_report.reason}")
+            return PromotionDecision(
+                candidate.candidate_id, baseline.candidate_id, "reject", f"gate_disqualified:{gate_report.reason}"
+            )
         if self.selector.dominates(candidate, baseline):
-            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "promote",
-                                     "dominates_baseline")
+            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "promote", "dominates_baseline")
         if self.selector.dominates(baseline, candidate):
-            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "reject",
-                                     "dominated_by_baseline")
-        return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "canary", "non_dominated_tradeoff",
-                                 canary_fraction=self.canary_fraction)
+            return PromotionDecision(candidate.candidate_id, baseline.candidate_id, "reject", "dominated_by_baseline")
+        return PromotionDecision(
+            candidate.candidate_id,
+            baseline.candidate_id,
+            "canary",
+            "non_dominated_tradeoff",
+            canary_fraction=self.canary_fraction,
+        )
 
     @staticmethod
     def rollback(*, promoted_id: str, baseline_id: str, reason: str) -> PromotionDecision:

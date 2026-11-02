@@ -45,7 +45,7 @@ def compute_plan_depth(probe_nodes: list[PlanNodeDB]) -> int:
 
 
 def apply_plan_generation_limits(
-    subtasks: list[dict[str, Any]]
+    subtasks: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], dict[str, int], str | None]:
     limits = get_plan_generation_limits()
     bounded = [dict(subtask or {}) for subtask in (subtasks or [])]
@@ -152,7 +152,9 @@ def build_nodes(plan_id: str, subtasks: list[dict], planning_mode: str) -> list[
                     "source_depends_on": raw_depends_on,
                     "dependency_mode": dependency_mode,
                     "artifact_trace_id": str(subtask.get("artifact_trace_id") or f"A{index}"),
-                    "expected_artifacts": [dict(a) for a in list(subtask.get("expected_artifacts") or []) if isinstance(a, dict)],
+                    "expected_artifacts": [
+                        dict(a) for a in list(subtask.get("expected_artifacts") or []) if isinstance(a, dict)
+                    ],
                     "artifact": subtask.get("artifact"),
                     "risk_focus": subtask.get("risk_focus"),
                     "test_focus": subtask.get("test_focus"),

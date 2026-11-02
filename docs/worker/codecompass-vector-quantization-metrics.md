@@ -96,10 +96,10 @@ Gates are defined in configuration and evaluated as part of `VectorEncodingBench
 ```python
 @dataclass
 class VectorEncodingQualityGate:
-    min_recall_at_10: float = 0.90       # default: 90% of float32 top results recovered
-    max_score_drift: float = 0.05        # default: max 0.05 absolute cosine score drift
+    min_recall_at_10: float = 0.90  # default: 90% of float32 top results recovered
+    max_score_drift: float = 0.05  # default: max 0.05 absolute cosine score drift
     max_ranking_instability: float = 0.15  # default: max 15% of queries change top-3
-    fail_mode: str = "block"             # block | fallback_float32 | warn_only
+    fail_mode: str = "block"  # block | fallback_float32 | warn_only
 ```
 
 ### Fail Modes

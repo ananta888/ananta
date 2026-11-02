@@ -11,13 +11,13 @@ from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot import autonomous_loop
-from agent.routes.tasks.autopilot_tick_engine import (
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.tick_engine import (
     _should_terminalize_no_executable_strategy,
 )
 from tests.knowledge.knowledge_index_execution_test_support import (
     build_execution_task,
 )
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 def _auth_headers(app):
@@ -59,7 +59,6 @@ def _isolate_autopilot_queue(app):
         _clear()
 
 
-
 # Split from tests/task/test_tasks_autopilot.py to keep source files below 1000 lines.
 
 
@@ -67,8 +66,8 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
     app,
     monkeypatch,
 ):
-    from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services import recovery_dispatch_gate_service
+    from agent.services.autopilot.dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services.recovery_dispatch_gate_service import (
         RecoveryDispatchGateDecision,
         RecoveryDispatchLease,
@@ -197,51 +196,25 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
 
     with app.app_context():
         response = autonomous_loop.tick_once()
-        updated = task_repo.get_by_id(
-            "recovery-lease-propagation"
-        )
+        updated = task_repo.get_by_id("recovery-lease-propagation")
 
     assert response["dispatched"] == 1
     assert updated is not None and updated.status == "completed"
-    propose_call = next(
-        call
-        for call in calls
-        if call["endpoint"].endswith("/step/propose")
-    )
-    execute_call = next(
-        call
-        for call in calls
-        if call["endpoint"].endswith("/step/execute")
-    )
+    propose_call = next(call for call in calls if call["endpoint"].endswith("/step/propose"))
+    execute_call = next(call for call in calls if call["endpoint"].endswith("/step/execute"))
     assert propose_call["url"] == worker_url
-    assert propose_call["endpoint"] == (
-        "/tasks/recovery-lease-propagation/step/propose"
-    )
+    assert propose_call["endpoint"] == ("/tasks/recovery-lease-propagation/step/propose")
     assert propose_call["token"] == "worker-auth-token"
-    assert propose_call["payload"]["task_id"] == (
-        "recovery-lease-propagation"
-    )
-    assert propose_call["payload"][
-        "dispatch_lease_token"
-    ] == "lease-propose"
-    assert propose_call["payload"][
-        "dispatch_lease_phase"
-    ] == "propose"
+    assert propose_call["payload"]["task_id"] == ("recovery-lease-propagation")
+    assert propose_call["payload"]["dispatch_lease_token"] == "lease-propose"
+    assert propose_call["payload"]["dispatch_lease_phase"] == "propose"
     assert execute_call["url"] == worker_url
-    assert execute_call["endpoint"] == (
-        "/tasks/recovery-lease-propagation/step/execute"
-    )
+    assert execute_call["endpoint"] == ("/tasks/recovery-lease-propagation/step/execute")
     assert execute_call["token"] == "worker-auth-token"
-    assert execute_call["payload"]["task_id"] == (
-        "recovery-lease-propagation"
-    )
+    assert execute_call["payload"]["task_id"] == ("recovery-lease-propagation")
     assert execute_call["payload"]["command"] == "echo ok"
-    assert execute_call["payload"][
-        "dispatch_lease_token"
-    ] == "lease-execute"
-    assert execute_call["payload"][
-        "dispatch_lease_phase"
-    ] == "execute"
+    assert execute_call["payload"]["dispatch_lease_token"] == "lease-execute"
+    assert execute_call["payload"]["dispatch_lease_phase"] == "execute"
     assert guarded == [
         {
             "task_id": "recovery-lease-propagation",
@@ -297,16 +270,8 @@ def test_autopilot_recovery_retry_reuses_exact_payload_and_worker_token(
     AUTOPILOT_LOOP_DEPENDENCIES.install(
         app,
         repository_registry=lambda _app=None: SimpleNamespace(
-            agent_repo=SimpleNamespace(
-                get_by_url=lambda _url: SimpleNamespace(
-                    token="worker-auth-token"
-                )
-            ),
-            task_repo=SimpleNamespace(
-                get_by_id=lambda _task_id: SimpleNamespace(
-                    status="in_progress"
-                )
-            ),
+            agent_repo=SimpleNamespace(get_by_url=lambda _url: SimpleNamespace(token="worker-auth-token")),
+            task_repo=SimpleNamespace(get_by_id=lambda _task_id: SimpleNamespace(status="in_progress")),
         ),
     )
     monkeypatch.setattr(
@@ -395,11 +360,7 @@ def test_autopilot_recovery_auth_failure_is_not_retried(
     AUTOPILOT_LOOP_DEPENDENCIES.install(
         app,
         repository_registry=lambda _app=None: SimpleNamespace(
-            agent_repo=SimpleNamespace(
-                get_by_url=lambda _url: SimpleNamespace(
-                    token="current-worker-token"
-                )
-            )
+            agent_repo=SimpleNamespace(get_by_url=lambda _url: SimpleNamespace(token="current-worker-token"))
         ),
     )
     worker_failures = []
@@ -614,9 +575,12 @@ def test_autopilot_hub_self_preserves_structured_non_retryable_failure(
     endpoint = "/tasks/codecompass-hub-self/step/execute"
     payload = {"task_id": "codecompass-hub-self"}
 
-    with app.app_context(), pytest.raises(
-        RuntimeError,
-        match=reason_code,
+    with (
+        app.app_context(),
+        pytest.raises(
+            RuntimeError,
+            match=reason_code,
+        ),
     ):
         autonomous_loop._forward_with_retry(
             "http://worker:5001",
@@ -712,11 +676,7 @@ def test_autopilot_hub_self_uses_bound_knowledge_index_runtime_timeout(
     AUTOPILOT_LOOP_DEPENDENCIES.install(
         app,
         repository_registry=lambda _app=None: SimpleNamespace(
-            task_repo=SimpleNamespace(
-                get_by_id=lambda requested_id: (
-                    task if requested_id == task_id else None
-                )
-            )
+            task_repo=SimpleNamespace(get_by_id=lambda requested_id: task if requested_id == task_id else None)
         ),
     )
     calls = []
@@ -842,15 +802,16 @@ def test_governed_permanent_response_error_is_not_retried(
 
     def forward(*_args, **_kwargs):
         calls.append(True)
-        raise WorkerForwardPermanentTransportError(
-            "knowledge_index_worker_response_too_large"
-        )
+        raise WorkerForwardPermanentTransportError("knowledge_index_worker_response_too_large")
 
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
 
-    with app.app_context(), pytest.raises(
-        RuntimeError,
-        match="knowledge_index_worker_response_too_large",
+    with (
+        app.app_context(),
+        pytest.raises(
+            RuntimeError,
+            match="knowledge_index_worker_response_too_large",
+        ),
     ):
         autonomous_loop._forward_with_retry(
             "http://worker:5001",
@@ -866,11 +827,7 @@ def test_governed_permanent_response_error_is_not_retried(
     "worker_context",
     [
         {},
-        {
-            "knowledge_index_job": {
-                "schema": "ananta.knowledge_index_job.unknown"
-            }
-        },
+        {"knowledge_index_job": {"schema": "ananta.knowledge_index_job.unknown"}},
     ],
 )
 def test_autopilot_codecompass_execute_never_downgrades_unknown_binding(
@@ -895,9 +852,12 @@ def test_autopilot_codecompass_execute_never_downgrades_unknown_binding(
     calls = []
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *_args, **_kwargs: calls.append(True))
 
-    with app.app_context(), pytest.raises(
-        RuntimeError,
-        match="knowledge_index_execution_binding",
+    with (
+        app.app_context(),
+        pytest.raises(
+            RuntimeError,
+            match="knowledge_index_execution_binding",
+        ),
     ):
         autonomous_loop._forward_with_retry(
             "http://worker:5001",
@@ -943,11 +903,7 @@ def test_autopilot_worker_circuit_success_requires_normalized_envelope(
     AUTOPILOT_LOOP_DEPENDENCIES.install(
         app,
         repository_registry=lambda _app=None: SimpleNamespace(
-            agent_repo=SimpleNamespace(
-                get_by_url=lambda _url: SimpleNamespace(
-                    token="current-worker-token"
-                )
-            )
+            agent_repo=SimpleNamespace(get_by_url=lambda _url: SimpleNamespace(token="current-worker-token"))
         ),
     )
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *_args, **_kwargs: response)
@@ -970,9 +926,7 @@ def test_autopilot_worker_circuit_success_requires_normalized_envelope(
     }
 
     expectation = (
-        contextlib.nullcontext()
-        if expected_successes
-        else pytest.raises(RuntimeError, match="worker_empty_payload")
+        contextlib.nullcontext() if expected_successes else pytest.raises(RuntimeError, match="worker_empty_payload")
     )
     with app.app_context(), expectation:
         autonomous_loop._forward_with_retry(
@@ -1013,9 +967,12 @@ def test_autopilot_unsafe_hub_token_file_prevents_transport(
     calls = []
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *args, **kwargs: calls.append((args, kwargs)))
 
-    with app.app_context(), pytest.raises(
-        AgentTokenConfigurationError,
-        match="permissions are unsafe",
+    with (
+        app.app_context(),
+        pytest.raises(
+            AgentTokenConfigurationError,
+            match="permissions are unsafe",
+        ),
     ):
         autonomous_loop._forward_with_retry(
             "http://worker:5001",
@@ -1039,7 +996,9 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
     }
     task_repo.save(TaskDB(id="strategy-retry-1", title="Retry Strategy", status="todo", task_kind="coding"))
     agent_repo.save(
-        AgentInfoDB(url="http://worker-strategy:5001", name="worker-strategy", role="worker", token="tok", status="online")
+        AgentInfoDB(
+            url="http://worker-strategy:5001", name="worker-strategy", role="worker", token="tok", status="online"
+        )
     )
     propose_models: list[str | None] = []
 
@@ -1048,7 +1007,7 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
             propose_models.append(data.get("model"))
             if len(propose_models) == 1:
                 return {"status": "success", "data": {"reason": "bad", "raw": "{}"}}
-            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": "{\"command\":\"echo ok\"}"}}
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": '{"command":"echo ok"}'}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
@@ -1078,7 +1037,9 @@ def test_autopilot_recovers_embedded_json_from_raw_proposal(app, monkeypatch):
     }
     task_repo.save(TaskDB(id="strategy-embedded-1", title="Embedded JSON Strategy", status="todo", task_kind="coding"))
     agent_repo.save(
-        AgentInfoDB(url="http://worker-embedded:5001", name="worker-embedded", role="worker", token="tok", status="online")
+        AgentInfoDB(
+            url="http://worker-embedded:5001", name="worker-embedded", role="worker", token="tok", status="online"
+        )
     )
     propose_models: list[str | None] = []
     raw_output = (
@@ -1118,9 +1079,13 @@ def test_autopilot_recovers_fenced_cmd_payload_with_trailing_commas(app, monkeyp
         "autopilot_strategy_max_attempts": 1,
         "quality_gates": {"enabled": False, "autopilot_enforce": False},
     }
-    task_repo.save(TaskDB(id="strategy-fenced-cmd-1", title="Fenced Command Recovery", status="todo", task_kind="coding"))
+    task_repo.save(
+        TaskDB(id="strategy-fenced-cmd-1", title="Fenced Command Recovery", status="todo", task_kind="coding")
+    )
     agent_repo.save(
-        AgentInfoDB(url="http://worker-fenced-cmd:5001", name="worker-fenced-cmd", role="worker", token="tok", status="online")
+        AgentInfoDB(
+            url="http://worker-fenced-cmd:5001", name="worker-fenced-cmd", role="worker", token="tok", status="online"
+        )
     )
     raw_output = '<|im_start|>\n```json\n{"summary":"repair me","cmd":"echo ok",}\n```\n'
 
@@ -1153,14 +1118,16 @@ def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, m
     }
     task_repo.save(TaskDB(id="strategy-invalid-tools-1", title="Invalid Tool Calls", status="todo", task_kind="coding"))
     agent_repo.save(
-        AgentInfoDB(url="http://worker-invalid-tools:5001", name="worker-invalid-tools", role="worker", token="tok", status="online")
+        AgentInfoDB(
+            url="http://worker-invalid-tools:5001",
+            name="worker-invalid-tools",
+            role="worker",
+            token="tok",
+            status="online",
+        )
     )
     attempts: list[str | None] = []
-    raw_output = (
-        "Traceback (most recent call last):\n"
-        "ValueError: transient parse issue\n"
-        '{"tool_calls":["tools"]}'
-    )
+    raw_output = 'Traceback (most recent call last):\nValueError: transient parse issue\n{"tool_calls":["tools"]}'
 
     def _fake_forward(worker_url, endpoint, data, token=None):
         if endpoint.endswith("/step/propose"):
@@ -1216,17 +1183,13 @@ def test_autopilot_does_not_resurrect_stopped_model_recovery_source(
 
     def _unexpected_forward(*args, **kwargs):
         forwarded.append((args, kwargs))
-        raise AssertionError(
-            "a stopped Hub Recovery source must not be forwarded"
-        )
+        raise AssertionError("a stopped Hub Recovery source must not be forwarded")
 
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_unexpected_forward)
     with app.app_context():
         first = autonomous_loop.tick_once()
         second = autonomous_loop.tick_once()
-        updated = task_repo.get_by_id(
-            "stopped-model-recovery-source"
-        )
+        updated = task_repo.get_by_id("stopped-model-recovery-source")
 
     assert first["dispatched"] == 0
     assert second["dispatched"] == 0
@@ -1234,9 +1197,7 @@ def test_autopilot_does_not_resurrect_stopped_model_recovery_source(
     assert updated is not None
     assert updated.status == "waiting_for_review"
     assert not any(
-        str(entry.get("event_type") or "").startswith(
-            ("recover_waiting_review", "waiting_for_review_timeout")
-        )
+        str(entry.get("event_type") or "").startswith(("recover_waiting_review", "waiting_for_review_timeout"))
         for entry in (updated.history or [])
     )
 
@@ -1270,7 +1231,7 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
             propose_attempts.append((data.get("model"), data.get("temperature")))
             if len(propose_attempts) == 1:
                 return {"status": "success", "data": {"reason": "bad", "raw": "{}"}}
-            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": "{\"command\":\"echo ok\"}"}}
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": '{"command":"echo ok"}'}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
     AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
@@ -1314,7 +1275,7 @@ def test_autopilot_skips_model_with_insufficient_context_window(app, monkeypatch
     )
 
     monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_tick_engine._runtime_model_capabilities",
+        "agent.services.autopilot.tick_engine._runtime_model_capabilities",
         lambda _loop: {
             "runtime": {"default_provider": "lmstudio", "lmstudio": {"ok": True, "candidate_count": 1}},
             "models": {"model-small": {"provider": "lmstudio", "context_length": 256}},

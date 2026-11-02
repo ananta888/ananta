@@ -183,13 +183,8 @@ class SqliteUnslothMutationLedger:
         idempotency_key: str,
         payload_digest: str,
     ) -> _LedgerClaim:
-        scope_digest = _sha256(
-            f"unsloth-mutation-scope-v1\0{principal.tenant_id}\0"
-            f"{principal.subject}\0{operation}"
-        )
-        key_digest = _sha256(
-            f"unsloth-mutation-key-v1\0{scope_digest}\0{idempotency_key}"
-        )
+        scope_digest = _sha256(f"unsloth-mutation-scope-v1\0{principal.tenant_id}\0{principal.subject}\0{operation}")
+        key_digest = _sha256(f"unsloth-mutation-key-v1\0{scope_digest}\0{idempotency_key}")
         now = float(self._clock())
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -332,10 +327,7 @@ class UnslothMutationCommandService:
             str(operation): executor
             for operation, executor in executors.items()
             if operation in _OPERATIONS
-            and (
-                isinstance(executor, UnslothMutationExecutor)
-                or isinstance(executor, UnslothOperationPayloadExecutor)
-            )
+            and (isinstance(executor, UnslothMutationExecutor) or isinstance(executor, UnslothOperationPayloadExecutor))
         }
         if len(confirmation_secret) < 32:
             raise UnslothMutationError(
@@ -586,11 +578,7 @@ def _normalize_command(
         )
     reason = " ".join(raw_reason.split())
     meaningful_tokens = re.findall(r"[A-Za-z0-9ÄÖÜäöüß]{3,}", reason)
-    if (
-        len(reason) < 10
-        or len(reason) > _MAX_REASON_LENGTH
-        or len(meaningful_tokens) < 2
-    ):
+    if len(reason) < 10 or len(reason) > _MAX_REASON_LENGTH or len(meaningful_tokens) < 2:
         raise UnslothMutationError(
             "unsloth_reason_invalid",
             "reason must contain 10..512 characters and at least two meaningful words.",
@@ -610,9 +598,7 @@ def _normalize_command(
             status_code=409,
         )
     raw_confirmation = payload.get("confirmation_id")
-    confirmation_id = (
-        str(raw_confirmation).strip() if raw_confirmation is not None else None
-    )
+    confirmation_id = str(raw_confirmation).strip() if raw_confirmation is not None else None
     if dry_run and confirmation_id:
         raise UnslothMutationError(
             "unsloth_confirmation_unexpected",
@@ -670,20 +656,14 @@ def _normalize_runtime_handoff_payload(
             "runtime_handoff_artifact_id_invalid",
             "promoted_artifact_id must be an opaque identifier.",
         )
-    artifact_sha256 = str(
-        payload.get("promoted_artifact_sha256") or ""
-    ).strip()
+    artifact_sha256 = str(payload.get("promoted_artifact_sha256") or "").strip()
     if re.fullmatch(r"[0-9a-f]{64}", artifact_sha256) is None:
         raise UnslothMutationError(
             "runtime_handoff_artifact_hash_invalid",
             "promoted_artifact_sha256 must be a lowercase SHA-256 digest.",
         )
     revision = payload.get("expected_endpoint_revision")
-    if (
-        not isinstance(revision, int)
-        or isinstance(revision, bool)
-        or not 0 <= revision <= 2_147_483_647
-    ):
+    if not isinstance(revision, int) or isinstance(revision, bool) or not 0 <= revision <= 2_147_483_647:
         raise UnslothMutationError(
             "runtime_handoff_revision_invalid",
             "expected_endpoint_revision must be a non-negative integer.",
@@ -721,28 +701,20 @@ def _normalize_cleanup_payload(
             "artifact_ids must contain 1..128 opaque identifiers.",
         )
     normalized = sorted({value.strip() for value in artifact_ids})
-    if len(normalized) != len(artifact_ids) or any(
-        _RESOURCE_ID.fullmatch(value) is None for value in normalized
-    ):
+    if len(normalized) != len(artifact_ids) or any(_RESOURCE_ID.fullmatch(value) is None for value in normalized):
         raise UnslothMutationError(
             "storage_cleanup_selection_invalid",
             "artifact_ids must be unique opaque identifiers.",
         )
     revision = payload.get("expected_catalog_revision")
-    if (
-        isinstance(revision, bool)
-        or not isinstance(revision, int)
-        or not 0 <= revision <= 2_147_483_647
-    ):
+    if isinstance(revision, bool) or not isinstance(revision, int) or not 0 <= revision <= 2_147_483_647:
         raise UnslothMutationError(
             "storage_catalog_revision_invalid",
             "expected_catalog_revision must be a non-negative integer.",
         )
     cutoff = payload.get("retention_before")
     if cutoff is not None and (
-        isinstance(cutoff, bool)
-        or not isinstance(cutoff, (int, float))
-        or not 0 <= float(cutoff) <= 2**63
+        isinstance(cutoff, bool) or not isinstance(cutoff, (int, float)) or not 0 <= float(cutoff) <= 2**63
     ):
         raise UnslothMutationError(
             "storage_retention_cutoff_invalid",
@@ -784,21 +756,14 @@ def _bounded_json_descriptor(value: Any, *, reason_code: str) -> dict[str, Any]:
 
 
 def _evidence_ids(value: Any, *, prefix: str) -> list[str]:
-    if (
-        not isinstance(value, list)
-        or not value
-        or len(value) > 64
-        or any(not isinstance(item, str) for item in value)
-    ):
+    if not isinstance(value, list) or not value or len(value) > 64 or any(not isinstance(item, str) for item in value):
         raise UnslothMutationError(
             "runtime_handoff_evidence_invalid",
             "Runtime handoff requires bounded trusted evidence IDs.",
         )
     normalized = sorted({item.strip() for item in value})
     if len(normalized) != len(value) or any(
-        not item.startswith(prefix)
-        or _RESOURCE_ID.fullmatch(item) is None
-        for item in normalized
+        not item.startswith(prefix) or _RESOURCE_ID.fullmatch(item) is None for item in normalized
     ):
         raise UnslothMutationError(
             "runtime_handoff_evidence_invalid",
@@ -855,9 +820,8 @@ def _assert_no_direct_target(value: Any, *, key: str = "") -> None:
         return
     if isinstance(value, str):
         lowered = value.strip().casefold()
-        absolute_target = (
-            lowered.startswith(("http://", "https://", "file://"))
-            or (lowered.startswith("/") and key != "download_url")
+        absolute_target = lowered.startswith(("http://", "https://", "file://")) or (
+            lowered.startswith("/") and key != "download_url"
         )
         if absolute_target:
             raise UnslothMutationError(
@@ -865,9 +829,7 @@ def _assert_no_direct_target(value: Any, *, key: str = "") -> None:
                 "Hub mutation result exposed a direct execution target.",
                 status_code=503,
             )
-        if key == "download_url" and not lowered.startswith(
-            "/api/ml-intern-training/exports/"
-        ):
+        if key == "download_url" and not lowered.startswith("/api/ml-intern-training/exports/"):
             raise UnslothMutationError(
                 "unsloth_mutation_result_unsafe",
                 "Export download URL must remain Hub-relative.",

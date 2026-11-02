@@ -5,6 +5,7 @@ dataset.  The catalog and legacy-import adapters are the production
 implementations of the narrow ports declared in
 :mod:`agent.visual_process.step_adapters_ml_intern_support`.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -46,9 +47,7 @@ class MlInternBuildLoraDatasetAdapter(StepAdapter):
         catalog_factory: DatasetCatalogBuildFactory | None = None,
         legacy_dataset_import_factory: LegacyDatasetImportFactory | None = None,
     ) -> None:
-        self._catalog_factory = catalog_factory or (
-            lambda config: MlInternVisualProcessDatasetCatalogAdapter(config)
-        )
+        self._catalog_factory = catalog_factory or (lambda config: MlInternVisualProcessDatasetCatalogAdapter(config))
         self._legacy_dataset_import_factory = legacy_dataset_import_factory or (
             lambda config: MlInternLegacyDatasetImportAdapter(config)
         )
@@ -57,7 +56,9 @@ class MlInternBuildLoraDatasetAdapter(StepAdapter):
     def kind(self) -> str:
         return "ml_intern_build_lora_dataset"
 
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
+    def execute(
+        self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]
+    ) -> StepExecutionResult:
         from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 
         metadata = dict(step.metadata or {})
@@ -260,9 +261,7 @@ class MlInternBuildLoraDatasetAdapter(StepAdapter):
         metadata: Mapping[str, Any],
         records: list[dict[str, Any]],
     ) -> str:
-        explicit = str(
-            metadata.get("idempotency_key") or context.get("idempotency_key") or ""
-        ).strip()
+        explicit = str(metadata.get("idempotency_key") or context.get("idempotency_key") or "").strip()
         if explicit:
             return explicit
         identity = {

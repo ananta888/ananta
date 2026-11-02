@@ -6,14 +6,23 @@ import pytest
 
 from agent.services.harness_pareto import Candidate, ParetoSelector
 
-SELECTOR = ParetoSelector(maximize=["task_correctness", "holdout_generalization_score"],
-                          minimize=["total_token_cost", "latency_p95"])
+SELECTOR = ParetoSelector(
+    maximize=["task_correctness", "holdout_generalization_score"], minimize=["total_token_cost", "latency_p95"]
+)
 
 
 def candidate(cid, *, correctness, cost, latency=100.0, confidence=1.0, variance=0.0):
-    return Candidate(candidate_id=cid, confidence=confidence, variance=variance,
-                     objectives={"task_correctness": correctness, "total_token_cost": cost,
-                                 "latency_p95": latency, "holdout_generalization_score": correctness - 0.05})
+    return Candidate(
+        candidate_id=cid,
+        confidence=confidence,
+        variance=variance,
+        objectives={
+            "task_correctness": correctness,
+            "total_token_cost": cost,
+            "latency_p95": latency,
+            "holdout_generalization_score": correctness - 0.05,
+        },
+    )
 
 
 def test_dominance_requires_better_or_equal_on_all_and_strictly_on_one():

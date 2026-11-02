@@ -8,6 +8,7 @@ of ``interactive.py`` to keep that module focused on wiring and lifecycle).
 They are listed first in the TUI's bases, so they keep the precedence the
 methods had when they were defined on the class itself.
 """
+
 from __future__ import annotations
 
 from typing import Any

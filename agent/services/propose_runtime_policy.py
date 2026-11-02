@@ -18,10 +18,13 @@ def _resolve_data_dir() -> str:
 def _resolve_provider_model(*, effective_config: dict[str, Any] | None) -> tuple[str, str]:
     cfg = dict(effective_config or {})
     provider = str(cfg.get("default_provider") or cfg.get("provider") or "").strip().lower() or "lmstudio"
-    model = normalize_legacy_model_name(
-        str(cfg.get("default_model") or cfg.get("model") or "").strip() or "auto",
-        provider=provider,
-    ) or "auto"
+    model = (
+        normalize_legacy_model_name(
+            str(cfg.get("default_model") or cfg.get("model") or "").strip() or "auto",
+            provider=provider,
+        )
+        or "auto"
+    )
     return provider, model
 
 
@@ -39,8 +42,8 @@ def _calibrated_timeout_from_benchmarks(
         return None
     db = load_benchmarks(data_dir)
     model_key = f"{provider}:{model}"
-    entry = ((db.get("models") or {}).get(model_key) or {})
-    task_bucket = ((entry.get("task_kinds") or {}).get(task_kind) or {})
+    entry = (db.get("models") or {}).get(model_key) or {}
+    task_bucket = (entry.get("task_kinds") or {}).get(task_kind) or {}
     samples = [s for s in list(task_bucket.get("samples") or []) if isinstance(s, dict)]
     if len(samples) < 3:
         return None
@@ -57,7 +60,9 @@ def _calibrated_timeout_from_benchmarks(
 def resolve_propose_llm_timeout_seconds(*, effective_config: dict[str, Any] | None, task_kind: str | None) -> int:
     cfg = dict(effective_config or {})
     kind = str(task_kind or "").strip().lower()
-    task_kind_policies = cfg.get("task_kind_execution_policies") if isinstance(cfg.get("task_kind_execution_policies"), dict) else {}
+    task_kind_policies = (
+        cfg.get("task_kind_execution_policies") if isinstance(cfg.get("task_kind_execution_policies"), dict) else {}
+    )
     task_kind_cfg = task_kind_policies.get(kind) if isinstance(task_kind_policies.get(kind), dict) else {}
 
     # Prefer explicit LLM timeout override, then propose timeout and command budgets.

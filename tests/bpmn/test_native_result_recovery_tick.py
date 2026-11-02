@@ -18,11 +18,17 @@ def loop():
     app = Flask(__name__)
     app.config.update(ROLE="hub", ANANTA_NATIVE_RESULT_RECOVERY_ENABLED=True)
     observations = []
-    return SimpleNamespace(_app=app, _stop_event=threading.Event(), tick_count=0, running=False,
-                           _increment_completed=lambda: observations.append("completed"),
-                           _increment_tick_count=lambda: observations.append("tick"),
-                           _set_last_error=lambda value: None, _persist_state=lambda **kw: None,
-                           observations=observations)
+    return SimpleNamespace(
+        _app=app,
+        _stop_event=threading.Event(),
+        tick_count=0,
+        running=False,
+        _increment_completed=lambda: observations.append("completed"),
+        _increment_tick_count=lambda: observations.append("tick"),
+        _set_last_error=lambda value: None,
+        _persist_state=lambda **kw: None,
+        observations=observations,
+    )
 
 
 def test_tick_recovers_one_exact_task_and_does_not_dispatch(redelivery):
@@ -70,8 +76,12 @@ def test_tick_rotation_is_bounded_and_prevents_first_task_starvation(redelivery)
     second.id = "z-synthetic-other"
     state.tick_count = 1
     # The selected second Task has no journal; never fetch the first Task instead.
-    assert recover_native_result_on_tick(loop=state, tasks=[redelivery.task, second],
-                                         ports_factory=lambda: redelivery.ports) is None
+    assert (
+        recover_native_result_on_tick(
+            loop=state, tasks=[redelivery.task, second], ports_factory=lambda: redelivery.ports
+        )
+        is None
+    )
     assert not redelivery.calls
 
 
@@ -80,6 +90,10 @@ def test_explicit_hub_disable_overrides_environment_opt_in(redelivery, monkeypat
     state._app.config["ANANTA_NATIVE_RESULT_RECOVERY_ENABLED"] = False
     monkeypatch.setenv("ANANTA_NATIVE_RESULT_RECOVERY_ENABLED", "1")
     constructed = []
-    assert recover_native_result_on_tick(loop=state, tasks=[redelivery.task],
-                                         ports_factory=lambda: constructed.append(True)) is None
+    assert (
+        recover_native_result_on_tick(
+            loop=state, tasks=[redelivery.task], ports_factory=lambda: constructed.append(True)
+        )
+        is None
+    )
     assert not constructed

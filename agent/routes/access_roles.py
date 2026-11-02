@@ -25,8 +25,13 @@ def _actor() -> str:
 
 
 def _error(error: AccessRoleError):
-    code = 404 if str(error).endswith("_not_found") else 409 if str(error) in {"binding_exists",
-                                                                              "builtin_role_is_read_only"} else 400
+    code = (
+        404
+        if str(error).endswith("_not_found")
+        else 409
+        if str(error) in {"binding_exists", "builtin_role_is_read_only"}
+        else 400
+    )
     return api_response(status="error", message=str(error), code=code)
 
 
@@ -40,8 +45,9 @@ def access_me():
 @admin_required
 def list_access_roles():
     snapshot = get_access_role_admin_service().snapshot()
-    return api_response(data={"roles": snapshot["roles"], "builtin": sorted(BUILTIN_ROLES),
-                              "subject_kinds": list(SUBJECT_KINDS)})
+    return api_response(
+        data={"roles": snapshot["roles"], "builtin": sorted(BUILTIN_ROLES), "subject_kinds": list(SUBJECT_KINDS)}
+    )
 
 
 @access_roles_bp.route("/access/roles/<role_id>", methods=["PUT"])
@@ -50,8 +56,12 @@ def save_access_role(role_id: str):
     body = request.get_json(silent=True) or {}
     try:
         revision = get_access_role_admin_service().save_role(
-            role_id, name=body.get("name") or role_id, description=body.get("description") or "",
-            grants=body.get("grants") or {}, actor=_actor())
+            role_id,
+            name=body.get("name") or role_id,
+            description=body.get("description") or "",
+            grants=body.get("grants") or {},
+            actor=_actor(),
+        )
     except AccessRoleError as error:
         return _error(error)
     return api_response(data={"role_id": role_id.lower(), "revision": revision})
@@ -79,8 +89,13 @@ def add_access_binding():
     body = request.get_json(silent=True) or {}
     try:
         binding_id, revision = get_access_role_admin_service().add_binding(
-            body.get("subject_kind"), body.get("subject"), body.get("role_id"), actor=_actor(),
-            tenant_id=body.get("tenant_id"), project_id=body.get("project_id"))
+            body.get("subject_kind"),
+            body.get("subject"),
+            body.get("role_id"),
+            actor=_actor(),
+            tenant_id=body.get("tenant_id"),
+            project_id=body.get("project_id"),
+        )
     except AccessRoleError as error:
         return _error(error)
     return api_response(data={"binding_id": binding_id, "revision": revision}, code=201)

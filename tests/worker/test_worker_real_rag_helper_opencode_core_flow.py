@@ -3,13 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+
 import pytest
 
 from agent.services.ingestion_service import IngestionService
 from agent.services.rag_helper_index_service import RagHelperIndexService
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 from worker.adapters.opencode_adapter import OpenCodeAdapter
-
 
 PROJECT_ROOT = Path(__file__).parent.parent / "fixtures" / "mini_coding_project"
 

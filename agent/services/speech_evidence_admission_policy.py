@@ -420,10 +420,7 @@ class SpeechEvidenceAdmissionPolicy:
             return None
         try:
             return self._audit.prepare_transition(
-                idempotency_key=(
-                    f"speech-evidence:admission:{record.evidence_id}:"
-                    f"{outcome.admission_digest}"
-                ),
+                idempotency_key=(f"speech-evidence:admission:{record.evidence_id}:{outcome.admission_digest}"),
                 tenant_id=principal.tenant_id,
                 scope=f"speech-evidence:{record.session_id}",
                 event_type="speech_evidence",
@@ -474,9 +471,7 @@ def _policy_reasons(values: tuple[str, ...]) -> tuple[str, ...]:
         return ("speech_evidence_external_policy_invalid",)
     normalized = tuple(sorted(set(str(value) for value in values)))
     if any(
-        not value.startswith("speech_evidence_")
-        or len(value) > 160
-        or not value.replace("_", "").isalnum()
+        not value.startswith("speech_evidence_") or len(value) > 160 or not value.replace("_", "").isalnum()
         for value in normalized
     ):
         return ("speech_evidence_external_policy_invalid",)

@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from agent.services.rag_policy_service import (
-    SENSITIVITY_CLASSES,
     is_chunk_allowed_for_scope,
     normalize_sensitivity,
 )
@@ -38,9 +37,7 @@ def provider_to_llm_scope(provider: str, base_url: Optional[str]) -> str:
     p = str(provider or "").strip().lower()
     url = str(base_url or "").strip().lower()
 
-    if p in ("ollama", "lmstudio") or any(
-        h in url for h in ("localhost", "127.0.0.1", "0.0.0.0", "::1")
-    ):
+    if p in ("ollama", "lmstudio") or any(h in url for h in ("localhost", "127.0.0.1", "0.0.0.0", "::1")):
         return "local_only"
     if p in ("openai", "anthropic", "gemini", "cohere", "mistral"):
         return "external_cloud_allowed"
@@ -102,7 +99,7 @@ class ContextFileSelector:
             result.selected_paths.append(path)
 
         if policy.max_files > 0 and len(result.selected_paths) > policy.max_files:
-            overflow = result.selected_paths[policy.max_files:]
+            overflow = result.selected_paths[policy.max_files :]
             result.selected_paths = result.selected_paths[: policy.max_files]
             for p in overflow:
                 result.excluded_paths.append(p)

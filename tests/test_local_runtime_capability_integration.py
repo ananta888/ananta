@@ -138,9 +138,7 @@ def test_heuristics_never_become_routable():
 def test_unknown_capability_extension_round_trips_but_never_routes():
     snapshot = replace(
         _snapshot(),
-        capabilities=(
-            RuntimeCapabilityClaim("future.audio", True, "runtime_reported", 1.0, NOW),
-        ),
+        capabilities=(RuntimeCapabilityClaim("future.audio", True, "runtime_reported", 1.0, NOW),),
     )
     restored = RuntimeModelSnapshot.from_mapping(snapshot.to_dict())
     assert restored.claim("future.audio") is not None
@@ -236,18 +234,22 @@ class _Queue:
 
 
 def test_ollama_detail_discovery_is_bounded_and_detail_failure_keeps_model():
-    client = _Client({
-        "/api/tags": {"models": [
-            {"name": "chat", "digest": "1" * 64},
-            {"name": "chat", "digest": "1" * 64},
-            {"name": "embed", "digest": "2" * 64},
-        ]},
-        "/api/show": lambda payload: (
-            {"capabilities": ["completion", "tools"], "template": "<|im_start|>x<|im_end|>"}
-            if payload["model"] == "chat"
-            else {"capabilities": ["embedding"], "type": "embedding"}
-        ),
-    })
+    client = _Client(
+        {
+            "/api/tags": {
+                "models": [
+                    {"name": "chat", "digest": "1" * 64},
+                    {"name": "chat", "digest": "1" * 64},
+                    {"name": "embed", "digest": "2" * 64},
+                ]
+            },
+            "/api/show": lambda payload: (
+                {"capabilities": ["completion", "tools"], "template": "<|im_start|>x<|im_end|>"}
+                if payload["model"] == "chat"
+                else {"capabilities": ["embedding"], "type": "embedding"}
+            ),
+        }
+    )
     snapshots = OllamaCapabilityDiscoveryAdapter(
         client=client, base_url="http://127.0.0.1:11434", runtime_version="1"
     ).discover()
@@ -274,13 +276,17 @@ def test_ollama_detail_failure_keeps_tag_model_without_invented_capabilities():
 
 
 def test_lmstudio_native_metadata_is_optional_and_does_not_use_name_heuristics():
-    client = _Client({
-        "/v1/models": {"data": [{"id": "not-named-like-an-embedding"}, {"id": "chat"}]},
-        "/api/v1/models": {"models": [
-            {"id": "not-named-like-an-embedding", "type": "embedding", "capabilities": ["embedding"]},
-            {"id": "chat", "type": "llm", "capabilities": ["chat"]},
-        ]},
-    })
+    client = _Client(
+        {
+            "/v1/models": {"data": [{"id": "not-named-like-an-embedding"}, {"id": "chat"}]},
+            "/api/v1/models": {
+                "models": [
+                    {"id": "not-named-like-an-embedding", "type": "embedding", "capabilities": ["embedding"]},
+                    {"id": "chat", "type": "llm", "capabilities": ["chat"]},
+                ]
+            },
+        }
+    )
     snapshots = LmStudioCapabilityDiscoveryAdapter(
         client=client, base_url="http://127.0.0.1:1234", runtime_version="1"
     ).discover()
@@ -317,9 +323,7 @@ def test_hub_dispatch_worker_probe_and_hub_acceptance_are_automatic(tmp_path):
     assert dispatcher.dispatch(provider_id="ollama", requested_by="operator") == task_id
     assert len(queue.tasks) == 1
     queued = queue.tasks[0]
-    target = queued["extra_fields"]["worker_execution_context"][
-        "local_runtime_capability_refresh"
-    ]["targets"][0]
+    target = queued["extra_fields"]["worker_execution_context"]["local_runtime_capability_refresh"]["targets"][0]
     assert target["base_url"] == "http://127.0.0.1:11434"
 
     client = _Client(
@@ -405,34 +409,49 @@ def test_routing_requires_every_nonheuristic_capability():
 def test_request_policy_uses_smallest_context_and_counts_nested_payloads():
     policy = LocalRuntimeRequestPolicy(maximum_payload_bytes=1024)
     assert policy.effective_context_window(8192, 4096, None) == 4096
-    assert policy.validate_payload(
-        {
-            "messages": [{"content": "text"}],
-            "tools": [{"function": {"parameters": {"type": "object"}}}],
-            "images": ["YWJj"],
-            "tool_results": [{"content": "result"}],
-        }
-    ) > 0
+    assert (
+        policy.validate_payload(
+            {
+                "messages": [{"content": "text"}],
+                "tools": [{"function": {"parameters": {"type": "object"}}}],
+                "images": ["YWJj"],
+                "tool_results": [{"content": "result"}],
+            }
+        )
+        > 0
+    )
     with pytest.raises(ValueError, match="payload_too_large"):
         policy.validate_payload({"messages": [{"content": "x" * 2000}]})
 
 
 def test_response_normalizers_preserve_structured_tools_thinking_and_usage():
-    ollama = normalize_ollama_chat({
-        "message": {"content": "done", "thinking": "private", "tool_calls": [
-            {"function": {"name": "lookup", "arguments": {"id": 1}}}
-        ]},
-        "done": True,
-        "done_reason": "stop",
-        "prompt_eval_count": 3,
-        "eval_count": 4,
-    })
-    openai = normalize_openai_chat({
-        "choices": [{"message": {"content": "done", "tool_calls": [
-            {"id": "x", "function": {"name": "lookup", "arguments": "{\"id\":1}"}}
-        ]}, "finish_reason": "tool_calls"}],
-        "usage": {"prompt_tokens": 3, "completion_tokens": 4},
-    })
+    ollama = normalize_ollama_chat(
+        {
+            "message": {
+                "content": "done",
+                "thinking": "private",
+                "tool_calls": [{"function": {"name": "lookup", "arguments": {"id": 1}}}],
+            },
+            "done": True,
+            "done_reason": "stop",
+            "prompt_eval_count": 3,
+            "eval_count": 4,
+        }
+    )
+    openai = normalize_openai_chat(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "done",
+                        "tool_calls": [{"id": "x", "function": {"name": "lookup", "arguments": '{"id":1}'}}],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 4},
+        }
+    )
     generate = normalize_ollama_generate({"response": "done", "done": True})
     assert ollama["tool_calls"] == [{"id": "call-0", "name": "lookup", "arguments": {"id": 1}}]
     assert openai["tool_calls"][0]["id"] == "x"
@@ -452,9 +471,7 @@ def test_ollama_streaming_keeps_thinking_content_tools_and_final_usage_consisten
         {
             "message": {
                 "content": "done",
-                "tool_calls": [
-                    {"id": "x", "function": {"name": "lookup", "arguments": {"id": 1}}}
-                ],
+                "tool_calls": [{"id": "x", "function": {"name": "lookup", "arguments": {"id": 1}}}],
             },
             "done": True,
             "done_reason": "stop",
@@ -577,9 +594,7 @@ def test_projection_exposes_component_health_with_stable_reason_codes(tmp_path):
         LocalRuntimeCapabilityProjection,
     )
 
-    empty = LocalRuntimeCapabilityProjection(
-        LocalRuntimeCapabilityCache(tmp_path / "empty.json")
-    ).snapshot()
+    empty = LocalRuntimeCapabilityProjection(LocalRuntimeCapabilityCache(tmp_path / "empty.json")).snapshot()
     assert empty["health"]["cache"]["reason_code"] == "local_runtime_capability_cache_empty"
     assert empty["health"]["routing"]["reason_code"] == "local_runtime_no_routable_model"
 
@@ -752,9 +767,7 @@ def test_lmstudio_strategy_preserves_tool_only_response_as_structured_metadata(m
 
     assert result["text"] == ""
     assert result["metadata"]["finish_reason"] == "tool_calls"
-    assert result["metadata"]["tool_calls"] == [
-        {"id": "call-1", "name": "lookup", "arguments": {"id": 1}}
-    ]
+    assert result["metadata"]["tool_calls"] == [{"id": "call-1", "name": "lookup", "arguments": {"id": 1}}]
     assert strategy._strategy_result_has_output(result) is True
 
 
@@ -811,9 +824,7 @@ def test_ollama_strategy_normalizes_native_chat_tool_calls(monkeypatch):
                 "message": {
                     "content": "",
                     "thinking": "private",
-                    "tool_calls": [
-                        {"function": {"name": "lookup", "arguments": {"id": 1}}}
-                    ],
+                    "tool_calls": [{"function": {"name": "lookup", "arguments": {"id": 1}}}],
                 },
                 "done": True,
                 "done_reason": "stop",
@@ -856,9 +867,7 @@ def test_model_invocation_normalizes_ollama_native_chat_to_openai_shape():
             "model": "model",
             "message": {
                 "content": "",
-                "tool_calls": [
-                    {"id": "x", "function": {"name": "lookup", "arguments": {"id": 1}}}
-                ],
+                "tool_calls": [{"id": "x", "function": {"name": "lookup", "arguments": {"id": 1}}}],
             },
             "done": True,
             "done_reason": "stop",

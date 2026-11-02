@@ -1,13 +1,17 @@
 from __future__ import annotations
-import time, uuid, json
+
+import time
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
 
 class RetrievalMode(str, Enum):
     CODECOMPASS_ONLY = "codecompass_only"
     AUGMENT_ONLY = "augment_only"
     HYBRID = "hybrid"
+
 
 class DiscardReason(str, Enum):
     DENIED_PATH = "denied_path"
@@ -15,6 +19,7 @@ class DiscardReason(str, Enum):
     DUPLICATE = "duplicate"
     OVER_BUDGET = "over_budget"
     PROVIDER_DISABLED = "provider_disabled"
+
 
 @dataclass
 class GoldSet:
@@ -24,6 +29,7 @@ class GoldSet:
     expected_symbols: list[str] = field(default_factory=list)
     version: str = "1.0"
     notes: str = ""
+
 
 @dataclass
 class RetrievedResult:
@@ -35,6 +41,7 @@ class RetrievedResult:
     is_external: bool = False
     reason: str = ""
 
+
 @dataclass
 class DiscardedResult:
     path: str
@@ -42,6 +49,7 @@ class DiscardedResult:
     provider: str
     reason: DiscardReason
     detail: str = ""
+
 
 @dataclass
 class RetrievalAuditReport:
@@ -103,9 +111,12 @@ class RetrievalAuditReport:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "report_id": self.report_id, "query": self.query,
-            "provider": self.provider, "mode": self.mode,
-            "scope_paths": self.scope_paths, "latency_ms": self.latency_ms,
+            "report_id": self.report_id,
+            "query": self.query,
+            "provider": self.provider,
+            "mode": self.mode,
+            "scope_paths": self.scope_paths,
+            "latency_ms": self.latency_ms,
             "retrieved_count": len(self.retrieved),
             "discarded_count": len(self.discarded),
             "routing_decision": self.routing_decision,
@@ -114,13 +125,14 @@ class RetrievalAuditReport:
             "created_at": self.created_at,
         }
 
+
 @dataclass
 class BenchmarkComparison:
     comparison_id: str
     query: str
     gold: GoldSet | None
     results_by_mode: dict[str, RetrievalAuditReport]
-    winner: str | None   # mode with highest recall
+    winner: str | None  # mode with highest recall
     created_at: float
 
     def to_markdown(self) -> str:
@@ -139,9 +151,7 @@ class BenchmarkComparison:
             else:
                 r = p = "N/A"
                 missed = 0
-            lines.append(
-                f"| {mode} | {len(report.retrieved)} | {missed} | {r} | {p} | {report.latency_ms}ms |"
-            )
+            lines.append(f"| {mode} | {len(report.retrieved)} | {missed} | {r} | {p} | {report.latency_ms}ms |")
         if self.winner:
             lines += ["", f"**Winner:** {self.winner}"]
         return "\n".join(lines)
@@ -168,15 +178,22 @@ class RetrievalBenchmarkRunner:
 
         for mode in modes:
             report = self._run_mode(
-                query, mode=mode, provider_factory=provider_factory,
-                scope_paths=scope_paths or [], gold=gold,
+                query,
+                mode=mode,
+                provider_factory=provider_factory,
+                scope_paths=scope_paths or [],
+                gold=gold,
             )
             results[mode.value] = report
 
         winner = self._pick_winner(results, gold)
         return BenchmarkComparison(
-            comparison_id=str(uuid.uuid4()), query=query, gold=gold,
-            results_by_mode=results, winner=winner, created_at=time.time(),
+            comparison_id=str(uuid.uuid4()),
+            query=query,
+            gold=gold,
+            results_by_mode=results,
+            winner=winner,
+            created_at=time.time(),
         )
 
     def make_audit_report(
@@ -205,11 +222,18 @@ class RetrievalBenchmarkRunner:
                 "recall": len(hits) / max(len(gold.expected_files), 1),
             }
         return RetrievalAuditReport(
-            report_id=str(uuid.uuid4()), query=query, provider=provider,
-            mode=mode, scope_paths=list(scope_paths or []),
-            retrieved=list(retrieved), discarded=list(discarded or []),
-            routing_decision=routing_decision, redactions_applied=redactions_applied,
-            latency_ms=latency_ms, created_at=time.time(), gold_comparison=gold_cmp,
+            report_id=str(uuid.uuid4()),
+            query=query,
+            provider=provider,
+            mode=mode,
+            scope_paths=list(scope_paths or []),
+            retrieved=list(retrieved),
+            discarded=list(discarded or []),
+            routing_decision=routing_decision,
+            redactions_applied=redactions_applied,
+            latency_ms=latency_ms,
+            created_at=time.time(),
+            gold_comparison=gold_cmp,
         )
 
     def _run_mode(
@@ -224,22 +248,22 @@ class RetrievalBenchmarkRunner:
         start = time.time()
         try:
             raw = provider_factory(mode.value, query)
-            retrieved = [
-                RetrievedResult(**r) if isinstance(r, dict) else r
-                for r in (raw or [])
-            ]
+            retrieved = [RetrievedResult(**r) if isinstance(r, dict) else r for r in (raw or [])]
         except Exception:
             retrieved = []
         latency = int((time.time() - start) * 1000)
         return self.make_audit_report(
-            query=query, provider=mode.value, mode=mode.value,
-            retrieved=retrieved, scope_paths=scope_paths,
-            routing_decision=f"benchmark:{mode.value}", latency_ms=latency, gold=gold,
+            query=query,
+            provider=mode.value,
+            mode=mode.value,
+            retrieved=retrieved,
+            scope_paths=scope_paths,
+            routing_decision=f"benchmark:{mode.value}",
+            latency_ms=latency,
+            gold=gold,
         )
 
-    def _pick_winner(
-        self, results: dict[str, RetrievalAuditReport], gold: GoldSet | None
-    ) -> str | None:
+    def _pick_winner(self, results: dict[str, RetrievalAuditReport], gold: GoldSet | None) -> str | None:
         if not gold or not results:
             return None
         best_mode, best_recall = None, -1.0

@@ -19,6 +19,7 @@ def _state() -> OperatorState:
 
 # ── tab_label helpers ────────────────────────────────────────────────────────
 
+
 def test_tab_label_for_section_returns_title() -> None:
     assert tab_label_for_section("goals") == "Goals"
     assert tab_label_for_section("dashboard") == "Dashboard"
@@ -41,6 +42,7 @@ def test_tab_label_for_chat_preview_empty() -> None:
 
 
 # ── open_or_activate_tab ────────────────────────────────────────────────────
+
 
 def test_open_first_tab_creates_it() -> None:
     s = open_or_activate_tab(_state(), section_id="goals", kind="section", label="Goals")
@@ -69,10 +71,20 @@ def test_open_duplicate_section_tab_activates_existing() -> None:
 
 def test_open_chat_viewport_tab_allows_multiple() -> None:
     s = _state()
-    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Hallo…",
-                              viewport_state={"scroll_offset": 0, "preview": "Hallo erste Nachricht"})
-    s2 = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Welt…",
-                               viewport_state={"scroll_offset": 0, "preview": "Welt zweite Nachricht"})
+    s = open_or_activate_tab(
+        s,
+        section_id="dashboard",
+        kind="chat_viewport",
+        label="Hallo…",
+        viewport_state={"scroll_offset": 0, "preview": "Hallo erste Nachricht"},
+    )
+    s2 = open_or_activate_tab(
+        s,
+        section_id="dashboard",
+        kind="chat_viewport",
+        label="Welt…",
+        viewport_state={"scroll_offset": 0, "preview": "Welt zweite Nachricht"},
+    )
     assert len(s2.open_tabs) == 2
     assert s2.open_tabs[0].id != s2.open_tabs[1].id
     assert s2.active_tab_id == s2.open_tabs[1].id
@@ -81,17 +93,20 @@ def test_open_chat_viewport_tab_allows_multiple() -> None:
 def test_open_duplicate_chat_viewport_tab_activates_existing() -> None:
     s = _state()
     viewport_state = {"scroll_offset": 0, "preview": "Dieselbe lange Nachricht"}
-    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…",
-                             viewport_state=viewport_state)
+    s = open_or_activate_tab(
+        s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…", viewport_state=viewport_state
+    )
     first_tab_id = s.active_tab_id
     s = s.with_updates(active_tab_id="")
-    s2 = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…",
-                              viewport_state=viewport_state)
+    s2 = open_or_activate_tab(
+        s, section_id="dashboard", kind="chat_viewport", label="Dieselbe…", viewport_state=viewport_state
+    )
     assert len(s2.open_tabs) == 1
     assert s2.active_tab_id == first_tab_id
 
 
 # ── close_tab ───────────────────────────────────────────────────────────────
+
 
 def test_close_only_tab_creates_dashboard() -> None:
     s = open_or_activate_tab(_state(), section_id="goals", kind="section", label="Goals")
@@ -133,6 +148,7 @@ def test_close_inactive_tab_leaves_active_unchanged() -> None:
 
 # ── activate_tab ────────────────────────────────────────────────────────────
 
+
 def test_activate_section_tab_sets_section_id() -> None:
     s = _state()
     s = open_or_activate_tab(s, section_id="dashboard", kind="section", label="Dashboard")
@@ -153,8 +169,9 @@ def test_activate_section_tab_clears_viewport() -> None:
 
 def test_activate_chat_viewport_tab_enables_viewport() -> None:
     s = _state()
-    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Hallo…",
-                              viewport_state={"scroll_offset": 42})
+    s = open_or_activate_tab(
+        s, section_id="dashboard", kind="chat_viewport", label="Hallo…", viewport_state={"scroll_offset": 42}
+    )
     tab_id = s.active_tab_id
     new_state, game_out = activate_tab(s, tab_id, game={})
     assert game_out.get("visual_viewport_enabled") is True
@@ -164,10 +181,12 @@ def test_activate_chat_viewport_tab_enables_viewport() -> None:
 
 # ── save_scroll_to_active_tab ────────────────────────────────────────────────
 
+
 def test_save_scroll_persists_to_chat_viewport_tab() -> None:
     s = _state()
-    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="Hallo…",
-                              viewport_state={"scroll_offset": 0})
+    s = open_or_activate_tab(
+        s, section_id="dashboard", kind="chat_viewport", label="Hallo…", viewport_state={"scroll_offset": 0}
+    )
     tab_id = s.active_tab_id
     s2 = save_scroll_to_active_tab(s, 77)
     tab = find_tab(s2, tab_id=tab_id)
@@ -183,13 +202,19 @@ def test_save_scroll_does_not_affect_section_tab() -> None:
 
 def test_two_chat_viewport_tabs_independent_scroll() -> None:
     s = _state()
-    s = open_or_activate_tab(s, section_id="dashboard", kind="chat_viewport", label="A…",
-                              viewport_state={"scroll_offset": 0, "preview": "A"})
+    s = open_or_activate_tab(
+        s, section_id="dashboard", kind="chat_viewport", label="A…", viewport_state={"scroll_offset": 0, "preview": "A"}
+    )
     tab_a = s.active_tab_id
     # Simulate a second message tab with an independent scroll state.
     tab_b_id = "chat:99999"
-    tab_b = TuiTab(id=tab_b_id, kind="chat_viewport", section_id="dashboard",  # type: ignore[arg-type]
-                   label="B…", viewport_state={"scroll_offset": 0})
+    tab_b = TuiTab(
+        id=tab_b_id,
+        kind="chat_viewport",
+        section_id="dashboard",  # type: ignore[arg-type]
+        label="B…",
+        viewport_state={"scroll_offset": 0},
+    )
     s = s.with_updates(open_tabs=s.open_tabs + (tab_b,), active_tab_id=tab_b_id)
     s = save_scroll_to_active_tab(s, 50)
     # tab_a should be unchanged
@@ -201,6 +226,7 @@ def test_two_chat_viewport_tabs_independent_scroll() -> None:
 
 
 # ── tab_positions_for_render ─────────────────────────────────────────────────
+
 
 def test_tab_positions_empty_state() -> None:
     assert tab_positions_for_render(_state(), width=120) == []
@@ -225,8 +251,10 @@ def test_tab_positions_x_are_non_overlapping() -> None:
 
 # ── SeedTemplateCatalog ───────────────────────────────────────────────────────
 
+
 def test_seed_template_catalog_loads_all_templates() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     tpls = cat.get_all_templates()
     assert len(tpls) == 95
@@ -241,6 +269,7 @@ def test_seed_template_catalog_loads_all_templates() -> None:
 
 def test_seed_template_catalog_expands_appendixes() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     po = next(t for t in cat.get_templates_for_team_type("Scrum") if t["name"] == "Scrum - Product Owner")
     assert "SOLID" in po["prompt_template"]
@@ -249,6 +278,7 @@ def test_seed_template_catalog_expands_appendixes() -> None:
 
 def test_seed_template_catalog_opencode_has_both_appendixes() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     dev = next(t for t in cat.get_templates_for_team_type("Scrum") if t["name"] == "OpenCode Scrum - Developer")
     assert "Execution cascade" in dev["prompt_template"]
@@ -257,6 +287,7 @@ def test_seed_template_catalog_opencode_has_both_appendixes() -> None:
 
 def test_seed_template_catalog_role_profile_defaults() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     d = cat.get_role_profile_defaults("TDD", "Test Driver")
     assert d["risk_profile"] == "high"
@@ -265,6 +296,7 @@ def test_seed_template_catalog_role_profile_defaults() -> None:
 
 def test_seed_template_catalog_unknown_team_type_returns_empty() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     assert cat.get_templates_for_team_type("NonExistent") == []
     assert cat.get_role_specs_for_team_type("NonExistent") == []
@@ -273,6 +305,7 @@ def test_seed_template_catalog_unknown_team_type_returns_empty() -> None:
 
 def test_seed_template_catalog_all_team_types_covered() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
+
     cat = get_seed_template_catalog()
     types = set(cat.known_team_types())
     # "Covered" is the claim in the name: every declared team type must own at
@@ -299,6 +332,7 @@ def test_seed_template_catalog_all_team_types_covered() -> None:
 def test_seed_template_catalog_schema_validates() -> None:
     """Catalog file must pass JSON schema validation (uses jsonschema)."""
     from agent.services.seed_template_catalog import SeedTemplateCatalog
+
     cat = SeedTemplateCatalog()
     # _load raises ValueError on schema violations
     cat._load()

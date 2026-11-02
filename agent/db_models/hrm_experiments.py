@@ -29,9 +29,7 @@ class HrmWorkerCapabilityDB(SQLModel, table=True):
 class HrmDatasetDB(SQLModel, table=True):
     __tablename__ = "hrm_datasets"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "project_id", "dataset_id", name="uq_hrm_dataset_scope_id"
-        ),
+        sa.UniqueConstraint("tenant_id", "project_id", "dataset_id", name="uq_hrm_dataset_scope_id"),
         sa.UniqueConstraint(
             "tenant_id",
             "project_id",
@@ -56,9 +54,7 @@ class HrmDatasetDB(SQLModel, table=True):
 class HrmCheckpointDB(SQLModel, table=True):
     __tablename__ = "hrm_checkpoints"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "project_id", "checkpoint_id", name="uq_hrm_checkpoint_scope_id"
-        ),
+        sa.UniqueConstraint("tenant_id", "project_id", "checkpoint_id", name="uq_hrm_checkpoint_scope_id"),
         sa.UniqueConstraint(
             "tenant_id",
             "project_id",

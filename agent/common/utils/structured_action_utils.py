@@ -9,7 +9,7 @@ from agent.common.utils.extraction_utils import extract_json_payload
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 _TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
-_BARE_JSON_KEY_RE = re.compile(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)')
+_BARE_JSON_KEY_RE = re.compile(r"([{,]\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*:)")
 _COMMAND_KEY_RE = re.compile(r'"(?:command|cmd|shell_command|shell|bash|script)"\s*:\s*"((?:[^"\\]|\\.)*)"', re.DOTALL)
 _ARGS_KEY_RE = re.compile(r'"(?:args|arguments|argv)"\s*:\s*\[(.*?)\]', re.DOTALL)
 _JSON_STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
@@ -17,7 +17,7 @@ _REASON_KEY_RE = re.compile(r'"(?:reason|summary|message|thought|explanation)"\s
 
 
 # a model that has no command often writes one of these instead of leaving the field out
-_NO_COMMAND_PLACEHOLDERS = frozenset({"null", "none", "nil", "undefined", "n/a", "na", "-", "\"\"", "''"})
+_NO_COMMAND_PLACEHOLDERS = frozenset({"null", "none", "nil", "undefined", "n/a", "na", "-", '""', "''"})
 
 
 def _real_command(value: object) -> str:

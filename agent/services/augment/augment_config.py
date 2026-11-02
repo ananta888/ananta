@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
+
 
 @dataclass
 class AugmentMcpConfig:
@@ -10,6 +12,7 @@ class AugmentMcpConfig:
     tool_name: str = "codebase-retrieval"
     timeout_seconds: int = 45
     max_results: int = 12
+
 
 @dataclass
 class AugmentCliConfig:
@@ -21,12 +24,14 @@ class AugmentCliConfig:
     max_output_bytes: int = 1048576
     allow_write: bool = False
 
+
 @dataclass
 class AugmentBridgeConfig:
     enabled: bool = False
     max_session_seconds: int = 1800
     idle_timeout_seconds: int = 120
     approval_required_for_write: bool = True
+
 
 @dataclass
 class AugmentSecurityConfig:
@@ -35,11 +40,21 @@ class AugmentSecurityConfig:
     send_secrets: bool = False
     redact_env: bool = True
     allowed_paths: list[str] = field(default_factory=list)
-    denied_paths: list[str] = field(default_factory=lambda: [
-        ".git", ".env", ".venv", "node_modules", "dist", "build",
-        ".claude", ".augment", "secrets"
-    ])
+    denied_paths: list[str] = field(
+        default_factory=lambda: [
+            ".git",
+            ".env",
+            ".venv",
+            "node_modules",
+            "dist",
+            "build",
+            ".claude",
+            ".augment",
+            "secrets",
+        ]
+    )
     require_explicit_project_approval: bool = True
+
 
 @dataclass
 class AugmentConfig:
@@ -49,6 +64,7 @@ class AugmentConfig:
     auggie_cli: AugmentCliConfig = field(default_factory=AugmentCliConfig)
     interactive_bridge: AugmentBridgeConfig = field(default_factory=AugmentBridgeConfig)
     security: AugmentSecurityConfig = field(default_factory=AugmentSecurityConfig)
+
 
 def load_augment_config(raw: dict[str, Any] | None = None) -> AugmentConfig:
     if not raw:
@@ -81,6 +97,7 @@ def load_augment_config(raw: dict[str, Any] | None = None) -> AugmentConfig:
             require_explicit_project_approval=bool(s.get("require_explicit_project_approval", True)),
         )
     return cfg
+
 
 def validate_augment_config(config: AugmentConfig) -> list[str]:
     issues = []

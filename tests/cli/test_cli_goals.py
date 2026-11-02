@@ -27,7 +27,6 @@ def _hub_deps(transport) -> cli_goals.CliGoalsDependencies:
 def test_list_modes_calls_goal_modes_endpoint(monkeypatch, capsys):
     calls: list[tuple[str, str]] = []
 
-
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append((method, url))
         return _FakeResponse(
@@ -51,7 +50,6 @@ def test_list_modes_calls_goal_modes_endpoint(monkeypatch, capsys):
 
 def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
     calls: list[dict] = []
-
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -145,7 +143,6 @@ def test_submit_goal_prints_reference_profile_visibility(monkeypatch, capsys):
 def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     calls: list[dict] = []
 
-
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
         return _FakeResponse(
@@ -171,7 +168,6 @@ def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
 
 def test_shortcut_repair_admin_submits_goal_with_admin_repair_mode(monkeypatch):
     calls: list[dict] = []
-
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -245,7 +241,6 @@ def test_parse_rag_sources_empty_returns_empty():
 def test_purge_goal_calls_delete_endpoint(monkeypatch, capsys):
     calls: list[dict] = []
 
-
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "params": params})
         return _FakeResponse(
@@ -283,7 +278,6 @@ def test_main_goal_purge_requires_yes(monkeypatch, capsys):
 def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
     calls: list[dict] = []
 
-
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
         return _FakeResponse(
@@ -305,7 +299,16 @@ def test_sources_bootstrap_command_dry_run(monkeypatch, capsys, tmp_path):
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     try:
-        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--dry-run", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+        cli_goals.main(
+            [
+                "sources",
+                "bootstrap",
+                "ananta-dev-default",
+                "--dry-run",
+                "--skip-source",
+                "wikimedia-wikipedia-initial-dump",
+            ]
+        )
     except SystemExit as exc:
         assert int(exc.code) == 0
     out = capsys.readouterr().out
@@ -319,7 +322,9 @@ def test_sources_bootstrap_command_writes_bundle(monkeypatch, capsys, tmp_path):
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     try:
-        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+        cli_goals.main(
+            ["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"]
+        )
     except SystemExit as exc:
         assert int(exc.code) == 0
     out = capsys.readouterr().out
@@ -337,8 +342,8 @@ def test_sources_doctor_command_json(monkeypatch, capsys, tmp_path):
     except SystemExit as exc:
         assert int(exc.code) in {0, 1}
     out = capsys.readouterr().out
-    assert "\"schema\": \"source_pack_doctor.v1\"" in out
-    assert "\"source_pack_id\": \"ananta-dev-default\"" in out
+    assert '"schema": "source_pack_doctor.v1"' in out
+    assert '"source_pack_id": "ananta-dev-default"' in out
 
 
 def test_sources_query_command_prints_source_refs(monkeypatch, capsys, tmp_path):
@@ -346,7 +351,9 @@ def test_sources_query_command_prints_source_refs(monkeypatch, capsys, tmp_path)
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     try:
-        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+        cli_goals.main(
+            ["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"]
+        )
     except SystemExit as exc:
         assert int(exc.code) == 0
     capsys.readouterr()
@@ -372,8 +379,8 @@ def test_plan_summary_doctor_and_fix_commands(capsys, tmp_path):
     except SystemExit as exc:
         assert int(exc.code) == 1
     out = capsys.readouterr().out
-    assert "\"format\": \"planning_track\"" in out
-    assert "\"valid\": false" in out.lower()
+    assert '"format": "planning_track"' in out
+    assert '"valid": false' in out.lower()
 
     try:
         cli_goals.main(["plan", "summary", "fix", str(target), "--write", "--json"])
@@ -413,7 +420,10 @@ def test_plan_summary_migrate_detects_legacy_epics_without_convert(capsys, tmp_p
         "risk_scale": ["low", "medium", "high"],
         "milestones": [],
         "epics": [{"id": "E1", "title": "Epic", "tasks": [{"title": "Legacy task"}]}],
-        "tasks_status_summary": {"total": 0, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+        "tasks_status_summary": {
+            "total": 0,
+            "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+        },
     }
     (todos / "legacy.json").write_text(json.dumps(legacy, ensure_ascii=False, indent=2), encoding="utf-8")
     try:

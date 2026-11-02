@@ -149,13 +149,19 @@ def test_available_slots_excludes_only_the_current_run_not_the_whole_workflow() 
         )
     )
 
-    assert capacity.available_slots(
-        tenant_id="tenant-a",
-        workflow_id="shared-workflow",
-        run_id="first-run",
-    ) == 1
-    assert capacity.available_slots(
-        tenant_id="tenant-a",
-        workflow_id="shared-workflow",
-        run_id="second-run",
-    ) == 0
+    assert (
+        capacity.available_slots(
+            tenant_id="tenant-a",
+            workflow_id="shared-workflow",
+            run_id="first-run",
+        )
+        == 1
+    )
+    assert (
+        capacity.available_slots(
+            tenant_id="tenant-a",
+            workflow_id="shared-workflow",
+            run_id="second-run",
+        )
+        == 0
+    )

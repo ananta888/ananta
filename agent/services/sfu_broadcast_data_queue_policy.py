@@ -14,7 +14,6 @@ from agent.services.sfu_broadcast_data_queue_models import (
     DataQueuePolicyError,
     DataTrafficClass,
     DeliveryScope,
-    _is_handle,
     QueueAdapterKind,
     QueueCleanupProfile,
     QueueCleanupResult,
@@ -35,6 +34,7 @@ from agent.services.sfu_broadcast_data_queue_models import (
     TrafficAuthority,
     TrafficClassProfile,
     TrafficKindRule,
+    _is_handle,
 )
 from agent.services.sfu_broadcast_data_queue_profile_parser import (
     load_sfu_broadcast_data_queue_profile,
@@ -139,18 +139,10 @@ class BoundedSfuBroadcastDataQueue:
         retained = list(self._entries)
         coalesced: list[QueuedMessageMetadata] = []
         if class_profile.overflow_action is QueueOverflowAction.COALESCE:
-            coalesced = [
-                queued
-                for queued in retained
-                if _same_coalesce_bucket(queued, entry)
-            ]
+            coalesced = [queued for queued in retained if _same_coalesce_bucket(queued, entry)]
             if coalesced:
                 coalesced_ids = {queued.message_id for queued in coalesced}
-                retained = [
-                    queued
-                    for queued in retained
-                    if queued.message_id not in coalesced_ids
-                ]
+                retained = [queued for queued in retained if queued.message_id not in coalesced_ids]
 
         limit_scope = self._first_exceeded_scope(retained, entry)
         evicted: list[QueuedMessageMetadata] = []
@@ -168,9 +160,7 @@ class BoundedSfuBroadcastDataQueue:
 
         retained.append(entry)
         self._entries = retained
-        removed = tuple(
-            queued.message_id for queued in (*coalesced, *evicted)
-        )
+        removed = tuple(queued.message_id for queued in (*coalesced, *evicted))
         if coalesced:
             return QueueDecision(
                 disposition=QueueDecisionDisposition.ENQUEUE,
@@ -198,24 +188,35 @@ class BoundedSfuBroadcastDataQueue:
         )
 
     def acknowledge_delivery(
-        self, feedback: QueueDeliveryFeedback, *, now_ms: int,
+        self,
+        feedback: QueueDeliveryFeedback,
+        *,
+        now_ms: int,
     ) -> QueueDeliveryFeedbackResult:
         """Release queue metadata from content-free, idempotent delivery feedback."""
 
         digest = (
-            feedback.message_id, feedback.destination_handle, feedback.outcome.value,
-            feedback.observed_at_ms, feedback.published_wire_bytes,
+            feedback.message_id,
+            feedback.destination_handle,
+            feedback.outcome.value,
+            feedback.observed_at_ms,
+            feedback.published_wire_bytes,
         )
         previous = self._receipts.get(feedback.receipt_id)
         if previous is not None:
             if previous[0] != digest:
                 return QueueDeliveryFeedbackResult(
-                    False, "SFB_DATA_DELIVERY_RECEIPT_CONFLICT", False,
+                    False,
+                    "SFB_DATA_DELIVERY_RECEIPT_CONFLICT",
+                    False,
                 )
             result = previous[1]
             return QueueDeliveryFeedbackResult(
-                result.accepted, "SFB_DATA_DELIVERY_RECEIPT_DUPLICATE",
-                result.message_removed, duplicate=True, retryable=result.retryable,
+                result.accepted,
+                "SFB_DATA_DELIVERY_RECEIPT_DUPLICATE",
+                result.message_removed,
+                duplicate=True,
+                retryable=result.retryable,
             )
         if (
             not _is_handle(feedback.receipt_id)
@@ -224,26 +225,33 @@ class BoundedSfuBroadcastDataQueue:
             or not _is_non_negative_int(now_ms)
             or not _is_non_negative_int(feedback.observed_at_ms)
             or feedback.observed_at_ms > now_ms
-            or (
-                feedback.published_wire_bytes is not None
-                and not _is_non_negative_int(feedback.published_wire_bytes)
-            )
+            or (feedback.published_wire_bytes is not None and not _is_non_negative_int(feedback.published_wire_bytes))
         ):
             return QueueDeliveryFeedbackResult(
-                False, "SFB_DATA_DELIVERY_RECEIPT_INVALID", False,
+                False,
+                "SFB_DATA_DELIVERY_RECEIPT_INVALID",
+                False,
             )
-        index = next((
-            position for position, entry in enumerate(self._entries)
-            if entry.message_id == feedback.message_id
-            and entry.destination_handle == feedback.destination_handle
-        ), None)
+        index = next(
+            (
+                position
+                for position, entry in enumerate(self._entries)
+                if entry.message_id == feedback.message_id and entry.destination_handle == feedback.destination_handle
+            ),
+            None,
+        )
         if feedback.outcome is QueueDeliveryOutcome.UNKNOWN:
             result = QueueDeliveryFeedbackResult(
-                False, "SFB_DATA_DELIVERY_UNKNOWN", False, retryable=True,
+                False,
+                "SFB_DATA_DELIVERY_UNKNOWN",
+                False,
+                retryable=True,
             )
         elif index is None:
             result = QueueDeliveryFeedbackResult(
-                False, "SFB_DATA_DELIVERY_MESSAGE_UNKNOWN", False,
+                False,
+                "SFB_DATA_DELIVERY_MESSAGE_UNKNOWN",
+                False,
             )
         else:
             self._entries.pop(index)
@@ -293,18 +301,14 @@ class BoundedSfuBroadcastDataQueue:
         retained: list[QueuedMessageMetadata] = []
         expired: list[str] = []
         for entry in self._entries:
-            limit = self._profile.per_destination_class[
-                entry.traffic_class
-            ].limits.age_ms_max
+            limit = self._profile.per_destination_class[entry.traffic_class].limits.age_ms_max
             if now_ms - entry.enqueued_at_ms > limit:
                 expired.append(entry.message_id)
             else:
                 retained.append(entry)
         self._entries = retained
         return QueueCleanupResult(
-            reason_code=(
-                self._profile.reason_codes.cleanup_expired if expired else None
-            ),
+            reason_code=(self._profile.reason_codes.cleanup_expired if expired else None),
             removed_message_ids=tuple(expired),
             disconnect_required=False,
         )
@@ -325,10 +329,7 @@ class BoundedSfuBroadcastDataQueue:
         class_profile: TrafficClassProfile,
         now_ms: int,
     ) -> bool:
-        if not all(
-            _is_handle(value)
-            for value in (offer.message_id, offer.room_handle, offer.destination_handle)
-        ):
+        if not all(_is_handle(value) for value in (offer.message_id, offer.room_handle, offer.destination_handle)):
             return False
         if any(entry.message_id == offer.message_id for entry in self._entries):
             return False
@@ -358,15 +359,11 @@ class BoundedSfuBroadcastDataQueue:
             and entry.destination_handle == incoming.destination_handle
             and entry.traffic_class is incoming.traffic_class
         ]
-        class_limits = self._profile.per_destination_class[
-            incoming.traffic_class
-        ].limits
+        class_limits = self._profile.per_destination_class[incoming.traffic_class].limits
         if _would_exceed(_usage(class_entries), incoming, class_limits):
             return QueueLimitScope.DESTINATION_CLASS
 
-        room_entries = [
-            entry for entry in entries if entry.room_handle == incoming.room_handle
-        ]
+        room_entries = [entry for entry in entries if entry.room_handle == incoming.room_handle]
         if _would_exceed(_usage(room_entries), incoming, self._profile.room_limits):
             return QueueLimitScope.ROOM
 
@@ -390,8 +387,7 @@ class BoundedSfuBroadcastDataQueue:
         candidates = [
             entry
             for entry in entries
-            if entry.priority > incoming.priority
-            and _contributes_to_scope(entry, incoming, exceeded_scope)
+            if entry.priority > incoming.priority and _contributes_to_scope(entry, incoming, exceeded_scope)
         ]
         if not candidates:
             return None
@@ -420,8 +416,7 @@ class BoundedSfuBroadcastDataQueue:
     def _blocked_timeout_reached(self, now_ms: int) -> bool:
         return (
             self._blocked_since_ms is not None
-            and now_ms - self._blocked_since_ms
-            >= self._profile.cleanup.disconnect_after_blocked_ms
+            and now_ms - self._blocked_since_ms >= self._profile.cleanup.disconnect_after_blocked_ms
         )
 
     def _disconnect(self) -> None:
@@ -448,8 +443,7 @@ def _would_exceed(
     return (
         usage.queue_bytes + incoming.queue_bytes > limits.queue_bytes_max
         or usage.messages + 1 > limits.messages_max
-        or usage.buffered_duration_ms + incoming.buffered_duration_ms
-        > limits.buffered_duration_ms_max
+        or usage.buffered_duration_ms + incoming.buffered_duration_ms > limits.buffered_duration_ms_max
         or usage.chunk_count + incoming.chunk_count > limits.chunk_count_max
     )
 

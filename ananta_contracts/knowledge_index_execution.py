@@ -19,26 +19,16 @@ from pydantic import (
 
 from ananta_contracts.source_control import MAX_SOURCE_ADMISSION_FILES
 
-KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = (
-    "ananta.knowledge_index_execution_job.v2"
-)
-KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = (
-    "ananta.knowledge_index_execution_result.v2"
-)
+KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA = "ananta.knowledge_index_execution_result.v2"
 # One Hub-owned absolute deadline covers Worker execution plus the response and
 # every result-artifact transfer.  The transfer share is explicit so lease and
 # grant planning cannot accidentally budget only the Worker POST.
 KNOWLEDGE_INDEX_RESULT_TRANSFER_BUDGET_SECONDS = 30
-KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS = (
-    KNOWLEDGE_INDEX_RESULT_TRANSFER_BUDGET_SECONDS
-)
+KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS = KNOWLEDGE_INDEX_RESULT_TRANSFER_BUDGET_SECONDS
 KNOWLEDGE_INDEX_PRE_DISPATCH_RESERVE_SECONDS = 450
-KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON = (
-    "knowledge_index_execution_dispatch_window_insufficient"
-)
-KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON = (
-    "knowledge_index_execution_dispatch_lease_expired"
-)
+KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON = "knowledge_index_execution_dispatch_window_insufficient"
+KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON = "knowledge_index_execution_dispatch_lease_expired"
 MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES = 128 * 1024 * 1024
 MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES = 1_048_576
 MAX_KNOWLEDGE_INDEX_MANIFEST_PATH_WIRE_BYTES = 512
@@ -128,17 +118,14 @@ class KnowledgeIndexFileEntry(_Closed):
             path.is_absolute()
             or "\\" in value
             or any(part in {"", ".", ".."} for part in path.parts)
-            or _json_string_payload_size(value)
-            > MAX_KNOWLEDGE_INDEX_MANIFEST_PATH_WIRE_BYTES
+            or _json_string_payload_size(value) > MAX_KNOWLEDGE_INDEX_MANIFEST_PATH_WIRE_BYTES
         ):
             raise ValueError("knowledge_index_manifest_path_invalid")
         return value
 
 
 class KnowledgeIndexFileManifest(_Closed):
-    manifest_id: Annotated[
-        str, StringConstraints(pattern=r"^manifest_[0-9a-f]{64}$")
-    ]
+    manifest_id: Annotated[str, StringConstraints(pattern=r"^manifest_[0-9a-f]{64}$")]
     manifest_digest: Sha256
     files: tuple[KnowledgeIndexFileEntry, ...] = Field(
         min_length=1,
@@ -154,17 +141,12 @@ class KnowledgeIndexFileManifest(_Closed):
             key=lambda item: item["relative_path"],
         ):
             raise ValueError("knowledge_index_manifest_not_sorted")
-        if len({item.relative_path for item in self.files}) != len(
-            self.files
-        ):
+        if len({item.relative_path for item in self.files}) != len(self.files):
             raise ValueError("knowledge_index_manifest_path_duplicate")
         if sum(item.size_bytes for item in self.files) != self.total_bytes:
             raise ValueError("knowledge_index_manifest_size_mismatch")
         expected = _digest(wire_files)
-        if (
-            self.manifest_digest != expected
-            or self.manifest_id != f"manifest_{expected}"
-        ):
+        if self.manifest_digest != expected or self.manifest_id != f"manifest_{expected}":
             raise ValueError("knowledge_index_manifest_digest_mismatch")
         return self
 
@@ -175,10 +157,7 @@ class KnowledgeIndexFileManifest(_Closed):
     ) -> "KnowledgeIndexFileManifest":
         normalized = tuple(
             sorted(
-                (
-                    KnowledgeIndexFileEntry.model_validate(dict(item))
-                    for item in files
-                ),
+                (KnowledgeIndexFileEntry.model_validate(dict(item)) for item in files),
                 key=lambda item: item.relative_path,
             )
         )
@@ -196,38 +175,24 @@ class KnowledgeIndexResourceBudget(_Closed):
         int,
         Field(ge=1, le=MAX_SOURCE_ADMISSION_FILES),
     ]
-    max_total_bytes: Annotated[
-        int, Field(ge=1, le=512 * 1024 * 1024)
-    ]
-    max_file_bytes: Annotated[
-        int, Field(ge=1, le=128 * 1024 * 1024)
-    ]
+    max_total_bytes: Annotated[int, Field(ge=1, le=512 * 1024 * 1024)]
+    max_file_bytes: Annotated[int, Field(ge=1, le=128 * 1024 * 1024)]
     max_runtime_seconds: Annotated[int, Field(ge=1, le=86_400)]
-    max_memory_bytes: Annotated[
-        int, Field(ge=64 * 1024 * 1024, le=256 * 1024 * 1024 * 1024)
-    ]
-    max_output_bytes: Annotated[
-        int, Field(ge=1, le=512 * 1024 * 1024)
-    ]
+    max_memory_bytes: Annotated[int, Field(ge=64 * 1024 * 1024, le=256 * 1024 * 1024 * 1024)]
+    max_output_bytes: Annotated[int, Field(ge=1, le=512 * 1024 * 1024)]
 
 
 class KnowledgeIndexAuthorityBinding(_Closed):
     tenant_id: Identifier
     project_id: Identifier
-    source_revision_id: Annotated[
-        str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")
-    ]
+    source_revision_id: Annotated[str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")]
     source_revision_digest: Sha256
     admission_digest: Sha256
     policy_snapshot_id: Identifier
     policy_snapshot_digest: Sha256
-    destination_id: Annotated[
-        str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")
-    ]
+    destination_id: Annotated[str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")]
     destination_digest: Sha256
-    source_access_grant_id: Annotated[
-        str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")
-    ]
+    source_access_grant_id: Annotated[str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")]
     source_access_grant_digest: Sha256
     binding_digest: Sha256
 
@@ -270,9 +235,7 @@ class KnowledgeIndexPayloadArtifactRef(_Closed):
         int,
         Field(ge=1, le=MAX_KNOWLEDGE_INDEX_PAYLOAD_BYTES),
     ]
-    media_type: Literal[
-        "application/vnd.ananta.knowledge-index-job+json"
-    ]
+    media_type: Literal["application/vnd.ananta.knowledge-index-job+json"]
     encoding: Literal["json"] = "json"
 
 
@@ -304,9 +267,9 @@ def derive_execution_fingerprint(
 
 
 class KnowledgeIndexExecutionJob(_Closed):
-    schema_version: Literal[
-        "ananta.knowledge_index_execution_job.v2"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.knowledge_index_execution_job.v2"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     authority: Literal["hub"]
     job_id: Annotated[
         str,
@@ -339,19 +302,12 @@ class KnowledgeIndexExecutionJob(_Closed):
             payload=self.payload,
             profile_name=self.profile_name,
         )
-        if (
-            self.idempotency_fingerprint != expected
-            or self.job_id != f"knowledge-index-{expected[:32]}"
-        ):
+        if self.idempotency_fingerprint != expected or self.job_id != f"knowledge-index-{expected[:32]}":
             raise ValueError("knowledge_index_job_identity_mismatch")
         if (
             len(self.file_manifest.files) > self.resources.max_files
-            or self.file_manifest.total_bytes
-            > self.resources.max_total_bytes
-            or any(
-                item.size_bytes > self.resources.max_file_bytes
-                for item in self.file_manifest.files
-            )
+            or self.file_manifest.total_bytes > self.resources.max_total_bytes
+            or any(item.size_bytes > self.resources.max_file_bytes for item in self.file_manifest.files)
         ):
             raise ValueError("knowledge_index_job_resource_budget_exceeded")
         return self
@@ -361,9 +317,7 @@ class KnowledgeIndexExecutionJob(_Closed):
         normalized = dict(values)
         fingerprint = derive_execution_fingerprint(
             hub_task_id=normalized["hub_task_id"],
-            idempotency_key_digest=normalized[
-                "idempotency_key_digest"
-            ],
+            idempotency_key_digest=normalized["idempotency_key_digest"],
             authority_binding=normalized["authority_binding"],
             file_manifest=normalized["file_manifest"],
             resources=normalized["resources"],
@@ -382,9 +336,9 @@ class KnowledgeIndexExecutionJob(_Closed):
 
 
 class KnowledgeIndexExecutionResult(_Closed):
-    schema_version: Literal[
-        "ananta.knowledge_index_execution_result.v2"
-    ] = Field(validation_alias="schema", serialization_alias="schema")
+    schema_version: Literal["ananta.knowledge_index_execution_result.v2"] = Field(
+        validation_alias="schema", serialization_alias="schema"
+    )
     job_id: Annotated[
         str,
         StringConstraints(pattern=r"^knowledge-index-[0-9a-f]{32}$"),
@@ -394,20 +348,14 @@ class KnowledgeIndexExecutionResult(_Closed):
     worker_id: Identifier
     lease_id: Identifier
     lease_generation: Annotated[int, Field(ge=1)]
-    source_revision_id: Annotated[
-        str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")
-    ]
+    source_revision_id: Annotated[str, StringConstraints(pattern=r"^srev_[0-9a-f]{64}$")]
     source_revision_digest: Sha256
     admission_digest: Sha256
     policy_snapshot_id: Identifier
     policy_snapshot_digest: Sha256
-    destination_id: Annotated[
-        str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")
-    ]
+    destination_id: Annotated[str, StringConstraints(pattern=r"^dst_[0-9a-f]{64}$")]
     destination_digest: Sha256
-    source_access_grant_id: Annotated[
-        str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")
-    ]
+    source_access_grant_id: Annotated[str, StringConstraints(pattern=r"^grant_[0-9a-f]{64}$")]
     source_access_grant_digest: Sha256
     authority_binding_digest: Sha256
     file_manifest_digest: Sha256
@@ -450,25 +398,15 @@ class KnowledgeIndexExecutionResult(_Closed):
             destination_id=binding.destination_id,
             destination_digest=binding.destination_digest,
             source_access_grant_id=binding.source_access_grant_id,
-            source_access_grant_digest=(
-                binding.source_access_grant_digest
-            ),
+            source_access_grant_digest=(binding.source_access_grant_digest),
             authority_binding_digest=binding.binding_digest,
             file_manifest_digest=job.file_manifest.manifest_digest,
             status=status,
             reason_code=reason_code,
-            knowledge_index=(
-                dict(knowledge_index) if knowledge_index is not None else None
-            ),
+            knowledge_index=(dict(knowledge_index) if knowledge_index is not None else None),
             run=dict(run) if run is not None else None,
-            results=(
-                [dict(item) for item in results]
-                if results is not None
-                else None
-            ),
-            artifact_refs=[
-                dict(item) for item in (artifact_refs or [])
-            ],
+            results=([dict(item) for item in results] if results is not None else None),
+            artifact_refs=[dict(item) for item in (artifact_refs or [])],
             error=error,
         )
 
@@ -479,9 +417,7 @@ def parse_execution_job(
     try:
         return KnowledgeIndexExecutionJob.model_validate(dict(payload))
     except (TypeError, ValueError, ValidationError):
-        raise KnowledgeIndexExecutionContractError(
-            "knowledge_index_execution_job_invalid"
-        ) from None
+        raise KnowledgeIndexExecutionContractError("knowledge_index_execution_job_invalid") from None
 
 
 def parse_execution_result(
@@ -490,6 +426,4 @@ def parse_execution_result(
     try:
         return KnowledgeIndexExecutionResult.model_validate(dict(payload))
     except (TypeError, ValueError, ValidationError):
-        raise KnowledgeIndexExecutionContractError(
-            "knowledge_index_execution_result_invalid"
-        ) from None
+        raise KnowledgeIndexExecutionContractError("knowledge_index_execution_result_invalid") from None

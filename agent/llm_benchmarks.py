@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from typing import Any
 
 from agent.model_selection import normalize_legacy_model_name
-
 
 BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops", "research"}
 DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
@@ -55,7 +55,9 @@ def benchmark_identity_precedence_config(agent_cfg: dict | None) -> dict[str, li
     }
     provider_order = [
         str(x).strip().lower()
-        for x in (cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else DEFAULT_BENCH_PROVIDER_ORDER)
+        for x in (
+            cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else DEFAULT_BENCH_PROVIDER_ORDER
+        )
         if str(x).strip().lower() in allowed_provider_sources
     ]
     model_order = [
@@ -91,7 +93,7 @@ def load_benchmarks(data_dir: str) -> dict[str, Any]:
             if isinstance(data, dict):
                 return data
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("load_benchmarks: ignored Exception", exc_info=True)
     return {"models": {}, "updated_at": None}
 
 
@@ -367,9 +369,8 @@ def recommend_models_for_context(
         }
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
-            bayes = estimate_bayesian_for_samples(
-                filtered, source="llm_benchmark", provider=provider, model=model
-            )
+
+            bayes = estimate_bayesian_for_samples(filtered, source="llm_benchmark", provider=provider, model=model)
             candidate["bayesian_estimate"] = bayes
             candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
             candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
@@ -441,7 +442,9 @@ def resolve_cost_per_1k_tokens(agent_cfg: dict | None, provider: str, model: str
     return 0.0, None
 
 
-def estimate_cost_units(agent_cfg: dict | None, provider: str, model: str, tokens_total: int) -> tuple[float, str | None]:
+def estimate_cost_units(
+    agent_cfg: dict | None, provider: str, model: str, tokens_total: int
+) -> tuple[float, str | None]:
     cost_per_1k_tokens, pricing_source = resolve_cost_per_1k_tokens(agent_cfg, provider, model)
     if cost_per_1k_tokens <= 0:
         return 0.0, pricing_source
@@ -470,14 +473,21 @@ def benchmark_rows(
             "provider": str(entry.get("provider") or "").strip().lower(),
             "model": str(entry.get("model") or "").strip(),
             "overall": overall,
-            "task_kinds": {kind: score_bucket(((entry.get("task_kinds") or {}).get(kind) or {})) for kind in BENCH_TASK_KINDS},
+            "task_kinds": {
+                kind: score_bucket(((entry.get("task_kinds") or {}).get(kind) or {})) for kind in BENCH_TASK_KINDS
+            },
         }
-        row["focus"] = row["task_kinds"].get(normalized_task_kind, score_bucket({})) if normalized_task_kind else overall
+        row["focus"] = (
+            row["task_kinds"].get(normalized_task_kind, score_bucket({})) if normalized_task_kind else overall
+        )
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+
             focus_bucket = (
-                (entry.get("task_kinds") or {}).get(normalized_task_kind) if normalized_task_kind else None
-            ) or entry.get("overall") or {}
+                ((entry.get("task_kinds") or {}).get(normalized_task_kind) if normalized_task_kind else None)
+                or entry.get("overall")
+                or {}
+            )
             samples = list(focus_bucket.get("samples") or [])
             row["bayesian_estimate"] = estimate_bayesian_for_samples(
                 samples,
@@ -512,12 +522,14 @@ def timeseries_from_samples(samples: list[dict[str, Any]], bucket: str = "day") 
         row["quality_pass"] += 1 if bool(sample.get("quality_passed")) else 0
         row["latency_ms_total"] += max(0, int(sample.get("latency_ms") or 0))
         row["tokens_total"] += max(0, int(sample.get("tokens_total") or 0))
-        row["cost_units_total"] = float(row.get("cost_units_total") or 0.0) + max(0.0, float(sample.get("cost_units") or 0.0))
+        row["cost_units_total"] = float(row.get("cost_units_total") or 0.0) + max(
+            0.0, float(sample.get("cost_units") or 0.0)
+        )
 
     points: list[dict[str, Any]] = []
     for ts in sorted(grouped):
         row = grouped[ts]
-        total = max(1, int(row["total"]))
+        max(1, int(row["total"]))
         scored = score_bucket(
             {
                 "total": row["total"],

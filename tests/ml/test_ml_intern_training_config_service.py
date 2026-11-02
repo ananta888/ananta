@@ -1,5 +1,7 @@
 """Tests fuer ml_intern_training_config_service (MLLORA-004/023)."""
 
+import pytest
+
 from agent.services.ml_intern_training_config_service import (
     MlInternTrainingConfigError,
     get_gpu_profile_defaults,
@@ -7,7 +9,6 @@ from agent.services.ml_intern_training_config_service import (
     normalize_ml_intern_training_config,
     normalize_unsloth_security_config,
 )
-import pytest
 
 
 def test_defaults_are_safe():
@@ -94,6 +95,7 @@ def test_allowed_job_types_filtered():
 def test_spike_config_unchanged():
     """Bestehende ml_intern_spike Config bleibt von Training-Config getrennt."""
     from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config
+
     spike = normalize_ml_intern_spike_config({"enabled": True, "command_template": "echo hi"})
     assert spike["enabled"] is True
     training = normalize_ml_intern_training_config({})
@@ -133,13 +135,9 @@ def test_unsloth_network_opt_in_does_not_enable_independent_risk_flags():
         ({"auth_secret_ref": "plaintext-secret"}, "unsloth_secret_reference_invalid"),
     ],
 )
-def test_unsloth_security_configuration_fails_closed_with_stable_reason(
-    security, reason_code
-):
+def test_unsloth_security_configuration_fails_closed_with_stable_reason(security, reason_code):
     with pytest.raises(MlInternTrainingConfigError) as error:
-        normalize_ml_intern_training_config(
-            {"enabled": True, "unsloth_security": security}
-        )
+        normalize_ml_intern_training_config({"enabled": True, "unsloth_security": security})
     assert error.value.reason_code == reason_code
 
 

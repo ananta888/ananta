@@ -1,27 +1,27 @@
 """CLI contract tests for prompt inspection commands. PTI-030."""
+
 from __future__ import annotations
 
 import json
-import sys
-import tempfile
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestPromptHelp:
     def test_prompt_help_exits_zero(self):
         from agent.cli.main import main
+
         code = main(["prompt"])
         assert code == 0
 
     def test_llm_log_help_exits_zero(self):
         from agent.cli.main import main
+
         code = main(["llm-log"])
         assert code == 0
 
     def test_unknown_command_exits_nonzero(self):
         from agent.cli.main import main
+
         code = main(["prompt", "nonexistent-subcommand"])
         assert code != 0
 
@@ -45,12 +45,14 @@ class TestPromptHelp:
 
 class TestLLMLogTail:
     def test_tail_no_log_file_exits_zero(self, tmp_path):
-        from agent.cli.prompt_inspect import cmd_llm_log_tail
         import argparse
+
+        from agent.cli.prompt_inspect import cmd_llm_log_tail
 
         args = argparse.Namespace(limit=5, provider=None, model=None, goal_id=None, task_id=None, json=False)
 
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -60,7 +62,10 @@ class TestLLMLogTail:
         assert code == 0
 
     def test_tail_json_output_valid(self, tmp_path):
-        import argparse, io, contextlib
+        import argparse
+        import contextlib
+        import io
+
         from agent.cli.prompt_inspect import cmd_llm_log_tail
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -98,6 +103,7 @@ class TestLLMLogTail:
 class TestPromptInspect:
     def test_inspect_unknown_trace_exits_one(self, tmp_path):
         import argparse
+
         from agent.cli.prompt_inspect import cmd_prompt_inspect
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -110,7 +116,10 @@ class TestPromptInspect:
         assert code == 1
 
     def test_inspect_json_output_valid(self, tmp_path):
-        import argparse, io, contextlib
+        import argparse
+        import contextlib
+        import io
+
         from agent.cli.prompt_inspect import cmd_prompt_inspect
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -132,7 +141,10 @@ class TestPromptInspect:
 
 class TestPromptRender:
     def test_render_no_network(self, tmp_path):
-        import argparse, io, contextlib
+        import argparse
+        import contextlib
+        import io
+
         from agent.cli.prompt_inspect import cmd_prompt_render
         from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
 
@@ -167,6 +179,7 @@ class TestPromptRender:
 
     def test_render_raw_denied_by_default(self):
         from agent.services.prompt_trace_access_policy import PromptTraceAccessPolicy
+
         policy = PromptTraceAccessPolicy()
         decision = policy.check_raw_access(is_admin=False, is_local=False, raw_available=False)
         assert not decision.allowed
@@ -175,7 +188,10 @@ class TestPromptRender:
 
 class TestPromptDelegationReport:
     def test_delegation_report_json_happy_path(self):
-        import argparse, io, contextlib
+        import argparse
+        import contextlib
+        import io
+
         from agent.cli.prompt_inspect import cmd_prompt_delegation_report
 
         class _Resp:
@@ -250,7 +266,10 @@ class TestPromptDelegationReport:
 
         args = argparse.Namespace(goal_id="goal-1", json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_delegation_report(args)
 
@@ -265,7 +284,10 @@ class TestPromptDelegationReport:
         assert task["last_prompt_trace"]["prompt_hash"] == "def456"
 
     def test_delegation_report_missing_optional_fields(self):
-        import argparse, io, contextlib
+        import argparse
+        import contextlib
+        import io
+
         from agent.cli.prompt_inspect import cmd_prompt_delegation_report
 
         class _Resp:
@@ -293,7 +315,10 @@ class TestPromptDelegationReport:
 
         args = argparse.Namespace(goal_id="goal-2", json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_delegation_report(args)
 
@@ -311,6 +336,7 @@ class TestPromptTaskReport:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_task_report
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -374,10 +400,12 @@ class TestPromptTaskReport:
 
         args = argparse.Namespace(task_id="task-1", json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), \
-            patch("agent.cli_goals._api_data", side_effect=_api_data), \
-            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc), \
-            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc),
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_task_report(args)
 
@@ -394,6 +422,7 @@ class TestPromptTaskReport:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_task_report
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -434,10 +463,12 @@ class TestPromptTaskReport:
 
         args = argparse.Namespace(task_id="task-2", json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), \
-            patch("agent.cli_goals._api_data", side_effect=_api_data), \
-            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc), \
-            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc),
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_task_report(args)
 
@@ -451,6 +482,7 @@ class TestPromptTaskReport:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_task_report, run_prompt_command
 
         class _Resp:
@@ -471,9 +503,11 @@ class TestPromptTaskReport:
         args = argparse.Namespace(task_id="task-3", json=True)
         captured_inspect = io.StringIO()
         captured_report = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), \
-            patch("agent.cli_goals._api_data", side_effect=_api_data), \
-            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)),
+        ):
             with contextlib.redirect_stdout(captured_report):
                 report_code = cmd_prompt_task_report(args)
             args.prompt_cmd = "task-inspect"
@@ -490,6 +524,7 @@ class TestPromptLearningReport:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_learning_report
 
         class _Resp:
@@ -543,7 +578,10 @@ class TestPromptLearningReport:
 
         args = argparse.Namespace(json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_learning_report(args)
 
@@ -563,6 +601,7 @@ class TestPromptLearningReport:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_learning_report
 
         class _Resp:
@@ -593,7 +632,10 @@ class TestPromptLearningReport:
 
         args = argparse.Namespace(json=True)
         captured = io.StringIO()
-        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+        with (
+            patch("agent.cli_goals._request", side_effect=_request),
+            patch("agent.cli_goals._api_data", side_effect=_api_data),
+        ):
             with contextlib.redirect_stdout(captured):
                 code = cmd_prompt_learning_report(args)
 
@@ -608,6 +650,7 @@ class TestPromptTaskTraces:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_task_traces
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 
@@ -653,6 +696,7 @@ class TestPromptTaskTraces:
         import argparse
         import contextlib
         import io
+
         from agent.cli.prompt_inspect import cmd_prompt_task_traces
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
 

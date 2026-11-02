@@ -30,7 +30,8 @@ class PiResultCompletionPolicy:
         command_digest = native_context_digest(command.to_dict())
         if old is not None:
             if (
-                not is_pi_task(old) or command_digest != native_context_digest(pi_task_command(old).to_dict())
+                not is_pi_task(old)
+                or command_digest != native_context_digest(pi_task_command(old).to_dict())
                 or any(getattr(old, field) != getattr(task, field) for field in ("id", "tenant_id", "project_id"))
                 or (old.assigned_agent_url and old.assigned_agent_url != task.assigned_agent_url)
             ):
@@ -49,12 +50,18 @@ class PiResultCompletionPolicy:
             candidate = pi_task_result_candidate(task, command)
             previous = pi_task_result_candidate(old, command)
             require_pi_result_receipt(task=old, command=command, candidate=previous)
-            admitted = require_pi_result_artifacts(session=session, task=old, command=command,
-                candidate=previous, authority=NativeResultAuthority(**old_receipt['authority']))
-            if admitted != old_receipt.get('artifacts', []):
-                raise ValueError('pi_native_result_receipt_invalid')
+            admitted = require_pi_result_artifacts(
+                session=session,
+                task=old,
+                command=command,
+                candidate=previous,
+                authority=NativeResultAuthority(**old_receipt["authority"]),
+            )
+            if admitted != old_receipt.get("artifacts", []):
+                raise ValueError("pi_native_result_receipt_invalid")
             if (
-                candidate.digest != previous.digest or task.status != old.status
+                candidate.digest != previous.digest
+                or task.status != old.status
                 or old_receipt.get("command_digest") != command_digest
                 or old_receipt.get("result_digest") != candidate.digest
             ):
@@ -74,14 +81,19 @@ class PiResultCompletionPolicy:
             raise ValueError("pi_native_result_active_task_required")
         candidate = pi_task_result_candidate(task, command)
         authority = self._authority.require_current(session=session, command=command, task=old, now=self._clock())
-        artifacts = require_pi_result_artifacts(session=session, task=task, command=command,
-            candidate=candidate, authority=authority)
+        artifacts = require_pi_result_artifacts(
+            session=session, task=task, command=command, candidate=candidate, authority=authority
+        )
         verification[PI_RESULT_RECEIPT] = {
-            "schema": "ananta.pi-native-result-receipt.v1", "classification": "technical_observation",
-            "hub_task_id": task.id, "tenant_id": task.tenant_id, "project_id": task.project_id,
-            "command_digest": command_digest, "result_digest": candidate.digest,
+            "schema": "ananta.pi-native-result-receipt.v1",
+            "classification": "technical_observation",
+            "hub_task_id": task.id,
+            "tenant_id": task.tenant_id,
+            "project_id": task.project_id,
+            "command_digest": command_digest,
+            "result_digest": candidate.digest,
             "authority": asdict(authority),
-            **({'artifacts': artifacts} if artifacts else {}),
+            **({"artifacts": artifacts} if artifacts else {}),
         }
         task.verification_status = verification
         require_pi_result_receipt(task=task, command=command, candidate=candidate)

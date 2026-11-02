@@ -164,10 +164,7 @@ def test_select_represents_every_group_before_adding_more_nodes() -> None:
         *[_node(f"large-{index}") for index in range(6)],
         _node("small-only"),
     ]
-    edges = [
-        _edge(f"large-edge-{index}", "large-hub", f"large-{index}")
-        for index in range(6)
-    ]
+    edges = [_edge(f"large-edge-{index}", "large-hub", f"large-{index}") for index in range(6)]
 
     window = service.select(
         nodes=nodes,
@@ -190,10 +187,7 @@ def test_select_represents_every_group_before_adding_more_nodes() -> None:
 
 def test_group_balanced_strategy_windows_are_nested_and_cover_55_domains() -> None:
     service = CodeCompassGraphWindowService()
-    groups = [
-        [f"domain-{domain:02d}-node-{node:02d}" for node in range(12)]
-        for domain in range(55)
-    ]
+    groups = [[f"domain-{domain:02d}-node-{node:02d}" for node in range(12)] for domain in range(55)]
     nodes = [_node(node_id) for group in groups for node_id in group]
     edges = [
         _edge(
@@ -235,6 +229,4 @@ def test_group_balanced_strategy_windows_are_nested_and_cover_55_domains() -> No
     assert len(broad_ids) == 500
     assert fast.represented_group_count == 55
     assert fast.total_group_count == 55
-    assert {node_id.split("-node-")[0] for node_id in fast_ids} == {
-        f"domain-{domain:02d}" for domain in range(55)
-    }
+    assert {node_id.split("-node-")[0] for node_id in fast_ids} == {f"domain-{domain:02d}" for domain in range(55)}

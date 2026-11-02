@@ -79,9 +79,7 @@ class DendriticMemoryJobService:
         attempt_id = f"dendritic-attempt-{uuid.uuid4().hex}"
         fencing_token = 1
         deadline_epoch_ms = int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp() * 1000)
-        tenant_scope_digest = hashlib.sha256(
-            canonical_json([parsed.tenant_id, parsed.digest]).encode()
-        ).hexdigest()
+        tenant_scope_digest = hashlib.sha256(canonical_json([parsed.tenant_id, parsed.digest]).encode()).hexdigest()
         authorization = self._authorization(
             parsed.tenant_id,
             run_id,
@@ -203,9 +201,8 @@ class DendriticMemoryJobService:
             or parsed.fencing_token != int(current["fencing_token"])
             or parsed.spec_digest != spec.digest
             or parsed.base_model_snapshot_digest != spec.base_model_snapshot_digest
-            or parsed.configuration_digest != hashlib.sha256(
-                canonical_json(spec.configuration.to_dict()).encode()
-            ).hexdigest()
+            or parsed.configuration_digest
+            != hashlib.sha256(canonical_json(spec.configuration.to_dict()).encode()).hexdigest()
         ):
             raise DendriticMemoryDenied("dendritic_checkpoint_resume_binding_invalid")
         fencing_token = int(current["fencing_token"]) + 1
@@ -302,9 +299,7 @@ class DendriticMemoryJobService:
         for current in self._store.list_reconcilable(limit=limit):
             counts["examined"] += 1
             state = DendriticRunState(current["state"])
-            deadline_expired = int(current.get("deadline_epoch_ms") or 0) <= int(
-                now.timestamp() * 1000
-            )
+            deadline_expired = int(current.get("deadline_epoch_ms") or 0) <= int(now.timestamp() * 1000)
             updated_at = datetime.fromisoformat(str(current["updated_at"]).replace("Z", "+00:00"))
             stale = now - updated_at >= timedelta(seconds=stale_after_seconds)
             if state in {DendriticRunState.QUEUED, DendriticRunState.RETRY_QUEUED}:

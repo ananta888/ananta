@@ -43,4 +43,3 @@ def test_visual_config_parses_fallback_chain_from_mapping() -> None:
     assert cfg.enabled is True
     assert cfg.fallback_chain[0].renderer == "cpu_raster"
     assert cfg.fallback_chain[1].adapter == "ansi"
-

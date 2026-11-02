@@ -191,10 +191,7 @@ class SpreadsheetTrainingProfileService:
             ):
                 raise ValueError(f"spreadsheet_training_profile_{field}_invalid")
         modules = profile.get("target_modules")
-        if (
-            not isinstance(modules, list)
-            or not 1 <= len(modules) <= 64
-        ):
+        if not isinstance(modules, list) or not 1 <= len(modules) <= 64:
             raise ValueError("spreadsheet_training_profile_target_modules_invalid")
         normalized_modules = []
         for module in modules:

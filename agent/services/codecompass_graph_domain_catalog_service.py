@@ -257,10 +257,7 @@ class CodeCompassGraphDomainIndex:
             if identifier:
                 grouped_ids.setdefault(group_key, []).append(identifier)
 
-        facet_position = {
-            facet.key: position
-            for position, facet in enumerate(self.domain_catalog.facets)
-        }
+        facet_position = {facet.key: position for position, facet in enumerate(self.domain_catalog.facets)}
         return tuple(
             CodeCompassGraphDomainGroup(
                 scope_key=group_key,

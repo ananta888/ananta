@@ -33,8 +33,7 @@ def run_smoke_once() -> tuple[bool, str]:
     ]
     drilldown = subprocess.run(drilldown_command, check=False, capture_output=True, text=True)
     output = (
-        f"[baseline]\n{baseline.stdout}\n{baseline.stderr}\n\n"
-        f"[drilldown]\n{drilldown.stdout}\n{drilldown.stderr}"
+        f"[baseline]\n{baseline.stdout}\n{baseline.stderr}\n\n[drilldown]\n{drilldown.stdout}\n{drilldown.stderr}"
     ).strip()
     required_markers = (
         "[NAVIGATION]",

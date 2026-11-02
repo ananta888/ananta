@@ -148,9 +148,7 @@ def test_external_endpoint_is_denied_by_hub_bound_egress_policy() -> None:
             provider_context=_context(
                 selected_provider_id="openai",
                 selected_model_id="gpt-test",
-                provider_endpoint_identity=(
-                    "https://api.openai.com/v1/chat/completions"
-                ),
+                provider_endpoint_identity=("https://api.openai.com/v1/chat/completions"),
             ),
         )
 
@@ -178,9 +176,7 @@ def test_configured_ollama_docker_service_is_allowed_without_external_egress() -
     )
 
     assert result["text"] == "worker response"
-    assert transport.calls[0]["url"] == (
-        "http://ollama:11434/v1/chat/completions"
-    )
+    assert transport.calls[0]["url"] == ("http://ollama:11434/v1/chat/completions")
     assert budgets.reservations[0]["context"].provider_call_id
 
 
@@ -188,9 +184,7 @@ def test_worker_uses_exact_ollama_native_generate_target() -> None:
     budgets = _Budget()
     transport = _Transport()
     provider = HubBudgetedWorkerTextGeneration(
-        provider_urls={
-            "ollama": "http://ollama:11434/api/generate"
-        },
+        provider_urls={"ollama": "http://ollama:11434/api/generate"},
         budgets=budgets,
         transport=transport,
     )
@@ -202,15 +196,11 @@ def test_worker_uses_exact_ollama_native_generate_target() -> None:
         provider_context=_context(
             selected_provider_id="ollama",
             selected_model_id="phi4-mini",
-            provider_endpoint_identity=(
-                "http://ollama:11434/api/generate"
-            ),
+            provider_endpoint_identity=("http://ollama:11434/api/generate"),
         ),
     )
 
-    assert transport.calls[0]["url"] == (
-        "http://ollama:11434/api/generate"
-    )
+    assert transport.calls[0]["url"] == ("http://ollama:11434/api/generate")
     assert transport.calls[0]["payload"] == {
         "model": "phi4-mini",
         "prompt": "hello",
@@ -223,9 +213,7 @@ def test_worker_denies_ambiguous_custom_provider_path_before_budget() -> None:
     budgets = _Budget()
     transport = _Transport()
     provider = HubBudgetedWorkerTextGeneration(
-        provider_urls={
-            "ollama": "http://ollama:11434/custom/chat"
-        },
+        provider_urls={"ollama": "http://ollama:11434/custom/chat"},
         budgets=budgets,
         transport=transport,
     )
@@ -249,9 +237,7 @@ def test_worker_denies_ambiguous_custom_provider_path_before_budget() -> None:
 
 
 def test_signed_worker_endpoint_allows_exact_lan_and_rejects_path_or_port_change() -> None:
-    endpoint_identity = (
-        "http://192.168.50.25:11434/v1/chat/completions"
-    )
+    endpoint_identity = "http://192.168.50.25:11434/v1/chat/completions"
     budgets = _Budget()
     transport = _Transport()
     exact = HubBudgetedWorkerTextGeneration(
@@ -448,10 +434,7 @@ def test_arbitrary_single_label_endpoint_is_not_treated_as_local() -> None:
             provider_context=_context(
                 selected_provider_id="ollama",
                 selected_model_id="phi4-mini",
-                provider_endpoint_identity=(
-                    "http://arbitrary-single-label:11434"
-                    "/v1/chat/completions"
-                ),
+                provider_endpoint_identity=("http://arbitrary-single-label:11434/v1/chat/completions"),
             ),
         )
 
@@ -502,18 +485,14 @@ def test_production_builder_reserves_and_reconciles_budget_only_via_hub() -> Non
     )
 
     assert result["text"] == "worker response"
-    assert transport.calls[0]["url"] == (
-        "http://host.docker.internal:1234/v1/chat/completions"
-    )
+    assert transport.calls[0]["url"] == ("http://host.docker.internal:1234/v1/chat/completions")
     assert [command for command, _values in client.commands] == [
         "provider_budget_reserve",
         "provider_budget_reconcile",
     ]
     reserve_values = client.commands[0][1]
     assert reserve_values["binding"]["tenant_id"] == "tenant-1"
-    assert reserve_values["binding"]["authorization_envelope"] == {
-        "envelope_id": "envelope-1"
-    }
+    assert reserve_values["binding"]["authorization_envelope"] == {"envelope_id": "envelope-1"}
     assert reserve_values["provider_binding_id"] == "binding-1"
     assert reserve_values["provider_id"] == "lmstudio"
     assert reserve_values["model_id"] == "model-1"
@@ -537,9 +516,7 @@ def test_profile_routing_fails_closed_without_injected_worker_port(
     )
     provider = HubProfileRoutedWorkerTextGeneration(
         direct=SimpleNamespace(
-            generate_text=lambda **values: pytest.fail(
-                "profile routing must not fall back to direct generation"
-            )
+            generate_text=lambda **values: pytest.fail("profile routing must not fall back to direct generation")
         )
     )
 

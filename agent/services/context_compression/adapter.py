@@ -5,11 +5,12 @@ Defines the public contract types (CompressionRequest, CompressionResult) and
 the main ContextCompressionAdapter that orchestrates policy, redaction,
 compression, and quality-gating.
 """
+
 from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,30 +31,31 @@ log = logging.getLogger(__name__)
 # Contract types
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CompressionRequest:
     content: str
     content_type: str  # "tool_output"|"json"|"log"|"search_results"|"rag_results"|
-                       # "code"|"diff"|"chat_history"|"codecompass_symbol_list"
-    content_id: str = ""   # upstream ID for CCR reference
+    # "code"|"diff"|"chat_history"|"codecompass_symbol_list"
+    content_id: str = ""  # upstream ID for CCR reference
     task_intent: str = ""  # "debug"|"fix"|"review"|"security_audit"|"test_failure"|"general"
     sensitivity_label: str = ""  # "safe"|"sensitive"|"secret"|"unknown"
     token_estimate: int = 0
-    budget_tokens: int = 0   # 0 = no budget constraint
+    budget_tokens: int = 0  # 0 = no budget constraint
 
 
 @dataclass(frozen=True)
 class CompressionResult:
-    decision: str   # "passthrough" | "compressed" | "blocked" | "failed_open_passthrough"
+    decision: str  # "passthrough" | "compressed" | "blocked" | "failed_open_passthrough"
     reason_code: str
-    content: str    # final content to use
-    ccr_ref: str    # CCR reference key (empty if not stored)
+    content: str  # final content to use
+    ccr_ref: str  # CCR reference key (empty if not stored)
     token_before: int
     token_after: int
-    token_delta: int          # negative = savings
-    quality_score: float      # 0.0–1.0
+    token_delta: int  # negative = savings
+    quality_score: float  # 0.0–1.0
     compression_ratio: float  # original_tokens / result_tokens, 1.0 = no compression
-    adapter_used: str         # "passthrough" | "ananta_smart_compressor" | ...
+    adapter_used: str  # "passthrough" | "ananta_smart_compressor" | ...
     diagnostics: dict[str, Any]
     elapsed_ms: float
 
@@ -61,6 +63,7 @@ class CompressionResult:
 # ---------------------------------------------------------------------------
 # Adapter
 # ---------------------------------------------------------------------------
+
 
 class ContextCompressionAdapter:
     """Orchestrates the full compression pipeline for a single request."""
@@ -78,9 +81,7 @@ class ContextCompressionAdapter:
         self._enabled: bool = self._config.get("enabled", True)
 
         # Sub-components — use provided instances or build defaults
-        self._policy_engine = policy_engine or CompressionPolicyEngine(
-            CompressionPolicy.from_config(self._config)
-        )
+        self._policy_engine = policy_engine or CompressionPolicyEngine(CompressionPolicy.from_config(self._config))
         self._ccr_store = ccr_store  # None = CCR storage disabled
         self._secret_redactor = secret_redactor or SecretRedactor()
         self._smart_compressor = smart_compressor or SmartCompressor()
@@ -122,9 +123,7 @@ class ContextCompressionAdapter:
 
         # --- Policy gate ---
         try:
-            should_compress, policy_reason = self._policy_engine.should_compress(
-                request, token_metrics
-            )
+            should_compress, policy_reason = self._policy_engine.should_compress(request, token_metrics)
         except Exception as exc:  # pylint: disable=broad-except
             log.warning("ContextCompressionAdapter: policy check failed: %s", exc)
             return _passthrough("policy_error_passthrough", "passthrough")
@@ -141,9 +140,7 @@ class ContextCompressionAdapter:
             if sensitivity in (SensitivityLabel.SECRET, SensitivityLabel.SENSITIVE):
                 working_content, redaction_reasons = self._secret_redactor.redact(working_content)
                 redacted = bool(redaction_reasons)
-                log.debug(
-                    "ContextCompressionAdapter: redacted %d secret(s)", len(redaction_reasons)
-                )
+                log.debug("ContextCompressionAdapter: redacted %d secret(s)", len(redaction_reasons))
         except Exception as exc:  # pylint: disable=broad-except
             log.warning("ContextCompressionAdapter: redaction failed: %s", exc)
 
@@ -161,9 +158,7 @@ class ContextCompressionAdapter:
 
         # --- Quality gate ---
         try:
-            quality_result = self._quality_guard.check(
-                working_content, compressed_content, request.content_type
-            )
+            quality_result = self._quality_guard.check(working_content, compressed_content, request.content_type)
             accept, quality_reason = self._policy_engine.check_quality_gate(quality_result)
         except Exception as exc:  # pylint: disable=broad-except
             log.warning("ContextCompressionAdapter: quality check failed: %s", exc)
@@ -227,9 +222,7 @@ class ContextCompressionAdapter:
             elapsed_ms=elapsed,
         )
 
-    def compress_many(
-        self, requests: list[CompressionRequest]
-    ) -> list[CompressionResult]:
+    def compress_many(self, requests: list[CompressionRequest]) -> list[CompressionResult]:
         """Compress a batch of requests. Processes sequentially."""
         return [self.compress(req) for req in requests]
 
@@ -271,6 +264,7 @@ class ContextCompressionAdapter:
 # ---------------------------------------------------------------------------
 # Convenience factory
 # ---------------------------------------------------------------------------
+
 
 def build_compression_adapter(config: dict | None = None) -> ContextCompressionAdapter:
     """Convenience factory — equivalent to ContextCompressionAdapter.from_config()."""

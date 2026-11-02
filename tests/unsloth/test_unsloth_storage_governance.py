@@ -17,7 +17,6 @@ from agent.services.unsloth_storage_governance_service import (
 )
 from agent.services.unsloth_task_port import derive_unsloth_task_id
 
-
 PRINCIPAL = MlInternTrainingPrincipal(
     tenant_id="tenant-a",
     subject="owner-a",
@@ -47,10 +46,7 @@ def _register_export(catalog, *, artifact_id: str = "export-a", size_bytes: int 
         owner_scope_digest=scope,
         artifact_id=artifact_id,
         kind="export",
-        relative_ref=(
-            f"tenants/{scope}/jobs/job-a/attempts/attempt-a/"
-            f"exports/{artifact_id}.zip"
-        ),
+        relative_ref=(f"tenants/{scope}/jobs/job-a/attempts/attempt-a/exports/{artifact_id}.zip"),
         job_id="job-a",
         attempt_id="attempt-a",
         artifact_sha256=hashlib.sha256(artifact_id.encode()).hexdigest(),
@@ -77,10 +73,7 @@ def test_catalog_enforces_quota_scope_and_path_free_public_projection(tmp_path):
     assert usage["tenant_total_bytes"] == 7
     assert len(artifacts) == 1
     assert "relative_ref" not in artifacts[0]
-    assert not any(
-        isinstance(value, str) and value.startswith("/")
-        for value in artifacts[0].values()
-    )
+    assert not any(isinstance(value, str) and value.startswith("/") for value in artifacts[0].values())
 
     with pytest.raises(UnslothStorageError):
         _register_export(catalog, artifact_id="export-over-quota", size_bytes=2)
@@ -180,10 +173,7 @@ class _CrashableReservedTasks:
         self,
         task_id: str,
     ) -> Mapping[str, object] | None:
-        if (
-            self.submission is None
-            or self.submission["task_id"] != task_id
-        ):
+        if self.submission is None or self.submission["task_id"] != task_id:
             return None
         return dict(self.submission)
 

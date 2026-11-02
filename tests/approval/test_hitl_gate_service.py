@@ -1,4 +1,5 @@
 """Tests for HITLGateService — COSMOS-006."""
+
 from __future__ import annotations
 
 import time
@@ -30,6 +31,7 @@ def _pending(svc: HITLGateService, **kwargs):
 
 # ── Creation ──────────────────────────────────────────────────────────────────
 
+
 def test_request_creates_pending_gate():
     svc = _service()
     req = _pending(svc)
@@ -41,6 +43,7 @@ def test_request_creates_pending_gate():
 
 
 # ── Approve / Reject ──────────────────────────────────────────────────────────
+
 
 def test_approve_transitions_to_approved():
     svc = _service()
@@ -75,6 +78,7 @@ def test_approve_expired_raises():
 
 # ── is_approved ───────────────────────────────────────────────────────────────
 
+
 def test_is_approved_false_for_pending():
     svc = _service()
     req = _pending(svc)
@@ -89,6 +93,7 @@ def test_is_approved_false_for_rejected():
 
 
 # ── Expiry sweep ──────────────────────────────────────────────────────────────
+
 
 def test_check_expired_marks_gates():
     svc = HITLGateService(default_ttl_seconds=0)
@@ -106,6 +111,7 @@ def test_check_expired_marks_gates():
 
 # ── Policy helpers ────────────────────────────────────────────────────────────
 
+
 def test_risk_level_apply_diff_is_medium():
     svc = _service()
     assert svc.risk_level_for_gate_type(GateType.APPLY_DIFF) == RiskLevel.MEDIUM
@@ -122,6 +128,7 @@ def test_required_role_critical_is_owner():
 
 
 # ── Idempotency ───────────────────────────────────────────────────────────────
+
 
 def test_idempotent_approve():
     """Double-approve must not raise and must keep the original decision metadata."""

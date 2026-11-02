@@ -13,9 +13,7 @@ from agent.services.vector_index_task_ingress_policy import (
 _ADMIN_ROLES = frozenset({"admin", "superadmin", "system_admin"})
 _GLOBAL_ADMIN_ROLES = frozenset({"superadmin", "system_admin"})
 _SYSTEM_PURPOSES = frozenset({"goal_purge", "run_control"})
-_TRUSTED_SERVICE_AUTH_MODES = frozenset(
-    {"agent_jwt", "agent_static_token"}
-)
+_TRUSTED_SERVICE_AUTH_MODES = frozenset({"agent_jwt", "agent_static_token"})
 
 
 def _normalized_values(
@@ -28,13 +26,7 @@ def _normalized_values(
     return frozenset(
         normalized
         for item in value
-        for normalized in [
-            (
-                str(item or "").strip().lower()
-                if lowercase
-                else str(item or "").strip()
-            )
-        ]
+        for normalized in [(str(item or "").strip().lower() if lowercase else str(item or "").strip())]
         if normalized
     )
 
@@ -96,14 +88,8 @@ class VectorStoreAuthorizationPolicy:
         direct_role = str(claims.get("role") or "").strip().lower()
         if direct_role:
             roles.add(direct_role)
-        auth_mode = str(
-            claims.get("auth_mode") or ""
-        ).strip().lower()
-        if (
-            authenticated_admin
-            and bool(claims)
-            and auth_mode in _TRUSTED_SERVICE_AUTH_MODES
-        ):
+        auth_mode = str(claims.get("auth_mode") or "").strip().lower()
+        if authenticated_admin and bool(claims) and auth_mode in _TRUSTED_SERVICE_AUTH_MODES:
             roles.add("system_admin")
 
         workspace_ids = set(
@@ -112,17 +98,10 @@ class VectorStoreAuthorizationPolicy:
                 lowercase=False,
             )
         )
-        direct_workspace = str(
-            claims.get("workspace_id") or ""
-        ).strip()
+        direct_workspace = str(claims.get("workspace_id") or "").strip()
         if direct_workspace:
             workspace_ids.add(direct_workspace)
-        actor = str(
-            claims.get("sub")
-            or claims.get("username")
-            or claims.get("service_id")
-            or "unknown"
-        ).strip()
+        actor = str(claims.get("sub") or claims.get("username") or claims.get("service_id") or "unknown").strip()
         return VectorAdminAuthorizationContext(
             actor=actor or "unknown",
             roles=frozenset(roles),
@@ -138,14 +117,10 @@ class VectorStoreAuthorizationPolicy:
     ) -> VectorAdminAuthorizationContext:
         normalized_purpose = str(purpose or "").strip().lower()
         if normalized_purpose not in _SYSTEM_PURPOSES:
-            raise ValueError(
-                "vector_store_system_authorization_purpose_invalid"
-            )
+            raise ValueError("vector_store_system_authorization_purpose_invalid")
         normalized_actor = str(actor or "").strip()
         if not normalized_actor:
-            raise ValueError(
-                "vector_store_system_authorization_actor_invalid"
-            )
+            raise ValueError("vector_store_system_authorization_actor_invalid")
         return VectorAdminAuthorizationContext(
             actor=normalized_actor,
             roles=frozenset({"system_admin"}),
@@ -158,25 +133,15 @@ class VectorStoreAuthorizationPolicy:
     def require_admin(
         authorization: VectorAdminAuthorizationContext | None,
     ) -> None:
-        if (
-            authorization is None
-            or not authorization.roles.intersection(_ADMIN_ROLES)
-        ):
+        if authorization is None or not authorization.roles.intersection(_ADMIN_ROLES):
             raise PermissionError("vector_store_admin_required")
 
     @staticmethod
     def require_global_admin(
         authorization: VectorAdminAuthorizationContext | None,
     ) -> None:
-        if (
-            authorization is None
-            or not authorization.roles.intersection(
-                _GLOBAL_ADMIN_ROLES
-            )
-        ):
-            raise PermissionError(
-                "vector_store_global_admin_required"
-            )
+        if authorization is None or not authorization.roles.intersection(_GLOBAL_ADMIN_ROLES):
+            raise PermissionError("vector_store_global_admin_required")
 
     def require_workspace_admin(
         self,
@@ -188,14 +153,8 @@ class VectorStoreAuthorizationPolicy:
         if authorization.roles.intersection(_GLOBAL_ADMIN_ROLES):
             return
         normalized_workspace = str(workspace_id or "").strip()
-        if (
-            not normalized_workspace
-            or normalized_workspace
-            not in authorization.workspace_ids
-        ):
-            raise PermissionError(
-                "vector_store_workspace_forbidden"
-            )
+        if not normalized_workspace or normalized_workspace not in authorization.workspace_ids:
+            raise PermissionError("vector_store_workspace_forbidden")
 
     def require_task_admin(
         self,
@@ -204,21 +163,9 @@ class VectorStoreAuthorizationPolicy:
     ) -> None:
         raw = vector_task_payload(task)
         context = raw.get("worker_execution_context")
-        envelope = (
-            context.get("vector_index_task")
-            if isinstance(context, Mapping)
-            else None
-        )
-        scope = (
-            envelope.get("scope")
-            if isinstance(envelope, Mapping)
-            else None
-        )
-        workspace_id = (
-            scope.get("workspace_id")
-            if isinstance(scope, Mapping)
-            else None
-        )
+        envelope = context.get("vector_index_task") if isinstance(context, Mapping) else None
+        scope = envelope.get("scope") if isinstance(envelope, Mapping) else None
+        workspace_id = scope.get("workspace_id") if isinstance(scope, Mapping) else None
         self.require_workspace_admin(
             authorization,
             workspace_id,
@@ -234,17 +181,13 @@ def has_reserved_vector_index_marker(task: Any) -> bool:
 def reserved_vector_index_marker(task: Any) -> str | None:
     """Return the shared ingress marker for an existing task row."""
 
-    return find_reserved_vector_index_marker(
-        vector_task_payload(task)
-    )
+    return find_reserved_vector_index_marker(vector_task_payload(task))
 
 
 _POLICY = VectorStoreAuthorizationPolicy()
 
 
-def get_vector_store_authorization_policy() -> (
-    VectorStoreAuthorizationPolicy
-):
+def get_vector_store_authorization_policy() -> VectorStoreAuthorizationPolicy:
     return _POLICY
 
 

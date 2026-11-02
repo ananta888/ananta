@@ -9,10 +9,10 @@ Manages the on-disk directory structure for a simulation run.
     replay_trace.json
     config.json
 """
+
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,6 @@ from simulation.models.world_state import SimEvent
 
 
 class RunArtifactLayout:
-
     def __init__(self, base_dir: str | Path, run_id: str) -> None:
         self.run_id = run_id
         self.root = Path(base_dir) / run_id
@@ -30,9 +29,7 @@ class RunArtifactLayout:
             d.mkdir(parents=True, exist_ok=True)
 
     def save_config(self, config: dict[str, Any]) -> None:
-        (self.root / "config.json").write_text(
-            json.dumps(config, indent=2, default=str), encoding="utf-8"
-        )
+        (self.root / "config.json").write_text(json.dumps(config, indent=2, default=str), encoding="utf-8")
 
     def checkpoint_path(self, tick: int) -> Path:
         return self.checkpoints_dir / f"tick_{tick:06d}.json"

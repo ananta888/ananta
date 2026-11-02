@@ -1,27 +1,29 @@
 import time
 from types import SimpleNamespace
 
-import pytest
-
 import jwt
+import pytest
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
 from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo, team_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
-from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from agent.services.autopilot.loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 from tests.planning_collaborator_seam import install_repo_context_loader
 
 
 def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
-        lambda **kwargs: '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]',
+        "agent.services.autopilot.auto_planner_engine.generate_text",
+        lambda **kwargs: (
+            '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]'
+        ),
     )
     install_repo_context_loader(app, lambda goal: None)
     # Bypass prompt registry DB operations to avoid nested-app-context session invalidation
     from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
+
     monkeypatch.setattr(
         "agent.services.planning_prompt_registry.PlanningPromptRegistry.resolve",
         lambda self, **kwargs: ResolvedPlanningPrompt(
@@ -38,6 +40,7 @@ def _mock_goal_planning_llm(monkeypatch, app):
 
 def _bypass_quality(monkeypatch):
     from types import SimpleNamespace
+
     monkeypatch.setattr(
         "agent.routes.tasks.goals._plan_quality_from_task_ids",
         lambda **_: (True, "ok"),
@@ -46,7 +49,9 @@ def _bypass_quality(monkeypatch):
     # doesn't fail the min_total_tasks validation inside auto_planner.plan_goal.
     monkeypatch.setattr(
         "agent.services.planning_quality_service.PlanningQualityService.evaluate",
-        lambda self, **_: SimpleNamespace(ok=True, reason="ok", missing_categories=[], generic_task_indices=[], details={}),
+        lambda self, **_: SimpleNamespace(
+            ok=True, reason="ok", missing_categories=[], generic_task_indices=[], details={}
+        ),
     )
 
 
@@ -62,37 +67,144 @@ def _mock_plan_goal(mode: str = "generic"):
 
     if mode == "new_software_project":
         subtasks = [
-            {"title": "Projektidee und Grenzen klaeren", "description": "Klaere die Projektidee Release-Check-Tool und definiere Scope und Nicht-Ziele.", "task_kind": "analysis", "artifact": "zielzusammenfassung", "review_focus": "unklare oder leere Eingaben sichtbar machen"},
-            {"title": "Projekt-Blueprint erstellen", "description": "Erstelle den Projekt-Blueprint basierend auf den geklaerten Anforderungen und dem Stack Python + Angular.", "task_kind": "analysis", "artifact": "projekt_blueprint"},
-            {"title": "Infrastruktur aufsetzen", "description": "Richte Repository-Struktur und CI/CD-Pipeline fuer das Release-Check-Tool ein.", "task_kind": "infrastructure"},
-            {"title": "Initiales Task-Backlog erzeugen", "description": "Erzeuge das initiale Task-Backlog mit allen identifizierten Arbeitspaketen und Prioritaeten.", "task_kind": "analysis", "artifact": "initial_backlog"},
-            {"title": "Kern-Feature implementieren", "description": "Implementiere das Release-Check-Tool mit Python + Angular basierend auf dem Blueprint.", "task_kind": "implementation"},
-            {"title": "Tests erstellen", "description": "Erstelle Unit- und Integrationstests fuer das Release-Check-Tool.", "task_kind": "tests"},
-            {"title": "Review durchfuehren", "description": "Fuehre Code-Review durch und erstelle Review-Dokumentation.", "task_kind": "review", "review_focus": "Review der Implementierung und Testabdeckung"},
-            {"title": "Naechste Schritte planen", "description": "Plane die naechste Umsetzungsscheibe basierend auf Review-Ergebnissen.", "task_kind": "analysis", "artifact": "naechste_schritte"},
+            {
+                "title": "Projektidee und Grenzen klaeren",
+                "description": "Klaere die Projektidee Release-Check-Tool und definiere Scope und Nicht-Ziele.",
+                "task_kind": "analysis",
+                "artifact": "zielzusammenfassung",
+                "review_focus": "unklare oder leere Eingaben sichtbar machen",
+            },
+            {
+                "title": "Projekt-Blueprint erstellen",
+                "description": "Erstelle den Projekt-Blueprint basierend auf den geklaerten Anforderungen und dem Stack Python + Angular.",
+                "task_kind": "analysis",
+                "artifact": "projekt_blueprint",
+            },
+            {
+                "title": "Infrastruktur aufsetzen",
+                "description": "Richte Repository-Struktur und CI/CD-Pipeline fuer das Release-Check-Tool ein.",
+                "task_kind": "infrastructure",
+            },
+            {
+                "title": "Initiales Task-Backlog erzeugen",
+                "description": "Erzeuge das initiale Task-Backlog mit allen identifizierten Arbeitspaketen und Prioritaeten.",
+                "task_kind": "analysis",
+                "artifact": "initial_backlog",
+            },
+            {
+                "title": "Kern-Feature implementieren",
+                "description": "Implementiere das Release-Check-Tool mit Python + Angular basierend auf dem Blueprint.",
+                "task_kind": "implementation",
+            },
+            {
+                "title": "Tests erstellen",
+                "description": "Erstelle Unit- und Integrationstests fuer das Release-Check-Tool.",
+                "task_kind": "tests",
+            },
+            {
+                "title": "Review durchfuehren",
+                "description": "Fuehre Code-Review durch und erstelle Review-Dokumentation.",
+                "task_kind": "review",
+                "review_focus": "Review der Implementierung und Testabdeckung",
+            },
+            {
+                "title": "Naechste Schritte planen",
+                "description": "Plane die naechste Umsetzungsscheibe basierend auf Review-Ergebnissen.",
+                "task_kind": "analysis",
+                "artifact": "naechste_schritte",
+            },
         ]
     elif mode == "project_evolution":
         subtasks = [
-            {"title": "Ist-Kontext und betroffene Bereiche schaerfen", "description": "Erfasse den aktuellen Kontext und identifiziere betroffene Bereiche wie frontend-angular und agent/services.", "task_kind": "analysis", "artifact": "ist_analyse"},
-            {"title": "Risiko-, Diff- und Testsicht erstellen", "description": "Erstelle Risikoanalyse, Diff-Betrachtung und Teststrategie fuer die geplante Aenderung.", "task_kind": "analysis", "artifact": "risiko_test_review_plan", "test_focus": "Regressionstest und Diff-Analyse"},
-            {"title": "Aenderungsziel und Restriktionen abgrenzen", "description": "Grenze Aenderungsziel und Restriktionen klar ab: Keine Worker-zu-Worker-Orchestrierung.", "task_kind": "analysis", "artifact": "aenderungsscope"},
-            {"title": "Aenderung in kleine, sequenzierte Tasks zerlegen", "description": "Zerlege die Aenderung in kleine, sequenzierte Tasks fuer schrittweise Umsetzung.", "task_kind": "implementation", "artifact": "aenderungsplan"},
-            {"title": "Kleinste verifizierbare Aenderung vorbereiten", "description": "Bereite die kleinste verifizierbare Aenderung als erste Umsetzungsscheibe vor.", "task_kind": "implementation", "artifact": "erste_umsetzungsscheibe"},
-            {"title": "Review- und Rollback-Plan festlegen", "description": "Lege Review- und Rollback-Plan fuer die Aenderung fest.", "task_kind": "review", "artifact": "review_rollback_plan"},
+            {
+                "title": "Ist-Kontext und betroffene Bereiche schaerfen",
+                "description": "Erfasse den aktuellen Kontext und identifiziere betroffene Bereiche wie frontend-angular und agent/services.",
+                "task_kind": "analysis",
+                "artifact": "ist_analyse",
+            },
+            {
+                "title": "Risiko-, Diff- und Testsicht erstellen",
+                "description": "Erstelle Risikoanalyse, Diff-Betrachtung und Teststrategie fuer die geplante Aenderung.",
+                "task_kind": "analysis",
+                "artifact": "risiko_test_review_plan",
+                "test_focus": "Regressionstest und Diff-Analyse",
+            },
+            {
+                "title": "Aenderungsziel und Restriktionen abgrenzen",
+                "description": "Grenze Aenderungsziel und Restriktionen klar ab: Keine Worker-zu-Worker-Orchestrierung.",
+                "task_kind": "analysis",
+                "artifact": "aenderungsscope",
+            },
+            {
+                "title": "Aenderung in kleine, sequenzierte Tasks zerlegen",
+                "description": "Zerlege die Aenderung in kleine, sequenzierte Tasks fuer schrittweise Umsetzung.",
+                "task_kind": "implementation",
+                "artifact": "aenderungsplan",
+            },
+            {
+                "title": "Kleinste verifizierbare Aenderung vorbereiten",
+                "description": "Bereite die kleinste verifizierbare Aenderung als erste Umsetzungsscheibe vor.",
+                "task_kind": "implementation",
+                "artifact": "erste_umsetzungsscheibe",
+            },
+            {
+                "title": "Review- und Rollback-Plan festlegen",
+                "description": "Lege Review- und Rollback-Plan fuer die Aenderung fest.",
+                "task_kind": "review",
+                "artifact": "review_rollback_plan",
+            },
         ]
     elif mode == "admin_repair":
         subtasks = [
-            {"title": "Use-case, scope und Modusgrenzen festhalten", "description": "Halte Use-case, Scope und Modusgrenzen des Admin-Repair-Szenarios fest.", "task_kind": "analysis", "artifact": "admin_repair_scope"},
-            {"title": "Environment Summary und bounded evidence erfassen", "description": "Erfasse Environment Summary und Evidence aus error_logs, service_status, runtime_state.", "task_kind": "analysis", "artifact": "environment_evidence_summary"},
-            {"title": "Problemklasse und Diagnose-Artefakt ableiten", "description": "Leite die Problemklasse ab und erstelle Diagnose-Artefakt.", "task_kind": "analysis", "artifact": "diagnosis_artifact"},
-            {"title": "Repair actions mit hook-ready Feldern vorbereiten", "description": "Bereite Repair Actions mit allen hook-ready Feldern vor.", "task_kind": "implementation", "artifact": "repair_action_contract"},
-            {"title": "Dry-run-first bounded repair plan erzeugen", "description": "Erzeuge einen bounded Dry-run-first Repair Plan.", "task_kind": "implementation", "artifact": "bounded_repair_plan"},
-            {"title": "Post-repair verification und Session Trail ausgeben", "description": "Gib Post-repair Verification und Session Trail aus.", "task_kind": "review", "artifact": "repair_verification_summary"},
+            {
+                "title": "Use-case, scope und Modusgrenzen festhalten",
+                "description": "Halte Use-case, Scope und Modusgrenzen des Admin-Repair-Szenarios fest.",
+                "task_kind": "analysis",
+                "artifact": "admin_repair_scope",
+            },
+            {
+                "title": "Environment Summary und bounded evidence erfassen",
+                "description": "Erfasse Environment Summary und Evidence aus error_logs, service_status, runtime_state.",
+                "task_kind": "analysis",
+                "artifact": "environment_evidence_summary",
+            },
+            {
+                "title": "Problemklasse und Diagnose-Artefakt ableiten",
+                "description": "Leite die Problemklasse ab und erstelle Diagnose-Artefakt.",
+                "task_kind": "analysis",
+                "artifact": "diagnosis_artifact",
+            },
+            {
+                "title": "Repair actions mit hook-ready Feldern vorbereiten",
+                "description": "Bereite Repair Actions mit allen hook-ready Feldern vor.",
+                "task_kind": "implementation",
+                "artifact": "repair_action_contract",
+            },
+            {
+                "title": "Dry-run-first bounded repair plan erzeugen",
+                "description": "Erzeuge einen bounded Dry-run-first Repair Plan.",
+                "task_kind": "implementation",
+                "artifact": "bounded_repair_plan",
+            },
+            {
+                "title": "Post-repair verification und Session Trail ausgeben",
+                "description": "Gib Post-repair Verification und Session Trail aus.",
+                "task_kind": "review",
+                "artifact": "repair_verification_summary",
+            },
         ]
     else:
         subtasks = [
-            {"title": "Analyse durchfuehren", "description": "Fuehre eine gruendliche Analyse der Anforderungen durch.", "task_kind": "analysis"},
-            {"title": "Feature implementieren", "description": "Implementiere das Feature basierend auf der Analyse.", "task_kind": "implementation"},
+            {
+                "title": "Analyse durchfuehren",
+                "description": "Fuehre eine gruendliche Analyse der Anforderungen durch.",
+                "task_kind": "analysis",
+            },
+            {
+                "title": "Feature implementieren",
+                "description": "Implementiere das Feature basierend auf der Analyse.",
+                "task_kind": "implementation",
+            },
             {"title": "Tests durchfuehren", "description": "Erstelle und fuehre Tests durch.", "task_kind": "tests"},
         ]
 
@@ -111,17 +223,26 @@ def _mock_plan_goal(mode: str = "generic"):
             task_id = f"task-{uuid.uuid4().hex[:12]}"
             t = TaskDB(
                 id=task_id,
-                goal_id=goal_id, goal_trace_id=trace_id, plan_id=plan_id,
-                title=st["title"], description=st["description"], task_kind=st.get("task_kind", "generic"),
-                status="pending", created_at=now, updated_at=now,
+                goal_id=goal_id,
+                goal_trace_id=trace_id,
+                plan_id=plan_id,
+                title=st["title"],
+                description=st["description"],
+                task_kind=st.get("task_kind", "generic"),
+                status="pending",
+                created_at=now,
+                updated_at=now,
             )
             t = task_repo.save(t)
             created_task_ids.append(t.id)
 
             node = PlanNodeDB(
-                plan_id=plan_id, node_key=node_key,
-                title=st["title"], description=st["description"],
-                position=i, materialized_task_id=t.id,
+                plan_id=plan_id,
+                node_key=node_key,
+                title=st["title"],
+                description=st["description"],
+                position=i,
+                materialized_task_id=t.id,
                 rationale={
                     "artifact": st.get("artifact"),
                     "review_focus": st.get("review_focus"),
@@ -129,7 +250,8 @@ def _mock_plan_goal(mode: str = "generic"):
                     "task_kind": st.get("task_kind", "generic"),
                     "planning_mode": "auto_planner",
                 },
-                created_at=now, updated_at=now,
+                created_at=now,
+                updated_at=now,
             )
             node = plan_node_repo.save(node)
             nodes.append(node)
@@ -185,12 +307,11 @@ def test_plan_quality_from_task_ids_uses_task_kind_field(monkeypatch) -> None:
 def test_soft_planning_quality_failure_allows_generic_task_overflow() -> None:
     from agent.routes.tasks.goals import _is_soft_planning_quality_failure
 
-    assert _is_soft_planning_quality_failure(
-        quality_reason="too_many_generic_tasks:4/0"
-    ) is True
-    assert _is_soft_planning_quality_failure(
-        quality_reason="missing_categories:review:0/1|too_many_generic_tasks:2/0"
-    ) is True
+    assert _is_soft_planning_quality_failure(quality_reason="too_many_generic_tasks:4/0") is True
+    assert (
+        _is_soft_planning_quality_failure(quality_reason="missing_categories:review:0/1|too_many_generic_tasks:2/0")
+        is True
+    )
 
 
 def test_planning_slot_capacity_reads_config(app) -> None:
@@ -240,7 +361,6 @@ def test_planning_slots_use_explicit_capacity_override() -> None:
             _release_planning_slot()
         if first:
             _release_planning_slot()
-
 
 
 class TestGoalsAPIPlanningRecovery:
@@ -561,7 +681,13 @@ class TestGoalsAPIPlanningRecovery:
         client.post(
             "/tasks/orchestration/complete",
             headers=admin_auth_header,
-            json={"task_id": task_id, "actor": "http://coder:5000", "gate_results": {"passed": True}, "output": "Release notes ready", "trace_id": goal_repo.get_by_id(goal_id).trace_id},
+            json={
+                "task_id": task_id,
+                "actor": "http://coder:5000",
+                "gate_results": {"passed": True},
+                "output": "Release notes ready",
+                "trace_id": goal_repo.get_by_id(goal_id).trace_id,
+            },
         )
 
         detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
@@ -572,7 +698,13 @@ class TestGoalsAPIPlanningRecovery:
 
     def test_goal_detail_exposes_aggregated_cost_summary(self, client, admin_auth_header):
         goal = goal_repo.save(
-            GoalDB(goal="Track release cost", summary="Track release cost", status="planned", source="test", requested_by="admin")
+            GoalDB(
+                goal="Track release cost",
+                summary="Track release cost",
+                status="planned",
+                source="test",
+                requested_by="admin",
+            )
         )
         goal_id = goal.id
 
@@ -632,7 +764,9 @@ class TestGoalsAPIPlanningRecovery:
         assert task_costs["goal-cost-1"] == 1.8
         assert task_costs["goal-cost-2"] == 1.2
 
-    @pytest.mark.skip(reason="pre-existing: autopilot tick engine dispatches 0 tasks from in-memory SQLite in test environment")
+    @pytest.mark.skip(
+        reason="pre-existing: autopilot tick engine dispatches 0 tasks from in-memory SQLite in test environment"
+    )
     def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
         self, client, app, admin_auth_header, monkeypatch
     ):
@@ -731,7 +865,9 @@ class TestGoalsAPIPlanningRecovery:
         assert "product_goal_created" in product_actions
         assert "product_goal_planning_succeeded" in product_actions
 
-    def test_create_goal_requires_planning_backend_when_templates_disabled(self, client, admin_auth_header, monkeypatch):
+    def test_create_goal_requires_planning_backend_when_templates_disabled(
+        self, client, admin_auth_header, monkeypatch
+    ):
         cfg = dict(client.application.config.get("AGENT_CONFIG", {}) or {})
         llm_cfg = dict(cfg.get("llm_config", {}) or {})
         llm_cfg["provider"] = ""
@@ -771,8 +907,10 @@ class TestGoalsAPIPlanningRecovery:
         assert res.status_code == 403
         assert res.get_json()["message"] == "policy_override_requires_admin"
 
+
 def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_header, monkeypatch, app):
     from agent.repository import goal_repo
+
     _mock_goal_planning_llm(monkeypatch, client.application)
     _bypass_quality(monkeypatch)
     res = client.post(
@@ -829,6 +967,7 @@ def test_recover_stalled_planning_goal_increments_attempts(app):
     with app.app_context():
         from agent.db_models import GoalDB
         from agent.repository import goal_repo
+
         goal = GoalDB(
             goal="Test stalled goal",
             status="planning",
@@ -849,6 +988,7 @@ def test_recover_stalled_planning_goal_caps_at_two_attempts(app):
     with app.app_context():
         from agent.db_models import GoalDB
         from agent.repository import goal_repo
+
         goal = GoalDB(
             goal="Capped recovery",
             status="planning",
@@ -871,6 +1011,7 @@ def test_recover_stalled_planning_goal_skips_non_planning_status(app):
     with app.app_context():
         from agent.db_models import GoalDB
         from agent.repository import goal_repo
+
         goal = GoalDB(
             goal="Planned goal",
             status="planned",
@@ -891,6 +1032,7 @@ def test_recover_stalled_planning_goal_no_tasks_first_attempt_stays_planning(app
     with app.app_context():
         from agent.db_models import GoalDB
         from agent.repository import goal_repo
+
         goal = GoalDB(
             goal="Recoverable stalled goal",
             status="planning",
@@ -899,6 +1041,7 @@ def test_recover_stalled_planning_goal_no_tasks_first_attempt_stays_planning(app
         )
         goal = goal_repo.save(goal)
         from agent.routes.tasks import auto_planner as ap_module
+
         monkeypatch.setattr(
             ap_module.auto_planner,
             "plan_goal",
@@ -917,6 +1060,7 @@ def test_recover_stalled_planning_goal_no_tasks_second_attempt_fails(app, monkey
     with app.app_context():
         from agent.db_models import GoalDB
         from agent.repository import goal_repo
+
         now = time.time()
         goal = GoalDB(
             goal="Recoverable stalled goal second attempt",
@@ -927,6 +1071,7 @@ def test_recover_stalled_planning_goal_no_tasks_second_attempt_fails(app, monkey
         )
         goal = goal_repo.save(goal)
         from agent.routes.tasks import auto_planner as ap_module
+
         monkeypatch.setattr(
             ap_module.auto_planner,
             "plan_goal",

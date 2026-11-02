@@ -60,8 +60,7 @@ def tree_blobs(commit: str) -> list[tuple[str, str]]:
 def read_blobs(shas: list[str]) -> Iterator[tuple[str, bytes]]:
     if not shas:
         return
-    process = subprocess.Popen(["git", "cat-file", "--batch"], cwd=REPO, stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE)
+    process = subprocess.Popen(["git", "cat-file", "--batch"], cwd=REPO, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     assert process.stdin and process.stdout
     try:
         for sha in shas:
@@ -127,10 +126,16 @@ def build_manifest(commit: str, cache: BlobCache) -> tuple[dict[str, Any], dict[
             continue
         files.append({"path": path, "content_sha256": entry[0], "byte_size": entry[1], "outcome": "indexed"})
         sources.setdefault(entry[0], (sha, path))
-    identity = json.dumps([POLICY_VERSION, [[item["path"], item["content_sha256"]] for item in files]],
-                          separators=(",", ":"))
-    manifest = {"schema": SNAPSHOT_SCHEMA, "snapshot_revision": sha256(identity), "commit_sha": commit,
-                "policy": POLICY_VERSION, "files": files}
+    identity = json.dumps(
+        [POLICY_VERSION, [[item["path"], item["content_sha256"]] for item in files]], separators=(",", ":")
+    )
+    manifest = {
+        "schema": SNAPSHOT_SCHEMA,
+        "snapshot_revision": sha256(identity),
+        "commit_sha": commit,
+        "policy": POLICY_VERSION,
+        "files": files,
+    }
     return manifest, sources
 
 
@@ -141,7 +146,9 @@ class Hub:
 
     def post(self, path: str, body: dict[str, Any], *, timeout: float = 300) -> dict[str, Any]:
         request = urllib.request.Request(
-            self._url + path, data=json.dumps(body).encode("utf-8"), method="POST",
+            self._url + path,
+            data=json.dumps(body).encode("utf-8"),
+            method="POST",
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {self._token}"},
         )
         try:
@@ -171,9 +178,12 @@ def login(url: str) -> str:
     user, password = credentials()
     if not user or not password:
         raise SystemExit("no Hub credentials (ANANTA_HUB_TOKEN or INITIAL_ADMIN_USER/PASSWORD)")
-    request = urllib.request.Request(url.rstrip("/") + "/login", method="POST",
-                                     data=json.dumps({"username": user, "password": password}).encode("utf-8"),
-                                     headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        url.rstrip("/") + "/login",
+        method="POST",
+        data=json.dumps({"username": user, "password": password}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
     with urllib.request.urlopen(request, timeout=30) as response:
         return str(json.loads(response.read())["data"]["access_token"])
 
@@ -215,10 +225,13 @@ def main(argv: list[str] | None = None) -> int:
     hub = Hub(args.hub, login(args.hub))
     accepted = hub.post(f"{API}/snapshots", {"manifest": manifest})
     uploaded = upload(hub, list(accepted.get("missing_content_sha256") or []), sources)
-    result = hub.post(f"{API}/commits", {"profile_id": args.profile, "snapshot_ref": accepted["snapshot_ref"],
-                                         "commit_sha": commit})
-    print(f"uploaded {uploaded} contents; hub: {result.get('status')} "
-          f"{result.get('decision') or ''} {result.get('file_changes', '')} {result.get('task_id') or ''}".rstrip())
+    result = hub.post(
+        f"{API}/commits", {"profile_id": args.profile, "snapshot_ref": accepted["snapshot_ref"], "commit_sha": commit}
+    )
+    print(
+        f"uploaded {uploaded} contents; hub: {result.get('status')} "
+        f"{result.get('decision') or ''} {result.get('file_changes', '')} {result.get('task_id') or ''}".rstrip()
+    )
     return 0
 
 

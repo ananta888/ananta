@@ -46,8 +46,9 @@ def tone(seconds, *, amplitude=0.4, hz=220.0):
 
 def speech_with_pauses(pattern):
     """``pattern`` is a list of (seconds, voiced) tuples on one timeline."""
-    parts = [tone(seconds) if voiced else np.zeros(int(seconds * RATE), dtype=np.float32)
-             for seconds, voiced in pattern]
+    parts = [
+        tone(seconds) if voiced else np.zeros(int(seconds * RATE), dtype=np.float32) for seconds, voiced in pattern
+    ]
     return np.concatenate(parts)
 
 
@@ -157,8 +158,11 @@ def test_states_have_distinct_body_language_and_idle_keeps_the_mouth_closed():
         poses[state] = AnimationController(SpeechMediaTimeline(silent, RATE), machine).poses()
     assert all(pose.mouth == 0.0 for state in STATES for pose in poses[state])
     signatures = {
-        state: (round(poses[state][6].head_tilt, 1), round(poses[state][6].gaze_dx, 1),
-                round(poses[state][6].body_dy, 1))
+        state: (
+            round(poses[state][6].head_tilt, 1),
+            round(poses[state][6].gaze_dx, 1),
+            round(poses[state][6].body_dy, 1),
+        )
         for state in STATES
     }
     assert len(set(signatures.values())) == 4
@@ -299,7 +303,7 @@ def test_publisher_reports_drift_when_the_browser_stalls_a_clip_swap():
         nonlocal opens
         opens += 1
         if opens == 2:
-            clock.now += .086  # Unexpected later stall, not known initial setup latency.
+            clock.now += 0.086  # Unexpected later stall, not known initial setup latency.
         return native_open(clip)
 
     ports.avatar_open = open_clip
@@ -310,10 +314,10 @@ def test_publisher_reports_drift_when_the_browser_stalls_a_clip_swap():
 
 def test_predictable_browser_swap_latency_preserves_actual_multiclip_audio_video_schedule():
     clock = FakeClock()
-    ports, events = fake_ports(clock, open_latency=.075)
+    ports, events = fake_ports(clock, open_latency=0.075)
     _generation, report = SpeechAvatarPublisher(ports, encoder=fake_encoder).speak(pcm_bytes(tone(12)))
-    assert len(report['segments']) == 2 and report['max_drift_us'] <= MAX_FRAME_DRIFT_US
-    assert len([event for event in events if event[0] == 'video']) == 2
+    assert len(report["segments"]) == 2 and report["max_drift_us"] <= MAX_FRAME_DRIFT_US
+    assert len([event for event in events if event[0] == "video"]) == 2
 
 
 @pytest.mark.parametrize("retire_avatar", [True, False])
@@ -380,7 +384,7 @@ def test_initial_buffer_status_wait_finishes_before_video_and_sample_zero_start(
     def status():
         nonlocal first
         if first:
-            clock.now += .1
+            clock.now += 0.1
             first = False
         return {"bufferedSamples": 0}
 

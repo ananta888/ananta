@@ -59,12 +59,11 @@ def test_stream_scope_is_pure_exact_and_identity_bound() -> None:
 
     unbound = {**claims, "stream_tenant_id": "other-tenant"}
     assert control_center_stream_identity_is_bound(unbound) is False
-    assert control_center_stream_identity_is_bound(
-        {**claims, "sub": " stream-admin", "stream_user_id": " stream-admin"}
-    ) is False
-    assert control_center_stream_identity_is_bound(
-        {**claims, "tenant_id": 7, "stream_tenant_id": 7}
-    ) is False
+    assert (
+        control_center_stream_identity_is_bound({**claims, "sub": " stream-admin", "stream_user_id": " stream-admin"})
+        is False
+    )
+    assert control_center_stream_identity_is_bound({**claims, "tenant_id": 7, "stream_tenant_id": 7}) is False
 
 
 def test_snake_stream_scope_is_exactly_user_tenant_snake_and_get_bound() -> None:
@@ -94,9 +93,7 @@ def test_snake_stream_scope_is_exactly_user_tenant_snake_and_get_bound() -> None
         method="POST",
         path="/snakes/snake-a/events/stream-token",
     )
-    assert not snake_events_stream_identity_is_bound(
-        {**claims, "stream_tenant_id": "other-tenant"}
-    )
+    assert not snake_events_stream_identity_is_bound({**claims, "stream_tenant_id": "other-tenant"})
 
 
 def test_terminal_decoder_rejects_user_and_agent_signed_stream_derivatives() -> None:

@@ -218,9 +218,7 @@ def test_qdrant_channel_provider_binds_trusted_scope_and_full_compatibility() ->
         schema_version="codecompass_vector_index.v2",
         manifest_hash="manifest-a",
     )
-    config = VectorStoreConfig.from_mapping(
-        {"provider": "qdrant", "qdrant": {}}
-    )
+    config = VectorStoreConfig.from_mapping({"provider": "qdrant", "qdrant": {}})
 
     providers, _graph, diagnostics = providers_from_environment(
         provider_config={
@@ -244,9 +242,7 @@ def test_qdrant_channel_provider_binds_trusted_scope_and_full_compatibility() ->
 
 
 def test_qdrant_channel_provider_fails_closed_without_bound_context() -> None:
-    config = VectorStoreConfig.from_mapping(
-        {"provider": "qdrant", "qdrant": {}}
-    )
+    config = VectorStoreConfig.from_mapping({"provider": "qdrant", "qdrant": {}})
 
     providers, _graph, diagnostics = providers_from_environment(
         vector_store_config=config,

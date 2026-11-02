@@ -38,12 +38,8 @@ from agent.services.source_catalog_authority_service import (
     SourceCatalogAuthorityService,
 )
 
-CATEGORY_RESEARCH_REQUIRED_CAPABILITIES = frozenset(
-    {"planning", "research", "source_analysis"}
-)
-CATEGORY_RESEARCH_GOAL_STATUSES = frozenset(
-    {"received", "planning", "planning_queued", "planning_running", "planned"}
-)
+CATEGORY_RESEARCH_REQUIRED_CAPABILITIES = frozenset({"planning", "research", "source_analysis"})
+CATEGORY_RESEARCH_GOAL_STATUSES = frozenset({"received", "planning", "planning_queued", "planning_running", "planned"})
 CATEGORY_RESEARCH_CATALOG_TASK_SOURCES = frozenset({"agent", "api", "system", "ui"})
 CATEGORY_RESEARCH_CATALOG_TASK_KINDS = frozenset(
     {"knowledge", "planning_research", "research", "retrieval", "source_catalog"}
@@ -316,10 +312,7 @@ class OrganizationCategoryResearchReadinessService:
             agent_statement = select(AgentInfoDB).where(AgentInfoDB.url.in_(agent_urls))
             if lock_rows and self._supports_row_lock(session):
                 agent_statement = agent_statement.with_for_update()
-            agents = {
-                row.url: row
-                for row in (list(session.exec(agent_statement).all()) if agent_urls else [])
-            }
+            agents = {row.url: row for row in (list(session.exec(agent_statement).all()) if agent_urls else [])}
             capacity_by_agent: dict[str, int] = {}
             for assignment in active_assignments:
                 if assignment.agent_url not in capacity_by_agent:
@@ -344,10 +337,7 @@ class OrganizationCategoryResearchReadinessService:
                     },
                     capacity_used=capacity_by_agent[assignment.agent_url],
                     principal_kind_allowed="agent"
-                    in {
-                        str(value).strip()
-                        for value in list(slot_policy.get("principal_kinds") or [])
-                    },
+                    in {str(value).strip() for value in list(slot_policy.get("principal_kinds") or [])},
                     write_access_required=bool(slot_policy.get("write_access_required", False)),
                 )
                 if eligibility.allowed:
@@ -380,22 +370,10 @@ class OrganizationCategoryResearchReadinessService:
             active_assignment_count=len(active_assignments),
             eligible_assignment_count=eligible_assignment_count,
             ineligibility_reasons=tuple(sorted(ineligibility_reasons)),
-            selected_assignment_id=(
-                str(selected[0].id) if selected is not None else None
-            ),
-            selected_agent_url=(
-                str(selected[0].agent_url) if selected is not None else None
-            ),
-            selected_capacity_used=(
-                int(selected[1].capacity_used)
-                if selected is not None
-                else None
-            ),
-            selected_capacity_limit=(
-                int(selected[1].capacity_limit)
-                if selected is not None
-                else None
-            ),
+            selected_assignment_id=(str(selected[0].id) if selected is not None else None),
+            selected_agent_url=(str(selected[0].agent_url) if selected is not None else None),
+            selected_capacity_used=(int(selected[1].capacity_used) if selected is not None else None),
+            selected_capacity_limit=(int(selected[1].capacity_limit) if selected is not None else None),
         )
 
     def _resolve_catalog_selector(
@@ -499,8 +477,7 @@ class OrganizationCategoryResearchReadinessService:
             statement = select(OrganizationMembershipDB).where(
                 OrganizationMembershipDB.tenant_id == context.tenant_id,
                 OrganizationMembershipDB.project_id == context.project_id,
-                OrganizationMembershipDB.organization_id
-                == context.organization_id,
+                OrganizationMembershipDB.organization_id == context.organization_id,
                 OrganizationMembershipDB.principal_id == context.subject_id,
             )
             if lock_rows and self._supports_row_lock(session):
@@ -508,10 +485,7 @@ class OrganizationCategoryResearchReadinessService:
             membership = session.exec(statement).one_or_none()
             authorized = bool(
                 membership is not None
-                and (
-                    membership.expires_at is None
-                    or float(membership.expires_at) >= time.time()
-                )
+                and (membership.expires_at is None or float(membership.expires_at) >= time.time())
             )
         if not authorized:
             raise PlanningTransitionError("organization_planning_not_found")

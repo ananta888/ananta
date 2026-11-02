@@ -9,7 +9,17 @@ from agent.services.audit_event_schema import (
 
 def test_canonical_schema_required_fields_present() -> None:
     assert CANONICAL_AUDIT_EVENT_SCHEMA["schema"] == "canonical_audit_event.v1"
-    for field in ("trace_id", "task_id", "actor", "role", "policy_version", "operation_type", "target", "outcome", "timestamp"):
+    for field in (
+        "trace_id",
+        "task_id",
+        "actor",
+        "role",
+        "policy_version",
+        "operation_type",
+        "target",
+        "outcome",
+        "timestamp",
+    ):
         assert field in CANONICAL_AUDIT_EVENT_SCHEMA["required_fields"]
 
 

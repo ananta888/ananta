@@ -1,6 +1,6 @@
 from agent.services.planning_context_compactor_service import (
-    PlanningContextCompactorService,
     ERR_CONTRACT_CONSTRAINT_LOSS,
+    PlanningContextCompactorService,
 )
 from agent.services.propose_policy import ProposePolicy
 
@@ -47,6 +47,8 @@ def test_compactor_detects_constraint_loss():
 def test_compactor_pretrim_marks_truncated_fields():
     svc = PlanningContextCompactorService()
     tr = []
-    out = svc._pre_trim({"history": "a" * 2000, "nested": {"logs": "b" * 2000}}, max_chars=200, max_items=10, truncated_fields=tr)
+    out = svc._pre_trim(
+        {"history": "a" * 2000, "nested": {"logs": "b" * 2000}}, max_chars=200, max_items=10, truncated_fields=tr
+    )
     assert isinstance(out, dict)
     assert tr

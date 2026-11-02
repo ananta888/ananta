@@ -10,6 +10,7 @@ Supports the full declarative DSL:
 
 All evaluation is deterministic and runs without any AI/LLM call.
 """
+
 from __future__ import annotations
 
 import re
@@ -19,7 +20,6 @@ from typing import Any
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult, SuggestedMotion
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
-
 
 _SAFE_REGEX_TIMEOUT_MS = 100  # ms — applies via fallback only (Python re has no timeout)
 _SAFE_REGEX_MAX_LEN = 200
@@ -71,8 +71,9 @@ class DeclarativeHeuristicEvaluator:
 
         # ── Action ────────────────────────────────────────────────────────────
         action = dict(runtime.get("action") or {})
-        result = self._evaluate_action(action, ctx, selected_refs=selected_refs,
-                                       heuristic_id=hdef.heuristic_id, trace=trace)
+        result = self._evaluate_action(
+            action, ctx, selected_refs=selected_refs, heuristic_id=hdef.heuristic_id, trace=trace
+        )
         return result, trace
 
     # ── Trigger ───────────────────────────────────────────────────────────────
@@ -87,10 +88,7 @@ class DeclarativeHeuristicEvaluator:
         """Return list of trigger descriptions that matched. Empty = none matched."""
         matched: list[str] = []
         q_lower = query.lower()
-        recent_event_types = {
-            str(e.get("event_type") or e.get("kind") or "")
-            for e in (ctx.recent_events or [])
-        }
+        recent_event_types = {str(e.get("event_type") or e.get("kind") or "") for e in (ctx.recent_events or [])}
 
         for trigger in triggers:
             desc = _trigger_desc(trigger)
@@ -166,12 +164,10 @@ class DeclarativeHeuristicEvaluator:
             return refs[:max_refs]
 
         if strategy == "helpcenter_refs":
-            return [s for s in (ctx.allowed_source_scopes or [])
-                    if "helpcenter" in s][:max_refs]
+            return [s for s in (ctx.allowed_source_scopes or []) if "helpcenter" in s][:max_refs]
 
         if strategy == "todo_status_refs":
-            return [s for s in (ctx.allowed_source_scopes or [])
-                    if "todo" in s or "task" in s][:max_refs]
+            return [s for s in (ctx.allowed_source_scopes or []) if "todo" in s or "task" in s][:max_refs]
 
         if strategy in ("ranked_codecompass_refs", "sourcepack_technical"):
             refs = list(ctx.selected_artifacts or [])
@@ -220,7 +216,7 @@ class DeclarativeHeuristicEvaluator:
                 confidence=1.0,
                 source="heuristic",
                 strategy_id=heuristic_id,
-                reason_codes=[f"declarative:show_hint"],
+                reason_codes=["declarative:show_hint"],
                 answer_blocks=[{"type": "hint", "text": hint}],
             )
 
@@ -263,6 +259,7 @@ class DeclarativeHeuristicEvaluator:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _trigger_desc(trigger: dict[str, Any]) -> str:
     return "|".join(f"{k}={v}" for k, v in trigger.items())[:80]

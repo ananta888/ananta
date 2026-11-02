@@ -76,9 +76,10 @@ class AnsiBlocksRenderer:
                 "generation_ms": round(elapsed_ms, 4),
                 "animated": bool(scene.metadata.get("animated")),
                 # Pass through scroll metadata so renderer.py can draw scrollbars
-                **{k: scene.metadata[k] for k in (
-                    "content_lines", "max_line_width", "scroll_offset", "h_offset"
-                ) if k in scene.metadata},
+                **{
+                    k: scene.metadata[k]
+                    for k in ("content_lines", "max_line_width", "scroll_offset", "h_offset")
+                    if k in scene.metadata
+                },
             },
         )
-

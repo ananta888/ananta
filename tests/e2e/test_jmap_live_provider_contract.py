@@ -15,9 +15,7 @@ def _environment(tmp_path: Path) -> dict[str, str]:
     return {
         "RUN_JMAP_LIVE_PROVIDER_E2E": "1",
         "ANANTA_JMAP_LIVE_DEDICATED_ACCOUNT_ACK": "1",
-        "ANANTA_JMAP_LIVE_SESSION_URL": (
-            "https://mail.example.test/.well-known/jmap"
-        ),
+        "ANANTA_JMAP_LIVE_SESSION_URL": ("https://mail.example.test/.well-known/jmap"),
         "ANANTA_JMAP_LIVE_USERNAME": "alice@example.test",
         "ANANTA_JMAP_LIVE_CREDENTIAL": "fixture-live-secret",
         "ANANTA_JMAP_LIVE_RUN_ID": "RUN_provided-123",

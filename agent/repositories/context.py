@@ -26,7 +26,11 @@ class ContextBundleRepository:
 
     def get_by_task(self, task_id: str) -> List[ContextBundleDB]:
         with Session(engine) as session:
-            statement = select(ContextBundleDB).where(ContextBundleDB.task_id == task_id).order_by(ContextBundleDB.created_at.desc())
+            statement = (
+                select(ContextBundleDB)
+                .where(ContextBundleDB.task_id == task_id)
+                .order_by(ContextBundleDB.created_at.desc())
+            )
             return session.exec(statement).all()
 
     def save(self, bundle: ContextBundleDB):
@@ -44,7 +48,11 @@ class WorkerJobRepository:
 
     def get_by_parent_task(self, parent_task_id: str) -> List[WorkerJobDB]:
         with Session(engine) as session:
-            statement = select(WorkerJobDB).where(WorkerJobDB.parent_task_id == parent_task_id).order_by(WorkerJobDB.created_at.desc())
+            statement = (
+                select(WorkerJobDB)
+                .where(WorkerJobDB.parent_task_id == parent_task_id)
+                .order_by(WorkerJobDB.created_at.desc())
+            )
             return session.exec(statement).all()
 
     def save(self, job: WorkerJobDB):
@@ -58,7 +66,11 @@ class WorkerJobRepository:
 class WorkerResultRepository:
     def get_by_worker_job(self, worker_job_id: str) -> List[WorkerResultDB]:
         with Session(engine) as session:
-            statement = select(WorkerResultDB).where(WorkerResultDB.worker_job_id == worker_job_id).order_by(WorkerResultDB.created_at.desc())
+            statement = (
+                select(WorkerResultDB)
+                .where(WorkerResultDB.worker_job_id == worker_job_id)
+                .order_by(WorkerResultDB.created_at.desc())
+            )
             return session.exec(statement).all()
 
     def save(self, result: WorkerResultDB):

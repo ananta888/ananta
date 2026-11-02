@@ -19,9 +19,7 @@ def normalize_ml_intern_spike_config(value: dict | None) -> dict:
         max_output_chars = 8000
     max_output_chars = max(512, min(max_output_chars, 64000))
     env_allowlist = [
-        str(item or "").strip()
-        for item in list(payload.get("env_allowlist") or [])
-        if str(item or "").strip()
+        str(item or "").strip() for item in list(payload.get("env_allowlist") or []) if str(item or "").strip()
     ]
     return {
         "enabled": bool(payload.get("enabled", False)),

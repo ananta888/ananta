@@ -6,13 +6,13 @@ Validated selection is persisted as a HeuristicDecisionLease.
 Worker role constraint: opencode is NEVER the control worker (validated via
 WorkerRoleConfigService).
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from agent.db_models import HeuristicDecisionLeaseDB
-from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository, _DOMAIN_TTL_DEFAULTS
+from agent.repositories.heuristic_lease_repo import _DOMAIN_TTL_DEFAULTS, HeuristicLeaseRepository
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicRegistry, get_heuristic_registry
 from agent.services.worker_role_config_service import WorkerRoleConfigService
 
@@ -107,8 +107,12 @@ class HeuristicSelectionService:
             heuristic_id = request.available_heuristic_ids[0]
         if not heuristic_id:
             return HeuristicSelectionResponse(
-                heuristic_id="", version="", confidence=0.0, reason="",
-                requested_ttl_seconds=0.0, accepted=False,
+                heuristic_id="",
+                version="",
+                confidence=0.0,
+                reason="",
+                requested_ttl_seconds=0.0,
+                accepted=False,
                 rejection_reason="no_heuristic_id_provided",
             )
 
@@ -117,14 +121,22 @@ class HeuristicSelectionService:
             hdef = self._registry.get_by_id(heuristic_id)
         except Exception:
             return HeuristicSelectionResponse(
-                heuristic_id=heuristic_id, version="", confidence=0.0, reason="",
-                requested_ttl_seconds=0.0, accepted=False,
+                heuristic_id=heuristic_id,
+                version="",
+                confidence=0.0,
+                reason="",
+                requested_ttl_seconds=0.0,
+                accepted=False,
                 rejection_reason="heuristic_not_found_in_registry",
             )
         if hdef.status != "active":
             return HeuristicSelectionResponse(
-                heuristic_id=heuristic_id, version=hdef.version, confidence=0.0, reason="",
-                requested_ttl_seconds=0.0, accepted=False,
+                heuristic_id=heuristic_id,
+                version=hdef.version,
+                confidence=0.0,
+                reason="",
+                requested_ttl_seconds=0.0,
+                accepted=False,
                 rejection_reason=f"heuristic_status_not_active:{hdef.status}",
             )
 
@@ -133,8 +145,12 @@ class HeuristicSelectionService:
         ttl = request.requested_ttl_seconds or domain_defaults["default"]
         if ttl < domain_defaults["min"] or ttl > domain_defaults["max"]:
             return HeuristicSelectionResponse(
-                heuristic_id=heuristic_id, version=hdef.version, confidence=0.0, reason="",
-                requested_ttl_seconds=ttl, accepted=False,
+                heuristic_id=heuristic_id,
+                version=hdef.version,
+                confidence=0.0,
+                reason="",
+                requested_ttl_seconds=ttl,
+                accepted=False,
                 rejection_reason=f"ttl_out_of_range:{ttl:.1f}s (allowed {domain_defaults['min']}–{domain_defaults['max']})",
             )
 

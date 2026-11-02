@@ -58,8 +58,10 @@ def fixture():
         "membershipEpoch": 1,
     }
     controls = {"avatar": {"enabled": True, "revision": 1, "since": NOW * 1000}}
+
     def clock():
         return NOW + elapsed[0] - 100
+
     pump = DialogAvatarPump(page, assigned, browser=browser, clock=clock, monotonic=lambda: elapsed[0])
     return SimpleNamespace(**locals())
 

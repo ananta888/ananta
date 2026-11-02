@@ -11,6 +11,7 @@ Validates:
 
 reason_codes use the pattern: <check_name>:<detail>
 """
+
 from __future__ import annotations
 
 import json
@@ -103,9 +104,7 @@ class HeuristicFormatValidator:
                     if not cls:
                         codes.append("python_strategy_missing_class")
                     if module and not module.startswith("agent.heuristics.strategies."):
-                        warnings.append(
-                            f"python_strategy_module_outside_strategies_package:{module!r}"
-                        )
+                        warnings.append(f"python_strategy_module_outside_strategies_package:{module!r}")
                 else:
                     codes.append("python_strategy_block_not_a_dict")
 
@@ -117,9 +116,7 @@ class HeuristicFormatValidator:
             mx = ttl.get("max_seconds")
             if all(isinstance(v, (int, float)) for v in [mn, default, mx]):
                 if not (mn <= default <= mx):  # type: ignore[operator]
-                    codes.append(
-                        f"ttl_policy_invariant_violated:min={mn} default={default} max={mx}"
-                    )
+                    codes.append(f"ttl_policy_invariant_violated:min={mn} default={default} max={mx}")
                 if mn <= 0:
                     codes.append(f"ttl_min_must_be_positive:{mn}")
 

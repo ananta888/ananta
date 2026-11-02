@@ -1,10 +1,11 @@
 """AFH-T015: State machine regression tests — parser errors must not cause retry loops."""
+
 from __future__ import annotations
 
 from agent.services.planning_utils import parse_followup_analysis
 from agent.services.task_retry_policy_service import (
-    get_task_retry_policy_service,
     REASON_ADVISORY_JSON_PARSE_FAILED,
+    get_task_retry_policy_service,
 )
 
 
@@ -28,8 +29,7 @@ class TestStateMachineRetryLoopPrevention:
             has_valid_artifacts=True,
         )
         assert result is False, (
-            "Regression: files exist + JSON invalid must NOT requeue task. "
-            "This was the exact observed failure mode."
+            "Regression: files exist + JSON invalid must NOT requeue task. This was the exact observed failure mode."
         )
 
     def test_parser_failure_increments_no_retry_counter(self) -> None:
@@ -47,6 +47,7 @@ class TestStateMachineRetryLoopPrevention:
     def test_retry_only_for_genuine_failures(self) -> None:
         """Only genuine failures (missing artifact, failed exec) cause retries."""
         from agent.services.task_retry_policy_service import REASON_MISSING_REQUIRED_ARTIFACT
+
         svc = get_task_retry_policy_service()
         genuine = svc.classify(reason=REASON_MISSING_REQUIRED_ARTIFACT, retry_count=0)
         assert genuine.should_retry is True
@@ -54,6 +55,7 @@ class TestStateMachineRetryLoopPrevention:
     def test_max_retry_guard_exists(self) -> None:
         """Terminal reason must be reached at max retries — no infinite loop."""
         from agent.services.task_retry_policy_service import REASON_MISSING_REQUIRED_ARTIFACT
+
         svc = get_task_retry_policy_service()
         cls = svc.classify(reason=REASON_MISSING_REQUIRED_ARTIFACT, retry_count=3, max_retries=3)
         assert cls.should_retry is False, "At max retries, must stop retrying."
@@ -62,15 +64,14 @@ class TestStateMachineRetryLoopPrevention:
         """task_complete=None from parse error must not drive completed state."""
         result = parse_followup_analysis("no json here at all")
         assert result["task_complete"] is None, (
-            "task_complete must be None on parse error, not True. "
-            "None explicitly means 'not authoritative'."
+            "task_complete must be None on parse error, not True. None explicitly means 'not authoritative'."
         )
         assert result["advisory"] is True
         assert result["parse_error"] is True
 
     def test_ambiguous_artifacts_go_to_needs_review_not_retry(self) -> None:
         """Partial artifacts reach needs_review, not infinite retry."""
-        from worker.core.artifact_completion_policy import ArtifactCompletionPolicy, DECISION_NEEDS_REVIEW
+        from worker.core.artifact_completion_policy import DECISION_NEEDS_REVIEW, ArtifactCompletionPolicy
 
         policy = ArtifactCompletionPolicy.for_task(
             task_id="t1",

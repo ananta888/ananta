@@ -120,15 +120,7 @@ class _UnavailableQdrantStore:
 def _unavailable_qdrant_factory(
     reason: str = "qdrant_unavailable",
 ) -> VectorStoreFactory:
-    return VectorStoreFactory(
-        {
-            "qdrant": (
-                lambda _config, **_kwargs: _UnavailableQdrantStore(
-                    reason
-                )
-            )
-        }
-    )
+    return VectorStoreFactory({"qdrant": (lambda _config, **_kwargs: _UnavailableQdrantStore(reason))})
 
 
 def _qdrant_wiki_config(

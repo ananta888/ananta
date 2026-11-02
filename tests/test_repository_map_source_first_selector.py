@@ -13,6 +13,7 @@ that boost.
 This test exercises the ranking in isolation with a synthetic symbol
 graph (no filesystem dependency).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,44 +41,40 @@ def test_codecompass_query_promotes_source_over_test_files():
     `tests/codecompass/test_codecompass_trigger_mode.py` even though the test file
     has more `codecompass` symbol hits.
     """
-    engine = _make_engine_with_symbols({
-        # Real test file — 6 symbols containing 'codecompass'
-        "tests/codecompass/test_codecompass_trigger_mode.py": [
-            "test_codecompass_flags_are_independent",
-            "test_codecompass_relative_path_is_logged",
-            "test_codecompass_trigger_mode_default",
-            "test_codecompass_disabled_returns_empty_budget",
-            "test_codecompass_budget_profile_keys",
-            "TestTriggerModeAuto",
-        ],
-        # Real source file — 2 symbols containing 'codecompass'
-        "worker/retrieval/codecompass_budgeting.py": [
-            "resolve_codecompass_budget",
-            "apply_codecompass_budget",
-        ],
-        # Real source file — 1 symbol
-        "agent/services/codecompass_output_reader.py": [
-            "get_codecompass_output_reader",
-        ],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            # Real test file — 6 symbols containing 'codecompass'
+            "tests/codecompass/test_codecompass_trigger_mode.py": [
+                "test_codecompass_flags_are_independent",
+                "test_codecompass_relative_path_is_logged",
+                "test_codecompass_trigger_mode_default",
+                "test_codecompass_disabled_returns_empty_budget",
+                "test_codecompass_budget_profile_keys",
+                "TestTriggerModeAuto",
+            ],
+            # Real source file — 2 symbols containing 'codecompass'
+            "worker/retrieval/codecompass_budgeting.py": [
+                "resolve_codecompass_budget",
+                "apply_codecompass_budget",
+            ],
+            # Real source file — 1 symbol
+            "agent/services/codecompass_output_reader.py": [
+                "get_codecompass_output_reader",
+            ],
+        }
+    )
 
     results = engine.search("erkläre mir den codecompass", top_k=5)
     paths = [r.source for r in results]
 
     # Source files must be ranked above test files
     source_indices = [
-        i for i, p in enumerate(paths)
-        if not p.startswith("tests/") and not Path(p).stem.startswith("test_")
+        i for i, p in enumerate(paths) if not p.startswith("tests/") and not Path(p).stem.startswith("test_")
     ]
-    test_indices = [
-        i for i, p in enumerate(paths)
-        if p.startswith("tests/") or Path(p).stem.startswith("test_")
-    ]
+    test_indices = [i for i, p in enumerate(paths) if p.startswith("tests/") or Path(p).stem.startswith("test_")]
     assert source_indices, f"no source file in top-5: {paths}"
     assert test_indices, f"no test file in top-5: {paths}"
-    assert min(source_indices) < min(test_indices), (
-        f"test files outrank source files for 'codecompass' query: {paths}"
-    )
+    assert min(source_indices) < min(test_indices), f"test files outrank source files for 'codecompass' query: {paths}"
 
     # And the actual top-1 should be a source file
     assert not (paths[0].startswith("tests/") or Path(paths[0]).stem.startswith("test_")), (
@@ -91,18 +88,20 @@ def test_unrelated_test_files_get_demoted():
     filename stem (e.g. test_retrieval_profile_service.py) should be
     demoted relative to source files.
     """
-    engine = _make_engine_with_symbols({
-        # A test file that mentions 'codecompass' in a symbol but not in the stem
-        "tests/retrieval/test_retrieval_profile_service.py": [
-            "test_codecompass_profile_path_is_preserved",
-            "test_profile_none_returns_none",
-        ],
-        # A source file that mentions 'codecompass' in the stem
-        "agent/services/codecompass_retrieval_flag_service.py": [
-            "CodeCompassFlagState",
-            "as_dict",
-        ],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            # A test file that mentions 'codecompass' in a symbol but not in the stem
+            "tests/retrieval/test_retrieval_profile_service.py": [
+                "test_codecompass_profile_path_is_preserved",
+                "test_profile_none_returns_none",
+            ],
+            # A source file that mentions 'codecompass' in the stem
+            "agent/services/codecompass_retrieval_flag_service.py": [
+                "CodeCompassFlagState",
+                "as_dict",
+            ],
+        }
+    )
 
     results = engine.search("erkläre mir den codecompass", top_k=5)
     paths = [r.source for r in results]
@@ -113,17 +112,19 @@ def test_unrelated_test_files_get_demoted():
 
 
 def test_codecompass_overview_demotes_rag_helper_below_hub_entrypoints():
-    engine = _make_engine_with_symbols({
-        "rag-helper/rag_helper/application/config_profiles.py": [
-            f"codecompass_profile_{index}" for index in range(20)
-        ],
-        "agent/services/tools/codecompass_tools.py": [
-            "codecompass_retrieve",
-        ],
-        "agent/services/codecompass_context_service.py": [
-            "build_codecompass_context",
-        ],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            "rag-helper/rag_helper/application/config_profiles.py": [
+                f"codecompass_profile_{index}" for index in range(20)
+            ],
+            "agent/services/tools/codecompass_tools.py": [
+                "codecompass_retrieve",
+            ],
+            "agent/services/codecompass_context_service.py": [
+                "build_codecompass_context",
+            ],
+        }
+    )
 
     results = engine.search("Erkläre CodeCompass Architektur", top_k=3)
     paths = [result.source for result in results]
@@ -143,10 +144,12 @@ def test_generic_query_unaffected():
     selector gates on tokens of length ≥ 4 that are not stopwords.
     Generic 3-letter queries should not trigger the stem boost.
     """
-    engine = _make_engine_with_symbols({
-        "agent/services/xyz_service.py": ["build_xyz", "apply_xyz"],
-        "tests/test_xyz_flow.py": ["test_xyz_happy_path", "test_xyz_error"],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            "agent/services/xyz_service.py": ["build_xyz", "apply_xyz"],
+            "tests/test_xyz_flow.py": ["test_xyz_happy_path", "test_xyz_error"],
+        }
+    )
 
     # "xyz" is 3 chars — below the domain_stems threshold
     results = engine.search("explain xyz", top_k=5)
@@ -167,9 +170,11 @@ def test_stopword_only_query_produces_no_results():
     A query consisting only of stopwords (and tokens shorter than 3
     characters) must produce no candidates, not crash.
     """
-    engine = _make_engine_with_symbols({
-        "agent/services/codecompass_budgeting.py": ["resolve_codecompass_budget"],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            "agent/services/codecompass_budgeting.py": ["resolve_codecompass_budget"],
+        }
+    )
     results = engine.search("erkläre mir den", top_k=5)
     # "erkläre" has an umlaut; the regex catches it as one token.
     # "den" is a stopword, "mir" is a stopword, "erkläre" is the only
@@ -185,18 +190,20 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
     is demoted only when it has no domain in the stem. This preserves
     callers' ability to discover which tests cover the queried area.
     """
-    engine = _make_engine_with_symbols({
-        "tests/codecompass/test_codecompass_fts_engine.py": [
-            "test_codecompass_fts_engine_returns_contextchunk_compatible_records",
-            "test_codecompass_fts_engine_handles_empty_index",
-        ],
-        # Collateral test file — no domain in stem
-        "tests/test_memory_tree_store_service.py": [
-            "store",
-            "ingestion",
-            "test_codecompass_memory_handoff",  # mentions domain in a symbol
-        ],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            "tests/codecompass/test_codecompass_fts_engine.py": [
+                "test_codecompass_fts_engine_returns_contextchunk_compatible_records",
+                "test_codecompass_fts_engine_handles_empty_index",
+            ],
+            # Collateral test file — no domain in stem
+            "tests/test_memory_tree_store_service.py": [
+                "store",
+                "ingestion",
+                "test_codecompass_memory_handoff",  # mentions domain in a symbol
+            ],
+        }
+    )
 
     results = engine.search("erkläre mir den codecompass", top_k=5)
     paths = [r.source for r in results]
@@ -212,40 +219,42 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
 
 
 def test_query_named_directory_is_discovered_without_configured_aliases():
-    engine = _make_engine_with_symbols({
-        "agent/services/alpha_tools_index_service.py": [
-            "AlphaToolsIndexService",
-            "index_repo_path",
-            "get_alpha_tools_index_service",
-        ],
-        "agent/services/tools/search_tools.py": [
-            "search",
-            "alpha_tools_context",
-        ],
-        "tests/test_alpha_tools_index_service.py": [
-            "test_alpha_tools_index_service_runs",
-            "test_index_repo_path_indexes_a_directory",
-        ],
-        "alpha-tools/runner.py": [
-            "Runner",
-            "TextExtractor",
-            "DEFAULT_EXCLUDES",
-        ],
-        "alpha-tools/alpha_tools/application/project_processor.py": [
-            "process_project",
-            "write_outputs",
-            "build_manifest",
-        ],
-        "alpha-tools/alpha_tools/cli.py": [
-            "main",
-            "parse_args",
-            "run_alpha_tools",
-        ],
-        "docs/system-komponenten.md": [
-            "AlphaTools",
-            "Indexer",
-        ],
-    })
+    engine = _make_engine_with_symbols(
+        {
+            "agent/services/alpha_tools_index_service.py": [
+                "AlphaToolsIndexService",
+                "index_repo_path",
+                "get_alpha_tools_index_service",
+            ],
+            "agent/services/tools/search_tools.py": [
+                "search",
+                "alpha_tools_context",
+            ],
+            "tests/test_alpha_tools_index_service.py": [
+                "test_alpha_tools_index_service_runs",
+                "test_index_repo_path_indexes_a_directory",
+            ],
+            "alpha-tools/runner.py": [
+                "Runner",
+                "TextExtractor",
+                "DEFAULT_EXCLUDES",
+            ],
+            "alpha-tools/alpha_tools/application/project_processor.py": [
+                "process_project",
+                "write_outputs",
+                "build_manifest",
+            ],
+            "alpha-tools/alpha_tools/cli.py": [
+                "main",
+                "parse_args",
+                "run_alpha_tools",
+            ],
+            "docs/system-komponenten.md": [
+                "AlphaTools",
+                "Indexer",
+            ],
+        }
+    )
 
     results = engine.search("bitte erkläre alpha tools", top_k=5)
     paths = [r.source for r in results]

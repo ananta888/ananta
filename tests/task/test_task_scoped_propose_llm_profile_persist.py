@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
-from flask import g
 import pytest
+from flask import g
 
-from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 from agent.services.model_recovery_signal import build_model_recovery_signal
+from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 
 
 def _mk_result(*, with_profile: bool) -> ProposeStrategyResult:
@@ -161,7 +161,9 @@ def test_propose_persists_real_llm_profile_when_available(client, app, admin_aut
     with app.app_context():
         _update_local_task_status(tid, "assigned", goal_id="g-1", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -182,7 +184,9 @@ def test_propose_omits_synthetic_profile_when_real_profile_missing_by_default(cl
     with app.app_context():
         _update_local_task_status(tid, "assigned", goal_id="g-2", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=False)):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=False)
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -205,7 +209,9 @@ def test_propose_persists_synthetic_profile_when_explicitly_enabled(client, app,
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(tid, "assigned", goal_id="g-3", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=False)):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=False)
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -225,7 +231,10 @@ def test_propose_persists_real_profile_for_declined_result(client, app, admin_au
     with app.app_context():
         _update_local_task_status(tid, "assigned", goal_id="g-4", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_declined_result_with_profile()):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run",
+        return_value=_mk_declined_result_with_profile(),
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -238,9 +247,7 @@ def test_propose_persists_real_profile_for_declined_result(client, app, admin_au
         assert profile[0]["estimated"] is False
 
 
-def test_configured_hub_recovery_prevents_unconfigured_cli_fallback(
-    client, app, admin_auth_header
-):
+def test_configured_hub_recovery_prevents_unconfigured_cli_fallback(client, app, admin_auth_header):
     from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
     tid = "T-MODEL-RECOVERY-DEFER"
@@ -286,10 +293,9 @@ def test_configured_hub_recovery_prevents_unconfigured_cli_fallback(
     assert response_data["propose_strategy_meta"]["hub_recovery_deferred"] is True
     with app.app_context():
         task = _get_local_task_status(tid)
-        persisted_meta = (
-            (((task or {}).get("last_proposal") or {}).get("routing") or {}).get("propose_strategy_meta")
-            or {}
-        )
+        persisted_meta = (((task or {}).get("last_proposal") or {}).get("routing") or {}).get(
+            "propose_strategy_meta"
+        ) or {}
         assert persisted_meta["model_recovery_signal"]["state"] == "exhausted"
 
 
@@ -333,13 +339,10 @@ def test_terminal_provider_denial_never_uses_cli_or_hub_recovery(
     with (
         patch(
             "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run",
-            return_value=_mk_mixed_terminal_denial_result(
-                terminal_reason
-            ),
+            return_value=_mk_mixed_terminal_denial_result(terminal_reason),
         ),
         patch(
-            "agent.services.task_scoped_execution_service."
-            "TaskScopedExecutionService._invoke_cli_runner"
+            "agent.services.task_scoped_execution_service.TaskScopedExecutionService._invoke_cli_runner"
         ) as cli_fallback,
     ):
         res = client.post(
@@ -351,15 +354,8 @@ def test_terminal_provider_denial_never_uses_cli_or_hub_recovery(
     assert res.status_code == 200
     cli_fallback.assert_not_called()
     response_data = (res.get_json() or {}).get("data") or {}
-    assert "model_recovery_signal" not in (
-        response_data.get("metadata") or {}
-    )
-    assert (
-        response_data["propose_strategy_meta"].get(
-            "hub_recovery_deferred"
-        )
-        is not True
-    )
+    assert "model_recovery_signal" not in (response_data.get("metadata") or {})
+    assert response_data["propose_strategy_meta"].get("hub_recovery_deferred") is not True
 
 
 # CPR-003: runtime_selection is consumed and visible in last_proposal
@@ -377,7 +373,9 @@ def test_propose_runtime_selection_visible_in_last_proposal(client, app, admin_a
         }
         _update_local_task_status(tid, "assigned", goal_id="g-cpr3", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200
@@ -405,7 +403,9 @@ def test_propose_runtime_selection_visible_for_opencode_profile(client, app, adm
         }
         _update_local_task_status(tid, "assigned", goal_id="g-cpr3-oc", description="test")
 
-    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)):
+    with patch(
+        "worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=True)
+    ):
         res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
 
     assert res.status_code == 200

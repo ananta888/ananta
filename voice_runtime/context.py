@@ -228,9 +228,7 @@ def _bounded_regions(raw: object, *, max_regions: int) -> tuple[LowConfidenceReg
         if not isinstance(start_ms, int) or not isinstance(end_ms, int) or not 0 <= start_ms <= end_ms:
             raise ValueError("low_confidence region timeline is invalid")
         if confidence is not None and (
-            isinstance(confidence, bool)
-            or not isinstance(confidence, (int, float))
-            or not 0 <= float(confidence) <= 1
+            isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1
         ):
             raise ValueError("low_confidence region confidence is invalid")
         result.append(

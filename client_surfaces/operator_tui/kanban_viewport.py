@@ -88,9 +88,7 @@ def plan_kanban_viewport(
         if isinstance(raw_columns, (list, tuple))
         else ()
     )
-    indexed_columns: list[
-        tuple[int, Mapping[str, Any], Sequence[object], int]
-    ] = []
+    indexed_columns: list[tuple[int, Mapping[str, Any], Sequence[object], int]] = []
     total = 0
     for column_index, column in enumerate(columns):
         tasks = _tasks(column)
@@ -98,9 +96,7 @@ def plan_kanban_viewport(
         total += len(tasks)
 
     selected = max(0, min(max(0, total - 1), int(selected_index)))
-    layout: Literal["list", "columns"] = (
-        "columns" if max(12, int(width)) >= 100 else "list"
-    )
+    layout: Literal["list", "columns"] = "columns" if max(12, int(width)) >= 100 else "list"
 
     if layout == "list":
         capacity = max(0, int(height) - 1)

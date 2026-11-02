@@ -68,9 +68,7 @@ class MlInternTrainingExecutionLeaseStore:
                     )
                 session.delete(lease)
             existing = session.exec(
-                select(MlInternTrainingExecutionLeaseDB).where(
-                    MlInternTrainingExecutionLeaseDB.job_id == job_id
-                )
+                select(MlInternTrainingExecutionLeaseDB).where(MlInternTrainingExecutionLeaseDB.job_id == job_id)
             ).first()
             if existing is not None:
                 job = session.get(MlInternTrainingJobDB, job_id)

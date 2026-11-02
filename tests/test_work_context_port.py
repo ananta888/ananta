@@ -1,20 +1,19 @@
 """Tests for agent/services/work_context_port.py (COSMOS-012)."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.work_context_port import (
+    SECRET_PATH_PATTERNS,
     FileRange,
     NullWorkContext,
-    SECRET_PATH_PATTERNS,
     StaticWorkContext,
     WorkContext,
     WorkContextRankingBoost,
     WorkContextSnapshot,
 )
 
-
 # ── NullWorkContext ───────────────────────────────────────────────────────────
+
 
 class TestNullWorkContext:
     def setup_method(self):
@@ -37,11 +36,16 @@ class TestNullWorkContext:
 
 # ── StaticWorkContext ─────────────────────────────────────────────────────────
 
+
 class TestStaticWorkContext:
     def _make_snapshot(self, **kwargs) -> WorkContextSnapshot:
         defaults = dict(
-            open_files=[], active_file=None, selection=None,
-            active_branch=None, dirty_files=[], dirty_secret_files=[],
+            open_files=[],
+            active_file=None,
+            selection=None,
+            active_branch=None,
+            dirty_files=[],
+            dirty_secret_files=[],
             source="manual",
         )
         defaults.update(kwargs)
@@ -70,11 +74,16 @@ class TestStaticWorkContext:
 
 # ── WorkContextRankingBoost ───────────────────────────────────────────────────
 
+
 class TestWorkContextRankingBoost:
     def _make_snapshot(self, **kwargs) -> WorkContextSnapshot:
         defaults = dict(
-            open_files=[], active_file=None, selection=None,
-            active_branch=None, dirty_files=[], dirty_secret_files=[],
+            open_files=[],
+            active_file=None,
+            selection=None,
+            active_branch=None,
+            dirty_files=[],
+            dirty_secret_files=[],
             source="manual",
         )
         defaults.update(kwargs)
@@ -148,6 +157,7 @@ class TestWorkContextRankingBoost:
 
 # ── WorkContext Protocol ──────────────────────────────────────────────────────
 
+
 class TestWorkContextProtocol:
     def test_null_satisfies_protocol(self):
         ctx = NullWorkContext()
@@ -155,8 +165,12 @@ class TestWorkContextProtocol:
 
     def test_static_satisfies_protocol(self):
         snap = WorkContextSnapshot(
-            open_files=[], active_file=None, selection=None,
-            active_branch=None, dirty_files=[], dirty_secret_files=[],
+            open_files=[],
+            active_file=None,
+            selection=None,
+            active_branch=None,
+            dirty_files=[],
+            dirty_secret_files=[],
             source="manual",
         )
         ctx = StaticWorkContext(snap)
@@ -164,6 +178,7 @@ class TestWorkContextProtocol:
 
 
 # ── FileRange ─────────────────────────────────────────────────────────────────
+
 
 class TestFileRange:
     def test_basic_construction(self):
@@ -174,6 +189,7 @@ class TestFileRange:
 
 
 # ── SECRET_PATH_PATTERNS ──────────────────────────────────────────────────────
+
 
 class TestSecretPathPatterns:
     def test_patterns_not_empty(self):

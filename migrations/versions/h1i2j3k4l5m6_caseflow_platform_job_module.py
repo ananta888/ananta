@@ -15,6 +15,7 @@ Creates all CaseFlow Platform tables:
 - case_agent_runs
 - case_blueprint_bindings
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa

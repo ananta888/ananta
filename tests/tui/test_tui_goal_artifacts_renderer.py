@@ -35,11 +35,27 @@ def test_renderer_goal_artifacts_empty_graph() -> None:
 def test_renderer_goal_artifacts_only_grants_and_used_unused_markers() -> None:
     payload = _payload()
     payload["source_grants"] = [
-        {"grant_id": "grant-used", "artifact_ref": "sources:keycloak:s1", "sensitivity": "internal", "data_boundary": "project_private"},
-        {"grant_id": "grant-unused", "artifact_ref": "sources:wiki:s2", "sensitivity": "internal", "data_boundary": "project_private"},
+        {
+            "grant_id": "grant-used",
+            "artifact_ref": "sources:keycloak:s1",
+            "sensitivity": "internal",
+            "data_boundary": "project_private",
+        },
+        {
+            "grant_id": "grant-unused",
+            "artifact_ref": "sources:wiki:s2",
+            "sensitivity": "internal",
+            "data_boundary": "project_private",
+        },
     ]
     payload["source_usages"] = [
-        {"usage_id": "usage-1", "grant_id": "grant-used", "task_id": "task-1", "worker_id": "worker-1", "artifact_ref": "sources:keycloak:s1"},
+        {
+            "usage_id": "usage-1",
+            "grant_id": "grant-used",
+            "task_id": "task-1",
+            "worker_id": "worker-1",
+            "artifact_ref": "sources:keycloak:s1",
+        },
     ]
     output = render_operator_shell(_state(payload), width=176, height=34)
     assert "grant-used [used]" in output
@@ -49,10 +65,21 @@ def test_renderer_goal_artifacts_only_grants_and_used_unused_markers() -> None:
 def test_renderer_goal_artifacts_grants_usage_outputs_small_width_compact() -> None:
     payload = _payload()
     payload["source_grants"] = [
-        {"grant_id": "grant-1", "artifact_ref": "sources:keycloak:s1", "sensitivity": "internal", "data_boundary": "project_private"},
+        {
+            "grant_id": "grant-1",
+            "artifact_ref": "sources:keycloak:s1",
+            "sensitivity": "internal",
+            "data_boundary": "project_private",
+        },
     ]
     payload["source_usages"] = [
-        {"usage_id": "usage-1", "grant_id": "grant-1", "task_id": "task-1", "worker_id": "worker-1", "artifact_ref": "sources:keycloak:s1"},
+        {
+            "usage_id": "usage-1",
+            "grant_id": "grant-1",
+            "task_id": "task-1",
+            "worker_id": "worker-1",
+            "artifact_ref": "sources:keycloak:s1",
+        },
     ]
     payload["output_artifacts"] = [
         {

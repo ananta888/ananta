@@ -1,4 +1,5 @@
 """PromptRedactionService: mask secrets in prompts before storage/display. PTI-012."""
+
 from __future__ import annotations
 
 import re
@@ -16,19 +17,62 @@ class RedactionResult:
 
 # Each entry: (pattern_id, compiled_regex, replacement_template)
 _PATTERNS: list[tuple[str, re.Pattern, str]] = [
-    ("bearer_token",      re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), "[REDACTED:bearer_token]"),
-    ("authorization_header", re.compile(r"Authorization:\s*Bearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), "Authorization: [REDACTED:bearer_token]"),
-    ("openai_api_key",    re.compile(r"OPENAI_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE), "OPENAI_API_KEY=[REDACTED:api_key]"),
-    ("anthropic_api_key", re.compile(r"ANTHROPIC_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE), "ANTHROPIC_API_KEY=[REDACTED:api_key]"),
-    ("hermes_api_key",    re.compile(r"HERMES_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE), "HERMES_API_KEY=[REDACTED:api_key]"),
-    ("openrouter_api_key", re.compile(r"OPENROUTER_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE), "OPENROUTER_API_KEY=[REDACTED:api_key]"),
-    ("generic_api_key",   re.compile(r"api[_-]?key\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{8,}['\"]?", re.IGNORECASE), "api_key=[REDACTED:api_key]"),
-    ("generic_token",     re.compile(r"(?<![a-z])token\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{8,}['\"]?", re.IGNORECASE), "token=[REDACTED:token]"),
-    ("password_field",    re.compile(r"password\s*[=:]\s*['\"]?[^\s'\"]{4,}['\"]?", re.IGNORECASE), "password=[REDACTED:password]"),
-    ("secret_field",      re.compile(r"(?<![a-z])secret\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{4,}['\"]?", re.IGNORECASE), "secret=[REDACTED:secret]"),
-    ("private_key_block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.DOTALL | re.IGNORECASE), "[REDACTED:private_key]"),
-    ("sk_key",            re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"), "[REDACTED:sk_key]"),
-    ("env_secret",        re.compile(r"[A-Z][A-Z0-9_]*SECRET[A-Z0-9_]*\s*[=:]\s*\S+", re.IGNORECASE), "[REDACTED:env_secret]"),
+    ("bearer_token", re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE), "[REDACTED:bearer_token]"),
+    (
+        "authorization_header",
+        re.compile(r"Authorization:\s*Bearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE),
+        "Authorization: [REDACTED:bearer_token]",
+    ),
+    (
+        "openai_api_key",
+        re.compile(r"OPENAI_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE),
+        "OPENAI_API_KEY=[REDACTED:api_key]",
+    ),
+    (
+        "anthropic_api_key",
+        re.compile(r"ANTHROPIC_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE),
+        "ANTHROPIC_API_KEY=[REDACTED:api_key]",
+    ),
+    (
+        "hermes_api_key",
+        re.compile(r"HERMES_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE),
+        "HERMES_API_KEY=[REDACTED:api_key]",
+    ),
+    (
+        "openrouter_api_key",
+        re.compile(r"OPENROUTER_API_KEY\s*[=:]\s*[A-Za-z0-9\-._]+", re.IGNORECASE),
+        "OPENROUTER_API_KEY=[REDACTED:api_key]",
+    ),
+    (
+        "generic_api_key",
+        re.compile(r"api[_-]?key\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{8,}['\"]?", re.IGNORECASE),
+        "api_key=[REDACTED:api_key]",
+    ),
+    (
+        "generic_token",
+        re.compile(r"(?<![a-z])token\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{8,}['\"]?", re.IGNORECASE),
+        "token=[REDACTED:token]",
+    ),
+    (
+        "password_field",
+        re.compile(r"password\s*[=:]\s*['\"]?[^\s'\"]{4,}['\"]?", re.IGNORECASE),
+        "password=[REDACTED:password]",
+    ),
+    (
+        "secret_field",
+        re.compile(r"(?<![a-z])secret\s*[=:]\s*['\"]?[A-Za-z0-9\-._]{4,}['\"]?", re.IGNORECASE),
+        "secret=[REDACTED:secret]",
+    ),
+    (
+        "private_key_block",
+        re.compile(
+            r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+            re.DOTALL | re.IGNORECASE,
+        ),
+        "[REDACTED:private_key]",
+    ),
+    ("sk_key", re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"), "[REDACTED:sk_key]"),
+    ("env_secret", re.compile(r"[A-Z][A-Z0-9_]*SECRET[A-Z0-9_]*\s*[=:]\s*\S+", re.IGNORECASE), "[REDACTED:env_secret]"),
 ]
 
 
@@ -68,7 +112,12 @@ class PromptRedactionService:
             elif isinstance(v, dict):
                 out[k] = self.redact_dict(v)
             elif isinstance(v, list):
-                out[k] = [self.redact_dict(i) if isinstance(i, dict) else (self.redact(i).redacted_text if isinstance(i, str) else i) for i in v]
+                out[k] = [
+                    self.redact_dict(i)
+                    if isinstance(i, dict)
+                    else (self.redact(i).redacted_text if isinstance(i, str) else i)
+                    for i in v
+                ]
             else:
                 out[k] = v
         return out

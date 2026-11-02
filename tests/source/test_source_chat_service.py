@@ -45,7 +45,7 @@ def test_empty_governed_context_never_calls_llm(monkeypatch):
     monkeypatch.setattr(settings, "default_provider", "ollama")
     calls = []
     with pytest.raises(ValueError, match="source_context_unavailable"):
-        SourceChatService(context_service=_Context(selected=False), llm_call=lambda prompt: calls.append(prompt)).answer(
-            prompt="question", source_ref="source"
-        )
+        SourceChatService(
+            context_service=_Context(selected=False), llm_call=lambda prompt: calls.append(prompt)
+        ).answer(prompt="question", source_ref="source")
     assert calls == []

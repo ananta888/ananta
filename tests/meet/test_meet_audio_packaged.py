@@ -9,7 +9,7 @@ import time
 import pytest
 
 from ananta_contracts.meet_audio_profile import AudioReceiveProfile
-from tests.meet_dialog_browser_fixture import docker
+from tests.meet.meet_dialog_browser_fixture import docker
 from tests.meet.meet_receive_packaged_fixture import packaged_receive
 
 pytestmark = [
@@ -178,6 +178,7 @@ def test_packaged_cuda_transcribes_only_granted_live_source_without_persisting_t
             assert child.assigned_agent_url == f.container.origin
             context = json.dumps(child.worker_execution_context).casefold()
             assert not any(word in context for word in ("spracherkennung", "pcm", "wav", "transcript"))
+
         def await_original_reservation(job):
             delay = max(0, job["deadline"] - time.time() + 0.1)
             assert delay <= 30.2, "unexpected Hub reservation duration"

@@ -47,8 +47,7 @@ def compact_wiki_jsonl(
     per_article: dict[str, int] = defaultdict(int)
     total = kept = 0
 
-    with source_path.open("r", encoding="utf-8") as src, \
-         dest_path.open("w", encoding="utf-8") as dst:
+    with source_path.open("r", encoding="utf-8") as src, dest_path.open("w", encoding="utf-8") as dst:
         for line in src:
             line = line.strip()
             if not line:
@@ -72,7 +71,9 @@ def compact_wiki_jsonl(
 
     logger.info(
         "compact_wiki_jsonl: %d → %d records (%d articles, %.1f%%)",
-        total, kept, len(per_article), 100 * kept / total if total else 0,
+        total,
+        kept,
+        len(per_article),
+        100 * kept / total if total else 0,
     )
     return {"total": total, "kept": kept, "articles": len(per_article)}
-

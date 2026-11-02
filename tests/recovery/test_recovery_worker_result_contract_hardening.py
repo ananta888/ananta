@@ -24,11 +24,7 @@ from agent.services.recovery_worker_result_service import (
 
 
 def _digest(envelope: dict[str, Any]) -> str:
-    payload = {
-        key: value
-        for key, value in envelope.items()
-        if key != "digest"
-    }
+    payload = {key: value for key, value in envelope.items() if key != "digest"}
     encoded = json.dumps(
         payload,
         ensure_ascii=True,
@@ -110,9 +106,7 @@ def test_validate_rejects_non_json_projection_without_string_coercion() -> None:
         "schema": RECOVERY_WORKER_RESULT_SCHEMA,
         "task_id": "recovery-child",
         "phase": "propose",
-        "verification_projection": {
-            "llm_diagnostics": {"opaque": object()}
-        },
+        "verification_projection": {"llm_diagnostics": {"opaque": object()}},
         "digest": "0" * 64,
     }
 
@@ -165,9 +159,7 @@ def test_apply_proposal_context_never_overwrites_hub_authority() -> None:
         "verification_status": {
             "status": "pending",
             "record_id": "hub-record",
-            "source_catalog": {
-                "sources": [{"source_id": "SRC_HUB"}]
-            },
+            "source_catalog": {"sources": [{"source_id": "SRC_HUB"}]},
         },
     }
 
@@ -179,26 +171,15 @@ def test_apply_proposal_context_never_overwrites_hub_authority() -> None:
     verification = local_task["verification_status"]
     assert verification["status"] == "pending"
     assert verification["record_id"] == "hub-record"
-    assert verification["source_catalog"]["sources"] == [
-        {"source_id": "SRC_HUB"}
-    ]
-    assert verification["answer_verification"] == {
-        "status": "worker_evidence"
-    }
-    assert (
-        verification["recovery_worker_results"]["propose"]
-        == envelope
-    )
+    assert verification["source_catalog"]["sources"] == [{"source_id": "SRC_HUB"}]
+    assert verification["answer_verification"] == {"status": "worker_evidence"}
+    assert verification["recovery_worker_results"]["propose"] == envelope
 
 
 def test_apply_rejects_a_different_existing_hub_proposal_envelope() -> None:
     service = RecoveryWorkerResultService()
-    authoritative = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_1"}]}}
-    )
-    different = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_2"}]}}
-    )
+    authoritative = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_1"}]}})
+    different = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_2"}]}})
     local_task = {
         "id": "recovery-child",
         "verification_status": {
@@ -216,18 +197,12 @@ def test_apply_rejects_a_different_existing_hub_proposal_envelope() -> None:
             task=local_task,
             value=different,
         )
-    assert local_task["verification_status"][
-        "recovery_worker_results"
-    ]["propose"] == authoritative
+    assert local_task["verification_status"]["recovery_worker_results"]["propose"] == authoritative
 
 
 def test_execute_fingerprint_cryptographically_binds_proposal_envelope() -> None:
-    first = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_1"}]}}
-    )
-    second = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_2"}]}}
-    )
+    first = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_1"}]}})
+    second = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_2"}]}})
     payload = {
         "task_id": "recovery-child",
         "command": "verify",
@@ -247,23 +222,16 @@ def test_execute_fingerprint_cryptographically_binds_proposal_envelope() -> None
     )
 
     assert first_fingerprint != second_fingerprint
-    assert (
-        first_fingerprint
-        == recovery_dispatch_request_fingerprint(
-            "execute",
-            dict(payload),
-        )
+    assert first_fingerprint == recovery_dispatch_request_fingerprint(
+        "execute",
+        dict(payload),
     )
 
 
 def test_execute_context_must_match_authoritative_proposal_envelope() -> None:
     service = RecoveryWorkerResultService()
-    authoritative = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_1"}]}}
-    )
-    different = _envelope(
-        {"source_catalog": {"sources": [{"source_id": "SRC_2"}]}}
-    )
+    authoritative = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_1"}]}})
+    different = _envelope({"source_catalog": {"sources": [{"source_id": "SRC_2"}]}})
     task = {
         "id": "recovery-child",
         "verification_status": {
@@ -273,10 +241,13 @@ def test_execute_context_must_match_authoritative_proposal_envelope() -> None:
         },
     }
 
-    assert service.bind_execute_proposal_context(
-        task=task,
-        value=authoritative,
-    ) == authoritative
+    assert (
+        service.bind_execute_proposal_context(
+            task=task,
+            value=authoritative,
+        )
+        == authoritative
+    )
     with pytest.raises(
         RecoveryWorkerResultError,
         match="recovery_proposal_context_mismatch",
@@ -300,9 +271,7 @@ def test_execute_context_must_match_authoritative_proposal_envelope() -> None:
         service.bind_execute_proposal_context(
             task={
                 "id": "recovery-child",
-                "verification_status": {
-                    "recovery_worker_results": "corrupt"
-                },
+                "verification_status": {"recovery_worker_results": "corrupt"},
             },
             value=None,
         )
@@ -342,9 +311,7 @@ def test_build_projection_uses_only_the_closed_boundary_allowlist() -> None:
 
     envelope = RecoveryWorkerResultService.build(boundary)
 
-    assert set(envelope["verification_projection"]) == {
-        "source_catalog"
-    }
+    assert set(envelope["verification_projection"]) == {"source_catalog"}
 
 
 @pytest.mark.parametrize(

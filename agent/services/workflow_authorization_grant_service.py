@@ -99,7 +99,9 @@ class UnavailableHubAuthorizationRevalidator:
 class InMemoryWorkflowAuthorizationGrantService:
     def grant_fenced(self, envelope, *, lease):
         return lease.store.mutate_fenced(
-            lease=lease, recipient=envelope, mutation=lambda: self.grant(envelope),
+            lease=lease,
+            recipient=envelope,
+            mutation=lambda: self.grant(envelope),
         )
 
     def revoke_fenced(self, envelope_id, *, lease, **values):
@@ -108,7 +110,9 @@ class InMemoryWorkflowAuthorizationGrantService:
         if current is None:
             raise KeyError("workflow_authorization_grant_not_found")
         return lease.store.mutate_fenced(
-            lease=lease, recipient=current, mutation=lambda: self.revoke(envelope_id, **values),
+            lease=lease,
+            recipient=current,
+            mutation=lambda: self.revoke(envelope_id, **values),
         )
 
     def __init__(self, *, clock=time.time) -> None:
@@ -413,11 +417,11 @@ def _grant_binding_matches(grant, envelope):
 def require_expired_workflow_grant_row(row, envelope, *, now):
     """Historical exact grant proof; never substitutes for current authorization."""
     if type(now) not in (int, float) or not math.isfinite(now):
-        raise WorkflowAuthorizationGrantConflict('workflow_authorization_grant_clock_invalid')
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_clock_invalid")
     grant = _grant_from_row(row)
     assert_workflow_authorization_grant_projection(grant)
     if grant.expires_at > now or not _grant_binding_matches(grant, envelope):
-        raise WorkflowAuthorizationGrantConflict('workflow_authorization_grant_not_expired')
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_not_expired")
     return grant
 
 

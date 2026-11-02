@@ -105,17 +105,11 @@ class LangGraphExecutionPlanAdapter:
         else:
             visible_nodes = plan.nodes
         open_gates = sorted(
-            {
-                node.gate_id
-                for node in visible_nodes
-                if node.gate_id and node.gate_id not in approved_gates
-            }
+            {node.gate_id for node in visible_nodes if node.gate_id and node.gate_id not in approved_gates}
         )
         result.approval_required = bool(open_gates)
         result.approval_reasons = [f"execution_plan_gate:{gate_id}" for gate_id in open_gates]
-        result.required_tools = sorted(
-            {tool for node in visible_nodes for tool in node.allowed_tools}
-        )
+        result.required_tools = sorted({tool for node in visible_nodes for tool in node.allowed_tools})
         if "codecompass.query" in result.required_tools:
             result.required_context_sources.append("codecompass")
         result.plan_steps = [
@@ -129,9 +123,7 @@ class LangGraphExecutionPlanAdapter:
             }
             for index, node in enumerate(visible_nodes)
         ]
-        result.estimated_tokens = sum(
-            int(node.metadata.get("estimated_tokens") or 0) for node in plan.nodes
-        )
+        result.estimated_tokens = sum(int(node.metadata.get("estimated_tokens") or 0) for node in plan.nodes)
         result.metadata.update(
             {
                 "execution_plan_schema": plan.schema,
@@ -193,10 +185,12 @@ class LangGraphExecutionPlanAdapter:
                 "A dependency result is not an incoming plan edge.",
             )
         executor = self._node_executor or _LegacyExecutionPlanNodeExecutor(self)
+
         def cancelled() -> bool:
             return bool(payload.get("cancel_requested", False)) or bool(
                 self._cancel_probe and self._cancel_probe(task_id, dict(payload))
             )
+
         if cancelled():
             outcome = ExecutionPlanNodeOutcome.cancelled()
             return self._delegated_result(
@@ -226,11 +220,7 @@ class LangGraphExecutionPlanAdapter:
                     return state
                 budget.record_step(f"hub_node:{node.node_id}")
                 result = executor.execute(request, budget=budget)
-                captured.append(
-                    ExecutionPlanNodeOutcome.cancelled()
-                    if cancelled()
-                    else result
-                )
+                captured.append(ExecutionPlanNodeOutcome.cancelled() if cancelled() else result)
                 return state
 
             graph: Any = StateGraph(dict)
@@ -490,8 +480,7 @@ class LangGraphExecutionPlanAdapter:
             graph_id=request.plan.workflow_id,
             task_id=str(request.execution_payload.get("task_id") or request.plan.plan_id),
             llm_responses=[
-                {"node_id": key, "response": value}
-                for key, value in sorted(request.dependency_results.items())
+                {"node_id": key, "response": value} for key, value in sorted(request.dependency_results.items())
             ],
         )
         bound_payload = _bound_payload(request)
@@ -527,13 +516,7 @@ class LangGraphExecutionPlanAdapter:
             )
             value = dict(state.artifacts[-1]) if state.artifacts else {}
         elif node.node_type == "checkpoint":
-            value = {
-                "checkpoint": (
-                    "hub-owned"
-                    if self._node_operations.requires_hub_checkpointing()
-                    else "ephemeral"
-                )
-            }
+            value = {"checkpoint": ("hub-owned" if self._node_operations.requires_hub_checkpointing() else "ephemeral")}
         else:
             raise WorkerError(
                 "execution_plan_node_kind_unsupported",

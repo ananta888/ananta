@@ -59,9 +59,7 @@ def _source_result(text: str = "Wir testen neue klare Worte") -> dict[str, objec
 
 def test_product_composition_calls_only_canonical_alignment_and_is_duplicate_safe() -> None:
     service = SemanticSpeechSourceCorrectionService()
-    command = service.command(
-        _raw(), source_audio=_audio(), requested_at_ms=NOW_MS, consent_granted=True
-    )
+    command = service.command(_raw(), source_audio=_audio(), requested_at_ms=NOW_MS, consent_granted=True)
 
     first = service.correct(command, _source_result())
     second = service.correct(command, _source_result("unreachable duplicate text"))
@@ -106,9 +104,7 @@ def test_product_composition_requires_explicit_hub_consent_before_source_asr() -
     assert raised.value.status_code == 403
 
 
-def test_voice_capabilities_advertise_source_correction_only_when_runtime_is_enabled(
-    client, admin_auth_header
-) -> None:
+def test_voice_capabilities_advertise_source_correction_only_when_runtime_is_enabled(client, admin_auth_header) -> None:
     provider = MagicMock()
     provider.health.return_value = {"ok": True, "status": "ok"}
     provider.models.return_value = []
@@ -116,13 +112,9 @@ def test_voice_capabilities_advertise_source_correction_only_when_runtime_is_ena
     flags = client.application.extensions.get("semantic_media_feature_flags")
     try:
         with override_voice_route(client.application, "get_voice_provider_service", return_value=provider):
-            client.application.extensions["semantic_media_feature_flags"] = {
-                "semantic_speech_runtime": True
-            }
+            client.application.extensions["semantic_media_feature_flags"] = {"semantic_speech_runtime": True}
             enabled = client.get("/v1/voice/capabilities", headers=admin_auth_header)
-            client.application.extensions["semantic_media_feature_flags"] = {
-                "semantic_speech_runtime": False
-            }
+            client.application.extensions["semantic_media_feature_flags"] = {"semantic_speech_runtime": False}
             disabled = client.get("/v1/voice/capabilities", headers=admin_auth_header)
     finally:
         client.application.extensions["semantic_media_feature_flags"] = flags
@@ -131,9 +123,7 @@ def test_voice_capabilities_advertise_source_correction_only_when_runtime_is_ena
     assert "semantic_source_correction" not in disabled.get_json()["data"]["capabilities"]
 
 
-def test_hub_route_delegates_source_asr_then_returns_canonical_correction(
-    client, admin_auth_header
-) -> None:
+def test_hub_route_delegates_source_asr_then_returns_canonical_correction(client, admin_auth_header) -> None:
     audio = _audio()
     now_ms = time.time_ns() // 1_000_000
     raw = _raw(source_expires_at_ms=now_ms + 25_000, deadline_at_ms=now_ms + 20_000)
@@ -212,9 +202,7 @@ def test_hub_route_delegates_source_asr_then_returns_canonical_correction(
     assert "Wir testen" not in str(audit.call_args.args[1])
 
 
-def test_hub_route_rejects_missing_raw_audio_grant_before_delegation(
-    client, admin_auth_header
-) -> None:
+def test_hub_route_rejects_missing_raw_audio_grant_before_delegation(client, admin_auth_header) -> None:
     now_ms = time.time_ns() // 1_000_000
     raw = _raw(source_expires_at_ms=now_ms + 25_000, deadline_at_ms=now_ms + 20_000)
     consent = SimpleNamespace(
@@ -270,9 +258,7 @@ def test_hub_route_rejects_missing_raw_audio_grant_before_delegation(
     delegated.assert_not_called()
 
 
-def test_hub_route_completion_fence_rejects_consent_revoked_during_source_asr(
-    client, admin_auth_header
-) -> None:
+def test_hub_route_completion_fence_rejects_consent_revoked_during_source_asr(client, admin_auth_header) -> None:
     now_ms = time.time_ns() // 1_000_000
     raw = _raw(source_expires_at_ms=now_ms + 25_000, deadline_at_ms=now_ms + 20_000)
     active = SimpleNamespace(

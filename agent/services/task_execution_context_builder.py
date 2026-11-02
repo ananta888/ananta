@@ -23,7 +23,9 @@ def resolve_loop_trace_id(task: dict) -> str | None:
     trace_id = str(task.get("goal_trace_id") or "").strip()
     if trace_id:
         return trace_id
-    proposal_trace = (task.get("last_proposal") or {}).get("trace") if isinstance(task.get("last_proposal"), dict) else {}
+    proposal_trace = (
+        (task.get("last_proposal") or {}).get("trace") if isinstance(task.get("last_proposal"), dict) else {}
+    )
     trace_id = str((proposal_trace or {}).get("trace_id") or "").strip()
     return trace_id or None
 
@@ -116,7 +118,9 @@ def apply_implicit_execution_defaults(execution_policy, request_data, agent_cfg:
     if "retry_delay" not in explicit_fields and agent_cfg.get("command_retry_delay") is not None:
         execution_policy.retry_delay_seconds = max(0, min(int(agent_cfg.get("command_retry_delay") or 0), 60))
     if request_data.retry_policy_override is None and agent_cfg.get("command_retryable_exit_codes") is not None:
-        execution_policy.retryable_exit_codes = [int(code) for code in list(agent_cfg.get("command_retryable_exit_codes") or [])]
+        execution_policy.retryable_exit_codes = [
+            int(code) for code in list(agent_cfg.get("command_retryable_exit_codes") or [])
+        ]
     if request_data.retry_policy_override is None and agent_cfg.get("command_retry_on_timeouts") is not None:
         execution_policy.retry_on_timeouts = bool(agent_cfg.get("command_retry_on_timeouts"))
 

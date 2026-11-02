@@ -20,18 +20,25 @@ class ParallelTick:
             observed = self._pending.result()
             self._pending = None
         if self._pending is None:
-            self._pending = self._pool.submit(observe_http, self._base, '/tasks/autopilot/tick',
-                payload={}, headers={'Authorization': 'Bearer ' + self._token}, timeout=20)
+            self._pending = self._pool.submit(
+                observe_http,
+                self._base,
+                "/tasks/autopilot/tick",
+                payload={},
+                headers={"Authorization": "Bearer " + self._token},
+                timeout=20,
+            )
         return observed
 
     def observe_join(self, *, result, tasks):
         completed = set(result.completed_node_ids)
-        if not self.pending_sibling_observed and 'fast' in completed and 'slow' not in completed:
-            assert 'join' not in completed, 'full_app_and_join_before_sibling'
-            nodes = {task.worker_execution_context['native_node_command']['node']['node_id']: task for task in tasks}
-            assert 'after' not in nodes and 'slow' in nodes, 'full_app_and_successor_before_join'
-            request_json(WORKER_URL + '/release', token=os.environ['BPMN_DISPATCH_TOKEN'],
-                         payload={'task_id': nodes['slow'].id})
+        if not self.pending_sibling_observed and "fast" in completed and "slow" not in completed:
+            assert "join" not in completed, "full_app_and_join_before_sibling"
+            nodes = {task.worker_execution_context["native_node_command"]["node"]["node_id"]: task for task in tasks}
+            assert "after" not in nodes and "slow" in nodes, "full_app_and_successor_before_join"
+            request_json(
+                WORKER_URL + "/release", token=os.environ["BPMN_DISPATCH_TOKEN"], payload={"task_id": nodes["slow"].id}
+            )
             self.pending_sibling_observed = True
 
     def close(self):

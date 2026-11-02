@@ -12,11 +12,12 @@ Policy:
 - AUG-104: Stats (query, provider, routing_mode, hits, scores) stored per-call for
            reproducibility; local vs external origin distinguishable via source_kind
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -30,24 +31,25 @@ from agent.services.context_providers.context_provider_port import (
     ProviderHealth,
 )
 
-
 # ---------------------------------------------------------------------------
 # Routing
 # ---------------------------------------------------------------------------
 
+
 class RoutingMode(str, Enum):
-    CODECOMPASS_ONLY = "codecompass_only"   # default — local only
-    AUGMENT_ONLY = "augment_only"           # Augment MCP only
-    HYBRID_FALLBACK = "hybrid_fallback"     # Augment only if local below threshold
-    HYBRID_PARALLEL = "hybrid_parallel"     # merge both, score-sorted
+    CODECOMPASS_ONLY = "codecompass_only"  # default — local only
+    AUGMENT_ONLY = "augment_only"  # Augment MCP only
+    HYBRID_FALLBACK = "hybrid_fallback"  # Augment only if local below threshold
+    HYBRID_PARALLEL = "hybrid_parallel"  # merge both, score-sorted
 
 
-ROUTING_MIN_QUALITY_THRESHOLD = 0.4        # below this → hybrid_fallback activates Augment
+ROUTING_MIN_QUALITY_THRESHOLD = 0.4  # below this → hybrid_fallback activates Augment
 
 
 # ---------------------------------------------------------------------------
 # Internal request/response types
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AugmentRetrievalRequest:
@@ -102,6 +104,7 @@ class AugmentContextProviderStats:
 # Provider
 # ---------------------------------------------------------------------------
 
+
 class AugmentContextProvider:
     """Context provider backed by the Augment MCP codebase-retrieval tool.
 
@@ -123,7 +126,7 @@ class AugmentContextProvider:
     ) -> None:
         self._config = config
         self._health = health_status
-        self._mcp_caller = mcp_caller       # injectable for tests / real MCP bridge
+        self._mcp_caller = mcp_caller  # injectable for tests / real MCP bridge
         self._normalizer = ContextItemNormalizer()
         self._stats: list[AugmentContextProviderStats] = []
 
@@ -272,9 +275,7 @@ class AugmentContextProvider:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve_paths(
-        self, scope: ContextScope | None
-    ) -> tuple[list[str], list[str]]:
+    def _resolve_paths(self, scope: ContextScope | None) -> tuple[list[str], list[str]]:
         """Merge scope paths with config security paths.
 
         - denied_paths: union of scope.denied_paths and config.security.denied_paths
@@ -368,7 +369,7 @@ class AugmentContextProvider:
                     redaction_state="truncated" if was_truncated else "clean",
                     warnings=["snippet_truncated"] if was_truncated else [],
                     correlation_id=scope.correlation_id if scope is not None else None,
-                    confidence=0.6,     # external provider — lower confidence than local
+                    confidence=0.6,  # external provider — lower confidence than local
                     freshness=0.9,
                     policy_status="allowed",
                 )
@@ -380,6 +381,7 @@ class AugmentContextProvider:
 # ---------------------------------------------------------------------------
 # Router (AUG-102)
 # ---------------------------------------------------------------------------
+
 
 class ProviderRouter:
     """Routes context queries across providers per AUG-102.
@@ -425,11 +427,7 @@ class ProviderRouter:
             local_result = self._cc.retrieve(query, scope=scope, max_results=max_results)
             local_items = local_result.items
             if self._aug and self._aug.is_enabled():
-                avg_score = (
-                    sum(i.score for i in local_items) / len(local_items)
-                    if local_items
-                    else 0.0
-                )
+                avg_score = sum(i.score for i in local_items) / len(local_items) if local_items else 0.0
                 if avg_score < self._threshold:
                     aug_result = self._aug.retrieve(query, scope=scope, max_results=max_results)
                     seen_paths = {i.path for i in local_items}

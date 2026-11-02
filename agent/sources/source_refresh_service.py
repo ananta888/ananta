@@ -3,6 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any, Mapping, Sequence
 
+from agent.services.source_admission_service import (
+    SourceAdmissionDecision,
+    SourceInventoryEvidence,
+    SourceScanEvidence,
+)
 from agent.sources.keycloak_fetcher import KeycloakDocsFetcher
 from agent.sources.source_admission_gate import (
     SourceAdmissionGatePort,
@@ -22,11 +27,6 @@ from agent.sources.source_connectors import (
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 from agent.sources.wikimedia_downloader import WikimediaDownloader
-from agent.services.source_admission_service import (
-    SourceAdmissionDecision,
-    SourceInventoryEvidence,
-    SourceScanEvidence,
-)
 
 
 def _parse_interval(value: str) -> timedelta:
@@ -180,30 +180,22 @@ class SourceRefreshService:
                 "reason_code": exc.reason_code,
             }
 
-    def resolve_revision_descriptor(
-        self, *, descriptor: Mapping[str, Any]
-    ) -> SourceRevisionResolution:
+    def resolve_revision_descriptor(self, *, descriptor: Mapping[str, Any]) -> SourceRevisionResolution:
         values, connector = self._resolve_descriptor(descriptor)
         self._require_enabled(values)
         self._require_valid(connector, values)
         return connector.revision_resolver.resolve_revision(values)
 
-    def inventory_descriptor(
-        self, *, descriptor: Mapping[str, Any]
-    ) -> SourceInventory:
+    def inventory_descriptor(self, *, descriptor: Mapping[str, Any]) -> SourceInventory:
         values, connector = self._resolve_descriptor(descriptor)
         self._require_enabled(values)
         self._require_valid(connector, values)
         return connector.inventory_provider.inventory(values)
 
-    def health_descriptor(
-        self, *, descriptor: Mapping[str, Any]
-    ) -> ConnectorHealth:
+    def health_descriptor(self, *, descriptor: Mapping[str, Any]) -> ConnectorHealth:
         values, connector = self._resolve_descriptor(descriptor)
         if not bool(values.get("enabled", True)):
-            return ConnectorHealth(
-                status="degraded", reason_code="source_disabled"
-            )
+            return ConnectorHealth(status="degraded", reason_code="source_disabled")
         return connector.health_provider.health(values)
 
     def resolve_revision(self, *, source_id: str) -> SourceRevisionResolution:
@@ -293,9 +285,7 @@ class SourceRefreshService:
         source_type = str(descriptor.get("source_type") or "")
         return descriptor, self.connector_registry.get(source_type)
 
-    def _resolve_descriptor(
-        self, descriptor: Mapping[str, Any]
-    ) -> tuple[dict[str, Any], SourceConnector]:
+    def _resolve_descriptor(self, descriptor: Mapping[str, Any]) -> tuple[dict[str, Any], SourceConnector]:
         values = dict(descriptor)
         source_type = str(values.get("source_type") or "")
         if not source_type:

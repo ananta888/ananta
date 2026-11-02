@@ -11,6 +11,7 @@ Routes:
   "llm_answer"       → /snake/ask (v1/v2/v3)
   "direct_answer"    → inline answer without LLM
 """
+
 from __future__ import annotations
 
 import re
@@ -24,25 +25,24 @@ from client_surfaces.operator_tui.snake_chat_security_policy import (
     check_tool_dispatch_allowed,
 )
 
-
 # ── Keyword heuristics ────────────────────────────────────────────────────────
 
 _FS_KEYWORDS = re.compile(
-    r'\b(list|zeige?|show|ls|dir|dateien?|files?|ordner|directory|was ist in|'
-    r'inhalt von|open|lese?|read|cat|such[e]? datei)\b',
+    r"\b(list|zeige?|show|ls|dir|dateien?|files?|ordner|directory|was ist in|"
+    r"inhalt von|open|lese?|read|cat|such[e]? datei)\b",
     re.I,
 )
 _GIT_KEYWORDS = re.compile(
-    r'\b(git|commit|branch|diff|log|status|änderungen?|changes?|history|push|pull|merge)\b',
+    r"\b(git|commit|branch|diff|log|status|änderungen?|changes?|history|push|pull|merge)\b",
     re.I,
 )
 _TODO_KEYWORDS = re.compile(
-    r'\b(todo|task|aufgabe|ticket|backlog|track|cwfh|amr|epc|sctr|mpm|roadmap|'
-    r'offen|pending|done|erledigt|nächste[r]? schritt)\b',
+    r"\b(todo|task|aufgabe|ticket|backlog|track|cwfh|amr|epc|sctr|mpm|roadmap|"
+    r"offen|pending|done|erledigt|nächste[r]? schritt)\b",
     re.I,
 )
 _GREETING_KEYWORDS = re.compile(
-    r'^(hallo|hi|hey|hello|moin|guten morgen|good morning|wie gehts?|was geht)\??$',
+    r"^(hallo|hi|hey|hello|moin|guten morgen|good morning|wie gehts?|was geht)\??$",
     re.I,
 )
 
@@ -52,9 +52,9 @@ _CONFIDENCE_THRESHOLD = 0.6
 
 @dataclass
 class RoutingDecision:
-    route: str                           # one of the routes above
-    confidence: float = 1.0             # 0.0–1.0
-    method: str = "keyword"             # "keyword" or "llm_classifier"
+    route: str  # one of the routes above
+    confidence: float = 1.0  # 0.0–1.0
+    method: str = "keyword"  # "keyword" or "llm_classifier"
     tool_args: dict[str, Any] = field(default_factory=dict)
     latency_ms: float = 0.0
     blocked: bool = False
@@ -166,8 +166,12 @@ class SnakeChatCommandRouter:
         allowed, reason = check_tool_dispatch_allowed(decision.route, policy=self._policy)
         if not allowed:
             decision = RoutingDecision(
-                route="llm_answer", confidence=0.5, method="security_fallback",
-                blocked=True, block_reason=reason, route_source="blocked_by_policy",
+                route="llm_answer",
+                confidence=0.5,
+                method="security_fallback",
+                blocked=True,
+                block_reason=reason,
+                route_source="blocked_by_policy",
                 policy_reason=reason,
             )
         else:
@@ -212,17 +216,15 @@ class SnakeChatCommandRouter:
     def _extract_tool_args(self, question: str, route: str) -> dict[str, Any]:
         if route == "filesystem_read":
             # Extract a path hint if present
-            path_match = re.search(r'(?:in|von|from|unter|at)\s+([^\s,!?]+)', question, re.I)
+            path_match = re.search(r"(?:in|von|from|unter|at)\s+([^\s,!?]+)", question, re.I)
             if path_match:
                 return {"path_hint": path_match.group(1)}
         elif route == "git_read":
-            sub_match = re.search(r'\b(log|status|diff|show|blame)\b', question, re.I)
+            sub_match = re.search(r"\b(log|status|diff|show|blame)\b", question, re.I)
             if sub_match:
                 return {"git_subcommand": sub_match.group(1).lower()}
         elif route == "todo_read":
-            track_match = re.search(
-                r'\b(cwfh|amr|epc|sctr|mpm|aprl|rts|rcfg|roadmap)\b', question, re.I
-            )
+            track_match = re.search(r"\b(cwfh|amr|epc|sctr|mpm|aprl|rts|rcfg|roadmap)\b", question, re.I)
             if track_match:
                 return {"track": track_match.group(1).upper()}
         return {}

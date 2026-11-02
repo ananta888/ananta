@@ -6,8 +6,8 @@ Revises: 4b9e2a7c0d3f
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "5c0f3b8d1e4a"
 down_revision = "4b9e2a7c0d3f"

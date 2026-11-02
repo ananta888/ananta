@@ -55,9 +55,7 @@ class CodeCompassDomainSupplementSourceWriter:
         path: str | Path,
         *,
         maximum_bytes: int | None = None,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ) = None,
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None) = None,
     ) -> None:
         configured_maximum = (
             configured_domain_supplement_source_bytes()
@@ -98,9 +96,7 @@ class CodeCompassDomainSupplementSourceWriter:
         connection: sqlite3.Connection,
         *,
         maximum_bytes: int,
-        execution_deadline: (
-            CodeCompassDomainSupplementExecutionDeadlinePort | None
-        ),
+        execution_deadline: (CodeCompassDomainSupplementExecutionDeadlinePort | None),
     ) -> None:
         maximum_pages = max(1, int(maximum_bytes) // _SQLITE_PAGE_BYTES)
         try:
@@ -110,12 +106,8 @@ class CodeCompassDomainSupplementSourceWriter:
                 connection.execute("PRAGMA journal_mode=OFF")
                 connection.execute("PRAGMA synchronous=OFF")
                 connection.execute("PRAGMA foreign_keys=ON")
-                connection.execute(
-                    f"PRAGMA application_id={_SOURCE_SQLITE_APPLICATION_ID}"
-                )
-                connection.execute(
-                    f"PRAGMA user_version={_SOURCE_SQLITE_USER_VERSION}"
-                )
+                connection.execute(f"PRAGMA application_id={_SOURCE_SQLITE_APPLICATION_ID}")
+                connection.execute(f"PRAGMA user_version={_SOURCE_SQLITE_USER_VERSION}")
                 connection.execute(f"PRAGMA max_page_count={maximum_pages}")
                 connection.executescript(
                     """
@@ -160,9 +152,7 @@ class CodeCompassDomainSupplementSourceWriter:
                 )
         except sqlite3.OperationalError as exc:
             if CodeCompassDomainSupplementSourceWriter._is_sqlite_full(exc):
-                raise RuntimeError(
-                    "codecompass_domain_supplement_source_too_large"
-                ) from exc
+                raise RuntimeError("codecompass_domain_supplement_source_too_large") from exc
             raise
 
     def add_domain(
@@ -178,8 +168,7 @@ class CodeCompassDomainSupplementSourceWriter:
         try:
             with _sqlite_deadline_progress(connection, self._execution_deadline):
                 existing = connection.execute(
-                    "SELECT domain_kind, domain_label, source_file_count "
-                    "FROM domains WHERE domain_key = ?",
+                    "SELECT domain_kind, domain_label, source_file_count FROM domains WHERE domain_key = ?",
                     (identity.domain_key,),
                 ).fetchone()
                 expected = (
@@ -189,13 +178,10 @@ class CodeCompassDomainSupplementSourceWriter:
                 )
                 if existing is not None:
                     if tuple(existing) != expected:
-                        raise ValueError(
-                            "codecompass_domain_supplement_domain_identity_conflict"
-                        )
+                        raise ValueError("codecompass_domain_supplement_domain_identity_conflict")
                     return
                 connection.execute(
-                    "INSERT INTO domains(domain_key, domain_kind, domain_label, "
-                    "source_file_count) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO domains(domain_key, domain_kind, domain_label, source_file_count) VALUES (?, ?, ?, ?)",
                     (identity.domain_key, *expected),
                 )
         except sqlite3.OperationalError as exc:
@@ -216,19 +202,15 @@ class CodeCompassDomainSupplementSourceWriter:
         try:
             with _sqlite_deadline_progress(connection, self._execution_deadline):
                 existing = connection.execute(
-                    "SELECT domain_key, record_json FROM semantic_nodes "
-                    "WHERE node_id = ?",
+                    "SELECT domain_key, record_json FROM semantic_nodes WHERE node_id = ?",
                     (node_id,),
                 ).fetchone()
                 if existing is not None:
                     if tuple(existing) != (domain_key, serialized):
-                        raise ValueError(
-                            "codecompass_domain_supplement_node_identity_conflict"
-                        )
+                        raise ValueError("codecompass_domain_supplement_node_identity_conflict")
                     return
                 connection.execute(
-                    "INSERT INTO semantic_nodes(domain_key, node_id, record_json) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO semantic_nodes(domain_key, node_id, record_json) VALUES (?, ?, ?)",
                     (domain_key, node_id, serialized),
                 )
         except sqlite3.OperationalError as exc:
@@ -294,17 +276,13 @@ class CodeCompassDomainSupplementSourceWriter:
                 code
                 for code in codes
                 if code != "semantic_adapter_unsupported"
-                and (
-                    code.endswith("_parse_error")
-                    or code.endswith("_syntax_error")
-                )
+                and (code.endswith("_parse_error") or code.endswith("_syntax_error"))
             )
         try:
             with _sqlite_deadline_progress(connection, self._execution_deadline):
                 for reason_code in sorted(fatal):
                     connection.execute(
-                        "INSERT OR IGNORE INTO incomplete_domains(domain_key, "
-                        "reason_code) VALUES (?, ?)",
+                        "INSERT OR IGNORE INTO incomplete_domains(domain_key, reason_code) VALUES (?, ?)",
                         (domain_key, reason_code),
                     )
         except sqlite3.OperationalError as exc:
@@ -314,14 +292,11 @@ class CodeCompassDomainSupplementSourceWriter:
         connection = self._open_connection()
         _checkpoint(self._execution_deadline)
         incomplete = connection.execute(
-            "SELECT reason_code FROM incomplete_domains "
-            "ORDER BY domain_key, reason_code LIMIT 1"
+            "SELECT reason_code FROM incomplete_domains ORDER BY domain_key, reason_code LIMIT 1"
         ).fetchone()
         if incomplete is not None:
             self.abort()
-            raise RuntimeError(
-                "codecompass_domain_supplement_incomplete:" + str(incomplete[0])
-            )
+            raise RuntimeError("codecompass_domain_supplement_incomplete:" + str(incomplete[0]))
         try:
             with _sqlite_deadline_progress(connection, self._execution_deadline):
                 connection.commit()
@@ -329,18 +304,14 @@ class CodeCompassDomainSupplementSourceWriter:
             self._closed = True
             size_bytes = self._temporary_path.stat().st_size
             if size_bytes <= 0 or size_bytes > self._maximum_bytes:
-                raise RuntimeError(
-                    "codecompass_domain_supplement_source_too_large"
-                )
+                raise RuntimeError("codecompass_domain_supplement_source_too_large")
             _checkpoint(self._execution_deadline)
             os.replace(self._temporary_path, self._path)
             return self._path
         except sqlite3.OperationalError as exc:
             self.abort()
             if self._is_sqlite_full(exc):
-                raise RuntimeError(
-                    "codecompass_domain_supplement_source_too_large"
-                ) from exc
+                raise RuntimeError("codecompass_domain_supplement_source_too_large") from exc
             raise
         except Exception:
             self.abort()
@@ -377,9 +348,7 @@ class CodeCompassDomainSupplementSourceWriter:
         normalized[CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD] = domain_key
         encoded = _canonical_json_bytes(normalized) + b"\n"
         if len(encoded) > MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_CHUNK_BYTES:
-            raise RuntimeError(
-                f"codecompass_domain_supplement_{kind}_record_too_large"
-            )
+            raise RuntimeError(f"codecompass_domain_supplement_{kind}_record_too_large")
         return normalized
 
     def _insert_edge(
@@ -397,8 +366,7 @@ class CodeCompassDomainSupplementSourceWriter:
         digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
         with _sqlite_deadline_progress(connection, self._execution_deadline):
             connection.execute(
-                f"INSERT OR IGNORE INTO {table}(domain_key, record_sha256, "
-                "record_json) VALUES (?, ?, ?)",
+                f"INSERT OR IGNORE INTO {table}(domain_key, record_sha256, record_json) VALUES (?, ?, ?)",
                 (domain_key, digest, serialized),
             )
 
@@ -414,16 +382,11 @@ class CodeCompassDomainSupplementSourceWriter:
         if not self._is_sqlite_full(exc):
             raise exc
         self.abort()
-        raise RuntimeError(
-            "codecompass_domain_supplement_source_too_large"
-        ) from exc
+        raise RuntimeError("codecompass_domain_supplement_source_too_large") from exc
 
     @staticmethod
     def _is_sqlite_full(exc: sqlite3.OperationalError) -> bool:
-        return (
-            getattr(exc, "sqlite_errorcode", None) == sqlite3.SQLITE_FULL
-            or "full" in str(exc).lower()
-        )
+        return getattr(exc, "sqlite_errorcode", None) == sqlite3.SQLITE_FULL or "full" in str(exc).lower()
 
 
 __all__ = ["CodeCompassDomainSupplementSourceWriter"]

@@ -14,6 +14,7 @@ may happen with a value:
 
 A decision value never grants a permission: ``grants_permission`` is always False.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

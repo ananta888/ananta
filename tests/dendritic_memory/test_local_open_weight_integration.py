@@ -16,9 +16,7 @@ def test_local_catalog_model_round_trip_and_parameter_matched_baseline(tmp_path)
     if not model_path_raw or not expected_digest:
         pytest.skip("local catalog model and its SHA-256 are not configured")
     torch = pytest.importorskip("torch", reason="optional local model test requires torch")
-    safetensors = pytest.importorskip(
-        "safetensors.torch", reason="optional local model test requires safetensors"
-    )
+    safetensors = pytest.importorskip("safetensors.torch", reason="optional local model test requires safetensors")
     model_path = Path(model_path_raw).resolve(strict=True)
     if model_path.suffix != ".safetensors":
         pytest.fail("local model catalog fixture must be safetensors")

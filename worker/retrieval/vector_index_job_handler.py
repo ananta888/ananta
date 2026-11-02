@@ -77,9 +77,7 @@ _RESOLVED_CONFIG_FIELDS = frozenset(
         "source_layers",
     }
 )
-_IDEMPOTENCY_KEY = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"
-)
+_IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 _ATTEMPT_ID = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -221,11 +219,7 @@ class VectorIndexWorkerTaskHandler:
             reason_code=str(raw.get("reason_code") or "") or None,
             diagnostics=dict(diagnostics or {}),
             result=dict(result) if isinstance(result, Mapping) else None,
-            error=(
-                "vector index worker execution failed"
-                if status == "failed" and raw.get("error")
-                else None
-            ),
+            error=("vector index worker execution failed" if status == "failed" and raw.get("error") else None),
         )
 
     @staticmethod
@@ -245,22 +239,10 @@ class VectorIndexWorkerTaskHandler:
             )
         if isinstance(dispatched, Mapping):
             resolved = dict(dispatched)
-            outer_id = str(
-                kwargs.get("tid")
-                or kwargs.get("task_id")
-                or ""
-            ).strip()
+            outer_id = str(kwargs.get("tid") or kwargs.get("task_id") or "").strip()
             task = kwargs.get("task")
-            task_id = (
-                str(task.get("id") or "").strip()
-                if isinstance(task, Mapping)
-                else ""
-            )
-            if (
-                not outer_id
-                or outer_id != str(resolved.get("job_id") or "")
-                or (task_id and task_id != outer_id)
-            ):
+            task_id = str(task.get("id") or "").strip() if isinstance(task, Mapping) else ""
+            if not outer_id or outer_id != str(resolved.get("job_id") or "") or (task_id and task_id != outer_id):
                 raise ValueError("vector_index_task_outer_id_mismatch")
             return resolved
         task = kwargs.get("task")
@@ -271,9 +253,7 @@ class VectorIndexWorkerTaskHandler:
                 if isinstance(value, Mapping):
                     resolved = dict(value)
                     task_id = str(task.get("id") or "").strip()
-                    if not task_id or task_id != str(
-                        resolved.get("job_id") or ""
-                    ):
+                    if not task_id or task_id != str(resolved.get("job_id") or ""):
                         raise ValueError("vector_index_task_outer_id_mismatch")
                     return resolved
         raise ValueError("vector_index_task_envelope_missing")
@@ -294,39 +274,32 @@ class VectorIndexWorkerTaskHandler:
         if not isinstance(job.get("scope"), Mapping):
             raise ValueError("vector_index_task_scope_invalid")
         try:
-            expected_scope_fingerprint = (
-                VectorIndexArtifactLocator.scope_fingerprint(
-                    dict(job["scope"])
-                )
-            )
+            expected_scope_fingerprint = VectorIndexArtifactLocator.scope_fingerprint(dict(job["scope"]))
         except VectorIndexArtifactLocationError as exc:
             raise ValueError("vector_index_task_scope_invalid") from exc
-        supplied_scope_fingerprint = str(
-            job.get("scope_fingerprint") or ""
-        ).strip().lower()
+        supplied_scope_fingerprint = str(job.get("scope_fingerprint") or "").strip().lower()
         if supplied_scope_fingerprint != expected_scope_fingerprint:
-            raise ValueError(
-                "vector_index_task_scope_fingerprint_mismatch"
-            )
+            raise ValueError("vector_index_task_scope_fingerprint_mismatch")
         idempotency_key = str(job.get("idempotency_key") or "")
         if _IDEMPOTENCY_KEY.fullmatch(idempotency_key) is None:
             raise ValueError("vector_index_task_idempotency_key_invalid")
-        expected_job_id = "vector-index-" + hashlib.sha256(
-            json.dumps(
-                {
-                    "scope_fingerprint": expected_scope_fingerprint,
-                    "idempotency_key": idempotency_key,
-                },
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            ).encode("utf-8")
-        ).hexdigest()[:32]
+        expected_job_id = (
+            "vector-index-"
+            + hashlib.sha256(
+                json.dumps(
+                    {
+                        "scope_fingerprint": expected_scope_fingerprint,
+                        "idempotency_key": idempotency_key,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                ).encode("utf-8")
+            ).hexdigest()[:32]
+        )
         if job.get("job_id") != expected_job_id:
             raise ValueError("vector_index_task_job_id_invalid")
-        if _SHA256.fullmatch(
-            str(job.get("request_fingerprint") or "")
-        ) is None:
+        if _SHA256.fullmatch(str(job.get("request_fingerprint") or "")) is None:
             raise ValueError("vector_index_task_request_fingerprint_invalid")
         if job.get("policy_decision") != _POLICY_DECISION:
             raise ValueError("vector_index_task_policy_decision_invalid")
@@ -335,12 +308,8 @@ class VectorIndexWorkerTaskHandler:
             not isinstance(policy_source_layers, list)
             or not policy_source_layers
             or policy_source_layers[0] != "global_json_default"
-            or len(policy_source_layers)
-            != len(set(policy_source_layers))
-            or any(
-                layer not in _POLICY_SOURCE_LAYERS
-                for layer in policy_source_layers
-            )
+            or len(policy_source_layers) != len(set(policy_source_layers))
+            or any(layer not in _POLICY_SOURCE_LAYERS for layer in policy_source_layers)
         ):
             raise ValueError("vector_index_task_policy_layers_invalid")
         if not isinstance(job.get("resolved_config"), Mapping):
@@ -352,9 +321,7 @@ class VectorIndexWorkerTaskHandler:
             raise ValueError("vector_index_task_resolved_config_schema_invalid")
         if resolved_config.get("provider") not in {"json", "qdrant"}:
             raise ValueError("vector_index_task_resolved_config_provider_invalid")
-        if _SHA256.fullmatch(
-            str(resolved_config.get("config_hash") or "")
-        ) is None:
+        if _SHA256.fullmatch(str(resolved_config.get("config_hash") or "")) is None:
             raise ValueError("vector_index_task_resolved_config_hash_invalid")
         if not isinstance(resolved_config.get("config"), Mapping):
             raise ValueError("vector_index_task_resolved_config_invalid")
@@ -381,26 +348,15 @@ class VectorIndexWorkerTaskHandler:
         if not isinstance(dispatch, Mapping):
             raise ValueError("vector_index_task_dispatch_invalid")
         normalized_dispatch = dict(dispatch)
-        if (
-            set(normalized_dispatch) != _DISPATCH_FIELDS
-            or normalized_dispatch.get("schema") != _DISPATCH_SCHEMA
-        ):
+        if set(normalized_dispatch) != _DISPATCH_FIELDS or normalized_dispatch.get("schema") != _DISPATCH_SCHEMA:
             raise ValueError("vector_index_task_dispatch_invalid")
-        attempt_id = str(
-            normalized_dispatch.get("attempt_id") or ""
-        ).strip()
+        attempt_id = str(normalized_dispatch.get("attempt_id") or "").strip()
         if _ATTEMPT_ID.fullmatch(attempt_id) is None:
             raise ValueError("vector_index_task_attempt_id_invalid")
         sequence = normalized_dispatch.get("sequence")
-        if (
-            isinstance(sequence, bool)
-            or not isinstance(sequence, int)
-            or not 1 <= sequence <= 2**63 - 1
-        ):
+        if isinstance(sequence, bool) or not isinstance(sequence, int) or not 1 <= sequence <= 2**63 - 1:
             raise ValueError("vector_index_task_dispatch_sequence_invalid")
-        audience = self._normalize_audience(
-            normalized_dispatch.get("audience")
-        )
+        audience = self._normalize_audience(normalized_dispatch.get("audience"))
         if audience != self._worker_audience:
             raise ValueError("vector_index_task_audience_mismatch")
         if normalized_dispatch.get("phase") != phase or phase not in _DISPATCH_PHASES:
@@ -410,9 +366,7 @@ class VectorIndexWorkerTaskHandler:
             expires_at = float(normalized_dispatch.get("expires_at"))
             now = float(self._clock())
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                "vector_index_task_dispatch_time_invalid"
-            ) from exc
+            raise ValueError("vector_index_task_dispatch_time_invalid") from exc
         if (
             not all(math.isfinite(value) for value in (issued_at, expires_at, now))
             or issued_at < 0
@@ -457,9 +411,7 @@ class VectorIndexWorkerTaskHandler:
         return {
             "schema": RESULT_SCHEMA,
             "job_id": str(job.get("job_id") or ""),
-            "attempt_id": str(
-                dict(job.get("dispatch") or {}).get("attempt_id") or ""
-            ),
+            "attempt_id": str(dict(job.get("dispatch") or {}).get("attempt_id") or ""),
             "idempotency_key": str(job.get("idempotency_key") or ""),
             "operation": str(job.get("operation") or ""),
             "status": status,
@@ -487,9 +439,7 @@ def build_vector_index_task_handler(
     if replay_guard is None:
         replay_guard = build_vector_index_replay_guard()
     if dispatch_admission is None:
-        dispatch_admission = (
-            build_vector_index_dispatch_admission_client()
-        )
+        dispatch_admission = build_vector_index_dispatch_admission_client()
     audience = str(
         worker_audience
         or os.environ.get("ANANTA_VECTOR_INDEX_TASK_AUDIENCE")

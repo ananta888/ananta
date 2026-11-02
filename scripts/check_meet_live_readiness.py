@@ -2,6 +2,10 @@
 
 import argparse
 import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.meet_live_observation import container_observation, public_observation, readiness_report
 

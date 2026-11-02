@@ -128,9 +128,9 @@ def test_nvim_bridge_context_payload_is_bounded_and_tracks_provenance(monkeypatc
 
 def test_nvim_runtime_exposes_context_inspect_and_confirmation_path() -> None:
     plugin_content = (ROOT / "client_surfaces" / "nvim_runtime" / "plugin" / "ananta.vim").read_text(encoding="utf-8")
-    init_content = (
-        ROOT / "client_surfaces" / "nvim_runtime" / "lua" / "ananta" / "init.lua"
-    ).read_text(encoding="utf-8")
+    init_content = (ROOT / "client_surfaces" / "nvim_runtime" / "lua" / "ananta" / "init.lua").read_text(
+        encoding="utf-8"
+    )
 
     assert "AnantaContextInspect" in plugin_content
     assert "maybe_confirm_context" in init_content

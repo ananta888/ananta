@@ -8,16 +8,19 @@ from firefox_automation._webdriver import js
 
 
 def current_route_and_title(session_id: str) -> Dict[str, str]:
-    out = js(
-        session_id,
-        """
+    out = (
+        js(
+            session_id,
+            """
         const h=document.querySelector('h1,h2,h3');
         return {
           path: location.pathname + location.search + location.hash,
           title: h ? h.textContent.trim() : (document.title || '')
         };
         """,
-    ).get("value") or {}
+        ).get("value")
+        or {}
+    )
     return {"path": str(out.get("path") or ""), "title": str(out.get("title") or "")}
 
 
@@ -69,4 +72,3 @@ def step_nav(session_id: str, route: str, settle_s: float = 1.5):
 def settle(extra_seconds: float):
     if extra_seconds > 0:
         time.sleep(extra_seconds)
-

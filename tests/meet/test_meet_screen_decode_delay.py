@@ -2,7 +2,7 @@
 
 import subprocess
 
-from tests.meet_screen_decode_delay import SCRIPT
+from tests.meet.meet_screen_decode_delay import SCRIPT
 
 
 def test_exact_script_delays_only_native_jpeg_completion():

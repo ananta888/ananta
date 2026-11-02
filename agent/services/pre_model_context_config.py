@@ -4,6 +4,7 @@ Config key: ``pre_model_context``
 Default: disabled / fully backward-compatible. No existing flow is touched
 unless a surface or the top-level key explicitly enables the orchestrator.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,15 +19,17 @@ MODE_CONTEXT_FIRST = "context_first"
 MODE_PREFER_DETERMINISTIC = "prefer_deterministic"
 MODE_DETERMINISTIC_ONLY = "deterministic_only"
 
-VALID_MODES = frozenset({
-    MODE_DISABLED,
-    MODE_OBSERVE_ONLY,
-    MODE_WORKER_DECIDES,
-    MODE_PREFER_CONTEXT,
-    MODE_CONTEXT_FIRST,
-    MODE_PREFER_DETERMINISTIC,
-    MODE_DETERMINISTIC_ONLY,
-})
+VALID_MODES = frozenset(
+    {
+        MODE_DISABLED,
+        MODE_OBSERVE_ONLY,
+        MODE_WORKER_DECIDES,
+        MODE_PREFER_CONTEXT,
+        MODE_CONTEXT_FIRST,
+        MODE_PREFER_DETERMINISTIC,
+        MODE_DETERMINISTIC_ONLY,
+    }
+)
 
 # ── Task kind constants ───────────────────────────────────────────────────────
 TASK_NAVIGATION = "navigation"
@@ -39,10 +42,19 @@ TASK_SECURITY = "security"
 TASK_CONFIG = "config"
 TASK_GENERIC_CHAT = "generic_chat"
 
-ALL_TASK_KINDS = frozenset({
-    TASK_NAVIGATION, TASK_EXPLANATION, TASK_BUGFIX, TASK_IMPLEMENTATION,
-    TASK_TEST, TASK_ARCHITECTURE, TASK_SECURITY, TASK_CONFIG, TASK_GENERIC_CHAT,
-})
+ALL_TASK_KINDS = frozenset(
+    {
+        TASK_NAVIGATION,
+        TASK_EXPLANATION,
+        TASK_BUGFIX,
+        TASK_IMPLEMENTATION,
+        TASK_TEST,
+        TASK_ARCHITECTURE,
+        TASK_SECURITY,
+        TASK_CONFIG,
+        TASK_GENERIC_CHAT,
+    }
+)
 
 # Task kinds that can be answered deterministically (no LLM needed)
 DETERMINISTIC_TASK_KINDS = frozenset({TASK_NAVIGATION})
@@ -51,39 +63,117 @@ DETERMINISTIC_TASK_KINDS = frozenset({TASK_NAVIGATION})
 HIGH_EVIDENCE_TASK_KINDS = frozenset({TASK_SECURITY, TASK_BUGFIX})
 
 # Keywords used by the heuristic task classifier
-_NAV_KW = frozenset({
-    "wo ", "where ", "welche datei", "which file", "pfad", "path",
-    "navigate", "navigiere", "finde die datei", "find the file",
-    "zeig mir die datei", "show me the file",
-})
-_BUGFIX_KW = frozenset({
-    "bug", "fehler", "error", "fix", "repariere", "broken", "kaputt",
-    "traceback", "exception", "crash", "absturz",
-})
-_SECURITY_KW = frozenset({
-    "security", "sicherheit", "authentication", "password", "passwort",
-    "secret", "geheimnis", "token", "vulnerability", "verwundbar", "exploit",
-    "injection", "xss", "csrf", "sql injection", "sicherheitslücke",
-    "sicherheitsproblem", "angriff", "attack",
-})
-_IMPL_KW = frozenset({
-    "implement", "implementiere", "schreibe", "write", "create", "erstelle",
-    "add function", "füge funktion", "neue funktion", "new function",
-    "build", "baue",
-})
-_TEST_KW = frozenset({
-    "test", "unittest", "pytest", "spec", "fixture", "mock",
-    "coverage", "abdeckung",
-})
-_ARCH_KW = frozenset({
-    "architektur", "architecture", "design", "struktur", "structure",
-    "overview", "überblick", "system", "komponenten", "components",
-    "how does", "wie funktioniert",
-})
-_CONFIG_KW = frozenset({
-    "config", "konfiguration", "setting", "einstellung", "yaml", "toml",
-    "env", "environment", "variable",
-})
+_NAV_KW = frozenset(
+    {
+        "wo ",
+        "where ",
+        "welche datei",
+        "which file",
+        "pfad",
+        "path",
+        "navigate",
+        "navigiere",
+        "finde die datei",
+        "find the file",
+        "zeig mir die datei",
+        "show me the file",
+    }
+)
+_BUGFIX_KW = frozenset(
+    {
+        "bug",
+        "fehler",
+        "error",
+        "fix",
+        "repariere",
+        "broken",
+        "kaputt",
+        "traceback",
+        "exception",
+        "crash",
+        "absturz",
+    }
+)
+_SECURITY_KW = frozenset(
+    {
+        "security",
+        "sicherheit",
+        "authentication",
+        "password",
+        "passwort",
+        "secret",
+        "geheimnis",
+        "token",
+        "vulnerability",
+        "verwundbar",
+        "exploit",
+        "injection",
+        "xss",
+        "csrf",
+        "sql injection",
+        "sicherheitslücke",
+        "sicherheitsproblem",
+        "angriff",
+        "attack",
+    }
+)
+_IMPL_KW = frozenset(
+    {
+        "implement",
+        "implementiere",
+        "schreibe",
+        "write",
+        "create",
+        "erstelle",
+        "add function",
+        "füge funktion",
+        "neue funktion",
+        "new function",
+        "build",
+        "baue",
+    }
+)
+_TEST_KW = frozenset(
+    {
+        "test",
+        "unittest",
+        "pytest",
+        "spec",
+        "fixture",
+        "mock",
+        "coverage",
+        "abdeckung",
+    }
+)
+_ARCH_KW = frozenset(
+    {
+        "architektur",
+        "architecture",
+        "design",
+        "struktur",
+        "structure",
+        "overview",
+        "überblick",
+        "system",
+        "komponenten",
+        "components",
+        "how does",
+        "wie funktioniert",
+    }
+)
+_CONFIG_KW = frozenset(
+    {
+        "config",
+        "konfiguration",
+        "setting",
+        "einstellung",
+        "yaml",
+        "toml",
+        "env",
+        "environment",
+        "variable",
+    }
+)
 
 
 def classify_task(task_text: str, explicit_task_kind: str | None = None) -> str:
@@ -118,6 +208,7 @@ def classify_task(task_text: str, explicit_task_kind: str | None = None) -> str:
 
 # ── Surface config ────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class SurfaceConfig:
     enabled: bool = False
@@ -140,6 +231,7 @@ class SurfaceConfig:
 
 
 # ── Ranking weights ───────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class RankingWeights:
@@ -177,6 +269,7 @@ class RankingWeights:
 
 
 # ── Top-level config ──────────────────────────────────────────────────────────
+
 
 def _context_budget_chars(value: Any) -> int:
     """Pre-model context budget: the "rag_context" share of the effective window (12000 chars at 32k); an explicit

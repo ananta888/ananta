@@ -1,5 +1,4 @@
 """HDW-004: workspace and env boundaries of the execution plane."""
-import os
 
 from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter
 
@@ -32,8 +31,11 @@ def test_missing_workspace_is_rejected_not_defaulted():
     adapter = WorkerRuntimeExecutionAdapter(_RecordingRuntime())
     for ref in (None, "", "   "):
         result = adapter.dispatch(
-            tool_name="repo.grep", arguments={}, workspace_ref=ref,
-            policy_decision=_allow(), audit_enabled=False,
+            tool_name="repo.grep",
+            arguments={},
+            workspace_ref=ref,
+            policy_decision=_allow(),
+            audit_enabled=False,
         )
         assert result["error"] == "missing_or_invalid_workspace_ref"
 
@@ -41,8 +43,11 @@ def test_missing_workspace_is_rejected_not_defaulted():
 def test_nonexistent_workspace_is_rejected(tmp_path):
     adapter = WorkerRuntimeExecutionAdapter(_RecordingRuntime())
     result = adapter.dispatch(
-        tool_name="repo.grep", arguments={}, workspace_ref=str(tmp_path / "missing"),
-        policy_decision=_allow(), audit_enabled=False,
+        tool_name="repo.grep",
+        arguments={},
+        workspace_ref=str(tmp_path / "missing"),
+        policy_decision=_allow(),
+        audit_enabled=False,
     )
     assert result["error"] == "missing_or_invalid_workspace_ref"
 
@@ -53,9 +58,11 @@ def test_path_traversal_is_normalized(tmp_path):
     nested = tmp_path / "ws"
     nested.mkdir()
     adapter.dispatch(
-        tool_name="repo.grep", arguments={},
+        tool_name="repo.grep",
+        arguments={},
         workspace_ref=str(nested / ".." / "ws"),
-        policy_decision=_allow(), audit_enabled=False,
+        policy_decision=_allow(),
+        audit_enabled=False,
     )
     assert runtime.calls[0]["workspace_dir"] == str(nested.resolve())
 
@@ -66,7 +73,9 @@ def test_env_passthrough_only_for_allowlisted_names(tmp_path, monkeypatch):
     runtime = _RecordingRuntime()
     adapter = WorkerRuntimeExecutionAdapter(runtime)
     adapter.dispatch(
-        tool_name="repo.grep", arguments={}, workspace_ref=str(tmp_path),
+        tool_name="repo.grep",
+        arguments={},
+        workspace_ref=str(tmp_path),
         policy_decision=_allow(),
         config={"env_allowlist": ["ANANTA_TEST_ALLOWED"]},
         audit_enabled=False,
@@ -80,7 +89,11 @@ def test_mutation_mode_is_forwarded_not_widened(tmp_path):
     runtime = _RecordingRuntime()
     adapter = WorkerRuntimeExecutionAdapter(runtime)
     adapter.dispatch(
-        tool_name="repo.grep", arguments={}, workspace_ref=str(tmp_path),
-        mutation_mode="read_only", policy_decision=_allow(), audit_enabled=False,
+        tool_name="repo.grep",
+        arguments={},
+        workspace_ref=str(tmp_path),
+        mutation_mode="read_only",
+        policy_decision=_allow(),
+        audit_enabled=False,
     )
     assert runtime.calls[0]["config"]["mutation_mode"] == "read_only"

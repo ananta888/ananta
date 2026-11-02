@@ -101,7 +101,9 @@ class AcceptanceRunner:
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
     def _login(self) -> str:
-        resp = requests.post(f"{self.base_url}/login", json={"username": self.username, "password": self.password}, timeout=20)
+        resp = requests.post(
+            f"{self.base_url}/login", json={"username": self.username, "password": self.password}, timeout=20
+        )
         resp.raise_for_status()
         data = resp.json().get("data") or {}
         token = str(data.get("access_token") or "").strip()
@@ -126,7 +128,9 @@ class AcceptanceRunner:
             raise last_exc
         return {}
 
-    def _post_json_with_retry(self, url: str, *, payload: dict[str, Any], timeout: int = 20, retries: int = 3) -> dict[str, Any]:
+    def _post_json_with_retry(
+        self, url: str, *, payload: dict[str, Any], timeout: int = 20, retries: int = 3
+    ) -> dict[str, Any]:
         last_exc: Exception | None = None
         for attempt in range(1, retries + 1):
             try:
@@ -171,9 +175,10 @@ class AcceptanceRunner:
         # Hub is single-threaded Flask; during LM Studio inference (up to 700s) it cannot
         # respond to other requests. Use a long timeout with many retries so the poll loop
         # survives a full planning call without crashing.
-        return dict(self._get_json_with_retry(
-            f"{self.base_url}/goals/{goal_id}/detail", timeout=120, retries=8
-        ).get("data") or {})
+        return dict(
+            self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/detail", timeout=120, retries=8).get("data")
+            or {}
+        )
 
     def _default_worker_registration_payloads(self) -> list[dict[str, Any]]:
         raw = str(os.getenv("ACCEPTANCE_WORKERS_JSON") or "").strip()
@@ -186,8 +191,20 @@ class AcceptanceRunner:
                 pass
         caps = list(GENERAL_PURPOSE_WORKER_CAPABILITIES)
         return [
-            {"name": "ananta-worker-1", "url": "http://ananta-ai-agent-alpha-1:5000", "role": "worker", "capabilities": caps, "token": ""},
-            {"name": "ananta-worker-2", "url": "http://ananta-ai-agent-beta-1:5000", "role": "worker", "capabilities": caps, "token": ""},
+            {
+                "name": "ananta-worker-1",
+                "url": "http://ananta-ai-agent-alpha-1:5000",
+                "role": "worker",
+                "capabilities": caps,
+                "token": "",
+            },
+            {
+                "name": "ananta-worker-2",
+                "url": "http://ananta-ai-agent-beta-1:5000",
+                "role": "worker",
+                "capabilities": caps,
+                "token": "",
+            },
         ]
 
     def ensure_workers_ready(self, *, min_workers: int = 1, timeout_s: int = 60) -> None:
@@ -207,9 +224,11 @@ class AcceptanceRunner:
                     if isinstance(item, dict) and str(item.get("role") or "").strip().lower() == "worker"
                 ]
                 ready = [
-                    w for w in workers
+                    w
+                    for w in workers
                     if bool(w.get("available_for_routing"))
-                    and str((w.get("liveness") or {}).get("status") or w.get("status") or "").strip().lower() in {"online", "degraded"}
+                    and str((w.get("liveness") or {}).get("status") or w.get("status") or "").strip().lower()
+                    in {"online", "degraded"}
                 ]
                 if len(ready) >= int(min_workers):
                     return
@@ -219,9 +238,9 @@ class AcceptanceRunner:
         raise RuntimeError(f"worker_preflight_failed: fewer than {min_workers} reachable workers via hub")
 
     def _get_task(self, task_id: str) -> dict[str, Any]:
-        return dict(self._get_json_with_retry(
-            f"{self.base_url}/tasks/{task_id}", timeout=120, retries=8
-        ).get("data") or {})
+        return dict(
+            self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}", timeout=120, retries=8).get("data") or {}
+        )
 
     def _get_goal_plan(self, goal_id: str) -> dict[str, Any]:
         try:
@@ -274,7 +293,9 @@ class AcceptanceRunner:
         payload = {
             "goal": goal_text,
             "mode": "new_software_project",
-            "mode_data": {"project_idea": "Create a real multi-file Python Backend project for Fibonacci calculation; write README, src package, tests, run pytest, store report artifact"},
+            "mode_data": {
+                "project_idea": "Create a real multi-file Python Backend project for Fibonacci calculation; write README, src package, tests, run pytest, store report artifact"
+            },
             # LLM-only planning path for acceptance diagnostics.
             "use_template": False,
             "context": f"acceptance_runner_trace_id={run_trace_id}",
@@ -365,7 +386,9 @@ def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any
     default_provider = str(config_snapshot.get("default_provider") or "ollama").strip().lower() or "ollama"
     default_model = str(config_snapshot.get("default_model") or "").strip() or None
     opencode_default_model = str(config_snapshot.get("opencode_default_model") or "").strip() or default_model
-    local_ollama_model = str(config_snapshot.get("default_model") or "ananta-default:latest").strip() or "ananta-default:latest"
+    local_ollama_model = (
+        str(config_snapshot.get("default_model") or "ananta-default:latest").strip() or "ananta-default:latest"
+    )
 
     def _backend_patch(backend: str) -> dict[str, Any]:
         return {
@@ -437,6 +460,7 @@ _LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 def _is_local_base_url(base_url: str) -> bool:
     try:
         from urllib.parse import urlparse
+
         host = urlparse(base_url).hostname or ""
         return host in _LOCAL_HOSTS
     except Exception:
@@ -446,9 +470,7 @@ def _is_local_base_url(base_url: str) -> bool:
 def reset_runtime_data(*, base_url: str, confirmed: bool) -> None:
     """DESTRUCTIVE: truncates all runtime tables. Requires confirmed=True and a local base_url."""
     if not confirmed:
-        raise SystemExit(
-            "SAFETY: --reset-db requires --i-understand-this-deletes-local-test-data to be set"
-        )
+        raise SystemExit("SAFETY: --reset-db requires --i-understand-this-deletes-local-test-data to be set")
     if not _is_local_base_url(base_url):
         raise SystemExit(
             f"SAFETY: --reset-db refused for non-local base_url '{base_url}'. "
@@ -475,7 +497,23 @@ truncate table
 restart identity;
 commit;
 """
-    subprocess.run(["docker", "exec", "ananta-postgres-1", "psql", "-U", "ananta", "-d", "ananta", "-v", "ON_ERROR_STOP=1", "-c", sql], check=True)
+    subprocess.run(
+        [
+            "docker",
+            "exec",
+            "ananta-postgres-1",
+            "psql",
+            "-U",
+            "ananta",
+            "-d",
+            "ananta",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            sql,
+        ],
+        check=True,
+    )
 
 
 def _criterion_task_materialization(observation: GoalRunObservation) -> CriterionResult:
@@ -496,11 +534,7 @@ def _criterion_autopilot_takeover(observation: GoalRunObservation) -> CriterionR
     obs = observation
     assigned = obs.first_assigned_at is not None and obs.first_post_assigned_change
     fast = assigned and (obs.first_assigned_at - obs.started_at) <= 90
-    slow = (
-        assigned
-        and not obs.idle_hang_violation
-        and (obs.planning_real_llm_seen or obs.planning_synthetic_llm_seen)
-    )
+    slow = assigned and not obs.idle_hang_violation and (obs.planning_real_llm_seen or obs.planning_synthetic_llm_seen)
     details = (
         f"first_assigned_at={obs.seconds_since_start(obs.first_assigned_at)}; "
         f"post_assigned_change={obs.first_post_assigned_change}; "
@@ -528,17 +562,50 @@ def _append_run_criteria(
         report.criteria[0].details += f"; first_planning_state_at={obs.first_status_time - obs.started_at:.2f}s"
     report.criteria.append(_criterion_task_materialization(obs))
     report.criteria.append(_criterion_autopilot_takeover(obs))
-    report.criteria.append(CriterionResult(4, "Kein Planungs-Deadlock", not obs.deadlock_violation, f"deadlock_violation={obs.deadlock_violation}"))
+    report.criteria.append(
+        CriterionResult(
+            4, "Kein Planungs-Deadlock", not obs.deadlock_violation, f"deadlock_violation={obs.deadlock_violation}"
+        )
+    )
     if ci_safe:
         # In CI-safe mode, skip the live provider check and mark it explicitly
         report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", True, "skipped_in_ci_safe_mode"))
         report.skipped_checks.append("provider_stability")
     else:
-        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", not obs.cb_open_violation, f"circuit_open_violation={obs.cb_open_violation}"))
-    report.criteria.append(CriterionResult(6, "Workspace-Schreibphase erreicht", obs.workspace_file_seen, f"workspace={host_dir}; file_seen={obs.workspace_file_seen}"))
-    report.criteria.append(CriterionResult(7, "Verifikation vorhanden", obs.verification_seen, f"verification_seen={obs.verification_seen}"))
-    report.criteria.append(CriterionResult(8, "Terminaler Goal-Status", report.final_goal_status in {"completed", "failed"}, f"final_status={report.final_goal_status}; sla_s={runner_timeout_s}"))
-    report.criteria.append(CriterionResult(10, "Kein manueller Operatoreingriff", True, "runner used no manual start/tick/retarget/db edits during run"))
+        report.criteria.append(
+            CriterionResult(
+                5,
+                "Provider-Stabilität ausreichend",
+                not obs.cb_open_violation,
+                f"circuit_open_violation={obs.cb_open_violation}",
+            )
+        )
+    report.criteria.append(
+        CriterionResult(
+            6,
+            "Workspace-Schreibphase erreicht",
+            obs.workspace_file_seen,
+            f"workspace={host_dir}; file_seen={obs.workspace_file_seen}",
+        )
+    )
+    report.criteria.append(
+        CriterionResult(
+            7, "Verifikation vorhanden", obs.verification_seen, f"verification_seen={obs.verification_seen}"
+        )
+    )
+    report.criteria.append(
+        CriterionResult(
+            8,
+            "Terminaler Goal-Status",
+            report.final_goal_status in {"completed", "failed"},
+            f"final_status={report.final_goal_status}; sla_s={runner_timeout_s}",
+        )
+    )
+    report.criteria.append(
+        CriterionResult(
+            10, "Kein manueller Operatoreingriff", True, "runner used no manual start/tick/retarget/db edits during run"
+        )
+    )
 
 
 def run_once(
@@ -582,7 +649,11 @@ def run_once(
     started_at = time.time()
     effective_overrides = dict(config_overrides or {})
     if planning_fallback_task_enabled:
-        pp = effective_overrides.get("planning_policy") if isinstance(effective_overrides.get("planning_policy"), dict) else {}
+        pp = (
+            effective_overrides.get("planning_policy")
+            if isinstance(effective_overrides.get("planning_policy"), dict)
+            else {}
+        )
         pp = dict(pp)
         pp["allow_non_llm_minimal_task_fallback"] = True
         effective_overrides["planning_policy"] = pp
@@ -597,10 +668,21 @@ def run_once(
     report.goal_id = goal_id
 
     c1_pass = goal_id is not None and len(new_ids) == 1
-    report.criteria.append(CriterionResult(1, "Goal-Ingestion stabil", c1_pass, f"new_goal_ids={new_ids}; submit_error={submit_error}"))
+    report.criteria.append(
+        CriterionResult(1, "Goal-Ingestion stabil", c1_pass, f"new_goal_ids={new_ids}; submit_error={submit_error}")
+    )
 
     if not goal_id:
-        for i, name in [(2, "Task-Materialisierung erfolgt automatisch"), (3, "Autopilot-Übernahme ohne Eingriff"), (4, "Kein Planungs-Deadlock"), (5, "Provider-Stabilität ausreichend"), (6, "Workspace-Schreibphase erreicht"), (7, "Verifikation vorhanden"), (8, "Terminaler Goal-Status"), (10, "Kein manueller Operatoreingriff")]:
+        for i, name in [
+            (2, "Task-Materialisierung erfolgt automatisch"),
+            (3, "Autopilot-Übernahme ohne Eingriff"),
+            (4, "Kein Planungs-Deadlock"),
+            (5, "Provider-Stabilität ausreichend"),
+            (6, "Workspace-Schreibphase erreicht"),
+            (7, "Verifikation vorhanden"),
+            (8, "Terminaler Goal-Status"),
+            (10, "Kein manueller Operatoreingriff"),
+        ]:
             report.criteria.append(CriterionResult(i, name, False, "goal not created"))
         return report
 
@@ -633,7 +715,9 @@ def run_once(
             break
         time.sleep(runner.poll_s)
 
-    report.final_goal_status = final_status or str((runner._get_goal_detail(goal_id).get("goal") or {}).get("status") or "")
+    report.final_goal_status = final_status or str(
+        (runner._get_goal_detail(goal_id).get("goal") or {}).get("status") or ""
+    )
     _append_run_criteria(report, observation, runner_timeout_s=runner.timeout_s, host_dir=host_dir, ci_safe=ci_safe)
 
     cfg_status, cfg_payload = runner.get_goal_effective_config(goal_id)
@@ -692,7 +776,10 @@ def main() -> int:
     p.add_argument("--config-mode", choices=["legacy_global_config", "goal_scoped"], default="goal_scoped")
     p.add_argument("--sla-seconds", type=int, default=900)
     p.add_argument("--poll-seconds", type=float, default=5.0)
-    p.add_argument("--goal-text", default="Create a small Fibonacci REST API in Python: Flask app with /fib/<n> endpoint, Dockerfile, docker-compose.yml, and pytest tests; run tests and store report artifact")
+    p.add_argument(
+        "--goal-text",
+        default="Create a small Fibonacci REST API in Python: Flask app with /fib/<n> endpoint, Dockerfile, docker-compose.yml, and pytest tests; run tests and store report artifact",
+    )
     p.add_argument("--workspace-root", default=str(Path.cwd() / "project-workspaces"))
     p.add_argument("--out", default=str(Path("artifacts") / "first_goal_acceptance_report.json"))
     p.add_argument(
@@ -710,8 +797,12 @@ def main() -> int:
         action="store_true",
         help="Required guard flag for --reset-db. Acknowledges destructive intent.",
     )
-    p.add_argument("--max-circuit-breaker-open-seconds", type=int, default=120,
-                   help="Seconds a circuit breaker may stay open before the run fails (default: 120)")
+    p.add_argument(
+        "--max-circuit-breaker-open-seconds",
+        type=int,
+        default=120,
+        help="Seconds a circuit breaker may stay open before the run fails (default: 120)",
+    )
     p.add_argument(
         "--scenario-file",
         default=None,
@@ -746,13 +837,25 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    if int(args.parallel_goals_per_scenario) > 1 and args.config_mode == "legacy_global_config" and not args.allow_unsafe_global_parallel:
-        raise SystemExit("parallel mode is blocked for legacy_global_config unless --allow-unsafe-global-parallel is set")
+    if (
+        int(args.parallel_goals_per_scenario) > 1
+        and args.config_mode == "legacy_global_config"
+        and not args.allow_unsafe_global_parallel
+    ):
+        raise SystemExit(
+            "parallel mode is blocked for legacy_global_config unless --allow-unsafe-global-parallel is set"
+        )
 
     Path(args.workspace_root).mkdir(parents=True, exist_ok=True)
     all_reports: list[RunReport] = []
 
-    runner = AcceptanceRunner(base_url=args.base_url, username=args.user, password=args.password, timeout_s=int(args.sla_seconds), poll_s=float(args.poll_seconds))
+    runner = AcceptanceRunner(
+        base_url=args.base_url,
+        username=args.user,
+        password=args.password,
+        timeout_s=int(args.sla_seconds),
+        poll_s=float(args.poll_seconds),
+    )
     baseline_cfg = runner.get_config()
     if getattr(args, "scenario_file", None):
         scenarios = load_scenarios_from_file(args.scenario_file)
@@ -806,7 +909,9 @@ def main() -> int:
                 early_analysis_seconds=int(args.early_analysis_seconds),
             )
             all_reports.append(report)
-            print(f"run {i} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}")
+            print(
+                f"run {i} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}"
+            )
             continue
 
         def _parallel_worker(slot: int) -> RunReport:
@@ -831,7 +936,9 @@ def main() -> int:
             for fut in as_completed(futures):
                 report = fut.result()
                 all_reports.append(report)
-                print(f"run {report.run_index} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}")
+                print(
+                    f"run {report.run_index} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}"
+                )
 
     if args.config_mode == "legacy_global_config":
         try:
@@ -863,10 +970,7 @@ def main() -> int:
                 "passed": r.passed,
                 "ci_safe_mode": r.ci_safe_mode,
                 "skipped_checks": r.skipped_checks,
-                "criteria": [
-                    {**c.__dict__, "criterion_id": c.criterion_id}
-                    for c in r.criteria
-                ],
+                "criteria": [{**c.__dict__, "criterion_id": c.criterion_id} for c in r.criteria],
                 "pre_run_provider_snapshot": r.pre_run_provider_snapshot,
                 "post_run_provider_snapshot": r.post_run_provider_snapshot,
             }

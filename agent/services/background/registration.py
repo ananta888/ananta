@@ -91,10 +91,7 @@ def start_registration_thread(app):
         total_attempts = 0
         _update_registration_state(max_retries=max_retries)
         workflow_registration = dict(
-            getattr(app, "extensions", {}).get(
-                "workflow_adapter_worker_registration", {}
-            )
-            or {}
+            getattr(app, "extensions", {}).get("workflow_adapter_worker_registration", {}) or {}
         )
 
         while not agent.common.context.shutdown_requested:
@@ -114,9 +111,7 @@ def start_registration_thread(app):
             except AgentTokenConfigurationError:
                 success = False
                 failure_reason = "worker_registration_credential_configuration_invalid"
-                logging.error(
-                    "Worker registration denied: a file-managed credential is invalid."
-                )
+                logging.error("Worker registration denied: a file-managed credential is invalid.")
             else:
                 success = register_with_hub(
                     hub_url=settings.hub_url,
@@ -127,11 +122,12 @@ def start_registration_thread(app):
                     role="worker",
                     silent=silent,
                     capabilities=list(workflow_registration.get("capabilities") or []),
-                    runtime_targets=list(
-                        workflow_registration.get("runtime_targets") or []
+                    runtime_targets=list(workflow_registration.get("runtime_targets") or []),
+                    **(
+                        {"execution_limits": workflow_registration["execution_limits"]}
+                        if workflow_registration.get("execution_limits")
+                        else {}
                     ),
-                    **({'execution_limits': workflow_registration['execution_limits']}
-                       if workflow_registration.get('execution_limits') else {}),
                 )
 
             if success:
@@ -143,12 +139,7 @@ def start_registration_thread(app):
                     registered_capabilities=sorted(
                         {
                             str(value).strip()
-                            for value in (
-                                workflow_registration.get(
-                                    "capabilities"
-                                )
-                                or []
-                            )
+                            for value in (workflow_registration.get("capabilities") or [])
                             if str(value).strip()
                         }
                     ),

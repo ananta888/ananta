@@ -63,30 +63,14 @@ class InMemoryModelAnalysisJobRepository:
             if existing_binding is not None:
                 job_id, existing_digest = existing_binding
                 if existing_digest != request_digest:
-                    raise ModelAnalysisJobServiceError(
-                        "model_analysis_idempotency_conflict"
-                    )
+                    raise ModelAnalysisJobServiceError("model_analysis_idempotency_conflict")
                 return self._records[job_id], False
             if record.job.job_id in self._records:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_id_conflict"
-                )
-            active = [
-                item
-                for item in self._records.values()
-                if item.state not in TERMINAL_STATES
-            ]
-            tenant_active = [
-                item
-                for item in active
-                if item.job.tenant_id == record.job.tenant_id
-            ]
+                raise ModelAnalysisJobServiceError("model_analysis_job_id_conflict")
+            active = [item for item in self._records.values() if item.state not in TERMINAL_STATES]
+            tenant_active = [item for item in active if item.job.tenant_id == record.job.tenant_id]
             queued = [item for item in active if item.state in QUEUED_STATES]
-            tenant_queued = [
-                item
-                for item in queued
-                if item.job.tenant_id == record.job.tenant_id
-            ]
+            tenant_queued = [item for item in queued if item.job.tenant_id == record.job.tenant_id]
             if len(queued) >= limits.max_global_queued:
                 raise ModelAnalysisJobServiceError(
                     "model_analysis_global_queue_full",
@@ -119,18 +103,14 @@ class InMemoryModelAnalysisJobRepository:
         with self._lock:
             current = self._records.get(record.job.job_id)
             if current is None:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_not_found"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_job_not_found")
             if current.version != expected_version:
                 raise ModelAnalysisJobServiceError(
                     "model_analysis_version_conflict",
                     retryable=True,
                 )
             if record.version != expected_version + 1:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_version_increment_invalid"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_version_increment_invalid")
             self._records[record.job.job_id] = record
             return record
 
@@ -143,9 +123,7 @@ class InMemoryModelAnalysisJobRepository:
         with self._lock:
             current = self._records.get(job_id)
             if current is None:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_job_not_found"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_job_not_found")
             if current.version != expected_version:
                 raise ModelAnalysisJobServiceError(
                     "model_analysis_version_conflict",
@@ -177,9 +155,7 @@ class InMemoryModelAnalysisJobRepository:
                     and record.lease.expires_epoch_ms <= now_epoch_ms
                 )
             ]
-            return tuple(
-                sorted(candidates, key=lambda item: item.job.job_id)[:limit]
-            )
+            return tuple(sorted(candidates, key=lambda item: item.job.job_id)[:limit])
 
     def list_page(
         self,
@@ -193,11 +169,7 @@ class InMemoryModelAnalysisJobRepository:
                 (
                     record
                     for record in self._records.values()
-                    if record.job.tenant_id == tenant_id
-                    and (
-                        after_job_id is None
-                        or record.job.job_id > after_job_id
-                    )
+                    if record.job.tenant_id == tenant_id and (after_job_id is None or record.job.job_id > after_job_id)
                 ),
                 key=lambda item: item.job.job_id,
             )
@@ -265,14 +237,8 @@ class ModelAnalysisJobService:
         page_size: int = 50,
         cursor: str | None = None,
     ) -> ModelAnalysisJobPage:
-        if (
-            isinstance(page_size, bool)
-            or not isinstance(page_size, int)
-            or not 1 <= page_size <= 100
-        ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_page_size_invalid"
-            )
+        if isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 100:
+            raise ModelAnalysisJobServiceError("model_analysis_page_size_invalid")
         after_job_id = self._decode_cursor(
             tenant_id=tenant_id,
             cursor=cursor,
@@ -311,29 +277,15 @@ class ModelAnalysisJobService:
                 retryable=True,
             )
         if record.state is not ModelAnalysisJobState.QUEUED:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_job_not_claimable"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_job_not_claimable")
         normalized_worker = self._identifier(
             worker_id,
             "model_analysis_worker_id_invalid",
         )
-        if (
-            isinstance(lease_seconds, bool)
-            or not isinstance(lease_seconds, int)
-            or lease_seconds < 1
-        ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_lease_duration_invalid"
-            )
-        if (
-            isinstance(max_memory_bytes, bool)
-            or not isinstance(max_memory_bytes, int)
-            or max_memory_bytes < 1
-        ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_memory_budget_invalid"
-            )
+        if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or lease_seconds < 1:
+            raise ModelAnalysisJobServiceError("model_analysis_lease_duration_invalid")
+        if isinstance(max_memory_bytes, bool) or not isinstance(max_memory_bytes, int) or max_memory_bytes < 1:
+            raise ModelAnalysisJobServiceError("model_analysis_memory_budget_invalid")
         now = self._epoch_ms()
         generation = record.attempt + 1
         lease_duration_ms = (
@@ -400,9 +352,7 @@ class ModelAnalysisJobService:
         signal: CancellationSignal | None = None
         if record.state is ModelAnalysisJobState.RUNNING:
             if record.lease is None:
-                raise ModelAnalysisJobServiceError(
-                    "model_analysis_active_lease_missing"
-                )
+                raise ModelAnalysisJobServiceError("model_analysis_active_lease_missing")
             signal = CancellationSignal(
                 job_id=record.job.job_id,
                 lease_id=record.lease.lease_id,
@@ -436,16 +386,12 @@ class ModelAnalysisJobService:
         if record.completion is not None:
             if record.completion.completion_key == completion.completion_key:
                 return self._project(record)
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_completion_conflict"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_completion_conflict")
         if record.state not in {
             ModelAnalysisJobState.RUNNING,
             ModelAnalysisJobState.CANCEL_REQUESTED,
         }:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_completion_state_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_completion_state_invalid")
         lease = record.lease
         if (
             lease is None
@@ -453,30 +399,20 @@ class ModelAnalysisJobService:
             or completion.lease_generation != lease.lease_generation
             or completion.completion_key != lease.completion_key
         ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_completion_fence_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_completion_fence_invalid")
         if self._epoch_ms() >= lease.expires_epoch_ms:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_completion_lease_expired"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_completion_lease_expired")
         if (
             record.state is ModelAnalysisJobState.CANCEL_REQUESTED
             and completion.outcome is not CompletionOutcome.CANCELLED
         ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_completion_after_cancel"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_completion_after_cancel")
         target = {
             CompletionOutcome.SUCCEEDED: ModelAnalysisJobState.SUCCEEDED,
             CompletionOutcome.FAILED: ModelAnalysisJobState.FAILED,
             CompletionOutcome.CANCELLED: ModelAnalysisJobState.CANCELLED,
         }[completion.outcome]
-        reason_code = (
-            "model_analysis_succeeded"
-            if completion.error is None
-            else completion.error.reason_code.value
-        )
+        reason_code = "model_analysis_succeeded" if completion.error is None else completion.error.reason_code.value
         completed = self._repository.compare_and_set(
             replace(
                 record,
@@ -493,9 +429,7 @@ class ModelAnalysisJobService:
 
     def recover(self, *, limit: int = 100) -> ModelAnalysisRecoverySummary:
         if not 1 <= limit <= 1000:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_recovery_limit_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_recovery_limit_invalid")
         now = self._epoch_ms()
         candidates = self._repository.list_recoverable(
             now_epoch_ms=now,
@@ -611,9 +545,7 @@ class ModelAnalysisJobService:
                 self._tasks.submit(record.job)
             elif record.state is ModelAnalysisJobState.RUNNING:
                 if record.lease is None:
-                    raise ModelAnalysisJobServiceError(
-                        "model_analysis_active_lease_missing"
-                    )
+                    raise ModelAnalysisJobServiceError("model_analysis_active_lease_missing")
                 self._tasks.mark_running(
                     record.job,
                     worker_id=record.lease.worker_id,
@@ -645,13 +577,8 @@ class ModelAnalysisJobService:
         idempotency_key: str,
     ) -> str:
         key = str(idempotency_key or "").strip()
-        if (
-            not 8 <= len(key) <= 256
-            or any(not 0x21 <= ord(character) <= 0x7E for character in key)
-        ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_idempotency_key_invalid"
-            )
+        if not 8 <= len(key) <= 256 or any(not 0x21 <= ord(character) <= 0x7E for character in key):
+            raise ModelAnalysisJobServiceError("model_analysis_idempotency_key_invalid")
         return ModelAnalysisJobService._digest(
             {
                 "schema": "ananta.model-analysis-idempotency.v1",
@@ -663,10 +590,7 @@ class ModelAnalysisJobService:
     @staticmethod
     def _identifier(value: str, reason_code: str) -> str:
         normalized = str(value or "").strip()
-        if (
-            not 1 <= len(normalized) <= 128
-            or any(character.isspace() for character in normalized)
-        ):
+        if not 1 <= len(normalized) <= 128 or any(character.isspace() for character in normalized):
             raise ModelAnalysisJobServiceError(reason_code)
         return normalized
 
@@ -675,9 +599,7 @@ class ModelAnalysisJobService:
         payload = json.dumps(
             {
                 "after_job_id": after_job_id,
-                "tenant_scope": hashlib.sha256(
-                    tenant_id.encode("utf-8")
-                ).hexdigest(),
+                "tenant_scope": hashlib.sha256(tenant_id.encode("utf-8")).hexdigest(),
             },
             ensure_ascii=True,
             separators=(",", ":"),
@@ -695,29 +617,19 @@ class ModelAnalysisJobService:
             return None
         normalized = str(cursor).strip()
         if not normalized or len(normalized) > 1024:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_cursor_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_cursor_invalid")
         try:
             padding = "=" * (-len(normalized) % 4)
-            raw = json.loads(
-                base64.urlsafe_b64decode(normalized + padding).decode("ascii")
-            )
+            raw = json.loads(base64.urlsafe_b64decode(normalized + padding).decode("ascii"))
         except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_cursor_invalid"
-            ) from exc
-        expected_scope = hashlib.sha256(
-            tenant_id.encode("utf-8")
-        ).hexdigest()
+            raise ModelAnalysisJobServiceError("model_analysis_cursor_invalid") from exc
+        expected_scope = hashlib.sha256(tenant_id.encode("utf-8")).hexdigest()
         if (
             not isinstance(raw, dict)
             or set(raw) != {"after_job_id", "tenant_scope"}
             or raw.get("tenant_scope") != expected_scope
         ):
-            raise ModelAnalysisJobServiceError(
-                "model_analysis_cursor_invalid"
-            )
+            raise ModelAnalysisJobServiceError("model_analysis_cursor_invalid")
         return ModelAnalysisJobService._identifier(
             str(raw.get("after_job_id") or ""),
             "model_analysis_cursor_invalid",

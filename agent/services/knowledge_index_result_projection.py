@@ -9,7 +9,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol
 
+from agent.codecompass.index_header import strip_index_header
 from agent.hybrid_orchestrator import ContextChunk
+
+_strip_index_header = strip_index_header
 
 
 class KnowledgeIndexResultProjecting(Protocol):
@@ -34,9 +37,7 @@ class KnowledgeIndexResultProjector:
         base_line = raw_record.get("start_line", raw_record.get("line_start"))
         if "content_line_offset" in raw_record:
             offset = raw_record["content_line_offset"]
-            stripped, header_lines = _strip_index_header(
-                content, raw_record.get("path") or raw_record.get("file")
-            )
+            stripped, header_lines = _strip_index_header(content, raw_record.get("path") or raw_record.get("file"))
             if type(offset) is not int or offset < 0 or offset != header_lines:
                 return None
             if type(base_line) is not int or base_line <= 0:
@@ -51,9 +52,7 @@ class KnowledgeIndexResultProjector:
         return {"text": passage.text, "line_start": passage.line_start, "line_end": passage.line_end}
 
     @staticmethod
-    def record_projection(
-        chunk: ContextChunk, authoritative_scope: Mapping[str, Any] | None
-    ) -> dict[str, Any] | None:
+    def record_projection(chunk: ContextChunk, authoritative_scope: Mapping[str, Any] | None) -> dict[str, Any] | None:
         metadata = dict(chunk.metadata or {})
         expected_scope = dict(authoritative_scope or {})
         observed_scope = {
@@ -64,8 +63,7 @@ class KnowledgeIndexResultProjector:
             "source_scope": metadata.get("source_scope"),
         }
         if any(
-            str(observed_scope.get(key) or "")
-            and str(observed_scope.get(key)) != str(expected)
+            str(observed_scope.get(key) or "") and str(observed_scope.get(key)) != str(expected)
             for key, expected in expected_scope.items()
             if key in observed_scope and str(expected or "")
         ):
@@ -82,20 +80,5 @@ class KnowledgeIndexResultProjector:
             "symbol": str(metadata.get("symbol") or ""),
             "kind": str(metadata.get("record_kind") or "retrieval_chunk"),
             "metadata": metadata,
-            "verification_status": (
-                "verified" if bool(metadata.get("source_id_verified")) else "unverified"
-            ),
+            "verification_status": ("verified" if bool(metadata.get("source_id_verified")) else "unverified"),
         }
-
-
-def _strip_index_header(content: str, path: Any) -> tuple[str, int]:
-    """Drop the ``# <path>`` / ``# Themen: …`` lines ``setup_codecompass_index`` prepends.
-
-    Whole-file records carry that header in front of the file text, so line
-    numbers counted in the record would be shifted by it.
-    """
-    lines = content.split("\n")
-    if not path or not lines or lines[0].strip() != f"# {path}":
-        return content, 0
-    header = 2 if len(lines) > 1 and lines[1].startswith("# Themen: ") else 1
-    return "\n".join(lines[header:]), header

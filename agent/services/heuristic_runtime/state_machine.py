@@ -10,11 +10,11 @@ ChatStateMachine states:
 Transitions are explicit; invalid transitions raise InvalidTransitionError.
 Timeout events drive waiting_ai → fallback_active deterministically.
 """
+
 from __future__ import annotations
 
 import abc
 import time
-from dataclasses import dataclass, field
 from typing import Any
 
 _AI_TIMEOUT_SECONDS = 2.5  # mirrors ai_snake_worker_client.py default
@@ -25,6 +25,7 @@ class InvalidTransitionError(RuntimeError):
 
 
 # ── Base ──────────────────────────────────────────────────────────────────────
+
 
 class HeuristicState(abc.ABC):
     name: str = "base"
@@ -39,6 +40,7 @@ class HeuristicState(abc.ABC):
 
 
 # ── Snake States ──────────────────────────────────────────────────────────────
+
 
 class FollowingState(HeuristicState):
     name = "following"
@@ -140,13 +142,13 @@ class DisabledState(HeuristicState):
 
 
 _SNAKE_ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
-    "following":       frozenset({"lurking", "waiting_ai", "disabled"}),
-    "lurking":         frozenset({"following", "waiting_ai", "disabled"}),
-    "waiting_ai":      frozenset({"following", "fallback_active", "disabled"}),
+    "following": frozenset({"lurking", "waiting_ai", "disabled"}),
+    "lurking": frozenset({"following", "waiting_ai", "disabled"}),
+    "waiting_ai": frozenset({"following", "fallback_active", "disabled"}),
     "fallback_active": frozenset({"following", "lurking", "disabled"}),
-    "explaining":      frozenset({"following", "disabled"}),
-    "chatting":        frozenset({"following", "disabled"}),
-    "disabled":        frozenset({"lurking"}),
+    "explaining": frozenset({"following", "disabled"}),
+    "chatting": frozenset({"following", "disabled"}),
+    "disabled": frozenset({"lurking"}),
 }
 
 
@@ -177,9 +179,7 @@ class SnakeStateMachine:
     def _transition(self, next_state: HeuristicState) -> None:
         allowed = _SNAKE_ALLOWED_TRANSITIONS.get(self._state.name, frozenset())
         if next_state.name not in allowed:
-            raise InvalidTransitionError(
-                f"Snake: {self._state.name} → {next_state.name} is not allowed"
-            )
+            raise InvalidTransitionError(f"Snake: {self._state.name} → {next_state.name} is not allowed")
         self._state.on_exit()
         self._state = next_state
         self._state.on_enter()
@@ -191,6 +191,7 @@ class SnakeStateMachine:
 
 
 # ── Chat States ───────────────────────────────────────────────────────────────
+
 
 class ChatWaitingAiState(HeuristicState):
     name = "waiting_ai"
@@ -251,6 +252,7 @@ class ChatAiAnswerReadyState(HeuristicState):
 
 class ChatStaleAiAnswerState(HeuristicState):
     """Late AI response arrived after heuristic already answered — discard it."""
+
     name = "stale_ai_answer"
 
     def on_event(self, event: dict[str, Any]) -> HeuristicState | None:
@@ -278,13 +280,13 @@ class ChatPolicyDeniedState(HeuristicState):
 
 
 _CHAT_ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
-    "waiting_ai":                  frozenset({"ai_answer_ready", "heuristic_context_selection", "policy_denied"}),
+    "waiting_ai": frozenset({"ai_answer_ready", "heuristic_context_selection", "policy_denied"}),
     "heuristic_context_selection": frozenset({"heuristic_answer_ready", "no_match", "stale_ai_answer"}),
-    "heuristic_answer_ready":      frozenset({"stale_ai_answer", "waiting_ai"}),
-    "ai_answer_ready":             frozenset({"waiting_ai"}),
-    "stale_ai_answer":             frozenset({"waiting_ai"}),
-    "no_match":                    frozenset({"waiting_ai"}),
-    "policy_denied":               frozenset({"waiting_ai"}),
+    "heuristic_answer_ready": frozenset({"stale_ai_answer", "waiting_ai"}),
+    "ai_answer_ready": frozenset({"waiting_ai"}),
+    "stale_ai_answer": frozenset({"waiting_ai"}),
+    "no_match": frozenset({"waiting_ai"}),
+    "policy_denied": frozenset({"waiting_ai"}),
 }
 
 
@@ -314,9 +316,7 @@ class ChatStateMachine:
     def _transition(self, next_state: HeuristicState) -> None:
         allowed = _CHAT_ALLOWED_TRANSITIONS.get(self._state.name, frozenset())
         if next_state.name not in allowed:
-            raise InvalidTransitionError(
-                f"Chat: {self._state.name} → {next_state.name} is not allowed"
-            )
+            raise InvalidTransitionError(f"Chat: {self._state.name} → {next_state.name} is not allowed")
         self._state.on_exit()
         self._state = next_state
         self._state.on_enter()

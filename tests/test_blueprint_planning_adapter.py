@@ -9,7 +9,7 @@ from agent.services.blueprint_planning_adapter import (
     BlueprintPlanningAdapter,
     _stable_topo_order,
 )
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def _ensure_seed_blueprints(client) -> None:
@@ -37,10 +37,7 @@ def test_blueprint_planning_adapter_resolves_seed_blueprint_subtasks(app, client
     # The legacy ``blueprint_artifact_id`` key is only
     # present on the legacy subtask path. We accept
     # either, depending on which path the resolver took.
-    assert (
-        first.get("blueprint_workflow_step_id")
-        or first.get("blueprint_artifact_id")
-    ), first
+    assert first.get("blueprint_workflow_step_id") or first.get("blueprint_artifact_id"), first
     assert isinstance(first.get("blueprint_role_hints"), list)
     assert isinstance(first.get("blueprint_role_template_hints"), list)
 
@@ -74,7 +71,9 @@ def test_blueprint_planning_adapter_degrades_when_repo_unavailable(app, monkeypa
 # ── WFG-006: workflow-first subtask builder tests ──────────────────────
 
 
-def _step(step_id, role_name, *, depends_on=(), task_kind="coding", gate=False, sort_order=0, checks=None, failure_policy=None):
+def _step(
+    step_id, role_name, *, depends_on=(), task_kind="coding", gate=False, sort_order=0, checks=None, failure_policy=None
+):
     return SimpleNamespace(
         id=f"row-{step_id}",
         step_id=step_id,
@@ -102,8 +101,15 @@ def test_adapter_uses_workflow_steps_when_present(app, client, monkeypatch) -> N
     steps = [
         _step("a", "Planner", sort_order=0),
         _step("b", "Developer", depends_on=["a"], sort_order=1),
-        _step("c", "Reviewer", depends_on=["b"], gate=True,
-              checks={"min_artifacts": ["x"]}, failure_policy="block", sort_order=2),
+        _step(
+            "c",
+            "Reviewer",
+            depends_on=["b"],
+            gate=True,
+            checks={"min_artifacts": ["x"]},
+            failure_policy="block",
+            sort_order=2,
+        ),
     ]
 
     def fake_get_all():
@@ -127,6 +133,7 @@ def test_adapter_uses_workflow_steps_when_present(app, client, monkeypatch) -> N
     )
 
     from agent.services import blueprint_planning_adapter as bpa
+
     monkeypatch.setattr(bpa, "get_repository_registry", lambda: repos)
 
     with app.app_context():
@@ -151,9 +158,7 @@ def test_adapter_falls_back_to_artifacts_when_no_workflow_steps(app, client, mon
     to the artifact-based subtask builder (backward compatibility)."""
     _ensure_seed_blueprints(client)
     blueprint = SimpleNamespace(id="bp-2", name="TDD", description="")
-    artifact = SimpleNamespace(
-        id="art-1", kind="task", title="legacy task", description="d", sort_order=0, payload={}
-    )
+    artifact = SimpleNamespace(id="art-1", kind="task", title="legacy task", description="d", sort_order=0, payload={})
 
     def fake_get_all():
         return [blueprint]
@@ -171,6 +176,7 @@ def test_adapter_falls_back_to_artifacts_when_no_workflow_steps(app, client, mon
     )
 
     from agent.services import blueprint_planning_adapter as bpa
+
     monkeypatch.setattr(bpa, "get_repository_registry", lambda: repos)
 
     with app.app_context():
@@ -210,6 +216,7 @@ def test_adapter_swallows_workflow_repo_sqlalchemy_error(app, client, monkeypatc
     )
 
     from agent.services import blueprint_planning_adapter as bpa
+
     monkeypatch.setattr(bpa, "get_repository_registry", lambda: repos)
 
     with app.app_context():

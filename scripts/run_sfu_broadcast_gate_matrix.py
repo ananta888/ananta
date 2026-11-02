@@ -60,8 +60,10 @@ def validate_manifest(document: Mapping[str, Any]) -> tuple[Mapping[str, Any], l
         if gate.get("stage") not in stages:
             raise SfuBroadcastGateError("gate_matrix_gate_stage_invalid")
         command = gate.get("command")
-        if not isinstance(command, list) or not command or any(
-            not isinstance(item, str) or not item or len(item) > 1024 for item in command
+        if (
+            not isinstance(command, list)
+            or not command
+            or any(not isinstance(item, str) or not item or len(item) > 1024 for item in command)
         ):
             raise SfuBroadcastGateError("gate_matrix_command_invalid")
         artifact = gate.get("artifact")
@@ -81,8 +83,10 @@ def validate_manifest(document: Mapping[str, Any]) -> tuple[Mapping[str, Any], l
         if cleanup.get("strategy") != "none" and not cleanup.get("commands"):
             raise SfuBroadcastGateError("gate_matrix_cleanup_command_missing")
         for command_row in cleanup.get("commands", []):
-            if not isinstance(command_row, list) or not command_row or any(
-                not isinstance(item, str) or not item for item in command_row
+            if (
+                not isinstance(command_row, list)
+                or not command_row
+                or any(not isinstance(item, str) or not item for item in command_row)
             ):
                 raise SfuBroadcastGateError("gate_matrix_cleanup_command_invalid")
         if not isinstance(cleanup.get("deadline_seconds"), int) or cleanup["deadline_seconds"] < 1:
@@ -138,18 +142,23 @@ def _cleanup(
     per_command = max(1, int(cleanup["deadline_seconds"]) // max(1, len(commands)))
     for command in commands:
         result = run_bounded_command(
-            command, cwd=ROOT, env=environment, timeout_seconds=per_command,
+            command,
+            cwd=ROOT,
+            env=environment,
+            timeout_seconds=per_command,
             cpu_seconds_max=per_command,
             memory_bytes_max=min(int(gate["memory_bytes_max"]), 1073741824),
         )
         passed = result.exit_code == 0 and not result.timed_out
         complete = complete and passed
-        rows.append({
-            "command_sha256": canonical_sha256(command),
-            "passed": passed,
-            "timed_out": result.timed_out,
-            "elapsed_ms": result.elapsed_ms,
-        })
+        rows.append(
+            {
+                "command_sha256": canonical_sha256(command),
+                "passed": passed,
+                "timed_out": result.timed_out,
+                "elapsed_ms": result.elapsed_ms,
+            }
+        )
     return complete, rows
 
 
@@ -170,7 +179,9 @@ def _run_gate(
             reasons.add("gate_matrix_operator_approval_missing")
         else:
             result = run_bounded_command(
-                gate["command"], cwd=ROOT, env=environment,
+                gate["command"],
+                cwd=ROOT,
+                env=environment,
                 timeout_seconds=int(gate["timeout_seconds"]),
                 cpu_seconds_max=int(gate["cpu_seconds_max"]),
                 memory_bytes_max=int(gate["memory_bytes_max"]),
@@ -244,24 +255,28 @@ def execute(
             "reason_codes": ["gate_matrix_operator_approval_missing"],
             "gates": [],
         }
-    token = canonical_sha256({
-        "manifest": plan["manifest_sha256"], "source": plan["source_sha256"], "stage": stage,
-    })[:20]
+    token = canonical_sha256(
+        {
+            "manifest": plan["manifest_sha256"],
+            "source": plan["source_sha256"],
+            "stage": stage,
+        }
+    )[:20]
     environment = dict(os.environ)
     environment["ANANTA_SFU_GATE_OWNERSHIP_TOKEN"] = token
     environment["COMPOSE_PROJECT_NAME"] = f"ananta-sfu-gate-{token}"
     selected = [gate for gate in gates if gate["stage"] == stage]
     rows = [
         _run_gate(
-            gate, manifest_sha256=plan["manifest_sha256"],
-            source_sha256=plan["source_sha256"], environment=environment,
+            gate,
+            manifest_sha256=plan["manifest_sha256"],
+            source_sha256=plan["source_sha256"],
+            environment=environment,
             operator_approved=operator_approved,
         )
         for gate in selected
     ]
-    reasons = sorted({
-        reason for row in rows for reason in row["reason_codes"]
-    })
+    reasons = sorted({reason for row in rows for reason in row["reason_codes"]})
     return {
         "schema": "ananta.sfu-broadcast-gate-matrix-result.v1",
         "gate_id": "SFB-GATE-015",
@@ -289,7 +304,8 @@ def main() -> int:
             report = build_plan(manifest, stage=args.stage)
         else:
             report = execute(
-                manifest, stage=args.stage,
+                manifest,
+                stage=args.stage,
                 operator_approved=args.operator_approved,
             )
     except (SfuBroadcastGateError, KeyboardInterrupt) as exc:
@@ -299,10 +315,7 @@ def main() -> int:
             "status": "failed",
             "activation_allowed": False,
             "stage": args.stage,
-            "reason_codes": [
-                exc.reason_code if isinstance(exc, SfuBroadcastGateError)
-                else "gate_matrix_cancelled"
-            ],
+            "reason_codes": [exc.reason_code if isinstance(exc, SfuBroadcastGateError) else "gate_matrix_cancelled"],
             "gates": [],
         }
     atomic_write_report(args.output, report)

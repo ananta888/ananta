@@ -23,9 +23,9 @@ class SQLMemoryQuarantineReadRepository:
         items: list[dict] = []
         with Session(_engine()) as session:
             entries = session.exec(
-                select(MemoryEntryDB).join(TaskDB, MemoryEntryDB.task_id == TaskDB.id).where(
-                    TaskDB.tenant_id == tenant_id, TaskDB.project_id == project_id
-                )
+                select(MemoryEntryDB)
+                .join(TaskDB, MemoryEntryDB.task_id == TaskDB.id)
+                .where(TaskDB.tenant_id == tenant_id, TaskDB.project_id == project_id)
             ).all()
             for entry in entries:
                 quarantine = entry.memory_metadata.get("memory_quarantine")
@@ -49,19 +49,27 @@ class SQLMemoryQuarantineReadRepository:
     @staticmethod
     def _entry_item(entry, quarantine, state) -> dict:
         return {
-            "kind": "result_memory_entry", "id": entry.id, "channel_id": "hub-result-memory",
-            "state": state, "reason_code": quarantine.get("reason_code"),
+            "kind": "result_memory_entry",
+            "id": entry.id,
+            "channel_id": "hub-result-memory",
+            "state": state,
+            "reason_code": quarantine.get("reason_code"),
             "policy_digest": quarantine.get("policy_digest"),
             "decision_audit_ref": quarantine.get("decision_audit_ref"),
-            "task_id": entry.task_id, "created_at": entry.created_at,
+            "task_id": entry.task_id,
+            "created_at": entry.created_at,
         }
 
     @staticmethod
     def _chunk_item(chunk, quarantine) -> dict:
         return {
-            "kind": "memory_tree_chunk", "id": chunk.id, "channel_id": "hub-memory-tree",
-            "state": chunk.lifecycle, "reason_code": quarantine.get("reason_code"),
+            "kind": "memory_tree_chunk",
+            "id": chunk.id,
+            "channel_id": "hub-memory-tree",
+            "state": chunk.lifecycle,
+            "reason_code": quarantine.get("reason_code"),
             "policy_digest": quarantine.get("policy_digest"),
             "decision_audit_ref": quarantine.get("decision_audit_ref"),
-            "task_id": None, "created_at": chunk.created_at,
+            "task_id": None,
+            "created_at": chunk.created_at,
         }

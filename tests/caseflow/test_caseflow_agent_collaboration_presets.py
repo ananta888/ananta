@@ -30,15 +30,9 @@ def test_builder_critic_gauntlet_fanout_and_feedback_snapshot() -> None:
             "source": edge.source,
             "target": edge.target,
             "condition": edge.condition.kind,
-            "loop_kind": (
-                edge.condition.loop_policy.kind
-                if edge.condition.loop_policy is not None
-                else None
-            ),
+            "loop_kind": (edge.condition.loop_policy.kind if edge.condition.loop_policy is not None else None),
             "max_iterations": (
-                edge.condition.loop_policy.max_iterations
-                if edge.condition.loop_policy is not None
-                else None
+                edge.condition.loop_policy.max_iterations if edge.condition.loop_policy is not None else None
             ),
         }
         for edge in graph.edges

@@ -18,9 +18,7 @@ from ananta_contracts.knowledge_index_execution import (
     KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
 )
 
-EXPIRED_DISPATCH_RECONCILIATION_SCHEMA = (
-    "ananta.knowledge_index_dispatch_reconciliation.v1"
-)
+EXPIRED_DISPATCH_RECONCILIATION_SCHEMA = "ananta.knowledge_index_dispatch_reconciliation.v1"
 
 
 def bound_task_ingest_request(
@@ -36,12 +34,8 @@ def bound_task_ingest_request(
     return {
         "task_id": record.job.job_id,
         "status": "assigned",
-        "title": (
-            f"Knowledge index revision: {record.job.scope_id}"
-        )[:200],
-        "description": (
-            "Hub-authorized immutable source-revision index job."
-        ),
+        "title": (f"Knowledge index revision: {record.job.scope_id}")[:200],
+        "description": ("Hub-authorized immutable source-revision index job."),
         "priority": "medium",
         "created_by": record.job.created_by,
         "source": "knowledge_index",
@@ -54,12 +48,8 @@ def bound_task_ingest_request(
         "event_type": "task_ingested",
         "event_channel": "hub_task_queue",
         "event_details": {
-            "domain_event_type": (
-                "knowledge_index_execution_authorized"
-            ),
-            "authority_binding_digest": envelope[
-                "authority_binding"
-            ]["binding_digest"],
+            "domain_event_type": ("knowledge_index_execution_authorized"),
+            "authority_binding_digest": envelope["authority_binding"]["binding_digest"],
         },
         "extra_fields": {
             "task_kind": "codecompass_index_build",
@@ -72,24 +62,14 @@ def bound_task_ingest_request(
             "assigned_agent_url": assigned_worker_url,
             "worker_execution_context": {
                 "knowledge_index_job": envelope,
-                "destination_selection": dict(
-                    destination_selection
-                ),
-                "source_access_intent": dict(
-                    source_access_intent
-                ),
+                "destination_selection": dict(destination_selection),
+                "source_access_intent": dict(source_access_intent),
             },
             "verification_spec": {
-                "schema": (
-                    KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA
-                ),
+                "schema": (KNOWLEDGE_INDEX_EXECUTION_RESULT_SCHEMA),
                 "artifact_first": True,
-                "authority_binding_digest": envelope[
-                    "authority_binding"
-                ]["binding_digest"],
-                "file_manifest_digest": envelope[
-                    "file_manifest"
-                ]["manifest_digest"],
+                "authority_binding_digest": envelope["authority_binding"]["binding_digest"],
+                "file_manifest_digest": envelope["file_manifest"]["manifest_digest"],
             },
         },
     }
@@ -105,30 +85,21 @@ def validate_bound_task_projection(
 ) -> None:
     raw = task_mapping(task)
     context = dict(raw.get("worker_execution_context") or {})
-    projected_envelope = dict(
-        context.get("knowledge_index_job") or {}
-    )
+    projected_envelope = dict(context.get("knowledge_index_job") or {})
     projected_envelope.pop(
         "source_access_enforcement_manifest",
         None,
     )
     expected_worker_url = str(assigned_worker_url).rstrip("/")
-    projected_worker_url = str(
-        raw.get("assigned_agent_url") or ""
-    ).rstrip("/")
+    projected_worker_url = str(raw.get("assigned_agent_url") or "").rstrip("/")
     if (
-        str(raw.get("task_kind") or "")
-        != "codecompass_index_build"
+        str(raw.get("task_kind") or "") != "codecompass_index_build"
         or projected_worker_url != expected_worker_url
         or projected_envelope != record.job.to_wire()
-        or dict(context.get("destination_selection") or {})
-        != dict(destination_selection)
-        or dict(context.get("source_access_intent") or {})
-        != dict(source_access_intent)
+        or dict(context.get("destination_selection") or {}) != dict(destination_selection)
+        or dict(context.get("source_access_intent") or {}) != dict(source_access_intent)
     ):
-        raise RuntimeError(
-            "knowledge_index_execution_queue_projection_conflict"
-        )
+        raise RuntimeError("knowledge_index_execution_queue_projection_conflict")
 
 
 def task_matches_bound_execution(
@@ -137,12 +108,7 @@ def task_matches_bound_execution(
     expected_envelope: Mapping[str, Any],
 ) -> bool:
     raw = task_mapping(task)
-    envelope = dict(
-        dict(raw.get("worker_execution_context") or {}).get(
-            "knowledge_index_job"
-        )
-        or {}
-    )
+    envelope = dict(dict(raw.get("worker_execution_context") or {}).get("knowledge_index_job") or {})
     envelope.pop("source_access_enforcement_manifest", None)
     return envelope == dict(expected_envelope)
 
@@ -153,9 +119,7 @@ def expired_dispatch_reconciliation_marker(record: Any) -> dict[str, Any]:
         "schema": EXPIRED_DISPATCH_RECONCILIATION_SCHEMA,
         "job_id": record.job.job_id,
         "reason_code": KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
-        "authority_binding_digest": (
-            record.job.authority_binding.binding_digest
-        ),
+        "authority_binding_digest": (record.job.authority_binding.binding_digest),
         "assignment_id": assignment.assignment_id,
         "lease_id": assignment.lease_id,
         "lease_generation": assignment.lease_generation,
@@ -174,9 +138,7 @@ def project_expired_dispatch_failure(
     details = dict(raw.get("status_reason_details") or {})
     details["knowledge_index_dispatch_reconciliation"] = dict(marker)
     if isinstance(task, dict):
-        task["status_reason_code"] = (
-            KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
-        )
+        task["status_reason_code"] = KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
         task["status_reason_details"] = details
         return
     setattr(
@@ -196,10 +158,8 @@ def task_has_expired_dispatch_projection(
     details = dict(raw.get("status_reason_details") or {})
     return bool(
         str(raw.get("status") or "").strip().lower() == "failed"
-        and str(raw.get("status_reason_code") or "")
-        == KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
-        and details.get("knowledge_index_dispatch_reconciliation")
-        == dict(marker)
+        and str(raw.get("status_reason_code") or "") == KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON
+        and details.get("knowledge_index_dispatch_reconciliation") == dict(marker)
     )
 
 

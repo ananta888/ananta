@@ -4,6 +4,7 @@ The payloads mirror the Hub read models closely enough for offline smoke
 runs; :func:`build_fixture_payloads` returns a fresh, independent set for every
 transport instance so that one run cannot leak state into another.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

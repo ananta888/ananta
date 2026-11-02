@@ -32,8 +32,12 @@ def test_foreign_task_binding_run_drift_and_revoked_read_never_return_canary():
     assert stores.session.read("canary") is None
     authority.operations.add(MemoryOperation.read)
     original = authority.namespace
-    for changes in ({"tenant_id": "foreign"}, {"workspace_id": "foreign"},
-                    {"task_id": "foreign"}, {"run_id": "another-run"}):
+    for changes in (
+        {"tenant_id": "foreign"},
+        {"workspace_id": "foreign"},
+        {"task_id": "foreign"},
+        {"run_id": "another-run"},
+    ):
         authority.namespace = replace(original, **changes)
         assert stores.session.read("canary") is None
     authority.namespace = original
@@ -53,8 +57,14 @@ def test_updates_require_independent_grant_and_returned_entries_are_detached():
 
 def test_long_term_boolean_approval_remains_a_proposal_and_worker_cannot_promote():
     stores = WorkerMemoryStores(authorization=SyntheticWorkerMemoryAuthorization())
-    result = stores.write("proposed_long_term_memory", "proposal", "synthetic proposed fact",
-                          task_id="t1", has_memory_write_capability=True, hub_approved=True)
+    result = stores.write(
+        "proposed_long_term_memory",
+        "proposal",
+        "synthetic proposed fact",
+        task_id="t1",
+        has_memory_write_capability=True,
+        hub_approved=True,
+    )
     assert result.success and result.entry.is_proposal and not result.entry.approved
     assert stores.long_term.approve_proposal("proposal") is False
     assert not stores.long_term.read("proposal").approved

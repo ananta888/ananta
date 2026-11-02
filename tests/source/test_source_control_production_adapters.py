@@ -55,9 +55,7 @@ def _graph_adapter(
         window=CodeCompassGraphWindowService(),
         domains=CodeCompassGraphDomainCatalogService(),
     )
-    adapter._active_index = (
-        lambda **_kwargs: type("Index", (), {"id": "index-1"})()
-    )
+    adapter._active_index = lambda **_kwargs: type("Index", (), {"id": "index-1"})()
     store = _GraphStore(payload)
     adapter._graph_store = lambda _index: store
     adapter._artifact_projection = lambda _index: {"status": "verified"}
@@ -87,9 +85,7 @@ def test_query_authorizes_only_the_hub_resolved_active_index() -> None:
     # KnowledgeIndexRetrievalService).
     adapter._retrieval_factory = _Retrieval
 
-    result = adapter.query(
-        parameters={"query": "organization source catalog", "limit": 5}
-    )
+    result = adapter.query(parameters={"query": "organization source catalog", "limit": 5})
 
     assert result["matches"] == []
     assert calls == [
@@ -330,15 +326,11 @@ def test_topology_graph_view_uses_injected_connected_window() -> None:
         window=CodeCompassGraphWindowService(),
         domains=CodeCompassGraphDomainCatalogService(),
     )
-    adapter._active_index = (
-        lambda **_kwargs: type("Index", (), {"id": "index-1"})()
-    )
+    adapter._active_index = lambda **_kwargs: type("Index", (), {"id": "index-1"})()
     adapter._graph_store = lambda _index: _Store()
     adapter._artifact_projection = lambda _index: {"status": "verified"}
 
-    result = adapter.graph(
-        parameters={"limit": 4, "view": "topology", "max_edges": 4}
-    )
+    result = adapter.graph(parameters={"limit": 4, "view": "topology", "max_edges": 4})
 
     assert [node["id"] for node in projection.kwargs["nodes"]] == [
         "hub",
@@ -394,21 +386,15 @@ def test_topology_graph_view_uses_injected_connected_window() -> None:
         "scope_domain_group_count": 1,
         "delivery_complete": False,
     }
-    assert result["text_alternative"] == (
-        "Topology graph window with 4 nodes and 4 edges out of 5 nodes."
-    )
+    assert result["text_alternative"] == ("Topology graph window with 4 nodes and 4 edges out of 5 nodes.")
     assert projection.kwargs["warnings"] == [
         "1 graph relation has an unavailable source or target node. The staged "
         "edge stream retains these relations; reindex the source to materialize "
         "current endpoints.",
-        "The semantic graph reached its configured record budget; the topology "
-        "is a documented partial view.",
-        "2 semantic graph relations were not materialized because no "
-        "source-grounded endpoint was available.",
+        "The semantic graph reached its configured record budget; the topology is a documented partial view.",
+        "2 semantic graph relations were not materialized because no source-grounded endpoint was available.",
     ]
-    assert projection.kwargs["diagnostics"]["semantic_translation"]["status"] == (
-        "degraded"
-    )
+    assert projection.kwargs["diagnostics"]["semantic_translation"]["status"] == ("degraded")
 
 
 def test_graph_inventory_paginates_complete_domain_tree_and_coverage() -> None:
@@ -492,14 +478,10 @@ def test_graph_inventory_paginates_complete_domain_tree_and_coverage() -> None:
         "missing_target": 1,
         "semantic_declares": 1,
     }
-    missing = next(
-        item for item in relation_items if item["raw_type"] == "missing_target"
-    )
+    missing = next(item for item in relation_items if item["raw_type"] == "missing_target")
     assert missing["bound_edge_count"] == 0
     assert missing["unresolved_edge_count"] == 1
-    assert first["warnings"][0].startswith(
-        "1 graph relation has an unavailable"
-    )
+    assert first["warnings"][0].startswith("1 graph relation has an unavailable")
 
 
 def test_topology_domain_scope_controls_descendants_and_reports_boundary() -> None:
@@ -528,17 +510,13 @@ def test_topology_domain_scope_controls_descendants_and_reports_boundary() -> No
     )
     direct_call = projection.calls[-1]
 
-    assert {
-        node["id"] for node in included_call["nodes"]
-    } == {
+    assert {node["id"] for node in included_call["nodes"]} == {
         "sales-root",
         "orders",
         "orders-api",
         "semantic:orders",
     }
-    assert {
-        edge["edge_id"] for edge in included_call["edges"]
-    } == {
+    assert {edge["edge_id"] for edge in included_call["edges"]} == {
         "sales-orders",
         "orders-api",
         "cross-node-page",
@@ -577,10 +555,7 @@ def test_topology_domain_scope_controls_descendants_and_reports_boundary() -> No
         "scope_domain_group_count": 2,
         "delivery_complete": True,
     }
-    assert any(
-        "crosses the selected domain boundary" in item
-        for item in included["warnings"]
-    )
+    assert any("crosses the selected domain boundary" in item for item in included["warnings"])
 
     assert [node["id"] for node in direct_call["nodes"]] == ["sales-root"]
     assert direct_call["edges"] == []
@@ -708,9 +683,7 @@ def test_staged_cursor_remains_valid_for_manifest_only_change() -> None:
         }
     )
 
-    assert second["metadata"]["content_graph_revision"] == first["metadata"][
-        "content_graph_revision"
-    ]
+    assert second["metadata"]["content_graph_revision"] == first["metadata"]["content_graph_revision"]
     assert second["metadata"]["delivery_returned"] == 1
 
 
@@ -740,6 +713,5 @@ def test_legacy_graph_resolver_tracks_the_derived_metrics_sidecar(
 
     assert cache.kwargs == {
         "index_path": index_path,
-        "visual_metrics_path": tmp_path
-        / "cc_graph_index.visual_metrics.json",
+        "visual_metrics_path": tmp_path / "cc_graph_index.visual_metrics.json",
     }

@@ -12,7 +12,7 @@ import pytest
 from agent.services.meet_contract import MeetError
 from agent.services.meet_speech_result import validate_speech_binding
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_interruption import (
+from tests.meet.meet_dialog_interruption import (
     SAMPLES,
     HubInterruptionControl,
     SpeechInterruption,
@@ -20,7 +20,7 @@ from tests.meet_dialog_interruption import (
     configure_interruption,
     finish_interruption,
 )
-from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+from tests.meet.meet_dialog_policy_fixture import SyntheticMeetBinding
 from tests.meet.test_meet_dialog_speech_output import fixture
 
 

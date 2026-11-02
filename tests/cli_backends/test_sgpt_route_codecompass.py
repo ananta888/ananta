@@ -1,6 +1,6 @@
 import json
 import pathlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -18,16 +18,14 @@ def reset_sgpt_state(monkeypatch):
     sgpt_route.user_requests.clear()
 
 
-
 # ── CCSH: CodeCompass Relevant-Snippet Handoff Tests ─────────────────────────
+
 
 def _make_workdir(tmp_path: pathlib.Path, refs: list[dict], hub_content: str | None = None) -> pathlib.Path:
     """Create a minimal ananta-worker workspace with research-context.json."""
     rag_dir = tmp_path / "rag_helper"
     rag_dir.mkdir(parents=True, exist_ok=True)
-    (rag_dir / "research-context.json").write_text(
-        json.dumps({"repo_scope_refs": refs}), encoding="utf-8"
-    )
+    (rag_dir / "research-context.json").write_text(json.dumps({"repo_scope_refs": refs}), encoding="utf-8")
     if hub_content is not None:
         ananta_dir = tmp_path / ".ananta"
         ananta_dir.mkdir(exist_ok=True)
@@ -46,6 +44,7 @@ def _make_repo(tmp_path: pathlib.Path) -> pathlib.Path:
 # CCSH-003: Regression test — path-only behavior still works
 
 # Split from tests/cli_backends/test_sgpt_route.py to keep source files below 1000 lines.
+
 
 class TestSourceFileBatchesPathOnly:
     def test_path_only_loads_file_beginning(self, tmp_path):
@@ -262,11 +261,14 @@ class TestSnippetAndChunkPriority:
         for name in ("a.py", "b.py", "c.py"):
             (repo / name).write_text(f"# {name}\n", encoding="utf-8")
 
-        workdir = _make_workdir(tmp_path / "ws", [
-            {"path": "a.py", "score": 0.3},
-            {"path": "b.py", "score": 0.9},
-            {"path": "c.py", "score": 0.6},
-        ])
+        workdir = _make_workdir(
+            tmp_path / "ws",
+            [
+                {"path": "a.py", "score": 0.3},
+                {"path": "b.py", "score": 0.9},
+                {"path": "c.py", "score": 0.6},
+            ],
+        )
 
         with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), files_per_batch=10)
@@ -281,17 +283,19 @@ class TestPromptHeaders:
     def test_line_range_header_includes_line_numbers(self):
         from agent.cli_backends.sgpt import _build_iteration_prompt
 
-        batch = [{
-            "rel_path": "agent/foo.py",
-            "lang": "python",
-            "content": "def bar(): pass",
-            "source_kind": "line_range",
-            "start_line": 42,
-            "end_line": 55,
-            "score": 0.85,
-            "reason": None,
-            "symbol": None,
-        }]
+        batch = [
+            {
+                "rel_path": "agent/foo.py",
+                "lang": "python",
+                "content": "def bar(): pass",
+                "source_kind": "line_range",
+                "start_line": 42,
+                "end_line": 55,
+                "score": 0.85,
+                "reason": None,
+                "symbol": None,
+            }
+        ]
         prompt = _build_iteration_prompt("do something", batch=batch, progress_so_far="", step=1, total_steps=1)
 
         assert "agent/foo.py:42-55" in prompt
@@ -301,17 +305,19 @@ class TestPromptHeaders:
     def test_file_excerpt_header_shows_source_kind(self):
         from agent.cli_backends.sgpt import _build_iteration_prompt
 
-        batch = [{
-            "rel_path": "agent/bar.py",
-            "lang": "python",
-            "content": "x = 1",
-            "source_kind": "file_excerpt",
-            "start_line": None,
-            "end_line": None,
-            "score": None,
-            "reason": None,
-            "symbol": None,
-        }]
+        batch = [
+            {
+                "rel_path": "agent/bar.py",
+                "lang": "python",
+                "content": "x = 1",
+                "source_kind": "file_excerpt",
+                "start_line": None,
+                "end_line": None,
+                "score": None,
+                "reason": None,
+                "symbol": None,
+            }
+        ]
         prompt = _build_iteration_prompt("question", batch=batch, progress_so_far="", step=1, total_steps=1)
 
         assert "### agent/bar.py [file_excerpt]" in prompt
@@ -319,17 +325,19 @@ class TestPromptHeaders:
     def test_hub_context_header(self):
         from agent.cli_backends.sgpt import _build_iteration_prompt
 
-        batch = [{
-            "rel_path": "hub-context.md",
-            "lang": "markdown",
-            "content": "some context",
-            "source_kind": "hub_context",
-            "start_line": None,
-            "end_line": None,
-            "score": None,
-            "reason": None,
-            "symbol": None,
-        }]
+        batch = [
+            {
+                "rel_path": "hub-context.md",
+                "lang": "markdown",
+                "content": "some context",
+                "source_kind": "hub_context",
+                "start_line": None,
+                "end_line": None,
+                "score": None,
+                "reason": None,
+                "symbol": None,
+            }
+        ]
         prompt = _build_iteration_prompt("q", batch=batch, progress_so_far="", step=1, total_steps=1)
         assert "### hub-context.md [hub_context]" in prompt
 
@@ -349,13 +357,18 @@ class TestCodeCompassSnippetHandoff:
         ]
         sample.write_text("\n".join(header + target_func), encoding="utf-8")
 
-        workdir = _make_workdir(tmp_path / "ws", [{
-            "path": "deep_func.py",
-            "start_line": 101,
-            "end_line": 102,
-            "score": 0.95,
-            "reason": "target function",
-        }])
+        workdir = _make_workdir(
+            tmp_path / "ws",
+            [
+                {
+                    "path": "deep_func.py",
+                    "start_line": 101,
+                    "end_line": 102,
+                    "score": 0.95,
+                    "reason": "target function",
+                }
+            ],
+        )
 
         with patch("agent.cli_backends.architecture_scan._resolve_repo_root", return_value=repo):
             batches = _load_source_file_batches(str(workdir), context_lines=0, per_file_chars=4000)
@@ -369,7 +382,7 @@ class TestCodeCompassSnippetHandoff:
 
     def test_single_batch_prompt_includes_header_annotation(self, tmp_path):
         """Single-batch path in _run_ananta_worker_iterative also uses annotated headers."""
-        from agent.cli_backends.sgpt import _load_source_file_batches, _format_block_header
+        from agent.cli_backends.sgpt import _format_block_header, _load_source_file_batches
 
         repo = _make_repo(tmp_path)
         sample = repo / "module.py"
@@ -546,12 +559,16 @@ def test_sgpt_execute_ml_intern_rejects_cli_flags(client, admin_auth_header):
         headers=admin_auth_header,
     )
     assert response.status_code == 400
-    assert "ml_intern" in response.json.get("message", "").lower() or "cli flag" in response.json.get("message", "").lower()
+    assert (
+        "ml_intern" in response.json.get("message", "").lower()
+        or "cli flag" in response.json.get("message", "").lower()
+    )
 
 
 def test_sgpt_execute_adapter_used_false_when_routing_disabled(client, admin_auth_header):
     """Wenn lora_runtime.routing_enabled=false, enthaelt Response adapter_used=false."""
     from unittest.mock import patch as _patch
+
     with _patch("agent.routes.sgpt.get_ml_intern_adapter_service"):
         response = client.post(
             "/api/sgpt/execute",

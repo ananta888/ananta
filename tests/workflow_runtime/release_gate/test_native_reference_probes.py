@@ -8,11 +8,11 @@ from agent.services.native_graph_orchestration_service import (
     NativeGraphOrchestrator,
     NativeGraphRequest,
 )
-from agent.services.workflow_runtime.reference_workflows import load_reference_workflows
 from agent.services.workflow_runtime import (
     InMemoryReplayNonceStore,
     WorkflowCommandVerifier,
 )
+from agent.services.workflow_runtime.reference_workflows import load_reference_workflows
 from tests.test_native_graph_runtime import AllowPolicy, runtime, signed_control
 from tests.workflow_runtime.release_gate.evidence_helpers import emit_reference_run_evidence
 
@@ -157,7 +157,8 @@ def test_native_reference_scenario_crosses_hub_task_boundary_ten_times(
         artifact_ids=result.artifact_refs,
         gate_ids=observed_gates,
         side_effect_operations={
-            record.declared_operation for record in ledger._records.values()  # noqa: SLF001
+            record.declared_operation
+            for record in ledger._records.values()  # noqa: SLF001
         },
         policy_decisions=scenario.invariants.required_policy_decisions,
         budget_usage=budget_usage,

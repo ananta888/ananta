@@ -57,11 +57,21 @@ class DoomLoopService:
         return {
             "enabled": bool(payload.get("enabled", True)),
             "lookback_signals": self._clamp_int(payload.get("lookback_signals"), default=40, minimum=8, maximum=200),
-            "repeated_tool_call_threshold": self._clamp_int(payload.get("repeated_tool_call_threshold"), default=4, minimum=2, maximum=50),
-            "repeated_failure_threshold": self._clamp_int(payload.get("repeated_failure_threshold"), default=4, minimum=2, maximum=50),
-            "no_progress_threshold": self._clamp_int(payload.get("no_progress_threshold"), default=5, minimum=2, maximum=80),
-            "oscillation_threshold": self._clamp_int(payload.get("oscillation_threshold"), default=4, minimum=4, maximum=50),
-            "critical_abort_threshold": self._clamp_int(payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120),
+            "repeated_tool_call_threshold": self._clamp_int(
+                payload.get("repeated_tool_call_threshold"), default=4, minimum=2, maximum=50
+            ),
+            "repeated_failure_threshold": self._clamp_int(
+                payload.get("repeated_failure_threshold"), default=4, minimum=2, maximum=50
+            ),
+            "no_progress_threshold": self._clamp_int(
+                payload.get("no_progress_threshold"), default=5, minimum=2, maximum=80
+            ),
+            "oscillation_threshold": self._clamp_int(
+                payload.get("oscillation_threshold"), default=4, minimum=4, maximum=50
+            ),
+            "critical_abort_threshold": self._clamp_int(
+                payload.get("critical_abort_threshold"), default=8, minimum=4, maximum=120
+            ),
             "severity_actions": severity_actions,
             "enforce_pause_abort": bool(payload.get("enforce_pause_abort", False)),
         }
@@ -130,7 +140,9 @@ class DoomLoopService:
                 signal_count=0,
                 policy=normalized_policy,
             )
-        normalized_signals = [signal for signal in (self._normalize_signal(item) for item in list(signals or [])) if signal is not None]
+        normalized_signals = [
+            signal for signal in (self._normalize_signal(item) for item in list(signals or [])) if signal is not None
+        ]
         if not normalized_signals:
             return DoomLoopDecision(
                 detected=False,

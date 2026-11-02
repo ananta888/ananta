@@ -40,6 +40,7 @@ deployment-level ANANTA_WORKFLOW_MODE is a multiplier on top of that:
 WFG-021 documents the full backward-compat matrix with the legacy
 planning-track materialization path.
 """
+
 from __future__ import annotations
 
 import os
@@ -63,9 +64,7 @@ class WorkflowMode(str, Enum):
             if member.value == normalized:
                 return member
         valid = ", ".join(m.value for m in cls)
-        raise ValueError(
-            f"ANANTA_WORKFLOW_MODE={raw!r} is invalid; valid values: {valid}"
-        )
+        raise ValueError(f"ANANTA_WORKFLOW_MODE={raw!r} is invalid; valid values: {valid}")
 
 
 class GateFailurePolicy(str, Enum):
@@ -84,9 +83,7 @@ class GateFailurePolicy(str, Enum):
             if member.value == normalized:
                 return member
         valid = ", ".join(m.value for m in cls)
-        raise ValueError(
-            f"ANANTA_WORKFLOW_DEFAULT_GATE={raw!r} is invalid; valid values: {valid}"
-        )
+        raise ValueError(f"ANANTA_WORKFLOW_DEFAULT_GATE={raw!r} is invalid; valid values: {valid}")
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -128,16 +125,10 @@ class WorkflowSettings:
     def from_env(cls) -> "WorkflowSettings":
         return cls(
             mode=WorkflowMode.parse(os.environ.get("ANANTA_WORKFLOW_MODE")),
-            default_gate_policy=GateFailurePolicy.parse(
-                os.environ.get("ANANTA_WORKFLOW_DEFAULT_GATE")
-            ),
-            gate_timeout_seconds=_env_int(
-                "ANANTA_WORKFLOW_GATE_TIMEOUT", 86400, min_value=0
-            ),
+            default_gate_policy=GateFailurePolicy.parse(os.environ.get("ANANTA_WORKFLOW_DEFAULT_GATE")),
+            gate_timeout_seconds=_env_int("ANANTA_WORKFLOW_GATE_TIMEOUT", 86400, min_value=0),
             audit_enabled=_env_bool("ANANTA_WORKFLOW_AUDIT_ENABLED", True),
-            artifact_flow_enforced=_env_bool(
-                "ANANTA_WORKFLOW_ARTIFACT_FLOW", True
-            ),
+            artifact_flow_enforced=_env_bool("ANANTA_WORKFLOW_ARTIFACT_FLOW", True),
         )
 
     def workflow_block_respected(self) -> bool:
@@ -156,6 +147,7 @@ class WorkflowSettings:
     def with_overrides(self, **overrides) -> "WorkflowSettings":
         """Return a copy with selected fields overridden. Test/operator helper."""
         from dataclasses import replace
+
         return replace(self, **overrides)
 
 

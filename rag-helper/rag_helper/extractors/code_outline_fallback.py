@@ -35,15 +35,17 @@ class CodeOutlineFallbackParser:
         relation_records = []
         for index, symbol in enumerate(symbols[:100], start=1):
             detail_id = f"{language}_symbol:{safe_id(rel_path)}:{index}"
-            detail_records.append({
-                "kind": f"{language}_symbol",
-                "file": rel_path,
-                "id": detail_id,
-                "parent_id": file_id,
-                "symbol_kind": symbol["kind"],
-                "name": symbol["name"],
-                "line": symbol["line"],
-            })
+            detail_records.append(
+                {
+                    "kind": f"{language}_symbol",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "symbol_kind": symbol["kind"],
+                    "name": symbol["name"],
+                    "line": symbol["line"],
+                }
+            )
             relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
 
         names = [symbol["name"] for symbol in symbols]
@@ -59,12 +61,17 @@ class CodeOutlineFallbackParser:
             ),
             "summary": {"symbol_count": len(symbols), "parse_mode": parse_mode},
         }
-        return [index_record], detail_records, relation_records, {
-            "kind": language,
-            "file": rel_path,
-            "symbol_count": len(symbols),
-            "parse_mode": parse_mode,
-        }
+        return (
+            [index_record],
+            detail_records,
+            relation_records,
+            {
+                "kind": language,
+                "file": rel_path,
+                "symbol_count": len(symbols),
+                "parse_mode": parse_mode,
+            },
+        )
 
     def extract_symbols(self, text: str, language: str) -> list[dict]:
         patterns = PYTHON_SYMBOL_PATTERNS if language == "python" else TYPESCRIPT_SYMBOL_PATTERNS

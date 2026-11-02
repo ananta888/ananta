@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Minimal authenticated HTTP boundary for Needle candidate generation."""
+
 from __future__ import annotations
 
 import hmac

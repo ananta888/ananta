@@ -17,7 +17,11 @@ def test_freecad_client_surface_goal_submit_and_macro_paths(client, admin_auth_h
         headers=admin_auth_header,
         json={
             "goal": "Inspect this model",
-            "context": {"document": {"name": "Doc"}, "objects": [{"name": "Body", "type": "Part"}], "provenance": {"source": "test", "captured_at": "2026-05-01T00:00:00Z"}},
+            "context": {
+                "document": {"name": "Doc"},
+                "objects": [{"name": "Body", "type": "Part"}],
+                "provenance": {"source": "test", "captured_at": "2026-05-01T00:00:00Z"},
+            },
             "capability_id": "freecad.model.inspect",
         },
     )

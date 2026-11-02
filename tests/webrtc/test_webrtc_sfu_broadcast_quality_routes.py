@@ -16,7 +16,6 @@ from agent.services.sfu_receiver_quality_ingestion_service import (
     build_sfu_receiver_quality_validator,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads(
     (ROOT / "tests/fixtures/webrtc/receiver_quality_observation/valid_privacy_bounded.v1.json").read_text(
@@ -30,11 +29,14 @@ class _Authority:
     def resolve(self, command):
         scope = FIXTURE["validation_context"]["active_scope"]
         return SfuReceiverQualityAuthority(
-            tenant_ref=scope["tenant_ref"], room_ref=scope["room_ref"],
-            subscriber_ref=scope["subscriber_ref"], subscription_ref=command.subscription_ref,
+            tenant_ref=scope["tenant_ref"],
+            room_ref=scope["room_ref"],
+            subscriber_ref=scope["subscriber_ref"],
+            subscription_ref=command.subscription_ref,
             publication_ref=scope["publication_ref"],
             browser_instance_pseudonym=scope["browser_instance_pseudonym"],
-            membership_epoch=command.membership_epoch, route_epoch=scope["route_epoch"],
+            membership_epoch=command.membership_epoch,
+            route_epoch=scope["route_epoch"],
             allowed_layer=scope["allowed_layer"],
         )
 

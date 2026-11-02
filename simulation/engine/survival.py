@@ -1,17 +1,17 @@
 """Survival/Health/Energy/Death model — tick-level decay (SIM-008)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from simulation.models.world_state import AgentState, SimEvent, WorldState
 
 
 @dataclass
 class SurvivalConfig:
-    hunger_per_tick: float = 0.05       # hunger rises this much per tick
-    energy_regen_rest: float = 0.2      # energy gained from rest action
-    energy_drain_active: float = 0.02   # energy drained per active tick
+    hunger_per_tick: float = 0.05  # hunger rises this much per tick
+    energy_regen_rest: float = 0.2  # energy gained from rest action
+    energy_drain_active: float = 0.02  # energy drained per active tick
     health_drain_starving: float = 0.1  # health lost per tick when hunger >= 0.9
     health_drain_no_shelter: float = 0.02
     morale_drain_unhealthy: float = 0.03
@@ -65,9 +65,13 @@ class SurvivalSystem:
             # Death check
             if agent.health <= cfg.death_health_threshold:
                 agent.alive = False
-                ev = SimEvent(tick=state.tick, kind="death", actor_id=agent.id,
-                              description=f"{agent.name} died (health={agent.health:.2f})",
-                              data={"cause": _death_cause(agent)})
+                ev = SimEvent(
+                    tick=state.tick,
+                    kind="death",
+                    actor_id=agent.id,
+                    description=f"{agent.name} died (health={agent.health:.2f})",
+                    data={"cause": _death_cause(agent)},
+                )
                 state.apply_event(ev)
                 events.append(ev)
 

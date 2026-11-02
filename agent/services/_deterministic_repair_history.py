@@ -10,19 +10,10 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 log = logging.getLogger(__name__)
-
-
 
 
 def build_path_visibility(
@@ -43,9 +34,6 @@ def build_path_visibility(
         "escalation_reasons": list(llm_escalation_decision.get("reasons") or []),
         "operator_visible": True,
     }
-
-
-
 
 
 def build_repair_history_inspection_view(
@@ -79,6 +67,3 @@ def build_repair_history_inspection_view(
             "platform_target": filter_platform_target,
         },
     }
-
-
-

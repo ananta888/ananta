@@ -13,9 +13,9 @@ from agent.models.meet_recovery_binding import recovery_owner
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_timing_policy import negotiated_media_timing, require_media_timing_mode
 from ananta_contracts.meet_dialog import validate_assignment
-from tests.test_meet_dialog_authority import fixture
 from tests.meet.test_meet_dialog_avatar_negotiation import system
 from tests.meet.test_meet_dialog_transport import assignment
+from tests.test_meet_dialog_authority import fixture
 
 
 @pytest.mark.parametrize("value,expected", [(None, False), ("0", False), ("1", True)])

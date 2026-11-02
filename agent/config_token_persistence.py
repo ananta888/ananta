@@ -47,13 +47,13 @@ def save_agent_token(settings: Any, token: str) -> None:
                 descriptor = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
                 os.close(descriptor)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("save_agent_token: ignored Exception", exc_info=True)
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2)
         try:
             os.chmod(path, 0o600)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("save_agent_token: ignored Exception", exc_info=True)
         if settings.auto_update_dotenv:
             update_dotenv("AGENT_TOKEN", token)
         _LOG.info("Agent Token erfolgreich in %s persistiert.", path)

@@ -4,6 +4,7 @@ Normalizes provider-neutral message references and header metadata, applies
 list filters and thread counts, derives account states and parses search
 queries. No provider access and no content release happen here; those stay
 behind ``MailApplicationService`` (SRP)."""
+
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
@@ -14,8 +15,7 @@ def json_safe(value: Any) -> Any:
         return {
             str(key): json_safe(item)
             for key, item in value.items()
-            if str(key).lower()
-            not in {"body", "content", "raw", "data", "credential_ref", "password", "token"}
+            if str(key).lower() not in {"body", "content", "raw", "data", "credential_ref", "password", "token"}
         }
     if isinstance(value, (list, tuple)):
         return [json_safe(item) for item in value]
@@ -76,20 +76,12 @@ def normalize_message(row: Mapping[str, Any]) -> dict[str, Any]:
         "mail_ref_id": str(ref.get("mail_ref_id") or ""),
         "message_ref": ref,
         "header_meta": header_meta(source),
-        "mailbox_ref_ids": [
-            str(item)
-            for item in list(source.get("mailbox_ref_ids") or [])
-            if str(item).strip()
-        ],
+        "mailbox_ref_ids": [str(item) for item in list(source.get("mailbox_ref_ids") or []) if str(item).strip()],
         "keywords": dict(source.get("keywords") or {}),
         "stale": bool(source.get("stale", False)),
         "body_scope": "metadata_only",
         "source_ref": str(source.get("source_ref") or ""),
-        "attachments": [
-            dict(item)
-            for item in list(source.get("attachments") or [])
-            if isinstance(item, Mapping)
-        ],
+        "attachments": [dict(item) for item in list(source.get("attachments") or []) if isinstance(item, Mapping)],
     }
 
 
@@ -122,7 +114,10 @@ def matches_filters(row: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
         return False
     if filters.get("from") and str(filters["from"]).casefold() not in str(header.get("from") or "").casefold():
         return False
-    if filters.get("to") and str(filters["to"]).casefold() not in " ".join(str(item) for item in header.get("to") or []).casefold():
+    if (
+        filters.get("to")
+        and str(filters["to"]).casefold() not in " ".join(str(item) for item in header.get("to") or []).casefold()
+    ):
         return False
     if filters.get("subject") and str(filters["subject"]).casefold() not in str(header.get("subject") or "").casefold():
         return False

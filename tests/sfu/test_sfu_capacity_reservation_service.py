@@ -22,7 +22,6 @@ from agent.services.sfu_capacity_reservation_service import (
     SfuCapacityReservationService,
 )
 
-
 NOW = 1000.0
 
 
@@ -47,8 +46,7 @@ def policy(cluster_receivers=25, tenant_receivers=5):
         | {"receivers": cluster_receivers}
     )
     tenant = SfuResourceVector(
-        **{name: max(getattr(tenant, name), 1_000_000) for name in tenant.payload()}
-        | {"receivers": tenant_receivers}
+        **{name: max(getattr(tenant, name), 1_000_000) for name in tenant.payload()} | {"receivers": tenant_receivers}
     )
     return SfuCapacityReservationPolicy(
         enabled=True,
@@ -95,12 +93,8 @@ def service(tmp_path):
             SfuCapacityReservationMutationDB.__table__,
         ],
     )
-    repository = SqlSfuCapacityReservationRepository(
-        db_engine=engine, clock=lambda: NOW
-    )
-    return SfuCapacityReservationService(
-        repository, policy(), clock=lambda: NOW
-    ), repository
+    repository = SqlSfuCapacityReservationRepository(db_engine=engine, clock=lambda: NOW)
+    return SfuCapacityReservationService(repository, policy(), clock=lambda: NOW), repository
 
 
 def test_create_renew_resize_release_are_idempotent_and_fenced(service):
@@ -148,9 +142,7 @@ def test_stale_growth_native_node_selection_and_negative_inputs_fail_closed(serv
     capacity, _ = service
     with pytest.raises(SfuCapacityReservationError, match="sfu_capacity_observation_stale"):
         capacity.change(request(observation_expires_at=NOW))
-    with pytest.raises(
-        SfuCapacityReservationError, match="sfu_capacity_native_node_selection_forbidden"
-    ):
+    with pytest.raises(SfuCapacityReservationError, match="sfu_capacity_native_node_selection_forbidden"):
         capacity.change(request(runtime_instance_id="invented-node"))
     with pytest.raises(ValueError, match="sfu_capacity_resource_invalid"):
         SfuResourceVector(receivers=-1)

@@ -25,9 +25,7 @@ from worker.retrieval.vector_store_contract import (
 
 
 def _compatibility() -> CompatibilitySpec:
-    return CompatibilitySpec(
-        2, "cosine", "p", "m", "default", "float32", "cfg", "vector_store.v1", "one"
-    )
+    return CompatibilitySpec(2, "cosine", "p", "m", "default", "float32", "cfg", "vector_store.v1", "one")
 
 
 def _point(scope: VectorScope) -> PreparedVectorPoint:
@@ -77,11 +75,7 @@ def test_role_label_filter_requires_every_requested_label() -> None:
         filters=VectorStoreFilters(role_labels=("reader", "admin")),
     )
 
-    role_conditions = [
-        condition
-        for condition in server_filter.must
-        if condition.key == "role_labels"
-    ]
+    role_conditions = [condition for condition in server_filter.must if condition.key == "role_labels"]
 
     assert [condition.values for condition in role_conditions] == [
         ("reader",),

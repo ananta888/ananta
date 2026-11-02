@@ -191,13 +191,16 @@ class FileSystemModelIntelligenceArtifactStore(ModelIntelligenceArtifactStorePor
         artifact_kind: str = "analysis-json",
     ) -> ModelIntelligenceArtifactRef:
         try:
-            content = json.dumps(
-                payload,
-                allow_nan=False,
-                ensure_ascii=True,
-                separators=(",", ":"),
-                sort_keys=True,
-            ).encode("ascii") + b"\n"
+            content = (
+                json.dumps(
+                    payload,
+                    allow_nan=False,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("ascii")
+                + b"\n"
+            )
         except (TypeError, ValueError) as exc:
             raise ModelIntelligenceArtifactStoreError(
                 "artifact_json_invalid",
@@ -334,10 +337,7 @@ class FileSystemModelIntelligenceArtifactStore(ModelIntelligenceArtifactStorePor
         reference: ModelIntelligenceArtifactRef,
     ) -> None:
         actual_digest = f"sha256:{hashlib.sha256(content).hexdigest()}"
-        if (
-            len(content) != reference.size_bytes
-            or not hmac.compare_digest(actual_digest, reference.digest)
-        ):
+        if len(content) != reference.size_bytes or not hmac.compare_digest(actual_digest, reference.digest):
             raise ModelIntelligenceArtifactStoreError(
                 "artifact_integrity_failed",
                 "artifact content failed integrity verification",
@@ -367,10 +367,7 @@ def _require_sha256(value: str) -> str:
 
 
 def _require_hex_digest(value: str, reason_code: str) -> None:
-    if (
-        len(value) != _HEX_DIGEST_LENGTH
-        or any(character not in "0123456789abcdef" for character in value)
-    ):
+    if len(value) != _HEX_DIGEST_LENGTH or any(character not in "0123456789abcdef" for character in value):
         raise ModelIntelligenceArtifactStoreError(
             reason_code,
             "digest value is invalid",

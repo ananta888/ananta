@@ -195,8 +195,10 @@ class SfuBroadcastCapacityProfileResolver:
         if value["gate_id"] != _CAPACITY_GATE_ID or type(gate_passed) is not bool:
             raise SfuBroadcastCapacityProfileError("capacity_gate_invalid")
         if state == "legacy":
-            if gate_passed or active_cap != legacy_cap or any(
-                item is not None for item in (candidate, approval_id, expected_previous, approved_revision)
+            if (
+                gate_passed
+                or active_cap != legacy_cap
+                or any(item is not None for item in (candidate, approval_id, expected_previous, approved_revision))
             ):
                 raise SfuBroadcastCapacityProfileError("capacity_legacy_activation_invalid")
         elif state == "candidate":

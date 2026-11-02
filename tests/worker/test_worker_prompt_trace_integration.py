@@ -47,6 +47,7 @@ def test_forwarded_proposal_keeps_the_executable_tool_calls(monkeypatch, forward
     )
     call = {"name": "final_answer", "args": {"answer": "## Ergebnis"}}
     response = {"backend": "orchestrator", "reason": "ok", "proposal": {"tool_calls": [call]}}
-    TaskScopedExecutionService(forwarding_dependencies=dependencies)._persist_forwarded_proposal(response, {"id": "t2", "goal_id": "g"},
-                                                              request_payload={"prompt": "p"})
+    TaskScopedExecutionService(forwarding_dependencies=dependencies)._persist_forwarded_proposal(
+        response, {"id": "t2", "goal_id": "g"}, request_payload={"prompt": "p"}
+    )
     assert captured["tool_calls"] == [call]

@@ -1,4 +1,5 @@
 """TraceBundleV2: structured, secret-free execution trace for native worker. AWF-T037."""
+
 from __future__ import annotations
 
 import time
@@ -10,7 +11,7 @@ from typing import Any
 class ProviderCallRecord:
     provider: str
     model: str | None = None
-    request_hash: str | None = None   # hash of request — never raw prompt
+    request_hash: str | None = None  # hash of request — never raw prompt
     status: str = "ok"
     tokens_used: int = 0
     latency_ms: int = 0
@@ -52,6 +53,7 @@ class TraceBundleV2:
     Uses hashes/refs for prompts and artifacts — no raw secrets or unredacted prompts.
     Exists for success, denial, failure, timeout and cancellation.
     """
+
     execution_id: str
     task_id: str
     goal_id: str | None = None
@@ -64,7 +66,7 @@ class TraceBundleV2:
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     memory_writes: list[MemoryWriteRecord] = field(default_factory=list)
     prediction_traces: list[PredictionTraceRecord] = field(default_factory=list)
-    artifacts: list[str] = field(default_factory=list)   # artifact_refs, not content
+    artifacts: list[str] = field(default_factory=list)  # artifact_refs, not content
     warnings: list[str] = field(default_factory=list)
     degraded_states: list[dict[str, Any]] = field(default_factory=list)
     started_at: float = field(default_factory=time.time)
@@ -72,12 +74,12 @@ class TraceBundleV2:
     final_status: str = "pending"
     worker_runtime_selection: dict[str, Any] = field(default_factory=dict)
     # AFH-T019: Artifact-first handoff lifecycle fields
-    handoff_bundle_ref: str | None = None       # ref to worker_handoff_bundle.v1.json (never inline)
-    manifest_ref: str | None = None             # ref to artifact_manifest.v1.json
-    manifest_synthesized: bool | None = None    # True if manifest was Hub-synthesized from diff
-    file_change_set_ref: str | None = None      # ref to file_change_set
+    handoff_bundle_ref: str | None = None  # ref to worker_handoff_bundle.v1.json (never inline)
+    manifest_ref: str | None = None  # ref to artifact_manifest.v1.json
+    manifest_synthesized: bool | None = None  # True if manifest was Hub-synthesized from diff
+    file_change_set_ref: str | None = None  # ref to file_change_set
     artifact_ids: list[str] = field(default_factory=list)  # from manifest, not raw content
-    verification_ref: str | None = None         # ref to VerificationResult artifact
+    verification_ref: str | None = None  # ref to VerificationResult artifact
     completion_decision_ref: str | None = None  # ref to CompletionDecision record
     advisory_json_parse_status: str | None = None  # recorded separately, never drives completion
 

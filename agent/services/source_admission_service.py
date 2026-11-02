@@ -234,11 +234,7 @@ def evaluate_source_admission(
             reasons.append("unsupported_file_type")
 
     reason_codes = tuple(sorted(set(reasons)))
-    state = (
-        SourceAdmissionState.blocked
-        if reason_codes
-        else SourceAdmissionState.admitted
-    )
+    state = SourceAdmissionState.blocked if reason_codes else SourceAdmissionState.admitted
     decision_payload = {
         "authority": "hub",
         "tenant_id": tenant_id,

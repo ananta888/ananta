@@ -26,25 +26,24 @@ class AdocExtractor:
         document_title, sections = self._parse_sections(text)
         file_id = f"adoc_file:{safe_id(rel_path)}"
 
-        index_records: list[dict] = [{
-            "kind": "adoc_file",
-            "file": rel_path,
-            "id": file_id,
-            "title": document_title,
-            "section_count": len(sections),
-            "embedding_text": build_embedding_text(
-                self.embedding_text_mode,
-                (
-                f"AsciiDoc file {rel_path}. "
-                f"Document title {document_title or 'none'}. "
-                f"Section count {len(sections)}."
+        index_records: list[dict] = [
+            {
+                "kind": "adoc_file",
+                "file": rel_path,
+                "id": file_id,
+                "title": document_title,
+                "section_count": len(sections),
+                "embedding_text": build_embedding_text(
+                    self.embedding_text_mode,
+                    (
+                        f"AsciiDoc file {rel_path}. "
+                        f"Document title {document_title or 'none'}. "
+                        f"Section count {len(sections)}."
+                    ),
+                    (f"AsciiDoc {rel_path}. Title {document_title or 'none'}. Sections {len(sections)}."),
                 ),
-                (
-                f"AsciiDoc {rel_path}. "
-                f"Title {document_title or 'none'}. Sections {len(sections)}."
-                ),
-            ),
-        }]
+            }
+        ]
         detail_records: list[dict] = []
         relation_records: list[dict] = []
 
@@ -54,143 +53,156 @@ class AdocExtractor:
             content_text = self._normalize_text(section.body_lines)
             list_text = self._normalize_list_text(section.list_items)
 
-            index_records.append({
-                "kind": "adoc_section",
-                "file": rel_path,
-                "id": section_id,
-                "parent_id": file_id if len(section.section_path) == 1 else f"adoc_section:{safe_id(rel_path, ' > '.join(section.section_path[:-1]))}",
-                "title": section.title,
-                "document_title": document_title,
-                "heading": section.heading,
-                "level": section.level,
-                "section_path": section.section_path,
-                "content": content_text,
-                "lists": section.list_items,
-                "code_block_count": len(section.code_blocks),
-                "embedding_text": build_embedding_text(
-                    self.embedding_text_mode,
-                    (
-                    f"AsciiDoc section {section.title} in file {rel_path}. "
-                    f"Document title {document_title or 'none'}. "
-                    f"Section path {section_path or section.title}. "
-                    f"Heading {section.heading}. "
-                    f"Text: {content_text[:400] or 'none'}. "
-                    f"Lists: {list_text[:200] or 'none'}."
+            index_records.append(
+                {
+                    "kind": "adoc_section",
+                    "file": rel_path,
+                    "id": section_id,
+                    "parent_id": file_id
+                    if len(section.section_path) == 1
+                    else f"adoc_section:{safe_id(rel_path, ' > '.join(section.section_path[:-1]))}",
+                    "title": section.title,
+                    "document_title": document_title,
+                    "heading": section.heading,
+                    "level": section.level,
+                    "section_path": section.section_path,
+                    "content": content_text,
+                    "lists": section.list_items,
+                    "code_block_count": len(section.code_blocks),
+                    "embedding_text": build_embedding_text(
+                        self.embedding_text_mode,
+                        (
+                            f"AsciiDoc section {section.title} in file {rel_path}. "
+                            f"Document title {document_title or 'none'}. "
+                            f"Section path {section_path or section.title}. "
+                            f"Heading {section.heading}. "
+                            f"Text: {content_text[:400] or 'none'}. "
+                            f"Lists: {list_text[:200] or 'none'}."
+                        ),
+                        (
+                            f"Section {section.title} in {rel_path}. "
+                            f"Path {section_path or section.title}. "
+                            f"Text {compact_text(content_text, 120)}. "
+                            f"Lists {compact_text(list_text, 80)}."
+                        ),
                     ),
-                    (
-                    f"Section {section.title} in {rel_path}. "
-                    f"Path {section_path or section.title}. "
-                    f"Text {compact_text(content_text, 120)}. "
-                    f"Lists {compact_text(list_text, 80)}."
-                    ),
-                ),
-            })
+                }
+            )
 
-            detail_records.append({
-                "kind": "adoc_section_detail",
-                "file": rel_path,
-                "id": f"adoc_section_detail:{safe_id(rel_path, section_path)}",
-                "parent_id": section_id,
-                "section_id": section_id,
-                "document_title": document_title,
-                "heading": section.heading,
-                "level": section.level,
-                "section_path": section.section_path,
-                "content": content_text,
-                "lists": section.list_items,
-                "code_blocks": section.code_blocks,
-                "embedding_text": build_embedding_text(
-                    self.embedding_text_mode,
-                    (
-                    f"AsciiDoc section detail {section.title} in file {rel_path}. "
-                    f"Contains {len(section.list_items)} list items and "
-                    f"{len(section.code_blocks)} code blocks."
+            detail_records.append(
+                {
+                    "kind": "adoc_section_detail",
+                    "file": rel_path,
+                    "id": f"adoc_section_detail:{safe_id(rel_path, section_path)}",
+                    "parent_id": section_id,
+                    "section_id": section_id,
+                    "document_title": document_title,
+                    "heading": section.heading,
+                    "level": section.level,
+                    "section_path": section.section_path,
+                    "content": content_text,
+                    "lists": section.list_items,
+                    "code_blocks": section.code_blocks,
+                    "embedding_text": build_embedding_text(
+                        self.embedding_text_mode,
+                        (
+                            f"AsciiDoc section detail {section.title} in file {rel_path}. "
+                            f"Contains {len(section.list_items)} list items and "
+                            f"{len(section.code_blocks)} code blocks."
+                        ),
+                        (
+                            f"Section detail {section.title}. "
+                            f"Lists {len(section.list_items)}. Code blocks {len(section.code_blocks)}."
+                        ),
                     ),
-                    (
-                    f"Section detail {section.title}. "
-                    f"Lists {len(section.list_items)}. Code blocks {len(section.code_blocks)}."
-                    ),
-                ),
-            })
+                }
+            )
 
-            relation_records.append({
-                "kind": "relation",
-                "file": rel_path,
-                "id": f"relation:{safe_id(rel_path, 'adoc_file', section_id, 'contains_section')}",
-                "source_id": file_id,
-                "source_kind": "adoc_file",
-                "source_name": rel_path,
-                "relation": "contains_section",
-                "target": section.title,
-                "target_resolved": section_id,
-                "weight": 1,
-            })
+            relation_records.append(
+                {
+                    "kind": "relation",
+                    "file": rel_path,
+                    "id": f"relation:{safe_id(rel_path, 'adoc_file', section_id, 'contains_section')}",
+                    "source_id": file_id,
+                    "source_kind": "adoc_file",
+                    "source_name": rel_path,
+                    "relation": "contains_section",
+                    "target": section.title,
+                    "target_resolved": section_id,
+                    "weight": 1,
+                }
+            )
 
             if len(section.section_path) > 1:
                 parent_path = " > ".join(section.section_path[:-1])
-                relation_records.append({
-                    "kind": "relation",
-                    "file": rel_path,
-                    "id": f"relation:{safe_id(rel_path, section_id, 'child_of', parent_path)}",
-                    "source_id": section_id,
-                    "source_kind": "adoc_section",
-                    "source_name": section.title,
-                    "relation": "child_of_section",
-                    "target": section.section_path[-2],
-                    "target_resolved": f"adoc_section:{safe_id(rel_path, parent_path)}",
-                    "weight": 1,
-                })
+                relation_records.append(
+                    {
+                        "kind": "relation",
+                        "file": rel_path,
+                        "id": f"relation:{safe_id(rel_path, section_id, 'child_of', parent_path)}",
+                        "source_id": section_id,
+                        "source_kind": "adoc_section",
+                        "source_name": section.title,
+                        "relation": "child_of_section",
+                        "target": section.section_path[-2],
+                        "target_resolved": f"adoc_section:{safe_id(rel_path, parent_path)}",
+                        "weight": 1,
+                    }
+                )
             else:
-                relation_records.append({
-                    "kind": "relation",
-                    "file": rel_path,
-                    "id": f"relation:{safe_id(rel_path, section_id, 'child_of_file', file_id)}",
-                    "source_id": section_id,
-                    "source_kind": "adoc_section",
-                    "source_name": section.title,
-                    "relation": "child_of_file",
-                    "target": rel_path,
-                    "target_resolved": file_id,
-                    "weight": 1,
-                })
+                relation_records.append(
+                    {
+                        "kind": "relation",
+                        "file": rel_path,
+                        "id": f"relation:{safe_id(rel_path, section_id, 'child_of_file', file_id)}",
+                        "source_id": section_id,
+                        "source_kind": "adoc_section",
+                        "source_name": section.title,
+                        "relation": "child_of_file",
+                        "target": rel_path,
+                        "target_resolved": file_id,
+                        "weight": 1,
+                    }
+                )
 
             if self.include_code_blocks:
                 for index, code_block in enumerate(section.code_blocks, start=1):
                     code_id = f"adoc_code_block:{safe_id(rel_path, section_path, str(index))}"
-                    detail_records.append({
-                        "kind": "adoc_code_block",
-                        "file": rel_path,
-                        "id": code_id,
-                        "parent_id": section_id,
-                        "section_id": section_id,
-                        "document_title": document_title,
-                        "section_path": section.section_path,
-                        "ordinal": index,
-                        "content": code_block,
-                        "embedding_text": build_embedding_text(
-                            self.embedding_text_mode,
-                            (
-                            f"AsciiDoc code block {index} in section {section.title} "
-                            f"from file {rel_path}. Code: {code_block[:400]}"
+                    detail_records.append(
+                        {
+                            "kind": "adoc_code_block",
+                            "file": rel_path,
+                            "id": code_id,
+                            "parent_id": section_id,
+                            "section_id": section_id,
+                            "document_title": document_title,
+                            "section_path": section.section_path,
+                            "ordinal": index,
+                            "content": code_block,
+                            "embedding_text": build_embedding_text(
+                                self.embedding_text_mode,
+                                (
+                                    f"AsciiDoc code block {index} in section {section.title} "
+                                    f"from file {rel_path}. Code: {code_block[:400]}"
+                                ),
+                                (f"Code block {index} in {section.title}. Code {compact_text(code_block, 120)}"),
                             ),
-                            (
-                            f"Code block {index} in {section.title}. "
-                            f"Code {compact_text(code_block, 120)}"
-                            ),
-                        ),
-                    })
-                    relation_records.append({
-                        "kind": "relation",
-                        "file": rel_path,
-                        "id": f"relation:{safe_id(rel_path, section_id, 'contains_code_block', str(index))}",
-                        "source_id": section_id,
-                        "source_kind": "adoc_section",
-                        "source_name": section.title,
-                        "relation": "contains_code_block",
-                        "target": f"code_block_{index}",
-                        "target_resolved": code_id,
-                        "weight": 1,
-                    })
+                        }
+                    )
+                    relation_records.append(
+                        {
+                            "kind": "relation",
+                            "file": rel_path,
+                            "id": f"relation:{safe_id(rel_path, section_id, 'contains_code_block', str(index))}",
+                            "source_id": section_id,
+                            "source_kind": "adoc_section",
+                            "source_name": section.title,
+                            "relation": "contains_code_block",
+                            "target": f"code_block_{index}",
+                            "target_resolved": code_id,
+                            "weight": 1,
+                        }
+                    )
 
         stats = {
             "kind": "adoc",
@@ -226,15 +238,17 @@ class AdocExtractor:
                 active_lists = []
                 active_code_blocks = []
                 return
-            sections.append(AdocSection(
-                level=active_level,
-                heading=active_heading,
-                section_path=heading_stack[:active_level],
-                title=heading_stack[active_level - 1],
-                body_lines=active_body[:],
-                list_items=active_lists[:],
-                code_blocks=active_code_blocks[:],
-            ))
+            sections.append(
+                AdocSection(
+                    level=active_level,
+                    heading=active_heading,
+                    section_path=heading_stack[:active_level],
+                    title=heading_stack[active_level - 1],
+                    body_lines=active_body[:],
+                    list_items=active_lists[:],
+                    code_blocks=active_code_blocks[:],
+                )
+            )
             active_body = []
             active_lists = []
             active_code_blocks = []
@@ -264,7 +278,7 @@ class AdocExtractor:
             if self._is_heading(stripped):
                 flush_section()
                 level = self._heading_level(stripped)
-                heading = stripped[level + 1:].strip()
+                heading = stripped[level + 1 :].strip()
                 while len(heading_stack) >= level:
                     heading_stack.pop()
                 heading_stack.append(heading)
@@ -292,7 +306,7 @@ class AdocExtractor:
         if not line or not line.startswith("="):
             return False
         marker_count = len(line) - len(line.lstrip("="))
-        return 2 <= marker_count <= 6 and line[marker_count:marker_count + 1] == " "
+        return 2 <= marker_count <= 6 and line[marker_count : marker_count + 1] == " "
 
     def _heading_level(self, line: str) -> int:
         marker_count = len(line) - len(line.lstrip("="))

@@ -12,6 +12,7 @@ The resolver reads ``config["ananta_worker_tool_calling"]["mode"]``
 openrouter, ananta-worker) and ``native_backend_denylist`` (default:
 empty).  Unknown backends fall back to ``prompt_json_protocol``.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,9 +23,7 @@ MODE_DISABLED = "disabled"
 
 _VALID_EXPLICIT_MODES = {MODE_NATIVE_OPENAI, MODE_PROMPT_JSON, MODE_DISABLED}
 
-_DEFAULT_ALLOWLIST = frozenset(
-    {"openai", "lmstudio", "ollama", "litellm", "openrouter", "ananta-worker"}
-)
+_DEFAULT_ALLOWLIST = frozenset({"openai", "lmstudio", "ollama", "litellm", "openrouter", "ananta-worker"})
 
 
 class ToolCallingModeService:
@@ -48,13 +47,9 @@ class ToolCallingModeService:
         # auto resolution
         candidate = (provider or backend).strip().lower()
         allowlist = frozenset(
-            str(item).lower()
-            for item in tool_cfg.get("native_backend_allowlist") or _DEFAULT_ALLOWLIST
+            str(item).lower() for item in tool_cfg.get("native_backend_allowlist") or _DEFAULT_ALLOWLIST
         )
-        denylist = frozenset(
-            str(item).lower()
-            for item in tool_cfg.get("native_backend_denylist") or []
-        )
+        denylist = frozenset(str(item).lower() for item in tool_cfg.get("native_backend_denylist") or [])
         fallback = str(tool_cfg.get("fallback_mode") or MODE_PROMPT_JSON).strip().lower()
         if fallback not in _VALID_EXPLICIT_MODES:
             fallback = MODE_PROMPT_JSON

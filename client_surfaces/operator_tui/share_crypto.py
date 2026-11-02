@@ -5,12 +5,12 @@
 - Nonce/Message-IDs werden nicht wiederverwendet (random 12-byte nonce)
 - Fehlerhafte Entschlüsselung wird als failed/blocked markiert
 """
+
 from __future__ import annotations
 
 import hashlib
 import hmac
 import os
-import struct
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,6 +24,7 @@ try:
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
     _CRYPTO_AVAILABLE = True
 except ImportError:
     _CRYPTO_AVAILABLE = False
@@ -35,6 +36,7 @@ class CryptoError(Exception):
 
 class DecryptionFailedError(CryptoError):
     """Entschlüsselung fehlgeschlagen – Nachricht wird als failed/blocked markiert."""
+
     pass
 
 
@@ -63,6 +65,7 @@ class EncryptedPayload:
 
     def to_dict(self) -> dict[str, Any]:
         import base64
+
         return {
             "ciphertext": base64.b64encode(self.ciphertext).decode(),
             "nonce": base64.b64encode(self.nonce).decode(),
@@ -73,6 +76,7 @@ class EncryptedPayload:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "EncryptedPayload":
         import base64
+
         return cls(
             ciphertext=base64.b64decode(str(d.get("ciphertext") or "")),
             nonce=base64.b64decode(str(d.get("nonce") or "")),
@@ -170,6 +174,7 @@ def decrypt_view(payload: EncryptedPayload, shared_key: bytes) -> bytes:
 
 
 # --- Stub-Crypto für Tests ohne cryptography-Paket ---
+
 
 def _stub_encrypt(plaintext: bytes, key: bytes, nonce: bytes) -> bytes:
     keystream = hashlib.sha256(key + nonce).digest() * (len(plaintext) // 32 + 1)

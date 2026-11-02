@@ -21,9 +21,7 @@ from jsonschema import Draft202012Validator
 
 SCHEMA_VERSION = "codecompass.file-type-support-registry.v1"
 SUPPORT_MATRIX_SCHEMA_VERSION = "codecompass.file-type-support-matrix.v1"
-_RUNTIME_REQUIREMENT_PATTERN = re.compile(
-    r"^(?:python-module|executable|tree-sitter-language):[A-Za-z0-9_.+-]+$"
-)
+_RUNTIME_REQUIREMENT_PATTERN = re.compile(r"^(?:python-module|executable|tree-sitter-language):[A-Za-z0-9_.+-]+$")
 
 
 class FileTypeSupportContractError(ValueError):
@@ -206,9 +204,7 @@ class FileTypeSupportRegistry:
         payload = _read_json_object(registry_path)
         errors = sorted(Draft202012Validator(schema).iter_errors(payload), key=lambda err: list(err.path))
         if errors:
-            readable = "; ".join(
-                f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in errors
-            )
+            readable = "; ".join(f"{'.'.join(map(str, err.path)) or '<root>'}: {err.message}" for err in errors)
             raise FileTypeSupportContractError(f"invalid file-type registry {registry_path}: {readable}")
         return cls.from_mapping(payload)
 
@@ -429,8 +425,7 @@ def load_file_type_support_registry(
     root = Path(repository_root).resolve()
     return FileTypeSupportRegistry.load(
         registry_path or root / "config" / "codecompass" / "file_type_support.v1.json",
-        schema_path=schema_path
-        or root / "schemas" / "codecompass" / "file_type_support_registry.v1.json",
+        schema_path=schema_path or root / "schemas" / "codecompass" / "file_type_support_registry.v1.json",
     )
 
 

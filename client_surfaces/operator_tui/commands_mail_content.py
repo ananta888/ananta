@@ -5,6 +5,7 @@ envelopes release message content beyond metadata. Each subcommand is one
 handler; every content release still goes through the capability-gated
 ``authorize_content`` of the shared support module.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -155,9 +156,7 @@ def _record_export_goal_artifact(goal_id: str, exported: Mapping[str, Any]) -> d
 def handle_mail_export(ctx: MailCommandContext) -> CommandResult:
     args = ctx.args
     if len(args) < 2 or str(args[1]).lower() != "current":
-        return ctx.fail(
-            "mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]"
-        )
+        return ctx.fail("mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]")
     tokens = list(args[2:])
     format_name = option(tokens, "format") or "json"
     include_body = flag(tokens, "include-body")

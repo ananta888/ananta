@@ -44,7 +44,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 MIGRATION_NOTE_SCHEMA = "blueprint_migration_note.v1"
 MIGRATION_FORMAT_VERSION = 1
 
@@ -81,9 +80,7 @@ def _default_seed_for(blueprint_name: str) -> list[str]:
     return ["goal_brief", "acceptance_criteria"]
 
 
-def _infer_role_for_step(
-    *, step_id: str, blueprint: dict[str, Any]
-) -> str:
+def _infer_role_for_step(*, step_id: str, blueprint: dict[str, Any]) -> str:
     """Pick a role name to attribute to the step.
 
     The migration tool prefers:
@@ -105,14 +102,10 @@ def _infer_role_for_step(
     else:
         kind = "coordination"
     responsibility_map = {
-        "planning": ("backlog", "scope_and_synthesis", "behavior_definition",
-                     "triage_and_plan", "deerflow_research"),
-        "coordination": ("facilitation", "flow_management", "release_governance",
-                         "evolver_proposal", "review_gate"),
-        "implementation": ("delivery", "service_delivery", "implementation",
-                           "technical_review", "fix_engineer"),
-        "verification": ("verification", "quality_review", "refactor_and_verification",
-                         "compliance"),
+        "planning": ("backlog", "scope_and_synthesis", "behavior_definition", "triage_and_plan", "deerflow_research"),
+        "coordination": ("facilitation", "flow_management", "release_governance", "evolver_proposal", "review_gate"),
+        "implementation": ("delivery", "service_delivery", "implementation", "technical_review", "fix_engineer"),
+        "verification": ("verification", "quality_review", "refactor_and_verification", "compliance"),
         "review": ("review_gate", "facilitation", "risk_governance", "release_governance"),
     }
     wanted = responsibility_map.get(kind, ())
@@ -148,9 +141,7 @@ def _slugify(value: str) -> str:
     return "".join(c if c.isalnum() else "_" for c in str(value or "").strip()).strip("_").lower() or "step"
 
 
-def migrate_legacy_blueprint(
-    *, blueprint: dict[str, Any], strict: bool = True
-) -> dict[str, Any]:
+def migrate_legacy_blueprint(*, blueprint: dict[str, Any], strict: bool = True) -> dict[str, Any]:
     """Generate a ``blueprint_workflow.v1`` block for a legacy
     blueprint. Pure function: does not mutate the input.
 
@@ -195,15 +186,10 @@ def migrate_legacy_blueprint(
                 "strict": strict,
             },
         }
-    artifacts = [
-        a for a in list(blueprint.get("artifacts") or [])
-        if isinstance(a, dict) and _artifact_title(a)
-    ]
+    artifacts = [a for a in list(blueprint.get("artifacts") or []) if isinstance(a, dict) and _artifact_title(a)]
     if not artifacts:
         if strict:
-            raise LegacyBlueprintMigrationError(
-                f"blueprint {name!r} has no artifacts"
-            )
+            raise LegacyBlueprintMigrationError(f"blueprint {name!r} has no artifacts")
         return {
             "workflow": {"schema": "blueprint_workflow.v1", "id": _slugify(name), "steps": []},
             "migration_note": {
@@ -216,9 +202,7 @@ def migrate_legacy_blueprint(
             },
         }
     # Sort by sort_order ascending (default 100 if missing)
-    sorted_artifacts = sorted(
-        artifacts, key=lambda a: int(a.get("sort_order") or 100)
-    )
+    sorted_artifacts = sorted(artifacts, key=lambda a: int(a.get("sort_order") or 100))
     seed = list(blueprint.get("seed_artifact_keys") or []) or _default_seed_for(name)
     # First pass: build a producer map and a per-step produces list
     step_specs: list[dict[str, Any]] = []
@@ -231,12 +215,14 @@ def migrate_legacy_blueprint(
         # step that declares a produce key wins.
         for key in produces:
             producer_by_key.setdefault(key, step_id)
-        step_specs.append({
-            "id": step_id,
-            "title": title,
-            "produces": produces,
-            "_is_policy_artifact": str(art.get("kind") or "") == "policy",
-        })
+        step_specs.append(
+            {
+                "id": step_id,
+                "title": title,
+                "produces": produces,
+                "_is_policy_artifact": str(art.get("kind") or "") == "policy",
+            }
+        )
     # Filter out policy artifacts; they are not workflow steps.
     step_specs = [s for s in step_specs if not s["_is_policy_artifact"]]
     # Second pass: compute consumes from the producer map.
@@ -300,18 +286,20 @@ def migrate_legacy_blueprint(
     # Build the final workflow block.
     steps: list[dict[str, Any]] = []
     for spec in step_specs:
-        steps.append({
-            "id": spec["id"],
-            "role": spec["_role"],
-            "task_kind": spec["_task_kind"],
-            "task_ref": spec["title"],
-            "consumes": list(spec.get("consumes") or []),
-            "produces": list(spec.get("produces") or []),
-            "depends_on": list(spec.get("depends_on") or []),
-            "gate": bool(spec.get("gate", False)),
-            "checks": list(spec.get("checks") or []),
-            "failure_policy": spec.get("failure_policy", "block"),
-        })
+        steps.append(
+            {
+                "id": spec["id"],
+                "role": spec["_role"],
+                "task_kind": spec["_task_kind"],
+                "task_ref": spec["title"],
+                "consumes": list(spec.get("consumes") or []),
+                "produces": list(spec.get("produces") or []),
+                "depends_on": list(spec.get("depends_on") or []),
+                "gate": bool(spec.get("gate", False)),
+                "checks": list(spec.get("checks") or []),
+                "failure_policy": spec.get("failure_policy", "block"),
+            }
+        )
     warnings: list[str] = []
     if not any(r.get("is_required") for r in list(blueprint.get("roles") or []) if isinstance(r, dict)):
         warnings.append("no is_required roles; the migration assigned roles heuristically")
@@ -335,9 +323,7 @@ def migrate_legacy_blueprint(
     return {"workflow": workflow, "migration_note": note}
 
 
-def migrate_legacy_blueprint_file(
-    *, source_path: str | Path, output_path: str | Path | None = None
-) -> dict[str, Any]:
+def migrate_legacy_blueprint_file(*, source_path: str | Path, output_path: str | Path | None = None) -> dict[str, Any]:
     """Load a legacy blueprint file (JSON) and write the
     generated workflow block to a side-by-side file.
 

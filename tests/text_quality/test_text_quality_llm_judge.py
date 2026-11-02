@@ -36,4 +36,3 @@ def test_llm_judge_fails_degraded_on_unknown_reason():
         }
     )
     assert judge.analyze(_request()).status.value == "degraded"
-

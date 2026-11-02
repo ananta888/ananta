@@ -51,10 +51,7 @@ def test_execution_binding_epoch_millisecond_columns_use_bigint() -> None:
     }
 
     assert epoch_columns
-    assert all(
-        isinstance(column.type, BigInteger)
-        for column in epoch_columns.values()
-    )
+    assert all(isinstance(column.type, BigInteger) for column in epoch_columns.values())
 
 
 class Authority:
@@ -94,9 +91,7 @@ def _assignment(*, expires=220_000, generation=1):
 
 def _service(tmp_path, authority=None, *, clock_ms=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(
-        f"sqlite:///{tmp_path / 'execution.sqlite3'}"
-    )
+    engine = create_engine(f"sqlite:///{tmp_path / 'execution.sqlite3'}")
     SQLModel.metadata.create_all(
         engine,
         tables=[KnowledgeIndexExecutionBindingDB.__table__],
@@ -135,9 +130,7 @@ def _issue(service):
             "artifact_id": "artifact-payload-001",
             "sha256": "5" * 64,
             "size_bytes": 256,
-            "media_type": (
-                "application/vnd.ananta.knowledge-index-job+json"
-            ),
+            "media_type": ("application/vnd.ananta.knowledge-index-job+json"),
             "encoding": "json",
         },
         assignment=_assignment(),
@@ -241,9 +234,7 @@ class _BoundPayloads:
             "artifact_id": f"knowledge-index-payload-{fingerprint}",
             "sha256": fingerprint,
             "size_bytes": len(content),
-            "media_type": (
-                "application/vnd.ananta.knowledge-index-job+json"
-            ),
+            "media_type": ("application/vnd.ananta.knowledge-index-job+json"),
             "encoding": "json",
         }
 
@@ -393,13 +384,11 @@ def test_completion_projection_outbox_uses_occ_after_atomic_result_commit(
             "status": "completed",
         },
     }
-    _completed, pending = (
-        service.finalize_completed_result_with_projection(
-            job_id=issued.job.job_id,
-            worker_result=worker_result,
-            materialized_result=materialized,
-            authenticated_worker_id="worker-index-01",
-        )
+    _completed, pending = service.finalize_completed_result_with_projection(
+        job_id=issued.job.job_id,
+        worker_result=worker_result,
+        materialized_result=materialized,
+        authenticated_worker_id="worker-index-01",
     )
 
     assert pending.state == "pending"
@@ -452,13 +441,11 @@ def test_completed_result_and_projection_outbox_commit_atomically(
         },
     }
 
-    completed, pending = (
-        service.finalize_completed_result_with_projection(
-            job_id=issued.job.job_id,
-            worker_result=worker_result,
-            materialized_result=materialized,
-            authenticated_worker_id="worker-index-01",
-        )
+    completed, pending = service.finalize_completed_result_with_projection(
+        job_id=issued.job.job_id,
+        worker_result=worker_result,
+        materialized_result=materialized,
+        authenticated_worker_id="worker-index-01",
     )
     replay = service.finalize_completed_result_with_projection(
         job_id=issued.job.job_id,
@@ -558,13 +545,11 @@ def test_conflicting_result_is_not_accepted_from_existing_completion_outbox(
         "knowledge_index": {"id": "knowledge-index-alpha"},
         "run": {"id": "knowledge-attempt-alpha"},
     }
-    completed, projection = (
-        service.finalize_completed_result_with_projection(
-            job_id=issued.job.job_id,
-            worker_result=worker_result,
-            materialized_result=materialized,
-            authenticated_worker_id="worker-index-01",
-        )
+    completed, projection = service.finalize_completed_result_with_projection(
+        job_id=issued.job.job_id,
+        worker_result=worker_result,
+        materialized_result=materialized,
+        authenticated_worker_id="worker-index-01",
     )
     conflicting_result = {
         **worker_result,
@@ -580,26 +565,20 @@ def test_conflicting_result_is_not_accepted_from_existing_completion_outbox(
             worker_result=conflicting_result,
             materialized_result={
                 **materialized,
-                "knowledge_index": {
-                    "id": "knowledge-index-conflict"
-                },
+                "knowledge_index": {"id": "knowledge-index-conflict"},
             },
             authenticated_worker_id="worker-index-01",
         )
 
     assert service.get_record(issued.job.job_id) == completed
-    assert service.get_completion_projection(issued.job.job_id) == (
-        projection
-    )
+    assert service.get_completion_projection(issued.job.job_id) == (projection)
 
 
 def test_bound_job_is_queued_already_assigned_to_planned_worker(
     tmp_path,
 ) -> None:
     binding_service, _authority_port = _service(tmp_path)
-    service, _tasks, queue, payloads, workers = _bound_job_service(
-        binding_service
-    )
+    service, _tasks, queue, payloads, workers = _bound_job_service(binding_service)
 
     result = _submit_bound(service)
     replay = _submit_bound(service)
@@ -610,9 +589,7 @@ def test_bound_job_is_queued_already_assigned_to_planned_worker(
     assert len(queue.calls) == 1
     assert payloads.store_calls == 1
     assert queue.calls[0]["status"] == "assigned"
-    assert queue.calls[0]["extra_fields"]["assigned_agent_url"] == (
-        "http://worker-index-01:5001"
-    )
+    assert queue.calls[0]["extra_fields"]["assigned_agent_url"] == ("http://worker-index-01:5001")
 
 
 def test_bound_submission_recovers_queue_projection_without_new_payload(
@@ -640,9 +617,7 @@ def test_bound_submission_rejects_changed_payload_for_same_key_before_write(
     tmp_path,
 ) -> None:
     binding_service, _authority_port = _service(tmp_path)
-    service, _tasks, queue, payloads, _workers = _bound_job_service(
-        binding_service
-    )
+    service, _tasks, queue, payloads, _workers = _bound_job_service(binding_service)
     _submit_bound(service)
 
     with pytest.raises(
@@ -659,9 +634,7 @@ def test_bound_submission_validates_expired_lease_before_payload_write(
     tmp_path,
 ) -> None:
     binding_service, _authority_port = _service(tmp_path)
-    service, tasks, queue, payloads, _workers = _bound_job_service(
-        binding_service
-    )
+    service, tasks, queue, payloads, _workers = _bound_job_service(binding_service)
 
     with pytest.raises(
         KnowledgeIndexExecutionBindingError,
@@ -705,9 +678,7 @@ def test_hub_dispatch_claim_allows_only_one_parallel_caller(
 ) -> None:
     service, authority_port = _service(tmp_path)
     issued = _issue(service)
-    repository = SQLKnowledgeIndexExecutionRepository(
-        create_engine(f"sqlite:///{tmp_path / 'execution.sqlite3'}")
-    )
+    repository = SQLKnowledgeIndexExecutionRepository(create_engine(f"sqlite:///{tmp_path / 'execution.sqlite3'}"))
     claim_barrier = Barrier(2)
 
     class ConcurrentClaimRepository:
@@ -748,9 +719,7 @@ def test_hub_dispatch_claim_allows_only_one_parallel_caller(
         outcomes = list(pool.map(lambda _index: claim(), range(2)))
 
     assert outcomes.count("running") == 1
-    assert outcomes.count(
-        "knowledge_index_execution_dispatch_in_progress"
-    ) == 1
+    assert outcomes.count("knowledge_index_execution_dispatch_in_progress") == 1
 
 
 def test_mark_running_remains_idempotent_for_legacy_callers(tmp_path) -> None:
@@ -978,9 +947,7 @@ def test_parallel_expiry_reconciliation_converges_on_one_tombstone(
         expected_lock_version=issued.lock_version,
     )
     now_ms[0] = issued.job.assignment.lease_expires_epoch_ms
-    repository = SQLKnowledgeIndexExecutionRepository(
-        create_engine(f"sqlite:///{tmp_path / 'execution.sqlite3'}")
-    )
+    repository = SQLKnowledgeIndexExecutionRepository(create_engine(f"sqlite:///{tmp_path / 'execution.sqlite3'}"))
     reconcile_barrier = Barrier(2)
 
     class ConcurrentReconcileRepository:
@@ -1021,9 +988,7 @@ def test_parallel_expiry_reconciliation_converges_on_one_tombstone(
     records = [item for item in outcomes if not isinstance(item, str)]
     assert len(records) == 1
     assert records[0].state == "failed"
-    assert outcomes.count(
-        "knowledge_index_execution_reconcile_conflict"
-    ) == 1
+    assert outcomes.count("knowledge_index_execution_reconcile_conflict") == 1
 
 
 @pytest.mark.parametrize(
@@ -1174,30 +1139,14 @@ def test_worker_proposal_has_no_source_capability(tmp_path) -> None:
         clock_ms=lambda: 10_000,
     )
 
-    proposal = handler.propose(
-        task={
-            "worker_execution_context": {
-                "knowledge_index_job": issued.job.to_wire()
-            }
-        }
-    )
+    proposal = handler.propose(task={"worker_execution_context": {"knowledge_index_job": issued.job.to_wire()}})
 
-    assert proposal["tool_calls"][0]["name"] == (
-        "codecompass_index_build"
-    )
+    assert proposal["tool_calls"][0]["name"] == ("codecompass_index_build")
     with pytest.raises(
         ValueError,
         match="proposal_source_access_forbidden",
     ):
-        handler.propose(
-            task={
-                "worker_execution_context": {
-                    "knowledge_index_job": _signed_source_access_job(
-                        issued
-                    )
-                }
-            }
-        )
+        handler.propose(task={"worker_execution_context": {"knowledge_index_job": _signed_source_access_job(issued)}})
 
 
 def _signed_source_access_job(
@@ -1216,9 +1165,7 @@ def _signed_source_access_job(
         destination_id=authority.destination_id,
         destination_digest=authority.destination_digest,
         source_access_grant_id=authority.source_access_grant_id,
-        source_access_grant_digest=(
-            authority.source_access_grant_digest
-        ),
+        source_access_grant_digest=(authority.source_access_grant_digest),
         operation=GrantOperation.INDEX,
         transformation=GrantTransformation.REDACTED,
         purpose="knowledge-index",
@@ -1249,9 +1196,7 @@ def _signed_source_access_job(
         "destination_id": request.destination_id,
         "destination_digest": request.destination_digest,
         "source_access_grant_id": request.source_access_grant_id,
-        "source_access_grant_digest": (
-            request.source_access_grant_digest
-        ),
+        "source_access_grant_digest": (request.source_access_grant_digest),
         "grant_expires_at_epoch_ms": grant_expires_at_epoch_ms,
         "operation": request.operation.value,
         "transformation": request.transformation.value,
@@ -1305,11 +1250,7 @@ def test_worker_rejects_signed_manifest_tampering_before_execution(
     execution = Execution()
     handler = KnowledgeIndexWorkerTaskHandler(
         execution,
-        source_access_manifest_verifier=(
-            WorkerSourceAccessManifestVerifier(
-                {"source-access-test": b"s" * 32}
-            )
-        ),
+        source_access_manifest_verifier=(WorkerSourceAccessManifestVerifier({"source-access-test": b"s" * 32})),
         worker_id="worker-index-01",
         clock_ms=lambda: 10_000,
     )
@@ -1333,11 +1274,7 @@ def test_worker_accepts_hub_signed_exact_binding(tmp_path) -> None:
 
     result = KnowledgeIndexWorkerTaskHandler(
         Execution(),
-        source_access_manifest_verifier=(
-            WorkerSourceAccessManifestVerifier(
-                {"source-access-test": b"s" * 32}
-            )
-        ),
+        source_access_manifest_verifier=(WorkerSourceAccessManifestVerifier({"source-access-test": b"s" * 32})),
         worker_id="worker-index-01",
         clock_ms=lambda: 10_000,
     ).execute(_signed_source_access_job(issued))
@@ -1361,11 +1298,7 @@ def test_worker_rejects_correctly_signed_expired_grant_before_execution(
     execution = Execution()
     handler = KnowledgeIndexWorkerTaskHandler(
         execution,
-        source_access_manifest_verifier=(
-            WorkerSourceAccessManifestVerifier(
-                {"source-access-test": b"s" * 32}
-            )
-        ),
+        source_access_manifest_verifier=(WorkerSourceAccessManifestVerifier({"source-access-test": b"s" * 32})),
         worker_id="worker-index-01",
         clock_ms=lambda: 10_000,
     )
@@ -1397,11 +1330,7 @@ def test_worker_rejects_assignment_to_another_worker(tmp_path) -> None:
     execution = Execution()
     handler = KnowledgeIndexWorkerTaskHandler(
         execution,
-        source_access_manifest_verifier=(
-            WorkerSourceAccessManifestVerifier(
-                {"source-access-test": b"s" * 32}
-            )
-        ),
+        source_access_manifest_verifier=(WorkerSourceAccessManifestVerifier({"source-access-test": b"s" * 32})),
         worker_id="worker-other",
         clock_ms=lambda: 10_000,
     )

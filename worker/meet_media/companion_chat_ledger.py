@@ -90,8 +90,11 @@ class ChatLedger:
         A queued input must remain NEW when its actual model round begins.
         """
         now = self.clock()
-        queued = {identity for identity in islice(delivered_message_ids, 32)
-                  if isinstance(identity, str) and MESSAGE_ID.fullmatch(identity)}
+        queued = {
+            identity
+            for identity in islice(delivered_message_ids, 32)
+            if isinstance(identity, str) and MESSAGE_ID.fullmatch(identity)
+        }
         humans = []
         for entry in chat if isinstance(chat, list) else ():
             if not isinstance(entry, dict) or entry.get("system"):
@@ -109,8 +112,12 @@ class ChatLedger:
             if message_id not in queued and message_id not in self.answered and message_id not in self.handled:
                 self.undelivered.setdefault(message_id, now)
         for message_id, seen in list(self.undelivered.items()):
-            if (message_id in queued or message_id in self.answered or message_id in self.handled
-                    or now - seen > GAP_FORGET_SECONDS):
+            if (
+                message_id in queued
+                or message_id in self.answered
+                or message_id in self.handled
+                or now - seen > GAP_FORGET_SECONDS
+            ):
                 del self.undelivered[message_id]
 
     def admit(self, event):

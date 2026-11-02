@@ -29,17 +29,11 @@ def _event(sequence: int, *, tenant_id: str = "tenant-a") -> CanonicalWorkflowEv
 
 
 def test_retention_attestation_is_payload_free_redacted_and_byte_stable() -> None:
-    service = WorkflowEventRetentionService(
-        WorkflowEventRetentionPolicy(policy_version="retention-v1")
-    )
+    service = WorkflowEventRetentionService(WorkflowEventRetentionPolicy(policy_version="retention-v1"))
     events = (_event(1), _event(2))
 
-    first = service.attest(
-        tenant_id="tenant-a", run_id="run-1", events=events, evaluated_at=1_000_000.0
-    )
-    second = service.attest(
-        tenant_id="tenant-a", run_id="run-1", events=events, evaluated_at=1_000_000.0
-    )
+    first = service.attest(tenant_id="tenant-a", run_id="run-1", events=events, evaluated_at=1_000_000.0)
+    second = service.attest(tenant_id="tenant-a", run_id="run-1", events=events, evaluated_at=1_000_000.0)
 
     assert first.to_dict() == second.to_dict()
     assert "must-never-survive" not in str(events)
@@ -49,13 +43,9 @@ def test_retention_attestation_is_payload_free_redacted_and_byte_stable() -> Non
 
 
 def test_retention_rejects_partial_history_cross_tenant_and_tampering() -> None:
-    service = WorkflowEventRetentionService(
-        WorkflowEventRetentionPolicy(policy_version="retention-v1")
-    )
+    service = WorkflowEventRetentionService(WorkflowEventRetentionPolicy(policy_version="retention-v1"))
     with pytest.raises(ContractValidationError, match="sequence_gap"):
-        service.attest(
-            tenant_id="tenant-a", run_id="run-1", events=(_event(2),), evaluated_at=1000
-        )
+        service.attest(tenant_id="tenant-a", run_id="run-1", events=(_event(2),), evaluated_at=1000)
     with pytest.raises(ContractValidationError, match="binding_mismatch"):
         service.attest(
             tenant_id="tenant-a",
@@ -64,9 +54,7 @@ def test_retention_rejects_partial_history_cross_tenant_and_tampering() -> None:
             evaluated_at=1000,
         )
 
-    valid = service.attest(
-        tenant_id="tenant-a", run_id="run-1", events=(_event(1),), evaluated_at=1000
-    )
+    valid = service.attest(tenant_id="tenant-a", run_id="run-1", events=(_event(1),), evaluated_at=1000)
     tampered = replace(valid, content_chain_hash="0" * 64)
     with pytest.raises(ContractValidationError, match="attestation_mismatch"):
         service.verify(tampered, events=(_event(1),), evaluated_at=1000)
@@ -74,6 +62,4 @@ def test_retention_rejects_partial_history_cross_tenant_and_tampering() -> None:
 
 def test_canonical_event_purge_mode_is_never_a_valid_runtime_policy() -> None:
     with pytest.raises(ContractValidationError, match="canonical_event_purge_forbidden"):
-        WorkflowEventRetentionPolicy(
-            policy_version="unsafe-v1", mode="delete_after_ttl"
-        ).assert_valid()
+        WorkflowEventRetentionPolicy(policy_version="unsafe-v1", mode="delete_after_ttl").assert_valid()

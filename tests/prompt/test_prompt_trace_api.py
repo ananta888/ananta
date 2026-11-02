@@ -1,8 +1,7 @@
 """API contract tests for Prompt Trace endpoints. PTI-029."""
+
 from __future__ import annotations
 
-import json
-import time
 from unittest.mock import patch
 
 import pytest
@@ -11,8 +10,8 @@ from flask import Flask
 
 def _make_app(tmp_path):
     """Create a minimal Flask app for testing."""
-    from agent.ai_agent import create_app
     import os
+
     os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
     # Use a minimal app with just the debug blueprints
     app = Flask("test_pti_api")
@@ -21,8 +20,9 @@ def _make_app(tmp_path):
     app.config["AGENT_CONFIG"] = {}
     app.config["AGENT_NAME"] = "test-agent"
 
-    from agent.routes.debug.prompt_traces import prompt_traces_bp
     from agent.routes.debug.prompt_render import prompt_render_bp
+    from agent.routes.debug.prompt_traces import prompt_traces_bp
+
     app.register_blueprint(prompt_traces_bp)
     app.register_blueprint(prompt_render_bp)
     return app
@@ -40,6 +40,7 @@ def app_client(tmp_path):
 @pytest.fixture
 def populated_svc(tmp_path):
     from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
     storage = PromptTraceStorage(data_dir=str(tmp_path))
     svc = PromptTraceService(storage=storage)
     return svc, tmp_path
@@ -48,6 +49,7 @@ def populated_svc(tmp_path):
 class TestListLLMRequests:
     def test_list_returns_redacted_preview(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -58,6 +60,7 @@ class TestListLLMRequests:
         app = Flask("test")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -70,6 +73,7 @@ class TestListLLMRequests:
 
     def test_filter_by_provider(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -83,6 +87,7 @@ class TestListLLMRequests:
 
     def test_limit_capped(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         # list with huge limit still returns at most stored count
         traces = storage.list(limit=99999)
@@ -92,6 +97,7 @@ class TestListLLMRequests:
 class TestDetailTrace:
     def test_get_existing_trace(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -102,6 +108,7 @@ class TestDetailTrace:
         app = Flask("test_detail")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -115,12 +122,14 @@ class TestDetailTrace:
 
     def test_unknown_trace_returns_404(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
         app = Flask("test_404")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -131,6 +140,7 @@ class TestDetailTrace:
 
     def test_include_raw_denied_by_default(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -141,6 +151,7 @@ class TestDetailTrace:
         app = Flask("test_raw")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -157,6 +168,7 @@ class TestDetailTrace:
 class TestGoalPromptTraces:
     def test_goal_traces_grouped_by_kind(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
@@ -167,6 +179,7 @@ class TestGoalPromptTraces:
         app = Flask("test_goal")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -182,12 +195,14 @@ class TestGoalPromptTraces:
 
     def test_goal_no_traces_returns_empty(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
         svc = PromptTraceService(storage=storage)
 
         app = Flask("test_empty")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_traces import prompt_traces_bp
+
         app.register_blueprint(prompt_traces_bp)
 
         with patch("agent.auth.check_auth", lambda f: f):
@@ -203,16 +218,19 @@ class TestGoalPromptTraces:
 class TestRenderDryRun:
     def test_render_dry_run_does_not_call_provider(self, tmp_path):
         from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
         storage = PromptTraceStorage(data_dir=str(tmp_path))
-        svc = PromptTraceService(storage=storage)
+        PromptTraceService(storage=storage)
 
         app = Flask("test_render")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_render import prompt_render_bp
+
         app.register_blueprint(prompt_render_bp)
 
         # Mock the registry to return a fixed prompt
         from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
+
         mock_resolved = ResolvedPlanningPrompt(
             prompt_version_id="v-test",
             version="v1",
@@ -241,9 +259,11 @@ class TestRenderDryRun:
         app = Flask("test_render_hash")
         app.config["TESTING"] = True
         from agent.routes.debug.prompt_render import prompt_render_bp
+
         app.register_blueprint(prompt_render_bp)
 
         from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
+
         mock_resolved = ResolvedPlanningPrompt(
             prompt_version_id="v-hash-test",
             version="v1",

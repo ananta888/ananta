@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 import hashlib
 import json
-from pathlib import Path
 import zipfile
-
-import pytest
+from dataclasses import asdict
+from pathlib import Path
 
 from agent.services.source_admission_service import (
     SourceAdmissionBudgets,
@@ -24,9 +22,7 @@ from agent.sources.registered_workspace_connector import (
 
 
 def _canonical_digest(value: object) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-    ).encode("utf-8")
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -99,9 +95,7 @@ def test_clean_snapshot_produces_exact_content_free_evidence(tmp_path: Path) -> 
     assert result.inventory.total_bytes == len(content)
     assert result.scan.completed is True
     assert result.scan.scan_error_count == 0
-    serialized = json.dumps(
-        {"inventory": asdict(result.inventory), "scan": asdict(result.scan)}
-    )
+    serialized = json.dumps({"inventory": asdict(result.inventory), "scan": asdict(result.scan)})
     assert "answer.py" not in serialized
     assert "return 42" not in serialized
 

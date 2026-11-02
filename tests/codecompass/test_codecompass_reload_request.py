@@ -7,6 +7,7 @@ Covers:
 - Hub handler returns context_reload_response.v1 with delivered chunks or
   policy_blocked code.
 """
+
 from __future__ import annotations
 
 import pytest

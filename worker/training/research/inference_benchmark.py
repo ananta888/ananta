@@ -51,11 +51,7 @@ class TorchInferenceBenchmark:
                     latencies.append(time.perf_counter() - started)
                     first_token_latencies.append(first_token)
         total = sum(latencies)
-        peak_memory = (
-            int(torch.cuda.max_memory_allocated(device))
-            if device.type == "cuda"
-            else 0
-        )
+        peak_memory = int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0
         return {
             "schema": "ananta.research-training-inference-benchmark.v1",
             "runtime_digest": runtime_digest,

@@ -6,14 +6,14 @@ from agent.db_models import (
     BlueprintRoleDB,
     RoleDB,
     TaskDB,
-    TeamDB,
     TeamBlueprintDB,
+    TeamDB,
     TeamMemberDB,
     TeamTypeDB,
     TeamTypeRoleLink,
     TemplateDB,
 )
-from tests_support import admin_login_token as _login_admin
+from tests.support import admin_login_token as _login_admin
 
 
 def _clear_team_data():

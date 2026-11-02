@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import os
-import pytest
-
-from agent.cli.logo_assets import load_logo, logo_line_count, clear_asset_cache, strip_ansi_from_logo
+from agent.cli.logo_assets import clear_asset_cache, load_logo, logo_line_count, strip_ansi_from_logo
 
 
 def test_load_logo_returns_string():

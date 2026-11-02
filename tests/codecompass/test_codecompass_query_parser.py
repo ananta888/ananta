@@ -14,4 +14,3 @@ def test_codecompass_query_parser_extracts_exact_symbol_and_config_terms():
     assert "spring.datasource.url" in parsed["exact_symbol_terms"]
     assert "NullPointerException" in parsed["exact_symbol_terms"]
     assert "spring.datasource.url" in parsed["broad_terms"]
-

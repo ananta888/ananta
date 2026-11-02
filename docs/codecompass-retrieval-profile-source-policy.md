@@ -78,21 +78,21 @@ _build_grounded_snake_prompt(user_text)
 ```python
 @dataclass
 class RetrievalProfile:
-    profile_id: str                     # z.B. "codecompass/implemented_code_explanation"
-    domain: str                         # codecompass | ai_snake | worker | ananta_game | operator_tui | ops | generic
-    intent: str                         # implemented_code_explanation | architecture_overview | ...
-    source_types: list[str]             # ["repo", "artifact"] — nach UI-Constraints bereinigt
+    profile_id: str  # z.B. "codecompass/implemented_code_explanation"
+    domain: str  # codecompass | ai_snake | worker | ananta_game | operator_tui | ops | generic
+    intent: str  # implemented_code_explanation | architecture_overview | ...
+    source_types: list[str]  # ["repo", "artifact"] — nach UI-Constraints bereinigt
     source_type_weights: dict[str, float]  # {"repo": 1.45, "artifact": 1.05, "wiki": 0.3}
-    retrieval_intent: str               # z.B. "code_explanation_with_codecompass"
-    negative_source_patterns: list[str] # z.B. ["book-of-ananta", "snake_tutor"]
-    feature_flag: str                   # "auto" | "legacy" | "repo_first" | "docs_first"
-    warnings: list[str]                 # z.B. ["source_type_disabled_by_ui_config:wiki"]
-    selected_by: str                    # "retrieval_profile_resolver.v1" oder "raw_profile"
-    reasons: list[str]                  # maschinenlesbare Entscheidungsgründe
-    source_policy: dict                 # requested_source_types, priority_order, weights, negative patterns
-    chunk_policy: dict                  # Granularität, max_chunks, max_per_source_type
-    expansion_policy: dict              # graph/relation/neighbor expansion
-    explainability: dict                # welche Profil-/Reject-Infos sichtbar werden
+    retrieval_intent: str  # z.B. "code_explanation_with_codecompass"
+    negative_source_patterns: list[str]  # z.B. ["book-of-ananta", "snake_tutor"]
+    feature_flag: str  # "auto" | "legacy" | "repo_first" | "docs_first"
+    warnings: list[str]  # z.B. ["source_type_disabled_by_ui_config:wiki"]
+    selected_by: str  # "retrieval_profile_resolver.v1" oder "raw_profile"
+    reasons: list[str]  # maschinenlesbare Entscheidungsgründe
+    source_policy: dict  # requested_source_types, priority_order, weights, negative patterns
+    chunk_policy: dict  # Granularität, max_chunks, max_per_source_type
+    expansion_policy: dict  # graph/relation/neighbor expansion
+    explainability: dict  # welche Profil-/Reject-Infos sichtbar werden
 ```
 
 ---

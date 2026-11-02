@@ -59,22 +59,23 @@ GATE_COMMANDS = {
 
 def _run(command: str, *, cwd: Path) -> bool:
     print(f"[model-routing-release-gate] {command}", flush=True)
-    return subprocess.run(
-        ["bash", "-lc", command], cwd=cwd, check=False,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    ).returncode == 0
+    return (
+        subprocess.run(
+            ["bash", "-lc", command],
+            cwd=cwd,
+            check=False,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        ).returncode
+        == 0
+    )
 
 
 def main() -> int:
     results = {
         "contract": _run(GATE_COMMANDS["contract"], cwd=REPO_ROOT),
         "security": _run(GATE_COMMANDS["security"], cwd=REPO_ROOT),
-        "cognitive_style": _run(
-            GATE_COMMANDS["cognitive_style"], cwd=REPO_ROOT
-        ),
-        "frontend_unit": _run(
-            GATE_COMMANDS["frontend_unit"], cwd=REPO_ROOT / "frontend-angular"
-        ),
+        "cognitive_style": _run(GATE_COMMANDS["cognitive_style"], cwd=REPO_ROOT),
+        "frontend_unit": _run(GATE_COMMANDS["frontend_unit"], cwd=REPO_ROOT / "frontend-angular"),
         "e2e": _run(GATE_COMMANDS["e2e"], cwd=REPO_ROOT / "frontend-angular"),
     }
     results["performance"] = results["e2e"]
@@ -88,18 +89,19 @@ def main() -> int:
         "gates": {
             gate_id: {
                 "passed": passed,
-                "command": (
-                    GATE_COMMANDS["e2e"] if gate_id == "performance"
-                    else GATE_COMMANDS[gate_id]
-                ),
+                "command": (GATE_COMMANDS["e2e"] if gate_id == "performance" else GATE_COMMANDS[gate_id]),
             }
             for gate_id, passed in sorted(results.items())
         },
     }
     EVIDENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=EVIDENCE_PATH.parent,
-        prefix="model-routing-release-gate.", suffix=".tmp", delete=False,
+        mode="w",
+        encoding="utf-8",
+        dir=EVIDENCE_PATH.parent,
+        prefix="model-routing-release-gate.",
+        suffix=".tmp",
+        delete=False,
     ) as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")

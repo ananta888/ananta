@@ -11,7 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-
 revision: str = "9138c9d0e1f2"
 down_revision: str | Sequence[str] | None = "8027b8c9d0e1"
 branch_labels: str | Sequence[str] | None = None
@@ -50,9 +49,7 @@ def upgrade() -> None:
             sa.Column(
                 "snapshot_id",
                 sa.String(),
-                sa.ForeignKey(
-                    "sfu_operations_snapshots.id", ondelete="CASCADE"
-                ),
+                sa.ForeignKey("sfu_operations_snapshots.id", ondelete="CASCADE"),
                 nullable=False,
             ),
             sa.Column("ordinal", sa.Integer(), nullable=False),
@@ -77,15 +74,9 @@ def upgrade() -> None:
             sa.Column("layer_high_count", sa.Integer(), nullable=False),
             sa.Column("queue_depth", sa.Integer(), nullable=False),
             sa.Column("drop_reason", sa.String(), nullable=False),
-            sa.Column(
-                "ingress_bytes_per_second", sa.Integer(), nullable=False
-            ),
-            sa.Column(
-                "egress_bytes_per_second", sa.Integer(), nullable=False
-            ),
-            sa.Column(
-                "turn_bytes_per_second", sa.Integer(), nullable=False
-            ),
+            sa.Column("ingress_bytes_per_second", sa.Integer(), nullable=False),
+            sa.Column("egress_bytes_per_second", sa.Integer(), nullable=False),
+            sa.Column("turn_bytes_per_second", sa.Integer(), nullable=False),
             sa.Column("rekey_status", sa.String(), nullable=False),
             sa.Column("failover_status", sa.String(), nullable=False),
             sa.Column("capacity_profile", sa.String(), nullable=False),
@@ -100,9 +91,7 @@ def upgrade() -> None:
                 name="ck_sfu_operations_record_counts",
             ),
             sa.CheckConstraint(
-                "ingress_bytes_per_second >= 0 "
-                "AND egress_bytes_per_second >= 0 "
-                "AND turn_bytes_per_second >= 0",
+                "ingress_bytes_per_second >= 0 AND egress_bytes_per_second >= 0 AND turn_bytes_per_second >= 0",
                 name="ck_sfu_operations_record_rates",
             ),
         )
@@ -120,9 +109,7 @@ def upgrade() -> None:
             sa.Column("request_digest", sa.String(), nullable=False),
             sa.Column("status", sa.String(), nullable=False),
             sa.Column("result_accepted", sa.Boolean(), nullable=True),
-            sa.Column(
-                "result_effective_version", sa.Integer(), nullable=True
-            ),
+            sa.Column("result_effective_version", sa.Integer(), nullable=True),
             sa.Column("result_state", sa.String(), nullable=True),
             sa.Column("result_reason_code", sa.String(), nullable=True),
             sa.Column("result_command_ref", sa.String(), nullable=True),
@@ -139,9 +126,7 @@ def upgrade() -> None:
                 "status IN ('pending','completed')",
                 name="ck_sfu_command_ledger_status",
             ),
-            sa.CheckConstraint(
-                "version > 0", name="ck_sfu_command_ledger_version"
-            ),
+            sa.CheckConstraint("version > 0", name="ck_sfu_command_ledger_version"),
         )
         op.create_index(
             "ix_sfu_command_ledger_retention",
@@ -156,9 +141,7 @@ def upgrade() -> None:
             sa.Column("room_id", sa.String(), nullable=False),
             sa.Column("owner_digest", sa.String(), nullable=False),
             sa.Column("fencing_token", sa.Integer(), nullable=False),
-            sa.Column(
-                "lease_expires_at_ms", sa.BigInteger(), nullable=False
-            ),
+            sa.Column("lease_expires_at_ms", sa.BigInteger(), nullable=False),
             sa.Column("checkpoint_phase", sa.String(), nullable=True),
             sa.Column("checkpoint_token", sa.String(), nullable=True),
             sa.Column("version", sa.Integer(), nullable=False),
@@ -175,8 +158,7 @@ def upgrade() -> None:
                 name="ck_sfu_fanout_reconciliation_fencing",
             ),
             sa.CheckConstraint(
-                "checkpoint_phase IS NULL "
-                "OR checkpoint_phase IN ('revoke','ensure')",
+                "checkpoint_phase IS NULL OR checkpoint_phase IN ('revoke','ensure')",
                 name="ck_sfu_fanout_reconciliation_phase",
             ),
         )
@@ -293,8 +275,7 @@ def upgrade() -> None:
                 name="ck_sfu_scope_epoch_grant_kind",
             ),
             sa.CheckConstraint(
-                "scope_version > 0 AND membership_epoch > 0 "
-                "AND fencing_token > 0",
+                "scope_version > 0 AND membership_epoch > 0 AND fencing_token > 0",
                 name="ck_sfu_scope_epoch_grant_fencing",
             ),
             sa.CheckConstraint(

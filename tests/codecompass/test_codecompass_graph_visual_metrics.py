@@ -15,12 +15,8 @@ from worker.retrieval.codecompass_graph_visual_metrics import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-DOMAIN_SCHEMA = json.loads(
-    (ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8")
-)
-METRICS_SCHEMA = json.loads(
-    (ROOT / "schemas/artifacts/graph_visual_metrics.v1.json").read_text(encoding="utf-8")
-)
+DOMAIN_SCHEMA = json.loads((ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8"))
+METRICS_SCHEMA = json.loads((ROOT / "schemas/artifacts/graph_visual_metrics.v1.json").read_text(encoding="utf-8"))
 
 
 def _store(tmp_path: Path) -> CodeCompassGraphStore:
@@ -95,17 +91,21 @@ def test_domain_graph_schema_keeps_legacy_payload_valid() -> None:
         "schema": "domain_graph_artifact.v1",
         "source_kind": "legacy",
         "source_ref": "legacy-ref",
-        "nodes": [{
-            "node_id": "n",
-            "node_type": "custom",
-            "attributes": {"legacy": True, "domain_id": 42, "metrics": "opaque"},
-        }],
-        "edges": [{
-            "source_id": "n",
-            "target_id": "n",
-            "relation": "legacy",
-            "attributes": {"confidence": "unknown", "multiplicity": "many"},
-        }],
+        "nodes": [
+            {
+                "node_id": "n",
+                "node_type": "custom",
+                "attributes": {"legacy": True, "domain_id": 42, "metrics": "opaque"},
+            }
+        ],
+        "edges": [
+            {
+                "source_id": "n",
+                "target_id": "n",
+                "relation": "legacy",
+                "attributes": {"confidence": "unknown", "multiplicity": "many"},
+            }
+        ],
         "metadata": {},
     }
     assert list(Draft202012Validator(DOMAIN_SCHEMA).iter_errors(legacy)) == []
@@ -287,12 +287,18 @@ def test_duplicate_explicit_edge_ids_fail_closed(tmp_path: Path) -> None:
                 {
                     "_provenance": {"output_kind": "graph_edges"},
                     "edge_id": "duplicate",
-                    "source": "a", "target": "b", "type": "related", "confidence": 0,
+                    "source": "a",
+                    "target": "b",
+                    "type": "related",
+                    "confidence": 0,
                 },
                 {
                     "_provenance": {"output_kind": "graph_edges"},
                     "edge_id": "duplicate",
-                    "source": "a", "target": "b", "type": "related", "confidence": 1,
+                    "source": "a",
+                    "target": "b",
+                    "type": "related",
+                    "confidence": 1,
                 },
             ],
         )

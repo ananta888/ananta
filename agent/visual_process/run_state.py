@@ -4,6 +4,7 @@ Tracks which steps are pending / running / done / failed during a
 process run. This is the read-model that the Angular dashboard and TUI
 poll to show live execution progress.
 """
+
 from __future__ import annotations
 
 import time
@@ -61,6 +62,7 @@ class StepRunState:
 @dataclass
 class ProcessRunState:
     """Full run state for one process execution."""
+
     run_id: str
     graph_id: str
     started_at: float = field(default_factory=time.time)

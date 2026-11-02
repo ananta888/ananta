@@ -27,9 +27,7 @@ RESOLVED_CONFIG_SCHEMA = "ananta.vector_store_resolved_config.v1"
 _DOMAINS = frozenset({"codecompass", "wiki"})
 _PROVIDERS = frozenset({"json", "qdrant", "duckdb"})
 _LAYERS = frozenset({"profile", "workspace"})
-_ALLOWED_OVERRIDE_FIELDS = frozenset(
-    {"provider", "availability", "json", "qdrant", "duckdb"}
-)
+_ALLOWED_OVERRIDE_FIELDS = frozenset({"provider", "availability", "json", "qdrant", "duckdb"})
 _SAFE_SECRET_REFERENCE_SUFFIXES = ("_ref", "_file", "_env")
 _SECRET_MARKERS = ("api_key", "password", "secret", "token", "authorization")
 _SCOPE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -93,10 +91,7 @@ def _contains_plaintext_secret(value: Any, *, key: str = "") -> bool:
         if not normalized_key.endswith(_SAFE_SECRET_REFERENCE_SUFFIXES):
             return True
     if isinstance(value, Mapping):
-        return any(
-            _contains_plaintext_secret(item, key=str(item_key))
-            for item_key, item in value.items()
-        )
+        return any(_contains_plaintext_secret(item, key=str(item_key)) for item_key, item in value.items())
     if isinstance(value, (list, tuple)):
         return any(_contains_plaintext_secret(item) for item in value)
     return False
@@ -141,9 +136,7 @@ def _reject_security_policy_override(override: Mapping[str, Any]) -> None:
     endpoint = qdrant.get("endpoint")
     if endpoint is not None and not isinstance(endpoint, Mapping):
         raise ValueError("vector_store_qdrant_endpoint_mapping_required")
-    if isinstance(endpoint, Mapping) and (
-        set(endpoint) & _IMMUTABLE_QDRANT_ENDPOINT_FIELDS
-    ):
+    if isinstance(endpoint, Mapping) and (set(endpoint) & _IMMUTABLE_QDRANT_ENDPOINT_FIELDS):
         raise ValueError("vector_store_security_policy_override_forbidden")
 
 
@@ -297,9 +290,7 @@ class VectorStoreOverrideRecord:
             layer=str(value.get("layer") or ""),
             domain=str(value.get("domain") or ""),
             scope_name=str(value.get("scope_name") or ""),
-            override=validate_vector_store_override(
-                dict(value.get("override") or {})
-            ),
+            override=validate_vector_store_override(dict(value.get("override") or {})),
             revision=int(value.get("revision") or 0),
             updated_by=str(value.get("updated_by") or ""),
             updated_at=float(value.get("updated_at") or 0.0),
@@ -329,11 +320,7 @@ class InMemoryVectorStoreRolloutStore:
     def get(self, key: str) -> VectorStoreOverrideRecord | None:
         with self._lock:
             record = self._records.get(str(key))
-            return (
-                VectorStoreOverrideRecord.from_mapping(record.to_dict())
-                if record is not None
-                else None
-            )
+            return VectorStoreOverrideRecord.from_mapping(record.to_dict()) if record is not None else None
 
     def list_records(
         self,
@@ -350,9 +337,7 @@ class InMemoryVectorStoreRolloutStore:
 
     def put(self, record: VectorStoreOverrideRecord) -> None:
         with self._lock:
-            self._records[record.key] = VectorStoreOverrideRecord.from_mapping(
-                record.to_dict()
-            )
+            self._records[record.key] = VectorStoreOverrideRecord.from_mapping(record.to_dict())
 
     def delete(self, key: str) -> None:
         with self._lock:
@@ -370,11 +355,7 @@ class JsonVectorStoreRolloutStore:
         with self._lock:
             payload = self._read()
             raw = dict(payload.get("records") or {}).get(str(key))
-            return (
-                VectorStoreOverrideRecord.from_mapping(raw)
-                if isinstance(raw, Mapping)
-                else None
-            )
+            return VectorStoreOverrideRecord.from_mapping(raw) if isinstance(raw, Mapping) else None
 
     def list_records(
         self,
@@ -550,9 +531,7 @@ class VectorStoreRolloutService:
             raise ValueError("vector_store_rollout_layer_invalid")
         normalized_domain = _safe_domain(domain)
         normalized_scope = _safe_scope_name(scope_name, field=f"{normalized_layer}_id")
-        return self._store.get(
-            self._key(normalized_layer, normalized_domain, normalized_scope)
-        )
+        return self._store.get(self._key(normalized_layer, normalized_domain, normalized_scope))
 
     def rollback(
         self,
@@ -591,9 +570,7 @@ class VectorStoreRolloutService:
                     "actor": str(actor or "unknown"),
                     "domain": record.domain,
                     "layer": record.layer,
-                    "scope_hash": hashlib.sha256(
-                        record.scope_name.encode("utf-8")
-                    ).hexdigest(),
+                    "scope_hash": hashlib.sha256(record.scope_name.encode("utf-8")).hexdigest(),
                     "previous_revision": record.revision,
                     "provider": new_provider,
                     "previous_provider": previous_provider,
@@ -621,15 +598,11 @@ class VectorStoreRolloutService:
         profile = _safe_scope_name(profile_name, field="profile_name")
         config = _clone(self._global_config)
         source_layers = ["global_json_default"]
-        profile_record = self._store.get(
-            self._key("profile", normalized_domain, profile)
-        )
+        profile_record = self._store.get(self._key("profile", normalized_domain, profile))
         if profile_record is not None:
             config = _deep_merge(config, profile_record.override)
             source_layers.append("profile_override")
-        workspace_record = self._store.get(
-            self._key("workspace", normalized_domain, workspace)
-        )
+        workspace_record = self._store.get(self._key("workspace", normalized_domain, workspace))
         if workspace_record is not None:
             config = _deep_merge(config, workspace_record.override)
             source_layers.append("workspace_override")
@@ -642,11 +615,7 @@ class VectorStoreRolloutService:
         if provider == "qdrant" and len(source_layers) == 1:
             raise ValueError("vector_store_qdrant_opt_in_required")
         normalized_config = parsed.as_dict()
-        config_hash = hashlib.sha256(
-            _canonical_json(
-                _without_secret_references(normalized_config)
-            )
-        ).hexdigest()
+        config_hash = hashlib.sha256(_canonical_json(_without_secret_references(normalized_config))).hexdigest()
         return ResolvedVectorStoreConfig(
             domain=normalized_domain,
             workspace_id=workspace,
@@ -694,9 +663,7 @@ class VectorStoreRolloutService:
             previous_provider = self._effective_provider_for_audit(
                 layer=normalized_layer,
                 domain=normalized_domain,
-                target_override=(
-                    current.override if current is not None else None
-                ),
+                target_override=(current.override if current is not None else None),
             )
             new_provider = self._effective_provider_for_audit(
                 layer=normalized_layer,
@@ -720,18 +687,14 @@ class VectorStoreRolloutService:
                     "actor": record.updated_by,
                     "domain": record.domain,
                     "layer": record.layer,
-                    "scope_hash": hashlib.sha256(
-                        record.scope_name.encode("utf-8")
-                    ).hexdigest(),
+                    "scope_hash": hashlib.sha256(record.scope_name.encode("utf-8")).hexdigest(),
                     "revision": record.revision,
                     "provider": new_provider,
                     "previous_provider": previous_provider,
                     "new_provider": new_provider,
                     "policy_decision": "override_allowed",
                     "occurred_at": record.updated_at,
-                    "override_hash": hashlib.sha256(
-                        _canonical_json(record.override)
-                    ).hexdigest(),
+                    "override_hash": hashlib.sha256(_canonical_json(record.override)).hexdigest(),
                 },
             )
             return record
@@ -785,9 +748,7 @@ class VectorStoreRolloutService:
         domain: str,
         target_override: Mapping[str, Any] | None,
     ) -> tuple[dict[str, Any], ...]:
-        opposite_layer = (
-            "workspace" if layer == "profile" else "profile"
-        )
+        opposite_layer = "workspace" if layer == "profile" else "profile"
         opposite_records = self._store.list_records(
             layer=opposite_layer,
             domain=domain,
@@ -795,16 +756,10 @@ class VectorStoreRolloutService:
         combinations: list[tuple[Mapping[str, Any] | None, Mapping[str, Any] | None]]
         if layer == "profile":
             combinations = [(target_override, None)]
-            combinations.extend(
-                (target_override, record.override)
-                for record in opposite_records
-            )
+            combinations.extend((target_override, record.override) for record in opposite_records)
         else:
             combinations = [(None, target_override)]
-            combinations.extend(
-                (record.override, target_override)
-                for record in opposite_records
-            )
+            combinations.extend((record.override, target_override) for record in opposite_records)
         candidates: list[dict[str, Any]] = []
         for profile_override, workspace_override in combinations:
             config = _clone(self._global_config)
@@ -812,9 +767,7 @@ class VectorStoreRolloutService:
                 config = _deep_merge(config, profile_override)
             if workspace_override is not None:
                 config = _deep_merge(config, workspace_override)
-            candidates.append(
-                self._apply_domain_config(domain, config)
-            )
+            candidates.append(self._apply_domain_config(domain, config))
         return tuple(candidates)
 
     @staticmethod
@@ -828,22 +781,16 @@ class VectorStoreRolloutService:
         if domain != "wiki":
             return config
         qdrant = dict(config.get("qdrant") or {})
-        prefix = str(
-            qdrant.get("collection_prefix") or "ananta"
-        ).strip()
+        prefix = str(qdrant.get("collection_prefix") or "ananta").strip()
         if prefix == "ananta":
             qdrant["collection_prefix"] = "ananta-wiki"
         elif not prefix.startswith("ananta-wiki"):
-            raise ValueError(
-                "wiki_qdrant_collection_prefix_must_be_separate"
-            )
+            raise ValueError("wiki_qdrant_collection_prefix_must_be_separate")
         config["qdrant"] = qdrant
         return config
 
 
-vector_store_rollout_service = VectorStoreRolloutService(
-    global_config=VectorStoreGlobalEnvConfigLoader().load()
-)
+vector_store_rollout_service = VectorStoreRolloutService(global_config=VectorStoreGlobalEnvConfigLoader().load())
 
 
 def get_vector_store_rollout_service() -> VectorStoreRolloutService:

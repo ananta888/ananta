@@ -3,16 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
-from flask import Flask
 import pytest
+from flask import Flask
 
-from agent.routes.source_control_v1 import SourceControlV1RequestGuard
 from agent.routes.source_control_v1 import (
+    SourceControlV1RequestGuard,
     create_source_control_v1_blueprint,
 )
 from agent.services.source_control_access_policy import HubSourcePrincipal
 from tests.project_access_fakes import AllowProjectAccess
-
 
 _SUCCESS_SCHEMA = "ananta.source-control.api-response.v1"
 _ERROR_SCHEMA = "ananta.source-control.error.v1"
@@ -106,7 +105,8 @@ def _app(monkeypatch):
     )
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(
+    app.register_blueprint(
+        create_source_control_v1_blueprint(
             api,
             request_guard=request_guard,
             auth_decorator=lambda view: view,
@@ -141,11 +141,7 @@ def _assert_recorded_call(
         recorded_kwargs["principal"],
         authenticated=authenticated,
     )
-    assert {
-        key: value
-        for key, value in recorded_kwargs.items()
-        if key != "principal"
-    } == kwargs
+    assert {key: value for key, value in recorded_kwargs.items() if key != "principal"} == kwargs
 
 
 def _assert_error(response, *, status: int, code: str) -> None:
@@ -313,11 +309,7 @@ def test_read_catalogs_are_scoped_and_pass_bounded_queries(
         kwargs["principal"],
         authenticated=principal,
     )
-    assert {
-        key: value
-        for key, value in kwargs.items()
-        if key != "principal"
-    } == {
+    assert {key: value for key, value in kwargs.items() if key != "principal"} == {
         **({"catalog": catalog} if catalog is not None else {}),
         "project_id": "project-example",
         "cursor": "opaque-cursor",
@@ -361,12 +353,8 @@ def test_read_catalogs_reject_unbounded_and_tenant_query_fields(
     app, api, _ = _app(monkeypatch)
     client = app.test_client()
 
-    too_large = client.get(
-        f"{path}?project_id=project-example&limit=201"
-    )
-    tenant_from_browser = client.get(
-        f"{path}?project_id=project-example&tenant_id=tenant-other"
-    )
+    too_large = client.get(f"{path}?project_id=project-example&limit=201")
+    tenant_from_browser = client.get(f"{path}?project_id=project-example&tenant_id=tenant-other")
 
     _assert_error(too_large, status=400, code="limit_invalid")
     _assert_error(
@@ -466,10 +454,7 @@ def test_grant_create_rejects_non_contract_body_and_query(
         headers=headers,
     )
     query_with_browser_scope = client.post(
-        (
-            "/api/source-control/v1/grants"
-            "?project_id=project-example&tenant_id=tenant-other"
-        ),
+        ("/api/source-control/v1/grants?project_id=project-example&tenant_id=tenant-other"),
         json=_grant_payload(),
         headers=headers,
     )
@@ -492,10 +477,7 @@ def test_grant_revoke_requires_headers_and_passes_exact_body(
 ) -> None:
     app, api, principal = _app(monkeypatch)
     client = app.test_client()
-    path = (
-        "/api/source-control/v1/grants/grant-existing/actions/revoke"
-        "?project_id=project-example"
-    )
+    path = "/api/source-control/v1/grants/grant-existing/actions/revoke?project_id=project-example"
     payload = {"reason_code": "operator_request"}
 
     missing_if_match = client.post(

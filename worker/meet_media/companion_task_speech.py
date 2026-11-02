@@ -57,16 +57,23 @@ class AssignedCompanionSpeech:
             remaining = deadline - self.ports.clock()
             if remaining <= 0:
                 return
-            self.ports.sleep(min(remaining, .05))
+            self.ports.sleep(min(remaining, 0.05))
 
     def publish(self, pcm, *, current_generation=None):
-        ports = replace(self.ports, avatar_open=self._open_avatar, avatar_close=self._close_avatar,
-                        speech_open=self._open_speech, speech_push=self._push_speech,
-                        sleep=self._sleep, avatar_active=self._avatar_active)
+        ports = replace(
+            self.ports,
+            avatar_open=self._open_avatar,
+            avatar_close=self._close_avatar,
+            speech_open=self._open_speech,
+            speech_push=self._push_speech,
+            sleep=self._sleep,
+            avatar_active=self._avatar_active,
+        )
         if self.sequence is not None:
             from worker.meet_media.companion_sequence_speech import publish_sequence
 
             return publish_sequence(self, pcm, ports, self.sequence)
-        publisher = SpeechAvatarPublisher(ports, clip_preparer=lambda value: self.media.speaking(
-            value, cooperate=self._guard))
+        publisher = SpeechAvatarPublisher(
+            ports, clip_preparer=lambda value: self.media.speaking(value, cooperate=self._guard)
+        )
         return publisher.speak(pcm, current_generation=current_generation)

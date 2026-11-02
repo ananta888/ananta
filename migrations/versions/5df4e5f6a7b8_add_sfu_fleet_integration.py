@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-
 revision: str = "5df4e5f6a7b8"
 down_revision: str | Sequence[str] | None = "4cf3d4e5f6a7"
 branch_labels: str | Sequence[str] | None = None
@@ -56,7 +55,11 @@ def upgrade() -> None:
             sa.CheckConstraint("version > 0", name="ck_sfu_flag_projection_version"),
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint(
-                "tenant_id", "target_runtime_id", "flag_version", "cohort_version", "config_digest",
+                "tenant_id",
+                "target_runtime_id",
+                "flag_version",
+                "cohort_version",
+                "config_digest",
                 name="uq_sfu_flag_projection_effective_version",
             ),
         )
@@ -65,7 +68,19 @@ def upgrade() -> None:
             "sfu_broadcast_flag_projections",
             ["status", "priority", "next_attempt_at", "deadline_at"],
         )
-        for name in ("tenant_id", "target_runtime_id", "cluster_id", "region", "flag_version", "cohort_version", "config_digest", "fencing_token", "status", "version", "updated_at"):
+        for name in (
+            "tenant_id",
+            "target_runtime_id",
+            "cluster_id",
+            "region",
+            "flag_version",
+            "cohort_version",
+            "config_digest",
+            "fencing_token",
+            "status",
+            "version",
+            "updated_at",
+        ):
             op.create_index(f"ix_sfu_broadcast_flag_projections_{name}", "sfu_broadcast_flag_projections", [name])
 
     if "sfu_broadcast_runtime_projection_states" not in existing:
@@ -97,8 +112,25 @@ def upgrade() -> None:
             "sfu_broadcast_runtime_projection_states",
             ["tenant_id", "cluster_id", "region", "admission_allowed", "ack_expires_at"],
         )
-        for name in ("tenant_id", "target_runtime_id", "cluster_id", "region", "flag_version", "cohort_version", "config_digest", "fencing_token", "admission_allowed", "status", "reason_code", "ack_expires_at", "version", "updated_at"):
-            op.create_index(f"ix_sfu_broadcast_runtime_projection_states_{name}", "sfu_broadcast_runtime_projection_states", [name])
+        for name in (
+            "tenant_id",
+            "target_runtime_id",
+            "cluster_id",
+            "region",
+            "flag_version",
+            "cohort_version",
+            "config_digest",
+            "fencing_token",
+            "admission_allowed",
+            "status",
+            "reason_code",
+            "ack_expires_at",
+            "version",
+            "updated_at",
+        ):
+            op.create_index(
+                f"ix_sfu_broadcast_runtime_projection_states_{name}", "sfu_broadcast_runtime_projection_states", [name]
+            )
 
     if "sfu_broadcast_admission_operations" not in existing:
         op.create_table(
@@ -128,9 +160,28 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("tenant_id", "idempotency_key_digest", name="uq_sfu_admission_operation_idempotency"),
         )
-        op.create_index("ix_sfu_admission_operation_recovery", "sfu_broadcast_admission_operations", ["status", "deadline_at", "updated_at"])
-        for name in ("tenant_id", "room_id", "actor_digest", "operation", "idempotency_key_digest", "status", "current_step", "reason_code", "deadline_at", "version", "updated_at", "completed_at"):
-            op.create_index(f"ix_sfu_broadcast_admission_operations_{name}", "sfu_broadcast_admission_operations", [name])
+        op.create_index(
+            "ix_sfu_admission_operation_recovery",
+            "sfu_broadcast_admission_operations",
+            ["status", "deadline_at", "updated_at"],
+        )
+        for name in (
+            "tenant_id",
+            "room_id",
+            "actor_digest",
+            "operation",
+            "idempotency_key_digest",
+            "status",
+            "current_step",
+            "reason_code",
+            "deadline_at",
+            "version",
+            "updated_at",
+            "completed_at",
+        ):
+            op.create_index(
+                f"ix_sfu_broadcast_admission_operations_{name}", "sfu_broadcast_admission_operations", [name]
+            )
 
     if "sfu_broadcast_background_jobs" not in existing:
         op.create_table(
@@ -167,17 +218,35 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("id"),
             sa.UniqueConstraint("job_name", "partition_key", name="uq_sfu_background_job_partition"),
         )
-        op.create_index("ix_sfu_background_job_due", "sfu_broadcast_background_jobs", ["enabled", "next_run_at", "lease_expires_at"])
-        for name in ("job_name", "partition_key", "enabled", "owner_id", "fencing_token", "lease_expires_at", "last_status", "last_reason_code", "last_started_at", "last_finished_at", "next_run_at", "version", "updated_at"):
+        op.create_index(
+            "ix_sfu_background_job_due", "sfu_broadcast_background_jobs", ["enabled", "next_run_at", "lease_expires_at"]
+        )
+        for name in (
+            "job_name",
+            "partition_key",
+            "enabled",
+            "owner_id",
+            "fencing_token",
+            "lease_expires_at",
+            "last_status",
+            "last_reason_code",
+            "last_started_at",
+            "last_finished_at",
+            "next_run_at",
+            "version",
+            "updated_at",
+        ):
             op.create_index(f"ix_sfu_broadcast_background_jobs_{name}", "sfu_broadcast_background_jobs", [name])
 
 
 def downgrade() -> None:
     existing = set(inspect(op.get_bind()).get_table_names())
     if "sfu_broadcast_admission_operations" in existing:
-        open_operation = op.get_bind().execute(
-            sa.text("SELECT 1 FROM sfu_broadcast_admission_operations WHERE status = 'open' LIMIT 1")
-        ).first()
+        open_operation = (
+            op.get_bind()
+            .execute(sa.text("SELECT 1 FROM sfu_broadcast_admission_operations WHERE status = 'open' LIMIT 1"))
+            .first()
+        )
         if open_operation is not None:
             raise RuntimeError("refusing to drop open SFU admission operations")
     for table in (

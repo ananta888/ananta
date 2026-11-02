@@ -23,8 +23,13 @@ def test_openai_compatible_strategy_forwards_sampling_seed(monkeypatch):
 
     monkeypatch.setattr("agent.llm_strategies.standard._http_post", post)
     OpenAIStrategy().execute(
-        model="model", prompt="hello", url="http://local/v1/chat/completions",
-        api_key=None, history=None, timeout=10, seed=41,
+        model="model",
+        prompt="hello",
+        url="http://local/v1/chat/completions",
+        api_key=None,
+        history=None,
+        timeout=10,
+        seed=41,
     )
     assert captured["seed"] == 41
 
@@ -38,7 +43,12 @@ def test_ollama_strategy_forwards_sampling_seed(monkeypatch):
 
     monkeypatch.setattr("agent.llm_strategies.standard._http_post", post)
     OllamaStrategy().execute(
-        model="model", prompt="hello", url="http://ollama/api/generate",
-        api_key=None, history=None, timeout=10, seed=17,
+        model="model",
+        prompt="hello",
+        url="http://ollama/api/generate",
+        api_key=None,
+        history=None,
+        timeout=10,
+        seed=17,
     )
     assert captured["options"]["seed"] == 17

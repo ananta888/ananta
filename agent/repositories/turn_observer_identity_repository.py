@@ -238,14 +238,11 @@ class SqlTurnObserverIdentityRepository:
         mutation.expires_at = float(mutation.audited_at) + self._mutation_retention
 
     @staticmethod
-    def _delete_expired_receipt(
-        db: Session, mutation: TurnObserverIdentityMutationDB
-    ) -> None:
+    def _delete_expired_receipt(db: Session, mutation: TurnObserverIdentityMutationDB) -> None:
         db.exec(
             delete(TurnObserverIdentityMutationDB).where(
                 TurnObserverIdentityMutationDB.actor == mutation.actor,
-                TurnObserverIdentityMutationDB.idempotency_key_digest
-                == mutation.idempotency_key_digest,
+                TurnObserverIdentityMutationDB.idempotency_key_digest == mutation.idempotency_key_digest,
                 TurnObserverIdentityMutationDB.expires_at.is_not(None),
                 TurnObserverIdentityMutationDB.expires_at <= mutation.audited_at,
             )
@@ -275,17 +272,9 @@ class SqlTurnObserverIdentityRepository:
             ).all()
         )
         if mutation_ids:
-            db.exec(
-                delete(TurnObserverIdentityMutationDB).where(
-                    TurnObserverIdentityMutationDB.id.in_(mutation_ids)
-                )
-            )
+            db.exec(delete(TurnObserverIdentityMutationDB).where(TurnObserverIdentityMutationDB.id.in_(mutation_ids)))
         if rate_ids:
-            db.exec(
-                delete(TurnObserverEnrollmentRateLimitDB).where(
-                    TurnObserverEnrollmentRateLimitDB.id.in_(rate_ids)
-                )
-            )
+            db.exec(delete(TurnObserverEnrollmentRateLimitDB).where(TurnObserverEnrollmentRateLimitDB.id.in_(rate_ids)))
         return len(mutation_ids) + len(rate_ids)
 
 

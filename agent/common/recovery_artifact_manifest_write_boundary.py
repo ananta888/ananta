@@ -13,9 +13,7 @@ from ananta_contracts.recovery_artifact_ingress import (
     MAX_RECOVERY_ARTIFACT_TOTAL_BYTES,
 )
 
-RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA = (
-    "ananta.recovery_artifact_manifest_binding.v1"
-)
+RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA = "ananta.recovery_artifact_manifest_binding.v1"
 RECOVERY_ARTIFACT_MANIFEST_BINDING_FIELDS = frozenset(
     {
         "schema",
@@ -43,30 +41,16 @@ class RecoveryArtifactManifestWriteAuthority:
     bound_at: float
 
 
-_ACTIVE_AUTHORITY: ContextVar[
-    RecoveryArtifactManifestWriteAuthority | None
-] = ContextVar(
+_ACTIVE_AUTHORITY: ContextVar[RecoveryArtifactManifestWriteAuthority | None] = ContextVar(
     "ananta_recovery_artifact_manifest_write_authority",
     default=None,
 )
 
 
 def _sha256_hex(value: object) -> str:
-    normalized = (
-        value.strip().lower()
-        if isinstance(value, str)
-        else ""
-    )
-    if (
-        len(normalized) != 64
-        or any(
-            character not in "0123456789abcdef"
-            for character in normalized
-        )
-    ):
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        )
+    normalized = value.strip().lower() if isinstance(value, str) else ""
+    if len(normalized) != 64 or any(character not in "0123456789abcdef" for character in normalized):
+        raise ValueError("recovery_artifact_manifest_authority_invalid")
     return normalized
 
 
@@ -76,15 +60,8 @@ def _bounded_integer(
     minimum: int,
     maximum: int,
 ) -> int:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, int)
-        or value < minimum
-        or value > maximum
-    ):
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        )
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum or value > maximum:
+        raise ValueError("recovery_artifact_manifest_authority_invalid")
     return value
 
 
@@ -95,30 +72,18 @@ def _authority(
     binding: Any,
 ) -> RecoveryArtifactManifestWriteAuthority:
     normalized_task_id = str(task_id or "").strip()
-    current_lease = (
-        dict(lease) if isinstance(lease, Mapping) else {}
-    )
-    proposed_binding = (
-        dict(binding) if isinstance(binding, Mapping) else {}
-    )
+    current_lease = dict(lease) if isinstance(lease, Mapping) else {}
+    proposed_binding = dict(binding) if isinstance(binding, Mapping) else {}
     if (
         not normalized_task_id
-        or set(proposed_binding)
-        != RECOVERY_ARTIFACT_MANIFEST_BINDING_FIELDS
-        or proposed_binding.get("schema")
-        != RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA
-        or str(current_lease.get("state") or "").strip()
-        != "worker_admitted"
-        or str(current_lease.get("phase") or "").strip()
-        != "execute"
-        or str(current_lease.get("task_id") or "").strip()
-        not in {"", normalized_task_id}
-        or str(proposed_binding.get("task_id") or "").strip()
-        != normalized_task_id
+        or set(proposed_binding) != RECOVERY_ARTIFACT_MANIFEST_BINDING_FIELDS
+        or proposed_binding.get("schema") != RECOVERY_ARTIFACT_MANIFEST_BINDING_SCHEMA
+        or str(current_lease.get("state") or "").strip() != "worker_admitted"
+        or str(current_lease.get("phase") or "").strip() != "execute"
+        or str(current_lease.get("task_id") or "").strip() not in {"", normalized_task_id}
+        or str(proposed_binding.get("task_id") or "").strip() != normalized_task_id
     ):
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        )
+        raise ValueError("recovery_artifact_manifest_authority_invalid")
     lease_revision = _bounded_integer(
         current_lease.get("revision"),
         minimum=1,
@@ -129,26 +94,14 @@ def _authority(
         minimum=1,
         maximum=2_147_483_647,
     )
-    token_digest = _sha256_hex(
-        current_lease.get("token_digest")
-    )
-    request_fingerprint = _sha256_hex(
-        current_lease.get("request_fingerprint")
-    )
+    token_digest = _sha256_hex(current_lease.get("token_digest"))
+    request_fingerprint = _sha256_hex(current_lease.get("request_fingerprint"))
     if (
         binding_revision != lease_revision
-        or _sha256_hex(
-            proposed_binding.get("token_digest")
-        )
-        != token_digest
-        or _sha256_hex(
-            proposed_binding.get("request_fingerprint")
-        )
-        != request_fingerprint
+        or _sha256_hex(proposed_binding.get("token_digest")) != token_digest
+        or _sha256_hex(proposed_binding.get("request_fingerprint")) != request_fingerprint
     ):
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        )
+        raise ValueError("recovery_artifact_manifest_authority_invalid")
     artifact_count = _bounded_integer(
         proposed_binding.get("artifact_count"),
         minimum=1,
@@ -162,21 +115,15 @@ def _authority(
     try:
         bound_at = float(proposed_binding.get("bound_at"))
     except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        ) from exc
+        raise ValueError("recovery_artifact_manifest_authority_invalid") from exc
     if not math.isfinite(bound_at) or bound_at <= 0.0:
-        raise ValueError(
-            "recovery_artifact_manifest_authority_invalid"
-        )
+        raise ValueError("recovery_artifact_manifest_authority_invalid")
     return RecoveryArtifactManifestWriteAuthority(
         task_id=normalized_task_id,
         lease_revision=lease_revision,
         token_digest=token_digest,
         request_fingerprint=request_fingerprint,
-        manifest_digest=_sha256_hex(
-            proposed_binding.get("manifest_digest")
-        ),
+        manifest_digest=_sha256_hex(proposed_binding.get("manifest_digest")),
         artifact_count=artifact_count,
         total_bytes=total_bytes,
         bound_at=bound_at,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from client_surfaces.freecad.bridge.ananta_freecad_bridge import build_freecad_bridge_envelope, validate_freecad_bridge_envelope
+from client_surfaces.freecad.bridge.ananta_freecad_bridge import (
+    build_freecad_bridge_envelope,
+    validate_freecad_bridge_envelope,
+)
 from client_surfaces.freecad.workbench import register, unregister, workbench_info
 from client_surfaces.freecad.workbench.InitGui import WORKBENCH
 

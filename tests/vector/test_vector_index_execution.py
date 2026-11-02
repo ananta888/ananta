@@ -139,11 +139,7 @@ def test_worker_loads_bounded_input_ref_and_rejects_traversal(tmp_path: Path) ->
     wrong_digest_path = input_root / wrong_digest_ref["path"]
     wrong_digest_path.parent.mkdir(parents=True, exist_ok=True)
     wrong_digest_path.write_bytes(raw)
-    execution = ConfiguredVectorIndexExecution(
-        input_loader=BoundedVectorIndexInputLoader(
-            allowed_roots=(input_root,)
-        )
-    )
+    execution = ConfiguredVectorIndexExecution(input_loader=BoundedVectorIndexInputLoader(allowed_roots=(input_root,)))
     kwargs = {
         "operation": "index",
         "scope": _scope(),
@@ -153,9 +149,7 @@ def test_worker_loads_bounded_input_ref_and_rejects_traversal(tmp_path: Path) ->
 
     completed = execution.execute(
         **kwargs,
-        payload={
-            "input_ref": input_ref
-        },
+        payload={"input_ref": input_ref},
     )
     missing_hash = execution.execute(
         **kwargs,
@@ -179,14 +173,8 @@ def test_worker_loads_bounded_input_ref_and_rejects_traversal(tmp_path: Path) ->
 
     assert completed["status"] == "completed"
     assert completed["result"]["upserted"] == 1
-    assert (
-        missing_hash["reason_code"]
-        == "vector_index_input_ref_sha256_required"
-    )
-    assert (
-        wrong_hash["reason_code"]
-        == "vector_index_input_ref_digest_mismatch"
-    )
+    assert missing_hash["reason_code"] == "vector_index_input_ref_sha256_required"
+    assert wrong_hash["reason_code"] == "vector_index_input_ref_digest_mismatch"
     assert rejected["reason_code"] == "vector_index_input_ref_path_invalid"
 
 
@@ -206,9 +194,7 @@ def test_worker_rejects_cross_scope_and_legacy_migration_before_execution(
             raise AssertionError("store creation must not run")
 
     execution = Execution(
-        input_loader=BoundedVectorIndexInputLoader(
-            allowed_roots=(tmp_path,)
-        ),
+        input_loader=BoundedVectorIndexInputLoader(allowed_roots=(tmp_path,)),
         preparation_service=PreparationSpy(),
     )
     raw = b'{"schema":"ananta.vector_index_documents.v1","kind":"codecompass_documents","documents":[{}]}'
@@ -239,12 +225,8 @@ def test_worker_rejects_cross_scope_and_legacy_migration_before_execution(
         idempotency_key="legacy-source-path",
     )
 
-    assert cross_scope["reason_code"] == (
-        "vector_index_input_ref_scope_mismatch"
-    )
-    assert legacy_migration["reason_code"] == (
-        "vector_index_migration_fields_forbidden"
-    )
+    assert cross_scope["reason_code"] == ("vector_index_input_ref_scope_mismatch")
+    assert legacy_migration["reason_code"] == ("vector_index_migration_fields_forbidden")
     assert calls == {"store": 0, "prepare": 0}
 
 
@@ -271,11 +253,7 @@ def test_worker_generates_embeddings_from_digest_bound_document_input(
         separators=(",", ":"),
     ).encode("utf-8")
     input_ref = _write_input_ref(input_root, raw)
-    execution = ConfiguredVectorIndexExecution(
-        input_loader=BoundedVectorIndexInputLoader(
-            allowed_roots=(input_root,)
-        )
-    )
+    execution = ConfiguredVectorIndexExecution(input_loader=BoundedVectorIndexInputLoader(allowed_roots=(input_root,)))
 
     result = execution.execute(
         operation="index",
@@ -299,9 +277,7 @@ def test_worker_generates_embeddings_from_digest_bound_document_input(
                     "external_calls_allowed": False,
                     "allowed_base_urls": [],
                 },
-                "embedding_text_profile": (
-                    "codecompass-symbol-path-summary-v1"
-                ),
+                "embedding_text_profile": ("codecompass-symbol-path-summary-v1"),
             },
             "compatibility": {
                 "dimensions": 12,
@@ -320,9 +296,7 @@ def test_worker_generates_embeddings_from_digest_bound_document_input(
 
     assert result["status"] == "completed"
     assert result["result"]["upserted"] == 1
-    persisted = json.loads(
-        (tmp_path / "index.json").read_text(encoding="utf-8")
-    )
+    persisted = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
     assert len(persisted["entries"][0]["vector"]) == 12
 
 
@@ -370,9 +344,7 @@ def test_delete_all_scope_preserves_other_scope(tmp_path: Path) -> None:
 
     assert deleted["status"] == "completed"
     assert deleted["result"]["deleted"] == 1
-    assert {
-        entry["workspace_id"] for entry in persisted["entries"]
-    } == {"workspace-b"}
+    assert {entry["workspace_id"] for entry in persisted["entries"]} == {"workspace-b"}
 
 
 def test_worker_rejects_string_delete_all_scope(tmp_path: Path) -> None:
@@ -546,11 +518,7 @@ def test_migration_payload_supports_dry_run_pause_and_bound_resume(
         def _create_store(self, config):
             return store
 
-    execution = Execution(
-        input_loader=BoundedVectorIndexInputLoader(
-            allowed_roots=(input_root,)
-        )
-    )
+    execution = Execution(input_loader=BoundedVectorIndexInputLoader(allowed_roots=(input_root,)))
     scope = {
         "workspace_id": "workspace-a",
         "repository_id": "repository-a",

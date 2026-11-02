@@ -4,6 +4,7 @@ Anti-hallucination terminal fallback: when no other strategy matches,
 return no_action. Never fabricates an answer. Confidence=1.0 (always correct
 to do nothing than to hallucinate). Deterministic.
 """
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase

@@ -41,11 +41,7 @@ class LocalRuntimeImageAdapter:
             raise ValueError("local_runtime_image_count_denied")
         result = [dict(item) for item in messages]
         target = next(
-            (
-                item
-                for item in reversed(result)
-                if str(item.get("role") or "").strip().lower() == "user"
-            ),
+            (item for item in reversed(result) if str(item.get("role") or "").strip().lower() == "user"),
             None,
         )
         if target is None:

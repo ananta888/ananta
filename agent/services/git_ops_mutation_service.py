@@ -147,6 +147,7 @@ class GitOpsMutationService:
         workspace_id: str | None,
         *,
         remote: str | None = None,
+        branch: str | None = None,
         credential_ref: str | None = None,
         approval_id: str | None = None,
     ) -> OpsActionResult:
@@ -163,6 +164,8 @@ class GitOpsMutationService:
             "remote": remote_name,
             "credential_ref": credential_ref,
         }
+        if branch is not None:
+            arguments["branch"] = branch
         blocked = self._gate.authorize("git.fetch", "fetch", workspace.workspace_id, arguments, approval_id)
         if blocked:
             return blocked
@@ -175,10 +178,15 @@ class GitOpsMutationService:
         if transport_error:
             return OpsActionResult(False, "fetch", target_id=workspace.workspace_id, error=transport_error)
         assert transport is not None
+        # A named branch is fetched explicitly: the checkout's fetch refspec may be
+        # pinned to another branch, and the caller needs exactly this remote tip.
+        command = ["fetch", "--no-tags", "--no-recurse-submodules", remote_name]
+        if branch is not None:
+            command.append(branch)
         result = self._git.run(
             hardened_git_transport_args(
                 transport,
-                ["fetch", "--no-tags", "--no-recurse-submodules", remote_name],
+                command,
                 remote_name=remote_name,
             ),
             cwd=workspace.root,

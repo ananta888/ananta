@@ -12,10 +12,20 @@ pytestmark = pytest.mark.timeout(60)
 
 
 def test_token_roles_and_keycloak_memberships_in_both_shapes():
-    ananta = {"sub": "anna", "role": "user", "idp_groups": ["/ananta/dev"], "idp_realm_roles": ["r1"],
-              "idp_client_roles": ["ananta:ops"], "tenant_id": "t1"}
-    raw = {"sub": "kc-subject", "groups": ["/ananta/dev"], "realm_access": {"roles": ["r1", "Offline-Access"]},
-           "resource_access": {"ananta": {"roles": ["ops"]}, "account": {"roles": ["view"]}}}
+    ananta = {
+        "sub": "anna",
+        "role": "user",
+        "idp_groups": ["/ananta/dev"],
+        "idp_realm_roles": ["r1"],
+        "idp_client_roles": ["ananta:ops"],
+        "tenant_id": "t1",
+    }
+    raw = {
+        "sub": "kc-subject",
+        "groups": ["/ananta/dev"],
+        "realm_access": {"roles": ["r1", "Offline-Access"]},
+        "resource_access": {"ananta": {"roles": ["ops"]}, "account": {"roles": ["view"]}},
+    }
     assert token_roles(ananta, is_admin=True) == {"user", "admin"}
     assert token_roles(raw, is_admin=False) == {"r1", "offline_access"}
     one, two = identity_claims(ananta), identity_claims(raw)
@@ -33,8 +43,12 @@ def test_the_principal_carries_the_grants_of_its_bound_roles():
         seen.append(claims)
         return EffectiveGrants(roles=frozenset({"developer"}), allow_groups=frozenset({"ananta.tool.read.v1"}))
 
-    principal = build_access_principal({"sub": "anna", "role": "user", "project_id": "p1"}, is_admin=False,
-                                       auth_source="user_jwt", grants_for=grants_for)
+    principal = build_access_principal(
+        {"sub": "anna", "role": "user", "project_id": "p1"},
+        is_admin=False,
+        auth_source="user_jwt",
+        grants_for=grants_for,
+    )
     assert principal.subject_id == "anna" and principal.project_id == "p1" and principal.roles == {"developer"}
     assert seen[0].username == "anna" and seen[0].project_id == "p1"
     assert principal.as_dict()["grants"]["allow_groups"] == ["ananta.tool.read.v1"]
@@ -51,16 +65,22 @@ def test_admin_api_round_trip(client, admin_auth_header, user_auth_header, fresh
     assert listed.status_code == 200
     assert {"viewer", "developer", "maintainer", "admin"} <= {row["id"] for row in listed.json["data"]["roles"]}
 
-    saved = client.put(f"/access/roles/{role_id}", headers=admin_auth_header,
-                       json={"name": "Doku", "grants": {"allow_operations": ["ananta.tool.repo.read_file_range"]}})
+    saved = client.put(
+        f"/access/roles/{role_id}",
+        headers=admin_auth_header,
+        json={"name": "Doku", "grants": {"allow_operations": ["ananta.tool.repo.read_file_range"]}},
+    )
     assert saved.status_code == 200, saved.json
     bad = client.put("/access/roles/x!", headers=admin_auth_header, json={"grants": {}})
     assert bad.status_code == 400
     builtin = client.put("/access/roles/admin", headers=admin_auth_header, json={"grants": {}})
     assert builtin.status_code == 409
 
-    bound = client.post("/access/bindings", headers=admin_auth_header,
-                        json={"subject_kind": "local_user", "subject": "testuser", "role_id": role_id})
+    bound = client.post(
+        "/access/bindings",
+        headers=admin_auth_header,
+        json={"subject_kind": "local_user", "subject": "testuser", "role_id": role_id},
+    )
     assert bound.status_code == 201, bound.json
     me = client.get("/access/me", headers=user_auth_header)
     assert me.status_code == 200 and role_id in me.json["data"]["access_roles"]

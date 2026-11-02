@@ -15,21 +15,44 @@ MEMORY_DATA_RULE = (
 )
 _MEMORY_KINDS = frozenset({"memory", "memory_tree", "task_memory", "result_memory"})
 _SIGNALS = (
-    ("instruction_override", re.compile(r"ignore\s+(?:all\s+)?(?:previous|prior)\s+instructions|"
-                                        r"ignoriere\s+(?:alle\s+)?(?:vorherigen|bisherigen)\s+anweisungen", re.I)),
-    ("role_marker", re.compile(r"<\|(?:im_start|system|developer)\|>|\[/?INST\]|"
-                              r"</?(?:system|developer|untrusted_memory_data)\b", re.I)),
-    ("policy_override", re.compile(r"(?:disable|bypass)\s+(?:security|policy|approval)|"
-                                  r"grant\s+(?:all\s+)?capabilities", re.I)),
+    (
+        "instruction_override",
+        re.compile(
+            r"ignore\s+(?:all\s+)?(?:previous|prior)\s+instructions|"
+            r"ignoriere\s+(?:alle\s+)?(?:vorherigen|bisherigen)\s+anweisungen",
+            re.I,
+        ),
+    ),
+    (
+        "role_marker",
+        re.compile(
+            r"<\|(?:im_start|system|developer)\|>|\[/?INST\]|"
+            r"</?(?:system|developer|untrusted_memory_data)\b",
+            re.I,
+        ),
+    ),
+    (
+        "policy_override",
+        re.compile(
+            r"(?:disable|bypass)\s+(?:security|policy|approval)|"
+            r"grant\s+(?:all\s+)?capabilities",
+            re.I,
+        ),
+    ),
 )
 
 
 def is_memory_chunk(chunk: Mapping[str, Any]) -> bool:
     metadata = chunk.get("metadata")
     metadata = metadata if isinstance(metadata, Mapping) else {}
-    return any(str(value or "").lower() in _MEMORY_KINDS for value in (
-        chunk.get("engine"), metadata.get("source_type"), metadata.get("source_origin"),
-    ))
+    return any(
+        str(value or "").lower() in _MEMORY_KINDS
+        for value in (
+            chunk.get("engine"),
+            metadata.get("source_type"),
+            metadata.get("source_origin"),
+        )
+    )
 
 
 def render_memory_data(chunk: Mapping[str, Any], *, max_chars: int = 1200) -> str:
@@ -94,12 +117,17 @@ def memory_prompt_positions(prompt: str) -> list[dict[str, Any]]:
         fields = ("source_ref", "chunk_ref", "provenance_ref", "content")
         if any(not isinstance(data.get(key), str) for key in fields):
             continue
-        positions.append({
-            "start_char": match.start(), "end_char": match.end(),
-            "block_sha256": hashlib.sha256(match.group(0).encode("utf-8")).hexdigest(),
-            **{f"{key}_sha256": hashlib.sha256(data[key].encode("utf-8")).hexdigest() for key in fields},
-            "trust": "untrusted", "authority": "none", "identity_verified": False,
-        })
+        positions.append(
+            {
+                "start_char": match.start(),
+                "end_char": match.end(),
+                "block_sha256": hashlib.sha256(match.group(0).encode("utf-8")).hexdigest(),
+                **{f"{key}_sha256": hashlib.sha256(data[key].encode("utf-8")).hexdigest() for key in fields},
+                "trust": "untrusted",
+                "authority": "none",
+                "identity_verified": False,
+            }
+        )
         entry_ref = data.get("memory_entry_ref")
         if isinstance(entry_ref, str):
             positions[-1]["memory_entry_ref_sha256"] = hashlib.sha256(entry_ref.encode("utf-8")).hexdigest()

@@ -79,17 +79,24 @@ def sync_commit():
     if body is None:
         return _error("invalid_json_object", 400)
     try:
-        result = service.commit(profile_id=str(body.get("profile_id") or ""),
-                                snapshot_ref=str(body.get("snapshot_ref") or ""),
-                                commit_sha=str(body.get("commit_sha") or ""))
+        result = service.commit(
+            profile_id=str(body.get("profile_id") or ""),
+            snapshot_ref=str(body.get("snapshot_ref") or ""),
+            commit_sha=str(body.get("commit_sha") or ""),
+        )
     except KeyError as error:
         return _error(str(error).strip("'"), 404)
     except LayerSyncConflict as error:
         return _error(str(error), 409)
     except (ValueError, RuntimeError) as error:
         return _error(str(error), 400)
-    _audit("commit", profile_id=str(body.get("profile_id") or ""), commit_sha=str(body.get("commit_sha") or ""),
-           status=str(result.get("status") or ""), task_id=str(result.get("task_id") or ""))
+    _audit(
+        "commit",
+        profile_id=str(body.get("profile_id") or ""),
+        commit_sha=str(body.get("commit_sha") or ""),
+        status=str(result.get("status") or ""),
+        task_id=str(result.get("task_id") or ""),
+    )
     return api_response(result)
 
 
@@ -105,6 +112,10 @@ def sync_garbage_collect():
     if "dry_run" in body and not isinstance(body["dry_run"], bool):
         return _error("dry_run_boolean_required", 400)
     report = collector.collect(dry_run=body.get("dry_run", True))
-    _audit("gc", dry_run=report["dry_run"], swept_layers=report["layers"]["swept"],
-           swept_contents=report["contents"]["swept"])
+    _audit(
+        "gc",
+        dry_run=report["dry_run"],
+        swept_layers=report["layers"]["swept"],
+        swept_contents=report["contents"]["swept"],
+    )
     return api_response(report)

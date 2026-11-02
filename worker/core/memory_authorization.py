@@ -47,8 +47,13 @@ def require_worker_memory(authorization, scope, operation, *, clock=time.time):
     except Exception as exc:
         raise ValueError("memory_hub_authorization_unavailable") from exc
     now = clock()
-    if (not isinstance(decision, WorkerMemoryAccess) or decision.scope != scope
-            or decision.operation != operation or type(now) not in (int, float) or not math.isfinite(now)
-            or now >= decision.expires_at):
+    if (
+        not isinstance(decision, WorkerMemoryAccess)
+        or decision.scope != scope
+        or decision.operation != operation
+        or type(now) not in (int, float)
+        or not math.isfinite(now)
+        or now >= decision.expires_at
+    ):
         raise ValueError("memory_hub_authorization_invalid")
     return decision

@@ -5,8 +5,8 @@ from typing import Any, Mapping, Protocol
 
 from agent.services.mail_account_service import MailAccountService
 from agent.services.mail_contract_service import MailAccountV2
-from agent.services.mail_provider_ports import MailProviderResult
 from agent.services.mail_legacy_mapper import MailDedupeSummary
+from agent.services.mail_provider_ports import MailProviderResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,8 +35,7 @@ class MailProtocolCutoverReport:
 
 
 class MailCutoverDiscoveryPreflight(Protocol):
-    def discover(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[Mapping[str, Any]]:
-        ...
+    def discover(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[Mapping[str, Any]]: ...
 
 
 class MailCutoverAuthenticationPreflight(Protocol):
@@ -45,23 +44,19 @@ class MailCutoverAuthenticationPreflight(Protocol):
         account: MailAccountV2,
         target_protocol: str,
         discovery: Mapping[str, Any],
-    ) -> MailProviderResult[None]:
-        ...
+    ) -> MailProviderResult[None]: ...
 
 
 class MailCutoverSyncPreflight(Protocol):
-    def probe(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[None]:
-        ...
+    def probe(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[None]: ...
 
 
 class MailCutoverMatcher(Protocol):
-    def match(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[MailDedupeSummary]:
-        ...
+    def match(self, account: MailAccountV2, target_protocol: str) -> MailProviderResult[MailDedupeSummary]: ...
 
 
 class MailCutoverAuditSink(Protocol):
-    def append(self, event: Mapping[str, Any]) -> None:
-        ...
+    def append(self, event: Mapping[str, Any]) -> None: ...
 
 
 class MailProtocolCutoverService:

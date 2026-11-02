@@ -1,4 +1,5 @@
 """T04.03: Deterministischer E2E-Flow für Goal Artifact Execution Provenance."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,14 @@ from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.config import settings
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
-from scripts.e2e.e2e_artifacts import build_report, compact_summary, make_flow_entry, new_run_id, write_report, write_text_artifact
+from scripts.e2e.e2e_artifacts import (
+    build_report,
+    compact_summary,
+    make_flow_entry,
+    new_run_id,
+    write_report,
+    write_text_artifact,
+)
 
 
 def _state() -> OperatorState:
@@ -113,10 +121,16 @@ def main() -> int:
     data_root = _REPO / "data" / run_id
     data_root.mkdir(parents=True, exist_ok=True)
     result = run_flow(data_root=data_root)
-    flow_log = write_text_artifact(run_id, "goal-artifact-execution-provenance", "flow.log", json.dumps(result, indent=2))
+    flow_log = write_text_artifact(
+        run_id, "goal-artifact-execution-provenance", "flow.log", json.dumps(result, indent=2)
+    )
     report = build_report(
         run_id,
-        [make_flow_entry(flow_id="goal-artifact-execution-provenance", status="passed", blocking=True, logs=[flow_log])],
+        [
+            make_flow_entry(
+                flow_id="goal-artifact-execution-provenance", status="passed", blocking=True, logs=[flow_log]
+            )
+        ],
     )
     report_ref = write_report(run_id, report)
     print(compact_summary(report))

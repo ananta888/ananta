@@ -44,6 +44,7 @@ def test_registry_reports_missing_optional_dependency_as_degraded() -> None:
         risk_class="medium",
         enabled_by_default=True,
     )
+
     def _factory() -> _MockRuntime:
         raise ModuleNotFoundError("n8n")
 

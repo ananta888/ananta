@@ -4,6 +4,7 @@ DRR-T044: Proves no common bypass is possible.
 Monkeypatches executors to detect unexpected calls.
 Runs without external services.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -24,6 +25,7 @@ def _blocked_tools():
 
 
 # ── Proof: Worker cannot execute from unstructured context alone ───────────────
+
 
 class TestNoUnstructuredContextExecution:
     def test_envelope_without_repair_procedure_is_denied(self) -> None:
@@ -51,6 +53,7 @@ class TestNoUnstructuredContextExecution:
 
 
 # ── Proof: Tampered plan hash is denied ───────────────────────────────────────
+
 
 class TestTamperedPlanRejected:
     def test_step_not_in_plan_cannot_execute(self) -> None:
@@ -114,17 +117,21 @@ class TestTamperedPlanRejected:
 
 # ── Proof: Unsafe command patterns are denied before execution ────────────────
 
+
 class TestUnsafeCommandsDenied:
-    @pytest.mark.parametrize("command,expected_blocked", [
-        ("rm -rf /", True),
-        ("mkfs.ext4 /dev/sdb", True),
-        ("dd if=/dev/zero of=/dev/sda", True),
-        ("shutdown -h now", True),
-        ("reboot", True),
-        ("systemctl status nginx", False),
-        ("ps aux", False),
-        ("ls /tmp", False),
-    ])
+    @pytest.mark.parametrize(
+        "command,expected_blocked",
+        [
+            ("rm -rf /", True),
+            ("mkfs.ext4 /dev/sdb", True),
+            ("dd if=/dev/zero of=/dev/sda", True),
+            ("shutdown -h now", True),
+            ("reboot", True),
+            ("systemctl status nginx", False),
+            ("ps aux", False),
+            ("ls /tmp", False),
+        ],
+    )
     def test_command_guardrail(self, command: str, expected_blocked: bool) -> None:
         from worker.repair.repair_procedure_runner import check_unsafe_action_guardrails
 
@@ -144,6 +151,7 @@ class TestUnsafeCommandsDenied:
 
         # Monkeypatch map_step_to_tool_invocation to detect if tool is invoked
         import worker.repair.repair_procedure_runner as runner_mod
+
         original_map = runner_mod.map_step_to_tool_invocation
 
         def tracking_map(step, **kwargs):
@@ -184,6 +192,7 @@ class TestUnsafeCommandsDenied:
 
 
 # ── Proof: High-risk step without approval does not call tool ─────────────────
+
 
 class TestHighRiskWithoutApproval:
     def test_high_risk_step_without_capability_is_denied(self) -> None:
@@ -249,6 +258,7 @@ class TestHighRiskWithoutApproval:
 
 # ── Proof: Unknown step_type is denied ───────────────────────────────────────
 
+
 class TestUnknownStepTypeDenied:
     def test_unknown_step_type_maps_to_denied_tool(self) -> None:
         """Unknown step_type maps to __denied__, not arbitrary shell. DRR-T044."""
@@ -285,6 +295,7 @@ class TestUnknownStepTypeDenied:
 
 
 # ── Proof: LLM escalation cannot directly execute raw commands ────────────────
+
 
 class TestLLMEscalationCannotExecute:
     def test_llm_escalation_output_is_proposal_not_execution(self) -> None:
@@ -338,7 +349,8 @@ class TestLLMEscalationCannotExecute:
 
     def test_suite_runs_without_external_services(self) -> None:
         """All security tests are self-contained, no network required. DRR-T044."""
-        from worker.repair.repair_procedure_runner import RepairProcedureRunner, RepairFeatureFlags
+        from worker.repair.repair_procedure_runner import RepairFeatureFlags, RepairProcedureRunner
+
         runner = RepairProcedureRunner()
         flags = RepairFeatureFlags()
         assert runner is not None

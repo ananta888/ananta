@@ -208,9 +208,7 @@ def main() -> int:
             else:
                 item["offline_smoke"] = _run_smoke(python, _LFM_SMOKE, root)
         report["targets"][target] = item
-    report["passed"] = bool(report["targets"]) and all(
-        item["passed"] for item in report["targets"].values()
-    )
+    report["passed"] = bool(report["targets"]) and all(item["passed"] for item in report["targets"].values())
     print(json.dumps(report, sort_keys=True))
     return 0 if report["passed"] else 1
 

@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # This test exercises the full opencode routing path end-to-end and depends on
 # the local LMStudio/OpenCode runtime being reachable. It is not part of the
 # standard pytest run — guard it behind an opt-in env var so CI failures don't
@@ -38,7 +37,18 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_heade
 
     cli_calls = []
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None, workdir=None, temperature=None):
+    def _fake_run_llm_cli_command(
+        prompt,
+        options,
+        timeout,
+        backend,
+        model,
+        routing_policy,
+        research_context=None,
+        session=None,
+        workdir=None,
+        temperature=None,
+    ):
         cli_calls.append(
             {
                 "prompt": prompt,

@@ -129,9 +129,7 @@ class TorchLanguageModelTrainer:
             losses.append(float(loss.detach().cpu()))
             optimizer_step = step + 1
             should_checkpoint = bool(
-                checkpoint_callback
-                and checkpoint_cadence > 0
-                and optimizer_step % checkpoint_cadence == 0
+                checkpoint_callback and checkpoint_cadence > 0 and optimizer_step % checkpoint_cadence == 0
             )
             should_preempt = bool(preemption_requested and preemption_requested())
             if checkpoint_callback and (should_checkpoint or should_preempt):
@@ -142,11 +140,7 @@ class TorchLanguageModelTrainer:
         raw_model = model.module if distributed else model
         executed_steps = max_steps - initial_step
         token_count = sum(len(example[0]) for example in examples) * executed_steps / len(examples)
-        peak_memory = (
-            float(torch.cuda.max_memory_allocated(device))
-            if device.type == "cuda"
-            else 0.0
-        )
+        peak_memory = float(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0.0
         metrics = {
             "loss": losses[-1],
             "initial_loss": losses[0],
@@ -201,9 +195,7 @@ class TorchLanguageModelEvaluator:
         records: Sequence[Mapping[str, Any]],
     ) -> dict[str, float]:
         torch = require_torch()
-        examples = TorchLanguageModelTrainer._examples(
-            records, tokenizer, config.context_length, supervised=False
-        )
+        examples = TorchLanguageModelTrainer._examples(records, tokenizer, config.context_length, supervised=False)
         device = next(model.parameters()).device
         model.eval()
         losses: list[float] = []
@@ -214,9 +206,7 @@ class TorchLanguageModelEvaluator:
                 inputs = torch.tensor([tokens], dtype=torch.long, device=device)
                 labels = torch.tensor([targets], dtype=torch.long, device=device)
                 logits = model(inputs)
-                loss = torch.nn.functional.cross_entropy(
-                    logits.reshape(-1, config.vocab_size), labels.reshape(-1)
-                )
+                loss = torch.nn.functional.cross_entropy(logits.reshape(-1, config.vocab_size), labels.reshape(-1))
                 losses.append(float(loss.detach().cpu()))
                 tokens_total += len(targets)
         for record in records:

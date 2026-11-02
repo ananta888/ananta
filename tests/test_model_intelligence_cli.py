@@ -42,9 +42,7 @@ def test_cli_client_uses_only_public_api_contract() -> None:
     )
 
     assert result["job_id"] == "job-1"
-    assert transport.calls[0]["url"].endswith(
-        "/api/model-intelligence/jobs"
-    )
+    assert transport.calls[0]["url"].endswith("/api/model-intelligence/jobs")
     assert transport.calls[0]["headers"]["Idempotency-Key"] == "request-1"
     assert transport.calls[0]["headers"]["Authorization"] == "Bearer secret"
 

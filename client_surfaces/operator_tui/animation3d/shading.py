@@ -34,8 +34,8 @@ def _edge_category(angle: float) -> str:
 def char_for_cell(cell: dict) -> str:
     angle = cell.get("angle", 0.0)
     is_snake = cell.get("is_snake", False)
-    part = cell.get("part", "")
-    z = cell.get("z", 0.0)
+    cell.get("part", "")
+    cell.get("z", 0.0)
 
     if is_snake:
         cat = _edge_category(angle)

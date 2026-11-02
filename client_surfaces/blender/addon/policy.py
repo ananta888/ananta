@@ -17,4 +17,8 @@ def render_policy_state(code: str) -> str:
 def capability_policy_state(capability: dict) -> str:
     if bool((capability or {}).get("approval_required")):
         return "approval_required"
-    return render_policy_state(str((capability or {}).get("effective_decision") or (capability or {}).get("default_policy_state") or "degraded"))
+    return render_policy_state(
+        str(
+            (capability or {}).get("effective_decision") or (capability or {}).get("default_policy_state") or "degraded"
+        )
+    )

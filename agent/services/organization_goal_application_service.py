@@ -178,13 +178,16 @@ class OrganizationGoalApplicationService:
             organization.organization_id,
             idempotency_key,
         )
-        if uow.goals.get_scoped(
-            organization.tenant_id,
-            organization.project_id,
-            organization.organization_id,
-            goal_id,
-            for_update=True,
-        ) is not None:
+        if (
+            uow.goals.get_scoped(
+                organization.tenant_id,
+                organization.project_id,
+                organization.organization_id,
+                goal_id,
+                for_update=True,
+            )
+            is not None
+        ):
             raise OrganizationGoalApplicationError(
                 "organization_goal_identity_conflict",
                 public_status=409,
@@ -269,10 +272,7 @@ class OrganizationGoalApplicationService:
         organization,
         request_digest: str,
     ) -> OrganizationGoalCreateResult:
-        if (
-            operation.organization_id != organization.organization_id
-            or operation.request_digest != request_digest
-        ):
+        if operation.organization_id != organization.organization_id or operation.request_digest != request_digest:
             raise OrganizationGoalApplicationError(
                 "organization_goal_idempotency_conflict",
                 public_status=409,

@@ -42,7 +42,9 @@ def submit_goal() -> tuple:
         requested_by=_current_username(),
     )
     if result.get("status") != "accepted":
-        return api_response(status="error", message=str(result.get("reason") or "goal_submit_failed"), data=result, code=400)
+        return api_response(
+            status="error", message=str(result.get("reason") or "goal_submit_failed"), data=result, code=400
+        )
     log_audit("blender_goal_submitted", {"goal_id": result.get("goal_id"), "trace_id": result.get("trace_id")})
     return api_response(data=result, code=201)
 
@@ -58,7 +60,9 @@ def list_tasks() -> tuple:
 def get_task(task_id: str) -> tuple:
     result, status_code = _service().get_task(task_id=task_id)
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "task_not_found"), data=result, code=status_code)
+        return api_response(
+            status="error", message=str(result.get("reason") or "task_not_found"), data=result, code=status_code
+        )
     return api_response(data=result)
 
 
@@ -73,7 +77,9 @@ def list_artifacts() -> tuple:
 def get_artifact(artifact_id: str) -> tuple:
     result, status_code = _service().get_artifact(artifact_id=artifact_id)
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "artifact_not_found"), data=result, code=status_code)
+        return api_response(
+            status="error", message=str(result.get("reason") or "artifact_not_found"), data=result, code=status_code
+        )
     return api_response(data=result)
 
 
@@ -93,8 +99,15 @@ def approval_decision() -> tuple:
         requested_by=_current_username(),
     )
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "approval_decision_failed"), data=result, code=status_code)
-    log_audit("blender_approval_decision", {"approval_id": result.get("approval_id"), "decision": result.get("decision")})
+        return api_response(
+            status="error",
+            message=str(result.get("reason") or "approval_decision_failed"),
+            data=result,
+            code=status_code,
+        )
+    log_audit(
+        "blender_approval_decision", {"approval_id": result.get("approval_id"), "decision": result.get("decision")}
+    )
     return api_response(data=result, code=status_code)
 
 
@@ -128,7 +141,9 @@ def mutation_plan() -> tuple:
 def execute() -> tuple:
     result, status_code = _service().execute(payload=request.get_json(silent=True) or {})
     if status_code >= 400:
-        return api_response(status="error", message=str(result.get("reason") or "approval_required"), data=result, code=status_code)
+        return api_response(
+            status="error", message=str(result.get("reason") or "approval_required"), data=result, code=status_code
+        )
     return api_response(data=result, code=status_code)
 
 

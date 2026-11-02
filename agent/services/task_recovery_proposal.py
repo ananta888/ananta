@@ -241,7 +241,6 @@ class RecoveryProposal:
             "node_count": len(nodes),
         }
 
-
     def propose_after_model_exhaustion(
         self,
         *,

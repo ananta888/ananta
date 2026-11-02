@@ -41,8 +41,14 @@ def call_worker_tool(task_id: str, tool_name: str):
     worker_url = str(dict(getattr(g, "service_identity", {}) or {}).get("worker_url") or "")
     try:
         result = get_worker_tool_gateway().call(
-            current_app._get_current_object(), task_id, tool_name, arguments, worker_url=worker_url,
-            tool_call_id=tool_call_id, trace_id=get_correlation_id())
+            current_app._get_current_object(),
+            task_id,
+            tool_name,
+            arguments,
+            worker_url=worker_url,
+            tool_call_id=tool_call_id,
+            trace_id=get_correlation_id(),
+        )
     except GatewayDenied as denied:
         return _refused(denied.reason, denied.status_code)
     return jsonify(result)

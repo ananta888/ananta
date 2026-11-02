@@ -10,6 +10,7 @@ not registered here are rejected deterministically by the policy gate
 
 Contract: ``docs/contracts/ananta-worker-tool-loop.md``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -252,7 +253,12 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             CATEGORY_READ_ONLY,
             RISK_READ,
             "Expand one architecture node handle without loading the full graph.",
-            {"handle": {"type": "string"}, "node": {"type": "string"}, "query": {"type": "string"}, "revision": {"type": "string"}},
+            {
+                "handle": {"type": "string"},
+                "node": {"type": "string"},
+                "query": {"type": "string"},
+                "revision": {"type": "string"},
+            },
             requires_workspace=False,
         ),
         _spec(
@@ -292,7 +298,12 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             CATEGORY_READ_ONLY,
             RISK_READ,
             "Optional recursive CodeCompass analysis with hard depth/fanout budgets. Falls back to hybrid retrieval for simple queries.",
-            {"query": {"type": "string"}, "enabled": {"type": "boolean"}, "max_depth": {"type": "integer"}, "max_fanout": {"type": "integer"}},
+            {
+                "query": {"type": "string"},
+                "enabled": {"type": "boolean"},
+                "max_depth": {"type": "integer"},
+                "max_fanout": {"type": "integer"},
+            },
             requires_workspace=False,
         ),
         _spec(
@@ -373,7 +384,12 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             {
                 "question": {
                     "type": "string",
-                    "enum": ["dto-impact", "controller-test-coverage", "field-policy-impact", "service-dependency-chain"],
+                    "enum": [
+                        "dto-impact",
+                        "controller-test-coverage",
+                        "field-policy-impact",
+                        "service-dependency-chain",
+                    ],
                 },
                 "seed": {"type": "string"},
                 "field": {"type": "string"},
@@ -703,8 +719,9 @@ class AnantaToolRegistryService:
             specs = [spec for spec in specs if spec.category == category]
         return specs
 
-    def resolve_alias(self, name: str | None, allowed_tools: list[str] | None,
-                      arguments: dict | None = None) -> tuple[str, dict, str | None]:
+    def resolve_alias(
+        self, name: str | None, allowed_tools: list[str] | None, arguments: dict | None = None
+    ) -> tuple[str, dict, str | None]:
         """``(tool, arguments, aliased_from)``: a retired search tool the allowlist no longer offers is
         answered by its successor (WCRB-012), with only the arguments the successor accepts."""
         requested = str(name or "").strip()
@@ -714,8 +731,9 @@ class AnantaToolRegistryService:
             return requested, dict(arguments or {}), None
         spec = self.get_tool(target)
         schema = dict(getattr(spec, "argument_schema", None) or {}) if spec else {}
-        accepted = set((schema.get("properties") or {}).keys() if isinstance(schema.get("properties"), dict)
-                       else schema.keys())
+        accepted = set(
+            (schema.get("properties") or {}).keys() if isinstance(schema.get("properties"), dict) else schema.keys()
+        )
         kept = {key: value for key, value in dict(arguments or {}).items() if not accepted or key in accepted}
         return target, kept, requested
 

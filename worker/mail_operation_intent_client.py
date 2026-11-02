@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
+from agent.services.mail_mutation_policy import MailMutationAuthorization
 from agent.services.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailProviderResult,
 )
-from agent.services.mail_mutation_policy import MailMutationAuthorization
 
 
 @dataclass(frozen=True)
@@ -97,13 +97,9 @@ class HttpMailOperationIntentClient:
         try:
             body = response.json()
         except ValueError:
-            return MailProviderResult.failure(
-                "mail_intent_hub_response_invalid"
-            )
+            return MailProviderResult.failure("mail_intent_hub_response_invalid")
         if not isinstance(body, Mapping):
-            return MailProviderResult.failure(
-                "mail_intent_hub_response_invalid"
-            )
+            return MailProviderResult.failure("mail_intent_hub_response_invalid")
         if response.status_code != 200 or not bool(body.get("ok")):
             return MailProviderResult.failure(
                 str(body.get("reason_code") or "mail_intent_hub_denied"),
@@ -133,9 +129,7 @@ class HttpMailOperationIntentClient:
         raw = dict(response.value or {}).get("intent")
         if not response.ok or not isinstance(raw, Mapping):
             return MailProviderResult.failure(
-                response.reason_code
-                if not response.ok
-                else "mail_operation_intent_response_invalid",
+                response.reason_code if not response.ok else "mail_operation_intent_response_invalid",
                 retryable=response.retryable,
             )
         try:
@@ -150,9 +144,7 @@ class HttpMailOperationIntentClient:
                 job_id=str(raw["job_id"]),
             )
         except (KeyError, TypeError, ValueError):
-            return MailProviderResult.failure(
-                "mail_operation_intent_response_invalid"
-            )
+            return MailProviderResult.failure("mail_operation_intent_response_invalid")
         return MailProviderResult.success(
             intent,
             reason_code="mail_operation_intent_resolved",
@@ -187,18 +179,14 @@ class HttpMailOperationIntentClient:
         raw = dict(response.value or {}).get("decision")
         if not response.ok or not isinstance(raw, Mapping):
             return MailProviderResult.failure(
-                response.reason_code
-                if not response.ok
-                else "mail_content_decision_response_invalid",
+                response.reason_code if not response.ok else "mail_content_decision_response_invalid",
                 retryable=response.retryable,
             )
         return MailProviderResult.success(
             MailContentAccessDecision(
                 allowed=bool(raw.get("allowed")),
                 reason_code=str(raw.get("reason_code") or ""),
-                policy_decision_ref=str(
-                    raw.get("policy_decision_ref") or ""
-                ),
+                policy_decision_ref=str(raw.get("policy_decision_ref") or ""),
                 expires_at=str(raw.get("expires_at") or ""),
                 nonce=str(raw.get("nonce") or ""),
             )
@@ -249,11 +237,7 @@ class ResolvedMailMutationIntentVerifier:
         expected_operation = {
             "set_keywords": "set_keywords",
             "move_messages": "move_messages",
-            "delete_messages": (
-                "permanent_delete"
-                if bool(payload.get("permanent"))
-                else "move_to_trash"
-            ),
+            "delete_messages": ("permanent_delete" if bool(payload.get("permanent")) else "move_to_trash"),
         }.get(action, "")
         if (
             self._intent.operation != "mutation"
@@ -261,15 +245,10 @@ class ResolvedMailMutationIntentVerifier:
             or request.operation != expected_operation
             or request.intent_ref != str(payload.get("intent_ref") or "")
             or request.audit_ref != str(payload.get("audit_ref") or "")
-            or request.confirmation_ref
-            != str(payload.get("confirmation_ref") or "")
+            or request.confirmation_ref != str(payload.get("confirmation_ref") or "")
         ):
-            return MailProviderResult.failure(
-                "mail_mutation_intent_scope_mismatch"
-            )
-        return MailProviderResult.success(
-            reason_code="mail_mutation_intent_verified"
-        )
+            return MailProviderResult.failure("mail_mutation_intent_scope_mismatch")
+        return MailProviderResult.success(reason_code="mail_mutation_intent_verified")
 
 
 __all__ = [

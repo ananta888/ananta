@@ -3,6 +3,7 @@ HCCA-006 — Tests for SecretRedactor and SensitivityLabel.
 
 The module already exists; all tests should pass immediately.
 """
+
 from __future__ import annotations
 
 import pytest

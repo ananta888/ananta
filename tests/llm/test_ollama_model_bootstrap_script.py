@@ -6,9 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BOOTSTRAP_SCRIPT = ROOT / "scripts/ollama-create-ananta-model-aliases.sh"
-GEMMA_MODELFILE = (
-    ROOT / "config/models/modelfiles/ananta-gemma4-reasoning-8k.Modelfile"
-)
+GEMMA_MODELFILE = ROOT / "config/models/modelfiles/ananta-gemma4-reasoning-8k.Modelfile"
 
 
 def _fake_ollama(tmp_path: Path, *, available: tuple[str, ...]) -> tuple[Path, Path]:
@@ -69,11 +67,7 @@ def _run_bootstrap(
         capture_output=True,
         check=False,
     )
-    calls = (
-        calls_path.read_text(encoding="utf-8").splitlines()
-        if calls_path.exists()
-        else []
-    )
+    calls = calls_path.read_text(encoding="utf-8").splitlines() if calls_path.exists() else []
     return result, calls
 
 
@@ -105,9 +99,7 @@ def test_bootstrap_pulls_only_missing_base_model(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert [call for call in calls if call.startswith("pull ")] == [
-        "pull gemma4:e4b-it-qat"
-    ]
+    assert [call for call in calls if call.startswith("pull ")] == ["pull gemma4:e4b-it-qat"]
     assert calls[-2:] == [
         "create ananta-phi4-mini-32k",
         "create ananta-gemma4-reasoning-8k",

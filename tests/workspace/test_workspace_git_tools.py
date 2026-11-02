@@ -10,6 +10,7 @@ _test_flask_app = Flask("test_git_tools")
 class TestGitToolsCwd:
     def _import_tools(self):
         from agent.tools import git_commit_tool, git_push_tool, git_status_tool
+
         return git_status_tool, git_commit_tool, git_push_tool
 
     @patch("agent.tools._check_git_access", return_value=(True, ""))
@@ -18,6 +19,7 @@ class TestGitToolsCwd:
     def test_git_status_uses_workspace_cwd(self, mock_run, mock_cwd, mock_check):
         mock_run.return_value = MagicMock(returncode=0, stdout="On branch main")
         from agent.tools import git_status_tool
+
         git_status_tool()
         call_kwargs = mock_run.call_args
         assert call_kwargs.kwargs.get("cwd") == "/test/workspace" or (
@@ -30,6 +32,7 @@ class TestGitToolsCwd:
     def test_git_commit_uses_workspace_cwd(self, mock_run, mock_cwd, mock_check):
         mock_run.return_value = MagicMock(returncode=0, stdout="[main abc123] feat: test")
         from agent.tools import git_commit_tool
+
         git_commit_tool("feat(test): valid message")
         call_kwargs = mock_run.call_args
         assert call_kwargs.kwargs.get("cwd") == "/test/workspace"
@@ -40,6 +43,7 @@ class TestGitToolsCwd:
     def test_git_tools_fallback_without_workspace_context(self, mock_run, mock_cwd, mock_check):
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         from agent.tools import git_status_tool
+
         result = git_status_tool()
         assert "error" not in result
         call_kwargs = mock_run.call_args
@@ -51,6 +55,7 @@ class TestGitCommitValidation:
     @patch("subprocess.run")
     def test_git_commit_rejects_blocked_message(self, mock_run, mock_check):
         from agent.tools import git_commit_tool
+
         result = git_commit_tool("fixup planning")
         assert result.get("error") == "invalid_commit_message"
         mock_run.assert_not_called()
@@ -59,6 +64,7 @@ class TestGitCommitValidation:
     @patch("subprocess.run")
     def test_git_commit_rejects_wip(self, mock_run, mock_check):
         from agent.tools import git_commit_tool
+
         result = git_commit_tool("wip")
         assert result.get("error") == "invalid_commit_message"
         mock_run.assert_not_called()
@@ -70,6 +76,7 @@ class TestGitCommitValidation:
         mock_run.return_value = MagicMock(returncode=0, stdout="[main abc] feat: done")
         with patch("agent.common.audit.log_audit"):
             from agent.tools import git_commit_tool
+
             result = git_commit_tool("feat(goal-config): add key allowlist")
         assert result.get("status") == "success"
         mock_run.assert_called_once()
@@ -81,6 +88,7 @@ class TestGitCommitValidation:
         with patch("agent.tools._git_cwd", return_value=None):
             with patch("agent.common.audit.log_audit"):
                 from agent.tools import git_commit_tool
+
                 git_commit_tool("feat(test): valid message no verify check")
         all_args = []
         for c in mock_run.call_args_list:
@@ -94,6 +102,7 @@ class TestGitPushTool:
         with patch("agent.tools._git_cwd", return_value=None):
             with patch("flask.has_request_context", return_value=False):
                 from agent.tools import git_push_tool
+
                 result = git_push_tool()
         assert result.get("error") == "no_remote_configured"
 
@@ -101,6 +110,7 @@ class TestGitPushTool:
     @patch("subprocess.run")
     def test_git_push_never_uses_force(self, mock_run, mock_check):
         from flask import g
+
         mock_run.return_value = MagicMock(returncode=0, stdout="pushed")
         git_ctx = MagicMock()
         git_ctx.remote_url = "http://hub/repo.git"
@@ -110,6 +120,7 @@ class TestGitPushTool:
                 g.git_context = git_ctx
                 with patch("agent.common.audit.log_audit"):
                     from agent.tools import git_push_tool
+
                     git_push_tool()
         all_args = []
         for c in mock_run.call_args_list:
@@ -120,6 +131,7 @@ class TestGitPushTool:
     @patch("subprocess.run")
     def test_git_push_uses_correct_branch(self, mock_run, mock_check):
         from flask import g
+
         mock_run.return_value = MagicMock(returncode=0, stdout="pushed")
         git_ctx = MagicMock()
         git_ctx.remote_url = "http://hub/repo.git"
@@ -129,6 +141,7 @@ class TestGitPushTool:
                 g.git_context = git_ctx
                 with patch("agent.common.audit.log_audit"):
                     from agent.tools import git_push_tool
+
                     result = git_push_tool()
         assert result.get("status") == "success"
         call_args = mock_run.call_args.args[0]
@@ -148,6 +161,7 @@ class TestGitPushTool:
                 g.git_context = git_ctx
                 with patch("agent.services.git_audit_service.log_audit") as audit:
                     from agent.tools import git_push_tool
+
                     result = git_push_tool()
 
         assert result.get("status") == "success"

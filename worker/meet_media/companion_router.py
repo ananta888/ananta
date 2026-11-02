@@ -118,11 +118,7 @@ def search_query(text):
     identifiers = list(dict.fromkeys(match.group(0) for match in _IDENTIFIER.finditer(text)))
     if identifiers:
         return " ".join(identifiers)[:MAX_QUERY_CHARS]
-    words = [
-        word
-        for word in re.findall(r"[\w-]+", _QUERY_PHRASES.sub(" ", text))
-        if word.lower() not in _QUERY_FILLER
-    ]
+    words = [word for word in re.findall(r"[\w-]+", _QUERY_PHRASES.sub(" ", text)) if word.lower() not in _QUERY_FILLER]
     return (" ".join(words) or text)[:MAX_QUERY_CHARS]
 
 

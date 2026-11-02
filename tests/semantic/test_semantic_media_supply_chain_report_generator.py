@@ -50,10 +50,15 @@ def test_normalizes_content_free_packages_and_findings() -> None:
         }
     )
     assert packages == [{"name": "demo", "version": "1.2.3", "license": "MIT", "origin": "python"}]
-    assert findings == [{
-        "finding_id": "CVE-2026-0001", "severity": "high", "package": "demo",
-        "version": "1.2.3", "fix_state": "fixed",
-    }]
+    assert findings == [
+        {
+            "finding_id": "CVE-2026-0001",
+            "severity": "high",
+            "package": "demo",
+            "version": "1.2.3",
+            "fix_state": "fixed",
+        }
+    ]
 
 
 def test_exception_must_reference_an_actual_high_finding() -> None:
@@ -68,9 +73,7 @@ def test_exception_must_reference_an_actual_high_finding() -> None:
     ("configured", "reason"),
     [
         (
-            [
-                {"finding_id": "CVE-2026-0001", "owner": "security", "rationale": "bounded", "expires_on": "never"}
-            ],
+            [{"finding_id": "CVE-2026-0001", "owner": "security", "rationale": "bounded", "expires_on": "never"}],
             "vulnerability_exception_expiry_invalid",
         ),
         (
@@ -125,11 +128,7 @@ def test_generator_scans_only_images_bound_to_current_build_manifest(monkeypatch
         generator,
         "_run_json",
         lambda command, _timeout, _reason: (
-            {
-                "artifacts": [
-                    {"name": "demo", "version": "1", "type": "python", "licenses": [{"value": "MIT"}]}
-                ]
-            }
+            {"artifacts": [{"name": "demo", "version": "1", "type": "python", "licenses": [{"value": "MIT"}]}]}
             if command[0] == "syft"
             else {"matches": []}
         ),

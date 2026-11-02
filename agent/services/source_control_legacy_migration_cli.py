@@ -22,7 +22,6 @@ from agent.services.source_control_observability import (
     emit_source_control_audit,
 )
 
-
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _MIGRATION_ID = re.compile(r"^scmig_[0-9a-f]{64}$")
 
@@ -34,9 +33,7 @@ class SourceControlMigrationCliError(ValueError):
 
 
 class LegacyInventoryPort(Protocol):
-    def load_inventory(
-        self, *, tenant_id: str, project_id: str, owner_id: str
-    ) -> LegacyMigrationInventory: ...
+    def load_inventory(self, *, tenant_id: str, project_id: str, owner_id: str) -> LegacyMigrationInventory: ...
 
 
 class LegacyMigrationPort(Protocol):
@@ -68,14 +65,10 @@ class SourceControlMigrationCommand:
 
     def __post_init__(self) -> None:
         if self.action not in {"dry-run", "apply", "resume", "rollback"}:
-            raise SourceControlMigrationCliError(
-                "source_control_migration_action_invalid"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_action_invalid")
         for value in (self.tenant_id, self.project_id, self.owner_id):
             if not _ID.fullmatch(str(value or "")):
-                raise SourceControlMigrationCliError(
-                    "source_control_migration_scope_invalid"
-                )
+                raise SourceControlMigrationCliError("source_control_migration_scope_invalid")
 
 
 class SourceControlLegacyMigrationEntrypoint:
@@ -87,18 +80,14 @@ class SourceControlLegacyMigrationEntrypoint:
         inventory: LegacyInventoryPort,
         migration: LegacyMigrationPort,
         runs: LegacyMigrationRunPort,
-        audit: Callable[[SourceControlAuditEvent], None] = (
-            emit_source_control_audit
-        ),
+        audit: Callable[[SourceControlAuditEvent], None] = (emit_source_control_audit),
     ) -> None:
         self._inventory = inventory
         self._migration = migration
         self._runs = runs
         self._audit = audit
 
-    def execute(
-        self, command: SourceControlMigrationCommand
-    ) -> Mapping[str, object]:
+    def execute(self, command: SourceControlMigrationCommand) -> Mapping[str, object]:
         if command.action == "rollback":
             return self._rollback(command)
         inventory = self._inventory.load_inventory(
@@ -109,14 +98,10 @@ class SourceControlLegacyMigrationEntrypoint:
         plan = self._migration.plan(inventory)
         migration_id = str(getattr(plan, "migration_id", ""))
         if not _MIGRATION_ID.fullmatch(migration_id):
-            raise SourceControlMigrationCliError(
-                "source_control_migration_plan_identity_invalid"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_plan_identity_invalid")
         if command.action in {"apply", "resume"}:
             if command.idempotency_key != migration_id:
-                raise SourceControlMigrationCliError(
-                    "source_control_migration_idempotency_mismatch"
-                )
+                raise SourceControlMigrationCliError("source_control_migration_idempotency_mismatch")
         report = self._migration.migrate(
             inventory,
             dry_run=command.action == "dry-run",
@@ -135,31 +120,21 @@ class SourceControlLegacyMigrationEntrypoint:
         )
         return output
 
-    def _rollback(
-        self, command: SourceControlMigrationCommand
-    ) -> Mapping[str, object]:
+    def _rollback(self, command: SourceControlMigrationCommand) -> Mapping[str, object]:
         migration_id = str(command.migration_id or "")
         if not _MIGRATION_ID.fullmatch(migration_id):
-            raise SourceControlMigrationCliError(
-                "source_control_migration_id_invalid"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_id_invalid")
         if command.idempotency_key != f"rollback:{migration_id}":
-            raise SourceControlMigrationCliError(
-                "source_control_migration_idempotency_mismatch"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_idempotency_mismatch")
         run = self._runs.get_run(migration_id)
         if run is None:
-            raise SourceControlMigrationCliError(
-                "source_control_migration_not_found"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_not_found")
         if (
             run.tenant_id != command.tenant_id
             or run.project_id != command.project_id
             or run.owner_id != command.owner_id
         ):
-            raise SourceControlMigrationCliError(
-                "source_control_migration_scope_mismatch"
-            )
+            raise SourceControlMigrationCliError("source_control_migration_scope_mismatch")
         rolled_back = self._migration.rollback(migration_id)
         self._emit(
             command=command,
@@ -197,10 +172,7 @@ class SourceControlLegacyMigrationEntrypoint:
                 trace_id=(
                     "migration-"
                     + hashlib.sha256(
-                        (
-                            command.idempotency_key
-                            or f"{command.action}:{migration_id}"
-                        ).encode("utf-8")
+                        (command.idempotency_key or f"{command.action}:{migration_id}").encode("utf-8")
                     ).hexdigest()[:24]
                 ),
                 decision=(
@@ -274,8 +246,7 @@ def _bounded_reason(value: object) -> str | None:
     return "reason_other"
 
 
-def build_hub_source_control_legacy_migration_entrypoint(
-) -> SourceControlLegacyMigrationEntrypoint:
+def build_hub_source_control_legacy_migration_entrypoint() -> SourceControlLegacyMigrationEntrypoint:
     from agent.config import settings
     from agent.database import engine
     from agent.repositories.source_control_migration_repository import (
@@ -283,8 +254,8 @@ def build_hub_source_control_legacy_migration_entrypoint(
     )
     from agent.services.source_control_legacy_inventory_adapters import (
         ComposedLegacySourceInventoryAdapter,
-        SQLLegacyKnowledgePolicyReader,
         SourceRegistrySnapshotReader,
+        SQLLegacyKnowledgePolicyReader,
     )
     from agent.services.source_control_legacy_migration import (
         SourceControlLegacyMigrationService,
@@ -293,9 +264,7 @@ def build_hub_source_control_legacy_migration_entrypoint(
     from agent.sources.source_snapshot_store import SourceSnapshotStore
 
     if settings.role != "hub":
-        raise SourceControlMigrationCliError(
-            "source_control_migration_hub_role_required"
-        )
+        raise SourceControlMigrationCliError("source_control_migration_hub_role_required")
     repository = SQLSourceControlMigrationRepository(engine)
     service = SourceControlLegacyMigrationService(repository=repository)
     inventory = ComposedLegacySourceInventoryAdapter(
@@ -322,22 +291,16 @@ def run_source_control_legacy_migration_cli(parsed: Any) -> int:
             idempotency_key=getattr(parsed, "idempotency_key", None),
             migration_id=getattr(parsed, "migration_id", None),
         )
-        result = build_hub_source_control_legacy_migration_entrypoint().execute(
-            command
-        )
+        result = build_hub_source_control_legacy_migration_entrypoint().execute(command)
         print(json.dumps(result, ensure_ascii=True, sort_keys=True))
         return 0 if result.get("state") not in {"blocked", "aborted"} else 1
     except (SourceControlMigrationCliError, SourceControlMigrationError) as exc:
         print(
             json.dumps(
                 {
-                    "schema": (
-                        "ananta.source-control.legacy-migration-error.v1"
-                    ),
+                    "schema": ("ananta.source-control.legacy-migration-error.v1"),
                     "status": "failed",
-                    "reason_code": _bounded_reason(
-                        getattr(exc, "reason_code", None)
-                    )
+                    "reason_code": _bounded_reason(getattr(exc, "reason_code", None))
                     or "source_control_migration_failed",
                 },
                 ensure_ascii=True,
@@ -349,13 +312,9 @@ def run_source_control_legacy_migration_cli(parsed: Any) -> int:
         print(
             json.dumps(
                 {
-                    "schema": (
-                        "ananta.source-control.legacy-migration-error.v1"
-                    ),
+                    "schema": ("ananta.source-control.legacy-migration-error.v1"),
                     "status": "failed",
-                    "reason_code": (
-                        "source_control_migration_runtime_failed"
-                    ),
+                    "reason_code": ("source_control_migration_runtime_failed"),
                 },
                 ensure_ascii=True,
                 sort_keys=True,

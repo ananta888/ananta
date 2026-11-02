@@ -34,13 +34,24 @@ class DeterministicTransformEngine:
     def transform(self, request: TransformRequest) -> dict[str, Any]:
         target_language = str(request.target_language or "").lower()
         if target_language not in {"typescript", "kotlin"}:
-            return self._artifact(request, status="unsupported", target_code="", warnings=["unsupported_target_language"], nodes=[], rules=[])
+            return self._artifact(
+                request,
+                status="unsupported",
+                target_code="",
+                warnings=["unsupported_target_language"],
+                nodes=[],
+                rules=[],
+            )
         graph = self.semantic_executor.emit_graph_records_for_language(
             "java",
             request.source_path,
             request.source_code,
         )
-        source_types = [node for node in graph["nodes"] if (node.get("attributes") or {}).get("kind") in {"record", "class", "enum", "interface"}]
+        source_types = [
+            node
+            for node in graph["nodes"]
+            if (node.get("attributes") or {}).get("kind") in {"record", "class", "enum", "interface"}
+        ]
         rendered: list[str] = []
         warnings = list(_diag_codes(graph.get("diagnostics") or []))
         applied_rules: list[str] = []
@@ -60,7 +71,14 @@ class DeterministicTransformEngine:
         elif any("unknown" in warning or "requires" in warning for warning in warnings):
             status = "needs_review"
         target_code = "\n\n".join(rendered).strip() + ("\n" if rendered else "")
-        return self._artifact(request, status=status, target_code=target_code, warnings=warnings, nodes=graph["nodes"], rules=sorted(set(applied_rules)))
+        return self._artifact(
+            request,
+            status=status,
+            target_code=target_code,
+            warnings=warnings,
+            nodes=graph["nodes"],
+            rules=sorted(set(applied_rules)),
+        )
 
     def _transform_type(self, attrs: dict[str, Any], target_language: str, policy: dict[str, Any]) -> dict[str, Any]:
         kind = attrs.get("kind")
@@ -71,7 +89,9 @@ class DeterministicTransformEngine:
             lines = []
             needs_review = False
             for prop in attrs.get("properties") or []:
-                mapped = self.type_registry.map_type(prop.get("type", ""), source_language="java", target_language=target_language, policy=policy)
+                mapped = self.type_registry.map_type(
+                    prop.get("type", ""), source_language="java", target_language=target_language, policy=policy
+                )
                 warnings.extend(mapped.get("warnings") or [])
                 if mapped.get("status") == "needs_review":
                     needs_review = True
@@ -87,23 +107,62 @@ class DeterministicTransformEngine:
                     nullable_suffix = "?" if prop.get("nullability") == "nullable" else ""
                     lines.append(f"    val {prop['name']}: {target_type}{nullable_suffix}")
             if target_language == "typescript":
-                return {"status": "needs_review" if needs_review else "ok", "code": f"export interface {name} {{\n" + "\n".join(lines) + "\n}", "warnings": warnings, "rule_ids": [*rule_ids, "eq.java_record.ts_interface.v1"]}
+                return {
+                    "status": "needs_review" if needs_review else "ok",
+                    "code": f"export interface {name} {{\n" + "\n".join(lines) + "\n}",
+                    "warnings": warnings,
+                    "rule_ids": [*rule_ids, "eq.java_record.ts_interface.v1"],
+                }
             comma_lines = ",\n".join(lines)
-            return {"status": "needs_review" if needs_review else "ok", "code": f"data class {name}(\n{comma_lines}\n)", "warnings": warnings, "rule_ids": [*rule_ids, "eq.java_record.kotlin_data_class.v1"]}
+            return {
+                "status": "needs_review" if needs_review else "ok",
+                "code": f"data class {name}(\n{comma_lines}\n)",
+                "warnings": warnings,
+                "rule_ids": [*rule_ids, "eq.java_record.kotlin_data_class.v1"],
+            }
         if kind == "enum":
             values = attrs.get("enum_values") or []
             if target_language == "typescript":
                 body = "\n".join(f"  {value} = '{value}'," for value in values)
-                return {"status": "ok", "code": f"export enum {name} {{\n{body}\n}}", "warnings": warnings, "rule_ids": ["eq.java_enum.ts_enum.v1"]}
-            return {"status": "ok", "code": f"enum class {name} {{\n  " + ",\n  ".join(values) + "\n}", "warnings": warnings, "rule_ids": ["eq.java_enum.kotlin_enum.v1"]}
+                return {
+                    "status": "ok",
+                    "code": f"export enum {name} {{\n{body}\n}}",
+                    "warnings": warnings,
+                    "rule_ids": ["eq.java_enum.ts_enum.v1"],
+                }
+            return {
+                "status": "ok",
+                "code": f"enum class {name} {{\n  " + ",\n  ".join(values) + "\n}",
+                "warnings": warnings,
+                "rule_ids": ["eq.java_enum.kotlin_enum.v1"],
+            }
         if kind == "interface":
             warnings.append("interface_signature_requires_review")
             if target_language == "typescript":
-                return {"status": "needs_review", "code": f"export interface {name} {{\n  // method signatures require review\n}}", "warnings": warnings, "rule_ids": []}
-            return {"status": "needs_review", "code": f"interface {name} {{\n  // method signatures require review\n}}", "warnings": warnings, "rule_ids": []}
+                return {
+                    "status": "needs_review",
+                    "code": f"export interface {name} {{\n  // method signatures require review\n}}",
+                    "warnings": warnings,
+                    "rule_ids": [],
+                }
+            return {
+                "status": "needs_review",
+                "code": f"interface {name} {{\n  // method signatures require review\n}}",
+                "warnings": warnings,
+                "rule_ids": [],
+            }
         return {"status": "unsupported", "code": "", "warnings": ["unsupported_source_kind"], "rule_ids": []}
 
-    def _artifact(self, request: TransformRequest, *, status: str, target_code: str, warnings: list[str], nodes: list[dict], rules: list[str]) -> dict[str, Any]:
+    def _artifact(
+        self,
+        request: TransformRequest,
+        *,
+        status: str,
+        target_code: str,
+        warnings: list[str],
+        nodes: list[dict],
+        rules: list[str],
+    ) -> dict[str, Any]:
         return {
             "schema": "codecompass_semantic_translation_graph.v1",
             "kind": "transform_artifact",

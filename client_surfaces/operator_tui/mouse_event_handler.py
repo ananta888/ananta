@@ -5,12 +5,13 @@ artifact intents, inline-open, and navigation.  All functions accept a duck-
 typed *self* — call them with the ``MouseArtifactMixin`` instance as first
 argument.
 """
+
 from __future__ import annotations
 
 import re
 import shutil
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from client_surfaces.operator_tui.ai_snake_config_view import ai_snake_config_items
 from client_surfaces.operator_tui.app import load_active_section
@@ -25,18 +26,19 @@ from client_surfaces.operator_tui.keybindings_config import display_for_action
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode
 from client_surfaces.operator_tui.mouse import (
     MouseEventType as NormalizedMouseEventType,
+)
+from client_surfaces.operator_tui.mouse import (
     normalize_mouse_state,
 )
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.audit_nav import audit_nav_items
-from client_surfaces.operator_tui.template_nav import template_nav_items
+from client_surfaces.operator_tui.sections import SECTIONS
 
 if TYPE_CHECKING:
-    from client_surfaces.operator_tui.chat_state import ChatState
+    pass
 
 
 # ── SGR mouse protocol ───────────────────────────────────────────────────────
+
 
 def parse_sgr_mouse_event(raw: str) -> tuple[int, int, str, int, int, bool] | None:
     text = str(raw or "")
@@ -68,6 +70,7 @@ def parse_sgr_mouse_event(raw: str) -> tuple[int, int, str, int, int, bool] | No
 
 
 # ── Shortcut actions (click on rendered key hints) ───────────────────────────
+
 
 def shortcut_action_at(self, x: int, y: int) -> str | None:
     rendered = str(getattr(self, "_rendered_text", "") or "")
@@ -228,6 +231,7 @@ def trigger_shortcut_action(self, action: str) -> None:
 
 # ── Mouse event ingestion ────────────────────────────────────────────────────
 
+
 def ingest_mouse_event(
     self,
     *,
@@ -266,11 +270,7 @@ def ingest_mouse_event(
         "hover_started_at": self._mouse_state.hover_started_at,
     }
 
-    _is_drag_move = (
-        event_type == "move"
-        and buttons == 1
-        and bool(game.get("mouse_selection_active"))
-    )
+    _is_drag_move = event_type == "move" and buttons == 1 and bool(game.get("mouse_selection_active"))
 
     if not _is_drag_move:
         region_index = build_region_index(self.state, width=width, height=height)
@@ -353,10 +353,21 @@ def ingest_mouse_event(
             game["visual_viewport_enabled"] = False
             game["visual_viewport"] = {"enabled": False}
         if self.state.active_tab_id != _tab_before_click:
-            game["visual_viewport_enabled"] = bool((dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False))
-            game["visual_viewport"] = dict((dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False})
+            game["visual_viewport_enabled"] = bool(
+                (dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False)
+            )
+            game["visual_viewport"] = dict(
+                (dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False}
+            )
 
-    if not delayed_click and not scrollbar_handled and not mouse_selection_handled and event_type == "down" and buttons == 1 and target is not None:
+    if (
+        not delayed_click
+        and not scrollbar_handled
+        and not mouse_selection_handled
+        and event_type == "down"
+        and buttons == 1
+        and target is not None
+    ):
         _section_before_click = self.state.section_id
         _tab_before_click = self.state.active_tab_id
         handle_left_click(self, game, target=target, now=ts, width=width, height=height)
@@ -368,14 +379,19 @@ def ingest_mouse_event(
             game["visual_viewport_enabled"] = False
             game["visual_viewport"] = {"enabled": False}
         if self.state.active_tab_id != _tab_before_click:
-            game["visual_viewport_enabled"] = bool((dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False))
-            game["visual_viewport"] = dict((dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False})
+            game["visual_viewport_enabled"] = bool(
+                (dict(self.state.header_logo_game or {})).get("visual_viewport_enabled", False)
+            )
+            game["visual_viewport"] = dict(
+                (dict(self.state.header_logo_game or {})).get("visual_viewport") or {"enabled": False}
+            )
 
     status = str(game.pop("_copy_status_message", "") or f"mouse {self._mouse_state.x},{self._mouse_state.y}")
     self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
 
 
 # ── Mouse selection (text / snake) ───────────────────────────────────────────
+
 
 def handle_mouse_selection_event(
     self,
@@ -414,8 +430,10 @@ def handle_mouse_selection_event(
             game["mouse_selection_committed_ranges"] = []
             game["mouse_selection_range"] = None
         game["mouse_selection_range"] = {
-            "start_x": int(x), "start_y": int(y),
-            "end_x": int(x), "end_y": int(y),
+            "start_x": int(x),
+            "start_y": int(y),
+            "end_x": int(x),
+            "end_y": int(y),
             "mode": mode,
         }
         if self._snake_mode_active(game):
@@ -436,8 +454,10 @@ def handle_mouse_selection_event(
             game["mouse_selection_dragged"] = True
             mode = "block" if bool(game.get("mouse_selection_ctrl")) else "linear"
             game["mouse_selection_range"] = {
-                "start_x": ax, "start_y": ay,
-                "end_x": int(x), "end_y": int(y),
+                "start_x": ax,
+                "start_y": ay,
+                "end_x": int(x),
+                "end_y": int(y),
                 "mode": mode,
             }
             return True
@@ -467,14 +487,13 @@ def handle_mouse_selection_event(
                         cells.append((col, row))
                 game["selection_anchor"] = (sx, sy)
                 game["selection_cells"] = cells
-                game["selection_regions"] = [
-                    (x1, y1, x2, y2)
-                ]
+                game["selection_regions"] = [(x1, y1, x2, y2)]
         return dragged
     return False
 
 
 # ── Wheel scroll routing ─────────────────────────────────────────────────────
+
 
 def route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
     """Route mouse wheel events to the appropriate ScrollContext via MouseRouter."""
@@ -509,11 +528,7 @@ def route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
                     game.update(dict(self.state.header_logo_game or {}))
                     game["_copy_status_message"] = "template editor: scroll"
                     return
-        if (
-            self.state.section_id == "audit"
-            and hasattr(self, "_audit_viewer_active")
-            and self._audit_viewer_active()
-        ):
+        if self.state.section_id == "audit" and hasattr(self, "_audit_viewer_active") and self._audit_viewer_active():
             size = shutil.get_terminal_size((120, 32))
             width = max(72, int(size.columns))
             height = max(18, int(size.lines - 1))
@@ -532,8 +547,9 @@ def route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
                     game.update(dict(self.state.header_logo_game or {}))
                     game["_copy_status_message"] = "audit viewer: scroll"
                     return
-        from client_surfaces.operator_tui.input.mouse_router import MouseRouter, PanelRect
         from client_surfaces.operator_tui.focus.focus_manager import FocusManager
+        from client_surfaces.operator_tui.input.mouse_router import MouseRouter
+
         fm: FocusManager = self._get_focus_manager()
         mr = getattr(self, "_mouse_router_instance", None)
         if mr is None:
@@ -559,6 +575,7 @@ def route_wheel_scroll(self, game: dict, *, x: int, y: int, delta: int) -> None:
 
 
 # ── Visual viewport scrollbar ────────────────────────────────────────────────
+
 
 def handle_visual_viewport_scrollbar_mouse(
     self,
@@ -610,7 +627,9 @@ def handle_visual_viewport_scrollbar_mouse(
         except Exception:
             game["scroll_offset_center_viewport"] = max(0, new_offset)
         game["visual_viewport_force_render"] = True
-        game["_copy_status_message"] = f"scroll: Visual Viewport {game.get('scroll_offset_center_viewport', new_offset)}/{max_scroll}"
+        game["_copy_status_message"] = (
+            f"scroll: Visual Viewport {game.get('scroll_offset_center_viewport', new_offset)}/{max_scroll}"
+        )
         return True
 
     if h_scrollable and int(y) == hbar_y:
@@ -626,6 +645,7 @@ def handle_visual_viewport_scrollbar_mouse(
 
 
 # ── Left click handler ───────────────────────────────────────────────────────
+
 
 def _click_tab(self, game: dict[str, object], target: RegionTarget) -> None:
     from client_surfaces.operator_tui.tab_manager import activate_tab
@@ -855,6 +875,7 @@ def handle_left_click(
 
 # ── Share section mouse click ────────────────────────────────────────────────
 
+
 def handle_share_content_click(self, *, x: int, y: int, game: dict) -> bool:
     rendered = str(getattr(self, "_rendered_text", "") or "")
     if not rendered.strip():
@@ -867,6 +888,7 @@ def handle_share_content_click(self, *, x: int, y: int, game: dict) -> bool:
         return False
 
     from client_surfaces.operator_tui.share_menu import extract_click_command
+
     cmd = extract_click_command(lines[y], x=x)
     if not cmd:
         return False
@@ -879,6 +901,7 @@ def handle_share_content_click(self, *, x: int, y: int, game: dict) -> bool:
 
 # ── Navigation helpers ───────────────────────────────────────────────────────
 
+
 def clamp_down(self) -> int:
     cur = self.state.selected_index
     if self.state.focus is FocusPane.NAVIGATION:
@@ -890,6 +913,7 @@ def clamp_down(self) -> int:
         return min(cur + 1, max(0, len(SECTIONS) + template_count + audit_count + history_count - 1))
     if self.state.focus is FocusPane.HEADER:
         from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
+
         return min(cur + 1, len(CONFIG_ITEMS) - 1)
     return cur + 1
 

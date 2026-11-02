@@ -6,8 +6,12 @@ from unittest.mock import Mock
 import pytest
 from playwright.sync_api import Page
 
-from tests.meet_dialog_ack_delay import PROFILE, DialogAckDelay
-from tests.meet_dialog_cadence_delay import install_cadence_delay, require_cadence_profile, start_cadence_observation
+from tests.meet.meet_dialog_ack_delay import PROFILE, DialogAckDelay
+from tests.meet.meet_dialog_cadence_delay import (
+    install_cadence_delay,
+    require_cadence_profile,
+    start_cadence_observation,
+)
 from worker.meet_media.screen_frame_delivery import BrowserScreenFrames
 
 URL = "https://synthetic.test/machine"

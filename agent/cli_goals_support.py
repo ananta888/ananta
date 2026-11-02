@@ -275,7 +275,7 @@ def resolve_output_dir(output_dir: str) -> tuple[str, str | None]:
     if not raw:
         return raw, None
     if raw.startswith(_CONTAINER_WORKSPACE_ROOT + "/") or raw == _CONTAINER_WORKSPACE_ROOT:
-        rel = raw[len(_CONTAINER_WORKSPACE_ROOT):].lstrip("/")
+        rel = raw[len(_CONTAINER_WORKSPACE_ROOT) :].lstrip("/")
         host = f"{_HOST_WORKSPACE_ROOT}/{rel}" if rel else _HOST_WORKSPACE_ROOT
         return raw, host
     if not os.path.isabs(raw):

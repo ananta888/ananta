@@ -10,23 +10,15 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
 import re
-from typing import Any, Pattern
-
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+from typing import Any
 
 from agent.services._deterministic_repair_constants import (
     UNSAFE_ACTION_GUARDRAIL_MODEL,
 )
 
 log = logging.getLogger(__name__)
-
-
 
 
 def build_recovery_hint_bundle(
@@ -36,7 +28,11 @@ def build_recovery_hint_bundle(
 ) -> dict[str, Any]:
     procedure = dict(selected_catalog_entry.get("procedure") or {})
     rollback_hints = list(procedure.get("rollback_hints") or [])
-    non_reversible = [step.get("step_id") for step in list(execution_result.get("steps") or []) if bool(step.get("mutation_candidate"))]
+    non_reversible = [
+        step.get("step_id")
+        for step in list(execution_result.get("steps") or [])
+        if bool(step.get("mutation_candidate"))
+    ]
     return {
         "schema": "deterministic_repair_recovery_hints_v1",
         "procedure_id": procedure.get("id"),
@@ -47,9 +43,6 @@ def build_recovery_hint_bundle(
     }
 
 
-
-
-
 def evaluate_unsafe_action_guardrails(
     *,
     proposed_actions: list[str],
@@ -57,8 +50,12 @@ def evaluate_unsafe_action_guardrails(
     blocked: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     allowed_actions: list[str] = []
-    blocked_patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["blocked_patterns"]]
-    out_of_scope_patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["out_of_scope_patterns"]]
+    blocked_patterns = [
+        re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["blocked_patterns"]
+    ]
+    out_of_scope_patterns = [
+        re.compile(pattern, flags=re.IGNORECASE) for pattern in UNSAFE_ACTION_GUARDRAIL_MODEL["out_of_scope_patterns"]
+    ]
     for action in proposed_actions:
         text = str(action or "").strip()
         if not text:
@@ -100,6 +97,3 @@ def evaluate_unsafe_action_guardrails(
         "allowed_actions": allowed_actions,
         "fail_closed": bool(UNSAFE_ACTION_GUARDRAIL_MODEL.get("fail_closed", True)),
     }
-
-
-

@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 
 from ananta_contracts.meet_persona_image import decode_assignment
-from tests.meet_dialog_avatar_observer import make_avatar_observer
-from tests.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
+from tests.meet.meet_dialog_avatar_observer import make_avatar_observer
+from tests.meet.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
 
 
 def principal():
@@ -72,7 +72,7 @@ def test_each_image_scenario_declares_its_own_bounded_lifetime(mode, seconds, mo
 
 
 def test_avatar_failure_observer_is_bounded_redacted_and_does_not_change_cleanup(monkeypatch):
-    from tests.meet_dialog_avatar_observer import DialogAvatarObserver
+    from tests.meet.meet_dialog_avatar_observer import DialogAvatarObserver
     from worker.meet_media.avatar_browser import AvatarBrowserPort
     from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 

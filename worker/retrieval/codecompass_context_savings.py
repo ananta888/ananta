@@ -9,11 +9,10 @@ Per todo acceptance:
   context wholesale
 * documentation names the limits of the metric
 """
+
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from agent.services.codecompass_context_planner_service import (
@@ -22,7 +21,6 @@ from agent.services.codecompass_context_planner_service import (
 from worker.retrieval.codecompass_review_context import (
     build_minimal_review_context,
 )
-
 
 TOKEN_ESTIMATE_VERSION = "context_savings.v1"
 ESTIMATED_CHARS_PER_TOKEN = 4  # rough heuristic for English/ASCII
@@ -54,8 +52,7 @@ def compute_context_savings(
     if not bucket_inputs:
         # Without inputs we have no candidate set; we still report a
         # conservative baseline == selected == 0.
-        package = planner.plan_unified_context(query=query, task_kind=task_kind,
-                                                bucket_inputs=bucket_inputs)
+        package = planner.plan_unified_context(query=query, task_kind=task_kind, bucket_inputs=bucket_inputs)
         return {
             "estimated_context_savings": {
                 "method": "estimated",
@@ -68,13 +65,9 @@ def compute_context_savings(
         }
     all_items = [item for items in bucket_inputs.values() for item in items]
     baseline_tokens = estimate_tokens(all_items)
-    package = planner.plan_unified_context(query=query, task_kind=task_kind,
-                                            bucket_inputs=bucket_inputs)
+    package = planner.plan_unified_context(query=query, task_kind=task_kind, bucket_inputs=bucket_inputs)
     selected_tokens = estimate_tokens(package["buckets"])
-    savings_pct = (
-        100.0 * (1.0 - selected_tokens / max(1, baseline_tokens))
-        if baseline_tokens else 0.0
-    )
+    savings_pct = 100.0 * (1.0 - selected_tokens / max(1, baseline_tokens)) if baseline_tokens else 0.0
     return {
         "estimated_context_savings": {
             "method": "estimated",
@@ -112,8 +105,7 @@ def compute_review_context_savings(
         baseline_items.extend(sec.get("items") or [])
     baseline_tokens = estimate_tokens(baseline_items)
     selected_tokens = estimate_tokens(ctx_payload["sections"])
-    savings_pct = (100.0 * (1.0 - selected_tokens / max(1, baseline_tokens))
-                   if baseline_tokens else 0.0)
+    savings_pct = 100.0 * (1.0 - selected_tokens / max(1, baseline_tokens)) if baseline_tokens else 0.0
     return {
         "estimated_context_savings": {
             "method": "estimated",

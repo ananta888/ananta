@@ -13,10 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.services.workflow_event_service import (  # noqa: E402
     ALL_STATUSES,
-    HandoffEvent,
     STATUS_BLOCKED,
     STATUS_CREATED,
-    STATUS_REJECTED,
     STATUS_RELEASED,
     STATUS_WAIVED,
     WORKFLOW_HANDOFF_SCHEMA,
@@ -28,7 +26,6 @@ from agent.services.workflow_event_service import (  # noqa: E402
     list_handoffs_for_task,
     record_handoff_to_audit_log,
 )
-
 
 # ---------------------------------------------------------------------------
 # build_handoff_event
@@ -147,8 +144,13 @@ class TestBuildHandoffEvent:
 
     def test_event_id_changes_with_status(self):
         base = dict(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
             timestamp=1.0,
         )
         e1 = build_handoff_event(**base, status=STATUS_CREATED).to_dict()
@@ -166,8 +168,13 @@ class TestBuildHandoffEvent:
 class TestAppendHandoffToTask:
     def test_appends_to_empty_context(self):
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         ctx = append_handoff_to_task(task={}, event=event)
         assert len(ctx["workflow_events"]) == 1
@@ -175,8 +182,13 @@ class TestAppendHandoffToTask:
 
     def test_appends_to_existing_context_without_mutating_input(self):
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         original_ctx = {"workflow_events": [{"event_id": "hnd-other", "x": 1}]}
         task = {"worker_execution_context": dict(original_ctx)}
@@ -189,19 +201,27 @@ class TestAppendHandoffToTask:
 
     def test_idempotent_when_event_id_matches(self):
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         ctx1 = append_handoff_to_task(task={}, event=event)
-        ctx2 = append_handoff_to_task(
-            task={"worker_execution_context": ctx1}, event=event
-        )
+        ctx2 = append_handoff_to_task(task={"worker_execution_context": ctx1}, event=event)
         assert len(ctx2["workflow_events"]) == 1
 
     def test_handles_non_dict_task(self):
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         ctx = append_handoff_to_task(task=None, event=event)
         assert len(ctx["workflow_events"]) == 1
@@ -230,38 +250,62 @@ class TestListHandoffs:
 
     def test_aggregate_across_tasks(self):
         tasks = [
-            {"worker_execution_context": {"workflow_events": [
-                {"event_id": "t1", "timestamp": 2.0, "to_step": "b"},
-            ]}},
-            {"worker_execution_context": {"workflow_events": [
-                {"event_id": "t2", "timestamp": 1.0, "to_step": "a"},
-                {"event_id": "t3", "timestamp": 3.0, "to_step": "c"},
-            ]}},
+            {
+                "worker_execution_context": {
+                    "workflow_events": [
+                        {"event_id": "t1", "timestamp": 2.0, "to_step": "b"},
+                    ]
+                }
+            },
+            {
+                "worker_execution_context": {
+                    "workflow_events": [
+                        {"event_id": "t2", "timestamp": 1.0, "to_step": "a"},
+                        {"event_id": "t3", "timestamp": 3.0, "to_step": "c"},
+                    ]
+                }
+            },
         ]
         all_events = list_handoffs_for_goal(tasks=tasks)
         assert [e["to_step"] for e in all_events] == ["a", "b", "c"]
 
     def test_latest_for_pair_returns_most_recent(self):
         tasks = [
-            {"worker_execution_context": {"workflow_events": [
-                {"event_id": "p1", "timestamp": 1.0,
-                 "from_step": "a", "to_step": "b", "status": STATUS_CREATED},
-                {"event_id": "p2", "timestamp": 2.0,
-                 "from_step": "a", "to_step": "b", "status": STATUS_RELEASED},
-            ]}},
+            {
+                "worker_execution_context": {
+                    "workflow_events": [
+                        {
+                            "event_id": "p1",
+                            "timestamp": 1.0,
+                            "from_step": "a",
+                            "to_step": "b",
+                            "status": STATUS_CREATED,
+                        },
+                        {
+                            "event_id": "p2",
+                            "timestamp": 2.0,
+                            "from_step": "a",
+                            "to_step": "b",
+                            "status": STATUS_RELEASED,
+                        },
+                    ]
+                }
+            },
         ]
-        latest = latest_handoff_for_pair(
-            tasks=tasks, from_step="a", to_step="b"
-        )
+        latest = latest_handoff_for_pair(tasks=tasks, from_step="a", to_step="b")
         assert latest["status"] == STATUS_RELEASED
         assert latest["event_id"] == "p2"
 
     def test_latest_for_pair_returns_none_when_missing(self):
         assert latest_handoff_for_pair(tasks=[], from_step="a", to_step="b") is None
-        assert latest_handoff_for_pair(
-            tasks=[{"worker_execution_context": {}}],
-            from_step="a", to_step="b",
-        ) is None
+        assert (
+            latest_handoff_for_pair(
+                tasks=[{"worker_execution_context": {}}],
+                from_step="a",
+                to_step="b",
+            )
+            is None
+        )
 
     def test_latest_for_pair_ignores_empty_strings(self):
         assert latest_handoff_for_pair(tasks=[], from_step="", to_step="") is None
@@ -276,7 +320,9 @@ class TestDeriveHandoffsForSteps:
     def test_emits_entry_point_handoff(self):
         steps = [{"id": "plan", "role": "planner", "depends_on": []}]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "ptask-plan"},
         )
@@ -295,7 +341,9 @@ class TestDeriveHandoffsForSteps:
             {"id": "qa", "role": "qa_verifier", "depends_on": ["impl"]},
         ]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "ptask-1", "impl": "ptask-2", "qa": "ptask-3"},
         )
@@ -319,7 +367,9 @@ class TestDeriveHandoffsForSteps:
             {"id": "impl", "role": "developer", "depends_on": ["g"]},
         ]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "p1", "g": "p2", "impl": "p3"},
         )
@@ -336,7 +386,9 @@ class TestDeriveHandoffsForSteps:
             {"id": "impl", "role": "developer", "depends_on": ["plan"]},
         ]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "p1"},  # impl missing on purpose
         )
@@ -345,15 +397,23 @@ class TestDeriveHandoffsForSteps:
         assert events[0].to_step == "plan"
 
     def test_handles_non_list_input(self):
-        assert derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
-            steps=None, task_id_by_step={},
-        ) == []
+        assert (
+            derive_handoffs_for_steps(
+                goal_id="g",
+                plan_id="p",
+                workflow_id="wf",
+                steps=None,
+                task_id_by_step={},
+            )
+            == []
+        )
 
     def test_artifact_refs_passed_through(self):
         steps = [{"id": "plan", "role": "planner", "depends_on": []}]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "p1"},
             artifact_refs_by_step={"plan": ["goal_brief", "acceptance_criteria"]},
@@ -362,7 +422,9 @@ class TestDeriveHandoffsForSteps:
 
     def test_blueprint_provenance_kept(self):
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=[{"id": "plan", "role": "planner", "depends_on": []}],
             task_id_by_step={"plan": "p1"},
             blueprint_id="scrum_opencode",
@@ -379,7 +441,9 @@ class TestDeriveHandoffsForSteps:
             {"id": "impl", "role": "developer", "depends_on": ["plan", "plan"]},
         ]
         events = derive_handoffs_for_steps(
-            goal_id="g", plan_id="p", workflow_id="wf",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="wf",
             steps=steps,
             task_id_by_step={"plan": "p1", "impl": "p2"},
         )
@@ -403,13 +467,19 @@ class TestRecordHandoffToAuditLog:
 
         # Stub the audit module the service imports lazily
         import sys
+
         fake_module = type(sys)("agent.common.audit")
         fake_module.log_audit = fake_log_audit
         monkeypatch.setitem(sys.modules, "agent.common.audit", fake_module)
 
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
             status=STATUS_RELEASED,
         )
         record_handoff_to_audit_log(event=event)
@@ -425,38 +495,50 @@ class TestRecordHandoffToAuditLog:
             raise RuntimeError("db down")
 
         import sys
+
         fake_module = type(sys)("agent.common.audit")
         fake_module.log_audit = broken_log_audit
         monkeypatch.setitem(sys.modules, "agent.common.audit", fake_module)
 
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         # Should not raise — the workflow is more important than the audit log.
         record_handoff_to_audit_log(event=event)
 
     def test_survives_missing_audit_module(self, monkeypatch):
         # Force the lazy import to fail
-        monkeypatch.setattr(
-            "agent.services.workflow_event_service.__loader__", None
-        )
+        monkeypatch.setattr("agent.services.workflow_event_service.__loader__", None)
         # Use a fake module that raises on import
         import sys
+
         class BrokenAuditFinder:
             def find_module(self, name, path=None):
                 if name == "agent.common.audit":
                     return self
+
             def load_module(self, name):
                 raise ImportError("blocked for test")
+
         monkeypatch.setattr(
-            sys, "meta_path",
-            [finder for finder in sys.meta_path
-             if finder is not BrokenAuditFinder()] + [BrokenAuditFinder()],
+            sys,
+            "meta_path",
+            [finder for finder in sys.meta_path if finder is not BrokenAuditFinder()] + [BrokenAuditFinder()],
         )
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         # Should not raise
         record_handoff_to_audit_log(event=event)
@@ -470,17 +552,28 @@ class TestRecordHandoffToAuditLog:
 class TestHandoffEvent:
     def test_frozen(self):
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
         )
         with pytest.raises(Exception):
             event.goal_id = "other"  # type: ignore[misc]
 
     def test_to_dict_is_serializable(self):
         import json
+
         event = build_handoff_event(
-            goal_id="g", plan_id="p", workflow_id="w",
-            from_step="a", to_step="b", from_role="a", to_role="b",
+            goal_id="g",
+            plan_id="p",
+            workflow_id="w",
+            from_step="a",
+            to_step="b",
+            from_role="a",
+            to_role="b",
             status=STATUS_WAIVED,
             reason_code="human_waived",
         )

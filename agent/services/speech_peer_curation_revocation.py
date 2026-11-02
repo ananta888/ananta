@@ -133,9 +133,7 @@ class SpeechPeerCurationRevocationFence:
                 status_code=503,
             ) from exc
         self._training_revocation.fence_impact(owner, impact)
-        manifest_digests = tuple(
-            str(node["digest"]) for node in impact.nodes if str(node["kind"]) == "manifest"
-        )
+        manifest_digests = tuple(str(node["digest"]) for node in impact.nodes if str(node["kind"]) == "manifest")
         completed_audit = self._audit.prepare(
             owner,
             session_id=session_id,

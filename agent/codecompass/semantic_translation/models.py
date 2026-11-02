@@ -198,5 +198,7 @@ def validate_semantic_kind(semantic_kind: str) -> None:
         raise ValueError(f"unknown semantic kind: {semantic_kind}")
 
 
-def diagnostic(code: str, message: str, *, severity: str = "warning", path: str = "", line: int | None = None) -> dict[str, Any]:
+def diagnostic(
+    code: str, message: str, *, severity: str = "warning", path: str = "", line: int | None = None
+) -> dict[str, Any]:
     return {"severity": severity, "code": code, "message": message, "path": path, "line": line}

@@ -41,9 +41,7 @@ class ReferenceScenarioVariant:
             reason_code=str(raw.get("reason_code") or "").strip(),
             terminal_status=str(raw.get("terminal_status") or "").strip(),
             required_event_types=tuple(str(item) for item in raw.get("required_event_types", ())),
-            side_effect_operations=tuple(
-                str(item) for item in raw.get("side_effect_operations", ())
-            ),
+            side_effect_operations=tuple(str(item) for item in raw.get("side_effect_operations", ())),
         )
         value.validate()
         return value

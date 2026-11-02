@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from client_surfaces.operator_tui.visual.runtime.view_capability_report import (
-    ViewCapabilityBundle,
     ViewCapabilityReport,
     build_full_capability_report,
     build_markdown_mermaid_capability_report,
@@ -21,8 +20,10 @@ def test_report_unavailable_status():
 
 def test_report_degraded_status():
     r = ViewCapabilityReport(
-        view_id="markdown_mermaid_document", available=True, degraded=True,
-        degraded_features=("Mermaid image: mmdc missing",)
+        view_id="markdown_mermaid_document",
+        available=True,
+        degraded=True,
+        degraded_features=("Mermaid image: mmdc missing",),
     )
     assert "degraded" in r.status_label()
 

@@ -25,14 +25,19 @@ def cancel_native_task_fenced(*, repository, runtime, task_id, lease, tenant_id,
 
     def mutate(task):
         append_task_history_event(
-            task, event_type="workflow_node_task_cancelled", actor="system:native-graph-orchestrator",
+            task,
+            event_type="workflow_node_task_cancelled",
+            actor="system:native-graph-orchestrator",
             details={"run_id": run_id, "reason": str(reason)[:240]},
         )
 
     result = compare(
-        task_id, transaction_guard=lambda session: validate_sqlalchemy_lease(session, lease, lease.checkpoint),
+        task_id,
+        transaction_guard=lambda session: validate_sqlalchemy_lease(session, lease, lease.checkpoint),
         expected_statuses=ACTIVE_TASK_STATUSES | {"queued", "running", "completed", "failed", "cancelled"},
-        target_status="cancelled", predicate=predicate, mutate=mutate,
+        target_status="cancelled",
+        predicate=predicate,
+        mutate=mutate,
     )
     if result.updated:
         notify(result.task, previous_status=result.previous_status)

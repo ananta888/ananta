@@ -33,11 +33,7 @@ def run_webcrawler_tool(
     if not isinstance(provider_raw, dict):
         agent_cfg = cfg.get("agent_cfg")
         nested_providers = agent_cfg.get("providers") if isinstance(agent_cfg, dict) else None
-        provider_raw = (
-            nested_providers.get("ananta_webcrawler")
-            if isinstance(nested_providers, dict)
-            else None
-        )
+        provider_raw = nested_providers.get("ananta_webcrawler") if isinstance(nested_providers, dict) else None
     try:
         provider_config = AnantaWebcrawlerProviderConfig.from_mapping(provider_raw)
     except WebcrawlerConfigError as exc:
@@ -59,8 +55,7 @@ def run_webcrawler_tool(
 
     policy_context = cfg.get("webcrawler_policy_context")
     authorization_granted = bool(
-        isinstance(policy_context, dict)
-        and policy_context.get("authorization_granted") is True
+        isinstance(policy_context, dict) and policy_context.get("authorization_granted") is True
     )
     provider = AnantaWebcrawlerToolProvider(
         provider_config,

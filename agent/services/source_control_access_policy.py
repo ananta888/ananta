@@ -60,9 +60,7 @@ class HubSourcePrincipal:
 
     def __post_init__(self) -> None:
         if not str(self.subject_id or "").strip():
-            raise SourceControlAccessPolicyError(
-                "source_control_principal_subject_required"
-            )
+            raise SourceControlAccessPolicyError("source_control_principal_subject_required")
 
     @property
     def is_admin(self) -> bool:
@@ -82,9 +80,7 @@ class HubSourcePrincipal:
 
     def projection_principal(self) -> SourceControlPrincipal:
         if not self.tenant_id or not self.project_id:
-            raise SourceControlAccessPolicyError(
-                "source_control_principal_scope_required"
-            )
+            raise SourceControlAccessPolicyError("source_control_principal_scope_required")
         return SourceControlPrincipal(
             subject_id=self.subject_id,
             tenant_id=self.tenant_id,
@@ -133,19 +129,13 @@ class SourceControlAccessPolicy:
     ) -> SourceControlAccessDecision:
         if binding is None:
             if action is SourceControlAction.policy and not principal.is_admin:
-                return self._forbidden(
-                    "source_control_policy_admin_required"
-                )
+                return self._forbidden("source_control_policy_admin_required")
             if principal.is_admin:
                 return self._allowed()
             if not principal.tenant_id or not principal.project_id:
-                return self._forbidden(
-                    "source_control_principal_scope_required"
-                )
+                return self._forbidden("source_control_principal_scope_required")
             if action in _MUTATING_ACTIONS and not principal.can_mutate_project:
-                return self._forbidden(
-                    "source_control_mutation_role_required"
-                )
+                return self._forbidden("source_control_mutation_role_required")
             return self._allowed()
 
         if not binding.exists:
@@ -160,17 +150,12 @@ class SourceControlAccessPolicy:
                     legacy_admin_access=True,
                 )
             if action is SourceControlAction.policy:
-                return self._forbidden(
-                    "source_control_policy_admin_required"
-                )
+                return self._forbidden("source_control_policy_admin_required")
             return self._hidden()
 
         if principal.is_admin:
             return self._allowed()
-        if (
-            principal.tenant_id != binding.tenant_id
-            or principal.project_id != binding.project_id
-        ):
+        if principal.tenant_id != binding.tenant_id or principal.project_id != binding.project_id:
             return self._hidden()
 
         if (
@@ -182,13 +167,9 @@ class SourceControlAccessPolicy:
             return self._hidden()
 
         if action is SourceControlAction.policy:
-            return self._forbidden(
-                "source_control_policy_admin_required"
-            )
+            return self._forbidden("source_control_policy_admin_required")
         if action in _MUTATING_ACTIONS and not principal.can_mutate_project:
-            return self._forbidden(
-                "source_control_mutation_role_required"
-            )
+            return self._forbidden("source_control_mutation_role_required")
         return self._allowed()
 
     def can_view(

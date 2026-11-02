@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 import urllib.error
+import urllib.request
 
 from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
 from client_surfaces.operator_tui.windowing.protocol import allowed_actions, is_allowed_action

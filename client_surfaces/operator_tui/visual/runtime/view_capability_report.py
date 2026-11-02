@@ -66,21 +66,25 @@ def build_full_capability_report(
         display_name = req.get("display_name") or vid
         missing: list[str] = [f for f in required_features if not caps.get(f, True)]
         if missing:
-            unavailable.append(ViewCapabilityReport(
-                view_id=vid,
-                display_name=display_name,
-                available=False,
-                unavailable_reason=f"missing: {', '.join(missing)}",
-            ))
+            unavailable.append(
+                ViewCapabilityReport(
+                    view_id=vid,
+                    display_name=display_name,
+                    available=False,
+                    unavailable_reason=f"missing: {', '.join(missing)}",
+                )
+            )
         else:
             degraded_feats = [f for f in (req.get("optional_runtime_requirements") or []) if not caps.get(f, True)]
-            available.append(ViewCapabilityReport(
-                view_id=vid,
-                display_name=display_name,
-                available=True,
-                degraded=bool(degraded_feats),
-                degraded_features=tuple(degraded_feats),
-            ))
+            available.append(
+                ViewCapabilityReport(
+                    view_id=vid,
+                    display_name=display_name,
+                    available=True,
+                    degraded=bool(degraded_feats),
+                    degraded_features=tuple(degraded_feats),
+                )
+            )
 
     return ViewCapabilityBundle(available=available, unavailable=unavailable, active_view_id=active_view_id)
 

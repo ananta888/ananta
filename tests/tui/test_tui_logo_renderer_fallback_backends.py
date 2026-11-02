@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from client_surfaces.operator_tui.logo_renderer.ascii import AsciiRenderer
-from client_surfaces.operator_tui.logo_renderer.halfblock import HalfblockRenderer
 from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
+from client_surfaces.operator_tui.logo_renderer.halfblock import HalfblockRenderer
 
 
 def test_ascii_renderer_reports_fallback_capabilities() -> None:

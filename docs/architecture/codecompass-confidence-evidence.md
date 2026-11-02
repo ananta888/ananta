@@ -18,23 +18,23 @@ Alle Felder nach `snippet` sind Pflicht:
 class ContextItem:
     # Basis-Identifikation
     item_id: str
-    node_id: str | None           # Graph-Node-ID, falls vorhanden
-    path: str                     # Dateipfad
-    symbol: str | None            # Funktions-/Klassenname, falls bekannt
-    snippet: str                  # Code-Ausschnitt (ggf. truncated)
-    truncated: bool               # True wenn Snippet gekürzt wurde
+    node_id: str | None  # Graph-Node-ID, falls vorhanden
+    path: str  # Dateipfad
+    symbol: str | None  # Funktions-/Klassenname, falls bekannt
+    snippet: str  # Code-Ausschnitt (ggf. truncated)
+    truncated: bool  # True wenn Snippet gekürzt wurde
 
     # Pflicht-Evidence-Felder (COSMOS-014)
     evidence: list[EvidenceItem]  # Quellen, die den Treffer belegen
-    confidence: float             # 0.0–1.0, aus Signalen berechnet
-    freshness: float              # 0.0–1.0, aus Alter und Aktivität
-    provider: str                 # "codecompass" | "augment" | "manual" | "history"
-    policy_status: str            # "allowed" | "denied" | "uncertain"
-    reason: str                   # Warum dieser Treffer zur Query relevant ist
+    confidence: float  # 0.0–1.0, aus Signalen berechnet
+    freshness: float  # 0.0–1.0, aus Alter und Aktivität
+    provider: str  # "codecompass" | "augment" | "manual" | "history"
+    policy_status: str  # "allowed" | "denied" | "uncertain"
+    reason: str  # Warum dieser Treffer zur Query relevant ist
 
     # Ranking-Kontext (optional, für Debugging)
-    score: float                  # finaler Gesamt-Score nach allen Ranking-Stufen
-    active_status: CodeStatus     # aus Active-vs-Deprecated-Analyse
+    score: float  # finaler Gesamt-Score nach allen Ranking-Stufen
+    active_status: CodeStatus  # aus Active-vs-Deprecated-Analyse
 ```
 
 ---
@@ -45,20 +45,20 @@ class ContextItem:
 @dataclass
 class EvidenceItem:
     evidence_type: Literal[
-        "ast_call",          # AST-Analyse: Funktion wird aufgerufen
-        "ast_import",        # AST-Analyse: Modul wird importiert
-        "ast_implements",    # AST-Analyse: Klasse implementiert Interface
-        "test_reference",    # Testfall deckt diesen Pfad ab
-        "doc_mention",       # Vorkommen in Dokumentation
+        "ast_call",  # AST-Analyse: Funktion wird aufgerufen
+        "ast_import",  # AST-Analyse: Modul wird importiert
+        "ast_implements",  # AST-Analyse: Klasse implementiert Interface
+        "test_reference",  # Testfall deckt diesen Pfad ab
+        "doc_mention",  # Vorkommen in Dokumentation
         "config_reference",  # Config-Key oder ENV referenziert diesen Pfad
-        "route_reference",   # API-Route zeigt auf diesen Code-Pfad
-        "commit_history",    # Commit-History zeigt Aktivität
-        "manual",            # Manuell eingetragene Evidence
+        "route_reference",  # API-Route zeigt auf diesen Code-Pfad
+        "commit_history",  # Commit-History zeigt Aktivität
+        "manual",  # Manuell eingetragene Evidence
     ]
-    source_file: str | None       # Datei, in der die Evidence gefunden wurde
-    line: int | None              # Zeile der Evidence
-    confidence: float             # Confidence dieser einzelnen Evidenz-Quelle
-    detail: str | None            # kurze Erklärung, z. B. "aufgerufen von hub.py:142"
+    source_file: str | None  # Datei, in der die Evidence gefunden wurde
+    line: int | None  # Zeile der Evidence
+    confidence: float  # Confidence dieser einzelnen Evidenz-Quelle
+    detail: str | None  # kurze Erklärung, z. B. "aufgerufen von hub.py:142"
 ```
 
 ---

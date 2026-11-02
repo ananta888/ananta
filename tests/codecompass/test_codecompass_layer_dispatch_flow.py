@@ -14,8 +14,8 @@ import pytest
 from flask import Flask
 
 from agent.bootstrap.codecompass_layers import initialize_codecompass_layers
-from agent.services._task_scoped_forwarding import _accept_codecompass_layer_result
 from agent.services.codecompass_layer_hub_store import ContentBlobStore, SnapshotManifestStore
+from agent.services.task_scoped.forwarding import _accept_codecompass_layer_result
 from agent.services.workflow_worker_service_auth import CODECOMPASS_LAYER_JOB_SCOPE
 from ananta_contracts.codecompass_layer_job import CONTEXT_KEY, TASK_KIND, WORKER_SCOPE, partition_by_size
 from worker.incremental_index.chunk_builder import ChunkLayerBuilder
@@ -34,8 +34,10 @@ def sha(text):
 
 
 def manifest(files):
-    rows = [{"path": p, "content_sha256": sha(t), "byte_size": len(t.encode()), "outcome": "indexed"}
-            for p, t in files.items()]
+    rows = [
+        {"path": p, "content_sha256": sha(t), "byte_size": len(t.encode()), "outcome": "indexed"}
+        for p, t in files.items()
+    ]
     return {"snapshot_revision": sha(json.dumps(files, sort_keys=True)), "files": rows}
 
 
@@ -97,16 +99,23 @@ def commit(hub, files, key):
     service = hub.extensions["codecompass_layer_service"]
     head = service.show_head(PROFILE)
     plan = service.plan_update(profile_id=PROFILE, to_snapshot_ref=snapshot["snapshot_revision"])
-    queued = service.apply_update(plan=plan, profile_ref={"profile_id": PROFILE}, profile_id=PROFILE,
-                                  expected_generation=int((head or {}).get("generation") or 0), idempotency_key=key)
+    queued = service.apply_update(
+        plan=plan,
+        profile_ref={"profile_id": PROFILE},
+        profile_id=PROFILE,
+        expected_generation=int((head or {}).get("generation") or 0),
+        idempotency_key=key,
+    )
     return plan, queued
 
 
 def work(hub, index=-1):
     """A Worker executes the queued task and the Hub admits the forwarded result."""
     task = hub.queue.tasks[index]
-    task_view = {"task_kind": task["extra_fields"]["task_kind"],
-                 "worker_execution_context": task["extra_fields"]["worker_execution_context"]}
+    task_view = {
+        "task_kind": task["extra_fields"]["task_kind"],
+        "worker_execution_context": task["extra_fields"]["worker_execution_context"],
+    }
     handler = CodeCompassLayerJobHandler(GatewayClient(hub.extensions["codecompass_layer_job_gateway"]))
     result = handler.execute(task=task_view, tid=task["task_id"])
     with hub.app_context():
@@ -123,8 +132,14 @@ def effective(hub):
 
 def full_build(files):
     changes = diff_snapshots({"snapshot_revision": "0" * 64, "files": []}, manifest(files)).file_changes
-    layer = ChunkLayerBuilder().build(changes=changes, content=files, prior_ids_by_path={}, parent_layer_id=None,
-                                      snapshot_revision="x", changeset_id="x")
+    layer = ChunkLayerBuilder().build(
+        changes=changes,
+        content=files,
+        prior_ids_by_path={},
+        parent_layer_id=None,
+        snapshot_revision="x",
+        changeset_id="x",
+    )
     return sorted((row["id"], row["content_hash"]) for row in overlay_records(layer["records"]))
 
 
@@ -138,7 +153,13 @@ def test_base_then_delta_publish_through_the_worker(hub):
     task = hub.queue.tasks[0]
     ticket = task["extra_fields"]["worker_execution_context"][CONTEXT_KEY]
     assert task["extra_fields"]["task_kind"] == TASK_KIND and set(ticket) == {
-        "schema", "task_id", "assignment_id", "dispatch_lease_id", "intent_digest", "run_id"}
+        "schema",
+        "task_id",
+        "assignment_id",
+        "dispatch_lease_id",
+        "intent_digest",
+        "run_id",
+    }
     # The task carries no file content, paths or record ids: those stay in the Hub.
     rendered = json.dumps(task)
     assert all(path not in rendered for path in A) and "prior_record_ids" not in rendered
@@ -199,8 +220,14 @@ def test_an_upload_for_another_parent_is_rejected_and_not_kept(hub):
     gateway = hub.extensions["codecompass_layer_job_gateway"]
     task_id = hub.queue.tasks[1]["task_id"]
     spec = gateway.spec(task_id)
-    forged = ChunkLayerBuilder().build(changes=[], content={}, prior_ids_by_path={}, parent_layer_id=None,
-                                       snapshot_revision=spec["input_revision"], changeset_id="forged")
+    forged = ChunkLayerBuilder().build(
+        changes=[],
+        content={},
+        prior_ids_by_path={},
+        parent_layer_id=None,
+        snapshot_revision=spec["input_revision"],
+        changeset_id="forged",
+    )
     before = len(hub.extensions["codecompass_layer_service"]._backend._query._layers.list_layers())
     with pytest.raises(ValueError, match="upload_binding_invalid"):
         gateway.receive_layer(task_id, gzip.compress(json.dumps(forged).encode()))
@@ -209,8 +236,9 @@ def test_an_upload_for_another_parent_is_rejected_and_not_kept(hub):
 
 def test_a_result_for_another_task_is_rejected():
     task = {"task_kind": TASK_KIND}
-    admitted = _accept_codecompass_layer_result(tid="cc_layer_" + "a" * 32, task=task,
-                                                response={"task_id": "cc_layer_" + "b" * 32})
+    admitted = _accept_codecompass_layer_result(
+        tid="cc_layer_" + "a" * 32, task=task, response={"task_id": "cc_layer_" + "b" * 32}
+    )
     assert admitted[TASK_KIND]["reason_code"] == "codecompass_layer_result_task_mismatch"
     assert _accept_codecompass_layer_result(tid="x", task={"task_kind": "other"}, response={}) == {}
 
@@ -256,9 +284,14 @@ def test_layer_tasks_can_be_bound_to_the_autopilot_team(tmp_path):
     queue = Queue()
     initialize_codecompass_layers(
         app,
-        environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1",
-                 "ANANTA_CODECOMPASS_LAYER_TEAM_ID": "live-smoke"},
-        data_dir=tmp_path, task_queue=queue, evidence=Evidence(),
+        environ={
+            "ANANTA_CODECOMPASS_LAYERS_ENABLED": "1",
+            "ANANTA_CODECOMPASS_LAYER_WRITES": "1",
+            "ANANTA_CODECOMPASS_LAYER_TEAM_ID": "live-smoke",
+        },
+        data_dir=tmp_path,
+        task_queue=queue,
+        evidence=Evidence(),
     )
     app.queue, app.evidence = queue, Evidence()
     root = tmp_path / "codecompass_layers"

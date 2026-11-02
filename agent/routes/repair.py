@@ -3,20 +3,22 @@
 DRR-T035: analyze, preview, execute, and outcome/history endpoints.
 DRR-T038: Operator view for deterministic repair path.
 """
+
 from __future__ import annotations
 
-from flask import Blueprint, g, request, current_app
+import logging
+
+from flask import Blueprint, request
 
 from agent.auth import admin_required, check_auth
-from agent.common.errors import api_response
 from agent.common.audit import log_audit
+from agent.common.errors import api_response
 from agent.services.worker_runtime_selection_service import (
     WorkerRuntimeSelectionRequest,
     WorkerRuntimeSelectionService,
 )
-from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
 from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
-from worker.core.runtime_target import WorkerCandidate, WorkerKind
+from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
 
 repair_bp = Blueprint("repair", __name__, url_prefix="/repair")
 
@@ -34,8 +36,8 @@ def list_worker_candidates():
 
     body = request.get_json(silent=True) or {}
     policy_data = body.get("worker_selection_policy") or body.get("policy")
-    required_capabilities = body.get("required_capabilities") or []
-    execution_mode = body.get("execution_mode") or "repair"
+    body.get("required_capabilities") or []
+    body.get("execution_mode") or "repair"
 
     policy_service = WorkerSelectionPolicyService()
     try:
@@ -45,15 +47,18 @@ def list_worker_candidates():
 
     # Gather candidates from registry
     from agent.services.agent_registry_service import get_agent_registry_service
+
     registry_service = get_agent_registry_service()
 
     candidates = registry_service.get_online_candidates()
 
-    return api_response({
-        "policy": policy.model_dump(mode="json"),
-        "candidates": [c.model_dump(mode="json") for c in candidates],
-        "candidate_count": len(candidates)
-    })
+    return api_response(
+        {
+            "policy": policy.model_dump(mode="json"),
+            "candidates": [c.model_dump(mode="json") for c in candidates],
+            "candidate_count": len(candidates),
+        }
+    )
 
 
 @repair_bp.route("/runtime-targets", methods=["GET"])
@@ -68,17 +73,17 @@ def list_runtime_targets():
 
     # Collect from registered agents
     from agent.services.agent_registry_service import get_agent_registry_service
+
     online_agents = get_agent_registry_service().get_online_agents()
     for a in online_agents:
         for rt_data in a.runtime_targets or []:
             try:
                 targets.append(rt_service.from_config(rt_data))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("list_runtime_targets: ignored Exception", exc_info=True)
 
-    return api_response(
-        {"runtime_targets": [t.model_dump(mode="json") for t in targets], "count": len(targets)}
-    )
+    return api_response({"runtime_targets": [t.model_dump(mode="json") for t in targets], "count": len(targets)})
+
 
 @repair_bp.route("/analyze", methods=["POST"])
 def analyze_repair():
@@ -100,10 +105,10 @@ def analyze_repair():
     try:
         from agent.services.deterministic_repair_path_service import (
             build_initial_failure_signature_catalog,
-            match_failure_signatures,
             classify_signature_matching_outcome,
-            normalize_evidence_bundle,
             ingest_structured_logs,
+            match_failure_signatures,
+            normalize_evidence_bundle,
         )
 
         evidence_items = []
@@ -129,19 +134,22 @@ def analyze_repair():
         )
         outcome = classify_signature_matching_outcome(matching_result=matching)
 
-        return api_response({
-            "schema": "repair_analysis_response_v1",
-            "outcome": outcome.get("outcome"),
-            "best_problem_class": outcome.get("best_problem_class"),
-            "best_score": outcome.get("best_score"),
-            "top_matches": (matching.get("matches") or [])[:3],
-            "signature_count_checked": len(catalog),
-        })
+        return api_response(
+            {
+                "schema": "repair_analysis_response_v1",
+                "outcome": outcome.get("outcome"),
+                "best_problem_class": outcome.get("best_problem_class"),
+                "best_score": outcome.get("best_score"),
+                "top_matches": (matching.get("matches") or [])[:3],
+                "signature_count_checked": len(catalog),
+            }
+        )
     except Exception as exc:
         return api_response({"error": "analysis_failed", "detail": str(exc)}, 500)
 
 
 # ── DRR-T035: Repair preview endpoint ─────────────────────────────────────────
+
 
 @repair_bp.route("/preview", methods=["POST"])
 def preview_repair():
@@ -157,9 +165,7 @@ def preview_repair():
     policy_data = body.get("worker_selection_policy") or body.get("policy")
 
     if not matching_outcome:
-        return api_response(
-            {"error": "invalid_input", "message": "matching_outcome required"}, 400
-        )
+        return api_response({"error": "invalid_input", "message": "matching_outcome required"}, 400)
 
     try:
         from agent.services.repair_execution_plan_service import generate_repair_execution_plan
@@ -184,6 +190,7 @@ def preview_repair():
 
         # Build selection request
         from agent.services.agent_registry_service import get_agent_registry_service
+
         registry_service = get_agent_registry_service()
 
         candidates = registry_service.get_online_candidates()
@@ -194,13 +201,17 @@ def preview_repair():
                 try:
                     runtime_targets.append(rt_service.from_config(rt_data))
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("preview_repair: ignored Exception", exc_info=True)
 
-        explicit_required = [
-            str(item).strip()
-            for item in list((policy_data or {}).get("required_capabilities") or [])
-            if str(item).strip()
-        ] if isinstance(policy_data, dict) else []
+        explicit_required = (
+            [
+                str(item).strip()
+                for item in list((policy_data or {}).get("required_capabilities") or [])
+                if str(item).strip()
+            ]
+            if isinstance(policy_data, dict)
+            else []
+        )
         all_required = explicit_required
         if not all_required:
             for s in plan.steps:
@@ -211,57 +222,71 @@ def preview_repair():
             workers=candidates,
             runtime_targets=runtime_targets,
             required_capabilities=all_required,
-            execution_mode="repair_preview"
+            execution_mode="repair_preview",
         )
         decision = selection_service.select(sel_request)
 
         # Audit preview selection
         try:
-            log_audit("worker_runtime_selected_preview", {
+            log_audit(
+                "worker_runtime_selected_preview",
+                {
+                    "plan_id": plan.plan_id,
+                    "procedure_id": plan.procedure_id,
+                    "policy_decision_ref": decision.policy_decision_ref,
+                    "selected_worker_id": decision.selected_worker_id,
+                    "selected_worker_kind": getattr(
+                        decision.selected_worker_kind,
+                        "value",
+                        str(decision.selected_worker_kind) if decision.selected_worker_kind else None,
+                    ),
+                    "selected_runtime_target_id": decision.selected_runtime_target_id,
+                    "selected_runtime_kind": getattr(
+                        decision.selected_runtime_kind,
+                        "value",
+                        str(decision.selected_runtime_kind) if decision.selected_runtime_kind else None,
+                    ),
+                    "decision_status": getattr(decision.decision_status, "value", str(decision.decision_status)),
+                    "selection_mode": getattr(decision.selection_mode, "value", str(decision.selection_mode)),
+                },
+            )
+        except Exception:
+            logging.getLogger(__name__).debug("preview_repair: ignored Exception", exc_info=True)
+
+        return api_response(
+            {
+                "schema": "repair_preview_response_v1",
                 "plan_id": plan.plan_id,
                 "procedure_id": plan.procedure_id,
-                "policy_decision_ref": decision.policy_decision_ref,
-                "selected_worker_id": decision.selected_worker_id,
-                "selected_worker_kind": getattr(decision.selected_worker_kind, "value", str(decision.selected_worker_kind) if decision.selected_worker_kind else None),
-                "selected_runtime_target_id": decision.selected_runtime_target_id,
-                "selected_runtime_kind": getattr(decision.selected_runtime_kind, "value", str(decision.selected_runtime_kind) if decision.selected_runtime_kind else None),
-                "decision_status": getattr(decision.decision_status, "value", str(decision.decision_status)),
-                "selection_mode": getattr(decision.selection_mode, "value", str(decision.selection_mode)),
-            })
-        except Exception:
-            pass
-
-        return api_response({
-            "schema": "repair_preview_response_v1",
-            "plan_id": plan.plan_id,
-            "procedure_id": plan.procedure_id,
-            "safety_class": plan.safety_class,
-            "approval_requirement": plan.approval_requirement,
-            "worker_selection": {
-                "decision": decision.model_dump(mode="json"),
-                "policy": (policy or WorkerSelectionPolicyService().from_config({})).model_dump(mode="json")
-            },
-            "step_count": len(plan.steps),
-            "steps": [
-                {
-                    "step_id": s.step_id,
-                    "title": s.title,
-                    "mutation_candidate": s.mutation_candidate,
-                    "action_safety_class": s.action_safety_class,
-                    "requires_approval": s.requires_approval,
-                    "verification_after_step": s.verification_after_step,
-                    "required_capabilities": s.required_capabilities
-                }
-                for s in plan.steps
-            ],
-            "verification_plan": plan.verification_plan,
-            "rollback_hints": plan.rollback_hints,
-        })
+                "safety_class": plan.safety_class,
+                "approval_requirement": plan.approval_requirement,
+                "worker_selection": {
+                    "decision": decision.model_dump(mode="json"),
+                    "policy": (policy or WorkerSelectionPolicyService().from_config({})).model_dump(mode="json"),
+                },
+                "step_count": len(plan.steps),
+                "steps": [
+                    {
+                        "step_id": s.step_id,
+                        "title": s.title,
+                        "mutation_candidate": s.mutation_candidate,
+                        "action_safety_class": s.action_safety_class,
+                        "requires_approval": s.requires_approval,
+                        "verification_after_step": s.verification_after_step,
+                        "required_capabilities": s.required_capabilities,
+                    }
+                    for s in plan.steps
+                ],
+                "verification_plan": plan.verification_plan,
+                "rollback_hints": plan.rollback_hints,
+            }
+        )
     except Exception as exc:
         return api_response({"error": "preview_failed", "detail": str(exc)}, 500)
 
 
 # ── DRR-T035: Repair execution endpoint (approval-gated) ─────────────────────
+
 
 @repair_bp.route("/execute", methods=["POST"])
 @admin_required
@@ -296,6 +321,7 @@ def execute_repair():
 
 # ── DRR-T035/T038: Repair outcome history endpoint ────────────────────────────
 
+
 @repair_bp.route("/outcomes", methods=["GET"])
 def get_repair_outcomes():
     """Fetch repair outcome/history for task/goal/procedure. DRR-T035."""
@@ -315,16 +341,19 @@ def get_repair_outcomes():
             signature_id=signature_id,
         )
 
-        return api_response({
-            "schema": "repair_outcomes_response_v1",
-            "count": len(outcomes),
-            "outcomes": outcomes,
-        })
+        return api_response(
+            {
+                "schema": "repair_outcomes_response_v1",
+                "count": len(outcomes),
+                "outcomes": outcomes,
+            }
+        )
     except Exception as exc:
         return api_response({"error": "query_failed", "detail": str(exc)}, 500)
 
 
 # ── DRR-T038: Operator view endpoint ─────────────────────────────────────────
+
 
 @repair_bp.route("/operator/view", methods=["GET"])
 def operator_repair_view():
@@ -338,7 +367,6 @@ def operator_repair_view():
         from agent.services.deterministic_repair_path_service import (
             build_operator_session_summary,
             build_path_visibility,
-            build_operator_proposal_preview,
             build_repair_history_inspection_view,
         )
         from agent.services.repair_diagnostics_service import build_repair_diagnostics_read_model
@@ -356,19 +384,22 @@ def operator_repair_view():
         )
         history_view = build_repair_history_inspection_view(memory_entries=[])
 
-        return api_response({
-            "schema": "repair_operator_view_v1",
-            "task_id": task_id,
-            "diagnostics": diagnostics.as_dict(),
-            "session_summary": session_summary,
-            "path_visibility": path_visibility,
-            "history": history_view,
-        })
+        return api_response(
+            {
+                "schema": "repair_operator_view_v1",
+                "task_id": task_id,
+                "diagnostics": diagnostics.as_dict(),
+                "session_summary": session_summary,
+                "path_visibility": path_visibility,
+                "history": history_view,
+            }
+        )
     except Exception as exc:
         return api_response({"error": "operator_view_failed", "detail": str(exc)}, 500)
 
 
 # ── DRR-T034: Repair diagnostics endpoint ─────────────────────────────────────
+
 
 @repair_bp.route("/diagnostics", methods=["GET"])
 def repair_diagnostics():

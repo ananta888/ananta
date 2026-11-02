@@ -31,9 +31,7 @@ def test_optimization_cli_uses_same_hub_api_without_interaction(monkeypatch, cap
         "/api/dspy-optimization/dry-run",
         {"spec": {"schema": "x"}},
     )
-    assert optimization.dispatch(
-        ["provenance", "--tenant-id", "tenant-1", "--scope-id", "planning-en"]
-    ) == 0
+    assert optimization.dispatch(["provenance", "--tenant-id", "tenant-1", "--scope-id", "planning-en"]) == 0
     assert client.calls[-1] == (
         "GET",
         "/api/dspy-optimization/provenance",

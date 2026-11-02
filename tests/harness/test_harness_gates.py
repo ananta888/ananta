@@ -19,8 +19,9 @@ def engine(**overrides):
 
 def test_hard_gate_failure_disqualifies_regardless_of_fitness():
     # A high fitness metric cannot rescue a failed correctness hard gate.
-    report = engine().evaluate({"prompt_injection_clean": True, "task_correctness": 0.7, "schema_valid": 1,
-                                "fitness_score": 100.0})
+    report = engine().evaluate(
+        {"prompt_injection_clean": True, "task_correctness": 0.7, "schema_valid": 1, "fitness_score": 100.0}
+    )
     assert report.disqualified is True and report.reason == "gate_below_threshold:task_correctness"
 
 
@@ -62,4 +63,8 @@ def test_report_is_structured_and_reproducible():
     second = engine().evaluate({"prompt_injection_clean": True, "task_correctness": 0.9, "schema_valid": 1})
     assert first.to_mapping() == second.to_mapping()
     assert {outcome["gate_id"] for outcome in first.to_mapping()["outcomes"]} == {
-        "security:prompt_injection", "correctness", "schema", "regression"}
+        "security:prompt_injection",
+        "correctness",
+        "schema",
+        "regression",
+    }

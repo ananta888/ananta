@@ -1,4 +1,5 @@
 """ananta tmux — terminal session management and local editor/TUI shortcuts."""
+
 from __future__ import annotations
 
 import argparse
@@ -64,6 +65,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _api_client():
     from agent.cli.api_client import get_api_client
+
     return get_api_client()
 
 
@@ -269,6 +271,7 @@ def dispatch(
 
     if args.tmux_cmd == "edit":
         from agent.cli.commands.tui_editor import _open_file, _resolve_workspace
+
         workspace = _resolve_workspace(getattr(args, "edit_workspace", None))
         return _open_file(
             args.file,
@@ -280,6 +283,7 @@ def dispatch(
 
     if args.tmux_cmd == "tool":
         from agent.cli.commands.tui_editor import _launch_tool, _resolve_workspace
+
         workspace = _resolve_workspace(args.workspace)
         return _launch_tool(args.tool_id, workspace=workspace, exec_fn=exec_fn)
 

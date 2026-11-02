@@ -59,4 +59,3 @@ def test_extractor_rejects_unknown_reason_codes(monkeypatch):
             content_kind=ContentKind.FREEFORM_PROSE,
             actor="reviewer",
         )
-

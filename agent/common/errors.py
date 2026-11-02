@@ -84,7 +84,9 @@ def _with_error_guidance(data: Any, *, status: str, message: str | None, code: i
     return {"error_help": guidance}
 
 
-def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int | str = 200) -> Response:
+def api_response(
+    data: Any = None, status: str = "success", message: Optional[str] = None, code: int | str = 200
+) -> Response:
     """
     Erzeugt eine standardisierte API-Antwort.
     Format: { "status": "success/error/...", "data": ..., "message": ... }
@@ -105,7 +107,9 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
             # Außerhalb eines Request-Kontexts
             pass
 
-        response_body["data"] = _restore_auth_response_tokens(response_data, redact(response_data, visibility=visibility))
+        response_body["data"] = _restore_auth_response_tokens(
+            response_data, redact(response_data, visibility=visibility)
+        )
     if message is not None:
         response_body["message"] = message
 

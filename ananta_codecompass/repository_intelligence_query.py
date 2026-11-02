@@ -13,6 +13,7 @@ Each response carries ``seed_resolution``, ``results``, ``evidence_paths``,
 ``warnings`` and ``confidence``. Failed/ambiguous evidence is never
 silently rewritten.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,16 +21,17 @@ from typing import Any
 
 from ananta_codecompass.graph_store import CodeCompassGraphStore
 
-
 QUERY_ENGINE_VERSION = "repository_intelligence_query.v1"
 
-ALLOWED_QUERY_TYPES = frozenset({
-    "component-tests",
-    "package-dependents",
-    "runner-coverage",
-    "build-target-chain",
-    "external-package-impact",
-})
+ALLOWED_QUERY_TYPES = frozenset(
+    {
+        "component-tests",
+        "package-dependents",
+        "runner-coverage",
+        "build-target-chain",
+        "external-package-impact",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -66,7 +68,8 @@ def _warnings_for_coverage(graph_store: CodeCompassGraphStore) -> tuple[str, ...
 
 
 def _scope_filter(
-    node: dict[str, Any], edge: dict[str, Any] | None,
+    node: dict[str, Any],
+    edge: dict[str, Any] | None,
     *,
     repository_id: str | None,
     module_id: str | None,
@@ -102,8 +105,9 @@ def _scope_filter(
     return True
 
 
-def _neighbours_by_kind(bucket: dict[str, dict[str, list[dict[str, Any]]]],
-                        node_id: str, kind: str) -> list[dict[str, Any]]:
+def _neighbours_by_kind(
+    bucket: dict[str, dict[str, list[dict[str, Any]]]], node_id: str, kind: str
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for edge_type, edges in (bucket.get(node_id) or {}).items():
         if edge_type != kind:
@@ -122,9 +126,7 @@ def _resolve_seed(seed: str, rig_nodes_by_id: dict[str, Any]) -> tuple[list[str]
     if seed in rig_nodes_by_id:
         return [seed], "id"
     matches = [
-        nid
-        for nid, n in rig_nodes_by_id.items()
-        if str((n.get("attrs") or {}).get("name") or "").strip() == seed
+        nid for nid, n in rig_nodes_by_id.items() if str((n.get("attrs") or {}).get("name") or "").strip() == seed
     ]
     if matches:
         return matches, "name"
@@ -303,9 +305,7 @@ def run_query(
     per module is preserved.
     """
     if query_type not in ALLOWED_QUERY_TYPES:
-        raise ValueError(
-            f"unsupported query_type {query_type!r}; allowed={sorted(ALLOWED_QUERY_TYPES)}"
-        )
+        raise ValueError(f"unsupported query_type {query_type!r}; allowed={sorted(ALLOWED_QUERY_TYPES)}")
 
     payload = graph_store.load()
     rig_nodes_by_id: dict[str, Any] = (payload.get("rig_index") or {}).get("nodes_by_id") or {}
@@ -316,8 +316,7 @@ def run_query(
         "seed": seed,
         "matched_node_ids": [],
         "matched_via": None,
-        "scope": {"repository_id": repository_id, "module_id": module_id,
-                  "cross_scope": cross_scope},
+        "scope": {"repository_id": repository_id, "module_id": module_id, "cross_scope": cross_scope},
     }
     warnings = list(_warnings_for_coverage(graph_store))
 

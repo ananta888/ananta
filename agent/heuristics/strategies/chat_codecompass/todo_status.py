@@ -1,4 +1,5 @@
 """TodoStatusStrategy — chat_codecompass_todo_status_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, TodoReadPort
@@ -8,8 +9,19 @@ from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 
 _TODO_KEYWORDS = [
-    "todo", "task", "ticket", "issue", "backlog", "sprint", "next",
-    "done", "in progress", "blocked", "wip", "status", "assigned",
+    "todo",
+    "task",
+    "ticket",
+    "issue",
+    "backlog",
+    "sprint",
+    "next",
+    "done",
+    "in progress",
+    "blocked",
+    "wip",
+    "status",
+    "assigned",
 ]
 _MIN_SCORE = 0.15
 

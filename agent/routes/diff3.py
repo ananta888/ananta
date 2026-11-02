@@ -1,4 +1,5 @@
 """Flask API for the Three-Way Flex Diff / AI Mode (T01)."""
+
 from __future__ import annotations
 
 import logging
@@ -29,12 +30,14 @@ _log = logging.getLogger(__name__)
 def _repo_root() -> Path:
     try:
         from agent.config import settings as _s
+
         rr = getattr(_s, "rag_repo_root", None)
         if rr:
             return Path(str(rr)).resolve()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_repo_root: ignored Exception", exc_info=True)
     return Path(".").resolve()
+
 
 diff3_bp = Blueprint("diff3", __name__)
 
@@ -55,6 +58,7 @@ def _workspace(workspace_id: str | None):
 
 
 # ── Session management ────────────────────────────────────────────────────────
+
 
 @diff3_bp.route("/api/diff3/sessions", methods=["POST"])
 @check_auth
@@ -140,6 +144,7 @@ def delete_session(session_id: str):
 
 # ── Panel configuration ───────────────────────────────────────────────────────
 
+
 @diff3_bp.route("/api/diff3/sessions/<session_id>/panels/<panel_id>", methods=["PUT"])
 @check_auth
 def update_panel(session_id: str, panel_id: str):
@@ -194,9 +199,7 @@ def update_panel(session_id: str, panel_id: str):
         output_id = str(body.get("output_artifact_id") or "").strip()
         if not output_id:
             return jsonify({"error": "output_artifact_id required"}), 400
-        source_left = build_output_artifact_source_ref(
-            output_artifact_id=output_id, goal_id=goal_id
-        )
+        source_left = build_output_artifact_source_ref(output_artifact_id=output_id, goal_id=goal_id)
         panel_type = "diff"
     elif source_kind == "ai":
         ai_mode = str(body.get("ai_mode") or "review").lower()
@@ -204,9 +207,7 @@ def update_panel(session_id: str, panel_id: str):
             return jsonify({"error": f"invalid ai_mode: {ai_mode}"}), 400
         panel_type = "ai_review" if ai_mode != "patch" else "ai_patch"
         render_mode = "ai_chat" if ai_mode == "chat" else "ai_review"
-        ai_state = build_ai_diff_panel_state(
-            mode=ai_mode, selected_panels=["A", "B"], status="idle"
-        )
+        ai_state = build_ai_diff_panel_state(mode=ai_mode, selected_panels=["A", "B"], status="idle")
         session["extensions"] = dict(session.get("extensions") or {})
         session["extensions"]["ai_panel_state"] = ai_state
     else:
@@ -242,6 +243,7 @@ def set_focus(session_id: str):
         return jsonify({"error": "invalid_panel_id"}), 400
     session["active_panel"] = pid
     from datetime import UTC, datetime
+
     session["updated_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _SESSIONS[session_id] = session
     return jsonify(session)
@@ -260,6 +262,7 @@ def set_layout(session_id: str):
         return jsonify({"error": "invalid_layout_mode"}), 400
     session["layout_mode"] = mode
     from datetime import UTC, datetime
+
     session["updated_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _SESSIONS[session_id] = session
     return jsonify(session)
@@ -282,6 +285,7 @@ def set_sync(session_id: str):
 
 
 # ── AI dispatch ───────────────────────────────────────────────────────────────
+
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/ai/run", methods=["POST"])
 @check_auth
@@ -344,13 +348,13 @@ def run_ai(session_id: str):
 
     import hashlib
     import json as _json
+
     completed_state = set_ai_diff_mode(
-        running_state, mode=mode,
+        running_state,
+        mode=mode,
         status="degraded" if status != "success" else "completed",
     )
-    completed_state["last_response_ref"] = str(
-        result.get("output_artifact_id") or result.get("provenance_id") or ""
-    )
+    completed_state["last_response_ref"] = str(result.get("output_artifact_id") or result.get("provenance_id") or "")
     context_digest = hashlib.sha1(
         _json.dumps(result.get("context_envelope") or {}, sort_keys=True).encode()
     ).hexdigest()[:12]
@@ -358,19 +362,20 @@ def run_ai(session_id: str):
     extensions["ai_panel_state"] = completed_state
     extensions["ai_last_response"] = dict(result.get("response") or {})
     extensions["ai_last_context"] = dict(result.get("context_envelope") or {})
-    extensions["ai_last_findings"] = list(
-        (result.get("response") or {}).get("findings") or []
-    )
+    extensions["ai_last_findings"] = list((result.get("response") or {}).get("findings") or [])
     session["extensions"] = extensions
     _SESSIONS[session_id] = session
 
-    return jsonify({
-        "session": session,
-        "ai_result": result,
-    })
+    return jsonify(
+        {
+            "session": session,
+            "ai_result": result,
+        }
+    )
 
 
 # ── Panel content resolution ─────────────────────────────────────────────────
+
 
 @diff3_bp.route("/api/diff3/sessions/<session_id>/panels/<panel_id>/content", methods=["GET"])
 @check_auth
@@ -394,6 +399,7 @@ def get_panel_content(session_id: str, panel_id: str):
 
     try:
         from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
+
         locator = dict(source_ref.get("locator") or {})
         git_context = dict((session.get("extensions") or {}).get("git_context") or {})
         workspace_id = str(locator.get("workspace_id") or git_context.get("workspace_id") or "repo").strip() or "repo"
@@ -426,9 +432,7 @@ def set_ai_mode(session_id: str):
     if isinstance(current_ai, dict):
         extensions["ai_panel_state"] = set_ai_diff_mode(current_ai, mode=mode, status="idle")
     else:
-        extensions["ai_panel_state"] = build_ai_diff_panel_state(
-            mode=mode, selected_panels=["A", "B"], status="idle"
-        )
+        extensions["ai_panel_state"] = build_ai_diff_panel_state(mode=mode, selected_panels=["A", "B"], status="idle")
     session["extensions"] = extensions
     _SESSIONS[session_id] = session
     return jsonify(session)

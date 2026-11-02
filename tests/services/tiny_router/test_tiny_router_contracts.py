@@ -41,22 +41,24 @@ def profile(**overrides):
 
 
 def tools():
-    return [{
-        "type": "function",
-        "function": {
-            "name": "repo.search",
-            "description": "Search the repository",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "minLength": 1},
-                    "limit": {"type": "integer", "minimum": 1},
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "repo.search",
+                "description": "Search the repository",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "minLength": 1},
+                        "limit": {"type": "integer", "minimum": 1},
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
                 },
-                "required": ["query"],
-                "additionalProperties": False,
             },
-        },
-    }]
+        }
+    ]
 
 
 def test_profile_rejects_invalid_confidence():
@@ -73,16 +75,20 @@ def test_profile_catalog_enters_safe_mode_for_unknown_schema(tmp_path):
 
 
 def test_profile_catalog_rejects_noncommercial_xlam():
-    catalog = ProfileCatalog.from_profiles([
-        profile(
-            profile_id="xlam",
-            license_id="CC-BY-NC-4.0",
-            commercial_use_allowed=False,
-            research_only=True,
-        )
-    ])
+    catalog = ProfileCatalog.from_profiles(
+        [
+            profile(
+                profile_id="xlam",
+                license_id="CC-BY-NC-4.0",
+                commercial_use_allowed=False,
+                research_only=True,
+            )
+        ]
+    )
     selected, rejected = catalog.ordered(
-        ["xlam"], commercial_use=True, allow_research_only=False,
+        ["xlam"],
+        commercial_use=True,
+        allow_research_only=False,
     )
     assert selected == ()
     assert rejected == (("xlam", "license_commercial_use_denied"),)
@@ -119,17 +125,22 @@ def test_xlam_projection_reports_constraint_loss():
             "arguments_failed_schema",
         ),
         (
-            {"tool_calls": [
-                {"name": "repo.search", "args": {"query": "x"}},
-                {"name": "repo.search", "args": {"query": "y"}},
-            ]},
+            {
+                "tool_calls": [
+                    {"name": "repo.search", "args": {"query": "x"}},
+                    {"name": "repo.search", "args": {"query": "y"}},
+                ]
+            },
             "multiple_calls_not_supported",
         ),
     ],
 )
 def test_validator_fails_closed(payload, reason):
     result = CandidateValidator().validate(
-        payload, tools=tools(), profile=profile(), adapter_id="test",
+        payload,
+        tools=tools(),
+        profile=profile(),
+        adapter_id="test",
     )
     assert result.status == "invalid"
     assert result.reason_code == reason
@@ -138,12 +149,13 @@ def test_validator_fails_closed(payload, reason):
 def test_validator_accepts_fenced_json_without_semantic_repair():
     marker = chr(96) * 3
     payload = (
-        marker + "json\n"
-        + '{"tool_calls":[{"name":"repo.search","args":{"query":"hub","limit":2}}]}'
-        + "\n" + marker
+        marker + "json\n" + '{"tool_calls":[{"name":"repo.search","args":{"query":"hub","limit":2}}]}' + "\n" + marker
     )
     result = CandidateValidator().validate(
-        payload, tools=tools(), profile=profile(), adapter_id="test",
+        payload,
+        tools=tools(),
+        profile=profile(),
+        adapter_id="test",
     )
     assert result.candidate.tool_name == "repo.search"
     assert result.candidate.arguments == {"query": "hub", "limit": 2}
@@ -152,7 +164,10 @@ def test_validator_accepts_fenced_json_without_semantic_repair():
 def test_validator_rejects_duplicate_json_keys():
     payload = '{"tool_calls":[{"name":"repo.search","args":{"query":"a","query":"b"}}]}'
     result = CandidateValidator().validate(
-        payload, tools=tools(), profile=profile(), adapter_id="test",
+        payload,
+        tools=tools(),
+        profile=profile(),
+        adapter_id="test",
     )
     assert result.reason_code == "invalid_json"
 
@@ -165,8 +180,10 @@ def test_confidence_gate_abstains():
         },
         tools=tools(),
         profile=profile(
-            adapter="needle", dialect="needle",
-            supports_confidence=True, min_confidence=0.9,
+            adapter="needle",
+            dialect="needle",
+            supports_confidence=True,
+            min_confidence=0.9,
         ),
         adapter_id="needle",
     )
@@ -193,14 +210,18 @@ class NeedleRuntime:
 
 def test_needle_adapter_requests_candidates_without_execution():
     runtime = NeedleRuntime()
-    result = NeedleCandidateAdapter(runtime).propose(AdapterRequest(
-        prompt="search hub",
-        tools=tuple(tools()),
-        profile=profile(
-            adapter="needle", dialect="needle", supports_confidence=True,
-        ),
-        timeout_ms=100,
-    ))
+    result = NeedleCandidateAdapter(runtime).propose(
+        AdapterRequest(
+            prompt="search hub",
+            tools=tuple(tools()),
+            profile=profile(
+                adapter="needle",
+                dialect="needle",
+                supports_confidence=True,
+            ),
+            timeout_ms=100,
+        )
+    )
     assert runtime.complete_calls == 1
     assert result.payload["function_calls"][0]["name"] == "repo.search"
 
@@ -218,9 +239,11 @@ def test_cactus_runtime_resolves_deployment_weights_from_environment(monkeypatch
     monkeypatch.setenv("TEST_NEEDLE_WEIGHTS", "/models/needle2.cact")
     monkeypatch.setitem(__import__("sys").modules, "needle", type("Module", (), {"Needle": Needle}))
     result = CactusNeedleRuntime().complete(
-        prompt="status", tools=[],
+        prompt="status",
+        tools=[],
         profile=profile(
-            adapter="needle", dialect="needle",
+            adapter="needle",
+            dialect="needle",
             metadata={"weights_env": "TEST_NEEDLE_WEIGHTS"},
         ),
         timeout_ms=100,
@@ -255,7 +278,8 @@ def test_http_needle_runtime_uses_authenticated_candidate_endpoint(monkeypatch):
     monkeypatch.setenv("TEST_NEEDLE_TOKEN", "x" * 24)
     runtime = HttpNeedleRuntime(opener=open_request)
     needle_profile = profile(
-        adapter="needle", dialect="needle",
+        adapter="needle",
+        dialect="needle",
         metadata={
             "endpoint_env": "TEST_NEEDLE_ENDPOINT",
             "token_env": "TEST_NEEDLE_TOKEN",
@@ -264,7 +288,10 @@ def test_http_needle_runtime_uses_authenticated_candidate_endpoint(monkeypatch):
 
     assert runtime.is_available(needle_profile) == (True, "needle_sidecar_configured")
     result = runtime.complete(
-        prompt="status", tools=[], profile=needle_profile, timeout_ms=250,
+        prompt="status",
+        tools=[],
+        profile=needle_profile,
+        timeout_ms=250,
     )
 
     assert result == {"type": "abstain"}
@@ -291,33 +318,31 @@ class Transport:
 
 def test_generic_adapter_reuses_injected_tool_transport():
     transport = Transport()
-    OpenAICompatibleActionAdapter(transport).propose(
-        AdapterRequest("x", tuple(tools()), profile(), 100)
-    )
+    OpenAICompatibleActionAdapter(transport).propose(AdapterRequest("x", tuple(tools()), profile(), 100))
     assert transport.tool_calls == 1
     assert transport.text_calls == 0
 
 
 def test_xlam_adapter_reuses_injected_text_transport():
     transport = Transport()
-    OpenAICompatibleActionAdapter(transport).propose(
-        AdapterRequest("x", tuple(tools()), profile(dialect="xlam"), 100)
-    )
+    OpenAICompatibleActionAdapter(transport).propose(AdapterRequest("x", tuple(tools()), profile(dialect="xlam"), 100))
     assert transport.text_calls == 1
     assert transport.tool_calls == 0
 
 
 def test_benchmark_covers_required_catalog_sizes():
     report = BenchmarkRunner().run(
-        [{
-            "model_output": {
-                "tool_calls": [{"name": "repo.search", "args": {"query": "hub"}}]
-            },
-            "expected": {
-                "tool_name": "repo.search", "arguments": {"query": "hub"},
-            },
-        }],
-        tools=tools(), profile=profile(),
+        [
+            {
+                "model_output": {"tool_calls": [{"name": "repo.search", "args": {"query": "hub"}}]},
+                "expected": {
+                    "tool_name": "repo.search",
+                    "arguments": {"query": "hub"},
+                },
+            }
+        ],
+        tools=tools(),
+        profile=profile(),
     )
     assert [row["requested"] for row in report.catalog_sizes] == [5, 20, 50, 100]
     assert all(row["selected"] == 5 for row in report.catalog_sizes)

@@ -1,16 +1,14 @@
 """Tests für Heuristic Proposal Store (T06.04)."""
+
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import time
 
 import pytest
 
 from agent.services.heuristic_runtime.heuristic_proposal_store import (
     HeuristicProposalStore,
-    StoredProposal,
 )
 
 

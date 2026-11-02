@@ -1,11 +1,12 @@
 """Tests for AgentRunStateMachine — COSMOS-002"""
+
+import pytest
+
 from agent.services.agent_run_state_machine import (
     AgentRunState,
-    AgentRunStateMachine,
     AgentRunStateError,
-    TERMINAL_STATES,
+    AgentRunStateMachine,
 )
-import pytest
 
 
 def test_create_starts_in_created_state():

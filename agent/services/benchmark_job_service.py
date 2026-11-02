@@ -246,9 +246,7 @@ class BenchmarkJobService:
             )
 
             try:
-                result = CognitiveStyleBenchmarkService(
-                    HubStyleBenchmarkInvoker()
-                ).run(profile=profile, plan=plan)
+                result = CognitiveStyleBenchmarkService(HubStyleBenchmarkInvoker()).run(profile=profile, plan=plan)
                 configuration = get_cognitive_style_service().record_benchmark_result(
                     result,
                     expected_revision=expected_revision,
@@ -309,15 +307,18 @@ class BenchmarkJobService:
                 for item in items:
                     result = benchmark.run(profile=item.profile, plan=item.plan)
                     configuration = styles.record_benchmark_result(
-                        result, expected_revision=revision,
+                        result,
+                        expected_revision=revision,
                     )
                     revision = configuration.revision
                     observations += len(result.observations)
-                    results.append({
-                        "model_profile_id": item.profile.profile_id,
-                        "profile_id": result.profile.profile_id,
-                        "observation_count": len(result.observations),
-                    })
+                    results.append(
+                        {
+                            "model_profile_id": item.profile.profile_id,
+                            "profile_id": result.profile.profile_id,
+                            "observation_count": len(result.observations),
+                        }
+                    )
                 self._observe_style_benchmark("completed")
                 return {
                     "status": "completed",
@@ -336,9 +337,7 @@ class BenchmarkJobService:
             created_by=created_by,
             request_payload={
                 "model_profile_ids": [item.profile.profile_id for item in items],
-                "benchmark_revision": (
-                    items[0].plan.benchmark_revision if items else ""
-                ),
+                "benchmark_revision": (items[0].plan.benchmark_revision if items else ""),
                 "expected_revision": expected_revision,
                 "batch_size": len(items),
             },

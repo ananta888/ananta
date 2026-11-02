@@ -203,9 +203,7 @@ def run(out_dir: Path) -> None:
         hub_context_path = workspace_dir / ".ananta" / "hub-context.md"
         hub_context = hub_context_path.read_text(encoding="utf-8") if hub_context_path.is_file() else ""
         hub_context_available = bool(hub_context)
-        hub_context_hash = (
-            hashlib.sha256(hub_context.encode("utf-8")).hexdigest() if hub_context_available else None
-        )
+        hub_context_hash = hashlib.sha256(hub_context.encode("utf-8")).hexdigest() if hub_context_available else None
 
         engine_dir = out_dir / "worker-engines"
         engine_dir.mkdir(parents=True, exist_ok=True)
@@ -229,8 +227,15 @@ def run(out_dir: Path) -> None:
                     "Keep PolicyService admin authorization mandatory.",
                     "Add or update tests before applying changes.",
                 ],
-                "tests": ["unit tests for invalid token", "unit tests for non-admin role", "unit tests for allowed admin flow"],
-                "safety_notes": ["no direct execution in evidence flow", "requires approval before applying code changes"],
+                "tests": [
+                    "unit tests for invalid token",
+                    "unit tests for non-admin role",
+                    "unit tests for allowed admin flow",
+                ],
+                "safety_notes": [
+                    "no direct execution in evidence flow",
+                    "requires approval before applying code changes",
+                ],
             },
         }
         opencode_plan = OpenCodeAdapter(enabled=True).plan(task_id=task_id, capability_id="coding", prompt=prompt)
@@ -328,9 +333,7 @@ def run(out_dir: Path) -> None:
                 # Only claimable when the Hub actually delivered a context.
                 "hub_context_available": hub_context_available,
                 "has_keycloak_reference": (
-                    hub_context_available
-                    and "ref.java.keycloak" in hub_context
-                    and "keycloak/keycloak" in hub_context
+                    hub_context_available and "ref.java.keycloak" in hub_context and "keycloak/keycloak" in hub_context
                 ),
                 "ananta_native_engine_present": ananta_native_result["engine"] == "ananta_native",
                 "opencode_engine_present": opencode_result["engine"] == "opencode",
@@ -377,11 +380,7 @@ def run(out_dir: Path) -> None:
         # than a repair. Until then the fact is recorded and the checks that
         # depend on it are not claimed as passing evidence.
         context_dependent = {"hub_context_available", "has_keycloak_reference"}
-        failed = [
-            name
-            for name, ok in evidence["checks"].items()
-            if not ok and name not in context_dependent
-        ]
+        failed = [name for name, ok in evidence["checks"].items() if not ok and name not in context_dependent]
         if failed:
             raise SystemExit(f"Evidence checks failed: {failed}")
 

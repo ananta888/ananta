@@ -111,7 +111,9 @@ def test_planning_learning_loop_surface_flow(monkeypatch):
         checksum="chk-1",
         enabled=True,
     )
-    runs = [_make_run(idx, profile_name="lmstudio_laptop", prompt_version_id=str(active_version.id)) for idx in range(1, 9)]
+    runs = [
+        _make_run(idx, profile_name="lmstudio_laptop", prompt_version_id=str(active_version.id)) for idx in range(1, 9)
+    ]
     reg = _Registry(
         runs=runs,
         profiles=[
@@ -131,7 +133,9 @@ def test_planning_learning_loop_surface_flow(monkeypatch):
     monkeypatch.setattr(
         crm,
         "get_integration_registry_service",
-        lambda: SimpleNamespace(list_execution_backends=lambda **_: {"preflight": {"providers": {}, "cli_backends": {}}}),
+        lambda: SimpleNamespace(
+            list_execution_backends=lambda **_: {"preflight": {"providers": {}, "cli_backends": {}}}
+        ),
     )
     monkeypatch.setattr(
         pls,
@@ -172,9 +176,13 @@ def test_planning_learning_loop_surface_flow(monkeypatch):
     monkeypatch.setattr(
         pls,
         "get_model_response_behavior_aggregation_service",
-        lambda: SimpleNamespace(aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}),
+        lambda: SimpleNamespace(
+            aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}
+        ),
     )
-    monkeypatch.setattr(pls, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: []))
+    monkeypatch.setattr(
+        pls, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: [])
+    )
 
     run_result = PlanningLearningLoopService().run_once(
         planning_policy={
@@ -213,7 +221,7 @@ def test_planning_learning_loop_surface_flow(monkeypatch):
         planning_learning_summary_builder=shared.planning_learning_settings_summary,
     )
 
-    learning = ((dashboard.get("llm_configuration") or {}).get("planning_learning") or {})
+    learning = (dashboard.get("llm_configuration") or {}).get("planning_learning") or {}
     snapshot = learning.get("snapshot") or {}
     assert learning.get("requested") is not None
     assert snapshot.get("enabled") is True

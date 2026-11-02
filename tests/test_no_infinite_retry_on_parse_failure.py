@@ -4,31 +4,31 @@ The original failure involved autopilot_no_executable_step causing a loop.
 These tests prove that parse failures produce terminal or advisory results,
 never a continuously retried executable result.
 """
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
+from agent.services.propose_policy import (
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_TOOL_CALLING_LLM,
+    ProposePolicy,
+)
+from worker.core.propose import (
+    STATUS_ADVISORY,
+    STATUS_FAILED,
+    STATUS_NEEDS_REVIEW,
+    ProposeStrategyResult,
+)
 from worker.core.propose_orchestrator import (
     ProposeContext,
     ProposeStrategy,
     ProposeStrategyOrchestrator,
 )
-from worker.core.propose import (
-    ProposeStrategyResult,
-    STATUS_ADVISORY,
-    STATUS_DECLINED,
-    STATUS_NEEDS_REVIEW,
-    STATUS_FAILED,
-)
-from agent.services.propose_policy import (
-    ProposePolicy,
-    STRATEGY_TOOL_CALLING_LLM,
-    STRATEGY_JSON_SCHEMA_LLM,
-    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
-    STRATEGY_HUMAN_REVIEW,
-)
-from agent.services.llm_response_normalizer import LLMResponseNormalizer
 
 
 def _context() -> ProposeContext:
@@ -40,6 +40,7 @@ class TestParseFailureTerminates:
 
     def test_json_parse_failure_produces_advisory_not_executable(self):
         from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
+
         ctx = Mock(spec=ProposeContext)
         ctx.goal_id = "g1"
         ctx.task_id = "t1"
@@ -102,9 +103,7 @@ class TestChainTerminatesAfterAllStrategiesFail:
         order = [STRATEGY_TOOL_CALLING_LLM, STRATEGY_JSON_SCHEMA_LLM, STRATEGY_FLEXIBLE_LLM_NORMALIZATION]
         policy = ProposePolicy(strategy_order=order, on_all_strategies_declined="needs_review")
         strategies = {
-            sid: Mock(spec=ProposeStrategy, **{
-                "run.return_value": ProposeStrategyResult.declined(sid, "test_decline")
-            })
+            sid: Mock(spec=ProposeStrategy, **{"run.return_value": ProposeStrategyResult.declined(sid, "test_decline")})
             for sid in order
         }
         orch = ProposeStrategyOrchestrator(policy, strategies)
@@ -120,9 +119,7 @@ class TestChainTerminatesAfterAllStrategiesFail:
         order = ["s1", "s2"]
         policy = ProposePolicy(strategy_order=order, on_all_strategies_declined="failed")
         strategies = {
-            sid: Mock(spec=ProposeStrategy, **{
-                "run.return_value": ProposeStrategyResult.declined(sid, "test")
-            })
+            sid: Mock(spec=ProposeStrategy, **{"run.return_value": ProposeStrategyResult.declined(sid, "test")})
             for sid in order
         }
         orch = ProposeStrategyOrchestrator(policy, strategies)

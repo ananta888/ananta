@@ -8,264 +8,285 @@ from agent.routes.control_center_api import _event_visible_to_stream_identity
 
 
 def test_control_center_projects_tasks_sessions_workers_contract(client, admin_auth_header):
-    projects_res = client.get('/api/projects', headers=admin_auth_header)
+    projects_res = client.get("/api/projects", headers=admin_auth_header)
     assert projects_res.status_code == 200
     payload = projects_res.get_json()
-    assert payload['status'] == 'success'
-    assert 'items' in payload['data']
+    assert payload["status"] == "success"
+    assert "items" in payload["data"]
 
     create_task_res = client.post(
-        '/api/tasks',
+        "/api/tasks",
         headers=admin_auth_header,
-        json={'title': 'CC Contract Task', 'description': 'contract test', 'status': 'backlog', 'priority': 'High'},
+        json={"title": "CC Contract Task", "description": "contract test", "status": "backlog", "priority": "High"},
     )
     assert create_task_res.status_code == 201
-    task = create_task_res.get_json()['data']['task']
-    assert task['id']
+    task = create_task_res.get_json()["data"]["task"]
+    assert task["id"]
 
     task_detail_res = client.get(f"/api/tasks/{task['id']}", headers=admin_auth_header)
     assert task_detail_res.status_code == 200
-    detail = task_detail_res.get_json()['data']
-    assert 'task' in detail
-    assert 'verification' in detail
-    assert 'sessions' in detail
+    detail = task_detail_res.get_json()["data"]
+    assert "task" in detail
+    assert "verification" in detail
+    assert "sessions" in detail
 
     create_session_res = client.post(
         f"/api/tasks/{task['id']}/sessions",
         headers=admin_auth_header,
-        json={'title': 'CC Agent Session'},
+        json={"title": "CC Agent Session"},
     )
     assert create_session_res.status_code == 201
-    created_session = create_session_res.get_json()['data']['session']
-    assert created_session['task_id'] == task['id']
-    assert created_session['session_kind'] == 'agent_execution'
-    assert created_session.get('policy_snapshot')
-    assert created_session['policy_snapshot']['runtime_boundary'] in {'local-only', 'cloud-allowed', 'remote', 'unknown'}
+    created_session = create_session_res.get_json()["data"]["session"]
+    assert created_session["task_id"] == task["id"]
+    assert created_session["session_kind"] == "agent_execution"
+    assert created_session.get("policy_snapshot")
+    assert created_session["policy_snapshot"]["runtime_boundary"] in {
+        "local-only",
+        "cloud-allowed",
+        "remote",
+        "unknown",
+    }
 
-    sessions_res = client.get('/api/sessions', headers=admin_auth_header)
+    sessions_res = client.get("/api/sessions", headers=admin_auth_header)
     assert sessions_res.status_code == 200
-    sessions_payload = sessions_res.get_json()['data']
-    assert 'items' in sessions_payload
-    assert any(str(item.get('id') or '') == str(created_session['id']) for item in sessions_payload['items'])
+    sessions_payload = sessions_res.get_json()["data"]
+    assert "items" in sessions_payload
+    assert any(str(item.get("id") or "") == str(created_session["id"]) for item in sessions_payload["items"])
 
     sessions_filtered_res = client.get(f"/api/sessions?task_id={task['id']}", headers=admin_auth_header)
     assert sessions_filtered_res.status_code == 200
-    filtered_items = sessions_filtered_res.get_json()['data']['items']
-    assert any(str(item.get('task_id') or '') == str(task['id']) for item in filtered_items)
+    filtered_items = sessions_filtered_res.get_json()["data"]["items"]
+    assert any(str(item.get("task_id") or "") == str(task["id"]) for item in filtered_items)
 
-    workers_res = client.get('/api/workers', headers=admin_auth_header)
+    workers_res = client.get("/api/workers", headers=admin_auth_header)
     assert workers_res.status_code == 200
-    workers_payload = workers_res.get_json()['data']
-    assert 'items' in workers_payload
+    workers_payload = workers_res.get_json()["data"]
+    assert "items" in workers_payload
 
 
 def test_control_center_unauthenticated_rejected(client):
-    assert client.get('/api/projects').status_code == 401
-    assert client.get('/api/sessions').status_code == 401
-    assert client.get('/api/events/stream').status_code == 401
+    assert client.get("/api/projects").status_code == 401
+    assert client.get("/api/sessions").status_code == 401
+    assert client.get("/api/events/stream").status_code == 401
 
 
 def test_control_center_policy_and_scope_contract(client, admin_auth_header):
-    policies_res = client.get('/api/policies', headers=admin_auth_header)
+    policies_res = client.get("/api/policies", headers=admin_auth_header)
     assert policies_res.status_code == 200
-    policies = policies_res.get_json()['data']
-    assert 'items' in policies
+    policies = policies_res.get_json()["data"]
+    assert "items" in policies
 
-    scopes_res = client.get('/api/codecompass/context-scopes', headers=admin_auth_header)
+    scopes_res = client.get("/api/codecompass/context-scopes", headers=admin_auth_header)
     assert scopes_res.status_code == 200
-    scopes = scopes_res.get_json()['data']
-    assert scopes['count'] >= 1
+    scopes = scopes_res.get_json()["data"]
+    assert scopes["count"] >= 1
 
     preview_res = client.post(
-        '/api/codecompass/context-scopes/preview',
+        "/api/codecompass/context-scopes/preview",
         headers=admin_auth_header,
-        json={'include': ['/agent/**'], 'exclude': ['/.env', '/secrets/**']},
+        json={"include": ["/agent/**"], "exclude": ["/.env", "/secrets/**"]},
     )
     assert preview_res.status_code == 200
-    preview = preview_res.get_json()['data']['scope_preview']
-    assert 'excluded_sensitive_paths' in preview
-    assert '/.env' in preview['excluded_sensitive_paths']
-    assert '/secrets/**' in preview['excluded_sensitive_paths']
-    assert isinstance(preview.get('included_count'), int)
-    assert isinstance(preview.get('excluded_count'), int)
-    assert isinstance(preview.get('cloud_eligible'), bool)
+    preview = preview_res.get_json()["data"]["scope_preview"]
+    assert "excluded_sensitive_paths" in preview
+    assert "/.env" in preview["excluded_sensitive_paths"]
+    assert "/secrets/**" in preview["excluded_sensitive_paths"]
+    assert isinstance(preview.get("included_count"), int)
+    assert isinstance(preview.get("excluded_count"), int)
+    assert isinstance(preview.get("cloud_eligible"), bool)
 
 
 def test_control_center_narrow_approval_contract(client, admin_auth_header):
     bad_res = client.post(
-        '/api/policy/approve',
+        "/api/policy/approve",
         headers=admin_auth_header,
-        json={'action_id': 'a1', 'tool_call_id': 't1', 'scope': 'all_actions'},
+        json={"action_id": "a1", "tool_call_id": "t1", "scope": "all_actions"},
     )
     assert bad_res.status_code == 403
 
     create_task_res = client.post(
-        '/api/tasks',
+        "/api/tasks",
         headers=admin_auth_header,
-        json={'title': 'Approval task', 'description': 'contract test', 'status': 'backlog', 'priority': 'High'},
+        json={"title": "Approval task", "description": "contract test", "status": "backlog", "priority": "High"},
     )
     assert create_task_res.status_code == 201
-    task_id = create_task_res.get_json()['data']['task']['id']
+    task_id = create_task_res.get_json()["data"]["task"]["id"]
 
     create_session_res = client.post(
-        f'/api/tasks/{task_id}/sessions',
+        f"/api/tasks/{task_id}/sessions",
         headers=admin_auth_header,
-        json={'title': 'Approval session'},
+        json={"title": "Approval session"},
     )
     assert create_session_res.status_code == 201
-    session_id = create_session_res.get_json()['data']['session']['id']
+    session_id = create_session_res.get_json()["data"]["session"]["id"]
 
-    decisions_res = client.get(f'/api/sessions/{session_id}/policy-decisions', headers=admin_auth_header)
+    decisions_res = client.get(f"/api/sessions/{session_id}/policy-decisions", headers=admin_auth_header)
     assert decisions_res.status_code == 200
     pending = [
-        item for item in decisions_res.get_json()['data']['items']
-        if str(item.get('decision') or '') == 'require_approval' and item.get('tool_call_id') and item.get('action_id')
+        item
+        for item in decisions_res.get_json()["data"]["items"]
+        if str(item.get("decision") or "") == "require_approval" and item.get("tool_call_id") and item.get("action_id")
     ]
     assert pending
     chosen = pending[0]
 
     not_found_res = client.post(
-        '/api/policy/approve',
+        "/api/policy/approve",
         headers=admin_auth_header,
-        json={'action_id': 'missing-action', 'tool_call_id': chosen['tool_call_id'], 'session_id': session_id, 'scope': 'single_action'},
+        json={
+            "action_id": "missing-action",
+            "tool_call_id": chosen["tool_call_id"],
+            "session_id": session_id,
+            "scope": "single_action",
+        },
     )
     assert not_found_res.status_code == 404
 
     ok_res = client.post(
-        '/api/policy/approve',
+        "/api/policy/approve",
         headers=admin_auth_header,
-        json={'action_id': chosen['action_id'], 'tool_call_id': chosen['tool_call_id'], 'session_id': session_id, 'scope': 'single_action'},
+        json={
+            "action_id": chosen["action_id"],
+            "tool_call_id": chosen["tool_call_id"],
+            "session_id": session_id,
+            "scope": "single_action",
+        },
     )
     assert ok_res.status_code == 200
-    data = ok_res.get_json()['data']
-    assert data['approved'] is True
-    assert data['scope'] == 'single_action'
+    data = ok_res.get_json()["data"]
+    assert data["approved"] is True
+    assert data["scope"] == "single_action"
 
     conflict_res = client.post(
-        '/api/policy/approve',
+        "/api/policy/approve",
         headers=admin_auth_header,
-        json={'action_id': chosen['action_id'], 'tool_call_id': chosen['tool_call_id'], 'session_id': session_id, 'scope': 'single_action'},
+        json={
+            "action_id": chosen["action_id"],
+            "tool_call_id": chosen["tool_call_id"],
+            "session_id": session_id,
+            "scope": "single_action",
+        },
     )
     assert conflict_res.status_code == 409
 
 
 def test_artifact_content_normalized_contract(client, admin_auth_header):
     upload_res = client.post(
-        '/artifacts/upload',
+        "/artifacts/upload",
         headers=admin_auth_header,
-        data={'file': (BytesIO(b'hello artifact content'), 'hello.txt')},
-        content_type='multipart/form-data',
+        data={"file": (BytesIO(b"hello artifact content"), "hello.txt")},
+        content_type="multipart/form-data",
     )
     assert upload_res.status_code == 201
-    artifact_id = upload_res.get_json()['data']['artifact']['id']
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
 
     content_res = client.get(
-        f'/artifacts/{artifact_id}/content?normalized=true&offset=0&limit=1024',
+        f"/artifacts/{artifact_id}/content?normalized=true&offset=0&limit=1024",
         headers=admin_auth_header,
     )
     assert content_res.status_code == 200
-    data = content_res.get_json()['data']
-    assert data['encoding'] == 'base64'
-    assert data['type']
-    assert 'payload' in data
+    data = content_res.get_json()["data"]
+    assert data["encoding"] == "base64"
+    assert data["type"]
+    assert "payload" in data
 
 
 def test_artifact_filters_contract(client, admin_auth_header):
     create_task_res = client.post(
-        '/api/tasks',
+        "/api/tasks",
         headers=admin_auth_header,
-        json={'title': 'Artifact relation task', 'description': 'contract test'},
+        json={"title": "Artifact relation task", "description": "contract test"},
     )
     assert create_task_res.status_code == 201
-    task_id = create_task_res.get_json()['data']['task']['id']
+    task_id = create_task_res.get_json()["data"]["task"]["id"]
 
     create_session_res = client.post(
-        f'/api/tasks/{task_id}/sessions',
+        f"/api/tasks/{task_id}/sessions",
         headers=admin_auth_header,
-        json={'title': 'Artifact relation session'},
+        json={"title": "Artifact relation session"},
     )
     assert create_session_res.status_code == 201
-    session_id = create_session_res.get_json()['data']['session']['id']
+    session_id = create_session_res.get_json()["data"]["session"]["id"]
 
     upload_a = client.post(
-        '/artifacts/upload',
+        "/artifacts/upload",
         headers=admin_auth_header,
-        data={'file': (BytesIO(b'a1'), 'a1.txt'), 'session_id': session_id, 'project_id': '', 'type': 'log'},
-        content_type='multipart/form-data',
+        data={"file": (BytesIO(b"a1"), "a1.txt"), "session_id": session_id, "project_id": "", "type": "log"},
+        content_type="multipart/form-data",
     )
     upload_b = client.post(
-        '/artifacts/upload',
+        "/artifacts/upload",
         headers=admin_auth_header,
-        data={'file': (BytesIO(b'b1'), 'b1.txt')},
-        content_type='multipart/form-data',
+        data={"file": (BytesIO(b"b1"), "b1.txt")},
+        content_type="multipart/form-data",
     )
     assert upload_a.status_code == 201
     assert upload_b.status_code == 201
-    artifact_a = upload_a.get_json()['data']['artifact']
-    artifact_b = upload_b.get_json()['data']['artifact']
+    artifact_a = upload_a.get_json()["data"]["artifact"]
+    artifact_b = upload_b.get_json()["data"]["artifact"]
 
-    row_a = artifact_repo.get_by_id(str(artifact_a['id']))
-    row_b = artifact_repo.get_by_id(str(artifact_b['id']))
+    row_a = artifact_repo.get_by_id(str(artifact_a["id"]))
+    row_b = artifact_repo.get_by_id(str(artifact_b["id"]))
     assert row_a is not None
     assert row_b is not None
-    assert str((row_a.artifact_metadata or {}).get('task_id') or '') == task_id
-    row_a.artifact_metadata = {'project_id': 'p1', 'task_id': task_id, 'session_id': session_id, 'type': 'log'}
-    row_b.artifact_metadata = {'project_id': 'p2', 'task_id': 't2', 'session_id': 's2', 'type': 'text'}
+    assert str((row_a.artifact_metadata or {}).get("task_id") or "") == task_id
+    row_a.artifact_metadata = {"project_id": "p1", "task_id": task_id, "session_id": session_id, "type": "log"}
+    row_b.artifact_metadata = {"project_id": "p2", "task_id": "t2", "session_id": "s2", "type": "text"}
     artifact_repo.save(row_a)
     artifact_repo.save(row_b)
 
-    filtered = client.get(f'/artifacts?task_id={task_id}&session_id={session_id}&type=log', headers=admin_auth_header)
+    filtered = client.get(f"/artifacts?task_id={task_id}&session_id={session_id}&type=log", headers=admin_auth_header)
     assert filtered.status_code == 200
-    filtered_rows = filtered.get_json()['data']
-    ids = {row['id'] for row in filtered_rows}
-    assert artifact_a['id'] in ids
-    assert artifact_b['id'] not in ids
+    filtered_rows = filtered.get_json()["data"]
+    ids = {row["id"] for row in filtered_rows}
+    assert artifact_a["id"] in ids
+    assert artifact_b["id"] not in ids
 
-    task_detail = client.get(f'/api/tasks/{task_id}', headers=admin_auth_header)
+    task_detail = client.get(f"/api/tasks/{task_id}", headers=admin_auth_header)
     assert task_detail.status_code == 200
-    detail_artifact_ids = {row['id'] for row in task_detail.get_json()['data']['artifacts']}
-    assert artifact_a['id'] in detail_artifact_ids
+    detail_artifact_ids = {row["id"] for row in task_detail.get_json()["data"]["artifacts"]}
+    assert artifact_a["id"] in detail_artifact_ids
 
 
 def test_control_center_event_stream_contract(client, admin_auth_header):
-    response = client.get('/api/events/stream', headers=admin_auth_header)
+    response = client.get("/api/events/stream", headers=admin_auth_header)
     assert response.status_code == 200
-    assert response.mimetype == 'text/event-stream'
+    assert response.mimetype == "text/event-stream"
 
     create_task_res = client.post(
-        '/api/tasks',
+        "/api/tasks",
         headers=admin_auth_header,
-        json={'title': 'SSE filter task', 'description': 'contract test'},
+        json={"title": "SSE filter task", "description": "contract test"},
     )
     assert create_task_res.status_code == 201
-    task_id = create_task_res.get_json()['data']['task']['id']
+    task_id = create_task_res.get_json()["data"]["task"]["id"]
     create_session_res = client.post(
-        f'/api/tasks/{task_id}/sessions',
+        f"/api/tasks/{task_id}/sessions",
         headers=admin_auth_header,
-        json={'title': 'SSE filter session'},
+        json={"title": "SSE filter session"},
     )
     assert create_session_res.status_code == 201
-    session_id = create_session_res.get_json()['data']['session']['id']
-    filtered = client.get(f'/api/events/stream?session_id={session_id}', headers=admin_auth_header)
+    session_id = create_session_res.get_json()["data"]["session"]["id"]
+    filtered = client.get(f"/api/events/stream?session_id={session_id}", headers=admin_auth_header)
     assert filtered.status_code == 200
-    assert filtered.mimetype == 'text/event-stream'
+    assert filtered.mimetype == "text/event-stream"
 
     token_res = client.post(
-        '/api/events/stream-token',
+        "/api/events/stream-token",
         headers=admin_auth_header,
-        json={'session_id': session_id},
+        json={"session_id": session_id},
     )
     assert token_res.status_code == 200
-    stream_token = token_res.get_json()['data']['stream_token']
+    stream_token = token_res.get_json()["data"]["stream_token"]
     assert stream_token
     stream_claims = jwt.decode(
         stream_token,
         settings.secret_key,
-        algorithms=['HS256'],
+        algorithms=["HS256"],
     )
-    assert stream_claims['stream_user_id'] == stream_claims['sub']
-    assert stream_claims['stream_tenant_id'] == stream_claims['tenant_id']
-    assert stream_claims['stream_session_id'] == session_id
+    assert stream_claims["stream_user_id"] == stream_claims["sub"]
+    assert stream_claims["stream_tenant_id"] == stream_claims["tenant_id"]
+    assert stream_claims["stream_session_id"] == session_id
 
     # Query-token transport is implemented for browser EventSource usage.
     # Flask test-client stream context handling differs from browser EventSource;
@@ -274,11 +295,11 @@ def test_control_center_event_stream_contract(client, admin_auth_header):
     assert len(stream_token) >= 8
 
     forbidden = client.get(
-        '/api/projects',
-        headers={'Authorization': f'Bearer {stream_token}'},
+        "/api/projects",
+        headers={"Authorization": f"Bearer {stream_token}"},
     )
     assert forbidden.status_code == 403
-    assert forbidden.get_json()['data']['reason_code'] == 'user_token_scope_forbidden'
+    assert forbidden.get_json()["data"]["reason_code"] == "user_token_scope_forbidden"
 
 
 def test_control_center_stream_scope_rejects_foreign_or_arbitrary_bindings(
@@ -287,30 +308,30 @@ def test_control_center_stream_scope_rejects_foreign_or_arbitrary_bindings(
     user_auth_header,
 ):
     task_res = client.post(
-        '/api/tasks',
+        "/api/tasks",
         headers=admin_auth_header,
-        json={'title': 'Scoped stream task'},
+        json={"title": "Scoped stream task"},
     )
-    task_id = task_res.get_json()['data']['task']['id']
+    task_id = task_res.get_json()["data"]["task"]["id"]
     session_res = client.post(
-        f'/api/tasks/{task_id}/sessions',
+        f"/api/tasks/{task_id}/sessions",
         headers=admin_auth_header,
-        json={'title': 'Admin-owned stream session'},
+        json={"title": "Admin-owned stream session"},
     )
-    session_id = session_res.get_json()['data']['session']['id']
+    session_id = session_res.get_json()["data"]["session"]["id"]
 
     foreign_session = client.post(
-        '/api/events/stream-token',
+        "/api/events/stream-token",
         headers=user_auth_header,
-        json={'session_id': session_id},
+        json={"session_id": session_id},
     )
     arbitrary_project = client.post(
-        '/api/events/stream-token',
+        "/api/events/stream-token",
         headers=admin_auth_header,
-        json={'project_id': 'project-without-owned-session'},
+        json={"project_id": "project-without-owned-session"},
     )
     user_wide = client.post(
-        '/api/events/stream-token',
+        "/api/events/stream-token",
         headers=user_auth_header,
         json={},
     )
@@ -322,43 +343,55 @@ def test_control_center_stream_scope_rejects_foreign_or_arbitrary_bindings(
 
 def test_control_center_stream_event_visibility_requires_exact_user_and_tenant():
     event = {
-        'id': 'event-1',
-        '_scope': {
-            'tenant_id': 'tenant-a',
-            'user_id': 'user-a',
-            'project_id': 'project-a',
-            'session_ids': ('session-a',),
+        "id": "event-1",
+        "_scope": {
+            "tenant_id": "tenant-a",
+            "user_id": "user-a",
+            "project_id": "project-a",
+            "session_ids": ("session-a",),
         },
     }
 
-    assert _event_visible_to_stream_identity(
-        event,
-        tenant_id='tenant-a',
-        user_id='user-a',
-        project_id='project-a',
-        session_id='session-a',
-    ) is True
-    assert _event_visible_to_stream_identity(
-        event,
-        tenant_id='tenant-b',
-        user_id='user-a',
-        project_id='project-a',
-        session_id='session-a',
-    ) is False
-    assert _event_visible_to_stream_identity(
-        event,
-        tenant_id='tenant-a',
-        user_id='user-b',
-        project_id='',
-        session_id='',
-    ) is False
-    assert _event_visible_to_stream_identity(
-        event,
-        tenant_id='tenant-a',
-        user_id='user-a',
-        project_id='project-b',
-        session_id='',
-    ) is False
+    assert (
+        _event_visible_to_stream_identity(
+            event,
+            tenant_id="tenant-a",
+            user_id="user-a",
+            project_id="project-a",
+            session_id="session-a",
+        )
+        is True
+    )
+    assert (
+        _event_visible_to_stream_identity(
+            event,
+            tenant_id="tenant-b",
+            user_id="user-a",
+            project_id="project-a",
+            session_id="session-a",
+        )
+        is False
+    )
+    assert (
+        _event_visible_to_stream_identity(
+            event,
+            tenant_id="tenant-a",
+            user_id="user-b",
+            project_id="",
+            session_id="",
+        )
+        is False
+    )
+    assert (
+        _event_visible_to_stream_identity(
+            event,
+            tenant_id="tenant-a",
+            user_id="user-a",
+            project_id="project-b",
+            session_id="",
+        )
+        is False
+    )
 
 
 def test_control_center_event_poller_has_joinable_lifecycle(monkeypatch):

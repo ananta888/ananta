@@ -10,7 +10,6 @@ from typing import Any
 
 import requests
 
-
 OLLAMA_BENCH_TASK_KINDS = {"planning", "research", "coding", "review", "testing", "ops", "analysis", "doc"}
 
 
@@ -495,9 +494,8 @@ def recommend_ollama_models(
         }
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
-            bayes = estimate_bayesian_for_samples(
-                filtered, source="ollama", provider=None, model=model
-            )
+
+            bayes = estimate_bayesian_for_samples(filtered, source="ollama", provider=None, model=model)
             candidate["bayesian_estimate"] = bayes
             candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
             candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
@@ -570,9 +568,10 @@ def ollama_benchmark_rows(
             row["focus"] = overall
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+
             focus_bucket = (
-                (entry.get("roles") or {}).get(role_match) if role_match else None
-            ) or entry.get("overall") or {}
+                ((entry.get("roles") or {}).get(role_match) if role_match else None) or entry.get("overall") or {}
+            )
             samples = list(focus_bucket.get("samples") or [])
             row["bayesian_estimate"] = estimate_bayesian_for_samples(
                 samples, source="ollama", provider=None, model=model

@@ -93,9 +93,7 @@ class UpcasterRegistry:
             visited.add(source_schema)
             registration = self._upcasters.get((str(contract_type), source_schema))
             if registration is None:
-                raise UnsupportedSchemaVersion(
-                    f"upcaster_missing:{contract_type}:{source_schema}:{target_schema}"
-                )
+                raise UnsupportedSchemaVersion(f"upcaster_missing:{contract_type}:{source_schema}:{target_schema}")
             before = canonical_json(current)
             first_input = copy.deepcopy(current)
             second_input = copy.deepcopy(current)

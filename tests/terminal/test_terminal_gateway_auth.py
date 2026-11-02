@@ -3,9 +3,7 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from agent.services.terminal_session_service import TerminalSessionService, _ATTACH_TOKENS
+from agent.services.terminal_session_service import _ATTACH_TOKENS, TerminalSessionService
 
 
 def _clear_tokens():
@@ -61,7 +59,9 @@ def test_attach_token_not_in_url_path():
     """Tokens must be passed as query params, not embedded in URL paths."""
     # This is a design constraint: verify the WS endpoint uses ?attach_token=
     import inspect
+
     import agent.ws_terminal as ws_mod
+
     src = inspect.getsource(ws_mod.register_ws_terminal)
     assert "attach_token" in src
     assert "/ws/terminal/session" in src
@@ -81,6 +81,7 @@ def test_wss_without_token_sends_error():
     mock_ws.send.assert_called()
     sent = mock_ws.send.call_args[0][0]
     import json
+
     payload = json.loads(sent)
     assert payload["type"] == "error"
     assert "unauthorized" in payload["data"]["message"] or "invalid" in payload["data"].get("details", "")
@@ -89,7 +90,6 @@ def test_wss_without_token_sends_error():
 def test_gateway_disconnect_transitions_session_to_detached():
     """After WSS disconnect the session must move to detached, not killed."""
     from agent.db_models import TerminalSessionDB
-    from agent.services.terminal_session_service import TerminalSessionService
 
     # Pre-load a token
     _clear_tokens()
@@ -115,15 +115,18 @@ def test_gateway_disconnect_transitions_session_to_detached():
 
     from agent.ws_terminal import _attach_token_ws_session
 
-    with patch("agent.services.terminal_session_service.TerminalSessionService.resolve_attach_token",
-               return_value=("sess-gw", "user-gw")):
+    with patch(
+        "agent.services.terminal_session_service.TerminalSessionService.resolve_attach_token",
+        return_value=("sess-gw", "user-gw"),
+    ):
         with patch("agent.services.repository_registry.get_repository_registry") as mock_reg:
             mock_reg.return_value.terminal_session_repo.get_by_id.return_value = sess
             mock_reg.return_value.terminal_session_repo.transition_status = MagicMock()
             mock_reg.return_value.terminal_event_repo.append = MagicMock()
 
-            with patch("agent.services.tmux_backend.TmuxSessionBackend.capture_output",
-                       side_effect=Exception("tmux_gone")):
+            with patch(
+                "agent.services.tmux_backend.TmuxSessionBackend.capture_output", side_effect=Exception("tmux_gone")
+            ):
                 with patch("agent.ws_terminal._WebSocketInputPump") as mock_pump_cls:
                     mock_pump = MagicMock()
                     mock_pump.closed = True

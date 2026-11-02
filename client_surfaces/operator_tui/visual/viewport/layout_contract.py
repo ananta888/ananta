@@ -67,4 +67,3 @@ def derive_pixel_size(
         _clamp(width, minimum=1, maximum=max_pixel_width),
         _clamp(height, minimum=1, maximum=max_pixel_height),
     )
-

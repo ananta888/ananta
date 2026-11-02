@@ -17,18 +17,10 @@ def test_compose_base_enables_only_explicit_local_secret_derivation() -> None:
 
     for service_name in ("ai-agent-hub-base", "ai-agent-worker-base"):
         environment = document["services"][service_name]["environment"]
-        assert environment[
-            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-        ] == "1"
-        assert environment["ANANTA_RUNTIME_PROFILE"] == (
-            "${ANANTA_RUNTIME_PROFILE:-compose-safe}"
-        )
-        assert environment["SECRET_KEY"] == (
-            "${SECRET_KEY:-ananta-dev-shared-secret-change-me}"
-        )
-        assert environment["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
-            "${ANANTA_SOURCE_ACCESS_KEYRING_FILE:-}"
-        )
+        assert environment["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "1"
+        assert environment["ANANTA_RUNTIME_PROFILE"] == ("${ANANTA_RUNTIME_PROFILE:-compose-safe}")
+        assert environment["SECRET_KEY"] == ("${SECRET_KEY:-ananta-dev-shared-secret-change-me}")
+        assert environment["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == ("${ANANTA_SOURCE_ACCESS_KEYRING_FILE:-}")
 
 
 def test_dev_auth_overlay_uses_file_managed_source_access_keyring() -> None:
@@ -47,19 +39,11 @@ def test_dev_auth_overlay_uses_file_managed_source_access_keyring() -> None:
             **test_stack["services"][service_name]["environment"],
             **overlay["services"][service_name]["environment"],
         }
-        assert effective[
-            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-        ] == "0"
-        assert effective["ANANTA_SOURCE_ACCESS_KEYRING_FILE"].endswith(
-            "/source-access-hmac-keyring.json"
-        )
+        assert effective["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
+        assert effective["ANANTA_SOURCE_ACCESS_KEYRING_FILE"].endswith("/source-access-hmac-keyring.json")
 
     hub = overlay["services"]["ai-agent-hub"]
-    source_access_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if mount["target"] == "/run/ananta-source-access"
-    )
+    source_access_mount = next(mount for mount in hub["volumes"] if mount["target"] == "/run/ananta-source-access")
     assert source_access_mount["source"].endswith("/worker")
     assert source_access_mount["read_only"] is True
     assert source_access_mount["bind"]["create_host_path"] is False
@@ -80,6 +64,4 @@ def test_every_compose_next_worker_has_an_explicit_index_identity() -> None:
         assert workers
         for service in workers.values():
             environment = service["environment"]
-            assert environment["ANANTA_KNOWLEDGE_INDEX_WORKER_ID"] == (
-                environment["AGENT_NAME"]
-            )
+            assert environment["ANANTA_KNOWLEDGE_INDEX_WORKER_ID"] == (environment["AGENT_NAME"])

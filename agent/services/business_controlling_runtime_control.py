@@ -98,14 +98,10 @@ class BusinessControllingRuntimeControl:
             "state_digest",
         }
         if not isinstance(value, dict) or set(value) != fields:
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_shape_invalid"
-            )
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_shape_invalid")
         disabled = value["disabled_catalog_entry_ids"]
         if not isinstance(disabled, list):
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_shape_invalid"
-            )
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_shape_invalid")
         state = cls(
             value["schema_version"],
             value["revision"],
@@ -128,9 +124,7 @@ class BusinessControllingRuntimeControl:
             reason=state.reason,
         )
         if expected.state_digest != state.state_digest:
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_digest_invalid"
-            )
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_digest_invalid")
         return state
 
     def validate(self) -> None:
@@ -147,24 +141,17 @@ class BusinessControllingRuntimeControl:
                     self.explanations_enabled,
                 )
             )
-            or tuple(sorted(set(self.disabled_catalog_entry_ids)))
-            != self.disabled_catalog_entry_ids
+            or tuple(sorted(set(self.disabled_catalog_entry_ids))) != self.disabled_catalog_entry_ids
             or any(_ENTRY.fullmatch(value) is None for value in self.disabled_catalog_entry_ids)
             or _ACTOR.fullmatch(self.actor_id) is None
             or not self.reason.strip()
             or len(self.reason) > 500
             or not re.fullmatch(r"[0-9a-f]{64}", self.state_digest)
         ):
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_shape_invalid"
-            )
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_shape_invalid")
 
     def catalog_entry_enabled(self, entry_id: str) -> bool:
-        return (
-            self.global_enabled
-            and self.statistical_enabled
-            and entry_id not in self.disabled_catalog_entry_ids
-        )
+        return self.global_enabled and self.statistical_enabled and entry_id not in self.disabled_catalog_entry_ids
 
     def to_mapping(self) -> dict[str, object]:
         return {
@@ -213,13 +200,9 @@ class JsonBusinessControllingRuntimeControlRepository:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             current = self._load_unlocked()
             if current.revision != expected_revision:
-                raise BusinessControllingRuntimeControlError(
-                    "controlling_runtime_control_revision_conflict"
-                )
+                raise BusinessControllingRuntimeControlError("controlling_runtime_control_revision_conflict")
             if replacement.revision != current.revision + 1:
-                raise BusinessControllingRuntimeControlError(
-                    "controlling_runtime_control_revision_invalid"
-                )
+                raise BusinessControllingRuntimeControlError("controlling_runtime_control_revision_invalid")
             self._write_unlocked(replacement)
             return replacement
 
@@ -227,13 +210,9 @@ class JsonBusinessControllingRuntimeControlRepository:
         if not self._path.exists():
             return BusinessControllingRuntimeControl.disabled_default()
         try:
-            return BusinessControllingRuntimeControl.from_mapping(
-                json.loads(self._path.read_text(encoding="utf-8"))
-            )
+            return BusinessControllingRuntimeControl.from_mapping(json.loads(self._path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError) as exc:
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_unreadable"
-            ) from exc
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_unreadable") from exc
 
     def _write_unlocked(self, state: BusinessControllingRuntimeControl) -> None:
         encoded = json.dumps(state.to_mapping(), sort_keys=True, indent=2) + "\n"
@@ -254,9 +233,7 @@ class JsonBusinessControllingRuntimeControlRepository:
         except OSError as exc:
             if temporary_path is not None:
                 Path(temporary_path).unlink(missing_ok=True)
-            raise BusinessControllingRuntimeControlError(
-                "controlling_runtime_control_write_failed"
-            ) from exc
+            raise BusinessControllingRuntimeControlError("controlling_runtime_control_write_failed") from exc
 
 
 class BusinessControllingRuntimeControlService:

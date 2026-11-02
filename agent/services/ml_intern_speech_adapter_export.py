@@ -260,10 +260,7 @@ class SqlSpeechAdapterExportArtifactPort:
         export_consent: SpeechAdapterExportConsentBinding,
     ) -> tuple[str, int]:
         ciphertext_digest = hashlib.sha256(payload).hexdigest()
-        export_id = (
-            "speech-export-"
-            + hashlib.sha256((artifact_ref + ciphertext_digest).encode()).hexdigest()[:32]
-        )
+        export_id = "speech-export-" + hashlib.sha256((artifact_ref + ciphertext_digest).encode()).hexdigest()[:32]
         receipt_digest = hashlib.sha256(
             canonical_json(
                 {
@@ -316,13 +313,17 @@ class SqlSpeechAdapterExportArtifactPort:
             ),
             lineage_edges=(
                 SpeechLineageEdge(
-                    "adapter", record.artifact_sha256,
-                    "export", ciphertext_digest,
+                    "adapter",
+                    record.artifact_sha256,
+                    "export",
+                    ciphertext_digest,
                     "exported_as",
                 ),
                 SpeechLineageEdge(
-                    "export", ciphertext_digest,
-                    "receipt", receipt_digest,
+                    "export",
+                    ciphertext_digest,
+                    "receipt",
+                    receipt_digest,
                     "acknowledged_by",
                 ),
             ),
@@ -343,16 +344,19 @@ class EncryptedSpeechAdapterExportService:
         export_consent_digest: str,
         export_consent_epoch: int,
     ) -> bool:
-        return self.consents.verify(
-            tenant_id=record.tenant_id,
-            owner_subject=record.owner_subject,
-            pair_id=record.pair_id,
-            direction=record.direction,
-            adapter_id=record.adapter_id,
-            speaker_digest=record.speaker_digest,
-            export_consent_digest=export_consent_digest,
-            export_consent_epoch=export_consent_epoch,
-        ) is not None
+        return (
+            self.consents.verify(
+                tenant_id=record.tenant_id,
+                owner_subject=record.owner_subject,
+                pair_id=record.pair_id,
+                direction=record.direction,
+                adapter_id=record.adapter_id,
+                speaker_digest=record.speaker_digest,
+                export_consent_digest=export_consent_digest,
+                export_consent_epoch=export_consent_epoch,
+            )
+            is not None
+        )
 
     def encrypt_export(
         self,
@@ -456,9 +460,7 @@ def build_speech_adapter_export_service(
     values = source or os.environ
     if audit is None:
         raise SpeechAdapterExportConfigurationError("speech_adapter_export_audit_unavailable")
-    artifact_root = Path(
-        str(values.get("ANANTA_SPEECH_TRAINING_ARTIFACT_ROOT") or "data/speech-adaptation/artifacts")
-    )
+    artifact_root = Path(str(values.get("ANANTA_SPEECH_TRAINING_ARTIFACT_ROOT") or "data/speech-adaptation/artifacts"))
     key_file = str(values.get("ANANTA_SPEECH_ADAPTER_EXPORT_KEY_FILE") or "").strip()
     if not key_file:
         raise SpeechAdapterExportConfigurationError("speech_adapter_export_key_missing")

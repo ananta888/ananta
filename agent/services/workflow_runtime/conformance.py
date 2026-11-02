@@ -499,9 +499,7 @@ def _observation_projection(observation: RuntimeObservation) -> dict[str, Any]:
         "gate_ids": sorted(set(observation.gate_ids)),
         "side_effect_operations": sorted(set(observation.side_effect_operations)),
         "policy_decisions": sorted(set(observation.policy_decisions)),
-        "budget_usage": {
-            key: observation.budget_usage[key] for key in sorted(observation.budget_usage)
-        },
+        "budget_usage": {key: observation.budget_usage[key] for key in sorted(observation.budget_usage)},
         "unsupported_reason": observation.unsupported_reason,
     }
 

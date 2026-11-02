@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import concurrent.futures
-import json
-import logging
 from typing import Any
 
 from flask import current_app, has_app_context
 
 from agent.common.audit import log_audit
-from agent.common.errors import TaskConflictError, ToolGuardrailError
+from agent.common.errors import TaskConflictError
 from agent.llm_benchmarks import estimate_cost_units
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -18,46 +16,42 @@ from agent.models import (
     TaskStepProposeResponse,
 )
 from agent.pipeline_trace import append_stage
-from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
-from agent.services.mutation_gate_service import get_mutation_gate_service
+from agent.services.execution_risk_policy_service import evaluate_execution_risk  # noqa: F401  (test monkeypatch seam)
 from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
-from agent.services.tool_intent_resolver import ToolIntentResolver
-from agent.services.execution_audit_service import get_execution_audit_service
-from agent.services.task_execution_policy_service import (
-    resolve_task_scope_allowed_tools,
-    resolve_execution_policy,
-    validate_task_scoped_tool_calls,
-)
-from agent.services.task_runtime_service import get_local_task_status, get_task_runtime_service
-from agent.tool_guardrails import ToolGuardrailDecision, estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
-from agent.tools import registry as tool_registry
-from agent.utils import _log_terminal_entry
-from agent.services.tool_output_compaction_service import ToolOutputCompactionService, _build_from_config as _build_compaction_svc
-
 from agent.services.task_execution_context_builder import (
     LocalExecutionResult,
     apply_implicit_execution_defaults,
-    approval_call_identity,
     build_proposal_payload,
     is_non_fatal_tool_error,
     is_recoverable_missing_binary_failure,
     loop_signature,
-    normalize_runtime_tool_calls,
     resolve_loop_trace_id,
 )
+from agent.services.task_execution_policy_service import (
+    resolve_execution_policy,
+)
 from agent.services.task_execution_result_handler import (
-    _append_approval_block_history,
     _append_guardrail_block_history,
     _evaluate_doom_loop,
-    _enforce_worker_execution_contract_tool_classes,
-    _enter_pending_approval,
     _execute_shell_command_with_policy,
 )
 from agent.services.task_execution_step_executor import (
-    run_preflight_guards,
     execute_tool_calls,
+    run_preflight_guards,
 )
+from agent.services.task_runtime_service import get_local_task_status, get_task_runtime_service
+from agent.services.tool_output_compaction_service import (
+    ToolOutputCompactionService,
+)
+from agent.services.tool_output_compaction_service import (
+    _build_from_config as _build_compaction_svc,
+)
+from agent.tool_guardrails import (
+    estimate_text_tokens,
+    estimate_tool_calls_tokens,
+)
+from agent.utils import _log_terminal_entry
 
 
 class TaskExecutionService:
@@ -95,9 +89,7 @@ class TaskExecutionService:
                 "legacy_task_id_not_authoritative",
                 details={
                     "task_id": normalized_task_id,
-                    "required_endpoint": (
-                        f"/tasks/{normalized_task_id}/step/execute"
-                    ),
+                    "required_endpoint": (f"/tasks/{normalized_task_id}/step/execute"),
                 },
             )
         from agent.services.recovery_dispatch_gate_service import (
@@ -110,19 +102,11 @@ class TaskExecutionService:
         if not (recovery_child or recovery_source):
             return
         raise TaskConflictError(
-            (
-                "recovery_task_requires_scoped_endpoint"
-                if recovery_child
-                else "recovery_source_not_executable"
-            ),
+            ("recovery_task_requires_scoped_endpoint" if recovery_child else "recovery_source_not_executable"),
             details={
                 "task_id": normalized_task_id,
-                "scoped_propose_endpoint": (
-                    f"/tasks/{normalized_task_id}/step/propose"
-                ),
-                "scoped_execute_endpoint": (
-                    f"/tasks/{normalized_task_id}/step/execute"
-                ),
+                "scoped_propose_endpoint": (f"/tasks/{normalized_task_id}/step/propose"),
+                "scoped_execute_endpoint": (f"/tasks/{normalized_task_id}/step/execute"),
             },
         )
 
@@ -152,9 +136,7 @@ class TaskExecutionService:
         agent_name: str,
         llm_caller=None,
     ) -> dict:
-        self._require_scoped_recovery_dispatch(
-            request_data.task_id
-        )
+        self._require_scoped_recovery_dispatch(request_data.task_id)
         prompt = request_data.prompt or "Was soll ich als nächstes tun?"
         caller = llm_caller or _call_llm
 
@@ -183,9 +165,7 @@ class TaskExecutionService:
                 )
                 content = str(routed.get("content") or "").strip()
             else:
-                routed = profile_service.propose_detailed(
-                    prompt, task_kind=task_kind, agent_config=agent_cfg
-                )
+                routed = profile_service.propose_detailed(prompt, task_kind=task_kind, agent_config=agent_cfg)
             content = str(routed.get("content") or "").strip()
             metadata = routed.get("metadata") if isinstance(routed.get("metadata"), dict) else {}
             resolution = metadata.get("resolution_info") if isinstance(metadata.get("resolution_info"), dict) else {}
@@ -209,7 +189,11 @@ class TaskExecutionService:
                 try:
                     provider_parts = provider_name.split(":", 1)
                     provider = provider_parts[0]
-                    model = provider_parts[1] if len(provider_parts) > 1 else (request_data.model or agent_cfg.get("model", "llama3"))
+                    model = (
+                        provider_parts[1]
+                        if len(provider_parts) > 1
+                        else (request_data.model or agent_cfg.get("model", "llama3"))
+                    )
                     raw = caller(
                         provider=provider,
                         model=model,
@@ -223,7 +207,10 @@ class TaskExecutionService:
                     return provider_name, {"error": str(exc)}
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(request_data.providers)) as executor:
-                future_to_provider = {executor.submit(_call_single, provider_name): provider_name for provider_name in request_data.providers}
+                future_to_provider = {
+                    executor.submit(_call_single, provider_name): provider_name
+                    for provider_name in request_data.providers
+                }
                 for future in concurrent.futures.as_completed(future_to_provider):
                     provider_name, result = future.result()
                     results[provider_name] = result
@@ -256,7 +243,9 @@ class TaskExecutionService:
                 proposal_state["command"] = proposal_payload["command"]
             if proposal_payload.get("tool_calls"):
                 proposal_state["tool_calls"] = proposal_payload["tool_calls"]
-            get_task_runtime_service().update_local_task_status(request_data.task_id, "proposing", last_proposal=proposal_state)
+            get_task_runtime_service().update_local_task_status(
+                request_data.task_id, "proposing", last_proposal=proposal_state
+            )
             _log_terminal_entry(agent_name, 0, "in", prompt=prompt, task_id=request_data.task_id)
             _log_terminal_entry(
                 agent_name,
@@ -304,13 +293,17 @@ class TaskExecutionService:
 
         task = get_local_task_status(request_data.task_id) if request_data.task_id else None
         if (
-            has_app_context() and current_app.config.get("ROLE") == "hub"
+            has_app_context()
+            and current_app.config.get("ROLE") == "hub"
             and (cfg.get("multi_tool_plan") or {}).get("multi_tool_plan")
         ):
             from agent.services.hub_multi_tool_pipeline import get_hub_multi_tool_pipeline
             from agent.services.lmstudio_request_registry import is_cancelled
+
             multi_result = get_hub_multi_tool_pipeline().try_execute(
-                prompt=prompt, task=task, agent_cfg=agent_cfg,
+                prompt=prompt,
+                task=task,
+                agent_cfg=agent_cfg,
                 cancel_check=lambda: is_cancelled((task or {}).get("goal_id"), request_data.task_id),
             )
             if multi_result is not None:
@@ -350,7 +343,9 @@ class TaskExecutionService:
                 confidence=decision.confidence,
             )
 
-        record_hub_direct_metric("direct_execution_count", tool_name=decision.tool_name, reason_code=decision.reason_code)
+        record_hub_direct_metric(
+            "direct_execution_count", tool_name=decision.tool_name, reason_code=decision.reason_code
+        )
         direct_result = get_hub_tool_execution_adapter().execute_direct(
             tool_name=decision.tool_name or "",
             arguments=decision.arguments,
@@ -375,7 +370,9 @@ class TaskExecutionService:
         elif kind == "direct_tool_result":
             # Recoverable tool failure: the worker may still take over.
             if bool(cfg.get("fallback_to_worker", True)):
-                record_hub_direct_metric("fallback_to_worker_count", tool_name=decision.tool_name, reason_code="direct_tool_failed")
+                record_hub_direct_metric(
+                    "fallback_to_worker_count", tool_name=decision.tool_name, reason_code="direct_tool_failed"
+                )
                 if audit_enabled:
                     audit_hub_direct_event(
                         AUDIT_HUB_DIRECT_FALLBACK_TO_WORKER,
@@ -461,9 +458,7 @@ class TaskExecutionService:
         agent_cfg: dict,
         agent_name: str,
     ) -> dict:
-        self._require_scoped_recovery_dispatch(
-            request_data.task_id
-        )
+        self._require_scoped_recovery_dispatch(request_data.task_id)
         execution_policy = self.resolve_policy(request_data, source="execute_step", agent_cfg=agent_cfg)
         execution_run = self.execute_local_step(
             tid=request_data.task_id,
@@ -501,7 +496,9 @@ class TaskExecutionService:
 
         estimated_tokens = max(
             0,
-            estimate_text_tokens(request_data.command) + estimate_text_tokens(execution_run.output) + estimate_tool_calls_tokens(request_data.tool_calls),
+            estimate_text_tokens(request_data.command)
+            + estimate_text_tokens(execution_run.output)
+            + estimate_tool_calls_tokens(request_data.tool_calls),
         )
         cost_units, pricing_source = estimate_cost_units(
             agent_cfg,
@@ -559,9 +556,8 @@ class TaskExecutionService:
         _wec_for_analysis = effective_task.get("worker_execution_context") or {}
         _shell_mode_for_analysis = str(_wec_for_analysis.get("shell_command_mode") or "").strip().lower()
         _shell_policy_for_analysis = ShellCommandPolicy.from_agent_cfg(guard_cfg)
-        allow_complex_shell = (
-            _shell_mode_for_analysis == "pipeline"
-            and bool(_shell_policy_for_analysis.allow_complex_shell_mode)
+        allow_complex_shell = _shell_mode_for_analysis == "pipeline" and bool(
+            _shell_policy_for_analysis.allow_complex_shell_mode
         )
         if command:
             analysis_cfg = dict(guard_cfg or {})
@@ -629,9 +625,13 @@ class TaskExecutionService:
                 _chain_preflight_deferred = True
 
         _preflight_result = run_preflight_guards(
-            tid=tid, command=command, tool_calls=tool_calls,
-            effective_task=effective_task, guard_cfg=guard_cfg,
-            pipeline=pipeline, _command_analysis=_command_analysis,
+            tid=tid,
+            command=command,
+            tool_calls=tool_calls,
+            effective_task=effective_task,
+            guard_cfg=guard_cfg,
+            pipeline=pipeline,
+            _command_analysis=_command_analysis,
             _chain_preflight_deferred=_chain_preflight_deferred,
             approval_policy_service=get_approval_policy_service(),
         )
@@ -640,9 +640,13 @@ class TaskExecutionService:
         approval_payload = _preflight_result
 
         _tc_result = execute_tool_calls(
-            tool_calls=tool_calls, effective_task=effective_task,
-            tid=tid, guard_cfg=guard_cfg, command=command,
-            loop_trace_id=loop_trace_id, approval_payload=approval_payload,
+            tool_calls=tool_calls,
+            effective_task=effective_task,
+            tid=tid,
+            guard_cfg=guard_cfg,
+            command=command,
+            loop_trace_id=loop_trace_id,
+            approval_payload=approval_payload,
             pipeline=pipeline,
             compaction_svc=self._get_compaction_svc(guard_cfg),
         )
@@ -651,14 +655,16 @@ class TaskExecutionService:
         output_parts, loop_signals, overall_exit_code = _tc_result
 
         if command:
-            command_output, command_exit_code, retries_used, failure_type, retry_history = _execute_shell_command_with_policy(
-                tid=tid,
-                command=command,
-                execution_policy=execution_policy,
-                working_directory=working_directory,
-                allow_complex_shell=allow_complex_shell,
-                task=effective_task,
-                agent_cfg=guard_cfg,
+            command_output, command_exit_code, retries_used, failure_type, retry_history = (
+                _execute_shell_command_with_policy(
+                    tid=tid,
+                    command=command,
+                    execution_policy=execution_policy,
+                    working_directory=working_directory,
+                    allow_complex_shell=allow_complex_shell,
+                    task=effective_task,
+                    agent_cfg=guard_cfg,
+                )
             )
             _shell_compaction = self._get_compaction_svc(guard_cfg).compact(
                 tool_name="shell_execute",
@@ -667,16 +673,19 @@ class TaskExecutionService:
                 task_kind=str(effective_task.get("task_kind") or ""),
             )
             if _shell_compaction.compaction_ratio < 1.0:
-                log_audit("tool_output_compacted", {
-                    "tool": "shell_execute",
-                    "task_id": tid,
-                    "input_chars": _shell_compaction.input_chars,
-                    "output_chars": _shell_compaction.output_chars,
-                    "compaction_ratio": _shell_compaction.compaction_ratio,
-                    "applied_rule_ids": _shell_compaction.applied_rule_ids,
-                    "preserved_signal_count": len(_shell_compaction.preserved_signals),
-                    "original_ref": _shell_compaction.original_ref,
-                })
+                log_audit(
+                    "tool_output_compacted",
+                    {
+                        "tool": "shell_execute",
+                        "task_id": tid,
+                        "input_chars": _shell_compaction.input_chars,
+                        "output_chars": _shell_compaction.output_chars,
+                        "compaction_ratio": _shell_compaction.compaction_ratio,
+                        "applied_rule_ids": _shell_compaction.applied_rule_ids,
+                        "preserved_signal_count": len(_shell_compaction.preserved_signals),
+                        "original_ref": _shell_compaction.original_ref,
+                    },
+                )
             output_parts.append(_shell_compaction.compacted_text)
             if command_exit_code != 0:
                 overall_exit_code = command_exit_code
@@ -685,7 +694,11 @@ class TaskExecutionService:
                     pipeline,
                     name="shell_execute",
                     status="ok" if command_exit_code == 0 else "error",
-                    metadata={"exit_code": command_exit_code, "failure_type": failure_type, "retries_used": retries_used},
+                    metadata={
+                        "exit_code": command_exit_code,
+                        "failure_type": failure_type,
+                        "retries_used": retries_used,
+                    },
                     started_at=exec_started_at,
                 )
             from agent.services.doom_loop_service import get_doom_loop_service
@@ -751,7 +764,9 @@ class TaskExecutionService:
             retries_used=retries_used if command else 0,
             failure_type=effective_failure_type,
             retry_history=retry_history if command else [],
-            status="completed" if final_exit_code == 0 else ("needs_review" if recoverable_shell_missing_binary else "failed"),
+            status="completed"
+            if final_exit_code == 0
+            else ("needs_review" if recoverable_shell_missing_binary else "failed"),
             loop_signals=loop_signals,
             loop_detection=loop_detection,
             approval_decision=approval_payload,

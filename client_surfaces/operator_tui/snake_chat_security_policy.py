@@ -6,18 +6,17 @@ Enforces:
 - Context sanitization before sending to /snake/ask
 - Denied extension/pattern lists for FilesystemReadTool
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
-
 
 # Patterns that indicate secrets — stripped from LLM context
 _SECRET_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r'[A-Z][A-Z0-9_]{3,}=\S{6,}'),        # ENV_VAR=value
-    re.compile(r'-----BEGIN [A-Z ]+-----'),             # PEM header
-    re.compile(r'(?:sk-|ghp_|ghs_|xoxb-|ya29\.)\S{10,}'),  # known prefixes
+    re.compile(r"[A-Z][A-Z0-9_]{3,}=\S{6,}"),  # ENV_VAR=value
+    re.compile(r"-----BEGIN [A-Z ]+-----"),  # PEM header
+    re.compile(r"(?:sk-|ghp_|ghs_|xoxb-|ya29\.)\S{10,}"),  # known prefixes
     re.compile(r'"(?:password|secret|token|api_key)"\s*:\s*"[^"]{6,}"', re.I),
     re.compile(r"(?:password|secret|token)\s*=\s*['\"]\S{6,}['\"]", re.I),
 ]
@@ -28,18 +27,53 @@ _REDACTION_PLACEHOLDER = "[REDACTED]"
 @dataclass
 class SnakeChatSecurityPolicy:
     workspace_root: str = ""
-    allowed_read_extensions: list[str] = field(default_factory=lambda: [
-        ".py", ".ts", ".tsx", ".js", ".jsx",
-        ".go", ".rs", ".java", ".cs", ".cpp", ".c", ".h",
-        ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg",
-        ".md", ".txt", ".sh", ".bash", ".sql",
-        ".html", ".css", ".scss", ".lock",
-    ])
-    denied_path_patterns: list[str] = field(default_factory=lambda: [
-        ".env", ".env.*", "secrets.*", "*.key", "*.pem",
-        "*.p12", "*.pfx", "id_rsa", "id_ed25519", "credentials.*",
-        "token.txt", "token.json",
-    ])
+    allowed_read_extensions: list[str] = field(
+        default_factory=lambda: [
+            ".py",
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".go",
+            ".rs",
+            ".java",
+            ".cs",
+            ".cpp",
+            ".c",
+            ".h",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".md",
+            ".txt",
+            ".sh",
+            ".bash",
+            ".sql",
+            ".html",
+            ".css",
+            ".scss",
+            ".lock",
+        ]
+    )
+    denied_path_patterns: list[str] = field(
+        default_factory=lambda: [
+            ".env",
+            ".env.*",
+            "secrets.*",
+            "*.key",
+            "*.pem",
+            "*.p12",
+            "*.pfx",
+            "id_rsa",
+            "id_ed25519",
+            "credentials.*",
+            "token.txt",
+            "token.json",
+        ]
+    )
     max_file_bytes_display: int = 64 * 1024  # 64 KB for inline chat display
     sanitize_context_before_llm: bool = True
     allow_git_read: bool = True
@@ -68,6 +102,7 @@ def check_path_allowed(
     Does NOT do I/O — purely string-based checks.
     """
     import fnmatch
+
     normalized = relative_path.replace("\\", "/").lstrip("/")
 
     # Traversal check
@@ -98,8 +133,13 @@ def check_tool_dispatch_allowed(
     Prevents write/execute routes from being dispatched.
     """
     _WRITE_ROUTES = {
-        "write_file", "delete_file", "execute_command", "shell_exec",
-        "modify_git", "git_commit", "git_push",
+        "write_file",
+        "delete_file",
+        "execute_command",
+        "shell_exec",
+        "modify_git",
+        "git_commit",
+        "git_push",
     }
     if route in _WRITE_ROUTES:
         return False, f"write_route_denied:{route}"

@@ -118,9 +118,7 @@ def _evaluate_live_admission(mutation: str) -> str:
             return exc.reason_code
         return "ok"
     if mutation == "wrong_epoch":
-        advanced = epochs.claim_epoch(
-            scope_kind="session", scope_id="sess-live-gate", hub_id="hub-gate", advance=True
-        )
+        advanced = epochs.claim_epoch(scope_kind="session", scope_id="sess-live-gate", hub_id="hub-gate", advance=True)
         if not advanced.ok or advanced.epoch != 2:
             return "epoch_claim_failed"
         return epochs.accept_sequence(

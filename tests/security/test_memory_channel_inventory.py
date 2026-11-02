@@ -9,11 +9,22 @@ from scripts.check_memory_channels import channel_signals, validate
 
 
 def inventory(files):
-    return {"schema_version": "ananta.memory-channels.v1", "channels": [{
-        "id": "test-channel", "owner": "Hub test fixture", "scope": "test task",
-        "persistence": "test file", "readers": "test reader", "writers": "test writer",
-        "deletion": "temporary directory cleanup", "trust": "untrusted test data", "files": files,
-    }]}
+    return {
+        "schema_version": "ananta.memory-channels.v1",
+        "channels": [
+            {
+                "id": "test-channel",
+                "owner": "Hub test fixture",
+                "scope": "test task",
+                "persistence": "test file",
+                "readers": "test reader",
+                "writers": "test writer",
+                "deletion": "temporary directory cleanup",
+                "trust": "untrusted test data",
+                "files": files,
+            }
+        ],
+    }
 
 
 def source(root, name, content):
@@ -26,7 +37,8 @@ def test_new_channel_is_rejected_and_exact_registration_admits_it(tmp_path):
     name = "agent/services/new_memory.py"
     source(tmp_path, name, "values = {}\n")
     assert validate(tmp_path, inventory({"agent/old_memory.py": ["named_state_component"]})) == [
-        f"{name}:memory_channel_unregistered", "agent/old_memory.py:memory_channel_file_missing",
+        f"{name}:memory_channel_unregistered",
+        "agent/old_memory.py:memory_channel_file_missing",
     ]
     assert validate(tmp_path, inventory({name: ["named_state_component"]})) == []
 
@@ -38,22 +50,29 @@ def test_existing_channel_cannot_gain_new_storage_family_silently(tmp_path):
     assert validate(tmp_path, value) == [f"{name}:memory_channel_signal_unregistered:filesystem_write"]
 
 
-@pytest.mark.parametrize("content, signal", [
-    ("import sqlite3 as hidden\nhidden.connect('state.db')", "storage_import:sqlite3"),
-    ("from redis import Redis", "storage_import:redis"),
-    ("from functools import lru_cache\n@lru_cache()\ndef f(): return 1", "process_cache"),
-    ("open('state', mode='a')", "filesystem_write"),
-    ("open('state', mode=selected_mode)", "dynamic_file_mode"),
-    ("class Innocent(SQLModel, table=True):\n __tablename__ = 'hidden_state'", "sql_table:hidden_state"),
-])
+@pytest.mark.parametrize(
+    "content, signal",
+    [
+        ("import sqlite3 as hidden\nhidden.connect('state.db')", "storage_import:sqlite3"),
+        ("from redis import Redis", "storage_import:redis"),
+        ("from functools import lru_cache\n@lru_cache()\ndef f(): return 1", "process_cache"),
+        ("open('state', mode='a')", "filesystem_write"),
+        ("open('state', mode=selected_mode)", "dynamic_file_mode"),
+        ("class Innocent(SQLModel, table=True):\n __tablename__ = 'hidden_state'", "sql_table:hidden_state"),
+    ],
+)
 def test_non_memory_filename_does_not_hide_observable_state(content, signal):
     assert signal in channel_signals("worker/tools/innocent.py", content)
 
 
 def test_new_table_in_already_registered_file_requires_explicit_inventory_update(tmp_path):
     name = "agent/db_models/state.py"
-    source(tmp_path, name, "class A(SQLModel, table=True):\n __tablename__ = 'first'\n"
-                          "class B(SQLModel, table=True):\n __tablename__ = 'second'\n")
+    source(
+        tmp_path,
+        name,
+        "class A(SQLModel, table=True):\n __tablename__ = 'first'\n"
+        "class B(SQLModel, table=True):\n __tablename__ = 'second'\n",
+    )
     assert validate(tmp_path, inventory({name: ["sql_table:first"]})) == [
         f"{name}:memory_channel_signal_unregistered:sql_table:second",
     ]

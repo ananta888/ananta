@@ -318,11 +318,7 @@ class BusinessControllingReconciliationService:
                 difference = None if expected_total is None or actual_total is None else actual_total - expected_total
             else:
                 difference = actual_total - expected_total
-                status = (
-                    ReconciliationStatus.PASS
-                    if abs(difference) <= tolerance
-                    else ReconciliationStatus.MISMATCH
-                )
+                status = ReconciliationStatus.PASS if abs(difference) <= tolerance else ReconciliationStatus.MISMATCH
             report_projection = {
                 "dataset_id": dataset.dataset_id,
                 "dataset_version": dataset.dataset_version,

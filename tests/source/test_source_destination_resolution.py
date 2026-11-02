@@ -53,9 +53,7 @@ def _selection(model_id: str = "claude-model-a") -> DestinationSelection:
 
 
 def test_model_change_produces_a_different_destination_identity() -> None:
-    service = SourceDestinationResolutionService(
-        _Catalog([_record(), _record(model_id="claude-model-b")])
-    )
+    service = SourceDestinationResolutionService(_Catalog([_record(), _record(model_id="claude-model-b")]))
 
     first = service.resolve(_selection())
     second = service.resolve(_selection("claude-model-b"))
@@ -66,9 +64,7 @@ def test_model_change_produces_a_different_destination_identity() -> None:
 
 
 def test_destination_change_between_preview_and_dispatch_is_blocked() -> None:
-    service = SourceDestinationResolutionService(
-        _Catalog([_record(), _record(model_id="claude-model-b")])
-    )
+    service = SourceDestinationResolutionService(_Catalog([_record(), _record(model_id="claude-model-b")]))
     preview = service.resolve(_selection())
 
     with pytest.raises(

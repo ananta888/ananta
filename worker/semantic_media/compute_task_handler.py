@@ -6,6 +6,7 @@ import base64
 import hashlib
 import io
 import json
+import logging
 import math
 import os
 import ssl
@@ -154,7 +155,7 @@ class HttpSemanticComputeHubClient:
                 decoded = json.loads(exc.read(65_537).decode())
                 reason = str(((decoded.get("error") or {}).get("code")) or reason)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_post: ignored Exception", exc_info=True)
             raise SemanticComputeHubClientError(reason) from exc
         except (OSError, TimeoutError, urllib.error.URLError) as exc:
             raise SemanticComputeHubClientError("semantic_compute_hub_unavailable") from exc

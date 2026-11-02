@@ -18,9 +18,7 @@ DATABASE_URL = settings.effective_database_url
 def _is_in_memory_sqlite(url: str) -> bool:
     normalized = str(url or "").lower()
     return normalized.startswith("sqlite:///:memory:") or (
-        normalized.startswith("sqlite")
-        and "mode=memory" in normalized
-        and "uri=true" in normalized
+        normalized.startswith("sqlite") and "mode=memory" in normalized and "uri=true" in normalized
     )
 
 
@@ -235,9 +233,7 @@ def ensure_default_user():
     try:
         username = local_user_tenant_id(settings.initial_admin_user)
     except UserSessionIdentityError as exc:
-        raise RuntimeError(
-            f"invalid_initial_admin_user:{exc.reason_code}"
-        ) from exc
+        raise RuntimeError(f"invalid_initial_admin_user:{exc.reason_code}") from exc
 
     with Session(engine) as session:
         # Prüfen ob bereits Benutzer existieren
@@ -311,9 +307,7 @@ def _sync_schema_postgresql() -> None:
 
             existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
 
-            new_columns = [
-                c for c in table.columns if c.name not in existing_columns and not c.primary_key
-            ]
+            new_columns = [c for c in table.columns if c.name not in existing_columns and not c.primary_key]
             if not new_columns:
                 continue
 
@@ -402,9 +396,7 @@ def _sync_schema_sqlite() -> None:
             if table_name in compatibility_by_table:
                 continue
             existing_columns = columns_by_table.get(table_name, set())
-            new_columns = [
-                c for c in table.columns if c.name not in existing_columns and not c.primary_key
-            ]
+            new_columns = [c for c in table.columns if c.name not in existing_columns and not c.primary_key]
             if not new_columns:
                 continue
             logging.warning(

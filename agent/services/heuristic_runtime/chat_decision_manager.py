@@ -15,23 +15,23 @@ chat_policy integration:
   ChatDecisionManager does NOT replace chat_policy — it delegates policy checks
   to whatever ChatAccessPolicy is wired in at construction time.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Callable
 
-from agent.db_models import HeuristicDecisionLeaseDB
 from agent.repositories.decision_trace_repo import DecisionTraceRepository
 from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository
-from agent.services.heuristic_runtime.chat_query_classifier import ChatQueryClassifier, ClassificationResult, IntentKind
+from agent.services.heuristic_runtime.chat_query_classifier import ChatQueryClassifier
 from agent.services.heuristic_runtime.chat_selectors import build_chat_selector_chain
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
-from agent.services.heuristic_runtime.decision_trace import DecisionTrace, DecisionMetricsAccumulator
+from agent.services.heuristic_runtime.decision_trace import DecisionMetricsAccumulator, DecisionTrace
 from agent.services.heuristic_runtime.heuristic_registry_service import get_heuristic_registry
 from agent.services.heuristic_runtime.lease_reevaluation_service import LeaseReevaluationService, ReevalOutcome
 from agent.services.heuristic_runtime.state_machine import ChatStateMachine
-
 
 # PolicyCheck: callable(query, ctx) -> (allowed: bool, reason: str)
 PolicyCheck = Callable[[str, DecisionContext], tuple[bool, str]]
@@ -147,14 +147,16 @@ class ChatDecisionManager:
 
     def _inject_query_event(self, ctx: DecisionContext, query: str) -> DecisionContext:
         """Return a copy of ctx with the query as a recent normalized event."""
-        from dataclasses import replace
-        events = list(ctx.recent_events) + [{
-            "event_id": "query",
-            "kind": "chat_message",
-            "normalized_value": query[:200],
-            "ref_id": None,
-            "timestamp": time.time(),
-        }]
+
+        events = list(ctx.recent_events) + [
+            {
+                "event_id": "query",
+                "kind": "chat_message",
+                "normalized_value": query[:200],
+                "ref_id": None,
+                "timestamp": time.time(),
+            }
+        ]
         return DecisionContext(
             source_surface=ctx.source_surface,
             ai_status=ctx.ai_status,
@@ -184,4 +186,4 @@ class ChatDecisionManager:
         try:
             self._trace_repo.save(trace)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_finalize_trace: ignored Exception", exc_info=True)

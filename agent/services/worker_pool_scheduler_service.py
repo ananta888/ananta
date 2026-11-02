@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -73,44 +74,48 @@ class WorkerPoolSchedulerService:
 
             if len(active_for_worker) >= max_parallel:
                 if len(queue_for_worker) >= queue_limit:
-                    lease = worker_slot_lease_repo.save(WorkerSlotLeaseDB(
+                    lease = worker_slot_lease_repo.save(
+                        WorkerSlotLeaseDB(
+                            lease_type="worker",
+                            status="rejected",
+                            worker_id=worker_id,
+                            worker_kind=worker_kind,
+                            runtime_target_id=runtime_target_id,
+                            runtime_kind=runtime_kind,
+                            parent_task_id=parent_task_id,
+                            worker_job_id=worker_job_id,
+                            reason_code="worker_queue_full",
+                            released_at=now,
+                            lease_metadata={
+                                "policy_decision_ref": policy_decision_ref,
+                                "policy_decision_hash": policy_decision_hash,
+                            },
+                        )
+                    )
+                    return WorkerSlotDecision(
+                        status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id
+                    )
+
+                queue_position = len(queue_for_worker) + 1
+                lease = worker_slot_lease_repo.save(
+                    WorkerSlotLeaseDB(
                         lease_type="worker",
-                        status="rejected",
+                        status="queued",
                         worker_id=worker_id,
                         worker_kind=worker_kind,
                         runtime_target_id=runtime_target_id,
                         runtime_kind=runtime_kind,
                         parent_task_id=parent_task_id,
                         worker_job_id=worker_job_id,
-                        reason_code="worker_queue_full",
-                        released_at=now,
+                        queue_position=queue_position,
+                        reason_code="worker_parallel_capacity_exhausted",
+                        deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
                         lease_metadata={
                             "policy_decision_ref": policy_decision_ref,
                             "policy_decision_hash": policy_decision_hash,
                         },
-                    ))
-                    return WorkerSlotDecision(
-                        status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id
                     )
-
-                queue_position = len(queue_for_worker) + 1
-                lease = worker_slot_lease_repo.save(WorkerSlotLeaseDB(
-                    lease_type="worker",
-                    status="queued",
-                    worker_id=worker_id,
-                    worker_kind=worker_kind,
-                    runtime_target_id=runtime_target_id,
-                    runtime_kind=runtime_kind,
-                    parent_task_id=parent_task_id,
-                    worker_job_id=worker_job_id,
-                    queue_position=queue_position,
-                    reason_code="worker_parallel_capacity_exhausted",
-                    deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
-                    lease_metadata={
-                        "policy_decision_ref": policy_decision_ref,
-                        "policy_decision_hash": policy_decision_hash,
-                    },
-                ))
+                )
                 return WorkerSlotDecision(
                     status="queued",
                     reason_code="worker_parallel_capacity_exhausted",
@@ -143,26 +148,28 @@ class WorkerPoolSchedulerService:
                     )
                 if ollama_decision.status == "queued":
                     queue_position = ollama_decision.queue_position or 1
-                    lease = worker_slot_lease_repo.save(WorkerSlotLeaseDB(
-                        lease_type="combined",
-                        status="queued",
-                        worker_id=worker_id,
-                        worker_kind=worker_kind,
-                        runtime_target_id=runtime_target_id,
-                        runtime_kind=runtime_kind,
-                        ollama_endpoint=endpoint,
-                        ollama_model=model,
-                        parent_task_id=parent_task_id,
-                        worker_job_id=worker_job_id,
-                        queue_position=queue_position,
-                        reason_code=ollama_decision.reason_code,
-                        deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
-                        lease_metadata={
-                            "ollama_lease_id": ollama_decision.lease_id,
-                            "policy_decision_ref": policy_decision_ref,
-                            "policy_decision_hash": policy_decision_hash,
-                        },
-                    ))
+                    lease = worker_slot_lease_repo.save(
+                        WorkerSlotLeaseDB(
+                            lease_type="combined",
+                            status="queued",
+                            worker_id=worker_id,
+                            worker_kind=worker_kind,
+                            runtime_target_id=runtime_target_id,
+                            runtime_kind=runtime_kind,
+                            ollama_endpoint=endpoint,
+                            ollama_model=model,
+                            parent_task_id=parent_task_id,
+                            worker_job_id=worker_job_id,
+                            queue_position=queue_position,
+                            reason_code=ollama_decision.reason_code,
+                            deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
+                            lease_metadata={
+                                "ollama_lease_id": ollama_decision.lease_id,
+                                "policy_decision_ref": policy_decision_ref,
+                                "policy_decision_hash": policy_decision_hash,
+                            },
+                        )
+                    )
                     return WorkerSlotDecision(
                         status="queued",
                         reason_code=ollama_decision.reason_code,
@@ -175,21 +182,23 @@ class WorkerPoolSchedulerService:
                     )
                 ollama_lease_id = ollama_decision.lease_id
 
-            lease = worker_slot_lease_repo.save(WorkerSlotLeaseDB(
-                lease_type="combined" if (endpoint and model) else "worker",
-                status="active",
-                worker_id=worker_id,
-                worker_kind=worker_kind,
-                runtime_target_id=runtime_target_id,
-                runtime_kind=runtime_kind,
-                ollama_endpoint=endpoint or None,
-                ollama_model=model or None,
-                parent_task_id=parent_task_id,
-                worker_job_id=worker_job_id,
-                reason_code="slot_acquired",
-                deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
-                lease_metadata={"ollama_lease_id": ollama_lease_id} if ollama_lease_id else {},
-            ))
+            lease = worker_slot_lease_repo.save(
+                WorkerSlotLeaseDB(
+                    lease_type="combined" if (endpoint and model) else "worker",
+                    status="active",
+                    worker_id=worker_id,
+                    worker_kind=worker_kind,
+                    runtime_target_id=runtime_target_id,
+                    runtime_kind=runtime_kind,
+                    ollama_endpoint=endpoint or None,
+                    ollama_model=model or None,
+                    parent_task_id=parent_task_id,
+                    worker_job_id=worker_job_id,
+                    reason_code="slot_acquired",
+                    deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
+                    lease_metadata={"ollama_lease_id": ollama_lease_id} if ollama_lease_id else {},
+                )
+            )
             md = dict(lease.lease_metadata or {})
             if policy_decision_ref:
                 md["policy_decision_ref"] = policy_decision_ref
@@ -229,7 +238,7 @@ class WorkerPoolSchedulerService:
                 slot_lease_id=str(slot_lease_id),
             )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("release_for_job: ignored Exception", exc_info=True)
 
     def cleanup_stale_leases(self) -> int:
         stale = worker_slot_lease_repo.list_expired()
@@ -296,12 +305,16 @@ class WorkerPoolSchedulerService:
             )
         if not worker_online:
             return WorkerSlotDecision(
-                status="queued", reason_code="worker_offline_requeue", slot_lease_id=slot_lease_id,
+                status="queued",
+                reason_code="worker_offline_requeue",
+                slot_lease_id=slot_lease_id,
                 queue_position=lease.queue_position,
             )
         if not capacity_available:
             return WorkerSlotDecision(
-                status="queued", reason_code="capacity_not_available_requeue", slot_lease_id=slot_lease_id,
+                status="queued",
+                reason_code="capacity_not_available_requeue",
+                slot_lease_id=slot_lease_id,
                 queue_position=lease.queue_position,
             )
 
@@ -322,7 +335,8 @@ class WorkerPoolSchedulerService:
 
     def get_scheduler_status(self) -> dict[str, Any]:
         leases = [
-            lease for lease in worker_slot_lease_repo.list_all()
+            lease
+            for lease in worker_slot_lease_repo.list_all()
             if lease.lease_type not in {"meet_media", "meet_dialog_capacity"}
         ]
         active = [x for x in leases if x.status == "active"]

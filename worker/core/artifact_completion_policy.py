@@ -1,11 +1,10 @@
 """ArtifactCompletionPolicy v1 — deterministic policy for artifact-based task completion."""
+
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
-
 
 DECISION_COMPLETED = "completed"
 DECISION_NEEDS_REVIEW = "needs_review"
@@ -84,7 +83,9 @@ class ArtifactCompletionPolicy:
                 advisory_parse_status = "parse_failed"
                 reason_codes.append("advisory_parse_failed_ignored")
             elif advisory_parse_result.get("task_complete") is not None:
-                advisory_parse_status = "advisory_complete" if advisory_parse_result.get("task_complete") else "advisory_incomplete"
+                advisory_parse_status = (
+                    "advisory_complete" if advisory_parse_result.get("task_complete") else "advisory_incomplete"
+                )
 
         # Synthesized manifest check
         if is_synthesized and not self.allow_synthesized_manifest:

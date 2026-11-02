@@ -8,6 +8,7 @@ Tests assert:
 * missing seed/query_type yield structured errors
 * missing graph index yields ``degraded`` status with warnings
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,19 +27,30 @@ from agent.services.tools._evidence import TOOL_RESULT_SCHEMA
 def _seed_rig_store(tmp_path: Path) -> Path:
     idx = tmp_path / "rig.json"
     from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
+
     s = CodeCompassGraphStore(index_path=idx)
     s.rebuild_from_output_records(
         manifest_hash="m",
         records=[
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "bc:hello", "kind": "buildable_component",
-             "attrs": {"name": "hello"}},
-            {"_provenance": {"output_kind": "rig_nodes"},
-             "id": "rn:ctest", "kind": "runner", "attrs": {"kind": "ctest"}},
-            {"_provenance": {"output_kind": "rig_edges"},
-             "from_id": "bc:hello", "to_id": "rn:ctest", "kind": "tested_by",
-             "evidence": {"source_file": "/ws/CMakeLists.txt",
-                          "source_kind": "spade_cmake_reply"}},
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "bc:hello",
+                "kind": "buildable_component",
+                "attrs": {"name": "hello"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_nodes"},
+                "id": "rn:ctest",
+                "kind": "runner",
+                "attrs": {"kind": "ctest"},
+            },
+            {
+                "_provenance": {"output_kind": "rig_edges"},
+                "from_id": "bc:hello",
+                "to_id": "rn:ctest",
+                "kind": "tested_by",
+                "evidence": {"source_file": "/ws/CMakeLists.txt", "source_kind": "spade_cmake_reply"},
+            },
         ],
     )
     return idx
@@ -48,8 +60,7 @@ def test_repository_query_returns_tool_result_envelope(tmp_path):
     idx = _seed_rig_store(tmp_path / "x")
     res = codecompass_tools.codecompass_repository_query(
         workspace_dir=str(tmp_path),
-        arguments={"query_type": "component-tests", "seed": "bc:hello",
-                   "graph_index_path": str(idx)},
+        arguments={"query_type": "component-tests", "seed": "bc:hello", "graph_index_path": str(idx)},
         tool_call_id="t1",
     )
     assert res["tool_name"] == "codecompass.repository_query"
@@ -61,8 +72,7 @@ def test_repository_query_unsupported_type_is_error(tmp_path):
     idx = _seed_rig_store(tmp_path / "u")
     res = codecompass_tools.codecompass_repository_query(
         workspace_dir=str(tmp_path),
-        arguments={"query_type": "cypher", "seed": "bc:hello",
-                   "graph_index_path": str(idx)},
+        arguments={"query_type": "cypher", "seed": "bc:hello", "graph_index_path": str(idx)},
         tool_call_id="t2",
     )
     assert res["status"] == "error"
@@ -93,8 +103,12 @@ def test_repository_query_max_results_is_clamped(tmp_path):
     idx = _seed_rig_store(tmp_path / "m")
     res = codecompass_tools.codecompass_repository_query(
         workspace_dir=str(tmp_path),
-        arguments={"query_type": "component-tests", "seed": "bc:hello",
-                   "graph_index_path": str(idx), "max_results": 9999},
+        arguments={
+            "query_type": "component-tests",
+            "seed": "bc:hello",
+            "graph_index_path": str(idx),
+            "max_results": 9999,
+        },
         tool_call_id="t5",
     )
     assert res["status"] in {"ok", "degraded"}
@@ -108,8 +122,11 @@ def test_repository_query_max_results_is_clamped(tmp_path):
 def test_repository_query_no_rig_data_is_degraded(tmp_path):
     res = codecompass_tools.codecompass_repository_query(
         workspace_dir=str(tmp_path),
-        arguments={"query_type": "component-tests", "seed": "bc:hello",
-                   "graph_index_path": str(tmp_path / "missing.json")},
+        arguments={
+            "query_type": "component-tests",
+            "seed": "bc:hello",
+            "graph_index_path": str(tmp_path / "missing.json"),
+        },
         tool_call_id="t6",
     )
     assert res["status"] == "degraded"
@@ -187,9 +204,7 @@ def test_graph_store_resolution_uses_governed_artifact_resolver(
         lambda: SimpleNamespace(knowledge_index_repo=repository),
     )
 
-    store, index_id = codecompass_tools._resolve_graph_store(
-        {"knowledge_index_id": "index-1"}
-    )
+    store, index_id = codecompass_tools._resolve_graph_store({"knowledge_index_id": "index-1"})
 
     assert index_id == "index-1"
     assert resolver.resolved == [knowledge_index]
@@ -201,9 +216,7 @@ def test_graph_store_default_selection_excludes_unscoped_v2_indices(
     tmp_path,
 ):
     admitted_index_path = _seed_rig_store(tmp_path / "admitted-v2")
-    metrics_path = (
-        tmp_path / "admitted-v2" / "cc_graph_index.visual_metrics.json"
-    )
+    metrics_path = tmp_path / "admitted-v2" / "cc_graph_index.visual_metrics.json"
 
     def _index(index_id: str, projection_state: str) -> SimpleNamespace:
         return SimpleNamespace(
@@ -272,9 +285,8 @@ def test_graph_store_default_selection_excludes_unscoped_v2_indices(
 
 
 def test_graph_store_diagnostics_explain_rejected_completed_index(monkeypatch):
-    from agent.services import repository_registry
+    from agent.services import codecompass_graph_artifact_resolver, repository_registry
     from agent.services.tools import codecompass_tools
-    from agent.services import codecompass_graph_artifact_resolver
 
     candidate = SimpleNamespace(id="idx-broken", status="completed")
 
@@ -298,14 +310,11 @@ def test_graph_store_diagnostics_explain_rejected_completed_index(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "agent.services.knowledge_index_consumption_policy."
-        "get_knowledge_index_consumption_policy",
+        "agent.services.knowledge_index_consumption_policy.get_knowledge_index_consumption_policy",
         lambda: SimpleNamespace(can_consume=lambda *_args, **_kwargs: True),
     )
 
-    store, index_id, diagnostics = (
-        codecompass_tools._resolve_graph_store_diagnostics({})
-    )
+    store, index_id, diagnostics = codecompass_tools._resolve_graph_store_diagnostics({})
 
     assert store is None
     assert index_id is None

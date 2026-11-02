@@ -38,19 +38,25 @@ def _service(configuration: ModelRoutingConfiguration):
 
 
 def test_projects_explicit_hub_assignment_for_runtime_use():
-    service = _service(ModelRoutingConfiguration(
-        revision=7,
-        assignments=(ModelAssignment(
-            consumer_id="chat.ai_snake",
-            scope="global",
-            mode="profile",
-            profile_id="local-chat",
-        ),),
-    ))
+    service = _service(
+        ModelRoutingConfiguration(
+            revision=7,
+            assignments=(
+                ModelAssignment(
+                    consumer_id="chat.ai_snake",
+                    scope="global",
+                    mode="profile",
+                    profile_id="local-chat",
+                ),
+            ),
+        )
+    )
 
-    selection = service.resolve_explicit(ModelRoutingDryRunCommand(
-        consumer_id="chat.ai_snake",
-    ))
+    selection = service.resolve_explicit(
+        ModelRoutingDryRunCommand(
+            consumer_id="chat.ai_snake",
+        )
+    )
 
     assert selection is not None
     assert selection.configuration_revision == 7
@@ -63,20 +69,33 @@ def test_projects_explicit_hub_assignment_for_runtime_use():
 def test_preserves_legacy_fallback_when_no_explicit_assignment_exists():
     service = _service(ModelRoutingConfiguration(revision=0))
 
-    assert service.resolve_explicit(ModelRoutingDryRunCommand(
-        consumer_id="chat.ai_snake",
-    )) is None
+    assert (
+        service.resolve_explicit(
+            ModelRoutingDryRunCommand(
+                consumer_id="chat.ai_snake",
+            )
+        )
+        is None
+    )
 
 
 def test_explicit_disabled_consumer_fails_closed():
-    service = _service(ModelRoutingConfiguration(
-        revision=1,
-        assignments=(ModelAssignment(
-            consumer_id="chat.ai_snake", scope="global", mode="disabled",
-        ),),
-    ))
+    service = _service(
+        ModelRoutingConfiguration(
+            revision=1,
+            assignments=(
+                ModelAssignment(
+                    consumer_id="chat.ai_snake",
+                    scope="global",
+                    mode="disabled",
+                ),
+            ),
+        )
+    )
 
     with pytest.raises(ModelRuntimeSelectionError, match="not_executable"):
-        service.resolve_explicit(ModelRoutingDryRunCommand(
-            consumer_id="chat.ai_snake",
-        ))
+        service.resolve_explicit(
+            ModelRoutingDryRunCommand(
+                consumer_id="chat.ai_snake",
+            )
+        )

@@ -81,14 +81,20 @@ The hub always remains the owner of:
 
 # Container Model
 
-Each hub and worker instance runs in its **own Docker container**.
+Each hub and worker instance runs in Docker containers.
+
+The number of agent processes a single worker container hosts concurrently is
+configurable (`ANANTA_AGENT_COUNT`, default `1`): one container may carry several
+worker agents as long as every process keeps its own port, name, URL and
+`DATA_DIR`. The hub always runs exactly one process per container.
 
 This model is part of the architecture and must be preserved.
 
 New features must:
 
 - respect container boundaries
-- avoid implicit shared state
+- avoid implicit shared state (agent processes inside one container stay isolated
+  from each other: no shared ports, registration identity or data directories)
 - avoid assumptions about a single process environment
 
 Execution environments must remain reproducible.
@@ -406,6 +412,23 @@ When generating code or tasks:
 If a change would alter the architecture, it must be explicitly justified and discussed before implementation.
 
 ---
+
+# Verankerte Repo-Regeln (Automatisierte Gates)
+
+- **Output Boundary:** `scripts/check_output_boundary.py` verhindert getrackte
+  Runtime-Artefakte (Commit-Regel-Tabelle oben).
+- **Singleton-Freeze:** keine neuen `get_*_service()`-Boilerplate-Accessoren
+  (`scripts/check_singleton_freeze.py`; kanonisches Pattern in
+  `docs/service-singletons.md`).
+- **Test-Line-Budget:** neue Testdateien > 1200 Zeilen failen
+  (`scripts/check_test_line_budget.py`).
+- **DI-Seam:** `agent/cli_backends/` erreicht services nur ueber
+  `default_context` (`scripts/check_cli_backend_context_seam.py`).
+- **Importgrenzen:** `check_imports.py` + `check_worker_boundaries.py` +
+  `check_service_boundaries.py` (Allow-Lists muessen leer bleiben oder
+  dokumentierte Ausnahmen tragen).
+- **Style/Type:** ruff format+check sind CI-Gates; mypy folgt
+  (`--skip-types` ist befristet).
 
 # Summary
 

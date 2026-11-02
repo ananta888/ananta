@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-import os
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -12,7 +10,7 @@ from agent.config import settings
 
 def _get_agent_config() -> dict:
     if has_app_context():
-        return (current_app.config.get("AGENT_CONFIG", {}) or {})
+        return current_app.config.get("AGENT_CONFIG", {}) or {}
     return {}
 
 
@@ -155,7 +153,29 @@ def _classify_runtime_target(url: str | None) -> str | None:
         return "docker_host"
     if "localhost" in raw or "127.0.0.1" in raw:
         return "loopback"
-    if any(marker in raw for marker in ("192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.")):
+    if any(
+        marker in raw
+        for marker in (
+            "192.168.",
+            "10.",
+            "172.16.",
+            "172.17.",
+            "172.18.",
+            "172.19.",
+            "172.20.",
+            "172.21.",
+            "172.22.",
+            "172.23.",
+            "172.24.",
+            "172.25.",
+            "172.26.",
+            "172.27.",
+            "172.28.",
+            "172.29.",
+            "172.30.",
+            "172.31.",
+        )
+    ):
         return "private_network"
     if raw.startswith("http://") or raw.startswith("https://"):
         return "remote"

@@ -58,9 +58,8 @@ from __future__ import annotations
 
 import hashlib
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
 
 WORKFLOW_HANDOFF_SCHEMA = "workflow_handoff.v1"
 
@@ -233,10 +232,7 @@ def append_handoff_to_task(
     events = list(ctx.get("workflow_events") or [])
     new_payload = event.to_dict()
     new_id = new_payload.get("event_id")
-    if not any(
-        isinstance(existing, dict) and existing.get("event_id") == new_id
-        for existing in events
-    ):
+    if not any(isinstance(existing, dict) and existing.get("event_id") == new_id for existing in events):
         events.append(new_payload)
     ctx["workflow_events"] = events
     return ctx
@@ -301,9 +297,7 @@ def list_handoffs_for_task(task: dict | Any) -> list[dict[str, Any]]:
     return events
 
 
-def list_handoffs_for_goal(
-    *, tasks: list[dict | Any]
-) -> list[dict[str, Any]]:
+def list_handoffs_for_goal(*, tasks: list[dict | Any]) -> list[dict[str, Any]]:
     """Aggregate handoff events across all tasks for a goal.
 
     Inputs are the list of ``TaskDB`` instances (or plain dicts)
@@ -318,9 +312,7 @@ def list_handoffs_for_goal(
     return collected
 
 
-def latest_handoff_for_pair(
-    *, tasks: list[dict | Any], from_step: str, to_step: str
-) -> dict[str, Any] | None:
+def latest_handoff_for_pair(*, tasks: list[dict | Any], from_step: str, to_step: str) -> dict[str, Any] | None:
     """Return the most recent handoff between two specific steps.
 
     Used by the queue layer to ask "what's the current status of the
@@ -332,7 +324,8 @@ def latest_handoff_for_pair(
     if not from_clean or not to_clean:
         return None
     candidates = [
-        e for e in list_handoffs_for_goal(tasks=tasks)
+        e
+        for e in list_handoffs_for_goal(tasks=tasks)
         if e.get("from_step") == from_clean and e.get("to_step") == to_clean
     ]
     if not candidates:
@@ -390,10 +383,7 @@ def derive_handoffs_for_steps(
         to_task = str(task_id_by_step.get(step_id) or "").strip()
         if not to_task:
             continue
-        deps = [
-            str(d).strip() for d in list(step.get("depends_on") or [])
-            if str(d).strip()
-        ]
+        deps = [str(d).strip() for d in list(step.get("depends_on") or []) if str(d).strip()]
         if not deps:
             # Entry point: synthesize a handoff from "intake" (no real
             # step) so the chain has a start.

@@ -57,8 +57,8 @@ def test_media_control_loss_cancels_owned_process_without_restart(kind):
         raise CompanionSessionEnded("synthetic_source_revoked")
 
     def invoke():
-        return (media.idle("idle", cooperate=revoke) if kind == "idle"
-                else media.speaking(b"\x00\x01", cooperate=revoke))
+        return media.idle("idle", cooperate=revoke) if kind == "idle" else media.speaking(b"\x00\x01", cooperate=revoke)
+
     with pytest.raises(CompanionSessionEnded):
         invoke()
     assert media._transport.process.poll() is not None
@@ -68,25 +68,25 @@ def test_media_control_loss_cancels_owned_process_without_restart(kind):
 
 def test_media_timeout_kills_renderer_ignoring_term():
     code = "import signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);time.sleep(20)"
-    media = CompanionMediaPreparationProcess(
-        command=(sys.executable, "-u", "-c", code),
-        timeout_seconds=0.2)
+    media = CompanionMediaPreparationProcess(command=(sys.executable, "-u", "-c", code), timeout_seconds=0.2)
     with pytest.raises(CompanionExecutionError, match="execution_timeout"):
         media.speaking(b"\x00\x01", cooperate=lambda: None)
     assert media._transport.process.poll() is not None
 
 
 def test_unknown_or_broadened_media_receipt_is_not_published():
-    media = CompanionMediaPreparationProcess(command=(sys.executable, "-u", "-c",
-        "print('{\"kind\":\"idle\",\"result\":{},\"policy\":true}',flush=True)"))
+    media = CompanionMediaPreparationProcess(
+        command=(sys.executable, "-u", "-c", 'print(\'{"kind":"idle","result":{},"policy":true}\',flush=True)')
+    )
     with pytest.raises(CompanionExecutionError, match="media_receipt_invalid"):
         media.idle("idle", cooperate=lambda: None)
     assert media._transport.process.poll() is not None
 
 
 def test_oversized_media_output_is_stopped_before_receipt():
-    media = CompanionMediaPreparationProcess(command=(sys.executable, "-u", "-c",
-        "import sys;sys.stdout.write('x'*11000000);sys.stdout.flush()"))
+    media = CompanionMediaPreparationProcess(
+        command=(sys.executable, "-u", "-c", "import sys;sys.stdout.write('x'*11000000);sys.stdout.flush()")
+    )
     with pytest.raises(CompanionExecutionError, match="output_limit"):
         media.idle("idle", cooperate=lambda: None)
     assert media._transport.process.poll() is not None
@@ -102,14 +102,28 @@ def test_invalid_pcm_and_idle_state_never_launch_media_helper():
     assert media._transport.process is None
 
 
-@pytest.mark.parametrize("field,value", [
-    ("frames", True), ("frames", 121), ("sha256", "foreign"), ("originKind", "human"),
-    ("classification", "trusted"), ("repeatMode", "loop"), ("mp4", "invalid"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("frames", True),
+        ("frames", 121),
+        ("sha256", "foreign"),
+        ("originKind", "human"),
+        ("classification", "trusted"),
+        ("repeatMode", "loop"),
+        ("mp4", "invalid"),
+    ],
+)
 def test_closed_clip_integrity_denies_mutation_or_authority_labels(field, value):
     data = b"\x00\x00\x00\x10ftypisom0000"
-    clip = {"mp4": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest(),
-            "frames": 2, "repeatMode": "hold_last", "originKind": "generated", "classification": "synthetic"}
+    clip = {
+        "mp4": base64.b64encode(data).decode(),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "frames": 2,
+        "repeatMode": "hold_last",
+        "originKind": "generated",
+        "classification": "synthetic",
+    }
     with pytest.raises(ValueError, match="clip_invalid"):
         validate_clip({**clip, field: value}, repeat="hold_last")
 
@@ -119,11 +133,15 @@ def test_real_media_entry_runs_procedural_renderer_and_cpu_ffmpeg_with_owner_pro
         pytest.skip("explicit CPU renderer/FFmpeg integration gate not enabled")
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         pytest.fail("explicit CPU renderer gate requires FFmpeg and ffprobe")
-    media = CompanionMediaPreparationProcess(environment={
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "ANANTA_CPU_FALLBACK": "1",
-        "MEET_COMPANION_LOG": str(tmp_path / "synthetic-renderer.log"),
-        "MEET_AVATAR_SERVICE_ENABLED": "0", "MEET_AVATAR_IDLE_CLIP": str(tmp_path / "missing-idle.mp4"),
-    })
+    media = CompanionMediaPreparationProcess(
+        environment={
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "ANANTA_CPU_FALLBACK": "1",
+            "MEET_COMPANION_LOG": str(tmp_path / "synthetic-renderer.log"),
+            "MEET_AVATAR_SERVICE_ENABLED": "0",
+            "MEET_AVATAR_IDLE_CLIP": str(tmp_path / "missing-idle.mp4"),
+        }
+    )
     ticks = []
     try:
         idle = media.idle("thinking", cooperate=lambda: ticks.append(True))
@@ -132,8 +150,12 @@ def test_real_media_entry_runs_procedural_renderer_and_cpu_ffmpeg_with_owner_pro
         for index, clip in enumerate((idle, *clips)):
             path = tmp_path / f"synthetic-{index}.mp4"
             path.write_bytes(base64.b64decode(clip["mp4"], validate=True))
-            probe = subprocess.run(["ffprobe", "-v", "error", "-count_frames", "-show_streams",
-                                    "-of", "json", str(path)], capture_output=True, timeout=5, check=True)
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-count_frames", "-show_streams", "-of", "json", str(path)],
+                capture_output=True,
+                timeout=5,
+                check=True,
+            )
             streams = json.loads(probe.stdout)["streams"]
             assert len(streams) == 1 and streams[0]["codec_type"] == "video"
             assert streams[0]["codec_name"] == "h264"
@@ -180,12 +202,16 @@ def test_real_lipsync_http_wait_and_cpu_fallback_keep_owner_active(tmp_path, res
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
     thread.start()
-    media = CompanionMediaPreparationProcess(environment={
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "ANANTA_CPU_FALLBACK": "1",
-        "MEET_COMPANION_LOG": str(tmp_path / "synthetic-lipsync.log"), "MEET_AVATAR_SERVICE_ENABLED": "1",
-        "MEET_AVATAR_SERVICE_URL": f"http://127.0.0.1:{server.server_port}",
-        "MEET_AVATAR_SERVICE_PORTRAIT": str(portrait),
-    })
+    media = CompanionMediaPreparationProcess(
+        environment={
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "ANANTA_CPU_FALLBACK": "1",
+            "MEET_COMPANION_LOG": str(tmp_path / "synthetic-lipsync.log"),
+            "MEET_AVATAR_SERVICE_ENABLED": "1",
+            "MEET_AVATAR_SERVICE_URL": f"http://127.0.0.1:{server.server_port}",
+            "MEET_AVATAR_SERVICE_PORTRAIT": str(portrait),
+        }
+    )
     ticks = []
 
     def cooperate():

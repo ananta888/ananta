@@ -4,10 +4,10 @@ import json
 import re
 import shlex
 from dataclasses import dataclass
-
-from worker.core.execution_profile import normalize_execution_profile
 from pathlib import Path
 from typing import Any
+
+from worker.core.execution_profile import normalize_execution_profile
 
 _ABSOLUTE_RM_PATTERN = re.compile(r"\brm\s+-rf\s+/\b")
 _FORK_BOMB_PATTERN = re.compile(r":\s*\(\)\s*\{")
@@ -62,10 +62,14 @@ def classify_command(
     hub_decision = str(hub_policy_decision or "").strip().lower()
     if hub_decision == "deny":
         classification = "denied"
-        return CommandPolicyDecision(classification, "hub_policy_denied", True, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "hub_policy_denied", True, _risk_for_classification(classification)
+        )
     if _ABSOLUTE_RM_PATTERN.search(cmd) or _FORK_BOMB_PATTERN.search(cmd):
         classification = "denied"
-        return CommandPolicyDecision(classification, "dangerous_pattern", True, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "dangerous_pattern", True, _risk_for_classification(classification)
+        )
 
     allowlist = {str(item).strip() for item in list(policy.get("allowlist") or []) if str(item).strip()}
     approval_required = {
@@ -82,10 +86,14 @@ def classify_command(
     for token in denylist_tokens:
         if token and token in cmd:
             classification = "denied"
-            return CommandPolicyDecision(classification, "denylist_token", True, _risk_for_classification(classification))
+            return CommandPolicyDecision(
+                classification, "denylist_token", True, _risk_for_classification(classification)
+            )
     if any(".." in arg for arg in parts[1:]):
         classification = "denied"
-        return CommandPolicyDecision(classification, "path_escape_detected", True, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "path_escape_detected", True, _risk_for_classification(classification)
+        )
 
     if binary in approval_required:
         classification = "approval_required"
@@ -96,20 +104,30 @@ def classify_command(
     if binary in allowlist:
         if hub_decision == "approval_required":
             classification = "approval_required"
-            return CommandPolicyDecision(classification, "hub_requires_approval", True, _risk_for_classification(classification))
+            return CommandPolicyDecision(
+                classification, "hub_requires_approval", True, _risk_for_classification(classification)
+            )
         classification = "safe"
-        return CommandPolicyDecision(classification, "command_allowlisted", False, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "command_allowlisted", False, _risk_for_classification(classification)
+        )
 
     if hub_decision == "allow" and profile in {"balanced", "fast"} and _is_readonly_diagnostic(cmd, parts):
         classification = "safe"
-        return CommandPolicyDecision(classification, "readonly_diagnostic_auto_allow", False, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "readonly_diagnostic_auto_allow", False, _risk_for_classification(classification)
+        )
 
     if hub_decision == "approval_required":
         classification = "approval_required"
-        return CommandPolicyDecision(classification, "hub_requires_approval", True, _risk_for_classification(classification))
+        return CommandPolicyDecision(
+            classification, "hub_requires_approval", True, _risk_for_classification(classification)
+        )
 
     classification = "unknown"
-    return CommandPolicyDecision(classification, "command_not_classified", True, _risk_for_classification(classification))
+    return CommandPolicyDecision(
+        classification, "command_not_classified", True, _risk_for_classification(classification)
+    )
 
 
 def _is_readonly_diagnostic(command: str, parts: list[str]) -> bool:

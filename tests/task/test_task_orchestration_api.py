@@ -31,22 +31,14 @@ def test_category_research_delegation_policy_error_is_returned_before_forward(
 
     class DeniedResearchPolicy:
         def resolve_context(self, _task):
-            raise OrganizationResearchDelegationPolicyError(
-                "category_research_context_policy_missing"
-            )
+            raise OrganizationResearchDelegationPolicyError("category_research_context_policy_missing")
 
     dependencies = TaskOrchestrationDependencies(
         get_task_status=lambda _task_id: dict(parent_task),
         update_task_status=lambda *_args, **_kwargs: None,
-        forward_task_to_worker=lambda *_args, **_kwargs: forwarded.append(
-            True
-        ),
-        repository_registry=lambda: SimpleNamespace(
-            agent_repo=SimpleNamespace(get_all=lambda: [])
-        ),
-        routing_advisor=lambda: SimpleNamespace(
-            resolve_routing_hint=lambda **_kwargs: None
-        ),
+        forward_task_to_worker=lambda *_args, **_kwargs: forwarded.append(True),
+        repository_registry=lambda: SimpleNamespace(agent_repo=SimpleNamespace(get_all=lambda: [])),
+        routing_advisor=lambda: SimpleNamespace(resolve_routing_hint=lambda **_kwargs: None),
         context_policy_service=lambda: SimpleNamespace(
             build_context_policy=lambda **_kwargs: (
                 {"mode": "standard"},
@@ -66,14 +58,10 @@ def test_category_research_delegation_policy_error_is_returned_before_forward(
     )
     orchestration.delegation_planner = TaskDelegationPlanner(
         dependencies,
-        organization_binding_resolver=SimpleNamespace(
-            resolve=lambda _task: "http://worker-alpha:5000"
-        ),
+        organization_binding_resolver=SimpleNamespace(resolve=lambda _task: "http://worker-alpha:5000"),
     )
     services = SimpleNamespace(
-        task_runtime_service=SimpleNamespace(
-            get_local_task_status=lambda _task_id: dict(parent_task)
-        ),
+        task_runtime_service=SimpleNamespace(get_local_task_status=lambda _task_id: dict(parent_task)),
         task_orchestration_service=orchestration,
         worker_job_service=object(),
         worker_contract_service=object(),
@@ -98,9 +86,7 @@ def test_category_research_delegation_policy_error_is_returned_before_forward(
     )
 
     assert response.status_code == 409
-    assert response.get_json()["message"] == (
-        "category_research_context_policy_missing"
-    )
+    assert response.get_json()["message"] == ("category_research_context_policy_missing")
     assert forwarded == []
 
 
@@ -235,8 +221,14 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
     from tests.security.memory_fixtures import synthetic_memory_access
 
     with Session(engine) as session:
-        session.add(ProjectDB(tenant_id="test-tenant", project_id="test-workspace", name="Synthetic flow",
-                              created_by_subject_id="test-actor"))
+        session.add(
+            ProjectDB(
+                tenant_id="test-tenant",
+                project_id="test-workspace",
+                name="Synthetic flow",
+                created_by_subject_id="test-actor",
+            )
+        )
         session.commit()
 
     template = template_repo.save(TemplateDB(name="Python Worker Template", prompt_template="Do Python work"))
@@ -275,9 +267,7 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
                 },
                 "why_this_context": {
                     "summary": "task_kind=implement | selected_chunks=1 | mode=standard",
-                    "top_sources": [
-                        {"engine": "knowledge_index", "source": "docs/flow.md", "score": 1.8}
-                    ],
+                    "top_sources": [{"engine": "knowledge_index", "source": "docs/flow.md", "score": 1.8}],
                 },
                 "budget": {"retrieval_utilization": 0.61},
                 "context_policy": {
@@ -316,12 +306,16 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
             output="done",
         )
     )
-    with synthetic_memory_access(task_id=task.id, goal_id=None, channels=("hub-result-memory",),
-                                 scopes=(MemoryScope.task,)):
+    with synthetic_memory_access(
+        task_id=task.id, goal_id=None, channels=("hub-result-memory",), scopes=(MemoryScope.task,)
+    ):
         context = current_memory_access()
         decision = context.gateway.authorize_current(
-            actor=context.actor, run_id=context.run_id, operation=MemoryOperation.append,
-            channel_id="hub-result-memory", security=MemorySecurityMetadata(),
+            actor=context.actor,
+            run_id=context.run_id,
+            operation=MemoryOperation.append,
+            channel_id="hub-result-memory",
+            security=MemorySecurityMetadata(),
         )
         memory_entry_repo.save(
             MemoryEntryDB(
@@ -358,10 +352,14 @@ def test_orchestration_read_model_includes_artifact_flow_details(client, auth_he
         groups = artifact_flow.get("groups") or {}
         worker_groups = groups.get("by_worker") or []
         assignment_groups = groups.get("by_assignment") or []
-        assert any(group.get("worker_url") == "http://alpha:5001"
-                   and "art-returned-1" in (group.get("artifact_ids") or []) for group in worker_groups)
-        assert any(group.get("template_name") == "Python Worker Template"
-                   and "art-sent-1" in (group.get("artifact_ids") or []) for group in assignment_groups)
+        assert any(
+            group.get("worker_url") == "http://alpha:5001" and "art-returned-1" in (group.get("artifact_ids") or [])
+            for group in worker_groups
+        )
+        assert any(
+            group.get("template_name") == "Python Worker Template" and "art-sent-1" in (group.get("artifact_ids") or [])
+            for group in assignment_groups
+        )
         recent = (res.json.get("data") or {}).get("recent_tasks") or []
         recent_row = next((item for item in recent if item.get("id") == task.id), None)
         assert recent_row is not None
@@ -445,12 +443,22 @@ def test_orchestration_claim_conflict_returns_single_winner(client, auth_header)
 
     first = client.post(
         "/tasks/orchestration/claim",
-        json={"task_id": "CLAIM-RACE-1", "agent_url": "http://alpha:5001", "lease_seconds": 60, "idempotency_key": "race-1"},
+        json={
+            "task_id": "CLAIM-RACE-1",
+            "agent_url": "http://alpha:5001",
+            "lease_seconds": 60,
+            "idempotency_key": "race-1",
+        },
         headers=auth_header,
     )
     second = client.post(
         "/tasks/orchestration/claim",
-        json={"task_id": "CLAIM-RACE-1", "agent_url": "http://beta:5002", "lease_seconds": 60, "idempotency_key": "race-2"},
+        json={
+            "task_id": "CLAIM-RACE-1",
+            "agent_url": "http://beta:5002",
+            "lease_seconds": 60,
+            "idempotency_key": "race-2",
+        },
         headers=auth_header,
     )
 
@@ -463,14 +471,24 @@ def test_orchestration_claim_conflict_returns_single_winner(client, auth_header)
 def test_orchestration_lease_expiry_allows_reclaim(client, auth_header):
     create = client.post(
         "/tasks/orchestration/ingest",
-        json={"id": "CLAIM-LEASE-1", "description": "lease reclaim validation", "source": "agent", "created_by": "test"},
+        json={
+            "id": "CLAIM-LEASE-1",
+            "description": "lease reclaim validation",
+            "source": "agent",
+            "created_by": "test",
+        },
         headers=auth_header,
     )
     assert create.status_code == 200
 
     first = client.post(
         "/tasks/orchestration/claim",
-        json={"task_id": "CLAIM-LEASE-1", "agent_url": "http://alpha:5001", "lease_seconds": 10, "idempotency_key": "lease-1"},
+        json={
+            "task_id": "CLAIM-LEASE-1",
+            "agent_url": "http://alpha:5001",
+            "lease_seconds": 10,
+            "idempotency_key": "lease-1",
+        },
         headers=auth_header,
     )
     assert first.status_code == 200
@@ -489,7 +507,12 @@ def test_orchestration_lease_expiry_allows_reclaim(client, auth_header):
 
     reclaim = client.post(
         "/tasks/orchestration/claim",
-        json={"task_id": "CLAIM-LEASE-1", "agent_url": "http://beta:5002", "lease_seconds": 60, "idempotency_key": "lease-2"},
+        json={
+            "task_id": "CLAIM-LEASE-1",
+            "agent_url": "http://beta:5002",
+            "lease_seconds": 60,
+            "idempotency_key": "lease-2",
+        },
         headers=auth_header,
     )
     assert reclaim.status_code == 200

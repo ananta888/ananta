@@ -30,8 +30,8 @@ from agent.sources.git_source_connector_common import (
     GitConnectorProviderError,
     GitContentRequest,
     GitMaterializedFile,
-    GitRepositoryMaterialization,
     GitRepositoryBudgets,
+    GitRepositoryMaterialization,
     GitRepositoryMetrics,
 )
 
@@ -75,26 +75,18 @@ class SecureTemporaryGitWorkspace:
     @contextmanager
     def open(self) -> Iterator[Path]:
         if self._root.is_symlink():
-            raise GitConnectorProviderError(
-                "git_temporary_workspace_root_invalid"
-            )
+            raise GitConnectorProviderError("git_temporary_workspace_root_invalid")
         self._root.mkdir(parents=True, exist_ok=True, mode=0o700)
         if not self._root.is_dir() or self._root.is_symlink():
-            raise GitConnectorProviderError(
-                "git_temporary_workspace_root_invalid"
-            )
-        workspace = Path(
-            tempfile.mkdtemp(prefix="ananta-git-", dir=str(self._root))
-        )
+            raise GitConnectorProviderError("git_temporary_workspace_root_invalid")
+        workspace = Path(tempfile.mkdtemp(prefix="ananta-git-", dir=str(self._root)))
         try:
             yield workspace
         finally:
             self._make_writable(workspace)
             shutil.rmtree(workspace, ignore_errors=True)
             if workspace.exists():
-                raise GitConnectorProviderError(
-                    "git_temporary_workspace_cleanup_failed"
-                )
+                raise GitConnectorProviderError("git_temporary_workspace_cleanup_failed")
 
     @staticmethod
     def _make_writable(root: Path) -> None:
@@ -281,9 +273,7 @@ class HubGitTransport(HubGitTransportPort):
                             request.budgets,
                         ),
                         reason_code="git_fetch_failed",
-                        maximum_file_bytes=self._fetch_file_limit(
-                            request.budgets
-                        ),
+                        maximum_file_bytes=self._fetch_file_limit(request.budgets),
                     )
                     entries = self._tree_entries(session, workspace)
                     object_count, pack_bytes = self._object_metrics(
@@ -406,9 +396,7 @@ class HubGitTransport(HubGitTransportPort):
     ) -> tuple[tuple[str, str, int, bytes], ...]:
         result = self._run_checked(
             session,
-            hardened_git_network_args(
-                ["ls-tree", "-r", "-z", "--long", "FETCH_HEAD"]
-            ),
+            hardened_git_network_args(["ls-tree", "-r", "-z", "--long", "FETCH_HEAD"]),
             cwd=workspace,
             timeout_seconds=30,
             reason_code="git_inventory_failed",
@@ -419,31 +407,18 @@ class HubGitTransport(HubGitTransportPort):
                 continue
             header, separator, raw_path = record.partition(b"\t")
             fields = header.split()
-            if (
-                not separator
-                or len(fields) != 4
-                or fields[0]
-                not in {b"100644", b"100755", b"120000", b"160000"}
-            ):
-                raise GitConnectorProviderError(
-                    "git_inventory_record_invalid"
-                )
+            if not separator or len(fields) != 4 or fields[0] not in {b"100644", b"100755", b"120000", b"160000"}:
+                raise GitConnectorProviderError("git_inventory_record_invalid")
             try:
                 mode = fields[0].decode("ascii")
                 object_id = fields[2].decode("ascii").lower()
                 size = 0 if fields[3] == b"-" else int(fields[3])
             except (UnicodeDecodeError, ValueError):
-                raise GitConnectorProviderError(
-                    "git_inventory_record_invalid"
-                ) from None
+                raise GitConnectorProviderError("git_inventory_record_invalid") from None
             if _COMMIT_SHA.fullmatch(object_id) is None:
-                raise GitConnectorProviderError(
-                    "git_inventory_record_invalid"
-                )
+                raise GitConnectorProviderError("git_inventory_record_invalid")
             if size < 0 or not raw_path:
-                raise GitConnectorProviderError(
-                    "git_inventory_record_invalid"
-                )
+                raise GitConnectorProviderError("git_inventory_record_invalid")
             entries.append((mode, object_id, size, raw_path))
         return tuple(entries)
 
@@ -466,13 +441,9 @@ class HubGitTransport(HubGitTransportPort):
                 try:
                     values[key.strip()] = int(raw_value.strip())
                 except ValueError:
-                    raise GitConnectorProviderError(
-                        "git_object_inventory_invalid"
-                    ) from None
+                    raise GitConnectorProviderError("git_object_inventory_invalid") from None
         object_count = values.get("count", 0) + values.get("in-pack", 0)
-        pack_bytes = (
-            values.get("size", 0) + values.get("size-pack", 0)
-        ) * 1024
+        pack_bytes = (values.get("size", 0) + values.get("size-pack", 0)) * 1024
         return object_count, pack_bytes
 
     @staticmethod
@@ -501,13 +472,9 @@ class HubGitTransport(HubGitTransportPort):
             manifest.update(b"\x00")
             if mode == "160000":
                 submodule_count += 1
-                exclusion_counts["git_submodule_excluded"] = (
-                    exclusion_counts.get("git_submodule_excluded", 0) + 1
-                )
+                exclusion_counts["git_submodule_excluded"] = exclusion_counts.get("git_submodule_excluded", 0) + 1
             elif mode == "120000":
-                exclusion_counts["git_symlink_excluded"] = (
-                    exclusion_counts.get("git_symlink_excluded", 0) + 1
-                )
+                exclusion_counts["git_symlink_excluded"] = exclusion_counts.get("git_symlink_excluded", 0) + 1
                 file_sizes.append(size)
             else:
                 file_sizes.append(size)
@@ -551,9 +518,7 @@ class HubGitTransport(HubGitTransportPort):
             except OSError:
                 continue
             if not resolved_parent.is_relative_to(root):
-                raise GitConnectorProviderError(
-                    "git_checkout_path_escape"
-                )
+                raise GitConnectorProviderError("git_checkout_path_escape")
             flags = os.O_RDONLY
             if hasattr(os, "O_NOFOLLOW"):
                 flags |= os.O_NOFOLLOW
@@ -563,18 +528,14 @@ class HubGitTransport(HubGitTransportPort):
                     payload = handle.read(1025)
             except OSError:
                 continue
-            if payload.startswith(
-                b"version https://git-lfs.github.com/spec/v1\n"
-            ):
+            if payload.startswith(b"version https://git-lfs.github.com/spec/v1\n"):
                 count += 1
                 for line in payload.splitlines():
                     if line.startswith(b"size "):
                         try:
                             total += int(line[5:])
                         except ValueError:
-                            raise GitConnectorProviderError(
-                                "git_lfs_pointer_invalid"
-                            ) from None
+                            raise GitConnectorProviderError("git_lfs_pointer_invalid") from None
         return count, total
 
     @classmethod
@@ -588,17 +549,13 @@ class HubGitTransport(HubGitTransportPort):
         files: list[GitMaterializedFile] = []
         binary_exclusion_count = 0
         seen: set[str] = set()
-        for mode, _object_id, _size, raw_path in sorted(
-            entries, key=lambda item: item[3]
-        ):
+        for mode, _object_id, _size, raw_path in sorted(entries, key=lambda item: item[3]):
             if mode not in {"100644", "100755"}:
                 continue
             try:
                 relative_path = raw_path.decode("utf-8")
             except UnicodeDecodeError:
-                raise GitConnectorProviderError(
-                    "git_checkout_path_invalid"
-                ) from None
+                raise GitConnectorProviderError("git_checkout_path_invalid") from None
             canonical = PurePosixPath(relative_path)
             parts = canonical.parts
             if (
@@ -614,9 +571,7 @@ class HubGitTransport(HubGitTransportPort):
                 )
                 or relative_path in seen
             ):
-                raise GitConnectorProviderError(
-                    "git_checkout_path_invalid"
-                )
+                raise GitConnectorProviderError("git_checkout_path_invalid")
             seen.add(relative_path)
             content = cls._read_materialized_file(
                 root=root,
@@ -638,9 +593,7 @@ class HubGitTransport(HubGitTransportPort):
                 )
             )
         if sum(item.byte_size for item in files) > budgets.max_total_file_bytes:
-            raise GitConnectorProviderError(
-                "git_total_file_budget_exceeded"
-            )
+            raise GitConnectorProviderError("git_total_file_budget_exceeded")
         return tuple(files), binary_exclusion_count
 
     @staticmethod
@@ -676,16 +629,9 @@ class HubGitTransport(HubGitTransportPort):
         maximum_size: int,
     ) -> bytes:
         directory_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-            | getattr(os, "O_DIRECTORY", 0)
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_DIRECTORY", 0)
         )
-        file_flags = (
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        file_flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         descriptors: list[int] = []
         try:
             root_fd = os.open(root, directory_flags)
@@ -697,22 +643,12 @@ class HubGitTransport(HubGitTransportPort):
                 descriptors.append(current_fd)
                 opened = os.fstat(current_fd)
                 if opened.st_dev != root_stat.st_dev:
-                    raise GitConnectorProviderError(
-                        "git_checkout_mount_changed"
-                    )
-            file_fd = os.open(
-                relative_path.parts[-1], file_flags, dir_fd=current_fd
-            )
+                    raise GitConnectorProviderError("git_checkout_mount_changed")
+            file_fd = os.open(relative_path.parts[-1], file_flags, dir_fd=current_fd)
             descriptors.append(file_fd)
             before = os.fstat(file_fd)
-            if (
-                not stat.S_ISREG(before.st_mode)
-                or before.st_dev != root_stat.st_dev
-                or before.st_nlink != 1
-            ):
-                raise GitConnectorProviderError(
-                    "git_checkout_file_invalid"
-                )
+            if not stat.S_ISREG(before.st_mode) or before.st_dev != root_stat.st_dev or before.st_nlink != 1:
+                raise GitConnectorProviderError("git_checkout_file_invalid")
             if before.st_size > maximum_size:
                 raise GitConnectorProviderError("git_file_budget_exceeded")
             chunks: list[bytes] = []
@@ -731,14 +667,10 @@ class HubGitTransport(HubGitTransportPort):
                 or before.st_size != after.st_size
                 or before.st_mtime_ns != after.st_mtime_ns
             ):
-                raise GitConnectorProviderError(
-                    "git_checkout_file_changed"
-                )
+                raise GitConnectorProviderError("git_checkout_file_changed")
             return content
         except OSError as exc:
-            raise GitConnectorProviderError(
-                "git_checkout_file_read_failed"
-            ) from exc
+            raise GitConnectorProviderError("git_checkout_file_read_failed") from exc
         finally:
             for descriptor in reversed(descriptors):
                 os.close(descriptor)
@@ -859,9 +791,7 @@ class HubGitTransport(HubGitTransportPort):
         if result.timed_out:
             raise GitConnectorProviderError("git_time_budget_exceeded")
         if result.output_truncated:
-            raise GitConnectorProviderError(
-                "git_command_output_budget_exceeded"
-            )
+            raise GitConnectorProviderError("git_command_output_budget_exceeded")
         if result.returncode != 0:
             raise GitConnectorProviderError(reason_code)
 

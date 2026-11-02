@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import tempfile
 import time
@@ -46,9 +46,7 @@ class LayerHeadRegistry:
             "repository_id": str(repository_id),
             "profile_id": str(profile_id),
         }
-        digest = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         return f"scoped-{digest}"
 
     def _head_path(self, profile_id: str) -> Path:
@@ -178,7 +176,9 @@ class LayerHeadRegistry:
                 return HeadUpdateResult(False, 0, error="head_missing")
             generation = int(current.get("generation") or 0)
             if generation != int(expected_generation):
-                return HeadUpdateResult(False, generation, previous_layer_id=current.get("layer_id"), error="generation_conflict")
+                return HeadUpdateResult(
+                    False, generation, previous_layer_id=current.get("layer_id"), error="generation_conflict"
+                )
             previous = str(current.get("layer_id") or "")
             resolved_set = dict(new_layer_set or {"default": new_layer_id})
             primary = new_layer_id or next(iter(resolved_set.values()), "")
@@ -204,7 +204,9 @@ class LayerHeadRegistry:
                         retained.append(kept)
                 current["ordered_delta_sets"] = retained
             history = list(current.get("history") or [])
-            history.append({"generation": current["generation"], "layer_id": primary, "layer_set": resolved_set, "reason": reason})
+            history.append(
+                {"generation": current["generation"], "layer_id": primary, "layer_set": resolved_set, "reason": reason}
+            )
             current["history"] = history[-50:]
             current["published_at"] = datetime.now(timezone.utc).isoformat()
             self._write_head(profile_id, current)

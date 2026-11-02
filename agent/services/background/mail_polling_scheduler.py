@@ -35,15 +35,11 @@ def start_mail_polling_scheduler(app: Any) -> None:
     config = MailPollingSchedulerConfig.from_environment(os.environ)
     repo_root = Path(os.environ.get("ANANTA_REPO_ROOT") or ".").resolve()
     scheduler = MailPollingScheduler(
-        accounts=MailAccountService(
-            store_path=repo_root / "data" / "mail" / "accounts-v2.json"
-        ),
+        accounts=MailAccountService(store_path=repo_root / "data" / "mail" / "accounts-v2.json"),
         tasks=get_mail_task_service(),
         runtime=get_mail_runtime_policy(),
         health=get_mail_health_registry(),
-        lease=PersistentMailPollingLease(
-            path=repo_root / "data" / "mail" / "polling-scheduler-v1.json"
-        ),
+        lease=PersistentMailPollingLease(path=repo_root / "data" / "mail" / "polling-scheduler-v1.json"),
         config=config,
         circuit_breaker=get_mail_circuit_breaker(),
     )
@@ -61,11 +57,7 @@ def start_mail_polling_scheduler(app: Any) -> None:
 
 def stop_mail_polling_scheduler(app: Any) -> None:
     extensions = getattr(app, "extensions", None)
-    state = (
-        extensions.get(_EXTENSION_KEY)
-        if isinstance(extensions, dict)
-        else None
-    )
+    state = extensions.get(_EXTENSION_KEY) if isinstance(extensions, dict) else None
     if not isinstance(state, Mapping):
         return
     scheduler = state.get("scheduler")

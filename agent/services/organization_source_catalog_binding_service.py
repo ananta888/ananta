@@ -140,9 +140,7 @@ class OrganizationSourceCatalogBindingService:
                 "line_end": raw.get("line_end"),
                 "content_hash": str(raw.get("content_hash") or "").strip().lower(),
             }
-            record["record_binding_digest"] = canonical_sha256(
-                {**lineage, **record}
-            )
+            record["record_binding_digest"] = canonical_sha256({**lineage, **record})
             records.append(record)
         records.sort(key=lambda item: str(item["source_id"]))
         payload = {
@@ -160,13 +158,9 @@ class OrganizationSourceCatalogBindingService:
     def validate(self, raw: Mapping[str, Any]) -> dict[str, Any]:
         payload = dict(raw or {})
         if set(payload) != _PUBLICATION_FIELDS:
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_fields_invalid"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_fields_invalid")
         if payload.get("schema") != "organization_source_catalog_publication.v1":
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_schema_invalid"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_schema_invalid")
         required_text = (
             "organization_id",
             "connection_id",
@@ -176,13 +170,8 @@ class OrganizationSourceCatalogBindingService:
             "index_run_id",
             "index_source_scope",
         )
-        if any(
-            not self._is_canonical_text(payload.get(field))
-            for field in required_text
-        ):
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_binding_invalid"
-            )
+        if any(not self._is_canonical_text(payload.get(field)) for field in required_text):
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_binding_invalid")
         for field in (
             "revision_digest",
             "source_manifest_digest",
@@ -192,9 +181,7 @@ class OrganizationSourceCatalogBindingService:
             "binding_digest",
         ):
             if not self._is_canonical_sha256(payload.get(field)):
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_publication_digest_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_digest_invalid")
         query_count = self._bounded_int(payload.get("query_count"), 1, 8)
         query_limit = self._bounded_int(payload.get("query_limit"), 1, 50)
         source_count = self._bounded_int(payload.get("source_count"), 1, 400)
@@ -209,9 +196,7 @@ class OrganizationSourceCatalogBindingService:
             or not isinstance(bindings, list)
             or len(bindings) != source_count
         ):
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_counts_invalid"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_counts_invalid")
         normalized_records: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
         lineage = {
@@ -234,82 +219,42 @@ class OrganizationSourceCatalogBindingService:
         }
         for raw_record in bindings:
             if not isinstance(raw_record, Mapping) or set(raw_record) != _RECORD_FIELDS:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_binding_fields_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_binding_fields_invalid")
             record = dict(raw_record)
             source_id = str(record.get("source_id") or "")
             if _SOURCE_ID.fullmatch(source_id) is None or source_id in seen_ids:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_source_id_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_source_id_invalid")
             seen_ids.add(source_id)
             if str(record.get("record_file") or "") not in _RECORD_FILES:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_file_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_file_invalid")
             record_id = record.get("record_id")
             path = record.get("path")
-            if (
-                record_id is not None
-                and not self._is_canonical_text(record_id, maximum=1024)
-            ) or (
-                path is not None
-                and not self._is_canonical_text(path, maximum=4096)
+            if (record_id is not None and not self._is_canonical_text(record_id, maximum=1024)) or (
+                path is not None and not self._is_canonical_text(path, maximum=4096)
             ):
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_locator_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_locator_invalid")
             if record_id is None and path is None:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_locator_invalid"
-                )
-            if not self._is_canonical_sha256(
-                record.get("content_hash")
-            ) or not self._is_canonical_sha256(
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_locator_invalid")
+            if not self._is_canonical_sha256(record.get("content_hash")) or not self._is_canonical_sha256(
                 record.get("record_binding_digest")
             ):
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_publication_digest_invalid"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_digest_invalid")
             start = self._optional_line(record.get("line_start"))
             end = self._optional_line(record.get("line_end"))
             if start is not None and end is not None and end < start:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_line_invalid"
-                )
-            unsigned = {
-                field: record[field]
-                for field in _RECORD_FIELDS
-                if field != "record_binding_digest"
-            }
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_line_invalid")
+            unsigned = {field: record[field] for field in _RECORD_FIELDS if field != "record_binding_digest"}
             if canonical_sha256({**lineage, **unsigned}) != record["record_binding_digest"]:
-                raise OrganizationSourceCatalogBindingError(
-                    "organization_source_catalog_record_binding_mismatch"
-                )
+                raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_binding_mismatch")
             normalized_records.append(record)
-        expected_ids = [
-            f"SRC_{ordinal:04d}" for ordinal in range(1, source_count + 1)
-        ]
+        expected_ids = [f"SRC_{ordinal:04d}" for ordinal in range(1, source_count + 1)]
         if [str(record["source_id"]) for record in normalized_records] != expected_ids:
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_record_source_id_invalid"
-            )
-        if normalized_records != sorted(
-            normalized_records, key=lambda item: str(item["source_id"])
-        ):
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_record_order_invalid"
-            )
-        unsigned_publication = {
-            field: payload[field]
-            for field in _PUBLICATION_FIELDS
-            if field != "binding_digest"
-        }
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_source_id_invalid")
+        if normalized_records != sorted(normalized_records, key=lambda item: str(item["source_id"])):
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_record_order_invalid")
+        unsigned_publication = {field: payload[field] for field in _PUBLICATION_FIELDS if field != "binding_digest"}
         if canonical_sha256(unsigned_publication) != payload["binding_digest"]:
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_digest_mismatch"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_digest_mismatch")
         payload.update(
             {
                 "query_count": query_count,
@@ -324,9 +269,7 @@ class OrganizationSourceCatalogBindingService:
     @staticmethod
     def _is_sha256(value: object) -> bool:
         normalized = str(value or "").strip().lower()
-        return len(normalized) == 64 and all(
-            character in "0123456789abcdef" for character in normalized
-        )
+        return len(normalized) == 64 and all(character in "0123456789abcdef" for character in normalized)
 
     @classmethod
     def _is_canonical_sha256(cls, value: object) -> bool:
@@ -345,23 +288,17 @@ class OrganizationSourceCatalogBindingService:
     @staticmethod
     def _bounded_int(value: object, minimum: int, maximum: int) -> int:
         if isinstance(value, bool) or not isinstance(value, int):
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_integer_invalid"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_integer_invalid")
         normalized = value
         if not minimum <= normalized <= maximum:
-            raise OrganizationSourceCatalogBindingError(
-                "organization_source_catalog_publication_integer_invalid"
-            )
+            raise OrganizationSourceCatalogBindingError("organization_source_catalog_publication_integer_invalid")
         return normalized
 
     @staticmethod
     def _optional_line(value: object) -> int | None:
         if value is None:
             return None
-        return OrganizationSourceCatalogBindingService._bounded_int(
-            value, 1, 2**31 - 1
-        )
+        return OrganizationSourceCatalogBindingService._bounded_int(value, 1, 2**31 - 1)
 
 
 __all__ = [

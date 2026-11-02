@@ -10,5 +10,5 @@ def test_partial_json_is_detected():
 
 
 def test_markdown_fenced_json_wins_over_other_shapes():
-    result = classify_output_shape("```json\n[{\"title\":\"Task 1\"}]\n```")
+    result = classify_output_shape('```json\n[{"title":"Task 1"}]\n```')
     assert result["primary_shape"] == "json_in_markdown_fence"

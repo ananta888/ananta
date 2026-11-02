@@ -52,6 +52,7 @@ class ContextDeliveryService:
         # APRL-016: resolve active agent profile for this task delivery
         try:
             from agent.services.agent_profile_service import get_agent_profile_service
+
             _active_profile = get_agent_profile_service().resolve_for_task(task)
             _active_profile_meta = _active_profile.to_metadata()
         except Exception:
@@ -83,11 +84,10 @@ class ContextDeliveryService:
             try:
                 chunks = self._retrieve_chunks(task=task, policy=policy)
             except Exception as exc:
-                raise ContextDeliveryError(
-                    f"context_delivery_failed: retrieval error: {exc}"
-                ) from exc
+                raise ContextDeliveryError(f"context_delivery_failed: retrieval error: {exc}") from exc
 
             from agent.services.context_file_selector import get_context_file_selector
+
             selection = get_context_file_selector().select(chunks, policy, llm_scope)
             result.selected_count = len(selection.selected_paths)
             result.excluded_count = len(selection.excluded_paths)
@@ -122,6 +122,7 @@ class ContextDeliveryService:
     def _retrieve_chunks(self, *, task: dict, policy) -> list[dict]:
         try:
             from agent.services.rag_helper_index_service import get_rag_helper_index_service
+
             svc = get_rag_helper_index_service()
             task_kind = str((task or {}).get("task_kind") or "")
             profile_name = policy.codecompass_profile or svc.select_profile(task_kind=task_kind)
@@ -136,13 +137,12 @@ class ContextDeliveryService:
     def _resolve_llm_scope(self, *, task: dict) -> str:
         try:
             from agent.services.context_file_selector import provider_to_llm_scope
+
             effective_config = dict((task or {}).get("effective_config") or {})
             workspace_policy_cfg = dict(effective_config.get("workspace_context_policy") or {})
-            explicit_scope = str(
-                workspace_policy_cfg.get("llm_scope")
-                or effective_config.get("llm_scope")
-                or ""
-            ).strip().lower()
+            explicit_scope = (
+                str(workspace_policy_cfg.get("llm_scope") or effective_config.get("llm_scope") or "").strip().lower()
+            )
             if explicit_scope in {"local_only", "trusted_private_cloud", "external_cloud_allowed"}:
                 return explicit_scope
             llm_config = dict(effective_config.get("llm_config") or {})
@@ -156,6 +156,7 @@ class ContextDeliveryService:
     def _repo_root() -> Path:
         try:
             from agent.services.worker_workspace_service import WorkerWorkspaceService
+
             return WorkerWorkspaceService._repo_root()
         except Exception:
             return Path(".")
@@ -208,12 +209,11 @@ def _retrieve_chunks_for_reload(
     request line maps to one synthetic query string. Per-entry failures are
     swallowed and reported as warnings so a partial answer is still useful.
     """
-    from agent.services.context_file_selector import get_context_file_selector
     from agent.services.rag_helper_index_service import get_rag_helper_index_service
 
     delivered: list[dict[str, Any]] = []
     warnings: list[str] = []
-    task_kind = str((task or {}).get("task_kind") or "")
+    str((task or {}).get("task_kind") or "")
     try:
         profile_svc = get_rag_helper_index_service()
     except Exception:

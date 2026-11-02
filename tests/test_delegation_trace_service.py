@@ -1,16 +1,16 @@
 """Tests for DelegationTraceService (TRANS-005)."""
+
 from __future__ import annotations
 
 from agent.services.delegation_trace_service import (
     DelegationTrace,
     DelegationTraceService,
-    WorkerAlternative,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _svc() -> DelegationTraceService:
     return DelegationTraceService()
@@ -28,6 +28,7 @@ def _basic_trace(svc: DelegationTraceService, *, run_id: str = "run-dt-001") -> 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_record_basic() -> None:
     """record() must generate a trace_id and store chosen_worker_id correctly."""

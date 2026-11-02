@@ -59,7 +59,9 @@ def stay_reason(path: Path, pinning: str) -> str | None:
     module = relative[: -len(".py")].replace("/", ".")
     if relative in pinning or re.search(rf"(?<![A-Za-z0-9_.]){re.escape(module)}\b", pinning):
         return "gate-hashed"
-    if any((parent / "conftest.py").is_file() for parent in path.parents if parent != TESTS and TESTS in parent.parents):
+    if any(
+        (parent / "conftest.py").is_file() for parent in path.parents if parent != TESTS and TESTS in parent.parents
+    ):
         return "directory conftest"
     source = path.read_text(encoding="utf-8", errors="ignore")
     depth = len(path.relative_to(TESTS).parts) - 1  # directories between tests/ and the file
@@ -125,7 +127,10 @@ def move(paths: list[Path], *, apply: bool) -> int:
         print(f"  stays: {relative} ({reason})")
     if not apply:
         return 0
-    moves = {path.relative_to(ROOT).as_posix(): (SLOW / path.relative_to(TESTS)).relative_to(ROOT).as_posix() for path in moving}
+    moves = {
+        path.relative_to(ROOT).as_posix(): (SLOW / path.relative_to(TESTS)).relative_to(ROOT).as_posix()
+        for path in moving
+    }
     created: list[Path] = []
     for path in moving:
         target = SLOW / path.relative_to(TESTS)

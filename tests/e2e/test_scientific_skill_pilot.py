@@ -222,8 +222,7 @@ def test_runtime_global_and_entry_kill_switches_block_new_selections(tmp_path: P
         reason="emergency-disable",
     )
     assert "astropy" not in {
-        card.skill_name
-        for card in service.available(catalog=enabled, principal=principal, binding=_binding())
+        card.skill_name for card in service.available(catalog=enabled, principal=principal, binding=_binding())
     }
     rejected = service.select(
         catalog=enabled,

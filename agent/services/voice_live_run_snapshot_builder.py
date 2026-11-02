@@ -48,9 +48,7 @@ class VoiceLiveRunSnapshotBuilder:
                 gaps,
                 gap_timeline_revision=run.timeline_revision,
             )
-            page_candidates = [
-                item for item in all_items if int(item["sequence"]) > int(after_sequence)
-            ]
+            page_candidates = [item for item in all_items if int(item["sequence"]) > int(after_sequence)]
             page = page_candidates[:bounded_limit]
             next_after_revision = None
             completed_texts = [
@@ -73,9 +71,7 @@ class VoiceLiveRunSnapshotBuilder:
                 gap_timeline_revision=run.timeline_revision,
             )
             page_candidates = [
-                item
-                for item in metadata_items
-                if int(item.get("timeline_revision") or 0) > normalized_revision
+                item for item in metadata_items if int(item.get("timeline_revision") or 0) > normalized_revision
             ]
             page_candidates.sort(
                 key=lambda item: (
@@ -85,9 +81,7 @@ class VoiceLiveRunSnapshotBuilder:
             )
             page = page_candidates[:bounded_limit]
             selected_sequences = {int(item["sequence"]) for item in page}
-            selected_segments = tuple(
-                segment for segment in segments if segment.sequence in selected_sequences
-            )
+            selected_segments = tuple(segment for segment in segments if segment.sequence in selected_sequences)
             result_by_sequence = self._load_segment_results(
                 principal,
                 selected_segments,
@@ -126,9 +120,7 @@ class VoiceLiveRunSnapshotBuilder:
                 "pending_sequences": [segment.sequence for segment in segments if segment.status == "processing"],
                 "failed_sequences": [segment.sequence for segment in segments if segment.status == "failed"],
                 "pending_correction_sequences": [
-                    segment.sequence
-                    for segment in segments
-                    if segment.correction_status in {"queued", "processing"}
+                    segment.sequence for segment in segments if segment.correction_status in {"queued", "processing"}
                 ],
             },
             "page": {

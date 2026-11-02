@@ -155,9 +155,7 @@ class _CatalogRepository:
     def resolve_publishing_authority(self, **kwargs):
         assert kwargs["for_update"] is True
         if kwargs["expected_knowledge_index_id"] != self.authority.knowledge_index_id:
-            raise OrganizationSourceCatalogPersistenceError(
-                "organization_source_catalog_active_index_changed"
-            )
+            raise OrganizationSourceCatalogPersistenceError("organization_source_catalog_active_index_changed")
         return self.authority
 
     def task_id_exists(self, task_id):
@@ -170,12 +168,8 @@ class _CatalogRepository:
     def verify_bound_records(self, *, authority, record_bindings):
         assert authority == self.authority
         if self.state.verification_error:
-            raise OrganizationSourceCatalogPersistenceError(
-                self.state.verification_error
-            )
-        self.state.verified_bindings.append(
-            [deepcopy(dict(item)) for item in record_bindings]
-        )
+            raise OrganizationSourceCatalogPersistenceError(self.state.verification_error)
+        self.state.verified_bindings.append([deepcopy(dict(item)) for item in record_bindings])
 
     def get_task_scoped(self, **kwargs):
         return next(
@@ -394,9 +388,7 @@ def test_publish_assigns_deterministic_ids_and_persists_only_content_free_projec
     assert result.source_scope == "organization:org-1"
     assert len(state.tasks) == len(state.operations) == len(state.audits) == 1
     assert len(state.verified_bindings) == 1
-    assert [
-        row["source_id"] for row in state.verified_bindings[0]
-    ] == ["SRC_0001", "SRC_0002"]
+    assert [row["source_id"] for row in state.verified_bindings[0]] == ["SRC_0001", "SRC_0002"]
     task = state.tasks[0]
     catalog = task.verification_status["source_catalog"]
     publication = task.verification_status["source_catalog_publication"]
@@ -548,9 +540,7 @@ def test_unique_race_with_changed_payload_remains_a_conflict() -> None:
 
 def test_unhydratable_query_snapshot_never_commits_a_current_catalog() -> None:
     state = _state()
-    state.verification_error = (
-        "organization_source_catalog_output_record_mismatch"
-    )
+    state.verification_error = "organization_source_catalog_output_record_mismatch"
 
     with pytest.raises(
         OrganizationSourceCatalogPublisherError,

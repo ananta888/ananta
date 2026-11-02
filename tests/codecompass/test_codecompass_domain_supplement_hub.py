@@ -133,19 +133,14 @@ def test_hub_domain_summary_allows_raw_stream_larger_than_artifact_envelope() ->
             "semantic_node_count": 1,
             "semantic_edge_count": 0,
             "declaration_edge_count": 0,
-            "semantic_node_bytes": (
-                MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES + 1
-            ),
+            "semantic_node_bytes": (MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES + 1),
             "semantic_edge_bytes": 0,
             "declaration_edge_bytes": 0,
             "complete": 1,
         }
     )
 
-    assert (
-        summary.semantic_node_bytes
-        == MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES + 1
-    )
+    assert summary.semantic_node_bytes == MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES + 1
 
 
 def test_worker_sqlite_round_trips_through_strict_hub_reader(
@@ -417,11 +412,9 @@ def test_source_graph_loads_lazily_and_filters_partition_to_subdomain(
         "Resolver",
         (),
         {
-            "resolve_domain_supplement": lambda _self, _index: (
-                ResolvedCodeCompassDomainSupplement(
-                    path=tmp_path / DOMAIN_SUPPLEMENT_FILENAME,
-                    binding=binding,
-                )
+            "resolve_domain_supplement": lambda _self, _index: ResolvedCodeCompassDomainSupplement(
+                path=tmp_path / DOMAIN_SUPPLEMENT_FILENAME,
+                binding=binding,
             )
         },
     )()
@@ -476,7 +469,6 @@ def test_source_graph_loads_lazily_and_filters_partition_to_subdomain(
     assert second_page["metadata"]["delivery_returned"] == 1
     assert second_page["metadata"]["next_cursor"] is None
     assert reader.calls == 1
-
 
 
 def test_domain_inventory_does_not_count_bounded_semantic_nodes_as_base_nodes(
@@ -566,11 +558,7 @@ def test_domain_inventory_does_not_count_bounded_semantic_nodes_as_base_nodes(
             binding=binding,
         ),
     )
-    src = next(
-        item
-        for item in inventory["facets"]["domains"]["items"]
-        if item["depth"] == 0 and item["path"] == "src"
-    )
+    src = next(item for item in inventory["facets"]["domains"]["items"] if item["depth"] == 0 and item["path"] == "src")
 
     assert src["subtree_node_count"] == 2
     assert src["base_node_count"] == 1

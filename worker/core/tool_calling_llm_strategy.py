@@ -8,7 +8,6 @@ from typing import Any
 from agent.services.context_bundle_service import ContextBundler
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
-from ananta_contracts.model_recovery import metadata_from_llm_error
 from agent.services.model_routing_contract import (
     ModelRoutingContractError,
     build_model_routing_context,
@@ -17,6 +16,7 @@ from agent.services.model_routing_contract import (
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
+from ananta_contracts.model_recovery import metadata_from_llm_error
 from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 
@@ -39,9 +39,7 @@ def _build_system_prompt(context: ProposeContext) -> str:
             "denied_count",
             0,
         )
-        governed_context_summary = (
-            f"chunks={bundle.get('chunk_count', 0)} denied={denied_count}"
-        )
+        governed_context_summary = f"chunks={bundle.get('chunk_count', 0)} denied={denied_count}"
     pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
     return get_strategy_prompt_composer().compose_system_prompt(
         context=context,

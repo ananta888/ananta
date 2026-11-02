@@ -1,4 +1,5 @@
 """AFH-T006: FileChangeSet v1 contract tests."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,9 +26,13 @@ class TestFileChangeSet:
         after_id, after_snap = take_snapshot(workspace)
 
         fcs = diff_snapshots(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         created_paths = {e.relative_path for e in fcs.created_files}
         assert "new_file.txt" in created_paths
@@ -38,9 +43,13 @@ class TestFileChangeSet:
         after_id, after_snap = take_snapshot(workspace)
 
         fcs = diff_snapshots(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         modified_paths = {e.relative_path for e in fcs.modified_files}
         assert "app.py" in modified_paths
@@ -51,9 +60,13 @@ class TestFileChangeSet:
         after_id, after_snap = take_snapshot(workspace)
 
         fcs = diff_snapshots(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         deleted_paths = {e.relative_path for e in fcs.deleted_files}
         assert "README.md" in deleted_paths
@@ -63,9 +76,13 @@ class TestFileChangeSet:
         after_id, after_snap = take_snapshot(workspace)
 
         fcs = diff_snapshots(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         assert len(fcs.created_files) == 0
         assert len(fcs.modified_files) == 0
@@ -77,9 +94,13 @@ class TestFileChangeSet:
         after_id, after_snap = take_snapshot(workspace)
 
         fcs = diff_snapshots(
-            task_id="t1", execution_id="e1", workspace_root=workspace,
-            before_snapshot_id=before_id, before_snapshot=before_snap,
-            after_snapshot_id=after_id, after_snapshot=after_snap,
+            task_id="t1",
+            execution_id="e1",
+            workspace_root=workspace,
+            before_snapshot_id=before_id,
+            before_snapshot=before_snap,
+            after_snapshot_id=after_id,
+            after_snapshot=after_snap,
         )
         d = fcs.to_dict()
         assert d["schema"] == "file_change_set.v1"

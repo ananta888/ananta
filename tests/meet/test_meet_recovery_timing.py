@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_recovery_timing import RecoveryTiming
+from tests.meet.meet_recovery_timing import RecoveryTiming
 
 
 def test_timing_retains_only_bounded_copied_numbers_and_fixed_tags():

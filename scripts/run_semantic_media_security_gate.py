@@ -144,9 +144,7 @@ def evaluate_matrix(
     if execution is not None:
         summary.update(
             {
-                "executed_test_file_count": int(
-                    execution.get("test_file_count", 0)
-                ),
+                "executed_test_file_count": int(execution.get("test_file_count", 0)),
                 "test_exit_code": int(execution.get("exit_code", -1)),
                 "test_duration_ms": int(execution.get("duration_ms", 0)),
             }
@@ -194,9 +192,7 @@ def execute_automated_evidence(
         )
     )
     if not references or any(
-        Path(reference).is_absolute()
-        or ".." in Path(reference).parts
-        or not (root / reference).is_file()
+        Path(reference).is_absolute() or ".." in Path(reference).parts or not (root / reference).is_file()
         for reference in references
     ):
         return {
@@ -216,9 +212,7 @@ def execute_automated_evidence(
             timeout=timeout_seconds,
         )
         exit_code = int(completed.returncode)
-        reason_code = (
-            "security_matrix_automated_tests_failed" if exit_code else None
-        )
+        reason_code = "security_matrix_automated_tests_failed" if exit_code else None
     except subprocess.TimeoutExpired:
         exit_code = -1
         reason_code = "security_matrix_automated_tests_timeout"

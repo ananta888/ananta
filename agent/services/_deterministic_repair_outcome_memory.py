@@ -10,23 +10,16 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
+from typing import Any
 
 from agent.db_models import RepairOutcomeMemoryDB
 from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
-
 from agent.services._deterministic_repair_constants import (
     STANDARD_OUTCOME_LABELS,
 )
 
 log = logging.getLogger(__name__)
-
-
 
 
 def verify_final_repair_outcome(
@@ -66,9 +59,6 @@ def verify_final_repair_outcome(
     }
 
 
-
-
-
 def build_repair_outcome_memory_entry(
     *,
     signature_matching: dict[str, Any],
@@ -95,9 +85,6 @@ def build_repair_outcome_memory_entry(
     }
 
 
-
-
-
 def persist_repair_outcome_memory(entry: dict[str, Any]) -> dict[str, Any]:
     try:
         db_entry = RepairOutcomeMemoryDB(
@@ -114,9 +101,6 @@ def persist_repair_outcome_memory(entry: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         log.error("Failed to persist repair outcome memory: %s", exc)
         return {"persisted": False, "error": str(exc)}
-
-
-
 
 
 def load_repair_outcome_memory(
@@ -154,9 +138,6 @@ def load_repair_outcome_memory(
         return []
 
 
-
-
-
 def track_repair_outcomes(memory_entries: list[dict[str, Any]]) -> dict[str, Any]:
     counts = {label: 0 for label in STANDARD_OUTCOME_LABELS}
     for entry in memory_entries:
@@ -180,6 +161,3 @@ def track_repair_outcomes(memory_entries: list[dict[str, Any]]) -> dict[str, Any
         "total": total,
         "recommendation_score": round(recommendation_score, 3),
     }
-
-
-

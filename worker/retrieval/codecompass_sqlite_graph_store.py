@@ -6,6 +6,7 @@ lookup and traversal logic — only load/save are storage specific. Uses only
 sqlite3 from the standard library and is NOT the default store; callers opt in
 explicitly.
 """
+
 from __future__ import annotations
 
 import json
@@ -139,21 +140,18 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
                     source_record = json.loads(row[6])
                 except (TypeError, ValueError):
                     source_record = {}
-            nodes.append({
-                "id": str(row[0]),
-                "kind": str(row[1] or "unknown"),
-                "raw_node_type": str(
-                    source_record.get("kind")
-                    or source_record.get("type")
-                    or row[1]
-                    or "unknown"
-                ),
-                "name": str(row[2] or ""),
-                "file": str(row[3] or ""),
-                "record_id": str(row[4] or ""),
-                "content": str(row[5] or ""),
-                "source_record": source_record,
-            })
+            nodes.append(
+                {
+                    "id": str(row[0]),
+                    "kind": str(row[1] or "unknown"),
+                    "raw_node_type": str(source_record.get("kind") or source_record.get("type") or row[1] or "unknown"),
+                    "name": str(row[2] or ""),
+                    "file": str(row[3] or ""),
+                    "record_id": str(row[4] or ""),
+                    "content": str(row[5] or ""),
+                    "source_record": source_record,
+                }
+            )
 
         edges: list[dict[str, Any]] = []
         for row in edge_rows:
@@ -204,7 +202,8 @@ class CodeCompassSqliteGraphStore(CodeCompassGraphStore):
             "node_index": node_index,
             "outgoing_index": outgoing_index,
             "incoming_index": incoming_index,
-            "diagnostics": diagnostics or {
+            "diagnostics": diagnostics
+            or {
                 "status": "ready",
                 "reason": "graph_loaded",
                 "node_count": len(nodes),

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import hashlib
 import json
+from collections.abc import Mapping
 from typing import Any
 
 
@@ -21,25 +21,15 @@ def canonical_unsloth_json(value: Mapping[str, Any]) -> str:
 
 
 def unsloth_payload_sha256(value: Mapping[str, Any]) -> str:
-    return hashlib.sha256(
-        canonical_unsloth_json(value).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(canonical_unsloth_json(value).encode("utf-8")).hexdigest()
 
 
-UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA = (
-    "ananta.unsloth-storage-cleanup-task.v1"
-)
-UNSLOTH_STORAGE_CLEANUP_RESULT_SCHEMA = (
-    "ananta.unsloth-storage-cleanup-result.v1"
-)
-UNSLOTH_WORKER_TASK_RESULT_SCHEMA = (
-    "ananta.unsloth-worker-task-result.v1"
-)
+UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA = "ananta.unsloth-storage-cleanup-task.v1"
+UNSLOTH_STORAGE_CLEANUP_RESULT_SCHEMA = "ananta.unsloth-storage-cleanup-result.v1"
+UNSLOTH_WORKER_TASK_RESULT_SCHEMA = "ananta.unsloth-worker-task-result.v1"
 UNSLOTH_STORAGE_CLEANUP_TASK_TYPE = "ml.storage.cleanup"
 UNSLOTH_STORAGE_CLEANUP_CAPABILITY = "unsloth_storage_cleanup"
-UNSLOTH_STORAGE_CLEANUP_RESULT_HANDLER = (
-    "unsloth_storage_cleanup_v1"
-)
+UNSLOTH_STORAGE_CLEANUP_RESULT_HANDLER = "unsloth_storage_cleanup_v1"
 
 _CLEANUP_PAYLOAD_FIELDS = frozenset(
     {
@@ -63,9 +53,7 @@ _CLEANUP_ARTIFACT_FIELDS = frozenset(
         "size_bytes",
     }
 )
-_CLEANUP_RESULT_ARTIFACT_FIELDS = frozenset(
-    {"artifact_id", "kind", "status", "sha256"}
-)
+_CLEANUP_RESULT_ARTIFACT_FIELDS = frozenset({"artifact_id", "kind", "status", "sha256"})
 _CLEANUP_KINDS = frozenset({"workspace", "checkpoint", "export"})
 
 
@@ -77,14 +65,9 @@ def normalize_unsloth_cleanup_payload(
     from collections.abc import Mapping
     from pathlib import PurePosixPath
 
-    if not isinstance(value, Mapping) or set(value) != (
-        _CLEANUP_PAYLOAD_FIELDS
-    ):
+    if not isinstance(value, Mapping) or set(value) != (_CLEANUP_PAYLOAD_FIELDS):
         raise ValueError("cleanup_contract_invalid")
-    if (
-        value.get("contract_version")
-        != UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA
-    ):
+    if value.get("contract_version") != UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA:
         raise ValueError("cleanup_contract_invalid")
     task_id = _cleanup_identifier(
         value.get("task_id"),
@@ -110,18 +93,13 @@ def normalize_unsloth_cleanup_payload(
     ):
         raise ValueError("cleanup_catalog_revision_invalid")
     raw_artifacts = value.get("artifacts")
-    if (
-        not isinstance(raw_artifacts, list)
-        or not 1 <= len(raw_artifacts) <= 128
-    ):
+    if not isinstance(raw_artifacts, list) or not 1 <= len(raw_artifacts) <= 128:
         raise ValueError("cleanup_artifact_selection_invalid")
 
     artifacts: list[dict[str, object]] = []
     artifact_ids: set[str] = set()
     for raw in raw_artifacts:
-        if not isinstance(raw, Mapping) or set(raw) != (
-            _CLEANUP_ARTIFACT_FIELDS
-        ):
+        if not isinstance(raw, Mapping) or set(raw) != (_CLEANUP_ARTIFACT_FIELDS):
             raise ValueError("cleanup_artifact_contract_invalid")
         artifact_id = _cleanup_identifier(
             raw.get("artifact_id"),
@@ -140,19 +118,13 @@ def normalize_unsloth_cleanup_payload(
         )
         kind = str(raw.get("kind") or "").strip().lower()
         if kind not in _CLEANUP_KINDS:
-            raise ValueError(
-                "cleanup_kind_not_supported_by_training_worker"
-            )
+            raise ValueError("cleanup_kind_not_supported_by_training_worker")
         sha256 = _cleanup_digest(
             raw.get("sha256"),
             "cleanup_artifact_hash_invalid",
         )
         size_bytes = raw.get("size_bytes")
-        if (
-            isinstance(size_bytes, bool)
-            or not isinstance(size_bytes, int)
-            or not 0 <= size_bytes <= 2**63 - 1
-        ):
+        if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 <= size_bytes <= 2**63 - 1:
             raise ValueError("cleanup_artifact_size_invalid")
         relative_ref = str(raw.get("relative_ref") or "")
         relative = PurePosixPath(relative_ref)
@@ -161,10 +133,7 @@ def normalize_unsloth_cleanup_payload(
             or "\x00" in relative_ref
             or "\\" in relative_ref
             or relative.is_absolute()
-            or any(
-                part in {"", ".", ".."}
-                for part in relative.parts
-            )
+            or any(part in {"", ".", ".."} for part in relative.parts)
         ):
             raise ValueError("cleanup_path_invalid")
         artifacts.append(
@@ -179,9 +148,7 @@ def normalize_unsloth_cleanup_payload(
             }
         )
     return {
-        "contract_version": (
-            UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA
-        ),
+        "contract_version": (UNSLOTH_STORAGE_CLEANUP_TASK_SCHEMA),
         "task_id": task_id,
         "tenant_scope_digest": tenant_scope_digest,
         "catalog_revision": catalog_revision,
@@ -206,9 +173,7 @@ def build_unsloth_cleanup_result(
     normalized_artifacts: list[dict[str, str]] = []
     artifact_ids: set[str] = set()
     for raw in artifacts:
-        if not isinstance(raw, Mapping) or set(raw) != (
-            _CLEANUP_RESULT_ARTIFACT_FIELDS
-        ):
+        if not isinstance(raw, Mapping) or set(raw) != (_CLEANUP_RESULT_ARTIFACT_FIELDS):
             raise ValueError("cleanup_result_artifact_invalid")
         artifact_id = _cleanup_identifier(
             raw.get("artifact_id"),
@@ -219,10 +184,7 @@ def build_unsloth_cleanup_result(
         artifact_ids.add(artifact_id)
         kind = str(raw.get("kind") or "").strip().lower()
         status = str(raw.get("status") or "").strip().lower()
-        if (
-            kind not in _CLEANUP_KINDS
-            or status not in {"deleted", "already_absent"}
-        ):
+        if kind not in _CLEANUP_KINDS or status not in {"deleted", "already_absent"}:
             raise ValueError("cleanup_result_artifact_invalid")
         normalized_artifacts.append(
             {
@@ -252,10 +214,7 @@ def build_unsloth_cleanup_result(
             "cleanup_plan_hash_invalid",
         ),
         "status": "completed",
-        "deleted_count": sum(
-            item["status"] == "deleted"
-            for item in normalized_artifacts
-        ),
+        "deleted_count": sum(item["status"] == "deleted" for item in normalized_artifacts),
         "artifacts": normalized_artifacts,
         "paths_exposed": False,
         "replayed": replayed,
@@ -327,10 +286,13 @@ def _cleanup_identifier(value: object, reason_code: str) -> str:
     import re
 
     normalized = str(value or "").strip()
-    if re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._:-]{0,191}",
-        normalized,
-    ) is None:
+    if (
+        re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._:-]{0,191}",
+            normalized,
+        )
+        is None
+    ):
         raise ValueError(reason_code)
     return normalized
 
@@ -346,11 +308,7 @@ def _cleanup_digest(value: object, reason_code: str) -> str:
 
 def _bounded_task_text(value: object, reason_code: str) -> str:
     normalized = str(value or "").strip()
-    if (
-        not normalized
-        or len(normalized) > 192
-        or any(not character.isprintable() for character in normalized)
-    ):
+    if not normalized or len(normalized) > 192 or any(not character.isprintable() for character in normalized):
         raise ValueError(reason_code)
     return normalized
 

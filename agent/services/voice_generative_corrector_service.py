@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 import time
@@ -408,7 +409,7 @@ def resolve_inherited_corrector_configuration(
     except Exception:
         # Inheritance remains usable in minimal/test Hubs where the model
         # routing subsystem is intentionally absent.
-        pass
+        logging.getLogger(__name__).debug("resolve_inherited_corrector_configuration: ignored Exception", exc_info=True)
     inherited_provider = (
         str(
             llm_cfg.get("provider")

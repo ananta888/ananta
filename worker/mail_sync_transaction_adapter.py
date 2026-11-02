@@ -95,9 +95,7 @@ class SqliteMailMetadataStore:
         busy_timeout_seconds: float = 10.0,
     ) -> None:
         self._path = Path(database_path).resolve()
-        self._busy_timeout_ms = int(
-            max(1.0, min(float(busy_timeout_seconds), 60.0)) * 1000
-        )
+        self._busy_timeout_ms = int(max(1.0, min(float(busy_timeout_seconds), 60.0)) * 1000)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         connection = self._connect()
         try:
@@ -669,9 +667,7 @@ class SqliteMailSyncTransactionPort:
             try:
                 self._fault_injector("before_begin")
             except Exception:
-                return MailProviderResult.failure(
-                    "mail_sync_transaction_unavailable"
-                )
+                return MailProviderResult.failure("mail_sync_transaction_unavailable")
         connection = self.metadata_store.connection()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -731,9 +727,7 @@ class _SqliteMailSyncUnitOfWork:
     ) -> MailProviderResult[None]:
         if not self._active:
             return MailProviderResult.failure("mail_sync_transaction_closed")
-        if delta != self._request.delta or bool(replace_scope) != bool(
-            self._request.replace_scope
-        ):
+        if delta != self._request.delta or bool(replace_scope) != bool(self._request.replace_scope):
             return MailProviderResult.failure("mail_sync_transaction_delta_mismatch")
         checkpoint = self._request.checkpoint
         scope_key = _checkpoint_key(checkpoint)

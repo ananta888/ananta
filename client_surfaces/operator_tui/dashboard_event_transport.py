@@ -94,11 +94,9 @@ class KanbanEventTransport(Protocol):
         board_id: str,
         after_sequence: int,
         token: str,
-    ) -> KanbanEventBatch:
-        ...
+    ) -> KanbanEventBatch: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -181,9 +179,7 @@ class BoundedKanbanEventTransport:
         encoded_board = urllib.parse.quote(str(board_id or "").strip(), safe="")
         if not encoded_board:
             raise KanbanEventContractError("kanban_event_board_required")
-        query = urllib.parse.urlencode(
-            {"after_sequence": str(sequence), "limit": str(self._max_events)}
-        )
+        query = urllib.parse.urlencode({"after_sequence": str(sequence), "limit": str(self._max_events)})
         request = urllib.request.Request(
             f"{self._endpoint}/api/v1/kanban/boards/{encoded_board}/events?{query}",
             headers={

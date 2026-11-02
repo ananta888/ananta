@@ -15,15 +15,49 @@ from .contracts import (
 from .file_roles import classify_file_role
 
 _STOPWORDS = {
-    "the", "and", "for", "with", "from", "this", "that", "what", "how",
-    "der", "die", "das", "und", "mit", "von", "was", "wie", "mir", "den",
-    "bitte", "erklaere", "erkläre", "zeige", "show", "explain",
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "this",
+    "that",
+    "what",
+    "how",
+    "der",
+    "die",
+    "das",
+    "und",
+    "mit",
+    "von",
+    "was",
+    "wie",
+    "mir",
+    "den",
+    "bitte",
+    "erklaere",
+    "erkläre",
+    "zeige",
+    "show",
+    "explain",
 }
 _ARCHITECTURE_TERMS = {"architecture", "architektur", "design", "system", "subsystem", "component", "komponente"}
 _TEST_TERMS = {"test", "tests", "spec", "coverage", "fixture"}
 _ENTRYPOINT_TERMS = {
-    "main", "cli", "route", "router", "controller", "endpoint", "handler",
-    "register", "registry", "adapter", "port", "tool", "api", "service",
+    "main",
+    "cli",
+    "route",
+    "router",
+    "controller",
+    "endpoint",
+    "handler",
+    "register",
+    "registry",
+    "adapter",
+    "port",
+    "tool",
+    "api",
+    "service",
 }
 _QUERY_SYNONYMS = {
     "architektur": "architecture",
@@ -63,7 +97,9 @@ def _entrypoint_score(path: str, symbols: tuple[str, ...]) -> tuple[float, tuple
     return min(1.0, len(hits) / 2.0), tuple(hits)
 
 
-def _contribution(signal: str, raw: float, normalized: float, weight: float, evidence: tuple[str, ...] = ()) -> ScoreContribution:
+def _contribution(
+    signal: str, raw: float, normalized: float, weight: float, evidence: tuple[str, ...] = ()
+) -> ScoreContribution:
     bounded = min(1.0, max(0.0, float(normalized)))
     return ScoreContribution(signal, float(raw), bounded, float(weight), bounded * float(weight), evidence)
 
@@ -97,10 +133,11 @@ class UniversalSourceRanker:
             path_score, path_hits = _bounded_overlap(query_tokens, path_parts)
             filename_score, filename_hits = _bounded_overlap(query_tokens, [filename])
             symbol_score, symbol_hits = _bounded_overlap(query_tokens, list(candidate.symbols))
-            exact_hits = tuple(sorted({
-                token for token in query_tokens
-                if any(token == symbol.lower() for symbol in candidate.symbols)
-            }))
+            exact_hits = tuple(
+                sorted(
+                    {token for token in query_tokens if any(token == symbol.lower() for symbol in candidate.symbols)}
+                )
+            )
             exact_score = 1.0 if exact_hits else 0.0
             entry_score, entry_hits = _entrypoint_score(candidate.path, candidate.symbols)
             if candidate.entrypoint_evidence:
@@ -108,8 +145,7 @@ class UniversalSourceRanker:
                 entry_hits = tuple(sorted(set(entry_hits) | set(candidate.entrypoint_evidence)))
             centrality = 0.0 if candidate.centrality is None else min(1.0, max(0.0, candidate.centrality))
             graph_proximity = (
-                0.0 if candidate.graph_distance is None
-                else 1.0 / (1.0 + max(0, candidate.graph_distance))
+                0.0 if candidate.graph_distance is None else 1.0 / (1.0 + max(0, candidate.graph_distance))
             )
             role_score = {
                 "production": 1.0,
@@ -135,13 +171,21 @@ class UniversalSourceRanker:
                 role_score = 1.0
             contributions = (
                 _contribution("path_lexical", len(path_hits), path_score, weights["path_lexical"], path_hits),
-                _contribution("filename_lexical", len(filename_hits), filename_score, weights["filename_lexical"], filename_hits),
+                _contribution(
+                    "filename_lexical", len(filename_hits), filename_score, weights["filename_lexical"], filename_hits
+                ),
                 _contribution("symbol_lexical", len(symbol_hits), symbol_score, weights["symbol_lexical"], symbol_hits),
                 _contribution("exact_symbol", len(exact_hits), exact_score, weights["exact_symbol"], exact_hits),
                 _contribution("structural_role", role_score, role_score, weights["structural_role"], role.reasons),
                 _contribution("entrypoint", len(entry_hits), entry_score, weights["entrypoint"], entry_hits),
                 _contribution("centrality", centrality, centrality, weights["centrality"], candidate.relation_evidence),
-                _contribution("graph_proximity", graph_proximity, graph_proximity, weights["graph_proximity"], candidate.relation_evidence),
+                _contribution(
+                    "graph_proximity",
+                    graph_proximity,
+                    graph_proximity,
+                    weights["graph_proximity"],
+                    candidate.relation_evidence,
+                ),
                 _contribution("role_penalty", role_penalty, role_penalty, weights["role_penalty"], role.reasons),
             )
             lexical_relevance = max(path_score, filename_score, symbol_score, exact_score)
@@ -150,18 +194,24 @@ class UniversalSourceRanker:
             score = sum(item.contribution for item in contributions)
             evidence_channels = sum(1 for item in contributions if item.normalized_value > 0)
             confidence = min(1.0, 0.25 + evidence_channels * 0.12) * role.confidence
-            scored.append(RankedCandidate(
-                candidate=candidate,
-                score=round(score, 12),
-                confidence=round(confidence, 6),
-                file_role=role.role,
-                role_confidence=role.confidence,
-                role_reasons=role.reasons,
-                contributions=contributions,
-                tie_breaker=candidate.path.casefold(),
-            ))
+            scored.append(
+                RankedCandidate(
+                    candidate=candidate,
+                    score=round(score, 12),
+                    confidence=round(confidence, 6),
+                    file_role=role.role,
+                    role_confidence=role.confidence,
+                    role_reasons=role.reasons,
+                    contributions=contributions,
+                    tie_breaker=candidate.path.casefold(),
+                )
+            )
         scored.sort(key=lambda item: (-item.score, -item.confidence, item.tie_breaker, item.candidate.canonical_id))
-        diversified = self._diversify(scored, top_k, ranking_input) if ranking_input.profile.diversification_enabled else scored[:top_k]
+        diversified = (
+            self._diversify(scored, top_k, ranking_input)
+            if ranking_input.profile.diversification_enabled
+            else scored[:top_k]
+        )
         return RankingResult(
             ranking_version=ranking_input.profile.version,
             profile_id=ranking_input.profile.profile_id,
@@ -173,22 +223,26 @@ class UniversalSourceRanker:
             ranked=tuple(diversified),
         )
 
-    def _diversify(self, ranked: list[RankedCandidate], top_k: int, ranking_input: RankingInput) -> list[RankedCandidate]:
+    def _diversify(
+        self, ranked: list[RankedCandidate], top_k: int, ranking_input: RankingInput
+    ) -> list[RankedCandidate]:
         selected: list[RankedCandidate] = []
         subtree_counts: Counter[str] = Counter()
-        exact_top = bool(ranked and any(c.signal == "exact_symbol" and c.normalized_value == 1.0 for c in ranked[0].contributions))
+        exact_top = bool(
+            ranked and any(c.signal == "exact_symbol" and c.normalized_value == 1.0 for c in ranked[0].contributions)
+        )
         for item in ranked:
             subtree = "/".join(PurePosixPath(item.candidate.path).parts[:2])
             repetition = subtree_counts[subtree]
-            penalty = (
-                0.0 if repetition <= 1 or (not selected and exact_top)
-                else min(0.08, (repetition - 1) * 0.04)
-            )
+            penalty = 0.0 if repetition <= 1 or (not selected and exact_top) else min(0.08, (repetition - 1) * 0.04)
             if penalty:
                 contribution = ScoreContribution(
-                    "diversity_penalty", repetition, penalty,
+                    "diversity_penalty",
+                    repetition,
+                    penalty,
                     -abs(float(ranking_input.profile.weights["diversity_penalty"])),
-                    -penalty, (subtree,),
+                    -penalty,
+                    (subtree,),
                 )
                 item = RankedCandidate(
                     candidate=item.candidate,
@@ -203,4 +257,4 @@ class UniversalSourceRanker:
             selected.append(item)
             subtree_counts[subtree] += 1
         selected.sort(key=lambda item: (-item.score, -item.confidence, item.tie_breaker, item.candidate.canonical_id))
-        return selected[:max(1, int(top_k))]
+        return selected[: max(1, int(top_k))]

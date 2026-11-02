@@ -6,7 +6,6 @@ import urllib.error
 import urllib.request
 from collections import defaultdict
 from pathlib import PurePosixPath
-from typing import Any
 
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
@@ -14,9 +13,15 @@ from rag_helper.utils.ids import safe_id
 _log = logging.getLogger(__name__)
 
 
-def _llm_narrative(module_area: str, docstrings: list[str], classes: list[str],
-                   functions: list[str], file_paths: list[str],
-                   endpoint: str, model: str | None) -> str | None:
+def _llm_narrative(
+    module_area: str,
+    docstrings: list[str],
+    classes: list[str],
+    functions: list[str],
+    file_paths: list[str],
+    endpoint: str,
+    model: str | None,
+) -> str | None:
     """Call an OpenAI-compatible endpoint to generate a module narrative. Returns None on any error."""
     doc_text = " ".join(d for d in docstrings if d)[:400]
     symbols = ", ".join((classes + functions)[:15])
@@ -27,12 +32,14 @@ def _llm_narrative(module_area: str, docstrings: list[str], classes: list[str],
         f"Docstring-Hinweise: {doc_text or 'keine'}. "
         "Antworte NUR mit den 2-3 Sätzen, kein JSON, keine Aufzählung."
     )
-    payload = json.dumps({
-        "model": model or "default",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 150,
-        "temperature": 0.2,
-    }).encode()
+    payload = json.dumps(
+        {
+            "model": model or "default",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 150,
+            "temperature": 0.2,
+        }
+    ).encode()
     try:
         req = urllib.request.Request(
             endpoint.rstrip("/") + "/v1/chat/completions",
@@ -59,7 +66,8 @@ def build_summary_records(
         *build_java_module_summaries(index_records, embedding_text_mode),
         *build_csharp_namespace_summaries(index_records, embedding_text_mode),
         *build_python_module_summaries(
-            index_records, embedding_text_mode,
+            index_records,
+            embedding_text_mode,
             llm_narrative_endpoint=llm_narrative_endpoint,
             llm_narrative_model=llm_narrative_model,
         ),
@@ -70,9 +78,15 @@ def build_summary_records(
         "summary_record_count": len(summary_records),
         "java_package_summary_count": sum(1 for record in summary_records if record["kind"] == "java_package_summary"),
         "java_module_summary_count": sum(1 for record in summary_records if record["kind"] == "java_module_summary"),
-        "csharp_namespace_summary_count": sum(1 for record in summary_records if record["kind"] == "csharp_namespace_summary"),
-        "python_module_summary_count": sum(1 for record in summary_records if record["kind"] == "python_module_summary"),
-        "typescript_folder_summary_count": sum(1 for record in summary_records if record["kind"] == "typescript_folder_summary"),
+        "csharp_namespace_summary_count": sum(
+            1 for record in summary_records if record["kind"] == "csharp_namespace_summary"
+        ),
+        "python_module_summary_count": sum(
+            1 for record in summary_records if record["kind"] == "python_module_summary"
+        ),
+        "typescript_folder_summary_count": sum(
+            1 for record in summary_records if record["kind"] == "typescript_folder_summary"
+        ),
         "build_file_summary_count": sum(1 for record in summary_records if record["kind"] == "build_file_summary"),
     }
 
@@ -101,35 +115,37 @@ def build_java_package_summaries(index_records: list[dict], embedding_text_mode:
                 if name:
                     type_names.append(name)
 
-        summaries.append({
-            "kind": "java_package_summary",
-            "id": f"java_package_summary:{safe_id(package_name)}",
-            "package": package_name,
-            "file": package_name,
-            "files": file_paths[:50],
-            "type_names": type_names[:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                (
-                    f"Java package {package_name}. "
-                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
-                    f"Types: {', '.join(type_names[:30]) or 'none'}. "
-                    f"Imports {imports_count}. Methods {method_count}. Constructors {constructor_count}."
+        summaries.append(
+            {
+                "kind": "java_package_summary",
+                "id": f"java_package_summary:{safe_id(package_name)}",
+                "package": package_name,
+                "file": package_name,
+                "files": file_paths[:50],
+                "type_names": type_names[:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    (
+                        f"Java package {package_name}. "
+                        f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                        f"Types: {', '.join(type_names[:30]) or 'none'}. "
+                        f"Imports {imports_count}. Methods {method_count}. Constructors {constructor_count}."
+                    ),
+                    (
+                        f"Java package {package_name}. "
+                        f"Files {len(file_paths)}. Types {compact_list(type_names, limit=6)}. "
+                        f"Methods {method_count}."
+                    ),
                 ),
-                (
-                    f"Java package {package_name}. "
-                    f"Files {len(file_paths)}. Types {compact_list(type_names, limit=6)}. "
-                    f"Methods {method_count}."
-                ),
-            ),
-            "summary": {
-                "file_count": len(file_paths),
-                "type_count": len(type_names),
-                "imports_count": imports_count,
-                "method_count": method_count,
-                "constructor_count": constructor_count,
-            },
-        })
+                "summary": {
+                    "file_count": len(file_paths),
+                    "type_count": len(type_names),
+                    "imports_count": imports_count,
+                    "method_count": method_count,
+                    "constructor_count": constructor_count,
+                },
+            }
+        )
     return summaries
 
 
@@ -166,39 +182,41 @@ def build_java_module_summaries(index_records: list[dict], embedding_text_mode: 
                 if type_name:
                     type_names.append(type_name)
 
-        summaries.append({
-            "kind": "java_module_summary",
-            "id": f"java_module_summary:{safe_id(module_name)}",
-            "module": module_name,
-            "file": module_name,
-            "files": file_paths[:50],
-            "packages": sorted(packages)[:30],
-            "type_names": type_names[:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                (
-                    f"Java module {module_name}. "
-                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
-                    f"Packages: {', '.join(sorted(packages)[:20]) or 'none'}. "
-                    f"Types: {', '.join(type_names[:20]) or 'none'}. "
-                    f"Methods {method_count}. Constructors {constructor_count}. Imports {imports_count}."
+        summaries.append(
+            {
+                "kind": "java_module_summary",
+                "id": f"java_module_summary:{safe_id(module_name)}",
+                "module": module_name,
+                "file": module_name,
+                "files": file_paths[:50],
+                "packages": sorted(packages)[:30],
+                "type_names": type_names[:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    (
+                        f"Java module {module_name}. "
+                        f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                        f"Packages: {', '.join(sorted(packages)[:20]) or 'none'}. "
+                        f"Types: {', '.join(type_names[:20]) or 'none'}. "
+                        f"Methods {method_count}. Constructors {constructor_count}. Imports {imports_count}."
+                    ),
+                    (
+                        f"Java module {module_name}. "
+                        f"Packages {compact_list(sorted(packages), limit=6)}. "
+                        f"Types {compact_list(type_names, limit=6)}. "
+                        f"Methods {method_count}."
+                    ),
                 ),
-                (
-                    f"Java module {module_name}. "
-                    f"Packages {compact_list(sorted(packages), limit=6)}. "
-                    f"Types {compact_list(type_names, limit=6)}. "
-                    f"Methods {method_count}."
-                ),
-            ),
-            "summary": {
-                "file_count": len(file_paths),
-                "package_count": len(packages),
-                "type_count": len(type_names),
-                "imports_count": imports_count,
-                "method_count": method_count,
-                "constructor_count": constructor_count,
-            },
-        })
+                "summary": {
+                    "file_count": len(file_paths),
+                    "package_count": len(packages),
+                    "type_count": len(type_names),
+                    "imports_count": imports_count,
+                    "method_count": method_count,
+                    "constructor_count": constructor_count,
+                },
+            }
+        )
     return summaries
 
 
@@ -228,36 +246,38 @@ def build_csharp_namespace_summaries(index_records: list[dict], embedding_text_m
                 if name:
                     type_names.append(name)
 
-        summaries.append({
-            "kind": "csharp_namespace_summary",
-            "id": f"csharp_namespace_summary:{safe_id(namespace_name)}",
-            "namespace": namespace_name,
-            "file": namespace_name,
-            "files": file_paths[:50],
-            "type_names": type_names[:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                (
-                    f"CSharp namespace {namespace_name}. "
-                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
-                    f"Types: {', '.join(type_names[:30]) or 'none'}. "
-                    f"Usings {using_count}. Properties {property_count}. Methods {method_count}. Constructors {constructor_count}."
+        summaries.append(
+            {
+                "kind": "csharp_namespace_summary",
+                "id": f"csharp_namespace_summary:{safe_id(namespace_name)}",
+                "namespace": namespace_name,
+                "file": namespace_name,
+                "files": file_paths[:50],
+                "type_names": type_names[:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    (
+                        f"CSharp namespace {namespace_name}. "
+                        f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                        f"Types: {', '.join(type_names[:30]) or 'none'}. "
+                        f"Usings {using_count}. Properties {property_count}. Methods {method_count}. Constructors {constructor_count}."
+                    ),
+                    (
+                        f"CSharp namespace {namespace_name}. "
+                        f"Files {len(file_paths)}. Types {compact_list(type_names, limit=6)}. "
+                        f"Methods {method_count}."
+                    ),
                 ),
-                (
-                    f"CSharp namespace {namespace_name}. "
-                    f"Files {len(file_paths)}. Types {compact_list(type_names, limit=6)}. "
-                    f"Methods {method_count}."
-                ),
-            ),
-            "summary": {
-                "file_count": len(file_paths),
-                "type_count": len(type_names),
-                "using_count": using_count,
-                "property_count": property_count,
-                "method_count": method_count,
-                "constructor_count": constructor_count,
-            },
-        })
+                "summary": {
+                    "file_count": len(file_paths),
+                    "type_count": len(type_names),
+                    "using_count": using_count,
+                    "property_count": property_count,
+                    "method_count": method_count,
+                    "constructor_count": constructor_count,
+                },
+            }
+        )
     return summaries
 
 
@@ -307,49 +327,59 @@ def build_python_module_summaries(
         # Build narrative: LLM if configured, else best docstring, else nothing
         narrative: str = ""
         if llm_narrative_endpoint and (class_names or function_names):
-            narrative = _llm_narrative(
-                module_area, docstrings, class_names, function_names, file_paths,
-                llm_narrative_endpoint, llm_narrative_model,
-            ) or ""
+            narrative = (
+                _llm_narrative(
+                    module_area,
+                    docstrings,
+                    class_names,
+                    function_names,
+                    file_paths,
+                    llm_narrative_endpoint,
+                    llm_narrative_model,
+                )
+                or ""
+            )
         if not narrative and docstrings:
             narrative = docstrings[0][:300]
 
         _narrative_prefix = f"{narrative} " if narrative else ""
-        summaries.append({
-            "kind": "python_module_summary",
-            "id": f"python_module_summary:{safe_id(module_area)}",
-            "module_area": module_area,
-            "file": module_area,
-            "files": file_paths[:50],
-            "imports": imports[:50],
-            "classes": class_names[:50],
-            "functions": function_names[:50],
-            "narrative": narrative or None,
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                (
-                    f"{_narrative_prefix}"
-                    f"Python module area {module_area}. "
-                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
-                    f"Classes: {', '.join(class_names[:20]) or 'none'}. "
-                    f"Functions: {', '.join(function_names[:20]) or 'none'}. "
-                    f"Imports {import_count}. Methods {method_count}."
+        summaries.append(
+            {
+                "kind": "python_module_summary",
+                "id": f"python_module_summary:{safe_id(module_area)}",
+                "module_area": module_area,
+                "file": module_area,
+                "files": file_paths[:50],
+                "imports": imports[:50],
+                "classes": class_names[:50],
+                "functions": function_names[:50],
+                "narrative": narrative or None,
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    (
+                        f"{_narrative_prefix}"
+                        f"Python module area {module_area}. "
+                        f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                        f"Classes: {', '.join(class_names[:20]) or 'none'}. "
+                        f"Functions: {', '.join(function_names[:20]) or 'none'}. "
+                        f"Imports {import_count}. Methods {method_count}."
+                    ),
+                    (
+                        f"{_narrative_prefix}"
+                        f"Python module area {module_area}. "
+                        f"Files {len(file_paths)}. Classes {compact_list(class_names, limit=6)}. "
+                        f"Functions {compact_list(function_names, limit=6)}."
+                    ),
                 ),
-                (
-                    f"{_narrative_prefix}"
-                    f"Python module area {module_area}. "
-                    f"Files {len(file_paths)}. Classes {compact_list(class_names, limit=6)}. "
-                    f"Functions {compact_list(function_names, limit=6)}."
-                ),
-            ),
-            "summary": {
-                "file_count": len(file_paths),
-                "import_count": import_count,
-                "class_count": len(class_names),
-                "function_count": len(function_names),
-                "method_count": method_count,
-            },
-        })
+                "summary": {
+                    "file_count": len(file_paths),
+                    "import_count": import_count,
+                    "class_count": len(class_names),
+                    "function_count": len(function_names),
+                    "method_count": method_count,
+                },
+            }
+        )
     return summaries
 
 
@@ -383,41 +413,43 @@ def build_typescript_folder_summaries(index_records: list[dict], embedding_text_
                 if name:
                     symbol_names.append(name)
 
-        summaries.append({
-            "kind": "typescript_folder_summary",
-            "id": f"typescript_folder_summary:{safe_id(folder)}",
-            "folder": folder,
-            "file": folder,
-            "files": file_paths[:50],
-            "imports": imports[:50],
-            "frameworks": sorted(dict.fromkeys(frameworks))[:10],
-            "symbols": symbol_names[:50],
-            "embedding_text": build_embedding_text(
-                embedding_text_mode,
-                (
-                    f"TypeScript folder {folder}. "
-                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
-                    f"Frameworks: {', '.join(sorted(dict.fromkeys(frameworks))[:10]) or 'none'}. "
-                    f"Symbols: {', '.join(symbol_names[:30]) or 'none'}. "
-                    f"Imports {import_count}. Components {component_count}. Hooks {hook_count}. Methods {method_count}."
+        summaries.append(
+            {
+                "kind": "typescript_folder_summary",
+                "id": f"typescript_folder_summary:{safe_id(folder)}",
+                "folder": folder,
+                "file": folder,
+                "files": file_paths[:50],
+                "imports": imports[:50],
+                "frameworks": sorted(dict.fromkeys(frameworks))[:10],
+                "symbols": symbol_names[:50],
+                "embedding_text": build_embedding_text(
+                    embedding_text_mode,
+                    (
+                        f"TypeScript folder {folder}. "
+                        f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                        f"Frameworks: {', '.join(sorted(dict.fromkeys(frameworks))[:10]) or 'none'}. "
+                        f"Symbols: {', '.join(symbol_names[:30]) or 'none'}. "
+                        f"Imports {import_count}. Components {component_count}. Hooks {hook_count}. Methods {method_count}."
+                    ),
+                    (
+                        f"TypeScript folder {folder}. "
+                        f"Frameworks {compact_list(sorted(dict.fromkeys(frameworks)), limit=4)}. "
+                        f"Files {len(file_paths)}. Symbols {compact_list(symbol_names, limit=6)}. "
+                        f"Methods {method_count}."
+                    ),
                 ),
-                (
-                    f"TypeScript folder {folder}. "
-                    f"Frameworks {compact_list(sorted(dict.fromkeys(frameworks)), limit=4)}. "
-                    f"Files {len(file_paths)}. Symbols {compact_list(symbol_names, limit=6)}. "
-                    f"Methods {method_count}."
-                ),
-            ),
-            "summary": {
-                "file_count": len(file_paths),
-                "import_count": import_count,
-                "symbol_count": len(symbol_names),
-                "framework_count": len(set(frameworks)),
-                "component_count": component_count,
-                "hook_count": hook_count,
-                "method_count": method_count,
-            },
-        })
+                "summary": {
+                    "file_count": len(file_paths),
+                    "import_count": import_count,
+                    "symbol_count": len(symbol_names),
+                    "framework_count": len(set(frameworks)),
+                    "component_count": component_count,
+                    "hook_count": hook_count,
+                    "method_count": method_count,
+                },
+            }
+        )
     return summaries
 
 
@@ -431,7 +463,9 @@ def build_build_file_summaries(index_records: list[dict], embedding_text_mode: s
             continue
         if kind in {"properties_file", "yaml_file", "md_file"}:
             continue
-        if kind not in {"typescript_file"} and not file_path.endswith(("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")):
+        if kind not in {"typescript_file"} and not file_path.endswith(
+            ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
+        ):
             continue
         summary = _build_gradle_summary(record, embedding_text_mode)
         if summary is not None:
@@ -554,7 +588,9 @@ def build_component_catalog_markdown(summary_records: list[dict]) -> str:
     }
 
     for kind, label in kind_labels.items():
-        records = sorted(by_kind.get(kind, []), key=lambda r: r.get("module_area") or r.get("folder") or r.get("package") or "")
+        records = sorted(
+            by_kind.get(kind, []), key=lambda r: r.get("module_area") or r.get("folder") or r.get("package") or ""
+        )
         if not records:
             continue
         lines.append(label)
@@ -572,11 +608,7 @@ def build_component_catalog_markdown(summary_records: list[dict]) -> str:
                 lines.append("")
                 lines.append(narrative)
             lines.append("")
-            lines.append(
-                f"**Dateien:** {file_count} | "
-                f"**Klassen:** {class_count} | "
-                f"**Funktionen:** {func_count}"
-            )
+            lines.append(f"**Dateien:** {file_count} | **Klassen:** {class_count} | **Funktionen:** {func_count}")
             top_classes = (rec.get("classes") or [])[:6]
             if top_classes:
                 lines.append(f"**Schlüssel-Klassen:** {', '.join(str(c) for c in top_classes)}")

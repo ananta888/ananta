@@ -293,9 +293,7 @@ class PostgresCollaborationCoordinationRepository:
             raise CollaborationStoreConflict("collaboration_presence_epoch_stale")
         return value
 
-    def presence_values(
-        self, *, tenant_id: str, workspace_id: str, now: float
-    ) -> list[dict[str, Any]]:
+    def presence_values(self, *, tenant_id: str, workspace_id: str, now: float) -> list[dict[str, Any]]:
         tenant, workspace = _workspace_scope(tenant_id, workspace_id)
         with self._engine.connect() as connection:
             values = connection.execute(

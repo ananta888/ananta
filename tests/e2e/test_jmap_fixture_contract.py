@@ -6,7 +6,6 @@ from typing import Any, Mapping, Sequence
 from agent.services.jmap_http_transport import JmapHttpRequest
 from tests.e2e.mail_ananta_composition_harness import ContractJmapAdapter
 
-
 CORE_CAPABILITY = "urn:ietf:params:jmap:core"
 MAIL_CAPABILITY = "urn:ietf:params:jmap:mail"
 
@@ -20,17 +19,9 @@ def _send(
     response = adapter.send(
         JmapHttpRequest(
             method=method,
-            url=(
-                "http://127.0.0.1:18080/.well-known/jmap"
-                if method == "GET"
-                else "http://127.0.0.1:18080/jmap"
-            ),
+            url=("http://127.0.0.1:18080/.well-known/jmap" if method == "GET" else "http://127.0.0.1:18080/jmap"),
             headers={"accept": "application/json"},
-            body=(
-                None
-                if payload is None
-                else json.dumps(dict(payload), separators=(",", ":")).encode("utf-8")
-            ),
+            body=(None if payload is None else json.dumps(dict(payload), separators=(",", ":")).encode("utf-8")),
             connect_timeout_seconds=1.0,
             read_timeout_seconds=1.0,
             maximum_response_bytes=1024 * 1024,
@@ -59,9 +50,7 @@ def test_fixture_exposes_only_standard_jmap_capabilities() -> None:
 
     assert set(session["capabilities"]) == {CORE_CAPABILITY, MAIL_CAPABILITY}
     assert session["primaryAccounts"] == {MAIL_CAPABILITY: "A1"}
-    assert session["accounts"]["A1"]["accountCapabilities"] == {
-        MAIL_CAPABILITY: {}
-    }
+    assert session["accounts"]["A1"]["accountCapabilities"] == {MAIL_CAPABILITY: {}}
 
 
 def test_fixture_is_deterministic_and_isolated_per_instance() -> None:

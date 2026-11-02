@@ -47,4 +47,3 @@ def test_wiki_normalizer_produces_chunk_records(tmp_path):
     assert records
     assert records[0]["kind"] == "wiki_section_chunk"
     assert records[0]["article_title"] == "Artikel"
-

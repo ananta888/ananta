@@ -67,9 +67,7 @@ class PeerOverlayQualityPolicy:
         latest: dict[str, AcceptedPeerQualityObservation] = {}
         for raw in values:
             value = (
-                raw
-                if isinstance(raw, AcceptedPeerQualityObservation)
-                else AcceptedPeerQualityObservation(**dict(raw))
+                raw if isinstance(raw, AcceptedPeerQualityObservation) else AcceptedPeerQualityObservation(**dict(raw))
             )
             if (
                 value.relay_peer_id != relay

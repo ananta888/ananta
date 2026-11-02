@@ -144,9 +144,7 @@ class WorkflowHubTaskGatewayService:
         self._ownership = ownership
         self._events = events
         self._codec = codec
-        self._authorization_revalidator = (
-            authorization_revalidator or UnavailableHubAuthorizationRevalidator()
-        )
+        self._authorization_revalidator = authorization_revalidator or UnavailableHubAuthorizationRevalidator()
         self._config = config or WorkflowHubTaskGatewayConfig()
 
     def submit(self, raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -235,10 +233,7 @@ class WorkflowHubTaskGatewayService:
         authorization envelope rather than caller-controlled route state.
         """
 
-        if (
-            str(raw.get("schema") or "") != HUB_TASK_COMMAND_SCHEMA
-            or raw.get("command") != "consume_retry"
-        ):
+        if str(raw.get("schema") or "") != HUB_TASK_COMMAND_SCHEMA or raw.get("command") != "consume_retry":
             raise WorkflowHubTaskError("workflow_hub_task_command_invalid", status_code=400)
         request = self._activity_request(raw)
         self._validate_operation_binding(request)

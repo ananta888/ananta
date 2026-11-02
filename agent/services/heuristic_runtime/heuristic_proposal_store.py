@@ -1,8 +1,10 @@
 """Heuristic Proposal Store — speichert LLM-Kandidaten als JSON-Dateien."""
+
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 import uuid
@@ -39,15 +41,15 @@ class StoredProposal:
 class HeuristicProposalStore:
     def __init__(self, candidates_dir: str | None = None) -> None:
         if candidates_dir is None:
-            candidates_dir = os.path.join(
-                os.path.dirname(__file__), "..", "..", "..", "..", "heuristics", "candidates"
-            )
+            candidates_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "heuristics", "candidates")
         self._dir = os.path.abspath(candidates_dir)
         os.makedirs(self._dir, exist_ok=True)
         self._content_hashes: set[str] = set()
         self._load_existing_hashes()
 
-    def store(self, dsl: dict[str, Any], *, model: str = "unknown", source_snapshot_hashes: list[str] | None = None) -> StoredProposal | None:
+    def store(
+        self, dsl: dict[str, Any], *, model: str = "unknown", source_snapshot_hashes: list[str] | None = None
+    ) -> StoredProposal | None:
         """Speichert Kandidaten. Duplikate werden via content_hash erkannt."""
         content_hash = self._compute_content_hash(dsl)
         if content_hash in self._content_hashes:
@@ -83,7 +85,7 @@ class HeuristicProposalStore:
 
     def list_proposals(self) -> list[str]:
         return [
-            f[:-len(".heuristic_proposal.json")]
+            f[: -len(".heuristic_proposal.json")]
             for f in os.listdir(self._dir)
             if f.endswith(".heuristic_proposal.json")
         ]
@@ -101,4 +103,4 @@ class HeuristicProposalStore:
                     if "content_hash" in data:
                         self._content_hashes.add(data["content_hash"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("_load_existing_hashes: ignored Exception", exc_info=True)

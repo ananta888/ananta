@@ -25,8 +25,7 @@ def _package_resources(sdk):
         raise PermissionError("pi_filesystem_runtime_layout_invalid")
     package = sdk.parent.parent
     modules = package.parent.parent
-    if (package.name != "pi-coding-agent" or package.parent.name != "@earendil-works"
-            or modules.name != "node_modules"):
+    if package.name != "pi-coding-agent" or package.parent.name != "@earendil-works" or modules.name != "node_modules":
         raise PermissionError("pi_filesystem_runtime_layout_invalid")
     return modules
 
@@ -38,21 +37,37 @@ def pi_execution_launch(argv, *, workspace, environment):
         return
     root = Path(workspace).resolve(strict=True)
     config = (root.parent / "config").resolve(strict=True)
-    if (len(argv) != 4 or Path(argv[1]).resolve(strict=True) != _sdk_entry()
-            or root.name != "work" or not root.parent.name.startswith("ananta-pi-")
-            or config != root.parent / "config" or Path(argv[3]).resolve(strict=True) != config
-            or environment.get("PI_CODING_AGENT_DIR") != str(config)):
+    if (
+        len(argv) != 4
+        or Path(argv[1]).resolve(strict=True) != _sdk_entry()
+        or root.name != "work"
+        or not root.parent.name.startswith("ananta-pi-")
+        or config != root.parent / "config"
+        or Path(argv[3]).resolve(strict=True) != config
+        or environment.get("PI_CODING_AGENT_DIR") != str(config)
+    ):
         raise PermissionError("pi_filesystem_configuration_binding_invalid")
     entry = _sdk_entry()
-    resources = (config, entry, entry.with_name("pi_http_transport.mjs").resolve(strict=True),
-                 entry.with_name("pi_runtime_credentials.mjs").resolve(strict=True),
-                 _package_resources(argv[2]), Path(argv[0]).resolve(strict=True))
+    resources = (
+        config,
+        entry,
+        entry.with_name("pi_http_transport.mjs").resolve(strict=True),
+        entry.with_name("pi_runtime_credentials.mjs").resolve(strict=True),
+        _package_resources(argv[2]),
+        Path(argv[0]).resolve(strict=True),
+    )
     # The Hub may select a Docker service hostname. Grant only these fixed
     # system DNS files, never the whole /etc tree or Worker-private state.
-    resources += tuple(Path(name).resolve(strict=True) for name in ("/etc/hosts", "/etc/resolv.conf")
-                       if Path(name).is_file())
-    with isolated_command(argv, workspace=root, environment=environment, readonly_paths=resources,
-                          allowed_environment_keys=_PI_ENVIRONMENT) as launch:
+    resources += tuple(
+        Path(name).resolve(strict=True) for name in ("/etc/hosts", "/etc/resolv.conf") if Path(name).is_file()
+    )
+    with isolated_command(
+        argv,
+        workspace=root,
+        environment=environment,
+        readonly_paths=resources,
+        allowed_environment_keys=_PI_ENVIRONMENT,
+    ) as launch:
         yield launch
 
 
@@ -78,11 +93,19 @@ class PiProbeProcess:
             projected = {**environment, "PI_CODING_AGENT_DIR": str(workspace)}
 
             def launch(args, *, workspace, environment):
-                return isolated_command(args, workspace=workspace, environment=environment, readonly_paths=resources,
-                                        allowed_environment_keys=_PI_ENVIRONMENT[:-1])
+                return isolated_command(
+                    args,
+                    workspace=workspace,
+                    environment=environment,
+                    readonly_paths=resources,
+                    allowed_environment_keys=_PI_ENVIRONMENT[:-1],
+                )
 
             return BoundedCodingAgentProcess(launch_context=launch).run(
-                argv, cwd=workspace, environment=projected, **options,
+                argv,
+                cwd=workspace,
+                environment=projected,
+                **options,
             )
 
 

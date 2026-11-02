@@ -31,7 +31,6 @@ from agent.services.sfu_fanout_reconciliation_service import (
     SfuFanoutRouteReconciliationService,
 )
 
-
 NOW_MS = 1_900_000_000_000
 SCOPE = RouteReconciliationScope("tenant-a", "room-a")
 
@@ -51,9 +50,7 @@ class LeasePort:
     def acquire(self, *, scope, owner_ref, now_ms, lease_ttl_ms):
         if not self.available:
             return None
-        return RouteReconciliationLease(
-            scope, owner_ref, "lease-fence", now_ms + lease_ttl_ms
-        )
+        return RouteReconciliationLease(scope, owner_ref, "lease-fence", now_ms + lease_ttl_ms)
 
     def release(self, lease):
         self.released.append(lease)
@@ -156,9 +153,7 @@ def projection(route_id, number=1):
 
 
 def candidate(route_id, phase, cursor):
-    return RouteReconciliationCandidate(
-        f"candidate-{route_id}", projection(route_id).key, phase, cursor
-    )
+    return RouteReconciliationCandidate(f"candidate-{route_id}", projection(route_id).key, phase, cursor)
 
 
 def authority(item, *, state, desired=None, expected=None, revoke=None):
@@ -181,9 +176,7 @@ def authority(item, *, state, desired=None, expected=None, revoke=None):
 
 def service(pages, authorities, *, config=None, leases=None):
     clock = Clock()
-    mock = DeterministicSfuBroadcastRouteMockAdapter(
-        clock=clock, fault_plan=ScriptedRouteFaultPlanV1()
-    )
+    mock = DeterministicSfuBroadcastRouteMockAdapter(clock=clock, fault_plan=ScriptedRouteFaultPlanV1())
     routes = RecordingRoutes(mock)
     outcomes = Outcomes()
     checkpoints = Checkpoints()
@@ -246,18 +239,12 @@ def test_item_bound_returns_resume_cursor_and_second_hub_is_lease_denied():
     config = SfuFanoutReconciliationConfig(reconcile_items_max=1)
     svc, _routes, _outcomes, _checkpoints, _mock = service(
         pages,
-        {
-            first.candidate_ref: authority(
-                first, state=ReconciliationDesiredState.TOMBSTONED
-            )
-        },
+        {first.candidate_ref: authority(first, state=ReconciliationDesiredState.TOMBSTONED)},
         config=config,
     )
     result = svc.reconcile(scope=SCOPE, owner_ref="hub-a")
     assert result.status is ReconciliationRunStatus.PARTIAL
-    assert result.next_cursor == RouteReconciliationCursor(
-        ReconciliationPhase.REVOKE, "after-one"
-    )
+    assert result.next_cursor == RouteReconciliationCursor(ReconciliationPhase.REVOKE, "after-one")
     busy, *_ = service(pages, {}, leases=LeasePort(available=False))
     denied = busy.reconcile(scope=SCOPE, owner_ref="hub-b")
     assert denied.status is ReconciliationRunStatus.BUSY

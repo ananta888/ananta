@@ -146,9 +146,7 @@ def test_github_oauth_uses_stored_grant_and_least_privilege_scopes():
         oauth_grants=_OAuthStore(),
     )
 
-    resolved = provisioner.resolve_authorization(
-        _request(kind="github_oauth", handle="github-oauth:user-1")
-    )
+    resolved = provisioner.resolve_authorization(_request(kind="github_oauth", handle="github-oauth:user-1"))
 
     assert resolved.authorization_kind == "github_oauth"
     assert resolved.granted_scopes == frozenset({"contents:read"})
@@ -172,9 +170,7 @@ def test_github_oauth_fails_closed_without_grant_store():
         HubGitAuthorizationProvisioningError,
         match="git_authorization_oauth_grant_unavailable",
     ):
-        provisioner.resolve_authorization(
-            _request(kind="github_oauth", handle="github-oauth:user-1")
-        )
+        provisioner.resolve_authorization(_request(kind="github_oauth", handle="github-oauth:user-1"))
 
 
 def test_github_oauth_rejects_insufficient_scopes():
@@ -189,9 +185,7 @@ def test_github_oauth_rejects_insufficient_scopes():
         HubGitAuthorizationProvisioningError,
         match="git_authorization_required_scope_missing",
     ):
-        provisioner.resolve_authorization(
-            _request(kind="github_oauth", handle="github-oauth:user-1")
-        )
+        provisioner.resolve_authorization(_request(kind="github_oauth", handle="github-oauth:user-1"))
 
 
 def test_secret_resolver_mints_installation_token_on_demand():
@@ -243,8 +237,7 @@ def test_factory_composes_oauth_without_github_app_credentials(monkeypatch):
     monkeypatch.delenv("HUB_GIT_GITHUB_APP_ID", raising=False)
     monkeypatch.delenv("HUB_GIT_GITHUB_APP_PRIVATE_KEY_REF", raising=False)
     monkeypatch.setattr(
-        "agent.services.hub_git_github_authorization_provider."
-        "HttpGitHubAuthorizationApi",
+        "agent.services.hub_git_github_authorization_provider.HttpGitHubAuthorizationApi",
         _Api,
     )
 
@@ -256,9 +249,7 @@ def test_factory_composes_oauth_without_github_app_credentials(monkeypatch):
     assert composition is not None
     provisioner, secrets = composition
     assert provisioner.health(scope=_scope()).status == "healthy"
-    assert secrets.resolve(
-        "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
-    ) == "oauth-token"
+    assert secrets.resolve("secret://github-oauth/grant/user-1/repository/owner%2Frepository") == "oauth-token"
 
 
 def test_factory_rejects_partial_github_app_configuration(monkeypatch):

@@ -30,6 +30,9 @@ def test_committed_three_peer_evidence_is_fail_closed_and_pinned():
 @pytest.mark.skipif(os.environ.get("RUN_LIVE_SFU_TESTS") != "1", reason="requires pinned live SFU")
 def test_live_three_peer_spike():
     subprocess.run(
-        ["node", "scripts/spikes/semantic_sfu_three_peer.mjs"], cwd=ROOT,
-        check=True, timeout=180, env=os.environ.copy(),
+        ["node", "scripts/spikes/semantic_sfu_three_peer.mjs"],
+        cwd=ROOT,
+        check=True,
+        timeout=180,
+        env=os.environ.copy(),
     )

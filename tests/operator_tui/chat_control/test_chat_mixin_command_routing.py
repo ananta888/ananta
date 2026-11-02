@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-from client_surfaces.operator_tui.chat_control_config import ChatControlConfig
 from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
 from client_surfaces.operator_tui.chat_control_policy import evaluate
 from client_surfaces.operator_tui.tui_action_dispatcher import ActionRequest, TuiActionDispatcher

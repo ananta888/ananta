@@ -39,11 +39,7 @@ def normalize_source_records(
 def source_record_files(records: list[dict[str, Any]]) -> set[str]:
     source_files = {
         str(
-            (
-                (item.get("metadata") or {}).get("relative_path")
-                if isinstance(item.get("metadata"), dict)
-                else ""
-            )
+            ((item.get("metadata") or {}).get("relative_path") if isinstance(item.get("metadata"), dict) else "")
             or item.get("file")
             or item.get("path")
             or ""

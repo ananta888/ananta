@@ -228,10 +228,7 @@ def _authenticate_request(
                 _set_agent_admin_context(
                     {
                         **payload,
-                        "auth_mode": str(
-                            payload.get("auth_mode")
-                            or "agent_jwt"
-                        ),
+                        "auth_mode": str(payload.get("auth_mode") or "agent_jwt"),
                     }
                 )
                 return True, "agent_jwt"
@@ -507,17 +504,12 @@ def _strict_runtime_service_bearer_error(*, required_scope: str):
     try:
         hub_service_token = resolve_configured_agent_token(current_app.config)
         registered_worker_tokens = tuple(
-            str(getattr(agent, "token", "") or "")
-            for agent in (
-                get_repository_registry().agent_repo.get_all() or ()
-            )
+            str(getattr(agent, "token", "") or "") for agent in (get_repository_registry().agent_repo.get_all() or ())
         )
         credential = authenticate_preconfigured_runtime_service(
             provided_token,
             required_scope=required_scope,
-            claimed_service_id=str(
-                request.headers.get(RUNTIME_SERVICE_ID_HEADER) or ""
-            ),
+            claimed_service_id=str(request.headers.get(RUNTIME_SERVICE_ID_HEADER) or ""),
             forbidden_token=hub_service_token,
             forbidden_tokens=registered_worker_tokens,
             forbidden_user_session_secret=current_app.secret_key,
@@ -612,18 +604,13 @@ def check_service_auth(
 
             normalized_scope = str(scope or "").strip()
             strict = registered_worker_auth_required(current_app.config)
-            scoped_runtime = (
-                normalized_scope == WORKFLOW_TEMPORAL_TASK_SCOPE
-                and (strict or runtime_service_keyring_configured(current_app.config))
+            scoped_runtime = normalized_scope == WORKFLOW_TEMPORAL_TASK_SCOPE and (
+                strict or runtime_service_keyring_configured(current_app.config)
             )
             if scoped_runtime:
-                error = _strict_runtime_service_bearer_error(
-                    required_scope=normalized_scope
-                )
+                error = _strict_runtime_service_bearer_error(required_scope=normalized_scope)
             elif strict:
-                error = _strict_registered_worker_bearer_error(
-                    required_scope=normalized_scope
-                )
+                error = _strict_registered_worker_bearer_error(required_scope=normalized_scope)
             else:
                 error = _strict_bearer_error(service_only=True)
             if error is not None:
@@ -652,9 +639,7 @@ def check_registered_worker_auth(
     def decorator(target: Callable):
         @wraps(target)
         def wrapper(*args, **kwargs):
-            error = _strict_registered_worker_bearer_error(
-                required_scope=str(scope or "").strip()
-            )
+            error = _strict_registered_worker_bearer_error(required_scope=str(scope or "").strip())
             if error is not None:
                 return error
             return target(*args, **kwargs)
@@ -857,18 +842,8 @@ def get_authenticated_source_control_principal():
         or context.get("username")
         or ("hub_admin" if "admin" in roles else "")
     ).strip()
-    tenant_id = str(
-        context.get("tenant_id")
-        or context.get("tenant")
-        or context.get("tid")
-        or ""
-    ).strip()
-    project_id = str(
-        context.get("project_id")
-        or context.get("project")
-        or context.get("pid")
-        or ""
-    ).strip()
+    tenant_id = str(context.get("tenant_id") or context.get("tenant") or context.get("tid") or "").strip()
+    project_id = str(context.get("project_id") or context.get("project") or context.get("pid") or "").strip()
     return HubSourcePrincipal(
         subject_id=subject_id,
         tenant_id=tenant_id or None,

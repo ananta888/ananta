@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from agent.routes.tasks import utils as task_utils
 from agent.services import autopilot_support_service as support_module
+from agent.services import task_forwarding_utils
 from agent.services.autopilot_support_service import AutopilotSupportService
 
 
@@ -31,16 +32,14 @@ def test_autopilot_status_writer_leaves_bound_v2_task_to_hub_cas(
 ) -> None:
     writes: list[dict] = []
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "get_local_task_status",
         lambda _task_id: _bound_task(),
     )
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     result = task_utils._update_local_task_status(
@@ -62,16 +61,12 @@ def test_autopilot_trace_writer_does_not_touch_bound_v2_task(
     monkeypatch.setattr(
         support_module,
         "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
-            task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)
-        ),
+        lambda _app=None: SimpleNamespace(task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)),
     )
     monkeypatch.setattr(
         support_module,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     AutopilotSupportService().append_trace_event(
@@ -87,16 +82,14 @@ def test_autopilot_status_writer_still_updates_ordinary_tasks(
 ) -> None:
     writes: list[dict] = []
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "get_local_task_status",
         lambda _task_id: {"id": "ordinary-task"},
     )
     monkeypatch.setattr(
-        task_utils,
+        task_forwarding_utils,
         "update_local_task_status",
-        lambda *args, **kwargs: writes.append(
-            {"args": args, "kwargs": kwargs}
-        ),
+        lambda *args, **kwargs: writes.append({"args": args, "kwargs": kwargs}),
     )
 
     task_utils._update_local_task_status(

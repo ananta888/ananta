@@ -8,10 +8,14 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW_PORT_MODULES = frozenset({
-    "agent/repositories/memory.py", "agent/repositories/memory_migration.py",
-    "agent/services/result_memory_service.py", "agent/services/legacy_memory_access.py",
-})
+RAW_PORT_MODULES = frozenset(
+    {
+        "agent/repositories/memory.py",
+        "agent/repositories/memory_migration.py",
+        "agent/services/result_memory_service.py",
+        "agent/services/legacy_memory_access.py",
+    }
+)
 METHODS = frozenset({"get_by_task", "get_by_goal", "get_by_id", "get_by_namespace", "save"})
 
 
@@ -74,8 +78,7 @@ def legacy_access_violations(path, source):
     for _ in range(len(assignments) + 1):
         before = (frozenset(raw_names), frozenset(scoped_names))
         for node in assignments:
-            targets = [label(target) for target in
-                       (node.targets if isinstance(node, ast.Assign) else [node.target])]
+            targets = [label(target) for target in (node.targets if isinstance(node, ast.Assign) else [node.target])]
             function = node.value.func if isinstance(node.value, ast.Call) else None
             if isinstance(function, ast.Name) and function.id == "scoped_memory_reader":
                 scoped_names.update(target for target in targets if target)
@@ -83,9 +86,11 @@ def legacy_access_violations(path, source):
                 raw_names.update(target for target in targets if target)
         if before == (frozenset(raw_names), frozenset(scoped_names)):
             break
-    return [f"{path}:{node.lineno}:unscoped_memory_port:{node.attr}"
-            for node in ast.walk(tree) if isinstance(node, ast.Attribute)
-            and node.attr in METHODS and is_raw(node.value)]
+    return [
+        f"{path}:{node.lineno}:unscoped_memory_port:{node.attr}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute) and node.attr in METHODS and is_raw(node.value)
+    ]
 
 
 def main():

@@ -27,7 +27,9 @@ class SemanticTranslationVerifier:
         self.type_registry = type_registry or TypeMappingRegistry()
         self.semantic_executor = semantic_executor or get_semantic_adapter_registry()
 
-    def verify(self, *, source_path: str, source_code: str, target_code: str, transform_artifact: dict[str, Any]) -> dict[str, Any]:
+    def verify(
+        self, *, source_path: str, source_code: str, target_code: str, transform_artifact: dict[str, Any]
+    ) -> dict[str, Any]:
         target_language = str(transform_artifact.get("target_language") or "").lower()
         graph = self.semantic_executor.emit_graph_records_for_language(
             "java",
@@ -61,12 +63,23 @@ class SemanticTranslationVerifier:
                 continue
             for prop in attrs.get("properties") or []:
                 if prop["name"] not in target_code:
-                    errors.append({"code": "missing_target_property", "source_node": node["id"], "reason": prop["name"]})
+                    errors.append(
+                        {"code": "missing_target_property", "source_node": node["id"], "reason": prop["name"]}
+                    )
                     continue
-                mapped = self.type_registry.map_type(prop.get("type", ""), source_language="java", target_language=target_language, policy={})
+                mapped = self.type_registry.map_type(
+                    prop.get("type", ""), source_language="java", target_language=target_language, policy={}
+                )
                 target_type = str(mapped.get("target_type") or "")
                 if target_type and target_type not in target_code:
-                    errors.append({"code": "target_type_mismatch", "source_node": node["id"], "rule_id": mapped.get("rule_id"), "reason": f"{prop['name']}:{target_type}"})
+                    errors.append(
+                        {
+                            "code": "target_type_mismatch",
+                            "source_node": node["id"],
+                            "rule_id": mapped.get("rule_id"),
+                            "reason": f"{prop['name']}:{target_type}",
+                        }
+                    )
         if errors:
             status = "failed"
         elif transform_artifact.get("status") == "needs_review" or warnings:

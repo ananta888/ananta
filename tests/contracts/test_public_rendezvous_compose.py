@@ -133,7 +133,7 @@ def test_public_tui_client_explicitly_allows_pair_dev_origins():
     assert tui_client["attributes"]["pkce.code.challenge.method"] == "S256"
     assert 'webOrigins=["+"]' not in setup
     assert 'PUBLIC_BROWSER_ORIGIN="${ANANTA_PUBLIC_BROWSER_ORIGIN:-https://minipc.ananta.de}"' in setup
-    assert setup.count('${PUBLIC_BROWSER_ORIGIN}\\\"]"') == 2
+    assert setup.count('${PUBLIC_BROWSER_ORIGIN}\\"]"') == 2
     assert setup.count('-s "fullScopeAllowed=false"') == 2
     assert setup.count('-s "attributes.\\"pkce.code.challenge.method\\"=S256"') == 2
 
@@ -144,7 +144,7 @@ def test_public_tui_client_explicitly_allows_pair_dev_origins():
     ):
         assert redirect_uri in tui_client["redirectUris"]
         if redirect_uri == "https://minipc.ananta.de/oidc-callback":
-            assert setup.count('${PUBLIC_BROWSER_ORIGIN}/oidc-callback') == 2
+            assert setup.count("${PUBLIC_BROWSER_ORIGIN}/oidc-callback") == 2
         else:
             assert setup.count(redirect_uri) == 2
 
@@ -153,10 +153,7 @@ def test_local_https_edge_pins_the_supported_public_authorities():
     nginx = NGINX_CONFIG.read_text(encoding="utf-8")
     csp = next(line for line in nginx.splitlines() if "Content-Security-Policy" in line)
 
-    assert (
-        "connect-src 'self' https://keycloak.ananta.de "
-        "https://webrtc.ananta.de ws: wss:;"
-    ) in csp
+    assert ("connect-src 'self' https://keycloak.ananta.de https://webrtc.ananta.de ws: wss:;") in csp
     assert "connect-src 'self' https: " not in csp
 
 

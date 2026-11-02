@@ -146,9 +146,7 @@ def test_completed_task_without_canonical_result_is_a_failure_never_synthetic_su
     receipt = adapter.submit(command())
     repository.values[receipt.hub_task_id].status = "completed"
 
-    polled = adapter.poll(
-        tenant_id="tenant-a", run_id="run-a", hub_task_ids=(receipt.hub_task_id,)
-    )
+    polled = adapter.poll(tenant_id="tenant-a", run_id="run-a", hub_task_ids=(receipt.hub_task_id,))
 
     assert polled[0].status == "failed"
     assert polled[0].reason_code == "native_node_result_contract_missing"
@@ -207,9 +205,7 @@ def test_native_adapter_implements_shared_execution_runtime_port_fail_closed() -
     )
 
     completed = adapter.execute(delegated)
-    invalid = adapter.execute(
-        DelegatedExecutionRequest(**{**delegated.__dict__, "step_id": "other-step"})
-    )
+    invalid = adapter.execute(DelegatedExecutionRequest(**{**delegated.__dict__, "step_id": "other-step"}))
 
     assert completed.status == "completed"
     assert invalid.status == "failed"
@@ -242,20 +238,12 @@ def test_native_handler_never_publishes_declared_outputs_on_failure(
             return {
                 "status": runtime_status,
                 "failure_type": "runtime_failure",
-                "artifact_refs": {
-                    "declared-output": (
-                        "artifact://materialized/declared-output"
-                    )
-                },
+                "artifact_refs": {"declared-output": ("artifact://materialized/declared-output")},
             }
 
     handler = NativeTaskScopedNodeHandler(
         agent_config={},
-        task_snapshots=SimpleNamespace(
-            task_snapshot=lambda **_values: {
-                "id": "hub-task-a"
-            }
-        ),
+        task_snapshots=SimpleNamespace(task_snapshot=lambda **_values: {"id": "hub-task-a"}),
         executor=Executor(),
     )
 
@@ -284,11 +272,7 @@ def test_native_handler_requires_hub_publication_for_materialized_outputs() -> N
 
     actual = NativeTaskScopedNodeHandler(
         agent_config={},
-        task_snapshots=SimpleNamespace(
-            task_snapshot=lambda **_values: {
-                "id": "hub-task-a"
-            }
-        ),
+        task_snapshots=SimpleNamespace(task_snapshot=lambda **_values: {"id": "hub-task-a"}),
         executor=Executor(),
     ).execute(
         value,
@@ -319,8 +303,10 @@ def test_native_handler_publishes_before_returning_completed_artifacts(publicati
         return {"declared-output": "artifact://native-artifact-" + "a" * 64}
 
     handler = NativeTaskScopedNodeHandler(
-        agent_config={}, task_snapshots=SimpleNamespace(task_snapshot=lambda **values: task),
-        executor=SimpleNamespace(execute=execute), artifact_publication=SimpleNamespace(publish=publish),
+        agent_config={},
+        task_snapshots=SimpleNamespace(task_snapshot=lambda **values: task),
+        executor=SimpleNamespace(execute=execute),
+        artifact_publication=SimpleNamespace(publish=publish),
     )
     if publication_fails:
         with pytest.raises(ValueError, match="native_artifact_http_unavailable"):
@@ -349,11 +335,7 @@ def test_native_execution_adapter_drops_failed_result_artifacts() -> None:
                 attempt_id=received.attempt_id,
                 fencing_token=received.fencing_token,
                 status="failed",
-                artifact_refs={
-                    "declared-output": (
-                        "artifact://untrusted/failed-output"
-                    )
-                },
+                artifact_refs={"declared-output": ("artifact://untrusted/failed-output")},
                 reason_code="runtime_failure",
             )
 
@@ -376,9 +358,7 @@ def test_native_execution_adapter_drops_failed_result_artifacts() -> None:
         },
     )
 
-    actual = NativeExecutionRuntimeAdapter(Runtime()).execute(
-        delegated
-    )
+    actual = NativeExecutionRuntimeAdapter(Runtime()).execute(delegated)
 
     assert actual.status == "failed"
     assert actual.artifact_refs == ()
@@ -390,9 +370,7 @@ def test_provider_needing_native_node_requires_and_round_trips_hub_binding() -> 
         node_id=value.node.node_id,
         required_capabilities=("text_generation",),
     )
-    unbound = NativeNodeCommand(
-        **{**value.__dict__, "node": provider_node}
-    )
+    unbound = NativeNodeCommand(**{**value.__dict__, "node": provider_node})
 
     with pytest.raises(ValueError, match="native_node_provider_binding_required"):
         unbound.assert_valid()
@@ -403,9 +381,7 @@ def test_provider_needing_native_node_requires_and_round_trips_hub_binding() -> 
         source="hub_config.defaults",
         reason_code="hub_provider_policy_selected",
     )
-    bound = NativeNodeCommand(
-        **{**unbound.__dict__, "provider_binding": binding}
-    )
+    bound = NativeNodeCommand(**{**unbound.__dict__, "provider_binding": binding})
 
     restored = NativeNodeCommand.from_mapping(bound.to_dict())
     assert restored.provider_binding == binding

@@ -76,9 +76,7 @@ class WorkflowAdapterTask:
                 task_type=str(raw.get("task_type") or "").strip(),
                 attempt_id=str(raw.get("attempt_id") or "").strip(),
                 fencing_token=int(raw.get("fencing_token")),
-                authorization_envelope=AuthorizationEnvelopeRef.from_mapping(
-                    raw.get("authorization_envelope")
-                ),
+                authorization_envelope=AuthorizationEnvelopeRef.from_mapping(raw.get("authorization_envelope")),
                 payload=dict(raw.get("payload") or {}),
                 correlation_id=str(raw.get("correlation_id") or "").strip(),
                 provider_binding=(
@@ -86,24 +84,16 @@ class WorkflowAdapterTask:
                     if raw.get("provider_binding") is not None
                     else None
                 ),
-                primary_profile_id=str(
-                    raw.get("primary_profile_id") or ""
-                ).strip(),
+                primary_profile_id=str(raw.get("primary_profile_id") or "").strip(),
                 provider_profile_bindings=tuple(
                     ProviderProfileExecutionBinding.from_mapping(item)
-                    for item in _profile_binding_items(
-                        raw.get("provider_profile_bindings")
-                    )
+                    for item in _profile_binding_items(raw.get("provider_profile_bindings"))
                 ),
                 provider_attempt_plan=tuple(
                     ProviderProfileAttemptPlanEntry.from_mapping(item)
-                    for item in _profile_binding_items(
-                        raw.get("provider_attempt_plan")
-                    )
+                    for item in _profile_binding_items(raw.get("provider_attempt_plan"))
                 ),
-                provider_maximum_attempts=int(
-                    raw.get("provider_maximum_attempts") or 0
-                ),
+                provider_maximum_attempts=int(raw.get("provider_maximum_attempts") or 0),
                 runtime_path=str(raw.get("runtime_path") or "").strip(),
             )
         except (TypeError, ValueError) as exc:
@@ -134,20 +124,14 @@ class WorkflowAdapterTask:
         if self.command not in WORKFLOW_ADAPTER_COMMANDS:
             raise WorkflowAdapterTaskContractError("workflow_adapter_command_unsupported")
         if self.command == "execute" and self.provider_binding is None:
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_binding_required"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_binding_required")
         if self.command == "dry_run" and self.provider_binding is not None:
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_dry_run_provider_transport_denied"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_dry_run_provider_transport_denied")
         if self.provider_binding is not None:
             try:
                 self.provider_binding.validate()
             except ValueError as exc:
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_provider_binding_invalid"
-                ) from exc
+                raise WorkflowAdapterTaskContractError("workflow_adapter_provider_binding_invalid") from exc
         self._validate_profile_bindings()
         if self.fencing_token < 1:
             raise WorkflowAdapterTaskContractError("workflow_adapter_fencing_invalid")
@@ -178,19 +162,11 @@ class WorkflowAdapterTask:
             raise WorkflowAdapterTaskContractError(str(reason)) from exc
         if self.authorization_envelope.policy_version != self.policy_version:
             raise WorkflowAdapterTaskContractError("workflow_adapter_policy_binding_mismatch")
-        if (
-            self.authorization_envelope.provider_attempt_plan
-            != self.provider_attempt_plan
-        ):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_attempt_plan_authorization_mismatch"
-            )
+        if self.authorization_envelope.provider_attempt_plan != self.provider_attempt_plan:
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_attempt_plan_authorization_mismatch")
         expected_authorizations = tuple(
             sorted(
-                (
-                    ProviderBindingAuthorization.from_binding(item.binding)
-                    for item in self.provider_profile_bindings
-                ),
+                (ProviderBindingAuthorization.from_binding(item.binding) for item in self.provider_profile_bindings),
                 key=lambda item: (
                     item.binding_id,
                     item.provider_id,
@@ -199,49 +175,31 @@ class WorkflowAdapterTask:
             )
         )
         if self.provider_profile_bindings and (
-            self.authorization_envelope.allowed_provider_bindings
-            != expected_authorizations
+            self.authorization_envelope.allowed_provider_bindings != expected_authorizations
         ):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_authorization_mismatch"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_authorization_mismatch")
         provider_context = self.payload.get("provider_context")
         if not isinstance(provider_context, Mapping):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_context_required"
-            )
-        selected_provider = str(
-            provider_context.get("selected_provider_id") or ""
-        ).strip()
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_context_required")
+        selected_provider = str(provider_context.get("selected_provider_id") or "").strip()
         selected_model = str(provider_context.get("selected_model_id") or "").strip()
         if self.provider_binding is None:
-            if selected_provider or selected_model or bool(
-                provider_context.get("require_hub_provider_budget", False)
-            ):
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_provider_transport_binding_mismatch"
-                )
+            if selected_provider or selected_model or bool(provider_context.get("require_hub_provider_budget", False)):
+                raise WorkflowAdapterTaskContractError("workflow_adapter_provider_transport_binding_mismatch")
         elif (
             selected_provider != self.provider_binding.provider_id
             or selected_model != self.provider_binding.model_id
-            or str(provider_context.get("provider_binding_id") or "")
-            != self.provider_binding.binding_id
-            or str(
-                provider_context.get("provider_endpoint_identity") or ""
-            ).strip()
+            or str(provider_context.get("provider_binding_id") or "") != self.provider_binding.binding_id
+            or str(provider_context.get("provider_endpoint_identity") or "").strip()
             != self.provider_binding.endpoint_identity
             or not bool(provider_context.get("require_hub_provider_budget", False))
         ):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_binding_mismatch"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_binding_mismatch")
         self._validate_profile_contexts(provider_context)
 
     def _validate_profile_bindings(self) -> None:
         if len(self.provider_profile_bindings) > 8:
-            raise WorkflowAdapterTaskContractError(
-                "provider_profile_binding_limit_exceeded"
-            )
+            raise WorkflowAdapterTaskContractError("provider_profile_binding_limit_exceeded")
         if self.command == "dry_run":
             if (
                 self.primary_profile_id
@@ -249,80 +207,44 @@ class WorkflowAdapterTask:
                 or self.provider_attempt_plan
                 or self.provider_maximum_attempts
             ):
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_dry_run_provider_transport_denied"
-                )
+                raise WorkflowAdapterTaskContractError("workflow_adapter_dry_run_provider_transport_denied")
             return
         if not self.provider_profile_bindings:
-            if (
-                self.primary_profile_id
-                or self.provider_attempt_plan
-                or self.provider_maximum_attempts
-            ):
-                raise WorkflowAdapterTaskContractError(
-                    "provider_primary_profile_binding_missing"
-                )
+            if self.primary_profile_id or self.provider_attempt_plan or self.provider_maximum_attempts:
+                raise WorkflowAdapterTaskContractError("provider_primary_profile_binding_missing")
             return
         if self.provider_binding is None or not self.primary_profile_id:
-            raise WorkflowAdapterTaskContractError(
-                "provider_primary_profile_binding_missing"
-            )
+            raise WorkflowAdapterTaskContractError("provider_primary_profile_binding_missing")
         if (
-            len(self.provider_attempt_plan)
-            != len(self.provider_profile_bindings)
-            or sum(
-                item.maximum_attempts
-                for item in self.provider_attempt_plan
-            )
-            != self.provider_maximum_attempts
-            or not (
-                len(self.provider_profile_bindings)
-                <= self.provider_maximum_attempts
-                <= 33
-            )
+            len(self.provider_attempt_plan) != len(self.provider_profile_bindings)
+            or sum(item.maximum_attempts for item in self.provider_attempt_plan) != self.provider_maximum_attempts
+            or not (len(self.provider_profile_bindings) <= self.provider_maximum_attempts <= 33)
         ):
-            raise WorkflowAdapterTaskContractError(
-                "provider_profile_retry_budget_invalid"
-            )
+            raise WorkflowAdapterTaskContractError("provider_profile_retry_budget_invalid")
         seen: set[str] = set()
         primary: ProviderExecutionBinding | None = None
         for item in self.provider_profile_bindings:
             try:
                 item.validate()
             except ValueError as exc:
-                raise WorkflowAdapterTaskContractError(
-                    "provider_profile_binding_invalid"
-                ) from exc
+                raise WorkflowAdapterTaskContractError("provider_profile_binding_invalid") from exc
             if item.profile_id in seen:
-                raise WorkflowAdapterTaskContractError(
-                    "provider_profile_binding_duplicate"
-                )
+                raise WorkflowAdapterTaskContractError("provider_profile_binding_duplicate")
             seen.add(item.profile_id)
             if item.profile_id == self.primary_profile_id:
                 primary = item.binding
         if primary != self.provider_binding:
-            raise WorkflowAdapterTaskContractError(
-                "provider_primary_profile_binding_mismatch"
-            )
-        expected = {
-            item.profile_id: item.binding
-            for item in self.provider_profile_bindings
-        }
-        if tuple(
-            item.profile_id for item in self.provider_attempt_plan
-        ) != tuple(
+            raise WorkflowAdapterTaskContractError("provider_primary_profile_binding_mismatch")
+        expected = {item.profile_id: item.binding for item in self.provider_profile_bindings}
+        if tuple(item.profile_id for item in self.provider_attempt_plan) != tuple(
             item.profile_id for item in self.provider_profile_bindings
         ):
-            raise WorkflowAdapterTaskContractError(
-                "provider_attempt_plan_order_mismatch"
-            )
+            raise WorkflowAdapterTaskContractError("provider_attempt_plan_order_mismatch")
         for item in self.provider_attempt_plan:
             try:
                 item.validate()
             except ValueError as exc:
-                raise WorkflowAdapterTaskContractError(
-                    "provider_attempt_plan_invalid"
-                ) from exc
+                raise WorkflowAdapterTaskContractError("provider_attempt_plan_invalid") from exc
             binding = expected.get(item.profile_id)
             if (
                 binding is None
@@ -331,9 +253,7 @@ class WorkflowAdapterTask:
                 or item.model_id != binding.model_id
                 or item.endpoint_identity != binding.endpoint_identity
             ):
-                raise WorkflowAdapterTaskContractError(
-                    "provider_attempt_plan_binding_mismatch"
-                )
+                raise WorkflowAdapterTaskContractError("provider_attempt_plan_binding_mismatch")
 
     def _validate_profile_contexts(
         self,
@@ -343,14 +263,10 @@ class WorkflowAdapterTask:
         if raw_contexts is None:
             raw_contexts = {}
         if not isinstance(raw_contexts, Mapping):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_profile_contexts_invalid"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_contexts_invalid")
         if not self.provider_profile_bindings:
             if raw_contexts:
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_provider_profile_contexts_unbound"
-                )
+                raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_contexts_unbound")
             return
         try:
             primary = ProviderInvocationContext.from_value(dict(raw_primary))
@@ -366,8 +282,7 @@ class WorkflowAdapterTask:
             or primary.policy_version != self.policy_version
             or primary.attempt_id != self.attempt_id
             or primary.fencing_token != self.fencing_token
-            or primary.authorization_envelope
-            != self.authorization_envelope.to_dict()
+            or primary.authorization_envelope != self.authorization_envelope.to_dict()
             or primary.retry_attempt != 0
             or primary.retry_id
             or primary.max_attempts != self.provider_maximum_attempts
@@ -376,52 +291,34 @@ class WorkflowAdapterTask:
             or primary.require_hub_retry_budget
             or primary.combined_retry_maximum != 0
         ):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_context_scope_mismatch"
-            )
-        expected = {
-            item.profile_id: item.binding
-            for item in self.provider_profile_bindings
-        }
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_context_scope_mismatch")
+        expected = {item.profile_id: item.binding for item in self.provider_profile_bindings}
         if set(str(key) for key in raw_contexts) != set(expected):
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_provider_profile_contexts_mismatch"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_contexts_mismatch")
         parsed: dict[str, ProviderInvocationContext] = {}
         for profile_id, binding in expected.items():
             raw_context = raw_contexts.get(profile_id)
             if not isinstance(raw_context, Mapping):
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_provider_profile_context_invalid"
-                )
+                raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_context_invalid")
             try:
-                context = ProviderInvocationContext.from_value(
-                    dict(raw_context)
-                )
+                context = ProviderInvocationContext.from_value(dict(raw_context))
                 context.assert_valid()
             except ProviderInvocationBlocked as exc:
-                raise WorkflowAdapterTaskContractError(
-                    exc.reason_code
-                ) from exc
+                raise WorkflowAdapterTaskContractError(exc.reason_code) from exc
             if (
                 context.selected_provider_id != binding.provider_id
                 or context.selected_model_id != binding.model_id
                 or context.provider_binding_id != binding.binding_id
-                or context.provider_endpoint_identity
-                != binding.endpoint_identity
+                or context.provider_endpoint_identity != binding.endpoint_identity
                 or context.provider_profile_id != profile_id
                 or not context.require_hub_provider_budget
                 or context.provider_transport_mode != "hub_bound"
             ):
-                raise WorkflowAdapterTaskContractError(
-                    "workflow_adapter_provider_profile_binding_mismatch"
-                )
+                raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_binding_mismatch")
             _assert_same_provider_scope(primary, context)
             parsed[profile_id] = context
         if parsed.get(self.primary_profile_id) != primary:
-            raise WorkflowAdapterTaskContractError(
-                "workflow_adapter_primary_provider_context_mismatch"
-            )
+            raise WorkflowAdapterTaskContractError("workflow_adapter_primary_provider_context_mismatch")
 
     def worker_payload(self) -> dict[str, Any]:
         """Overlay Hub bindings so nested payload values cannot widen scope."""
@@ -438,9 +335,7 @@ class WorkflowAdapterTask:
                 }
             )
             if self.provider_binding.endpoint_identity:
-                provider_context["provider_endpoint_identity"] = (
-                    self.provider_binding.endpoint_identity
-                )
+                provider_context["provider_endpoint_identity"] = self.provider_binding.endpoint_identity
             else:
                 provider_context.pop("provider_endpoint_identity", None)
         payload["provider_context"] = provider_context
@@ -477,9 +372,7 @@ def _profile_binding_items(raw: object) -> tuple[object, ...]:
     if raw is None:
         return ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
-        raise WorkflowAdapterTaskContractError(
-            "provider_profile_bindings_invalid"
-        )
+        raise WorkflowAdapterTaskContractError("provider_profile_bindings_invalid")
     return tuple(raw)
 
 
@@ -514,13 +407,8 @@ def _assert_same_provider_scope(
         "retry_id",
         "authorization_envelope",
     )
-    if any(
-        getattr(primary, field) != getattr(candidate, field)
-        for field in fields
-    ):
-        raise WorkflowAdapterTaskContractError(
-            "workflow_adapter_provider_profile_context_scope_mismatch"
-        )
+    if any(getattr(primary, field) != getattr(candidate, field) for field in fields):
+        raise WorkflowAdapterTaskContractError("workflow_adapter_provider_profile_context_scope_mismatch")
 
 
 def _contains_forbidden_secret_key(value: Any) -> bool:

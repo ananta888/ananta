@@ -3,6 +3,7 @@
 Versucht WebRTC DataChannel; fällt auf Hub Relay zurück.
 Policy- und Redaction-Gates bleiben identisch zu Hub Relay.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,7 +11,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-import uuid
 from typing import Any, Callable
 
 
@@ -43,7 +43,8 @@ class WebRtcTransport:
 
     def _check_rtc(self) -> bool:
         try:
-            import aiortc  # type: ignore
+            import aiortc  # type: ignore  # noqa: F401 — availability probe
+
             return True
         except ImportError:
             return False
@@ -54,11 +55,13 @@ class WebRtcTransport:
 
     def send_signal(self, recipient_id: str, signal_type: str, payload: Any) -> bool:
         url = f"{self._hub_url}/webrtc/sessions/{self._session_id}/signal"
-        body = json.dumps({
-            "recipient_id": recipient_id,
-            "type": signal_type,
-            "payload": payload,
-        }).encode()
+        body = json.dumps(
+            {
+                "recipient_id": recipient_id,
+                "type": signal_type,
+                "payload": payload,
+            }
+        ).encode()
         try:
             req = urllib.request.Request(
                 url,

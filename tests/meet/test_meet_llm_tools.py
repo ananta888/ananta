@@ -210,7 +210,13 @@ def test_the_last_round_is_sent_without_tools_and_tells_the_model_to_answer(open
     # model from imitating the tool rounds above as ``<tool_call>`` text.
     assert last["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
     assert [message["role"] for message in last["messages"]] == [
-        "system", "user", "assistant", "tool", "assistant", "tool", "user"
+        "system",
+        "user",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "user",
     ]
 
 
@@ -264,7 +270,8 @@ def test_a_leaked_call_on_the_final_round_is_run_and_the_answer_requested_again(
     leaked, result = repair["messages"][-3:-1]
     assert leaked["role"] == "assistant" and leaked["content"] == ""
     assert json.loads(leaked["tool_calls"][0]["function"]["arguments"]) == {
-        "query": "rag_helper semantic translation contracts", "limit": 5
+        "query": "rag_helper semantic translation contracts",
+        "limit": 5,
     }
     assert result["role"] == "tool" and result["tool_call_id"] == leaked["tool_calls"][0]["id"]
     assert repair["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
@@ -314,9 +321,7 @@ def test_the_model_supplied_limit_is_clamped(value, expected):
     assert retriever.queries == [("q", expected)]
 
 
-@pytest.mark.parametrize(
-    "arguments", ["", "   ", "{not json", "[1, 2]", "null", {"limit": 3}, {"query": "  "}, 7]
-)
+@pytest.mark.parametrize("arguments", ["", "   ", "{not json", "[1, 2]", "null", {"limit": 3}, {"query": "  "}, 7])
 def test_a_call_without_a_usable_query_is_answered_not_raised(arguments):
     retriever = Retriever()
     tool = llm_tools.CodeCompassTool(retriever)
@@ -370,7 +375,10 @@ def test_several_calls_in_one_round_are_all_executed_and_bounded(openai_backend)
     assert len(results) == llm_tools.MAX_CALLS_PER_REPLY
     assert [query for query, _limit in retriever.queries] == ["q0", "q1", "q2", "q3"]
     assert [call["id"] for call in port.payloads[1]["messages"][2]["tool_calls"]] == [
-        "call-0", "call-1", "call-2", "call-3"
+        "call-0",
+        "call-1",
+        "call-2",
+        "call-3",
     ]
 
 
@@ -413,9 +421,7 @@ def test_the_ollama_backend_runs_the_same_loop_with_object_arguments(ollama_back
             "message": {
                 "role": "assistant",
                 "content": "",
-                "tool_calls": [
-                    {"function": {"name": llm_tools.NAME, "arguments": {"query": "Machine Trust"}}}
-                ],
+                "tool_calls": [{"function": {"name": llm_tools.NAME, "arguments": {"query": "Machine Trust"}}}],
             },
             "done": True,
             "prompt_eval_count": 60,
@@ -460,7 +466,8 @@ def test_the_ollama_backend_repairs_a_leaked_final_call_with_object_arguments(ol
     assert port.payloads[0]["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
     leaked = port.payloads[1]["messages"][-3]
     assert leaked["tool_calls"][0]["function"]["arguments"] == {
-        "query": "rag_helper semantic translation contracts", "limit": 5
+        "query": "rag_helper semantic translation contracts",
+        "limit": 5,
     }
     assert "id" not in leaked["tool_calls"][0]
     assert [query for query, _limit in retriever.queries] == ["rag-helper", "rag_helper semantic translation contracts"]
@@ -484,8 +491,14 @@ def test_the_tool_persona_keeps_the_untrusted_framing_and_drops_the_no_tools_cla
 def test_the_result_names_the_total_hits_lines_and_scores_and_keeps_code_lines():
     retriever = lambda query, limit: {  # noqa: E731
         "snippets": [
-            {"path": "worker/meet_media/companion_supervisor.py", "line": 30, "line_end": 34,
-             "symbol": "supervise", "score": 9.44, "excerpt": "def supervise(run):\n    while True:\n        run()"},
+            {
+                "path": "worker/meet_media/companion_supervisor.py",
+                "line": 30,
+                "line_end": 34,
+                "symbol": "supervise",
+                "score": 9.44,
+                "excerpt": "def supervise(run):\n    while True:\n        run()",
+            },
         ],
         "total": 37,
     }

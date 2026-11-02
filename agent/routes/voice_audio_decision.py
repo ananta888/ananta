@@ -19,6 +19,7 @@ A decision never grants a permission: the voice exposure policy (operation ``com
 anything else on every route and again right before a handler executes; only the hub policy can
 yield ``act``.
 """
+
 from __future__ import annotations
 
 import uuid

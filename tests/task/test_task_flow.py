@@ -58,12 +58,8 @@ def test_global_step_routes_reject_unknown_task_before_side_effect(
     )
 
     with (
-        patch(
-            "agent.routes.tasks.execution._call_llm"
-        ) as llm,
-        patch(
-            "agent.shell.PersistentShell.execute"
-        ) as shell,
+        patch("agent.routes.tasks.execution._call_llm") as llm,
+        patch("agent.shell.PersistentShell.execute") as shell,
     ):
         propose = client.post(
             "/step/propose",
@@ -84,15 +80,11 @@ def test_global_step_routes_reject_unknown_task_before_side_effect(
 
     assert propose.status_code == 409
     assert execute.status_code == 409
-    assert propose.json["message"] == (
-        "legacy_task_id_not_authoritative"
-    )
+    assert propose.json["message"] == ("legacy_task_id_not_authoritative")
     assert llm.call_count == 0
     assert shell.call_count == 0
     with app.app_context():
-        assert get_local_task_status(
-            "unknown-global-task"
-        ) is None
+        assert get_local_task_status("unknown-global-task") is None
 
 
 def test_global_step_routes_reject_recovery_task_before_side_effect(
@@ -121,16 +113,10 @@ def test_global_step_routes_reject_recovery_task_before_side_effect(
                 }
             },
         )
-        before = get_local_task_status(
-            "legacy-recovery-child"
-        )
+        before = get_local_task_status("legacy-recovery-child")
     with (
-        patch(
-            "agent.routes.tasks.execution._call_llm"
-        ) as llm,
-        patch(
-            "agent.shell.PersistentShell.execute"
-        ) as shell,
+        patch("agent.routes.tasks.execution._call_llm") as llm,
+        patch("agent.shell.PersistentShell.execute") as shell,
     ):
         propose = client.post(
             "/step/propose",
@@ -151,14 +137,10 @@ def test_global_step_routes_reject_recovery_task_before_side_effect(
 
     assert propose.status_code == 409
     assert execute.status_code == 409
-    assert propose.json["message"] == (
-        "recovery_task_requires_scoped_endpoint"
-    )
+    assert propose.json["message"] == ("recovery_task_requires_scoped_endpoint")
     assert llm.call_count == 0
     assert shell.call_count == 0
     with app.app_context():
-        after = get_local_task_status(
-            "legacy-recovery-child"
-        )
+        after = get_local_task_status("legacy-recovery-child")
     assert after["status"] == before["status"]
     assert after["history"] == before["history"]

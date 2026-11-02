@@ -5,6 +5,7 @@ These are performance quality gates. Tests that depend on SmartCompressor
 (not yet implemented) are marked xfail; TokenEstimator-only benchmarks
 will pass immediately.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,12 +13,12 @@ import time
 
 import pytest
 
-from agent.services.context_compression.token_estimator import TokenEstimator
-from agent.services.context_compression.smart_compressor import (
-    SmartCompressor,
-    SmartCompressionResult,
-)
 from agent.services.context_compression.quality_guard import QualityGuard
+from agent.services.context_compression.smart_compressor import (
+    SmartCompressionResult,
+    SmartCompressor,
+)
+from agent.services.context_compression.token_estimator import TokenEstimator
 
 _SMART_COMPRESSOR_OK = True
 _QUALITY_GUARD_OK = True
@@ -30,22 +31,12 @@ SAMPLE_TOOL_OUTPUT = (
     "Tool execution completed. Result: {status: ok, items_processed: 42} "
 ) * 300  # ~large tool output
 
-SAMPLE_LOG_LINES = "\n".join(
-    ["2026-06-22 10:00:00 DEBUG polling queue, no tasks found..."] * 200
-)
+SAMPLE_LOG_LINES = "\n".join(["2026-06-22 10:00:00 DEBUG polling queue, no tasks found..."] * 200)
 
-SAMPLE_JSON_RESULTS = json.dumps(
-    [
-        {"id": i, "score": 0.9, "text": "x" * 200, "metadata": None}
-        for i in range(50)
-    ]
-)
+SAMPLE_JSON_RESULTS = json.dumps([{"id": i, "score": 0.9, "text": "x" * 200, "metadata": None} for i in range(50)])
 
 SAMPLE_SEARCH_RESULTS = "\n".join(
-    [
-        f"result_{i}: /path/to/file_{i}.py: some description text that describes what the file does"
-        for i in range(100)
-    ]
+    [f"result_{i}: /path/to/file_{i}.py: some description text that describes what the file does" for i in range(100)]
 )
 
 _ALL_SAMPLES = {
@@ -59,6 +50,7 @@ _ALL_SAMPLES = {
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _compress_with_result(compressor, content: str, content_type: str) -> dict:
     """Call compressor.compress and normalise return to a dict with 'compressed_content' key."""
@@ -80,6 +72,7 @@ def _compress_with_result(compressor, content: str, content_type: str) -> dict:
 # TokenEstimator benchmarks (always available)
 # ---------------------------------------------------------------------------
 
+
 class TestTokenEstimatorBenchmarks:
     def setup_method(self):
         self.estimator = TokenEstimator()
@@ -94,8 +87,7 @@ class TestTokenEstimatorBenchmarks:
         after_tokens = self.estimator.estimate(ideal_compressed).estimated_tokens
         savings_pct = (before_tokens - after_tokens) / before_tokens
         assert savings_pct >= 0.30, (
-            f"Expected >=30% token savings, got {savings_pct:.1%} "
-            f"(before={before_tokens}, after={after_tokens})"
+            f"Expected >=30% token savings, got {savings_pct:.1%} (before={before_tokens}, after={after_tokens})"
         )
 
     def test_benchmark_passthrough_zero_change(self):
@@ -119,6 +111,7 @@ class TestTokenEstimatorBenchmarks:
 # ---------------------------------------------------------------------------
 # SmartCompressor benchmarks — xfail until implemented
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.xfail(
     not _SMART_COMPRESSOR_OK,
@@ -165,9 +158,7 @@ class TestSmartCompressorBenchmarks:
             result = _compress_with_result(self.compressor, content, content_type)
             compressed = result["compressed_content"]
             qr = self.guard.check(content, compressed, content_type=content_type)
-            assert qr.score >= 0.7, (
-                f"content_type={content_type!r}: quality_score={qr.score:.3f} < 0.7"
-            )
+            assert qr.score >= 0.7, f"content_type={content_type!r}: quality_score={qr.score:.3f} < 0.7"
 
     def test_benchmark_elapsed_ms_reasonable(self):
         """Compressing 10KB text completes well under 1000ms."""

@@ -8,7 +8,6 @@ import re
 from dataclasses import dataclass
 from typing import Literal, Mapping, Protocol, Sequence
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _MUTATIONS = frozenset({"refresh", "disable", "reindex", "grant_revoke"})
 
@@ -191,13 +190,8 @@ class SourceControlBulkService:
                     resource_id=target.resource_id,
                     expected_etag=target.expected_etag,
                     current_etag=auth.current_etag,
-                    allowed=auth.allowed
-                    and auth.current_etag == target.expected_etag,
-                    reason_code=(
-                        auth.reason_code
-                        if auth.current_etag == target.expected_etag
-                        else "version_conflict"
-                    ),
+                    allowed=auth.allowed and auth.current_etag == target.expected_etag,
+                    reason_code=(auth.reason_code if auth.current_etag == target.expected_etag else "version_conflict"),
                 )
             )
         payload = _plan_payload(
@@ -234,20 +228,13 @@ class SourceControlBulkService:
         )
         if claim.state == "completed":
             if claim.result is None:
-                raise SourceControlBulkError(
-                    "bulk_idempotency_result_missing"
-                )
+                raise SourceControlBulkError("bulk_idempotency_result_missing")
             return claim.result
         if claim.state == "in_progress":
-            raise SourceControlBulkError(
-                "bulk_idempotency_in_progress"
-            )
+            raise SourceControlBulkError("bulk_idempotency_in_progress")
         if not claim.claim_token:
             raise SourceControlBulkError("bulk_claim_token_missing")
-        checkpoints = {
-            checkpoint.target_ordinal: checkpoint
-            for checkpoint in claim.checkpoints
-        }
+        checkpoints = {checkpoint.target_ordinal: checkpoint for checkpoint in claim.checkpoints}
         results: list[dict[str, object]] = []
         for ordinal, item in enumerate(plan.items):
             target_digest = _digest(
@@ -261,18 +248,11 @@ class SourceControlBulkService:
             )
             checkpoint = checkpoints.get(ordinal)
             if checkpoint is not None:
-                if (
-                    checkpoint.resource_id != item.resource_id
-                    or checkpoint.target_digest != target_digest
-                ):
-                    raise SourceControlBulkError(
-                        "bulk_target_checkpoint_mismatch"
-                    )
+                if checkpoint.resource_id != item.resource_id or checkpoint.target_digest != target_digest:
+                    raise SourceControlBulkError("bulk_target_checkpoint_mismatch")
                 if checkpoint.state == "completed":
                     if checkpoint.result is None:
-                        raise SourceControlBulkError(
-                            "bulk_target_result_missing"
-                        )
+                        raise SourceControlBulkError("bulk_target_result_missing")
                     results.append(dict(checkpoint.result))
                     continue
             target = BulkTarget(
@@ -295,24 +275,14 @@ class SourceControlBulkService:
                     resource_id=item.resource_id,
                     target_digest=target_digest,
                 )
-                if (
-                    not item.allowed
-                    or not current.allowed
-                    or current.current_etag != item.current_etag
-                ):
+                if not item.allowed or not current.allowed or current.current_etag != item.current_etag:
                     skipped = {
                         "resource_id": item.resource_id,
-                        "status": (
-                            "skipped" if not item.allowed else "failed"
-                        ),
+                        "status": ("skipped" if not item.allowed else "failed"),
                         "reason_code": (
                             item.reason_code
                             if not item.allowed
-                            else (
-                                current.reason_code
-                                if not current.allowed
-                                else "version_conflict"
-                            )
+                            else (current.reason_code if not current.allowed else "version_conflict")
                         ),
                     }
                     self._idempotency.complete_target(
@@ -333,9 +303,7 @@ class SourceControlBulkService:
                         actor_id=plan.actor_id,
                         mutation=plan.mutation,
                         target=target,
-                        idempotency_key=(
-                            f"{idempotency_key}:{_digest(item.resource_id)[:16]}"
-                        ),
+                        idempotency_key=(f"{idempotency_key}:{_digest(item.resource_id)[:16]}"),
                     )
                 )
                 result.setdefault("resource_id", item.resource_id)

@@ -37,4 +37,3 @@ def transition_state(*, current_state: str, next_state: str, trace_ref: str) -> 
     if target not in _ALLOWED_TRANSITIONS[current]:
         raise ValueError(f"planner_state_transition_invalid:{current}->{target}")
     return PlannerState(state=target, trace_ref=str(trace_ref or "").strip() or "trace:missing")
-

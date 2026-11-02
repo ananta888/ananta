@@ -1,5 +1,7 @@
 """Tests for feature_flags.py (EW-T062)."""
+
 import pytest
+
 from worker.core.feature_flags import (
     DEFAULT_FLAGS,
     KNOWN_FLAGS,
@@ -83,10 +85,12 @@ class TestFeatureFlagRegistry:
 
     def test_hub_config_only_known_flags_applied(self):
         original = self.registry.is_enabled("enable_skill_system")
-        self.registry.apply_hub_config({
-            "enable_skill_system": not original,
-            "__evil_injection__": True,
-        })
+        self.registry.apply_hub_config(
+            {
+                "enable_skill_system": not original,
+                "__evil_injection__": True,
+            }
+        )
         assert self.registry.is_enabled("enable_skill_system") is not original
         assert self.registry.is_enabled("__evil_injection__") is False
 
@@ -105,17 +109,21 @@ class TestFeatureFlagRegistry:
         assert self.registry.migration_stage() == MigrationStage.governed
 
     def test_migration_stage_compatibility(self):
-        self.registry.apply_hub_config({
-            "require_execution_envelope": False,
-            "legacy_envelope_adapter_allowed": True,
-        })
+        self.registry.apply_hub_config(
+            {
+                "require_execution_envelope": False,
+                "legacy_envelope_adapter_allowed": True,
+            }
+        )
         assert self.registry.migration_stage() == MigrationStage.compatibility
 
     def test_migration_stage_legacy(self):
-        self.registry.apply_hub_config({
-            "require_execution_envelope": False,
-            "legacy_envelope_adapter_allowed": False,
-        })
+        self.registry.apply_hub_config(
+            {
+                "require_execution_envelope": False,
+                "legacy_envelope_adapter_allowed": False,
+            }
+        )
         assert self.registry.migration_stage() == MigrationStage.legacy
 
     def test_flags_for_stage(self):
@@ -139,9 +147,7 @@ class TestFeatureFlagRegistry:
             "block_cloud_by_default",
         ]
         for flag_name in security_flags:
-            assert self.registry.is_enabled(flag_name), (
-                f"Security flag {flag_name!r} should be enabled by default"
-            )
+            assert self.registry.is_enabled(flag_name), f"Security flag {flag_name!r} should be enabled by default"
 
     def test_opt_in_flags_disabled_by_default(self):
         opt_in_flags = [
@@ -150,9 +156,7 @@ class TestFeatureFlagRegistry:
             "strict_tool_policy",
         ]
         for flag_name in opt_in_flags:
-            assert not self.registry.is_enabled(flag_name), (
-                f"Opt-in flag {flag_name!r} should be disabled by default"
-            )
+            assert not self.registry.is_enabled(flag_name), f"Opt-in flag {flag_name!r} should be disabled by default"
 
 
 class TestKnownFlagsCompleteness:

@@ -15,8 +15,12 @@ def companion_system():
     f = system()
     f.service.companion_execution = True
     f.f.authority.policies[("tenant", "project")] = frozenset({"chat.read", "chat.send", "avatar.publish"})
-    f.payload = {"capabilities": ["chat.read", "chat.send"], "duration_seconds": 300,
-                 "chat_mode": "room", "companion_execution": True}
+    f.payload = {
+        "capabilities": ["chat.read", "chat.send"],
+        "duration_seconds": 300,
+        "chat_mode": "room",
+        "companion_execution": True,
+    }
     return f
 
 
@@ -50,9 +54,12 @@ def test_companion_admission_and_phase_restart_preserve_bound_execution_profile(
         task = f.tasks.get_by_id(result["task_id"])
         context = task.worker_execution_context["meet_dialog"]
         scope = f.f.authority.current(task.id, context["lease_id"], context["runtime_id"])
-        state = {"lease": {"sessionId": "ms_" + "a" * 32, "expiresAt": (f.f.now + 120) * 1000},
-                 "peerId": "a" * 16, "publicationRevision": 1,
-                 "publications": [{"publicationId": "camera", "source": "camera", "publicationEpoch": 1}]}
+        state = {
+            "lease": {"sessionId": "ms_" + "a" * 32, "expiresAt": (f.f.now + 120) * 1000},
+            "peerId": "a" * 16,
+            "publicationRevision": 1,
+            "publications": [{"publicationId": "camera", "source": "camera", "publicationEpoch": 1}],
+        }
         assert phases.inspect(f.principal, "project", task.id)["phase"] == "connecting"
         phases.advance(scope, "joined", state)
         restarted = MeetDialogPhases(store, f.f.authority, f.meet, clock=lambda: f.f.now)
@@ -76,11 +83,17 @@ def test_companion_phase_callback_uses_only_verified_hub_observation(app, expire
         f.service.phases = MeetDialogPhases(store, f.f.authority, f.meet, clock=lambda: f.f.now)
         result = f.service.start(f.principal, "project", f.payload)
         context = f.tasks.get_by_id(result["task_id"]).worker_execution_context["meet_dialog"]
-        payload = {"task_id": result["task_id"], "lease_id": context["lease_id"],
-                   "runtime_id": context["runtime_id"], "meet_session_id": "ms_" + "a" * 32, "nonce": "b" * 32}
+        payload = {
+            "task_id": result["task_id"],
+            "lease_id": context["lease_id"],
+            "runtime_id": context["runtime_id"],
+            "meet_session_id": "ms_" + "a" * 32,
+            "nonce": "b" * 32,
+        }
         f.meet.observe.return_value = {
             "lease": {"sessionId": payload["meet_session_id"], "expiresAt": (f.f.now + 120) * 1000},
-            "peerId": "a" * 16, "publicationRevision": 1,
+            "peerId": "a" * 16,
+            "publicationRevision": 1,
             "publications": [{"publicationId": "camera", "source": "camera", "publicationEpoch": 1}],
         }
         if expired == "cancel":
@@ -121,8 +134,10 @@ def test_profile_is_default_off_and_denied_before_task_or_worker_creation(app):
         f.issuer.issue_dialog.assert_not_called()
 
 
-@pytest.mark.parametrize("patch", [{"companion_execution": False}, {"companion_execution": 1},
-                                   {"avatar_images": True}, {"audio_mode": "dialog"}])
+@pytest.mark.parametrize(
+    "patch",
+    [{"companion_execution": False}, {"companion_execution": 1}, {"avatar_images": True}, {"audio_mode": "dialog"}],
+)
 def test_companion_cannot_negotiate_unimplemented_or_receive_profiles(app, patch):
     with app.app_context():
         f = companion_system()

@@ -5,11 +5,10 @@ Mock-Worker schläft > 2.5s (AI_TIMEOUT). Test beweist:
 - DecisionTrace.fallback_reason == "ai_timeout"
 - capability_violations == 0
 """
+
 from __future__ import annotations
 
 import time
-
-import pytest
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.heuristic_registry_service import (
@@ -18,8 +17,8 @@ from agent.services.heuristic_runtime.heuristic_registry_service import (
 )
 from agent.services.heuristic_runtime.snake_decision_manager import SnakeDecisionManager
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _make_registry_with_follow() -> HeuristicRegistry:
     reg = HeuristicRegistry(base_path="/nonexistent")
@@ -53,6 +52,7 @@ def _ctx(ai_status: str = "timeout") -> DecisionContext:
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 def test_heuristic_responds_within_100ms_while_ai_is_slow():
     """Heuristic decide() must complete well under 100ms even when AI is unavailable."""
@@ -103,8 +103,7 @@ def test_multiple_timeout_decisions_all_heuristic_source():
 
     results = [manager.decide(_ctx(ai_status="timeout")) for _ in range(5)]
 
-    assert all(r.source == "heuristic" for r in results), \
-        "Not all decisions had source=heuristic during AI timeout"
+    assert all(r.source == "heuristic" for r in results), "Not all decisions had source=heuristic during AI timeout"
 
 
 def test_heuristic_continues_after_simulated_long_ai_delay():

@@ -14,14 +14,10 @@ from agent.services.source_access_manifest_keyring import (
 
 def test_worker_bootstrap_builds_authenticated_governed_handler(monkeypatch) -> None:
     monkeypatch.delenv("ANANTA_SOURCE_ACCESS_KEYRING_FILE", raising=False)
-    monkeypatch.setenv(
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", "1"
-    )
+    monkeypatch.setenv("ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", "1")
     monkeypatch.setenv("ANANTA_RUNTIME_PROFILE", "compose-safe")
     monkeypatch.setenv("ANANTA_QUICKSTART_MODE", "role")
-    monkeypatch.setenv(
-        "SECRET_KEY", "worker-compose-secret-with-at-least-32-bytes"
-    )
+    monkeypatch.setenv("SECRET_KEY", "worker-compose-secret-with-at-least-32-bytes")
     monkeypatch.setenv("ANANTA_KNOWLEDGE_INDEX_WORKER_ID", "worker-alpha")
 
     handler = ai_agent._build_governed_knowledge_index_handler_from_environment()
@@ -42,9 +38,7 @@ def test_worker_bootstrap_uses_file_managed_source_access_keyring(
                 "schema": "ananta.source-access-hmac-keyring.v1",
                 "active_key_id": "test-source-access-v1",
                 "keys": {
-                    "test-source-access-v1": base64.b64encode(
-                        b"test-source-access-secret-material"
-                    ).decode("ascii")
+                    "test-source-access-v1": base64.b64encode(b"test-source-access-secret-material").decode("ascii")
                 },
             }
         ),
@@ -52,9 +46,7 @@ def test_worker_bootstrap_uses_file_managed_source_access_keyring(
     )
     keyring_path.chmod(0o600)
     monkeypatch.setenv("ANANTA_SOURCE_ACCESS_KEYRING_FILE", str(keyring_path))
-    monkeypatch.setenv(
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", "0"
-    )
+    monkeypatch.setenv("ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", "0")
     monkeypatch.setenv("SECRET_KEY", "")
     monkeypatch.setenv("ANANTA_KNOWLEDGE_INDEX_WORKER_ID", "worker-alpha")
 
@@ -69,9 +61,7 @@ def test_worker_bootstrap_fails_closed_without_production_keyring(
     monkeypatch,
 ) -> None:
     monkeypatch.delenv("ANANTA_SOURCE_ACCESS_KEYRING_FILE", raising=False)
-    monkeypatch.delenv(
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", raising=False
-    )
+    monkeypatch.delenv("ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION", raising=False)
     monkeypatch.setenv("ANANTA_RUNTIME_PROFILE", "production")
     monkeypatch.setenv("ANANTA_KNOWLEDGE_INDEX_WORKER_ID", "worker-alpha")
 

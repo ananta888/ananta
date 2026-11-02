@@ -59,8 +59,17 @@ def test_operation_registry_is_sorted_immutable_and_rejects_ambiguity() -> None:
         registry.register(first)
     with pytest.raises(OperationRegistryError, match="unsafe_default_enabled"):
         OperationDescriptor(
-            "api.alpha.post", "api", "/alpha", "write", "high", "enabled", "Alpha write.", "test",
-            http_method="POST", side_effecting=True, default_enabled=True,
+            "api.alpha.post",
+            "api",
+            "/alpha",
+            "write",
+            "high",
+            "enabled",
+            "Alpha write.",
+            "test",
+            http_method="POST",
+            side_effecting=True,
+            default_enabled=True,
         )
 
 
@@ -122,17 +131,26 @@ def test_policy_auth_admin_approval_and_lifecycle_edges() -> None:
         )
     )
     write_descriptor = registry.get("mcp.tool.evolution.analyze")
-    assert service.decide(write_descriptor, write_policy, OperationAuthContext("user_jwt")).reason_code == "operation_admin_required"
-    assert service.decide(
-        write_descriptor,
-        write_policy,
-        OperationAuthContext("user_jwt", is_admin=True, approval_granted=False),
-    ).reason_code == "operation_approval_required"
-    assert service.decide(
-        write_descriptor,
-        write_policy,
-        OperationAuthContext("user_jwt", is_admin=True, approval_granted=True),
-    ).allowed is True
+    assert (
+        service.decide(write_descriptor, write_policy, OperationAuthContext("user_jwt")).reason_code
+        == "operation_admin_required"
+    )
+    assert (
+        service.decide(
+            write_descriptor,
+            write_policy,
+            OperationAuthContext("user_jwt", is_admin=True, approval_granted=False),
+        ).reason_code
+        == "operation_approval_required"
+    )
+    assert (
+        service.decide(
+            write_descriptor,
+            write_policy,
+            OperationAuthContext("user_jwt", is_admin=True, approval_granted=True),
+        ).allowed
+        is True
+    )
 
     isolated_registry = OperationRegistryService()
     disabled = OperationDescriptor(
@@ -147,9 +165,12 @@ def test_policy_auth_admin_approval_and_lifecycle_edges() -> None:
             "allow_operations": ["api.disabled.get"],
         }
     )
-    assert isolated_service.decide(
-        disabled, disabled_policy, OperationAuthContext("user_jwt", is_admin=True, approval_granted=True)
-    ).reason_code == "operation_lifecycle_disabled"
+    assert (
+        isolated_service.decide(
+            disabled, disabled_policy, OperationAuthContext("user_jwt", is_admin=True, approval_granted=True)
+        ).reason_code
+        == "operation_lifecycle_disabled"
+    )
 
 
 @pytest.mark.parametrize(

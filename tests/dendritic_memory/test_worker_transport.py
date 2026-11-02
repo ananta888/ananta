@@ -55,6 +55,7 @@ def test_hub_worker_endpoint_rejects_non_exact_or_unsafe_urls(endpoint: str) -> 
 
 
 def test_hub_worker_endpoint_accepts_exact_internal_container_url() -> None:
-    assert normalize_dendritic_worker_endpoint(
-        "http://dendritic-worker:8095/internal/v1/dendritic-memory/"
-    ) == "http://dendritic-worker:8095/internal/v1/dendritic-memory"
+    assert (
+        normalize_dendritic_worker_endpoint("http://dendritic-worker:8095/internal/v1/dendritic-memory/")
+        == "http://dendritic-worker:8095/internal/v1/dendritic-memory"
+    )

@@ -1,6 +1,3 @@
-import json
-import logging
-
 def unwrap_config(data):
     """
     Entpackt Konfigurationswerte, die ggf. in einem Envelope stecken.

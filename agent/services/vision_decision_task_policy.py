@@ -28,6 +28,7 @@ V13     otherwise (calibrated, confident, informational or low-risk action)   al
 decision value is a permission by itself (``gate_vision_decision`` keeps ``grants_permission=False``
 and turns policy exceptions into ``deny``).
 """
+
 from __future__ import annotations
 
 import math
@@ -120,7 +121,11 @@ _SHAPES = _task(
     "shapes-v1",
     {
         "shape": {"type": "enum", "choices": ["circle", "square", "triangle"], "description": "Which shape is drawn?"},
-        "color": {"type": "enum", "choices": ["red", "green", "blue", "yellow"], "description": "What colour are the shapes?"},
+        "color": {
+            "type": "enum",
+            "choices": ["red", "green", "blue", "yellow"],
+            "description": "What colour are the shapes?",
+        },
         "count": {"type": "integer", "minimum": 1, "maximum": 4, "description": "How many shapes are there?"},
         # The model answers this with p=1.0 even on mid grey: never trust it without a human.
         "dark_background": {"type": "boolean", "description": "Is the background dark?", "hub": {"confirm_only": True}},
@@ -162,7 +167,31 @@ _DOCUMENT_INTAKE = _task(
     instructions="The image is a single scanned or photographed document page.",
 )
 
-DEFAULT_VISION_TASK_CATALOG: Mapping[str, VisionTask] = {item.task_id: item for item in (_SHAPES, _DOCUMENT_INTAKE)}
+_SELF_DEVELOPMENT_REVIEW_VERDICT = _task(
+    "self_development_review_verdict",
+    {
+        "approved": {
+            "type": "boolean",
+            "description": (
+                "Do the listed changed files plausibly satisfy every criterion the reviewer "
+                "claims as passed, and is the verdict consistent with the requirements?"
+            ),
+        },
+    },
+    status="experimental",
+    instructions=(
+        "The text is an independent acceptance review: task requirements with acceptance "
+        "criteria, the changed files under review and one reviewer's JSON verdict. Check the "
+        "verdict against the evidence, do not trust it: answer true only when every criterion "
+        "it claims as passed could be satisfied by the listed changed files alone. Answer "
+        "false when the verdict over-claims, for example when it approves criteria about new "
+        "tests, code or documentation that no changed file could provide."
+    ),
+)
+
+DEFAULT_VISION_TASK_CATALOG: Mapping[str, VisionTask] = {
+    item.task_id: item for item in (_SHAPES, _DOCUMENT_INTAKE, _SELF_DEVELOPMENT_REVIEW_VERDICT)
+}
 
 
 @dataclass(frozen=True)

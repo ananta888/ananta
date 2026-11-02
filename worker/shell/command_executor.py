@@ -115,7 +115,7 @@ def execute_command_plan(
     environment: dict[str, str] | None = None,
     execution_profile: str | None = "balanced",
     tool_registry: WorkerToolRegistry | None = None,  # T009
-    execution_id: str | None = None,                  # T008
+    execution_id: str | None = None,  # T008
 ) -> ToolResult:  # T010: returns ToolResult instead of flat dict
     command = str(command_plan_artifact.get("command") or "").strip()
     if not command:
@@ -170,7 +170,9 @@ def execute_command_plan(
     start = time.monotonic()
     try:
         with isolated_command(
-            shlex.split(command), workspace=repository_root, environment=_bounded_environment(environment),
+            shlex.split(command),
+            workspace=repository_root,
+            environment=_bounded_environment(environment),
         ) as (argv, bounded_environment, descriptors):
             completed = subprocess.run(
                 argv,

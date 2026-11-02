@@ -12,12 +12,9 @@ from ananta_contracts.source_control import (
     GrantTransformation,
 )
 
-
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_DECISIONS = frozenset(
-    {"allow", "deny", "approval_required", "unavailable"}
-)
+_DECISIONS = frozenset({"allow", "deny", "approval_required", "unavailable"})
 
 
 class EffectiveSourceAccessError(ValueError):
@@ -92,10 +89,7 @@ class EffectivePolicyEvaluation:
         for rule_id in self.matched_rule_path:
             if not _OPAQUE_ID.fullmatch(rule_id):
                 raise EffectiveSourceAccessError("rule_path_invalid")
-        if (
-            self.approval_requirement is not None
-            and not _OPAQUE_ID.fullmatch(self.approval_requirement)
-        ):
+        if self.approval_requirement is not None and not _OPAQUE_ID.fullmatch(self.approval_requirement):
             raise EffectiveSourceAccessError("approval_requirement_invalid")
 
 
@@ -207,15 +201,11 @@ class EffectiveSourceAccessService:
             purpose=purpose,
         )
         if decision.revision_digest != expected_revision_digest:
-            raise EffectiveSourceAccessError(
-                "source_revision_changed_after_preview"
-            )
+            raise EffectiveSourceAccessError("source_revision_changed_after_preview")
         if decision.policy_digest != expected_policy_digest:
             raise EffectiveSourceAccessError("policy_changed_after_preview")
         if decision.decision != "allow":
-            raise EffectiveSourceAccessError(
-                f"dispatch_{decision.decision}"
-            )
+            raise EffectiveSourceAccessError(f"dispatch_{decision.decision}")
         return decision
 
     def matrix(
@@ -265,19 +255,14 @@ class EffectiveSourceAccessService:
             limit=source_limit,
             filters=normalized_source_filters,
         )
-        destinations, next_destination_cursor = (
-            self._destinations.list_destinations(
-                cursor=destination_cursor,
-                limit=destination_limit,
-                filters=normalized_destination_filters,
-            )
+        destinations, next_destination_cursor = self._destinations.list_destinations(
+            cursor=destination_cursor,
+            limit=destination_limit,
+            filters=normalized_destination_filters,
         )
         rows: list[dict[str, object]] = []
         for source in sources:
-            if (
-                source.tenant_id != tenant_id
-                or source.project_id != project_id
-            ):
+            if source.tenant_id != tenant_id or source.project_id != project_id:
                 raise EffectiveSourceAccessError("matrix_source_scope_mismatch")
             for destination in destinations:
                 rows.append(
@@ -308,11 +293,7 @@ class EffectiveSourceAccessService:
             project_id=project_id,
             source_revision_id=source_revision_id,
         )
-        if (
-            source is None
-            or source.tenant_id != tenant_id
-            or source.project_id != project_id
-        ):
+        if source is None or source.tenant_id != tenant_id or source.project_id != project_id:
             raise EffectiveSourceAccessError("source_revision_not_found")
         if not _SHA256.fullmatch(source.revision_digest):
             raise EffectiveSourceAccessError("source_revision_digest_invalid")
@@ -322,9 +303,7 @@ class EffectiveSourceAccessService:
         self,
         destination_id: str,
     ) -> DestinationDescriptor:
-        destination = self._destinations.get_destination(
-            destination_id=destination_id
-        )
+        destination = self._destinations.get_destination(destination_id=destination_id)
         if destination is None or destination.destination_id != destination_id:
             raise EffectiveSourceAccessError("destination_not_found")
         return destination

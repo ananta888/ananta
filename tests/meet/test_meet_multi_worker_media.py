@@ -8,8 +8,12 @@ import pytest
 from agent.services.meet_speech_result import validate_speech_binding
 from ananta_contracts.meet_persona_image import decode_assignment
 from ananta_contracts.meet_speech import speech_profile
-from tests.meet_dialog_interruption import SyntheticToneWorker
-from tests.meet_multi_worker_media import IndependentlyRevocableImages, MultiWorkerMediaScenario, TwoReplyToneWorker
+from tests.meet.meet_dialog_interruption import SyntheticToneWorker
+from tests.meet.meet_multi_worker_media import (
+    IndependentlyRevocableImages,
+    MultiWorkerMediaScenario,
+    TwoReplyToneWorker,
+)
 
 pytestmark = pytest.mark.timeout(45)
 

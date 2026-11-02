@@ -13,7 +13,6 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
-
 CONTRACT_VERSION = "knowledge_hygiene.v1"
 GROUNDED_SOURCE_ID_PATTERN = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -193,7 +192,9 @@ class KnowledgeClaim:
             raise KnowledgeHygieneContractError("invalid_claim_confidence")
         if self.assertion_kind not in {"actual", "target", "estimate", "hypothesis"}:
             raise KnowledgeHygieneContractError("invalid_assertion_kind")
-        if any(claim_id == self.claim_id and revision == self.revision for claim_id, revision in self.supersedes_claim_refs):
+        if any(
+            claim_id == self.claim_id and revision == self.revision for claim_id, revision in self.supersedes_claim_refs
+        ):
             raise KnowledgeHygieneContractError("claim_cannot_supersede_itself")
         try:
             canonical_json(self.value)
@@ -261,8 +262,7 @@ class KnowledgeClaim:
             coverage=_coverage(str(raw.get("coverage") or "complete")),
             created_at=float(raw.get("created_at") or 0.0),
             supersedes_claim_refs=tuple(
-                (str(item[0]), int(item[1]))
-                for item in raw.get("supersedes_claim_refs") or ()
+                (str(item[0]), int(item[1])) for item in raw.get("supersedes_claim_refs") or ()
             ),
         )
 
@@ -301,8 +301,12 @@ class KnowledgeConflict:
                 field_name,
                 require_non_empty(getattr(self, field_name), f"{field_name}_required"),
             )
-        object.__setattr__(self, "left_claim_digest", require_sha256(self.left_claim_digest, "invalid_left_claim_digest"))
-        object.__setattr__(self, "right_claim_digest", require_sha256(self.right_claim_digest, "invalid_right_claim_digest"))
+        object.__setattr__(
+            self, "left_claim_digest", require_sha256(self.left_claim_digest, "invalid_left_claim_digest")
+        )
+        object.__setattr__(
+            self, "right_claim_digest", require_sha256(self.right_claim_digest, "invalid_right_claim_digest")
+        )
         object.__setattr__(self, "coverage", _coverage(self.coverage))
         try:
             object.__setattr__(self, "state", ConflictState(self.state))
@@ -498,7 +502,9 @@ class KnowledgeHygieneRun:
         except ValueError as exc:
             raise KnowledgeHygieneContractError("invalid_run_state") from exc
         object.__setattr__(self, "coverage", _coverage(self.coverage))
-        object.__setattr__(self, "assignment_digest", require_sha256(self.assignment_digest, "invalid_assignment_digest"))
+        object.__setattr__(
+            self, "assignment_digest", require_sha256(self.assignment_digest, "invalid_assignment_digest")
+        )
         if self.result_digest is not None:
             object.__setattr__(self, "result_digest", require_sha256(self.result_digest, "invalid_result_digest"))
         if not self.source_bindings:
@@ -540,7 +546,9 @@ class KnowledgeHygieneRun:
             run_id=str(raw.get("run_id") or ""),
             project_id=str(raw.get("project_id") or ""),
             state=RunState(str(raw.get("state") or "pending")),
-            source_bindings=tuple(SourceRevisionBinding.from_mapping(item) for item in raw.get("source_bindings") or ()),
+            source_bindings=tuple(
+                SourceRevisionBinding.from_mapping(item) for item in raw.get("source_bindings") or ()
+            ),
             policy_version=str(raw.get("policy_version") or ""),
             profile_name=str(raw.get("profile_name") or ""),
             budgets={str(key): int(value) for key, value in dict(raw.get("budgets") or {}).items()},
@@ -574,8 +582,7 @@ class KnowledgeHealthSnapshot:
         object.__setattr__(self, "basis_digest", require_sha256(self.basis_digest, "invalid_health_basis_digest"))
         if self.coverage is not CoverageState.COMPLETE:
             forbidden_false_zero = any(
-                self.counts.get(key) == 0
-                for key in ("claims", "conflicts", "open_conflicts", "wiki_pages")
+                self.counts.get(key) == 0 for key in ("claims", "conflicts", "open_conflicts", "wiki_pages")
             )
             if forbidden_false_zero:
                 raise KnowledgeHygieneContractError("false_zero_for_incomplete_coverage")
@@ -611,7 +618,9 @@ class CorrectionProposal:
             )
         object.__setattr__(self, "source_id", require_grounded_source_id(self.source_id))
         object.__setattr__(self, "proposed_by_run_id", require_grounded_source_id(self.proposed_by_run_id))
-        object.__setattr__(self, "base_content_sha256", require_sha256(self.base_content_sha256, "invalid_base_content_sha256"))
+        object.__setattr__(
+            self, "base_content_sha256", require_sha256(self.base_content_sha256, "invalid_base_content_sha256")
+        )
         object.__setattr__(self, "proposal_digest", require_sha256(self.proposal_digest, "invalid_proposal_digest"))
         if self.proposal_digest != canonical_digest(
             {

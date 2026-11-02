@@ -185,9 +185,7 @@ def test_environment_runtime_passes_exact_engine_and_device_policy_to_executor(
     runtime = _runtime_from_environment()
 
     assert runtime is not None
-    assert captured["enabled_engines"] == frozenset(
-        {"sentence-transformers", "huggingface-transformers"}
-    )
+    assert captured["enabled_engines"] == frozenset({"sentence-transformers", "huggingface-transformers"})
     assert captured["worker_device"] == "cuda"
 
 

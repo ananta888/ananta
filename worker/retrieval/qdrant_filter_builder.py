@@ -39,9 +39,7 @@ class QdrantFilterBuilder:
             if not prefix:
                 raise QdrantSchemaError("vector_filter_invalid")
             must.append(FilterCondition("file_prefixes", (prefix,)))
-        for role_label in dict.fromkeys(
-            str(value) for value in requested.role_labels
-        ):
+        for role_label in dict.fromkeys(str(value) for value in requested.role_labels):
             must.append(
                 FilterCondition(
                     "role_labels",

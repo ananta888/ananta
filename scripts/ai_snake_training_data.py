@@ -7,7 +7,6 @@ from typing import Any
 
 from client_surfaces.operator_tui.ai_snake_training_data import (
     LEARNED_PATTERN_SCHEMA_FILE,
-    PROFILE_SCHEMA_FILE,
     TRAINING_BUNDLE_SCHEMA_FILE,
     validate_learned_pattern,
     validate_payload,

@@ -57,9 +57,7 @@ class TestLayerOnlyGuard(unittest.TestCase):
             {"id": "b", "file": "scattered/b.py", "role_labels": ["controller"]},
             {"id": "c", "file": "scattered/c.py", "role_labels": ["controller"]},
         ]
-        candidates = derive_root_path_candidates(
-            [r["file"] for r in records]
-        )
+        candidates = derive_root_path_candidates([r["file"] for r in records])
         # Only 'scattered' qualifies as a root_path candidate; 'api' never
         # appears because it is not a path signal.
         self.assertEqual([c.root_path for c in candidates], ["scattered"])

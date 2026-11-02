@@ -36,9 +36,7 @@ class TranscriptPostprocessingStage:
             weights = dict(context.personalization_weights)
             replacements = dict(glossary.replacements)
             if weights.get("substitution", 1.0) > 0:
-                replacements.update(
-                    {source.casefold(): target for source, target in context.substitutions}
-                )
+                replacements.update({source.casefold(): target for source, target in context.substitutions})
             if weights.get("preference", 1.0) > 0:
                 for source, target in context.preferences:
                     replacements.setdefault(source.casefold(), target)
@@ -80,8 +78,7 @@ class TranscriptPostprocessingStage:
             for index, processed in enumerate(processed_parts)
         ]
         processed_segments = tuple(
-            replace(segment, text=processed_parts[index].text)
-            for index, segment in enumerate(result.segments)
+            replace(segment, text=processed_parts[index].text) for index, segment in enumerate(result.segments)
         )
         processed_text = (
             " ".join(segment.text for segment in processed_segments if segment.text).strip()
@@ -131,4 +128,3 @@ def apply_hub_correction_boundary(
             "no_generation": policy.correction_policy == "restricted_choice",
         }
     return result, None
-

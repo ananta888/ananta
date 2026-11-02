@@ -27,12 +27,16 @@ class AssignedCompanionDialog:
         self.tools, self.receipts = assigned_toolbox(self.ports)
         backend = backend_name()
         provider = OpenAiHttp() if backend == "openai" else OllamaHttp()
-        self.provider = AssignedCompanionProvider(provider, self.ports, backend=backend,
-                                                  tool_results=self.receipts.snapshot)
+        self.provider = AssignedCompanionProvider(
+            provider, self.ports, backend=backend, tool_results=self.receipts.snapshot
+        )
         self.dialog = CompanionDialog(
-            llm=lambda text, context, system: generate(text, context=context, system=system,
-                tools=self.tools, transport=self.provider).text,
-            tools=self.tools, system=persona_for(self.tools), codecompass_enabled=False,
+            llm=lambda text, context, system: (
+                generate(text, context=context, system=system, tools=self.tools, transport=self.provider).text
+            ),
+            tools=self.tools,
+            system=persona_for(self.tools),
+            codecompass_enabled=False,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
         )
 

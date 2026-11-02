@@ -73,9 +73,14 @@ def test_audit_can_be_captured_in_memory():
     log = AuditLog(enabled=True)
     assert log.events() == []
     log.record(
-        source_channel="test", sender_kind="test", raw_text="/test",
-        parsed_action_id="test", policy_verdict="deny", dispatch_status="skipped",
-        mode="autonomous_e2e", reason="test reason",
+        source_channel="test",
+        sender_kind="test",
+        raw_text="/test",
+        parsed_action_id="test",
+        policy_verdict="deny",
+        dispatch_status="skipped",
+        mode="autonomous_e2e",
+        reason="test reason",
     )
     assert len(log.events()) == 1
 
@@ -83,8 +88,13 @@ def test_audit_can_be_captured_in_memory():
 def test_audit_disabled_stores_nothing():
     log = AuditLog(enabled=False)
     log.record(
-        source_channel="test", sender_kind="test", raw_text="/test",
-        parsed_action_id="test", policy_verdict="allow", dispatch_status="ok",
-        mode="autonomous_e2e", reason="",
+        source_channel="test",
+        sender_kind="test",
+        raw_text="/test",
+        parsed_action_id="test",
+        policy_verdict="allow",
+        dispatch_status="ok",
+        mode="autonomous_e2e",
+        reason="",
     )
     assert log.events() == []

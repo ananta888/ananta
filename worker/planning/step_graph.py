@@ -15,8 +15,12 @@ def build_step_graph(*, steps: list[dict[str, Any]]) -> dict[str, dict[str, Any]
         graph[step_id] = {
             "step_id": step_id,
             "depends_on": [str(item).strip() for item in list(step.get("depends_on") or []) if str(item).strip()],
-            "required_tools": [str(item).strip() for item in list(step.get("required_tools") or []) if str(item).strip()],
-            "expected_artifacts": [str(item).strip() for item in list(step.get("expected_artifacts") or []) if str(item).strip()],
+            "required_tools": [
+                str(item).strip() for item in list(step.get("required_tools") or []) if str(item).strip()
+            ],
+            "expected_artifacts": [
+                str(item).strip() for item in list(step.get("expected_artifacts") or []) if str(item).strip()
+            ],
             "state": str(step.get("state") or "draft").strip().lower() or "draft",
         }
     for node in graph.values():
@@ -58,4 +62,3 @@ def ready_steps(*, graph: dict[str, dict[str, Any]]) -> list[str]:
         if all(str(graph[dep].get("state") or "") == "done" for dep in deps):
             ready.append(step_id)
     return sorted(ready)
-

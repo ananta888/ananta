@@ -21,11 +21,7 @@ class LocalRuntimeCapabilityResultIngestor:
         context = task.get("worker_execution_context")
         refresh = context.get("local_runtime_capability_refresh") if isinstance(context, Mapping) else None
         targets = refresh.get("targets") if isinstance(refresh, Mapping) else None
-        allowed = {
-            str(item.get("provider_id") or "")
-            for item in (targets or ())
-            if isinstance(item, Mapping)
-        }
+        allowed = {str(item.get("provider_id") or "") for item in (targets or ()) if isinstance(item, Mapping)}
         providers = response.get("providers")
         if not isinstance(providers, list) or len(providers) > len(allowed):
             raise ValueError("local_runtime_refresh_result_invalid")

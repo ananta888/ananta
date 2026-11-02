@@ -129,9 +129,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                     job_id=normalized["job_id"],
                 )
                 if existing is None:
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_claim_conflict"
-                    ) from exc
+                    raise ValueError("knowledge_index_worker_dispatch_claim_conflict") from exc
                 return self._resolve_existing_claim(
                     existing,
                     expected_binding=normalized,
@@ -159,9 +157,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
             marker_digest=marker_digest,
             manifest_binding_digest=manifest_binding_digest,
         )
-        normalized_result, result_digest = self._normalize_result(
-            result_payload
-        )
+        normalized_result, result_digest = self._normalize_result(result_payload)
         with _CLAIM_LOCK, self._session_factory() as session:
             row = self._find_receipt(
                 session,
@@ -169,19 +165,12 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                 job_id=binding["job_id"],
             )
             if row is None:
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_receipt_missing"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_receipt_missing")
             self._assert_exact_binding(row, binding)
             if row.state == DISPATCH_STATE_COMPLETED:
                 completed = self._to_replay_receipt(row)
-                if (
-                    completed["result_digest"] != result_digest
-                    or completed["result_payload"] != normalized_result
-                ):
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_result_conflict"
-                    )
+                if completed["result_digest"] != result_digest or completed["result_payload"] != normalized_result:
+                    raise ValueError("knowledge_index_worker_dispatch_result_conflict")
                 return completed
             if (
                 row.state != DISPATCH_STATE_CLAIMED
@@ -189,25 +178,17 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                 or row.result_payload is not None
                 or row.completed_at_epoch_ms is not None
             ):
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_receipt_invalid"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_receipt_invalid")
             completed_at_epoch_ms = self._now_epoch_ms()
             if completed_at_epoch_ms < row.claimed_at_epoch_ms:
                 raise ValueError("knowledge_index_worker_clock_invalid")
             result = session.exec(
                 update(KnowledgeIndexWorkerDispatchReceiptDB)
                 .where(
-                    KnowledgeIndexWorkerDispatchReceiptDB.receipt_id
-                    == row.receipt_id,
-                    KnowledgeIndexWorkerDispatchReceiptDB.state
-                    == DISPATCH_STATE_CLAIMED,
-                    KnowledgeIndexWorkerDispatchReceiptDB.result_digest.is_(
-                        None
-                    ),
-                    KnowledgeIndexWorkerDispatchReceiptDB.completed_at_epoch_ms.is_(
-                        None
-                    ),
+                    KnowledgeIndexWorkerDispatchReceiptDB.receipt_id == row.receipt_id,
+                    KnowledgeIndexWorkerDispatchReceiptDB.state == DISPATCH_STATE_CLAIMED,
+                    KnowledgeIndexWorkerDispatchReceiptDB.result_digest.is_(None),
+                    KnowledgeIndexWorkerDispatchReceiptDB.completed_at_epoch_ms.is_(None),
                 )
                 .values(
                     state=DISPATCH_STATE_COMPLETED,
@@ -224,18 +205,14 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                     job_id=binding["job_id"],
                 )
                 if current is None:
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_receipt_missing"
-                    )
+                    raise ValueError("knowledge_index_worker_dispatch_receipt_missing")
                 completed = self._to_replay_receipt(current)
                 if (
                     completed["state"] != DISPATCH_STATE_COMPLETED
                     or completed["result_digest"] != result_digest
                     or completed["result_payload"] != normalized_result
                 ):
-                    raise ValueError(
-                        "knowledge_index_worker_dispatch_result_conflict"
-                    )
+                    raise ValueError("knowledge_index_worker_dispatch_result_conflict")
                 return completed
             completed_row = self._find_receipt(
                 session,
@@ -243,9 +220,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                 job_id=binding["job_id"],
             )
             if completed_row is None:
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_receipt_missing"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_receipt_missing")
             return self._to_replay_receipt(completed_row)
 
     def get_receipt(
@@ -317,32 +292,20 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
         normalized = {
             "worker_id": str(values.get("worker_id") or "").strip(),
             "job_id": str(values.get("job_id") or "").strip(),
-            "assignment_id": str(
-                values.get("assignment_id") or ""
-            ).strip(),
+            "assignment_id": str(values.get("assignment_id") or "").strip(),
             "lease_id": str(values.get("lease_id") or "").strip(),
-            "marker_digest": str(
-                values.get("marker_digest") or ""
-            ).strip(),
-            "manifest_binding_digest": str(
-                values.get("manifest_binding_digest") or ""
-            ).strip(),
+            "marker_digest": str(values.get("marker_digest") or "").strip(),
+            "manifest_binding_digest": str(values.get("manifest_binding_digest") or "").strip(),
         }
         if (
             _WORKER_ID.fullmatch(normalized["worker_id"]) is None
             or _IDENTIFIER.fullmatch(normalized["job_id"]) is None
-            or _IDENTIFIER.fullmatch(normalized["assignment_id"])
-            is None
+            or _IDENTIFIER.fullmatch(normalized["assignment_id"]) is None
             or _IDENTIFIER.fullmatch(normalized["lease_id"]) is None
             or _DIGEST.fullmatch(normalized["marker_digest"]) is None
-            or _DIGEST.fullmatch(
-                normalized["manifest_binding_digest"]
-            )
-            is None
+            or _DIGEST.fullmatch(normalized["manifest_binding_digest"]) is None
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_binding_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_binding_invalid")
         return normalized
 
     @staticmethod
@@ -350,9 +313,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
         result_payload: Mapping[str, Any],
     ) -> tuple[dict[str, Any], str]:
         if not isinstance(result_payload, Mapping):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_result_invalid")
         try:
             encoded = json.dumps(
                 dict(result_payload),
@@ -362,18 +323,12 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
                 allow_nan=False,
             ).encode("ascii")
         except (TypeError, ValueError, UnicodeError) as exc:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_invalid"
-            ) from exc
+            raise ValueError("knowledge_index_worker_dispatch_result_invalid") from exc
         if len(encoded) > MAX_KNOWLEDGE_INDEX_WORKER_RESULT_BYTES:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_too_large"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_result_too_large")
         normalized = json.loads(encoded.decode("ascii"))
         if not isinstance(normalized, dict):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_result_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_result_invalid")
         return normalized, hashlib.sha256(encoded).hexdigest()
 
     @staticmethod
@@ -385,8 +340,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
     ) -> KnowledgeIndexWorkerDispatchReceiptDB | None:
         return session.exec(
             select(KnowledgeIndexWorkerDispatchReceiptDB).where(
-                KnowledgeIndexWorkerDispatchReceiptDB.worker_id
-                == worker_id,
+                KnowledgeIndexWorkerDispatchReceiptDB.worker_id == worker_id,
                 KnowledgeIndexWorkerDispatchReceiptDB.job_id == job_id,
             )
         ).one_or_none()
@@ -405,17 +359,13 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
             "manifest_binding_digest",
         )
         if any(getattr(row, field) != expected[field] for field in fields):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_binding_conflict"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_binding_conflict")
         for field in (
             "lease_expires_epoch_ms",
             "grant_expires_at_epoch_ms",
         ):
             if field in expected and getattr(row, field) != expected[field]:
-                raise ValueError(
-                    "knowledge_index_worker_dispatch_binding_conflict"
-                )
+                raise ValueError("knowledge_index_worker_dispatch_binding_conflict")
 
     @classmethod
     def _resolve_existing_claim(
@@ -428,9 +378,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
         if row.state == DISPATCH_STATE_COMPLETED:
             return cls._to_replay_receipt(row)
         cls._validate_persisted_state(row)
-        raise ValueError(
-            "knowledge_index_worker_dispatch_result_pending"
-        )
+        raise ValueError("knowledge_index_worker_dispatch_result_pending")
 
     @classmethod
     def _validate_persisted_state(
@@ -438,19 +386,11 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
         row: KnowledgeIndexWorkerDispatchReceiptDB,
     ) -> None:
         if row.state == DISPATCH_STATE_CLAIMED:
-            if (
-                row.result_digest is None
-                and row.result_payload is None
-                and row.completed_at_epoch_ms is None
-            ):
+            if row.result_digest is None and row.result_payload is None and row.completed_at_epoch_ms is None:
                 return
-            raise ValueError(
-                "knowledge_index_worker_dispatch_receipt_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_receipt_invalid")
         if row.state != DISPATCH_STATE_COMPLETED:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_receipt_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_receipt_invalid")
         if (
             not isinstance(row.result_payload, Mapping)
             or _DIGEST.fullmatch(str(row.result_digest or "")) is None
@@ -458,14 +398,10 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
             or not isinstance(row.completed_at_epoch_ms, int)
             or row.completed_at_epoch_ms < row.claimed_at_epoch_ms
         ):
-            raise ValueError(
-                "knowledge_index_worker_dispatch_receipt_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_receipt_invalid")
         normalized, digest = cls._normalize_result(row.result_payload)
         if digest != row.result_digest or normalized != row.result_payload:
-            raise ValueError(
-                "knowledge_index_worker_dispatch_receipt_invalid"
-            )
+            raise ValueError("knowledge_index_worker_dispatch_receipt_invalid")
 
     @staticmethod
     def _to_authorization_receipt(
@@ -493,11 +429,7 @@ class SqlKnowledgeIndexWorkerDispatchReceiptRepository:
             **cls._to_authorization_receipt(row),
             "state": row.state,
             "result_digest": row.result_digest,
-            "result_payload": (
-                dict(row.result_payload)
-                if isinstance(row.result_payload, Mapping)
-                else None
-            ),
+            "result_payload": (dict(row.result_payload) if isinstance(row.result_payload, Mapping) else None),
             "completed_at_epoch_ms": row.completed_at_epoch_ms,
         }
 

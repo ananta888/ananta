@@ -8,6 +8,7 @@ orchestriert die Pipeline bis zur TeacherActionCard.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
@@ -336,5 +337,5 @@ def _default_config_provider() -> dict:
         if has_app_context():
             return current_app.config.get("AGENT_CONFIG", {}) or {}
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_default_config_provider: ignored Exception", exc_info=True)
     return {}

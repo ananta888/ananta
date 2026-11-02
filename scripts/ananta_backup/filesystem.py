@@ -31,9 +31,7 @@ def private_umask() -> Iterator[None]:
         os.umask(previous)
 
 
-def require_absolute_directory(
-    path: Path, label: str, *, writable: bool = True
-) -> Path:
+def require_absolute_directory(path: Path, label: str, *, writable: bool = True) -> Path:
     """Resolve an explicit existing directory without accepting a symlink target."""
 
     if not path.is_absolute():
@@ -59,15 +57,11 @@ def require_private_wsl_directory(path: Path, label: str) -> Path:
 
     resolved = require_absolute_directory(path, label)
     try:
-        common = os.path.commonpath(
-            (str(_WINDOWS_MOUNT_ROOT), str(resolved))
-        )
+        common = os.path.commonpath((str(_WINDOWS_MOUNT_ROOT), str(resolved)))
     except ValueError:
         common = ""
     if common == str(_WINDOWS_MOUNT_ROOT):
-        raise BackupError(
-            f"{label} must be on the private WSL filesystem, not below /mnt"
-        )
+        raise BackupError(f"{label} must be on the private WSL filesystem, not below /mnt")
     return resolved
 
 
@@ -199,10 +193,14 @@ def copy_exclusive_and_hash(
 
 
 def _open_regular_readonly(path: Path) -> int:
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(
-        os,
-        "O_NOFOLLOW",
-        0,
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(
+            os,
+            "O_NOFOLLOW",
+            0,
+        )
     )
     try:
         descriptor = os.open(path, flags)
@@ -233,10 +231,7 @@ def _require_stable_source(
         "st_mtime_ns",
         "st_ctime_ns",
     )
-    if (
-        bytes_read != before.st_size
-        or any(getattr(before, field) != getattr(after, field) for field in stable_fields)
-    ):
+    if bytes_read != before.st_size or any(getattr(before, field) != getattr(after, field) for field in stable_fields):
         raise BackupError(f"File changed while it was being read: {path}")
 
 
@@ -246,9 +241,7 @@ def rename_directory_no_replace(source: Path, destination: Path) -> None:
     try:
         renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
     except AttributeError as exc:
-        raise BackupError(
-            "Atomic no-clobber directory publication is unavailable"
-        ) from exc
+        raise BackupError("Atomic no-clobber directory publication is unavailable") from exc
     renameat2.argtypes = (
         ctypes.c_int,
         ctypes.c_char_p,
@@ -269,10 +262,7 @@ def rename_directory_no_replace(source: Path, destination: Path) -> None:
     error_number = ctypes.get_errno()
     if error_number in {errno.EEXIST, errno.ENOTEMPTY}:
         raise BackupError(f"Backup package already exists: {destination.name}")
-    raise BackupError(
-        "Atomic no-clobber directory publication failed: "
-        f"{os.strerror(error_number)}"
-    )
+    raise BackupError(f"Atomic no-clobber directory publication failed: {os.strerror(error_number)}")
 
 
 def fsync_directory(path: Path) -> None:

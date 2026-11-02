@@ -483,9 +483,7 @@ def test_dataset_quarantine_deprecates_every_matching_approved_adapter(tmp_path:
 
     assert [result["adapter_id"] for result in results] == ["adapter-v1"]
     assert registry.get("adapter-v1", **owner_scope).status == "deprecated"
-    assert worker.unloaded == [
-        ("adapter-v1", "1.0", "spreadsheet consent revoked; quarantine derived adapters")
-    ]
+    assert worker.unloaded == [("adapter-v1", "1.0", "spreadsheet consent revoked; quarantine derived adapters")]
 
 
 def test_admin_runtime_commands_require_auth_confirmation_and_reason(

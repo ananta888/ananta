@@ -75,9 +75,7 @@ def provision(config: WebrtcEdgeConfig, *, apply: bool, runner: Runner = _run) -
     container_inspect = runner(("docker", "container", "inspect", config.room_container))
     if container_inspect.returncode != 0:
         raise WebrtcEdgeProvisionError("webrtc_edge_room_container_missing")
-    connection_inspect = runner(
-        ("docker", "network", "inspect", config.network, "--format", "{{json .Containers}}")
-    )
+    connection_inspect = runner(("docker", "network", "inspect", config.network, "--format", "{{json .Containers}}"))
     if config.room_container not in connection_inspect.stdout:
         connect = ("docker", "network", "connect", config.network, config.room_container)
         commands.append(connect)

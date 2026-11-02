@@ -5,24 +5,26 @@ from agent.services.codecompass_ranking_config_service import CodeCompassRanking
 
 
 def test_candidate_scoring_weighting_and_trace() -> None:
-    cfg = CodeCompassRankingConfig.from_config({
-        "codecompass_ranking": {
-            "score_weights": {
-                "embedding_score": 0.5,
-                "graph_score": 0.0,
-                "symbol_score": 0.0,
-                "transformer_rerank_score": 0.5,
-                "policy_penalty": -0.2,
-            },
-            "override_metadata": {
-                "owner": "ranking-test",
-                "reason": "candidate scoring contract",
-                "scope": "test",
-                "version": "test-v1",
-                "expires_at": "2099-01-01T00:00:00Z",
-            },
+    cfg = CodeCompassRankingConfig.from_config(
+        {
+            "codecompass_ranking": {
+                "score_weights": {
+                    "embedding_score": 0.5,
+                    "graph_score": 0.0,
+                    "symbol_score": 0.0,
+                    "transformer_rerank_score": 0.5,
+                    "policy_penalty": -0.2,
+                },
+                "override_metadata": {
+                    "owner": "ranking-test",
+                    "reason": "candidate scoring contract",
+                    "scope": "test",
+                    "version": "test-v1",
+                    "expires_at": "2099-01-01T00:00:00Z",
+                },
+            }
         }
-    })
+    )
     ranked = CandidateScoringService(config=cfg).rank(
         [{"path": "b.py", "record_id": "b", "embedding_score": 0.2}],
         transformer_scores={"b": {"score": 1.0, "model_id": "m", "engine": "mock"}},
@@ -33,9 +35,11 @@ def test_candidate_scoring_weighting_and_trace() -> None:
 
 
 def test_candidate_scoring_stable_tie_break() -> None:
-    ranked = CandidateScoringService().rank([
-        {"path": "b.py", "record_id": "2", "embedding_score": 0.5},
-        {"path": "a.py", "record_id": "1", "embedding_score": 0.5},
-    ])
+    ranked = CandidateScoringService().rank(
+        [
+            {"path": "b.py", "record_id": "2", "embedding_score": 0.5},
+            {"path": "a.py", "record_id": "1", "embedding_score": 0.5},
+        ]
+    )
 
     assert [item.path for item in ranked] == ["a.py", "b.py"]

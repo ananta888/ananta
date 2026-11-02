@@ -21,9 +21,7 @@ class ContextSchemaRegistry:
         validators: dict[str, list[Draft202012Validator]] = {}
         for domain_id, descriptor in descriptors.items():
             schema_refs = [
-                str(item).strip()
-                for item in list(descriptor.get("context_schemas") or [])
-                if str(item).strip()
+                str(item).strip() for item in list(descriptor.get("context_schemas") or []) if str(item).strip()
             ]
             domain_validators: list[Draft202012Validator] = []
             for schema_ref in schema_refs:

@@ -1,7 +1,7 @@
 """Tests for Job Fit Scoring (JOBCORE-004)."""
+
 from __future__ import annotations
 
-import pytest
 from agent.job_module.fit_scoring import EvidenceRef, JobFitScore, SubScore
 
 

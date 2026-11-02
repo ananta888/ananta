@@ -16,8 +16,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 FIXTURE_DIR = Path("tests/fixtures/x86")
 SIMPLE_ADD = FIXTURE_DIR / "simple_add_x86_64.json"
 
@@ -30,7 +28,9 @@ def _build_mock_graph_store(*, with_x86: bool = True, enabled: bool = True):
 
     builder = X86IndexBuilder()
     inp = X86InputRecord(
-        kind=INPUT_KIND_DISASSEMBLER_JSON, architecture="x86_64", bitness=64,
+        kind=INPUT_KIND_DISASSEMBLER_JSON,
+        architecture="x86_64",
+        bitness=64,
         abi="x86_64_sysv",
     )
     adapter = FixtureAdapter(fixture_path=SIMPLE_ADD)
@@ -38,8 +38,16 @@ def _build_mock_graph_store(*, with_x86: bool = True, enabled: bool = True):
 
     if not with_x86:
         return {
-            "x86_nodes": [], "x86_edges": [],
-            "x86_index": {"schema": "codecompass_x86_graph.v1", "nodes": [], "edges": [], "nodes_by_id": {}, "node_count": 0, "edge_count": 0},
+            "x86_nodes": [],
+            "x86_edges": [],
+            "x86_index": {
+                "schema": "codecompass_x86_graph.v1",
+                "nodes": [],
+                "edges": [],
+                "nodes_by_id": {},
+                "node_count": 0,
+                "edge_count": 0,
+            },
             "diagnostics": {"status": "degraded", "x86_extension": {"status": "degraded", "reason": "no_x86_records"}},
         }
 
@@ -68,12 +76,16 @@ def _build_mock_graph_store(*, with_x86: bool = True, enabled: bool = True):
 
 # ===== X86CC-023: x86_overview =====
 
+
 def test_x86_overview_returns_tool_result_with_summary():
     from agent.services.tools.codecompass_tools import codecompass_x86_overview
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_overview(
-        workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc"},
+        tool_call_id="tc-1",
         resolve_graph_store=lambda _arguments: store,
     )
     assert result["tool_name"] == "codecompass.x86_overview"
@@ -85,10 +97,13 @@ def test_x86_overview_returns_tool_result_with_summary():
 
 def test_x86_overview_when_x86_disabled_returns_degraded():
     from agent.services.tools.codecompass_tools import codecompass_x86_overview
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store(with_x86=False)
     result = codecompass_x86_overview(
-        workspace_dir="/tmp", arguments={"manifest_hash": "abc"}, tool_call_id="tc-1",
+        workspace_dir="/tmp",
+        arguments={"manifest_hash": "abc"},
+        tool_call_id="tc-1",
         resolve_graph_store=lambda _arguments: store,
     )
     assert result["status"] == "ok"
@@ -98,8 +113,10 @@ def test_x86_overview_when_x86_disabled_returns_degraded():
 
 # ===== X86CC-024: x86_address_lookup =====
 
+
 def test_x86_address_lookup_resolves_instruction():
     from agent.services.tools.codecompass_tools import codecompass_x86_address_lookup
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
@@ -119,6 +136,7 @@ def test_x86_address_lookup_resolves_instruction():
 
 def test_x86_address_lookup_invalid_address_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_address_lookup
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_address_lookup(
@@ -133,6 +151,7 @@ def test_x86_address_lookup_invalid_address_returns_error():
 
 def test_x86_address_lookup_missing_address_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_address_lookup
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_address_lookup(
@@ -147,8 +166,10 @@ def test_x86_address_lookup_missing_address_returns_error():
 
 # ===== X86CC-025: x86_cfg =====
 
+
 def test_x86_cfg_returns_cfg_traversal_for_seed():
     from agent.services.tools.codecompass_tools import codecompass_x86_cfg
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
@@ -166,6 +187,7 @@ def test_x86_cfg_returns_cfg_traversal_for_seed():
 
 def test_x86_cfg_missing_seed_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_cfg
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_cfg(
@@ -179,8 +201,10 @@ def test_x86_cfg_missing_seed_returns_error():
 
 # ===== X86CC-026: x86_call_graph =====
 
+
 def test_x86_call_graph_returns_classified_calls():
     from agent.services.tools.codecompass_tools import codecompass_x86_call_graph
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
@@ -198,6 +222,7 @@ def test_x86_call_graph_returns_classified_calls():
 
 def test_x86_call_graph_missing_seed_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_call_graph
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_call_graph(
@@ -211,8 +236,10 @@ def test_x86_call_graph_missing_seed_returns_error():
 
 # ===== X86CC-027: x86_find =====
 
+
 def test_x86_find_by_mnemonic():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
@@ -229,6 +256,7 @@ def test_x86_find_by_mnemonic():
 
 def test_x86_find_by_function_name():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload
@@ -245,6 +273,7 @@ def test_x86_find_by_function_name():
 
 def test_x86_find_missing_kind_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_find(
@@ -258,6 +287,7 @@ def test_x86_find_missing_kind_returns_error():
 
 def test_x86_find_invalid_kind_returns_error():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
+
     store = MagicMock()
     store.load.return_value = _build_mock_graph_store()
     result = codecompass_x86_find(
@@ -271,6 +301,7 @@ def test_x86_find_invalid_kind_returns_error():
 
 def test_x86_find_respects_limit():
     from agent.services.tools.codecompass_tools import codecompass_x86_find
+
     store = MagicMock()
     payload = _build_mock_graph_store()
     store.load.return_value = payload

@@ -18,15 +18,17 @@ def build_gem_partition_records(
         domain = _classify_domain(record, rich_mode=rich_mode)
         if domain is None:
             continue
-        records.append({
-            "domain": domain,
-            "source_kind": record.get("kind"),
-            "file": record.get("file"),
-            "id": record.get("id"),
-            "title": _record_title(record),
-            "summary": _record_summary(record),
-            "embedding_text": _truncate(record.get("embedding_text"), 260),
-        })
+        records.append(
+            {
+                "domain": domain,
+                "source_kind": record.get("kind"),
+                "file": record.get("file"),
+                "id": record.get("id"),
+                "title": _record_title(record),
+                "summary": _record_summary(record),
+                "embedding_text": _truncate(record.get("embedding_text"), 260),
+            }
+        )
 
     kept_ids = {record.get("id") for record in records}
     for record in detail_records:
@@ -36,28 +38,32 @@ def build_gem_partition_records(
         parent_id = record.get("parent_id")
         if parent_id and parent_id not in kept_ids:
             continue
-        records.append({
-            "domain": domain,
-            "source_kind": record.get("kind"),
-            "file": record.get("file"),
-            "id": record.get("id"),
-            "title": _record_title(record),
-            "summary": _record_summary(record),
-            "embedding_text": _truncate(record.get("embedding_text"), 220),
-        })
+        records.append(
+            {
+                "domain": domain,
+                "source_kind": record.get("kind"),
+                "file": record.get("file"),
+                "id": record.get("id"),
+                "title": _record_title(record),
+                "summary": _record_summary(record),
+                "embedding_text": _truncate(record.get("embedding_text"), 220),
+            }
+        )
 
     for record in relation_records:
         domain = _classify_relation_domain(record, rich_mode=rich_mode)
         if domain is None:
             continue
-        records.append({
-            "domain": domain,
-            "source_kind": "relation",
-            "file": record.get("file"),
-            "id": record.get("id"),
-            "title": str(record.get("relation") or record.get("type") or "relation"),
-            "summary": _relation_summary(record),
-        })
+        records.append(
+            {
+                "domain": domain,
+                "source_kind": "relation",
+                "file": record.get("file"),
+                "id": record.get("id"),
+                "title": str(record.get("relation") or record.get("type") or "relation"),
+                "summary": _relation_summary(record),
+            }
+        )
     return records
 
 

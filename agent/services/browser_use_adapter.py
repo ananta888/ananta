@@ -58,10 +58,17 @@ class BrowserUseExecutionAdapter:
         policy = get_browser_policy_service()
         allow_domain = policy.enforce_domain(url=start_url, contract=contract)
         if not allow_domain.allow:
-            return BrowserAdapterResult("blocked", "security_denied", 0, [], {},)
+            return BrowserAdapterResult(
+                "blocked",
+                "security_denied",
+                0,
+                [],
+                {},
+            )
 
         traces: list[dict[str, Any]] = []
         extracted: dict[str, Any] = {}
+
         def _default_runner(action: dict[str, Any]) -> dict[str, Any]:
             action_type = str((action or {}).get("type") or "").strip().lower()
             if action_type == "extract":

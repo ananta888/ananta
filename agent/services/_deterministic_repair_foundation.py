@@ -10,80 +10,79 @@ existing imports keep working unchanged.
 
 from __future__ import annotations
 
-import copy
-from dataclasses import dataclass, field
-import json
 import logging
-import re
-from typing import Any, Pattern
+from typing import Any
 
-from agent.db_models import RepairOutcomeMemoryDB
-from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
-
+from agent.services import _deterministic_repair_procedures as _drr_procedures
+from agent.services._deterministic_repair_audit import build_repair_audit_chain
+from agent.services._deterministic_repair_confidence import evaluate_repair_confidence
 from agent.services._deterministic_repair_constants import (
+    ALLOWED_EVIDENCE_TYPES,
+    APPROVAL_REQUIREMENT_MODEL,
+    DIAGNOSIS_PROCEDURE_MODEL,
+    ENVIRONMENT_SIMILARITY_MODEL,
+    LLM_ESCALATION_POLICY_MODEL,
+    OPERATOR_GUIDE_METADATA,
+    OPERATOR_VIEW_MODEL,
+    REPAIR_ACTION_SAFETY_CLASSES,
+    REPAIR_OUTCOME_MEMORY_MODEL,
     REPAIR_PATH_TARGET_MODEL,
     REPAIR_PROBLEM_CLASS_INVENTORY,
-    REPAIR_STATE_MODEL,
-    ALLOWED_EVIDENCE_TYPES,
-    SEVERITY_PATTERNS,
-    DIAGNOSIS_PROCEDURE_MODEL,
     REPAIR_PROCEDURE_MODEL,
+    REPAIR_STATE_MODEL,
     REPAIR_VERIFICATION_MODEL,
-    REPAIR_OUTCOME_MEMORY_MODEL,
-    ENVIRONMENT_SIMILARITY_MODEL,
-    REPAIR_ACTION_SAFETY_CLASSES,
-    APPROVAL_REQUIREMENT_MODEL,
-    LLM_ESCALATION_POLICY_MODEL,
-    OPERATOR_VIEW_MODEL,
-    OPERATOR_GUIDE_METADATA,
     ROLLOUT_PLAN_MODEL,
     TEST_COVERAGE_MODEL,
 )
-from agent.services import _deterministic_repair_procedures as _drr_procedures
 from agent.services._deterministic_repair_evidence import (
     collect_environment_facts,
+    compute_environment_similarity,
     ingest_structured_logs,
     normalize_evidence_bundle,
 )
-from agent.services._deterministic_repair_signatures import (
-    classify_signature_matching_outcome,
-    build_signature_explanation,
-    build_initial_failure_signature_catalog,
-    match_failure_signatures,
+from agent.services._deterministic_repair_history import build_path_visibility, build_repair_history_inspection_view
+from agent.services._deterministic_repair_knowledge import (
+    build_golden_path_examples,
+    build_rollout_plan,
+    build_test_coverage_manifest,
 )
-from agent.services._deterministic_repair_confidence import evaluate_repair_confidence
-from agent.services._deterministic_repair_playbooks import get_initial_diagnosis_playbooks
-from agent.services._deterministic_repair_playbooks import run_diagnosis_playbook
-from agent.services._deterministic_repair_procedures import build_repair_procedure_template
-from agent.services._deterministic_repair_procedures import build_initial_repair_procedure_catalog
-from agent.services._deterministic_repair_procedures import select_repair_procedure_from_catalog
-from agent.services._deterministic_repair_procedures import _approval_scope_key
-from agent.services._deterministic_repair_procedures import execute_repair_procedure
-from agent.services._deterministic_repair_outcome_memory import verify_final_repair_outcome
-from agent.services._deterministic_repair_misc import build_recovery_hint_bundle
-from agent.services._deterministic_repair_outcome_memory import build_repair_outcome_memory_entry
-from agent.services._deterministic_repair_outcome_memory import track_repair_outcomes
-from agent.services._deterministic_repair_evidence import compute_environment_similarity
-from agent.services._deterministic_repair_learning import build_negative_learning_model
-from agent.services._deterministic_repair_learning import build_success_weighted_repair_recommendations
-from agent.services._deterministic_repair_llm_escalation import decide_llm_escalation
-from agent.services._deterministic_repair_llm_escalation import build_bounded_escalation_prompt
-from agent.services._deterministic_repair_procedures import convert_llm_proposal_to_reviewed_procedure
-from agent.services._deterministic_repair_llm_escalation import curate_escalation_feedback
-from agent.services._deterministic_repair_audit import build_repair_audit_chain
-from agent.services._deterministic_repair_operator_views import build_operator_session_summary
-from agent.services._deterministic_repair_history import build_path_visibility
-from agent.services._deterministic_repair_operator_views import build_operator_proposal_preview
-from agent.services._deterministic_repair_history import build_repair_history_inspection_view
-from agent.services._deterministic_repair_knowledge import build_golden_path_examples
-from agent.services._deterministic_repair_knowledge import build_rollout_plan
-from agent.services._deterministic_repair_knowledge import build_test_coverage_manifest
-from agent.services._deterministic_repair_misc import evaluate_unsafe_action_guardrails
-from agent.services._deterministic_repair_signatures import signature_to_dict
+from agent.services._deterministic_repair_learning import (
+    build_negative_learning_model,
+    build_success_weighted_repair_recommendations,
+)
+from agent.services._deterministic_repair_llm_escalation import (
+    build_bounded_escalation_prompt,
+    curate_escalation_feedback,
+    decide_llm_escalation,
+)
+from agent.services._deterministic_repair_misc import build_recovery_hint_bundle, evaluate_unsafe_action_guardrails
+from agent.services._deterministic_repair_operator_views import (
+    build_operator_proposal_preview,
+    build_operator_session_summary,
+)
+from agent.services._deterministic_repair_outcome_memory import (
+    build_repair_outcome_memory_entry,
+    track_repair_outcomes,
+    verify_final_repair_outcome,
+)
+from agent.services._deterministic_repair_playbooks import get_initial_diagnosis_playbooks, run_diagnosis_playbook
+from agent.services._deterministic_repair_procedures import (
+    _approval_scope_key,
+    build_initial_repair_procedure_catalog,
+    build_repair_procedure_template,
+    convert_llm_proposal_to_reviewed_procedure,
+    execute_repair_procedure,
+    select_repair_procedure_from_catalog,
+)
+from agent.services._deterministic_repair_signatures import (
+    build_initial_failure_signature_catalog,
+    build_signature_explanation,
+    classify_signature_matching_outcome,
+    match_failure_signatures,
+    signature_to_dict,
+)
+
 build_repair_procedure_preview = _drr_procedures.build_repair_procedure_preview
-
-
-
 
 
 log = logging.getLogger(__name__)
@@ -104,7 +103,7 @@ def build_deterministic_repair_foundation_snapshot(
     except Exception as exc:
         log.error("Failed to build deterministic repair foundation snapshot: %s", exc)
         # Use the procedure preview to return a structured error artifact
-        repair_preview = _drr_procedures.build_repair_procedure_preview(final_plan_json={})
+        _drr_procedures.build_repair_procedure_preview(final_plan_json={})
         return {
             "error": "deterministic_repair_foundation_failed",
             "detail": str(exc),
@@ -112,7 +111,6 @@ def build_deterministic_repair_foundation_snapshot(
             "repair_preview": None,
             "diagnosis_artifact": None,
         }
-
 
 
 def _build_deterministic_repair_foundation_snapshot_impl_local(
@@ -181,10 +179,7 @@ def _build_deterministic_repair_foundation_snapshot_impl_local(
         for match in list(signature_matching.get("matches") or [])[:3]
     ]
     diagnosis_playbooks = get_initial_diagnosis_playbooks()
-    selected_problem_class = str(
-        matching_outcome.get("best_problem_class")
-        or "service_start_failure"
-    )
+    selected_problem_class = str(matching_outcome.get("best_problem_class") or "service_start_failure")
     selected_playbook = diagnosis_playbooks.get(selected_problem_class) or diagnosis_playbooks["service_start_failure"]
     diagnosis_run = run_diagnosis_playbook(
         playbook=selected_playbook,
@@ -332,7 +327,9 @@ def _build_deterministic_repair_foundation_snapshot_impl_local(
     repair_history_view = build_repair_history_inspection_view(
         memory_entries=[memory_entry],
         filter_problem_class=selected_problem_class,
-        filter_platform_target=(str(environment_facts.get("platform_target")) if environment_facts.get("platform_target") else None),
+        filter_platform_target=(
+            str(environment_facts.get("platform_target")) if environment_facts.get("platform_target") else None
+        ),
     )
     golden_path_examples = build_golden_path_examples()
     rollout_plan = build_rollout_plan()
@@ -342,7 +339,10 @@ def _build_deterministic_repair_foundation_snapshot_impl_local(
             str(step.get("title") or "")
             for step in list((selected_catalog_entry.get("procedure") or {}).get("steps") or [])
         ]
-        + [str(step.get("title") or "") for step in list((llm_proposal_conversion.get("structured_candidate_procedure") or {}).get("steps") or [])],
+        + [
+            str(step.get("title") or "")
+            for step in list((llm_proposal_conversion.get("structured_candidate_procedure") or {}).get("steps") or [])
+        ],
     )
     return {
         "target_model": dict(REPAIR_PATH_TARGET_MODEL),
@@ -434,10 +434,12 @@ def _build_deterministic_repair_foundation_snapshot_impl_local(
         "rollout_plan_model": dict(ROLLOUT_PLAN_MODEL),
         "rollout_plan": rollout_plan,
         "repair_procedure": dict(selected_catalog_entry.get("procedure") or {}),
-        "diagnosis_artifact": dict(mode_data.get("diagnosis_artifact") or {
-            "problem_class": selected_problem_class,
-            "confidence": matching_outcome.get("best_score", 0.0),
-            "likely_causes": [],
-        }),
+        "diagnosis_artifact": dict(
+            mode_data.get("diagnosis_artifact")
+            or {
+                "problem_class": selected_problem_class,
+                "confidence": matching_outcome.get("best_score", 0.0),
+                "likely_causes": [],
+            }
+        ),
     }
-

@@ -121,9 +121,7 @@ class KanbanProjectionService:
         self._auth = authorization or KanbanAuthorizationService()
         self._events = events or HubKanbanEventAdapter()
         self._event_mirror = (
-            event_mirror
-            if event_mirror is not None
-            else HubKanbanCommittedEventMirror() if default_events else None
+            event_mirror if event_mirror is not None else HubKanbanCommittedEventMirror() if default_events else None
         )
 
     @staticmethod
@@ -153,9 +151,7 @@ class KanbanProjectionService:
         try:
             self._auth.require_scope(principal, scope.kind, goal=goal, team=team)
         except KanbanAuthorizationError as exc:
-            raise KanbanServiceError(
-                "kanban_board_not_found", "board was not found", status_code=404
-            ) from exc
+            raise KanbanServiceError("kanban_board_not_found", "board was not found", status_code=404) from exc
         return scope, goal, team
 
     def capabilities(self, principal: KanbanPrincipal, board_id: str | None = None) -> KanbanCapabilities:
@@ -186,9 +182,7 @@ class KanbanProjectionService:
             team=team,
         )
 
-    def list_boards(
-        self, principal: KanbanPrincipal, *, limit: int = 50, cursor: str | None = None
-    ) -> KanbanBoardPage:
+    def list_boards(self, principal: KanbanPrincipal, *, limit: int = 50, cursor: str | None = None) -> KanbanBoardPage:
         require_kanban_page_limit(limit)
         candidates: list[tuple[KanbanScope, Any, Any]] = []
         if principal.is_admin or principal.role.lower() == "admin":
@@ -212,9 +206,7 @@ class KanbanProjectionService:
             for scope, goal, team in candidates
         ]
         boards.sort(key=lambda item: item.id)
-        revision = hashlib.sha256(
-            "|".join(f"{item.id}:{item.revision}" for item in boards).encode()
-        ).hexdigest()[:24]
+        revision = hashlib.sha256("|".join(f"{item.id}:{item.revision}" for item in boards).encode()).hexdigest()[:24]
         offset = decode_kanban_cursor_offset(cursor, revision)
         page = boards[offset : offset + limit]
         next_cursor = encode_kanban_cursor(offset + len(page), revision) if offset + len(page) < len(boards) else None
@@ -250,9 +242,7 @@ class KanbanProjectionService:
 
     def create_board(self, command: CreateBoardCommand, principal: KanbanPrincipal) -> KanbanBoard:
         board_id = (
-            "hub"
-            if command.scope_type == KanbanScopeType.HUB
-            else f"{command.scope_type.value}:{command.scope_id}"
+            "hub" if command.scope_type == KanbanScopeType.HUB else f"{command.scope_type.value}:{command.scope_id}"
         )
         self._scope(board_id, principal, KanbanCapability.WRITE)
         return self.get_board(board_id, principal)
@@ -283,9 +273,7 @@ class KanbanProjectionService:
         if query:
             query = query.casefold()
             cards = [
-                item
-                for item in cards
-                if query in item.title.casefold() or query in (item.description or "").casefold()
+                item for item in cards if query in item.title.casefold() or query in (item.description or "").casefold()
             ]
         offset = decode_kanban_cursor_offset(cursor, revision)
         page = cards[offset : offset + limit]
@@ -334,9 +322,7 @@ class KanbanProjectionService:
                 },
             )
 
-    def create_card(
-        self, board_id: str, command: CreateCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def create_card(self, board_id: str, command: CreateCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         scope, goal, _ = self._scope(board_id, principal, KanbanCapability.WRITE)
         mutation = kanban_mutation_fingerprint(
             principal, command.idempotency_key, "create", command.model_dump(mode="json")
@@ -351,7 +337,9 @@ class KanbanProjectionService:
             team_id=(
                 str(goal.team_id)
                 if scope.kind == "goal" and getattr(goal, "team_id", None)
-                else scope.scope_id if scope.kind == "team" else None
+                else scope.scope_id
+                if scope.kind == "team"
+                else None
             ),
             depends_on=list(command.dependencies),
         )
@@ -428,14 +416,10 @@ class KanbanProjectionService:
             None,
         )
         lock_ids = {str(card_id)}
-        source_task_id = str(
-            getattr(initial_task, "source_task_id", "") or ""
-        ).strip()
+        source_task_id = str(getattr(initial_task, "source_task_id", "") or "").strip()
         if source_task_id:
             lock_ids.add(source_task_id)
-        with get_task_mutation_lock_port().mutation_locks(
-            lock_ids
-        ) as acquired:
+        with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
             if not acquired:
                 raise KanbanServiceError(
                     "kanban_task_lock_unavailable",
@@ -444,18 +428,10 @@ class KanbanProjectionService:
                 )
             fenced_tasks = self._store.list_tasks(scope)
             fenced_task = next(
-                (
-                    item
-                    for item in fenced_tasks
-                    if item.id == card_id
-                ),
+                (item for item in fenced_tasks if item.id == card_id),
                 None,
             )
-            old_status = (
-                str(getattr(fenced_task, "status", "") or "")
-                if fenced_task is not None
-                else None
-            )
+            old_status = str(getattr(fenced_task, "status", "") or "") if fenced_task is not None else None
             require_kanban_mutation_allowed(fenced_task)
             try:
                 ensure_external_recovery_mutation_allowed(
@@ -522,9 +498,7 @@ class KanbanProjectionService:
             )
         return self.get_card(command.board_id, card_id, principal)
 
-    def move_card(
-        self, card_id: str, command: MoveCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def move_card(self, card_id: str, command: MoveCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = kanban_column(task.status)
             old_status = str(task.status)
@@ -557,17 +531,15 @@ class KanbanProjectionService:
             audit={"column_id": command.column_id.value, "position": command.position},
         )
 
-    def assign_card(
-        self, card_id: str, command: AssignCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def assign_card(self, card_id: str, command: AssignCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         scope, _, _ = self._scope(command.board_id, principal, KanbanCapability.ASSIGN)
         agent = self._store.get_agent(command.assignee_id) if command.assignee_id else None
         if command.assignee_id and agent is None:
-            raise KanbanServiceError(
-                "kanban_assignee_not_found", "assignee was not found", status_code=404
-            )
-        if command.assignee_id and scope.kind == "team" and not self._store.is_team_member(
-            str(scope.scope_id), command.assignee_id
+            raise KanbanServiceError("kanban_assignee_not_found", "assignee was not found", status_code=404)
+        if (
+            command.assignee_id
+            and scope.kind == "team"
+            and not self._store.is_team_member(str(scope.scope_id), command.assignee_id)
         ):
             raise KanbanServiceError(
                 "kanban_assignee_forbidden",
@@ -585,9 +557,7 @@ class KanbanProjectionService:
                 context["kanban_assignee_id"] = command.assignee_id
                 context["kanban_assignee_name"] = getattr(agent, "name", None)
                 task.assigned_agent_url = (
-                    getattr(agent, "url", None)
-                    or getattr(agent, "agent_url", None)
-                    or command.assignee_id
+                    getattr(agent, "url", None) or getattr(agent, "agent_url", None) or command.assignee_id
                 )
             task.worker_execution_context = context
             record_kanban_history_event(
@@ -609,9 +579,7 @@ class KanbanProjectionService:
             audit={"assignee_id": command.assignee_id},
         )
 
-    def comment_card(
-        self, card_id: str, command: CommentCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def comment_card(self, card_id: str, command: CommentCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         def change(task: TaskDB, _tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             record_kanban_history_event(
                 task,
@@ -636,9 +604,7 @@ class KanbanProjectionService:
             audit={},
         )
 
-    def set_dependencies(
-        self, card_id: str, command: SetDependenciesCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def set_dependencies(self, card_id: str, command: SetDependenciesCommand, principal: KanbanPrincipal) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             require_acyclic_kanban_dependencies(task, command.dependencies, tasks)
             task.depends_on = list(dict.fromkeys(command.dependencies))
@@ -661,9 +627,7 @@ class KanbanProjectionService:
             audit={"dependency_count": len(command.dependencies)},
         )
 
-    def block_card(
-        self, card_id: str, command: BlockCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def block_card(self, card_id: str, command: BlockCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = kanban_column(task.status)
             require_acyclic_kanban_dependencies(task, command.dependencies, tasks)
@@ -694,9 +658,7 @@ class KanbanProjectionService:
             audit={"dependency_count": len(command.dependencies)},
         )
 
-    def complete_card(
-        self, card_id: str, command: CompleteCardCommand, principal: KanbanPrincipal
-    ) -> KanbanCard:
+    def complete_card(self, card_id: str, command: CompleteCardCommand, principal: KanbanPrincipal) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = kanban_column(task.status)
             require_kanban_transition(task, "completed")
@@ -803,18 +765,12 @@ class KanbanProjectionService:
                 KanbanActivity(
                     id=str(
                         details.get("comment_id")
-                        or uuid.uuid5(
-                            uuid.NAMESPACE_URL, f"{task.id}:{index}:{kanban_history_event_type(event)}"
-                        )
+                        or uuid.uuid5(uuid.NAMESPACE_URL, f"{task.id}:{index}:{kanban_history_event_type(event)}")
                     ),
                     card_id=card_id,
                     event_type=kanban_history_event_type(event),
                     actor_id=details.get("actor_id"),
-                    message=str(
-                        event.get("message")
-                        or details.get("summary")
-                        or kanban_history_event_type(event)
-                    ),
+                    message=str(event.get("message") or details.get("summary") or kanban_history_event_type(event)),
                     details=public,
                     created_at=self._when(event, task.updated_at),
                 )

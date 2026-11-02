@@ -16,7 +16,6 @@ from agent.services.sfu_receiver_quality_ingestion_service import (
     build_sfu_receiver_quality_validator,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads(
     (ROOT / "tests/fixtures/webrtc/receiver_quality_observation/valid_privacy_bounded.v1.json").read_text(
@@ -144,8 +143,12 @@ def test_non_finite_json_tokens_are_rejected(token):
     raw = _raw(_document()).replace(b'"rtt_ms":48', f'"rtt_ms":{token}'.encode())
     command = _command()
     command = SfuReceiverQualityCommand(
-        raw, command.actor_id, command.tenant_id, command.session_id,
-        command.membership_epoch, command.subscription_ref,
+        raw,
+        command.actor_id,
+        command.tenant_id,
+        command.session_id,
+        command.membership_epoch,
+        command.subscription_ref,
     )
     with pytest.raises(SfuReceiverQualityError, match="invalid_json_non_finite"):
         _service().ingest(command)
@@ -165,9 +168,7 @@ def test_duplicate_reorder_gap_and_stale_sequence_have_stable_outcomes():
     now[0] += 5
     gap = _document()
     gap["sequence"] = 44
-    gap["issued_at"] = datetime.fromtimestamp(
-        now[0], tz=timezone.utc
-    ).isoformat().replace("+00:00", "Z")
+    gap["issued_at"] = datetime.fromtimestamp(now[0], tz=timezone.utc).isoformat().replace("+00:00", "Z")
     for sample in gap["samples"]:
         sample["observed_at"] = gap["issued_at"]
     accepted = service.ingest(_command(gap))
@@ -200,9 +201,7 @@ def test_interval_rate_history_retention_and_cleanup_are_bounded():
         now[0] += 1
         document = _document(policy)
         document["sequence"] = sequence
-        document["issued_at"] = datetime.fromtimestamp(
-            now[0], tz=timezone.utc
-        ).isoformat().replace("+00:00", "Z")
+        document["issued_at"] = datetime.fromtimestamp(now[0], tz=timezone.utc).isoformat().replace("+00:00", "Z")
         for sample in document["samples"]:
             sample["observed_at"] = document["issued_at"]
         service.ingest(_command(document))
@@ -213,10 +212,15 @@ def test_interval_rate_history_retention_and_cleanup_are_bounded():
         service.ingest(_command(fourth))
     now[0] += 2
     assert service.read_window(_command()) == ()
-    assert service.purge_subscription(
-        tenant_id="tenant-fixture", session_id="session-fixture",
-        subscriber_ref="subscriber-fixture-01", subscription_ref="subscription-fixture-01",
-    ) == 0
+    assert (
+        service.purge_subscription(
+            tenant_id="tenant-fixture",
+            session_id="session-fixture",
+            subscriber_ref="subscriber-fixture-01",
+            subscription_ref="subscription-fixture-01",
+        )
+        == 0
+    )
 
 
 def test_leave_and_revoke_cleanup_cannot_mutate_authority_or_topology():
@@ -224,10 +228,13 @@ def test_leave_and_revoke_cleanup_cannot_mutate_authority_or_topology():
     service = _service(authority=authority)
     service.ingest(_command())
     before = authority.value
-    assert service.purge_participant(
-        tenant_id="tenant-fixture",
-        session_id="session-fixture",
-        subscriber_ref="subscriber-fixture-01",
-    ) == 1
+    assert (
+        service.purge_participant(
+            tenant_id="tenant-fixture",
+            session_id="session-fixture",
+            subscriber_ref="subscriber-fixture-01",
+        )
+        == 1
+    )
     assert authority.value == before
     assert service.read_window(_command()) == ()

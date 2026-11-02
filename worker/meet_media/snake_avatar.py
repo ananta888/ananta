@@ -131,14 +131,56 @@ def snake_frame(index, samples, rate, *, state=SPEAKING):
 
 def ffmpeg_encoder(raw_path, video_path, frames):
     if os.environ.get("ANANTA_CPU_FALLBACK") == "1":
-        codec = ("-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency", "-pix_fmt", "yuv420p", "-b:v", "400k")
+        codec = (
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-tune",
+            "zerolatency",
+            "-pix_fmt",
+            "yuv420p",
+            "-b:v",
+            "400k",
+        )
     else:
-        codec = ("-c:v", "h264_nvenc", "-preset", "p4", "-tune", "ull", "-pix_fmt", "yuv420p", "-bf", "0", "-zerolatency", "1", "-b:v", "400k")
+        codec = (
+            "-c:v",
+            "h264_nvenc",
+            "-preset",
+            "p4",
+            "-tune",
+            "ull",
+            "-pix_fmt",
+            "yuv420p",
+            "-bf",
+            "0",
+            "-zerolatency",
+            "1",
+            "-b:v",
+            "400k",
+        )
     command = [
-        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-        "-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", f"{SIZE}x{SIZE}",
-        "-framerate", str(FPS), "-i", str(raw_path),
-        *codec, "-movflags", "+faststart", str(video_path),
+        "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-pixel_format",
+        "rgb24",
+        "-video_size",
+        f"{SIZE}x{SIZE}",
+        "-framerate",
+        str(FPS),
+        "-i",
+        str(raw_path),
+        *codec,
+        "-movflags",
+        "+faststart",
+        str(video_path),
     ]
     try:
         subprocess.run(command, check=True, timeout=60, capture_output=True)

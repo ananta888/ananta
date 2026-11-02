@@ -60,14 +60,11 @@ class ContentAddressedKnowledgeIndexPayloadStore:
             _SHA256.fullmatch(normalized_fingerprint) is None
             or not isinstance(content, bytes)
             or not content
-            or hashlib.sha256(content).hexdigest()
-            != normalized_fingerprint
+            or hashlib.sha256(content).hexdigest() != normalized_fingerprint
         ):
             raise ValueError("knowledge_index_payload_fingerprint_mismatch")
         return {
-            "artifact_id": (
-                _PAYLOAD_ARTIFACT_PREFIX + normalized_fingerprint
-            ),
+            "artifact_id": (_PAYLOAD_ARTIFACT_PREFIX + normalized_fingerprint),
             "sha256": normalized_fingerprint,
             "size_bytes": len(content),
             "media_type": _PAYLOAD_MEDIA_TYPE,
@@ -112,10 +109,8 @@ class ContentAddressedKnowledgeIndexPayloadStore:
     ) -> None:
         if (
             str(stored.get("sha256") or "") != reference["sha256"]
-            or int(stored.get("size_bytes") or -1)
-            != reference["size_bytes"]
-            or str(stored.get("media_type") or "")
-            != _PAYLOAD_MEDIA_TYPE
+            or int(stored.get("size_bytes") or -1) != reference["size_bytes"]
+            or str(stored.get("media_type") or "") != _PAYLOAD_MEDIA_TYPE
             or str(stored.get("filename") or "") != _PAYLOAD_FILENAME
             or not str(stored.get("storage_path") or "").strip()
         ):
@@ -153,9 +148,7 @@ class ContentAddressedKnowledgeIndexPayloadStore:
                         version_metadata={
                             "versioning_ready": True,
                             "immutable": True,
-                            "system_artifact_kind": (
-                                "knowledge_index_job_payload"
-                            ),
+                            "system_artifact_kind": ("knowledge_index_job_payload"),
                         },
                     )
                     db.add(version)
@@ -171,12 +164,8 @@ class ContentAddressedKnowledgeIndexPayloadStore:
                         created_by=created_by,
                         artifact_metadata={
                             "ingestion_mode": "content_addressed",
-                            "system_artifact_kind": (
-                                "knowledge_index_job_payload"
-                            ),
-                            "idempotency_fingerprint": str(
-                                reference["sha256"]
-                            ),
+                            "system_artifact_kind": ("knowledge_index_job_payload"),
+                            "idempotency_fingerprint": str(reference["sha256"]),
                         },
                     )
                     db.add(artifact)
@@ -186,9 +175,7 @@ class ContentAddressedKnowledgeIndexPayloadStore:
                 except IntegrityError:
                     db.rollback()
                     if attempt == 1:
-                        raise ValueError(
-                            "knowledge_index_payload_metadata_conflict"
-                        ) from None
+                        raise ValueError("knowledge_index_payload_metadata_conflict") from None
         raise AssertionError("unreachable")
 
     @staticmethod
@@ -211,13 +198,10 @@ class ContentAddressedKnowledgeIndexPayloadStore:
                 or artifact.latest_filename != _PAYLOAD_FILENAME
                 or int(artifact.size_bytes) != size_bytes
                 or artifact.status != "stored"
-                or metadata.get("system_artifact_kind")
-                != "knowledge_index_job_payload"
+                or metadata.get("system_artifact_kind") != "knowledge_index_job_payload"
                 or metadata.get("idempotency_fingerprint") != fingerprint
             ):
-                raise ValueError(
-                    "knowledge_index_payload_metadata_conflict"
-                )
+                raise ValueError("knowledge_index_payload_metadata_conflict")
         if version is not None and (
             version.artifact_id != artifact_id
             or int(version.version_number) != 1

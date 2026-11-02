@@ -162,10 +162,7 @@ class SpeechEvidenceRevocationService:
             transition="revoked",
             reason_code="speech_evidence_revoked",
             revocation_epoch=revoked_consent.revocation_epoch,
-            idempotency_key=(
-                f"speech-evidence:revoked:{record.evidence_id}:"
-                f"{revoked_consent.revocation_epoch}"
-            ),
+            idempotency_key=(f"speech-evidence:revoked:{record.evidence_id}:{revoked_consent.revocation_epoch}"),
         )
         with Session(engine) as session:
             session.exec(
@@ -332,10 +329,7 @@ class SpeechEvidenceRevocationService:
             transition="revoked",
             reason_code="speech_evidence_revoked",
             revocation_epoch=int(tombstone.revocation_epoch),
-            idempotency_key=(
-                f"speech-evidence:revoked:{record.evidence_id}:"
-                f"{int(tombstone.revocation_epoch)}"
-            ),
+            idempotency_key=(f"speech-evidence:revoked:{record.evidence_id}:{int(tombstone.revocation_epoch)}"),
         )
         self._evidence.transition(
             tenant_id=principal.tenant_id,

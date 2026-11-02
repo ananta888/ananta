@@ -34,9 +34,7 @@ class UserRepository:
 
     def get_by_verification_token_hash(self, token_hash: str) -> Optional[UserDB]:
         with Session(engine) as session:
-            return session.exec(
-                select(UserDB).where(UserDB.email_verification_token_hash == token_hash)
-            ).first()
+            return session.exec(select(UserDB).where(UserDB.email_verification_token_hash == token_hash)).first()
 
     def get_pending_approval(self):
         with Session(engine) as session:
@@ -61,9 +59,7 @@ class UserRepository:
             if user:
                 from sqlmodel import delete
 
-                session.exec(
-                    delete(OidcIdentityLinkDB).where(OidcIdentityLinkDB.username == username)
-                )
+                session.exec(delete(OidcIdentityLinkDB).where(OidcIdentityLinkDB.username == username))
                 session.delete(user)
                 session.commit()
                 return True
@@ -97,8 +93,11 @@ class OidcIdentityLinkRepository:
     def update_memberships(self, issuer: str, subject: str, memberships: dict) -> bool:
         """Store the Keycloak memberships of a linked subject as of this login (WCRB-004)."""
         with Session(engine) as session:
-            link = session.exec(select(OidcIdentityLinkDB).where(
-                OidcIdentityLinkDB.issuer == issuer, OidcIdentityLinkDB.subject == subject)).first()
+            link = session.exec(
+                select(OidcIdentityLinkDB).where(
+                    OidcIdentityLinkDB.issuer == issuer, OidcIdentityLinkDB.subject == subject
+                )
+            ).first()
             if link is None:
                 return False
             link.memberships = dict(memberships or {})

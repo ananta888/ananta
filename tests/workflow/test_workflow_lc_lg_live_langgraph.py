@@ -36,6 +36,7 @@ def _development_langgraph_config(**values) -> LangGraphProviderConfig:
     values.setdefault("checkpoint_policy", "none")
     return LangGraphProviderConfig(metadata=metadata, **values)
 
+
 # ── Adapter-level integration ─────────────────────────────────────────
 
 
@@ -789,9 +790,7 @@ def test_lg_missing_dependency_blocks_implicit_manual_walker(monkeypatch):
     )
 
     decision = next(
-        event
-        for event in result.execution_trace
-        if event.get("event") == "langgraph_dependency_fallback_evaluated"
+        event for event in result.execution_trace if event.get("event") == "langgraph_dependency_fallback_evaluated"
     )
     assert result.status == "failed"
     assert result.reason_code == "langgraph_not_installed"

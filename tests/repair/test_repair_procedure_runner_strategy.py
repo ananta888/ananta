@@ -22,4 +22,3 @@ def test_repair_strategy_declines_without_critique() -> None:
     context = SimpleNamespace(goal_id="g1", task_id="t1", task={})
     result = strategy.run(context)
     assert result.status == "declined"
-

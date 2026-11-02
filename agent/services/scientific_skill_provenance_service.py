@@ -12,9 +12,7 @@ from agent.db_models.scientific_skill_provenance import ScientificSkillProvenanc
 from agent.repositories.scientific_skill_provenance import ScientificSkillProvenanceRepository
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
-_SECRET = re.compile(
-    r"(?i)(?:private[-_ ]?key|password|bearer\s+|(?<![A-Za-z])sk-[A-Za-z0-9]|api[-_]?key\s*[=:])"
-)
+_SECRET = re.compile(r"(?i)(?:private[-_ ]?key|password|bearer\s+|(?<![A-Za-z])sk-[A-Za-z0-9]|api[-_]?key\s*[=:])")
 
 
 @dataclass(frozen=True)
@@ -122,32 +120,43 @@ class ScientificSkillProvenanceService:
 
 def _validate_payload(payload: dict[str, object]) -> None:
     base_required = {
-        "schema", "tenant_id", "project_id", "task_id", "entry_id", "upstream_pin",
-        "skill_sha256", "catalog_digest", "policy_decision_digest", "approval_request_id",
-        "approval_digest", "model_id", "tool_calls", "source_references", "artifact_digests", "result_digest",
+        "schema",
+        "tenant_id",
+        "project_id",
+        "task_id",
+        "entry_id",
+        "upstream_pin",
+        "skill_sha256",
+        "catalog_digest",
+        "policy_decision_digest",
+        "approval_request_id",
+        "approval_digest",
+        "model_id",
+        "tool_calls",
+        "source_references",
+        "artifact_digests",
+        "result_digest",
     }
     schema = payload.get("schema")
     required = (
-        base_required
-        if schema == "ananta.scientific-skill-provenance.v1"
-        else base_required | {"catalog_entry_status"}
+        base_required if schema == "ananta.scientific-skill-provenance.v1" else base_required | {"catalog_entry_status"}
     )
     if set(payload) != required or schema not in {
         "ananta.scientific-skill-provenance.v1",
         "ananta.scientific-skill-provenance.v2",
     }:
         raise ValueError("scientific_skill_receipt_incomplete")
-    if schema == "ananta.scientific-skill-provenance.v2" and payload.get(
-        "catalog_entry_status"
-    ) not in {"approved", "disabled"}:
+    if schema == "ananta.scientific-skill-provenance.v2" and payload.get("catalog_entry_status") not in {
+        "approved",
+        "disabled",
+    }:
         raise ValueError("scientific_skill_receipt_catalog_status_invalid")
     for name in ("skill_sha256", "catalog_digest", "policy_decision_digest", "result_digest"):
         if not isinstance(payload.get(name), str) or _DIGEST.fullmatch(str(payload[name])) is None:
             raise ValueError("scientific_skill_receipt_digest_invalid")
     approval_digest = payload.get("approval_digest")
     if approval_digest is not None and (
-        not isinstance(approval_digest, str)
-        or _DIGEST.fullmatch(approval_digest) is None
+        not isinstance(approval_digest, str) or _DIGEST.fullmatch(approval_digest) is None
     ):
         raise ValueError("scientific_skill_receipt_digest_invalid")
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)

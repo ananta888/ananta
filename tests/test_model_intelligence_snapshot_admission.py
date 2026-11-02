@@ -126,9 +126,7 @@ def test_admission_enforces_file_count_before_hashing(
 ) -> None:
     root = tmp_path / "snapshot"
     manifest = _safe_snapshot(root)
-    admission = ModelAnalysisSnapshotAdmission(
-        AnalysisSnapshotAdmissionPolicy(max_files=1)
-    )
+    admission = ModelAnalysisSnapshotAdmission(AnalysisSnapshotAdmissionPolicy(max_files=1))
 
     with pytest.raises(AnalysisSnapshotAdmissionError) as captured:
         admission.admit(
@@ -171,9 +169,7 @@ def test_admission_rejects_sparse_files_above_expansion_budget(
         pytest.skip("filesystem does not expose sparse allocation")
 
     with pytest.raises(AnalysisSnapshotAdmissionError) as captured:
-        ModelAnalysisSnapshotAdmission(
-            AnalysisSnapshotAdmissionPolicy(max_expansion_ratio=2)
-        ).admit(
+        ModelAnalysisSnapshotAdmission(AnalysisSnapshotAdmissionPolicy(max_expansion_ratio=2)).admit(
             tenant_id="tenant-a",
             snapshot_root=root,
             manifest=manifest,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from dataclasses import dataclass
 from typing import Mapping, Protocol
 
@@ -52,7 +51,9 @@ class SfuBroadcastAdmissionOperationRecord:
 
 
 class SfuBroadcastAdmissionOperationRepositoryPort(Protocol):
-    def begin(self, command: SfuBroadcastAdmissionOperationCommand, *, now: float) -> SfuBroadcastAdmissionOperationRecord: ...
+    def begin(
+        self, command: SfuBroadcastAdmissionOperationCommand, *, now: float
+    ) -> SfuBroadcastAdmissionOperationRecord: ...
 
     def advance(
         self,
@@ -84,7 +85,9 @@ class SqlSfuBroadcastAdmissionOperationRepository:
     def __init__(self, *, db_engine=default_engine) -> None:
         self._engine = db_engine
 
-    def begin(self, command: SfuBroadcastAdmissionOperationCommand, *, now: float) -> SfuBroadcastAdmissionOperationRecord:
+    def begin(
+        self, command: SfuBroadcastAdmissionOperationCommand, *, now: float
+    ) -> SfuBroadcastAdmissionOperationRecord:
         if command.deadline_at <= now or command.operation not in {"join", "publish", "subscribe"}:
             raise SfuBroadcastAdmissionOperationError("sfu_admission_operation_invalid")
         key_digest = _digest_text(command.idempotency_key)

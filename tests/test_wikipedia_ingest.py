@@ -37,4 +37,3 @@ def test_wikipedia_ingest_marks_disambiguation_and_skips_redirects() -> None:
     reasons = {str(item.get("reason_code") or "") for item in report["issues"]}
     assert "redirect" in reasons
     assert any(bool(chunk["flags"]["is_disambiguation"]) for chunk in report["chunks"])
-

@@ -7,12 +7,11 @@ import argparse
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-
 MOCK_MODEL_ID = "mock-lmstudio-model"
 MOCK_TEMPLATE = {
     "name": "Scrum Team Templates",
     "description": "Vorlage fuer Scrum-Rollen und Teamablauf.",
-    "prompt_template": "Du bist {{agent_name}}. Erstelle Templates fuer {{team_name}}."
+    "prompt_template": "Du bist {{agent_name}}. Erstelle Templates fuer {{team_name}}.",
 }
 
 
@@ -66,9 +65,7 @@ class _Handler(BaseHTTPRequestHandler):
                 {
                     "id": "chatcmpl-mock",
                     "object": "chat.completion",
-                    "choices": [
-                        {"index": 0, "message": {"role": "assistant", "content": content}}
-                    ],
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": content}}],
                 }
             )
             return

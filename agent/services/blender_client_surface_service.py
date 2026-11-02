@@ -40,7 +40,9 @@ class BlenderClientSurfaceService:
 
     def capabilities(self) -> dict[str, Any]:
         decisions = {
-            str(item.get("capability_id") or ""): str(item.get("decision") or self._policy_pack_payload.get("default_decision") or "default_deny")
+            str(item.get("capability_id") or ""): str(
+                item.get("decision") or self._policy_pack_payload.get("default_decision") or "default_deny"
+            )
             for item in list(self._policy_pack_payload.get("rules") or [])
         }
         capabilities: list[dict[str, Any]] = []
@@ -56,12 +58,16 @@ class BlenderClientSurfaceService:
                     "mutating": bool(item.get("mutating")),
                     "approval_required": bool(item.get("approval_required")),
                     "default_policy_state": str(item.get("default_policy_state") or "default_deny"),
-                    "effective_decision": decisions.get(capability_id, str(item.get("default_policy_state") or "default_deny")),
+                    "effective_decision": decisions.get(
+                        capability_id, str(item.get("default_policy_state") or "default_deny")
+                    ),
                 }
             )
         return {"status": "ok", "surface": "blender", "capabilities": capabilities}
 
-    def submit_goal(self, *, goal: str, context: dict[str, Any], capability_id: str, requested_by: str) -> dict[str, Any]:
+    def submit_goal(
+        self, *, goal: str, context: dict[str, Any], capability_id: str, requested_by: str
+    ) -> dict[str, Any]:
         goal_text = str(goal or "").strip()
         if not goal_text:
             return {"status": "degraded", "reason": "goal_missing"}
@@ -135,11 +141,7 @@ class BlenderClientSurfaceService:
         items = get_repository_registry().artifact_repo.get_all()
         return {
             "status": "ok",
-            "items": [
-                item.model_dump()
-                for item in items
-                if is_artifact_visible_on_generic_surfaces(item)
-            ],
+            "items": [item.model_dump() for item in items if is_artifact_visible_on_generic_surfaces(item)],
         }
 
     def get_artifact(self, *, artifact_id: str) -> tuple[dict[str, Any], int]:
@@ -187,7 +189,10 @@ class BlenderClientSurfaceService:
         return record, 200
 
     def export_plan(self, *, fmt: str, target_path: str, selection_only: bool) -> dict[str, Any]:
-        return {"status": "accepted", "plan": build_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only)}
+        return {
+            "status": "accepted",
+            "plan": build_export_plan(fmt=fmt, target_path=target_path, selection_only=selection_only),
+        }
 
     def render_plan(self, *, payload: dict[str, Any]) -> dict[str, Any]:
         plan = {

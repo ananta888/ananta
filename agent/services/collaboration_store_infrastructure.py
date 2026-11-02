@@ -121,6 +121,7 @@ class CollaborationStoreInfrastructureMixin:
             "projection_lag": max(0, projection_lag),
             "search_lag": max(0, search_lag),
         }
+
     @staticmethod
     def _upsert_actor(connection: sqlite3.Connection, tenant_id: str, actor: Mapping[str, Any]) -> None:
         current = connection.execute(

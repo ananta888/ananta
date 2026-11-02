@@ -1,5 +1,5 @@
-from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.runtime_policy import review_policy
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
 
 
 def test_execution_risk_denies_scoped_terminal_without_terminal_capability():

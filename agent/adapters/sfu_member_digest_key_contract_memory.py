@@ -67,9 +67,7 @@ class InMemoryDigestKeyMetadataRepository:
                 for candidate in self._state.records.values()
                 if candidate.scope_fingerprint == record.scope_fingerprint
             ]
-            if same_scope and record.generation <= max(
-                candidate.generation for candidate in same_scope
-            ):
+            if same_scope and record.generation <= max(candidate.generation for candidate in same_scope):
                 raise SfuMemberDigestContractError(
                     SfuMemberDigestReason.KEY_VERSION_CONFLICT,
                     "digest key generations must increase monotonically",
@@ -141,10 +139,7 @@ class InMemoryDigestKeyMetadataRepository:
                     SfuMemberDigestReason.KEY_STATE_INVALID,
                     "the rotation successor is not staged",
                 )
-            if (
-                staged.scope_fingerprint != current.scope_fingerprint
-                or staged.generation <= current.generation
-            ):
+            if staged.scope_fingerprint != current.scope_fingerprint or staged.generation <= current.generation:
                 raise SfuMemberDigestContractError(
                     SfuMemberDigestReason.KEY_SCOPE_MISMATCH,
                     "rotation successor scope or generation is invalid",
@@ -159,9 +154,7 @@ class InMemoryDigestKeyMetadataRepository:
                 ),
                 version=current.version + 1,
                 state_changed_at=request.transitioned_at,
-                dual_read_until=(
-                    None if request.compromised else request.dual_read_until
-                ),
+                dual_read_until=(None if request.compromised else request.dual_read_until),
                 retain_until=request.retain_until,
             )
             successor = replace(

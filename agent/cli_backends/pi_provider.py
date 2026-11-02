@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from pathlib import Path
@@ -40,19 +41,26 @@ if TYPE_CHECKING:
 
 class PiCodingAgentProvider:
     descriptor = CodingAgentDescriptor(
-        provider_id="pi", display_name="Pi", integration_kind=IntegrationKind.CLI,
-        free_class=FreeClass.OPEN_SOURCE_BYOK, enabled_by_default=False,
+        provider_id="pi",
+        display_name="Pi",
+        integration_kind=IntegrationKind.CLI,
+        free_class=FreeClass.OPEN_SOURCE_BYOK,
+        enabled_by_default=False,
         capabilities=CodingAgentCapabilities(headless=True, structured_output=True),
     )
 
     def __init__(
-        self, *, enabled: bool = False, target: CodingAgentInferenceTarget | None = None,
+        self,
+        *,
+        enabled: bool = False,
+        target: CodingAgentInferenceTarget | None = None,
         authorize: Callable[[CodingAgentRunRequest], bool] | None = None,
         execution_policy: PiInvocationPolicy | None = None,
         process_runner: ProcessRunnerPort | None = None,
         runtime_probe: Callable[[], Mapping[str, object]] | None = None,
         command_builder: Callable[[str], tuple[str, ...]] | None = None,
-        runtime_root: Path | None = None, environment: Mapping[str, str] | None = None,
+        runtime_root: Path | None = None,
+        environment: Mapping[str, str] | None = None,
     ) -> None:
         if type(enabled) is not bool:
             raise ValueError("pi_enabled_flag_invalid")
@@ -84,9 +92,12 @@ class PiCodingAgentProvider:
             return self._probe(ProviderState.NOT_INSTALLED, "binary_not_installed")
         binary = runtime.get("binary_path")
         if (
-            runtime.get("status") != "ready" or runtime.get("version") != PI_VERSION
+            runtime.get("status") != "ready"
+            or runtime.get("version") != PI_VERSION
             or runtime.get("version_probe") != {"rc": 0, "stdout": PI_VERSION, "stderr": ""}
-            or not isinstance(binary, str) or not Path(binary).is_absolute() or "\x00" in binary
+            or not isinstance(binary, str)
+            or not Path(binary).is_absolute()
+            or "\x00" in binary
         ):
             return self._probe(ProviderState.ERROR, "pi_version_unverified")
         return self._probe(ProviderState.READY, "ready", binary)
@@ -96,8 +107,12 @@ class PiCodingAgentProvider:
         if state is ProviderState.AUTH_REQUIRED:
             auth = AuthStatus.REQUIRED
         return CodingAgentProbe(
-            descriptor=self.descriptor, state=state, binary_path=binary, version=PI_VERSION if binary else None,
-            auth_status=auth, reason_code=reason,
+            descriptor=self.descriptor,
+            state=state,
+            binary_path=binary,
+            version=PI_VERSION if binary else None,
+            auth_status=auth,
+            reason_code=reason,
         )
 
     def _authorized(self, request: CodingAgentRunRequest) -> bool:
@@ -111,7 +126,13 @@ class PiCodingAgentProvider:
 
         def result(code: int, reason: str, text: str = "", truncated: bool = False) -> CodingAgentRunResult:
             return CodingAgentRunResult(
-                "pi", code, text, "", reason, int((time.monotonic() - started) * 1000), truncated,
+                "pi",
+                code,
+                text,
+                "",
+                reason,
+                int((time.monotonic() - started) * 1000),
+                truncated,
             )
 
         if not self._enabled:
@@ -132,7 +153,9 @@ class PiCodingAgentProvider:
         try:
             projection = self._execution_policy.project(self._target)
             with isolated_pi_configuration(
-                projection.target, project=request.workspace, runtime_root=self._runtime_root,
+                projection.target,
+                project=request.workspace,
+                runtime_root=self._runtime_root,
                 max_tokens=projection.max_tokens,
             ) as invocation:
                 remaining = request.timeout_seconds - (time.monotonic() - started)
@@ -150,14 +173,21 @@ class PiCodingAgentProvider:
                 if remaining <= 0 or request.cancellation.is_set():
                     return result(130, "cancelled") if request.cancellation.is_set() else result(124, "timeout")
                 environment = self._environment | {
-                    "CI": "1", "NO_COLOR": "1", "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
-                    "PI_CODING_AGENT_DIR": str(invocation.config_directory), "ANANTA_PI_API_KEY": self._target.api_key,
+                    "CI": "1",
+                    "NO_COLOR": "1",
+                    "PI_OFFLINE": "1",
+                    "PI_TELEMETRY": "0",
+                    "PI_CODING_AGENT_DIR": str(invocation.config_directory),
+                    "ANANTA_PI_API_KEY": self._target.api_key,
                 }
                 execution = self._runner.run(
                     (*self._command_builder(probe.binary_path), *invocation.arguments),
-                    cwd=invocation.cwd, environment=environment,
-                    timeout_seconds=remaining, cancellation=request.cancellation,
-                    maximum_output_chars=request.maximum_output_chars, input_text=request.prompt + "\n",
+                    cwd=invocation.cwd,
+                    environment=environment,
+                    timeout_seconds=remaining,
+                    cancellation=request.cancellation,
+                    maximum_output_chars=request.maximum_output_chars,
+                    input_text=request.prompt + "\n",
                     secret_values=(self._target.api_key,),
                 )
                 if request.cancellation.is_set():
@@ -167,14 +197,25 @@ class PiCodingAgentProvider:
                 if self._execution_policy.remaining_seconds(projection) <= 0:
                     return result(124, "timeout")
                 if execution.return_code != 0 or execution.output_truncated or execution.reason_code != "completed":
-                    reason = execution.reason_code if execution.reason_code in {
-                        "timeout", "cancelled", "output_limit_exceeded", "process_io_failed",
-                    } else "pi_process_failed"
+                    reason = (
+                        execution.reason_code
+                        if execution.reason_code
+                        in {
+                            "timeout",
+                            "cancelled",
+                            "output_limit_exceeded",
+                            "process_io_failed",
+                        }
+                        else "pi_process_failed"
+                    )
                     return result(execution.return_code or 1, reason, truncated=execution.output_truncated)
                 if execution.stderr.strip():
                     return result(65, "pi_process_diagnostics")
                 answer = parse_pi_one_shot(
-                    execution.stdout, provider=PI_PROVIDER_NAME, model=self._target.model, workspace=invocation.cwd,
+                    execution.stdout,
+                    provider=PI_PROVIDER_NAME,
+                    model=self._target.model,
+                    workspace=invocation.cwd,
                 )
                 # JSON escaping can hide a secret from the process line redactor.
                 answer = answer.replace(self._target.api_key, "<redacted>")
@@ -188,5 +229,5 @@ class PiCodingAgentProvider:
             try:
                 event_sink(CodingAgentEvent(sequence=1, stream="stdout", text=answer))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("run: ignored Exception", exc_info=True)
         return result(0, "completed", answer)

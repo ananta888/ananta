@@ -5,17 +5,16 @@ from pathlib import Path
 from typing import Any
 
 from worker.core.execution_envelope import (
+    CONFIRM_REQUIRED_CAPABILITIES,
     ApprovalRef,
     CapabilityGrant,
-    CONFIRM_REQUIRED_CAPABILITIES,
     ExecutionEnvelope,
     LegacyEnvelopeAdapter,
     ModelPolicy,
-    make_trace,
 )
 from worker.core.execution_profile import normalize_execution_profile
 from worker.core.ports import ArtifactPort, PolicyPort, TracePort
-from worker.core.preflight import PreflightGate, PreflightDecision
+from worker.core.preflight import PreflightDecision, PreflightGate
 from worker.core.tool_registry import WorkerToolRegistry, build_default_registry
 from worker.core.verification import validate_worker_schema_or_degraded
 
@@ -179,7 +178,9 @@ class StandaloneRuntime:
     def _run_worker_todo_contract(self, *, task_contract: dict[str, Any], workspace_dir: str | Path) -> dict[str, Any]:
         task_id = str(task_contract.get("task_id") or "").strip() or "unknown-task"
         control_manifest = dict(task_contract.get("control_manifest") or {})
-        trace_id = str(task_contract.get("trace_id") or control_manifest.get("trace_id") or "").strip() or "unknown-trace"
+        trace_id = (
+            str(task_contract.get("trace_id") or control_manifest.get("trace_id") or "").strip() or "unknown-trace"
+        )
         worker_cfg = dict(task_contract.get("worker") or {})
         profile = normalize_execution_profile(
             str(worker_cfg.get("worker_profile") or task_contract.get("worker_profile") or "balanced")
@@ -271,7 +272,9 @@ class StandaloneRuntime:
             item_results = [
                 {
                     "item_id": str(item.get("id") or f"todo-{index}"),
-                    "status": "blocked" if self._normalize_todo_status(item.get("status")) in _ACTIONABLE_TODO_STATUSES else "skipped",
+                    "status": "blocked"
+                    if self._normalize_todo_status(item.get("status")) in _ACTIONABLE_TODO_STATUSES
+                    else "skipped",
                     "reason": "policy_denied",
                     "artifacts": [],
                     "notes": [],
@@ -382,9 +385,15 @@ class StandaloneRuntime:
         for index, item in enumerate(tasks, start=1):
             item_id = str(item.get("id") or f"todo-{index}").strip()
             normalized_status = self._normalize_todo_status(item.get("status"))
-            expected_artifacts = [entry for entry in list(item.get("expected_artifacts") or []) if isinstance(entry, dict)]
+            expected_artifacts = [
+                entry for entry in list(item.get("expected_artifacts") or []) if isinstance(entry, dict)
+            ]
             expected_required = [entry for entry in expected_artifacts if bool(entry.get("required", True))]
-            item_artifact_refs = [f"artifact:{str(entry.get('kind') or '').strip()}:{item_id}" for entry in expected_required if str(entry.get("kind") or "").strip()]
+            item_artifact_refs = [
+                f"artifact:{str(entry.get('kind') or '').strip()}:{item_id}"
+                for entry in expected_required
+                if str(entry.get("kind") or "").strip()
+            ]
             if normalized_status in {"done"}:
                 item_status = "completed"
                 reason = "already_done"

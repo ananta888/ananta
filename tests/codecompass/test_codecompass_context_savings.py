@@ -1,13 +1,10 @@
 """COMBO-007: token-savings metric tests."""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
-
 from worker.retrieval.codecompass_context_savings import (
-    ESTIMATED_CHARS_PER_TOKEN,
     TOKEN_ESTIMATE_VERSION,
     compute_context_savings,
     compute_review_context_savings,
@@ -21,16 +18,22 @@ def _seed_store(tmp_path: Path) -> CodeCompassGraphStore:
     s.rebuild_from_output_records(
         manifest_hash="m",
         records=[
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
-            {"_provenance": {"output_kind": "graph_nodes"},
-             "id": "symbol_function:f:a:f1", "kind": "symbol_function",
-             "name": "f1", "file": "a.py"},
-            {"_provenance": {"output_kind": "graph_edges"},
-             "source": "symbol_function:f:a:f1", "target": "f:a",
-             "type": "calls", "confidence": 1.0},
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:a", "kind": "file", "name": "a", "file": "a.py"},
+            {"_provenance": {"output_kind": "graph_nodes"}, "id": "f:b", "kind": "file", "name": "b", "file": "b.py"},
+            {
+                "_provenance": {"output_kind": "graph_nodes"},
+                "id": "symbol_function:f:a:f1",
+                "kind": "symbol_function",
+                "name": "f1",
+                "file": "a.py",
+            },
+            {
+                "_provenance": {"output_kind": "graph_edges"},
+                "source": "symbol_function:f:a:f1",
+                "target": "f:a",
+                "type": "calls",
+                "confidence": 1.0,
+            },
         ],
     )
     s._cached_payload = None
@@ -55,13 +58,16 @@ def test_compute_context_savings_returns_savings_block():
     from agent.services.codecompass_context_planner_service import (
         get_codecompass_context_planner,
     )
+
     planner = get_codecompass_context_planner()
     bucket_inputs = {
         "symbol_neighbors": [{"path": "a.py"}] * 50,
         "semantic_chunks": [{"path": "b.py"}] * 50,
     }
     res = compute_context_savings(
-        planner=planner, query="x", task_kind="review",
+        planner=planner,
+        query="x",
+        task_kind="review",
         bucket_inputs=bucket_inputs,
     )
     ecs = res["estimated_context_savings"]
@@ -74,10 +80,9 @@ def test_compute_context_savings_with_no_inputs():
     from agent.services.codecompass_context_planner_service import (
         get_codecompass_context_planner,
     )
+
     planner = get_codecompass_context_planner()
-    res = compute_context_savings(planner=planner, query="x",
-                                  task_kind="review",
-                                  bucket_inputs=None)
+    res = compute_context_savings(planner=planner, query="x", task_kind="review", bucket_inputs=None)
     assert res["estimated_context_savings"]["baseline_tokens"] == 0
 
 
@@ -111,11 +116,16 @@ def test_large_fixtures_dont_dump_into_context(tmp_path):
 def test_estimate_tokens_is_approximate_not_exact():
     """Documentation acceptance: the metric must NOT advertise itself as
     exact LLM token usage."""
-    ecs = compute_context_savings(
-        planner=None,  # type: ignore[arg-type]
-        query="x", task_kind="review",
-        bucket_inputs={"x": [{"a": 1}]},
-    ) if False else None  # placeholder; see next test
+    (
+        compute_context_savings(
+            planner=None,  # type: ignore[arg-type]
+            query="x",
+            task_kind="review",
+            bucket_inputs={"x": [{"a": 1}]},
+        )
+        if False
+        else None
+    )  # placeholder; see next test
     assert True  # documentation marker — see compute_* tests for behavior
 
 
@@ -124,9 +134,12 @@ def test_token_savings_documents_method():
     from agent.services.codecompass_context_planner_service import (
         get_codecompass_context_planner,
     )
+
     planner = get_codecompass_context_planner()
     res = compute_context_savings(
-        planner=planner, query="x", task_kind="review",
+        planner=planner,
+        query="x",
+        task_kind="review",
         bucket_inputs={"symbol_neighbors": [{"path": "a.py"}]},
     )
     assert res["estimated_context_savings"]["method"] == "estimated"

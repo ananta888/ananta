@@ -272,9 +272,7 @@ class NotebookExtractor:
                 search_cursor = offset + len('"cell_type"')
             file_line = line_number(text, max(0, offset))
             truncated = len(source_text) > self.max_cell_chars
-            inert_content, redacted_secret_count = redact_sensitive_text(
-                source_text[: self.max_cell_chars]
-            )
+            inert_content, redacted_secret_count = redact_sensitive_text(source_text[: self.max_cell_chars])
             cell_id = f"ipynb_cell:{safe_id(rel_path, str(cell_index))}"
             headings = re.findall(r"(?m)^#{1,6}\s+(.+?)\s*$", inert_content) if cell_type == "markdown" else []
             symbols = self._code_symbols(inert_content, language) if cell_type == "code" else []

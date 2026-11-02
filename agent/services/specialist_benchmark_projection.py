@@ -53,7 +53,8 @@ class SpecialistBenchmarkProjectionStore:
 
     def get(self, principal: MlInternTrainingPrincipal, identifier: str) -> dict:
         if (
-            not identifier.startswith("specialist-eval-") or len(identifier) != 80
+            not identifier.startswith("specialist-eval-")
+            or len(identifier) != 80
             or any(value not in "0123456789abcdef" for value in identifier[16:])
         ):
             raise ValueError("specialist_benchmark_projection_identifier_invalid")
@@ -71,8 +72,7 @@ class SpecialistBenchmarkProjectionStore:
         payload = self.get(principal, reference)
         self._require_record_binding(principal, record, payload)
         key = self._binding_key(record)
-        binding = {"adapter_id": record.adapter_id, "benchmark_digest": record.eval_report_ref,
-                   "report_ref": reference}
+        binding = {"adapter_id": record.adapter_id, "benchmark_digest": record.eval_report_ref, "report_ref": reference}
         with self._transaction:
             try:
                 current = self._read_binding(principal, key)
@@ -86,7 +86,8 @@ class SpecialistBenchmarkProjectionStore:
         binding = self._read_binding(principal, self._binding_key(record))
         if (
             set(binding) != {"adapter_id", "benchmark_digest", "report_ref"}
-            or binding["adapter_id"] != record.adapter_id or binding["benchmark_digest"] != record.eval_report_ref
+            or binding["adapter_id"] != record.adapter_id
+            or binding["benchmark_digest"] != record.eval_report_ref
         ):
             raise ValueError("specialist_benchmark_binding_changed")
         payload = self.get(principal, binding["report_ref"])
@@ -109,10 +110,12 @@ class SpecialistBenchmarkProjectionStore:
     def _require_record_binding(principal, record, payload):
         lineage = payload.get("lineage") or {}
         if (
-            record.tenant_id != principal.tenant_id or record.owner_subject != principal.subject
+            record.tenant_id != principal.tenant_id
+            or record.owner_subject != principal.subject
             or payload.get("artifact_sha256") != record.artifact_sha256
             or (payload.get("benchmark") or {}).get("result_digest") != record.eval_report_ref
             or record.adapter_id != f"specialist-{lineage.get('specialist_id')}-{lineage.get('version')}"
-            or record.base_model != lineage.get("base_model") or record.method != lineage.get("method")
+            or record.base_model != lineage.get("base_model")
+            or record.method != lineage.get("method")
         ):
             raise ValueError("specialist_benchmark_registry_binding_invalid")

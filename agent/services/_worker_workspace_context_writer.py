@@ -90,6 +90,7 @@ _CODECOMPASS_RUNTIME_RULES = (
     "- Do **not** fabricate or guess missing data. Name the missing context and request a reload via the Hub (see `docs/contracts/codecompass-context-reload-request.md`).",
     "- Do **not** claim coverage, policy effect, or dependency without an evidence path. A name match in the graph is not coverage; a frontend guard reference is not backend enforcement.",
     "- Surface warnings, do not filter them. Heuristic edges come with a warning; the warning is part of the answer.",
+    "- Before you change a file, call `codecompass.plan_context` (or `codecompass.get_file_context`) for the files you change. The Hub binds the ranges you actually observed through CodeCompass to this task and gates publication on them — an unobserved change cannot be published.",
 )
 
 _CONTEXT_INDEX_KEYS = (
@@ -121,6 +122,7 @@ def prepare_opencode_context_files(
     tool_definitions: list[dict] | None,
     research_context: dict | None,
     include_response_contract: bool = True,
+    response_contract_text: str | None = None,
     allow_complex_shell: bool = False,
     task_brief_char_limit: int | None = None,
     context_text_char_limit: int | None = None,
@@ -152,6 +154,7 @@ def prepare_opencode_context_files(
         bundle_dir / "response-contract.md",
         include_response_contract=include_response_contract,
         allow_complex_shell=allow_complex_shell,
+        response_contract_text=response_contract_text,
     )
     _write_prompt_inputs(
         manifest,
@@ -180,7 +183,9 @@ def _runtime_constraints(task: dict, *, include_response_contract: bool) -> str:
     if include_response_contract:
         lines.append("- Follow `.ananta/response-contract.md` for the required response format.")
     else:
-        lines.append("- Apply the requested changes directly in the workspace; results are collected from workspace diffs.")
+        lines.append(
+            "- Apply the requested changes directly in the workspace; results are collected from workspace diffs."
+        )
     agent_template_name = str((task or {}).get("agent_template") or "").strip().lower()
     if agent_template_name in {"opencode", "ananta_worker"}:
         lines.extend(_CODECOMPASS_RUNTIME_RULES)
@@ -204,13 +209,114 @@ def _write_agents_and_profile(
     return active_profile
 
 
+_TEST_COMMAND_MARKERS = ("Run the exact allowlisted command:", "Run exactly:")
+
+
+def _allowlisted_test_commands() -> list[str]:
+    """The Worker's test-command allowlist.
+
+    ``AGENT_CONFIG`` when a context provides it, otherwise the persisted
+    ``ananta_worker_workspace_mutation`` block: the brief is written from a path that can run
+    without an app context, and an empty list there would leave a command the policy refuses
+    in the very text the model is told is authoritative.
+    """
+    block = None
+    try:
+        from agent.cli_backends.helpers import _get_agent_config
+
+        candidate = (_get_agent_config() or {}).get("ananta_worker_workspace_mutation")
+        if isinstance(candidate, dict) and candidate.get("allowlisted_test_commands"):
+            block = candidate
+    except Exception:  # noqa: BLE001 - fall through to the persisted block
+        block = None
+    if block is None:
+        try:
+            from agent.services.repository_registry import get_repository_registry
+
+            record = get_repository_registry().config_repo.get_by_key("ananta_worker_workspace_mutation")
+            payload = json.loads(getattr(record, "value_json", "") or "{}")
+            if isinstance(payload, dict):
+                block = payload
+        except Exception:  # noqa: BLE001 - a missing config must never break the context bundle
+            block = None
+    if not isinstance(block, dict):
+        return []
+    return [str(item) for item in block.get("allowlisted_test_commands") or [] if str(item).strip()]
+
+
+def _declared_test_command_span(text: str, marker: str) -> tuple[int, int] | None:
+    """Character span of the command that follows ``marker`` (command start, command end)."""
+    index = text.find(marker)
+    if index < 0:
+        return None
+    start = index + len(marker)
+    end = len(text)
+    for stop in ("\n", ". "):
+        position = text.find(stop, start)
+        if position != -1:
+            end = min(end, position)
+    return start, end
+
+
+def _root_covering_command(declared: str, allowed: set[str]) -> str | None:
+    """The allowlisted command whose own test root covers the paths ``declared`` names."""
+    paths = [token for token in declared.split() if token and not token.startswith("-")]
+    for command in sorted(allowed):
+        root = command.split()[-1]
+        if root and any(path == root or path.startswith(root + "/") for path in paths):
+            return command
+    return None
+
+
+def _runs_under_an_allowlisted_entry(command: str, allowed: set[str]) -> bool:
+    """Whether ``command`` is allowed as it stands (exact, or a narrowed scope of one entry)."""
+    try:
+        from agent.services.tools.test_tools import resolve_allowlisted_test_command
+
+        return resolve_allowlisted_test_command(command, sorted(allowed)) is not None
+    except Exception:  # noqa: BLE001 - without the resolver fall back to the exact match
+        return command in allowed
+
+
+def _align_declared_test_command(text: str, allowlist: list[str]) -> str:
+    """Bind a declared test command to the allowlist the Worker enforces.
+
+    An ingested brief can name a command from another scope (``tests/research_training/...``)
+    while the allowlist only covers the configured roots. The mutation loop cannot satisfy that
+    contract -- ``test.run`` is mandatory before ``final_answer`` -- and burns every iteration
+    until ``max_iterations`` hides the real cause. A declaration that already runs under an
+    allowlisted entry (exactly, or narrowed to files under that entry's root) is kept; a
+    declaration with the wrong flags is bound back to the entry; and one no entry covers is left
+    alone so the loop's fail-fast reports the mismatch instead of running the wrong suite.
+    """
+    allowed = {" ".join(str(item).split()) for item in allowlist if str(item).strip()}
+    if not allowed or not str(text or "").strip():
+        return text
+    for marker in _TEST_COMMAND_MARKERS:
+        span = _declared_test_command_span(text, marker)
+        if span is None:
+            continue
+        start, end = span
+        declared = " ".join(text[start:end].split())
+        if not declared or _runs_under_an_allowlisted_entry(declared, allowed):
+            continue
+        replacement = _root_covering_command(declared, allowed)
+        if not replacement:
+            continue
+        return text[:start].rstrip() + " " + replacement + text[end:]
+    return text
+
+
 def _task_brief_content(
     task: dict, *, base_prompt: str, active_profile: Any, include_response_contract: bool, char_limit: int | None
 ) -> str:
     profile_line = f"- Active agent profile: {active_profile.profile_id}" + (
         " (root-only fallback)" if active_profile.is_fallback else ""
     )
-    brief_assignment = _truncate_text(str(base_prompt or "").strip(), limit=char_limit).strip()
+    allowlist = _allowlisted_test_commands()
+    brief_assignment = _align_declared_test_command(
+        _truncate_text(str(base_prompt or "").strip(), limit=char_limit).strip(), allowlist
+    )
     execution_mode = "structured-json-proposal" if include_response_contract else "interactive-workspace-execution"
     task_lines = [
         "# Task Brief",
@@ -223,7 +329,7 @@ def _task_brief_content(
         "## Current assignment (source of truth)",
         brief_assignment or "No task prompt available.",
     ]
-    description = str(task.get("description") or "").strip()
+    description = _align_declared_test_command(str(task.get("description") or "").strip(), allowlist)
     if description and description != str(base_prompt or "").strip():
         task_lines.extend(
             [
@@ -240,6 +346,11 @@ def _task_brief_content(
             "- Apply changes directly in this workspace and keep edits auditable.",
         ]
     )
+    # The observation instruction lives in the task description (the assignment the
+    # brief embeds as its source of truth) and already names both transport-specific
+    # tool sets with their arguments — repeating it here would re-introduce the
+    # opencode-only names into the loop's prompt, where the loop then calls them
+    # under the wrong registry name and the tool policy blocks the run.
     if include_response_contract:
         task_lines.append("- Return exactly one JSON object according to `.ananta/response-contract.md`.")
     else:
@@ -248,11 +359,19 @@ def _task_brief_content(
 
 
 def _write_response_contract(
-    manifest: _ContextManifest, response_contract: Path, *, include_response_contract: bool, allow_complex_shell: bool
+    manifest: _ContextManifest,
+    response_contract: Path,
+    *,
+    include_response_contract: bool,
+    allow_complex_shell: bool,
+    response_contract_text: str | None = None,
 ) -> None:
     if not include_response_contract:
         if response_contract.exists():
             response_contract.unlink(missing_ok=True)
+        return
+    if response_contract_text is not None:
+        manifest.write_text(response_contract, response_contract_text + "\n", key="response_contract_path")
         return
     if allow_complex_shell:
         shell_rule = (
@@ -276,11 +395,11 @@ def _write_response_contract(
         "",
         "Expected shape:",
         "```json",
-        '{',
+        "{",
         '  "reason": "Short technical reason",',
         '  "command": "optional shell command",',
         '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "value" } } ]',
-        '}',
+        "}",
         "```",
     ]
     manifest.write_text(response_contract, "\n".join(response_lines) + "\n", key="response_contract_path")
@@ -317,9 +436,7 @@ def _write_prompt_inputs(
 def _write_research_context(
     manifest: _ContextManifest, rag_helper_dir: Path, research_context: dict, *, char_limit: int | None
 ) -> None:
-    manifest.write_json(
-        rag_helper_dir / "research-context.json", research_context, key="research_context_json_path"
-    )
+    manifest.write_json(rag_helper_dir / "research-context.json", research_context, key="research_context_json_path")
     prompt_section = str((research_context or {}).get("prompt_section") or "").strip()
     if prompt_section:
         manifest.write_text(

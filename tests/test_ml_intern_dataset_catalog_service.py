@@ -20,10 +20,7 @@ from agent.services.ml_intern_dataset_catalog_service import (
 
 
 def _records(count: int = 6) -> list[dict]:
-    return [
-        {"instruction": f"Prompt number {index}", "output": f"Response number {index}"}
-        for index in range(count)
-    ]
+    return [{"instruction": f"Prompt number {index}", "output": f"Response number {index}"} for index in range(count)]
 
 
 def _catalog(tmp_path: Path, *, audit=None, max_file_bytes: int = 1024 * 1024) -> MlInternDatasetCatalogService:
@@ -97,14 +94,15 @@ def test_upload_returns_opaque_summary_and_reuses_existing_builder(tmp_path: Pat
     assert str(tmp_path) not in serialized
     assert "relative_path" not in serialized
 
-    report = catalog.validate_dataset(
-        tenant_id="tenant-a", principal_id="alice", dataset_id=summary["dataset_id"]
-    )
+    report = catalog.validate_dataset(tenant_id="tenant-a", principal_id="alice", dataset_id=summary["dataset_id"])
     assert report["ok"] is True
     assert "dataset_path" not in json.dumps(report)
-    assert catalog.get_dataset(
-        tenant_id="tenant-a", principal_id="alice", dataset_id=summary["dataset_id"]
-    )["validation"]["trainable"] is True
+    assert (
+        catalog.get_dataset(tenant_id="tenant-a", principal_id="alice", dataset_id=summary["dataset_id"])["validation"][
+            "trainable"
+        ]
+        is True
+    )
 
 
 def test_curated_records_are_stream_bounded_and_empty_is_rejected(tmp_path: Path) -> None:
@@ -115,9 +113,7 @@ def test_curated_records_are_stream_bounded_and_empty_is_rejected(tmp_path: Path
     assert summary["input_record_count"] == 4
 
     with pytest.raises(DatasetCatalogError) as exc:
-        catalog.create_from_records(
-            tenant_id="t", principal_id="owner", records=[], name="Empty"
-        )
+        catalog.create_from_records(tenant_id="t", principal_id="owner", records=[], name="Empty")
     assert exc.value.reason_code == "empty_dataset"
 
 
@@ -196,9 +192,7 @@ def test_file_quota_and_referenced_delete_are_enforced(tmp_path: Path) -> None:
         )
     assert exc.value.reason_code == "file_quota_exceeded"
 
-    created = catalog.create_from_records(
-        tenant_id="t", principal_id="p", records=_records(2), name="Referenced"
-    )
+    created = catalog.create_from_records(tenant_id="t", principal_id="p", records=_records(2), name="Referenced")
     catalog.mark_referenced(
         tenant_id="t",
         principal_id="p",
@@ -206,9 +200,7 @@ def test_file_quota_and_referenced_delete_are_enforced(tmp_path: Path) -> None:
         reference_id="job-1",
     )
     with pytest.raises(DatasetCatalogError) as exc:
-        catalog.delete_dataset(
-            tenant_id="t", principal_id="p", dataset_id=created["dataset_id"]
-        )
+        catalog.delete_dataset(tenant_id="t", principal_id="p", dataset_id=created["dataset_id"])
     assert exc.value.reason_code == "dataset_referenced"
 
 
@@ -221,9 +213,7 @@ def test_pii_is_default_deny_and_admin_override_is_audited_without_raw_value(tmp
         records=[{"instruction": "Contact alice@example.test please", "output": "Request accepted"}],
         name="PII",
     )
-    blocked = catalog.validate_dataset(
-        tenant_id="t", principal_id="admin", dataset_id=created["dataset_id"]
-    )
+    blocked = catalog.validate_dataset(tenant_id="t", principal_id="admin", dataset_id=created["dataset_id"])
     assert blocked["ok"] is False
     assert "pii_detected" in blocked["reason_codes"]
     assert "alice@example.test" not in json.dumps(blocked)

@@ -55,26 +55,14 @@ def test_support_service_projects_truth_and_separate_selectors() -> None:
         assert set(("configured", "runtime_available", "verified", "effective")) <= set(capability)
 
     all_rows = service.support_matrix()["rows"]
-    compose = next(
-        row
-        for row in all_rows
-        if row["format_id"] == "docker_compose" and row["pipeline"] == "setup_index"
-    )
-    shell = next(
-        row
-        for row in all_rows
-        if row["format_id"] == "shell" and row["pipeline"] == "repository_map"
-    )
+    compose = next(row for row in all_rows if row["format_id"] == "docker_compose" and row["pipeline"] == "setup_index")
+    shell = next(row for row in all_rows if row["format_id"] == "shell" and row["pipeline"] == "repository_map")
     assert "compose.yaml" in compose["selectors"]["exact_filenames"]
     assert "docker-compose*.yml" in compose["selectors"]["patterns"]
     assert compose["selectors"]["extensions"] == []
     assert shell["selectors"]["shebangs"]
 
-    xml = next(
-        row
-        for row in payload["rows"]
-        if row["format_id"] == "xml" and row["pipeline"] == "rag_helper"
-    )
+    xml = next(row for row in payload["rows"] if row["format_id"] == "xml" and row["pipeline"] == "rag_helper")
     assert xml["support_level"] == "domain_parser"
     markdown = next(row for row in payload["rows"] if row["format_id"] == "markdown")
     dockerfile = next(row for row in payload["rows"] if row["format_id"] == "dockerfile")

@@ -17,32 +17,19 @@ class RuntimeOwnershipBootstrapError(RuntimeError):
 
 
 def _validate_owner(owner_uid: int, owner_gid: int) -> None:
-    if (
-        owner_uid < 1
-        or owner_gid < 1
-        or owner_uid > _MAX_ID
-        or owner_gid > _MAX_ID
-    ):
-        raise RuntimeOwnershipBootstrapError(
-            "runtime owner UID and GID must be positive numeric IDs"
-        )
+    if owner_uid < 1 or owner_gid < 1 or owner_uid > _MAX_ID or owner_gid > _MAX_ID:
+        raise RuntimeOwnershipBootstrapError("runtime owner UID and GID must be positive numeric IDs")
 
 
 def _validate_directory(path: Path, *, description: str) -> Path:
     if not path.is_absolute() or path == Path("/"):
-        raise RuntimeOwnershipBootstrapError(
-            f"{description} must be an absolute non-root directory"
-        )
+        raise RuntimeOwnershipBootstrapError(f"{description} must be an absolute non-root directory")
     try:
         metadata = path.lstat()
     except OSError as exc:
-        raise RuntimeOwnershipBootstrapError(
-            f"{description} is unavailable"
-        ) from exc
+        raise RuntimeOwnershipBootstrapError(f"{description} is unavailable") from exc
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-        raise RuntimeOwnershipBootstrapError(
-            f"{description} must be a real directory"
-        )
+        raise RuntimeOwnershipBootstrapError(f"{description} must be a real directory")
     return path
 
 
@@ -60,21 +47,13 @@ def _assign_tree(path: Path, *, owner_uid: int, owner_gid: int) -> None:
             try:
                 metadata = child.lstat()
             except OSError as exc:
-                raise RuntimeOwnershipBootstrapError(
-                    "runtime data entry became unavailable"
-                ) from exc
+                raise RuntimeOwnershipBootstrapError("runtime data entry became unavailable") from exc
             if stat.S_ISLNK(metadata.st_mode):
-                raise RuntimeOwnershipBootstrapError(
-                    "runtime data tree contains a symbolic link"
-                )
+                raise RuntimeOwnershipBootstrapError("runtime data tree contains a symbolic link")
             if not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)):
-                raise RuntimeOwnershipBootstrapError(
-                    "runtime data tree contains an unsupported entry"
-                )
+                raise RuntimeOwnershipBootstrapError("runtime data tree contains an unsupported entry")
             if stat.S_ISREG(metadata.st_mode) and int(metadata.st_nlink) != 1:
-                raise RuntimeOwnershipBootstrapError(
-                    "runtime data tree contains a multiply linked file"
-                )
+                raise RuntimeOwnershipBootstrapError("runtime data tree contains a multiply linked file")
             _assign_if_needed(
                 child,
                 metadata,
@@ -102,9 +81,7 @@ def _assign_if_needed(
         0,
         owner_gid,
     }:
-        raise RuntimeOwnershipBootstrapError(
-            "runtime data entry belongs to an unexpected owner"
-        )
+        raise RuntimeOwnershipBootstrapError("runtime data entry belongs to an unexpected owner")
     os.chown(path, owner_uid, owner_gid, follow_symlinks=False)
 
 
@@ -158,10 +135,7 @@ def prepare_runtime_ownership(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Prepare local Compose data mounts for unprivileged Hub and Worker "
-            "containers."
-        )
+        description=("Prepare local Compose data mounts for unprivileged Hub and Worker containers.")
     )
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--workspace-root", type=Path, required=True)

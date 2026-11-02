@@ -99,7 +99,12 @@ def test_context_bundle_wiki_priority_depends_on_retrieval_intent():
         "source": "wiki:ananta",
         "score": 0.9,
         "content": "W" * 6000,
-        "metadata": {"source_type": "wiki", "source_scope": "wiki", "record_kind": "wiki_section_chunk", "chunk_id": "wiki:c1"},
+        "metadata": {
+            "source_type": "wiki",
+            "source_scope": "wiki",
+            "record_kind": "wiki_section_chunk",
+            "chunk_id": "wiki:c1",
+        },
     }
     code_chunk = {
         "engine": "repository_map",
@@ -110,7 +115,10 @@ def test_context_bundle_wiki_priority_depends_on_retrieval_intent():
     }
     coding_bundle = service.build_bundle(
         query="fix timeout bug",
-        context_payload={"chunks": [wiki_chunk, code_chunk], "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}}},
+        context_payload={
+            "chunks": [wiki_chunk, code_chunk],
+            "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}},
+        },
         policy_mode="compact",
         task_kind="bugfix",
         retrieval_intent="localize_failure_and_fix",
@@ -119,7 +127,10 @@ def test_context_bundle_wiki_priority_depends_on_retrieval_intent():
     )
     arch_bundle = service.build_bundle(
         query="architecture overview",
-        context_payload={"chunks": [wiki_chunk, code_chunk], "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}}},
+        context_payload={
+            "chunks": [wiki_chunk, code_chunk],
+            "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}},
+        },
         policy_mode="compact",
         task_kind="architecture",
         retrieval_intent="architecture_and_decision_context",

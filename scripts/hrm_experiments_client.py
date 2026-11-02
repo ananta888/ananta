@@ -45,9 +45,7 @@ def _token(path: str) -> str:
         value = Path(path).read_text(encoding="utf-8").strip()
     except (OSError, UnicodeError) as exc:
         raise ClientError("token_file_unavailable") from exc
-    if not 32 <= len(value.encode("utf-8")) <= 16_384 or any(
-        character.isspace() for character in value
-    ):
+    if not 32 <= len(value.encode("utf-8")) <= 16_384 or any(character.isspace() for character in value):
         raise ClientError("token_file_invalid")
     return value
 
@@ -71,13 +69,9 @@ class HrmExperimentsClient:
             or parsed.fragment
         ):
             raise ClientError("base_url_invalid")
-        if parsed.scheme != "https" and not (
-            allow_http and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
-        ):
+        if parsed.scheme != "https" and not (allow_http and parsed.hostname in {"127.0.0.1", "localhost", "::1"}):
             raise ClientError("https_required")
-        self._base_url = urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-        )
+        self._base_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
         self._token = token
         self._timeout = max(1.0, min(float(timeout_seconds), 120.0))
         self._opener = urllib.request.build_opener(
@@ -93,9 +87,7 @@ class HrmExperimentsClient:
         body: Mapping[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        suffix = urllib.parse.urlencode(
-            {key: value for key, value in (query or {}).items() if value is not None}
-        )
+        suffix = urllib.parse.urlencode({key: value for key, value in (query or {}).items() if value is not None})
         url = f"{self._base_url}/api/hrm-experiments/{path.lstrip('/')}"
         if suffix:
             url = f"{url}?{suffix}"
@@ -118,14 +110,10 @@ class HrmExperimentsClient:
         if encoded is not None:
             headers["Content-Type"] = "application/json"
         if idempotency_key is not None:
-            if not 8 <= len(idempotency_key) <= 191 or any(
-                character.isspace() for character in idempotency_key
-            ):
+            if not 8 <= len(idempotency_key) <= 191 or any(character.isspace() for character in idempotency_key):
                 raise ClientError("idempotency_key_invalid")
             headers["Idempotency-Key"] = idempotency_key
-        request = urllib.request.Request(
-            url, data=encoded, method=method.upper(), headers=headers
-        )
+        request = urllib.request.Request(url, data=encoded, method=method.upper(), headers=headers)
         try:
             with self._opener.open(request, timeout=self._timeout) as response:
                 raw = response.read(_MAX_RESPONSE_BYTES + 1)
@@ -134,11 +122,7 @@ class HrmExperimentsClient:
             reason = f"http_{exc.code}"
             try:
                 problem = json.loads(raw.decode("utf-8"))
-                reason = str(
-                    problem.get("reason_code")
-                    or ((problem.get("error") or {}).get("code"))
-                    or reason
-                )
+                reason = str(problem.get("reason_code") or ((problem.get("error") or {}).get("code")) or reason)
             except Exception:
                 pass
             raise ClientError(reason) from exc
@@ -217,7 +201,9 @@ def _dispatch(client: HrmExperimentsClient, args: argparse.Namespace) -> dict[st
             query={"project_id": args.project_id, "cursor": args.cursor, "limit": args.limit},
         )
     if args.command in {"dataset-register", "checkpoint-admit", "run-start"}:
-        resource = {"dataset-register": "datasets", "checkpoint-admit": "checkpoints", "run-start": "runs"}[args.command]
+        resource = {"dataset-register": "datasets", "checkpoint-admit": "checkpoints", "run-start": "runs"}[
+            args.command
+        ]
         return client.request(
             "POST",
             resource,
@@ -225,9 +211,7 @@ def _dispatch(client: HrmExperimentsClient, args: argparse.Namespace) -> dict[st
             idempotency_key=args.idempotency_key,
         )
     if args.command == "run-status":
-        return client.request(
-            "GET", f"runs/{args.run_id}", query={"project_id": args.project_id}
-        )
+        return client.request("GET", f"runs/{args.run_id}", query={"project_id": args.project_id})
     if args.command == "run-events":
         return client.request(
             "GET",
@@ -250,9 +234,7 @@ def _dispatch(client: HrmExperimentsClient, args: argparse.Namespace) -> dict[st
             idempotency_key=args.idempotency_key,
         )
     if args.command == "report":
-        return client.request(
-            "GET", f"reports/{args.report_id}", query={"project_id": args.project_id}
-        )
+        return client.request("GET", f"reports/{args.report_id}", query={"project_id": args.project_id})
     raise ClientError("command_unsupported")
 
 

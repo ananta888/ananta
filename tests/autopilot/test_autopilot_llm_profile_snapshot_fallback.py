@@ -1,4 +1,4 @@
-from agent.routes.tasks.autopilot_tick_engine import _ensure_llm_profile_snapshot
+from agent.services.autopilot.tick_engine import _ensure_llm_profile_snapshot
 
 
 def test_ensure_llm_profile_snapshot_adds_synthetic_entry_when_missing():
@@ -21,9 +21,7 @@ def test_ensure_llm_profile_snapshot_adds_synthetic_entry_when_missing():
 def test_ensure_llm_profile_snapshot_preserves_existing_profile():
     existing = {
         "cli_result": {
-            "llm_call_profile": [
-                {"source": "model_invocation_service", "estimated": False, "success": True}
-            ]
+            "llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True}]
         }
     }
     out = _ensure_llm_profile_snapshot(snapshot=existing, strategy_id="x", model_meta=None)

@@ -5,7 +5,21 @@ on:
   schedule:
     - cron: "17 3 * * 6"
   pull_request:
-    types: [labeled]
+    # CLN-025: run per PR instead of opt-in via `coverage` label. Paths filter
+    # keeps doc-only PRs cheap; manual runs remain available via workflow_dispatch.
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "agent/**"
+      - "worker/**"
+      - "tests/**"
+      - "ananta_contracts/**"
+      - "ananta_codecompass/**"
+      - "client_surfaces/**"
+      - "frontend-angular/**"
+      - "src/**"
+      - "devtools/coverage-thresholds.backend.json"
+      - "pyproject.toml"
+      - ".github/workflows/coverage.yml"
 
 permissions:
   contents: read
@@ -13,7 +27,6 @@ permissions:
 
 jobs:
   resolve_backend_coverage:
-    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -47,7 +60,6 @@ jobs:
 
   backend-coverage:
     needs: resolve_backend_coverage
-    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     name: backend-coverage (${{ matrix.shard_name }})
@@ -162,7 +174,6 @@ jobs:
           if-no-files-found: error
 
   frontend-coverage:
-    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -186,7 +197,6 @@ jobs:
           retention-days: 7
 
   coverage-summary:
-    if: github.event_name != 'pull_request' || github.event.label.name == 'coverage'
     needs: [backend-coverage, frontend-coverage]
     runs-on: ubuntu-latest
     steps:

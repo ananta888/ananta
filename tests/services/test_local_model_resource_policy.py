@@ -60,12 +60,8 @@ def test_9b_profile_rejects_32k_when_headroom_is_below_15_percent() -> None:
 def test_35b_profile_admits_bounded_offload_but_never_stress_context() -> None:
     loaded = profile("ornith-1.5-35b-a3b-64gb-offload.v1.json")
 
-    admitted = LocalModelResourcePolicy().evaluate(
-        loaded, context_tokens=8192, resources=resources()
-    )
-    stress = LocalModelResourcePolicy().evaluate(
-        loaded, context_tokens=262144, resources=resources()
-    )
+    admitted = LocalModelResourcePolicy().evaluate(loaded, context_tokens=8192, resources=resources())
+    stress = LocalModelResourcePolicy().evaluate(loaded, context_tokens=262144, resources=resources())
 
     assert admitted.admitted is True
     assert stress.admitted is False

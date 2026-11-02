@@ -17,16 +17,23 @@ def runner(models, status):
     f, _service = models
     SQLModel.metadata.create_all(f.database)
     with Session(f.database) as session:
-        session.add(TaskDB(id="task", title="Synthetic recovery Task", task_kind="meet_dialog_session",
-            tenant_id="tenant", project_id="project", status=status,
-            worker_execution_context=f.f.task.worker_execution_context))
+        session.add(
+            TaskDB(
+                id="task",
+                title="Synthetic recovery Task",
+                task_kind="meet_dialog_session",
+                tenant_id="tenant",
+                project_id="project",
+                status=status,
+                worker_execution_context=f.f.task.worker_execution_context,
+            )
+        )
         session.commit()
     repository = SqlCompanionRunCleanup(f.database)
     return MeetCompanionRunReconciliation(repository, MeetCompanionRunCleanup(repository, f.registry))
 
 
-@pytest.mark.parametrize("status,expected", [("failed", "failed"), ("completed", "failed"),
-                                             ("cancelled", "cancelled")])
+@pytest.mark.parametrize("status,expected", [("failed", "failed"), ("completed", "failed"), ("cancelled", "cancelled")])
 def test_terminal_task_without_worker_finish_is_recovered(models, status, expected):
     f, _service = models
     pending = reserve(models)
@@ -56,6 +63,7 @@ def test_bounded_failure_is_counted_and_retried_on_next_cursor_cycle(models, mon
     pending = reserve(models)
     service = runner(models, "cancelled")
     with monkeypatch.context() as patch:
+
         def unavailable(*_args, **_kwargs):
             raise RuntimeError("synthetic_persistence_failure")
 

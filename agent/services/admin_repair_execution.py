@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from agent.services.admin_repair_normalizers import _normalize_platform_target
 from agent.services.admin_repair_taxonomy import (
     ALLOWED_EVIDENCE_SOURCES,
     SUPPORTED_PLATFORM_PROFILES,
 )
-from agent.services.admin_repair_normalizers import _normalize_platform_target
 
 
 def _resolve_platform_detection(mode_data: dict[str, Any]) -> dict[str, Any]:
@@ -224,7 +224,9 @@ def _build_verification_phase(
 
 
 def _build_hardening_bridge_contract(repair_plan: dict[str, Any]) -> dict[str, Any]:
-    action_ids = [str(action.get("id") or "") for action in list(repair_plan.get("steps") or []) if str(action.get("id") or "")]
+    action_ids = [
+        str(action.get("id") or "") for action in list(repair_plan.get("steps") or []) if str(action.get("id") or "")
+    ]
     digest = hashlib.sha1("|".join(action_ids).encode("utf-8")).hexdigest()[:12] if action_ids else "empty"
     bridge_actions = []
     for action_id in action_ids:

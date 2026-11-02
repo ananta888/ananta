@@ -10,7 +10,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
 
-
 REQUIRED_PROFILE_IDS = frozenset(
     {
         "direct_pair_regression",
@@ -123,16 +122,10 @@ class BaselineLimitCatalog:
             profiles[identifier] = RunProfile(
                 identifier=identifier,
                 warmup_seconds=_positive_integer(item.get("warmup_seconds"), "warmup_seconds"),
-                measurement_seconds=_positive_integer(
-                    item.get("measurement_seconds"), "measurement_seconds"
-                ),
+                measurement_seconds=_positive_integer(item.get("measurement_seconds"), "measurement_seconds"),
                 repetitions_min=_positive_integer(item.get("repetitions_min"), "repetitions_min"),
-                confidence_level=_bounded_decimal(
-                    item.get("confidence_level"), "confidence_level", 0, 1
-                ),
-                variance_max_percent=_bounded_decimal(
-                    item.get("variance_max_percent"), "variance_max_percent", 0, 100
-                ),
+                confidence_level=_bounded_decimal(item.get("confidence_level"), "confidence_level", 0, 1),
+                variance_max_percent=_bounded_decimal(item.get("variance_max_percent"), "variance_max_percent", 0, 100),
                 capacity_reserve_percent=_bounded_decimal(
                     item.get("capacity_reserve_percent"), "capacity_reserve_percent", 0, 100
                 ),
@@ -180,17 +173,13 @@ def qualify_baseline_run(
     reasons: set[str] = set()
     profile_id = report.get("profile_id")
     if not isinstance(profile_id, str) or profile_id not in catalog.run_profiles:
-        return BaselineQualification(
-            "no_go", ("run_profile_unknown",), "unknown", catalog.policy_version
-        )
+        return BaselineQualification("no_go", ("run_profile_unknown",), "unknown", catalog.policy_version)
     profile = catalog.run_profiles[profile_id]
 
     _compare_minimum(report, "repetitions", Decimal(profile.repetitions_min), reasons)
     _compare_minimum(report, "confidence_level", profile.confidence_level, reasons)
     _compare_maximum(report, "variance_percent", profile.variance_max_percent, reasons)
-    _compare_minimum(
-        report, "capacity_reserve_percent", profile.capacity_reserve_percent, reasons
-    )
+    _compare_minimum(report, "capacity_reserve_percent", profile.capacity_reserve_percent, reasons)
     _compare_maximum(report, "retry_rate_percent", profile.retry_rate_max_percent, reasons)
 
     raw_metrics = report.get("metrics")
@@ -233,18 +222,14 @@ def _parse_budget_mapping(value: object, *, require_window: bool) -> dict[str, N
         if unit.lower() in {"unitless", "none", "n/a"}:
             raise BaselineLimitError("budget_unit_invalid")
         window = _non_empty_string(budget.get("window", "static"), "budget_window")
-        percentile = _non_empty_string(
-            budget.get("percentile", "max"), "budget_percentile"
-        )
+        percentile = _non_empty_string(budget.get("percentile", "max"), "budget_percentile")
         if require_window and ("window" not in budget or "percentile" not in budget):
             raise BaselineLimitError("budget_sampling_definition_missing")
         minimum = _finite_decimal(budget.get("minimum"), "budget_minimum")
         maximum = _finite_decimal(budget.get("maximum"), "budget_maximum")
         if minimum < 0 or maximum < minimum:
             raise BaselineLimitError("budget_range_invalid")
-        missing = _non_empty_string(
-            budget.get("missing_metric_behavior"), "missing_metric_behavior"
-        )
+        missing = _non_empty_string(budget.get("missing_metric_behavior"), "missing_metric_behavior")
         if missing != "block":
             raise BaselineLimitError("missing_metric_behavior_must_block")
         parsed[identifier] = NumericBudget(
@@ -301,9 +286,7 @@ def _finite_decimal(value: object, field: str) -> Decimal:
     return decimal
 
 
-def _compare_minimum(
-    report: Mapping[str, object], field: str, minimum: Decimal, reasons: set[str]
-) -> None:
+def _compare_minimum(report: Mapping[str, object], field: str, minimum: Decimal, reasons: set[str]) -> None:
     try:
         value = _finite_decimal(report.get(field), field)
     except BaselineLimitError:
@@ -313,9 +296,7 @@ def _compare_minimum(
         reasons.add(f"{field}_below_minimum")
 
 
-def _compare_maximum(
-    report: Mapping[str, object], field: str, maximum: Decimal, reasons: set[str]
-) -> None:
+def _compare_maximum(report: Mapping[str, object], field: str, maximum: Decimal, reasons: set[str]) -> None:
     try:
         value = _finite_decimal(report.get(field), field)
     except BaselineLimitError:

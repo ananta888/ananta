@@ -9,7 +9,6 @@ import pytest
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
-
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "os_repair"
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
@@ -149,8 +148,12 @@ def test_mocked_llm_os_repair_worker_handles_ubuntu_and_windows(monkeypatch):
 
     monkeypatch.setattr(llm_integration, "generate_text", fake_generate_text)
 
-    ubuntu_payload = _parse_json_object(llm_integration.generate_text(prompt=_build_os_repair_prompt(_fixture("ubuntu_apt_broken"))))
-    windows_payload = _parse_json_object(llm_integration.generate_text(prompt=_build_os_repair_prompt(_fixture("windows11_dns_broken"))))
+    ubuntu_payload = _parse_json_object(
+        llm_integration.generate_text(prompt=_build_os_repair_prompt(_fixture("ubuntu_apt_broken")))
+    )
+    windows_payload = _parse_json_object(
+        llm_integration.generate_text(prompt=_build_os_repair_prompt(_fixture("windows11_dns_broken")))
+    )
 
     assert ubuntu_payload["os"] == "ubuntu"
     assert windows_payload["os"] == "windows11"

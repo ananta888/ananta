@@ -8,7 +8,6 @@ from agent.adapters.livekit_sfu_observation_adapter import (
     LiveKitSfuObservationConfig,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -39,26 +38,26 @@ def document():
         sequences=Sequence(),
         sink=Sink(),
         config=LiveKitSfuObservationConfig(
-            producer_id="collector-a", boot_id="boot-a", tenant_id="tenant-a",
-            cluster_id="cluster-a", region="eu-central",
-            config_digest="sha256:" + "a" * 64, image_digest="sha256:" + "b" * 64,
+            producer_id="collector-a",
+            boot_id="boot-a",
+            tenant_id="tenant-a",
+            cluster_id="cluster-a",
+            region="eu-central",
+            config_digest="sha256:" + "a" * 64,
+            image_digest="sha256:" + "b" * 64,
         ),
         clock_ms=lambda: 1_700_000_000_000,
     ).run_once()
 
 
 def test_runtime_observation_v2_contract_accepts_bounded_hub_observation():
-    schema = json.loads(
-        (ROOT / "schemas/webrtc/sfu_runtime_observation.v2.json").read_text()
-    )
+    schema = json.loads((ROOT / "schemas/webrtc/sfu_runtime_observation.v2.json").read_text())
 
     jsonschema.Draft202012Validator(schema).validate(document())
 
 
 def test_runtime_observation_v2_contract_rejects_authoritative_node_claim():
-    schema = json.loads(
-        (ROOT / "schemas/webrtc/sfu_runtime_observation.v2.json").read_text()
-    )
+    schema = json.loads((ROOT / "schemas/webrtc/sfu_runtime_observation.v2.json").read_text())
     candidate = document()
     candidate["scope"]["node_binding_authority"] = "hub_selected_node"
 

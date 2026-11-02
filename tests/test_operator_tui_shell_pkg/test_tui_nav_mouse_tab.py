@@ -1,40 +1,13 @@
 from __future__ import annotations
 
-import json
 import os
 import re
-import sys
-import time
-from importlib import reload
-from argparse import Namespace
-from pathlib import Path
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
+from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.sections import SECTIONS
 
 
 def test_tab_focus_header_does_not_auto_activate_snake_mode() -> None:
@@ -47,7 +20,6 @@ def test_tab_focus_header_does_not_auto_activate_snake_mode() -> None:
     assert tui.state.focus is FocusPane.HEADER
     assert game.get("active") is not True
     assert tui._try_header_snake_direction((0, -1)) is False
-
 
 
 def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
@@ -76,7 +48,6 @@ def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
     assert plain.index("AI Flow:") < plain.index("focus=")
 
 
-
 def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -100,12 +71,10 @@ def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> No
     assert "worker-propose->content" in plain
 
 
-
 def test_status_line_shows_visual_ai_mode_marker() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"tutorial_mode": False})
     output = render_operator_shell(state, width=96, height=20)
     assert "VAI:off" in output
-
 
 
 def test_long_ai_chat_answer_auto_opens_full_plain_middle_view() -> None:
@@ -144,7 +113,6 @@ def test_long_ai_chat_answer_auto_opens_full_plain_middle_view() -> None:
     assert long_answer in str(game.get("chat_long_message_markdown") or "")
 
 
-
 def test_long_chat_middle_view_ctrl_space_toggles_rendered_and_original() -> None:
     answer = "Antwort " + ("lang " * 40)
     game = {
@@ -178,7 +146,6 @@ def test_long_chat_middle_view_ctrl_space_toggles_rendered_and_original() -> Non
     assert plain.get("visual_state_version") != rendered_version
 
 
-
 def test_status_line_shows_visual_viewport_runtime_marker() -> None:
     game = {
         "visual_viewport": {"enabled": True},
@@ -196,7 +163,6 @@ def test_status_line_shows_visual_viewport_runtime_marker() -> None:
     assert "vv=snake_debug_view" in output
     assert "vr=ansi_blocks" in output
     assert "va=ansi" in output
-
 
 
 def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypatch) -> None:
@@ -231,13 +197,14 @@ def test_mouse_click_on_navigation_history_opens_cached_original_output(monkeypa
     assert tui.state.status_message == "Chat-History: Originalausgabe"
 
 
-
 def test_mouse_click_sets_focus_for_visible_panes(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
         lambda fallback=(120, 32): os.terminal_size((120, 33)),
     )
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False}
+    )
     tui = InteractiveOperatorTui(state)
 
     tui._ingest_mouse_event(x=4, y=1, event_type="down", buttons=1, now=1.0)
@@ -253,13 +220,14 @@ def test_mouse_click_sets_focus_for_visible_panes(monkeypatch) -> None:
     assert tui.state.focus is FocusPane.NAVIGATION
 
 
-
 def test_mouse_click_on_nav_section_loads_section_content(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
         lambda fallback=(120, 32): os.terminal_size((120, 33)),
     )
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False}
+    )
     tui = InteractiveOperatorTui(state)
 
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=1.0)
@@ -272,7 +240,6 @@ def test_mouse_click_on_nav_section_loads_section_content(monkeypatch) -> None:
     assert "no goals" in rendered or "Goals" in rendered
 
 
-
 def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
     from client_surfaces.operator_tui.region_index import build_region_index
 
@@ -282,7 +249,13 @@ def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
     )
     payload = {
         "items": [
-            {"id": "tpl:a", "kind": "template", "title": "worker_v2", "prompt_preview": "Du bearbeitest...", "raw_id": "a"},
+            {
+                "id": "tpl:a",
+                "kind": "template",
+                "title": "worker_v2",
+                "prompt_preview": "Du bearbeitest...",
+                "raw_id": "a",
+            },
         ],
         "templates_raw": [
             {"id": "a", "name": "worker_v2", "prompt_template": "Du bearbeitest die Aufgabe: {{ task }}"},
@@ -291,7 +264,9 @@ def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "templates":
-            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+            return SectionLoadResult(
+                section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
     state = OperatorState(endpoint="http://localhost:5000", section_id="templates", focus=FocusPane.NAVIGATION)
@@ -314,7 +289,6 @@ def test_mouse_click_on_template_nav_item_opens_editor(monkeypatch) -> None:
     assert "Template Editor" in rendered
 
 
-
 def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) -> None:
     from client_surfaces.operator_tui.region_index import RegionTarget
 
@@ -335,7 +309,9 @@ def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) ->
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "templates":
-            return SectionLoadResult(section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates")
+            return SectionLoadResult(
+                section_id="templates", state=PanelState.HEALTHY, payload=payload, message="loaded templates"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
     state = OperatorState(
@@ -366,7 +342,9 @@ def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) ->
                     label="reviewer_v2",
                     payload={"template_item_index": 1, "selected_index": len(SECTIONS) + 1},
                 )
-            return RegionTarget(kind="pane", section_id="templates", pane="nav", label="NAV", payload={"focus": "navigation"})
+            return RegionTarget(
+                kind="pane", section_id="templates", pane="nav", label="NAV", payload={"focus": "navigation"}
+            )
 
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_event_handler.build_region_index",
@@ -383,7 +361,6 @@ def test_mouse_click_on_second_template_nav_item_switches_editor(monkeypatch) ->
     assert str(editor_second.get("text") or "") != str(editor_first.get("text") or "")
 
 
-
 def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
     from client_surfaces.operator_tui.region_index import RegionTarget
 
@@ -393,14 +370,22 @@ def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
     )
     payload = {
         "items": [
-            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+            {
+                "id": "audit.logs.recent",
+                "dataset_id": "audit.logs.recent",
+                "group": "Audit Logs",
+                "title": "Recent Logs",
+                "status": "ok",
+            },
         ],
         "datasets": {"audit.logs.recent": [{"id": "evt-1", "kind": "chat"}]},
     }
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "audit":
-            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+            return SectionLoadResult(
+                section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
     state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION)
@@ -416,7 +401,9 @@ def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
                     label="Recent Logs",
                     payload={"audit_item_index": 0, "selected_index": len(SECTIONS)},
                 )
-            return RegionTarget(kind="pane", section_id="audit", pane="nav", label="NAV", payload={"focus": "navigation"})
+            return RegionTarget(
+                kind="pane", section_id="audit", pane="nav", label="NAV", payload={"focus": "navigation"}
+            )
 
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_event_handler.build_region_index",
@@ -429,7 +416,6 @@ def test_mouse_click_on_audit_nav_item_opens_viewer(monkeypatch) -> None:
     assert tui.state.focus is FocusPane.CONTENT
     assert bool(viewer.get("active"))
     assert "evt-1" in str(viewer.get("text") or "")
-
 
 
 def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_overlay(monkeypatch) -> None:
@@ -452,7 +438,6 @@ def test_nav_section_click_leaves_chat_input_focus_and_does_not_open_artifact_ov
     assert "artifact_chat_state" not in game or not dict(game.get("artifact_chat_state") or {}).get("active_target")
 
 
-
 def test_nav_shortcut_leaves_chat_input_focus(monkeypatch) -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 
@@ -471,13 +456,14 @@ def test_nav_shortcut_leaves_chat_input_focus(monkeypatch) -> None:
     assert chat["chat_focus"] is False
 
 
-
 def test_mouse_click_on_visible_footer_shortcut_executes_action(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
         lambda fallback=(120, 32): os.terminal_size((120, 33)),
     )
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False}
+    )
     tui = InteractiveOperatorTui(state)
     rendered = tui._render()
     tui._rendered_text = rendered
@@ -491,13 +477,14 @@ def test_mouse_click_on_visible_footer_shortcut_executes_action(monkeypatch) -> 
     assert tui.state.section_id == "goals"
 
 
-
 def test_mouse_click_on_visible_refresh_shortcut_executes_action(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
         lambda fallback=(120, 32): os.terminal_size((180, 33)),
     )
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False})
+    state = OperatorState(
+        endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={"active": False}
+    )
     tui = InteractiveOperatorTui(state)
     rendered = tui._render()
     tui._rendered_text = rendered
@@ -508,7 +495,6 @@ def test_mouse_click_on_visible_refresh_shortcut_executes_action(monkeypatch) ->
     tui._ingest_mouse_event(x=x, y=y, event_type="down", buttons=1, now=1.0)
 
     assert tui.state.refresh_count == 1
-
 
 
 def test_nav_click_while_visual_viewport_active_closes_viewport(monkeypatch) -> None:
@@ -543,7 +529,6 @@ def test_nav_click_while_visual_viewport_active_closes_viewport(monkeypatch) -> 
     assert "visual_viewport_frame_lines" not in result_game
 
 
-
 def test_nav_click_closes_middle_chat_viewport_even_while_ai_is_typing(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
@@ -575,27 +560,27 @@ def test_nav_click_closes_middle_chat_viewport_even_while_ai_is_typing(monkeypat
     assert dict(result_game.get("visual_viewport") or {}).get("enabled") is False
 
 
-
 def test_tab_bar_line_empty_state_returns_empty() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
+
     state = OperatorState(endpoint="http://localhost:5000")
     assert _tab_bar_line(state, 80) == ""
-
 
 
 def test_tab_bar_line_single_tab_hidden() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
     # Tab bar only shown with ≥2 tabs
     assert _tab_bar_line(state, 80) == ""
 
 
-
 def test_tab_bar_line_two_tabs_shows_bar() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
@@ -606,10 +591,10 @@ def test_tab_bar_line_two_tabs_shows_bar() -> None:
     assert len(plain) == 80
 
 
-
 def test_tab_bar_line_active_tab_has_invert_escape() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
@@ -618,10 +603,10 @@ def test_tab_bar_line_active_tab_has_invert_escape() -> None:
     assert "\x1b[7m" in line
 
 
-
 def test_tab_bar_line_two_tabs_separated() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
     from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     state = open_or_activate_tab(state, section_id="dashboard", kind="section", label="Dashboard")
     state = open_or_activate_tab(state, section_id="goals", kind="section", label="Goals")
@@ -632,11 +617,11 @@ def test_tab_bar_line_two_tabs_separated() -> None:
     assert "│" in plain
 
 
-
 def test_tab_bar_overflow_shows_arrow() -> None:
     from client_surfaces.operator_tui.renderer import _tab_bar_line
-    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
     from client_surfaces.operator_tui.sections import SECTIONS
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab
+
     state = OperatorState(endpoint="http://localhost:5000")
     for sec in SECTIONS:
         state = open_or_activate_tab(state, section_id=sec.id, kind="section", label=sec.title)
@@ -665,7 +650,6 @@ def test_nav_click_creates_tab(monkeypatch) -> None:
     assert "section:goals" in tab_ids
 
 
-
 def test_nav_click_twice_no_duplicate_tab(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
@@ -679,7 +663,6 @@ def test_nav_click_twice_no_duplicate_tab(monkeypatch) -> None:
     tui._ingest_mouse_event(x=2, y=11, event_type="down", buttons=1, now=2.0)
     tui._ingest_mouse_event(x=2, y=11, event_type="up", buttons=0, now=2.1)
     assert len(tui.state.open_tabs) == count_before
-
 
 
 def test_tab_cycle_keyboard(monkeypatch) -> None:
@@ -697,7 +680,6 @@ def test_tab_cycle_keyboard(monkeypatch) -> None:
     assert tui.state.active_tab_id != initial_tab or len(tui.state.open_tabs) == 1
 
 
-
 def test_tab_close_keyboard(monkeypatch) -> None:
     monkeypatch.setattr(
         "client_surfaces.operator_tui.mouse_artifact_mixin.shutil.get_terminal_size",
@@ -711,7 +693,6 @@ def test_tab_close_keyboard(monkeypatch) -> None:
     active_before = tui.state.active_tab_id
     tui._tab_close_active()
     assert tui.state.active_tab_id != active_before
-
 
 
 def test_tab_initial_on_startup(monkeypatch) -> None:
@@ -737,7 +718,9 @@ def test_mouse_drag_selection_works_in_middle_content_without_snake_mode(monkeyp
     tui = InteractiveOperatorTui(
         state,
         registry=SectionAdapterRegistry(
-            loader=lambda section_id: SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+            loader=lambda section_id: SectionLoadResult(
+                section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty"
+            )
         ),
     )
 
@@ -755,5 +738,3 @@ def test_mouse_drag_selection_works_in_middle_content_without_snake_mode(monkeyp
     assert (36, 14) in cells
     assert (30, 13) in cells
     assert tuple(game.get("selection_regions") or [None])[0] == (28, 12, 36, 14)
-
-

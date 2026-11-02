@@ -121,8 +121,8 @@ def dry_run_examples(catalog_path: Path) -> list[str]:
     print("\nDry-run rendering examples:")
     try:
         sys.path.insert(0, str(ROOT))
-        from agent.services.pattern_template_renderer import PatternTemplateRenderer, TemplateFile
         from agent.services.pattern_registry import get_registry
+        from agent.services.pattern_template_renderer import PatternTemplateRenderer, TemplateFile
     except ImportError as exc:
         return [f"import failed (run inside the venv): {exc}"]
 
@@ -162,11 +162,13 @@ def dry_run_examples(catalog_path: Path) -> list[str]:
                 _error(errors, f"{pid}: template file missing: {t.get('path')}")
                 ok = False
                 continue
-            tmpl_files.append(TemplateFile(
-                name=str(t.get("name") or ""),
-                output_filename=path.name.replace(".tmpl", ""),
-                content=path.read_text(encoding="utf-8"),
-            ))
+            tmpl_files.append(
+                TemplateFile(
+                    name=str(t.get("name") or ""),
+                    output_filename=path.name.replace(".tmpl", ""),
+                    content=path.read_text(encoding="utf-8"),
+                )
+            )
         if not ok:
             continue
         try:

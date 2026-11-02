@@ -24,8 +24,11 @@ def sha(text):
 
 def manifest(files):
     rows = [{"path": p, "content_sha256": sha(t), "byte_size": len(t), "outcome": "indexed"} for p, t in files.items()]
-    return {"schema": "codecompass.layer_snapshot.v1", "snapshot_revision": sha(repr(sorted(files.items()))),
-            "files": rows}
+    return {
+        "schema": "codecompass.layer_snapshot.v1",
+        "snapshot_revision": sha(repr(sorted(files.items()))),
+        "files": rows,
+    }
 
 
 class Queue:
@@ -75,8 +78,12 @@ def hub(tmp_path):
     app.config["ROLE"] = "hub"
     app.queue = Queue()
     initialize_codecompass_layers(
-        app, environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
-        data_dir=tmp_path, task_queue=app.queue, evidence=Evidence(), pointer_repository=Pointers(),
+        app,
+        environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
+        data_dir=tmp_path,
+        task_queue=app.queue,
+        evidence=Evidence(),
+        pointer_repository=Pointers(),
         task_status=lambda task_id: app.task_statuses.get(task_id, "todo"),
     )
     app.task_statuses = {}
@@ -141,14 +148,18 @@ def test_a_commit_without_uploaded_contents_is_refused(hub):
         hub.sync.commit(profile_id=PROFILE, snapshot_ref="f" * 64)
 
 
-@pytest.mark.parametrize("files", [
-    [{"path": "../etc/passwd", "content_sha256": "a" * 64}],
-    [{"path": "a.py", "content_sha256": "a" * 64}, {"path": "a.py", "content_sha256": "b" * 64}],
-])
+@pytest.mark.parametrize(
+    "files",
+    [
+        [{"path": "../etc/passwd", "content_sha256": "a" * 64}],
+        [{"path": "a.py", "content_sha256": "a" * 64}, {"path": "a.py", "content_sha256": "b" * 64}],
+    ],
+)
 def test_unsafe_or_duplicate_paths_are_rejected(hub, files):
     with pytest.raises(ValueError, match="paths_invalid"):
-        hub.sync.accept_snapshot({"schema": "codecompass.layer_snapshot.v1", "snapshot_revision": "c" * 64,
-                                  "files": files})
+        hub.sync.accept_snapshot(
+            {"schema": "codecompass.layer_snapshot.v1", "snapshot_revision": "c" * 64, "files": files}
+        )
 
 
 # --- client ----------------------------------------------------------------------------------

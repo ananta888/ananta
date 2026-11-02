@@ -13,11 +13,10 @@ Covers:
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+from typing import Iterator
 
 import pytest
-from typing import Iterator
 
 from agent.services.pattern_registry import (
     DEFAULT_OVERLAY_PATH,
@@ -25,7 +24,6 @@ from agent.services.pattern_registry import (
     get_registry,
     reset_registry_singleton,
 )
-
 
 VALID_PATTERN = {
     "pattern_id": "test.runtime_pattern",
@@ -133,9 +131,7 @@ def test_default_overlay_path_is_module_constant() -> None:
     assert DEFAULT_OVERLAY_PATH == "./schemas/patterns/runtime_overlay.v1.json"
 
 
-def test_atomic_overlay_write_does_not_corrupt_on_replace(
-    registry: PatternRegistry, overlay_dir: Path
-) -> None:
+def test_atomic_overlay_write_does_not_corrupt_on_replace(registry: PatternRegistry, overlay_dir: Path) -> None:
     """After register, the overlay file is valid JSON and readable."""
     registry.register_pattern(VALID_PATTERN)
     raw = overlay_dir.read_text(encoding="utf-8")

@@ -35,9 +35,7 @@ class RecoveryResearchWorkspaceArtifactService:
         workspace_file_reader_provider: Callable[[], Any] | None = None,
     ) -> None:
         self._workspace_service_provider = workspace_service_provider
-        self._workspace_file_reader_provider = (
-            workspace_file_reader_provider
-        )
+        self._workspace_file_reader_provider = workspace_file_reader_provider
 
     def materialize_claim(
         self,
@@ -51,43 +49,23 @@ class RecoveryResearchWorkspaceArtifactService:
         )
 
         task_id = str(tid or "").strip()
-        if (
-            not task_id
-            or str(task.get("id") or "").strip() != task_id
-            or recovery_task_role(task) != "child"
-        ):
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_task_binding_invalid"
-            )
+        if not task_id or str(task.get("id") or "").strip() != task_id or recovery_task_role(task) != "child":
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_task_binding_invalid")
         report = research_artifact.get("report_markdown")
-        if (
-            not isinstance(report, str)
-            or not report
-            or not any(
-                not character.isspace()
-                for character in report
-            )
-        ):
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_report_missing"
-            )
+        if not isinstance(report, str) or not report or not any(not character.isspace() for character in report):
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_report_missing")
         from agent.config import settings
 
         workspace_service = self._workspace_service()
         workspace_root = workspace_service.resolve_workspace_dir_for_read(
             task=dict(task),
-            agent_name=(
-                str(settings.agent_name or "").strip()
-                or "worker"
-            ),
+            agent_name=(str(settings.agent_name or "").strip() or "worker"),
         )
         try:
             workspace_root.mkdir(parents=True, exist_ok=True)
             workspace_root = workspace_root.resolve(strict=True)
         except OSError as exc:
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_workspace_unavailable"
-            ) from exc
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_workspace_unavailable") from exc
 
         lock_acquired = False
         acquire_lock = getattr(
@@ -106,9 +84,7 @@ class RecoveryResearchWorkspaceArtifactService:
                 workspace_dir=workspace_root,
             )
             if not lock_acquired:
-                raise RecoveryResearchWorkspaceArtifactError(
-                    str(reason or "recovery_research_workspace_locked")
-                )
+                raise RecoveryResearchWorkspaceArtifactError(str(reason or "recovery_research_workspace_locked"))
         try:
             self._write_report(
                 workspace_root=workspace_root,
@@ -122,12 +98,9 @@ class RecoveryResearchWorkspaceArtifactService:
         except RecoveryResearchWorkspaceArtifactError:
             raise
         except Exception as exc:
-            reason_code = str(
-                getattr(exc, "reason_code", "") or ""
-            )
+            reason_code = str(getattr(exc, "reason_code", "") or "")
             raise RecoveryResearchWorkspaceArtifactError(
-                reason_code
-                or "recovery_research_workspace_materialization_failed"
+                reason_code or "recovery_research_workspace_materialization_failed"
             ) from exc
         finally:
             if lock_acquired and callable(release_lock):
@@ -139,22 +112,15 @@ class RecoveryResearchWorkspaceArtifactService:
         sources = research_artifact.get("sources")
         citations = research_artifact.get("citations")
         source_count = len(sources) if isinstance(sources, list) else 0
-        citation_count = (
-            len(citations) if isinstance(citations, list) else 0
-        )
+        citation_count = len(citations) if isinstance(citations, list) else 0
         return {
             "kind": "research_report",
             "task_id": task_id,
-            "worker_job_id": (
-                str(task.get("current_worker_job_id") or "").strip()
-                or None
-            ),
+            "worker_job_id": (str(task.get("current_worker_job_id") or "").strip() or None),
             "filename": snapshot.resolved_path.name,
             "media_type": "text/markdown",
             "workspace_relative_path": _REPORT_RELATIVE_PATH,
-            "content_hash": hashlib.sha256(
-                snapshot.content
-            ).hexdigest(),
+            "content_hash": hashlib.sha256(snapshot.content).hexdigest(),
             "size_bytes": snapshot.size_bytes,
             "provenance_summary": {
                 "artifact_type": "research_report",
@@ -163,9 +129,7 @@ class RecoveryResearchWorkspaceArtifactService:
                 "source_count": source_count,
                 "has_citations": citation_count > 0,
                 "citation_count": citation_count,
-                "trace_bundle_ref": _trace_bundle_ref(
-                    research_artifact
-                ),
+                "trace_bundle_ref": _trace_bundle_ref(research_artifact),
             },
         }
 
@@ -178,26 +142,18 @@ class RecoveryResearchWorkspaceArtifactService:
         output_dir = workspace_root / "recovery-artifacts"
         try:
             if output_dir.is_symlink():
-                raise RecoveryResearchWorkspaceArtifactError(
-                    "recovery_research_workspace_symlink_denied"
-                )
+                raise RecoveryResearchWorkspaceArtifactError("recovery_research_workspace_symlink_denied")
             output_dir.mkdir(parents=True, exist_ok=True)
             resolved_output_dir = output_dir.resolve(strict=True)
             resolved_output_dir.relative_to(workspace_root)
         except RecoveryResearchWorkspaceArtifactError:
             raise
         except (OSError, ValueError) as exc:
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_workspace_path_invalid"
-            ) from exc
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_workspace_path_invalid") from exc
         target = resolved_output_dir / "research-report.md"
         if target.is_symlink():
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_workspace_symlink_denied"
-            )
-        temporary = resolved_output_dir / (
-            f".research-report-{uuid.uuid4().hex}.tmp"
-        )
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_workspace_symlink_denied")
+        temporary = resolved_output_dir / (f".research-report-{uuid.uuid4().hex}.tmp")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
         flags |= getattr(os, "O_CLOEXEC", 0)
         descriptor: int | None = None
@@ -209,14 +165,10 @@ class RecoveryResearchWorkspaceArtifactService:
                 len(report),
                 _ENCODE_CHUNK_CHARACTERS,
             ):
-                chunk = report[
-                    offset : offset + _ENCODE_CHUNK_CHARACTERS
-                ].encode("utf-8")
+                chunk = report[offset : offset + _ENCODE_CHUNK_CHARACTERS].encode("utf-8")
                 total_bytes += len(chunk)
                 if total_bytes > MAX_RECOVERY_ARTIFACT_BYTES:
-                    raise RecoveryResearchWorkspaceArtifactError(
-                        "recovery_research_report_too_large"
-                    )
+                    raise RecoveryResearchWorkspaceArtifactError("recovery_research_report_too_large")
                 view = memoryview(chunk)
                 while view:
                     written = os.write(descriptor, view)
@@ -230,9 +182,7 @@ class RecoveryResearchWorkspaceArtifactService:
         except RecoveryResearchWorkspaceArtifactError:
             raise
         except (OSError, UnicodeError) as exc:
-            raise RecoveryResearchWorkspaceArtifactError(
-                "recovery_research_workspace_write_failed"
-            ) from exc
+            raise RecoveryResearchWorkspaceArtifactError("recovery_research_workspace_write_failed") from exc
         finally:
             if descriptor is not None:
                 os.close(descriptor)
@@ -275,9 +225,7 @@ def _trace_bundle_ref(
 _SERVICE = RecoveryResearchWorkspaceArtifactService()
 
 
-def get_recovery_research_workspace_artifact_service() -> (
-    RecoveryResearchWorkspaceArtifactService
-):
+def get_recovery_research_workspace_artifact_service() -> RecoveryResearchWorkspaceArtifactService:
     return _SERVICE
 
 

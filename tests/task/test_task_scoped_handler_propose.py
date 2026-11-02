@@ -1,20 +1,19 @@
 """FA-T017: Unit tests for TaskScopedExecutionService.propose_task_step via orchestrator."""
+
 from __future__ import annotations
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+from agent.services.propose_policy import ProposePolicy
+from agent.services.task_handler_registry import TaskHandlerRegistry
+from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
 from worker.core.propose import (
-    ExecutableProposal,
-    ProposeStrategyResult,
-    STATUS_EXECUTABLE,
     STATUS_DECLINED,
+    STATUS_EXECUTABLE,
+    ExecutableProposal,
 )
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
-from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
 from worker.core.template_propose_handler import TemplateProposeHandler
-from agent.services.task_handler_registry import TaskHandlerRegistry
-from agent.services.propose_policy import ProposePolicy
 
 
 class TestDeterministicHandlerStrategyWithTemplate:
@@ -76,7 +75,9 @@ class TestDeterministicHandlerStrategyWithTemplate:
         registry = self._make_registry("new_software_project")
         strategy = DeterministicHandlerStrategy()
         # Patch the sgpt module itself to blow up if touched.
-        with patch("agent.routes.sgpt.run_sgpt_command", side_effect=RuntimeError("sgpt_must_not_be_called"), create=True):
+        with patch(
+            "agent.routes.sgpt.run_sgpt_command", side_effect=RuntimeError("sgpt_must_not_be_called"), create=True
+        ):
             with patch("worker.core.deterministic_handler_strategy.get_task_handler_registry", return_value=registry):
                 context = self._make_context("new_software_project")
                 result = strategy.run(context)

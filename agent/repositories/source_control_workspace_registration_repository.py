@@ -47,13 +47,8 @@ class SQLSourceControlWorkspaceRegistrationRepository:
         expires_at_epoch: float,
     ) -> None:
         now = float(self._clock())
-        if (
-            _DIGEST.fullmatch(handle_digest) is None
-            or expires_at_epoch <= now
-        ):
-            raise SourceControlWorkspacePersistenceError(
-                "workspace_validation_invalid"
-            )
+        if _DIGEST.fullmatch(handle_digest) is None or expires_at_epoch <= now:
+            raise SourceControlWorkspacePersistenceError("workspace_validation_invalid")
         row = SourceControlWorkspaceValidationDB(
             handle_digest=handle_digest,
             tenant_id=binding.scope.tenant_id,
@@ -101,9 +96,7 @@ class SQLSourceControlWorkspaceRegistrationRepository:
                     "workspace_validation_not_found",
                     status_code=404,
                 )
-            if row.consumed_at_epoch is None and float(
-                self._clock()
-            ) >= float(row.expires_at_epoch):
+            if row.consumed_at_epoch is None and float(self._clock()) >= float(row.expires_at_epoch):
                 raise SourceControlWorkspacePersistenceError(
                     "workspace_validation_expired",
                     status_code=409,
@@ -145,8 +138,7 @@ class SQLSourceControlWorkspaceRegistrationRepository:
                 )
             if (
                 snapshot.folder_handle != validation.folder_handle
-                or snapshot.root_fingerprint
-                != validation.root_fingerprint
+                or snapshot.root_fingerprint != validation.root_fingerprint
                 or snapshot.manifest_digest != validation.manifest_digest
             ):
                 raise SourceControlWorkspacePersistenceError(
@@ -155,14 +147,10 @@ class SQLSourceControlWorkspaceRegistrationRepository:
                 )
             existing = session.exec(
                 select(SourceControlWorkspaceRegistrationDB).where(
-                    SourceControlWorkspaceRegistrationDB.tenant_id
-                    == scope.tenant_id,
-                    SourceControlWorkspaceRegistrationDB.project_id
-                    == scope.project_id,
-                    SourceControlWorkspaceRegistrationDB.owner_id
-                    == scope.owner_id,
-                    SourceControlWorkspaceRegistrationDB.folder_handle
-                    == validation.folder_handle,
+                    SourceControlWorkspaceRegistrationDB.tenant_id == scope.tenant_id,
+                    SourceControlWorkspaceRegistrationDB.project_id == scope.project_id,
+                    SourceControlWorkspaceRegistrationDB.owner_id == scope.owner_id,
+                    SourceControlWorkspaceRegistrationDB.folder_handle == validation.folder_handle,
                 )
             ).first()
             if existing is not None:
@@ -255,27 +243,15 @@ class SQLSourceControlWorkspaceRegistrationRepository:
         owner_id: str | None,
     ) -> WorkspaceRegistrationRecord | None:
         with self._session_factory() as session:
-            statement = select(
-                SourceControlWorkspaceRegistrationDB
-            ).where(
-                SourceControlWorkspaceRegistrationDB.workspace_id
-                == workspace_id,
-                SourceControlWorkspaceRegistrationDB.tenant_id
-                == tenant_id,
-                SourceControlWorkspaceRegistrationDB.project_id
-                == project_id,
+            statement = select(SourceControlWorkspaceRegistrationDB).where(
+                SourceControlWorkspaceRegistrationDB.workspace_id == workspace_id,
+                SourceControlWorkspaceRegistrationDB.tenant_id == tenant_id,
+                SourceControlWorkspaceRegistrationDB.project_id == project_id,
             )
             if owner_id is not None:
-                statement = statement.where(
-                    SourceControlWorkspaceRegistrationDB.owner_id
-                    == owner_id
-                )
+                statement = statement.where(SourceControlWorkspaceRegistrationDB.owner_id == owner_id)
             rows = session.exec(statement).all()
-            return (
-                self._registration_record(rows[0])
-                if len(rows) == 1
-                else None
-            )
+            return self._registration_record(rows[0]) if len(rows) == 1 else None
 
     def list_registrations(
         self,
@@ -285,24 +261,13 @@ class SQLSourceControlWorkspaceRegistrationRepository:
         owner_id: str | None,
     ) -> tuple[WorkspaceRegistrationRecord, ...]:
         with self._session_factory() as session:
-            statement = select(
-                SourceControlWorkspaceRegistrationDB
-            ).where(
-                SourceControlWorkspaceRegistrationDB.tenant_id
-                == tenant_id,
-                SourceControlWorkspaceRegistrationDB.project_id
-                == project_id,
+            statement = select(SourceControlWorkspaceRegistrationDB).where(
+                SourceControlWorkspaceRegistrationDB.tenant_id == tenant_id,
+                SourceControlWorkspaceRegistrationDB.project_id == project_id,
             )
             if owner_id is not None:
-                statement = statement.where(
-                    SourceControlWorkspaceRegistrationDB.owner_id
-                    == owner_id
-                )
-            rows = session.exec(
-                statement.order_by(
-                    SourceControlWorkspaceRegistrationDB.workspace_id
-                )
-            ).all()
+                statement = statement.where(SourceControlWorkspaceRegistrationDB.owner_id == owner_id)
+            rows = session.exec(statement.order_by(SourceControlWorkspaceRegistrationDB.workspace_id)).all()
             return tuple(self._registration_record(row) for row in rows)
 
     def disable(
@@ -318,22 +283,14 @@ class SQLSourceControlWorkspaceRegistrationRepository:
         now = float(self._clock())
         with self._session_factory() as session:
             conditions = [
-                SourceControlWorkspaceRegistrationDB.workspace_id
-                == workspace_id,
-                SourceControlWorkspaceRegistrationDB.tenant_id
-                == tenant_id,
-                SourceControlWorkspaceRegistrationDB.project_id
-                == project_id,
-                SourceControlWorkspaceRegistrationDB.lock_version
-                == expected_revision,
-                SourceControlWorkspaceRegistrationDB.registration_state
-                == "active",
+                SourceControlWorkspaceRegistrationDB.workspace_id == workspace_id,
+                SourceControlWorkspaceRegistrationDB.tenant_id == tenant_id,
+                SourceControlWorkspaceRegistrationDB.project_id == project_id,
+                SourceControlWorkspaceRegistrationDB.lock_version == expected_revision,
+                SourceControlWorkspaceRegistrationDB.registration_state == "active",
             ]
             if owner_id is not None:
-                conditions.append(
-                    SourceControlWorkspaceRegistrationDB.owner_id
-                    == owner_id
-                )
+                conditions.append(SourceControlWorkspaceRegistrationDB.owner_id == owner_id)
             result = session.exec(
                 update(SourceControlWorkspaceRegistrationDB)
                 .where(*conditions)
@@ -346,19 +303,13 @@ class SQLSourceControlWorkspaceRegistrationRepository:
             if result.rowcount != 1:
                 existing = session.exec(
                     select(SourceControlWorkspaceRegistrationDB).where(
-                        SourceControlWorkspaceRegistrationDB.workspace_id
-                        == workspace_id,
-                        SourceControlWorkspaceRegistrationDB.tenant_id
-                        == tenant_id,
-                        SourceControlWorkspaceRegistrationDB.project_id
-                        == project_id,
+                        SourceControlWorkspaceRegistrationDB.workspace_id == workspace_id,
+                        SourceControlWorkspaceRegistrationDB.tenant_id == tenant_id,
+                        SourceControlWorkspaceRegistrationDB.project_id == project_id,
                     )
                 ).first()
                 session.rollback()
-                if existing is None or (
-                    owner_id is not None
-                    and existing.owner_id != owner_id
-                ):
+                if existing is None or (owner_id is not None and existing.owner_id != owner_id):
                     raise SourceControlWorkspacePersistenceError(
                         "workspace_registration_not_found",
                         status_code=404,
@@ -471,14 +422,10 @@ class SQLSourceControlWorkspaceRegistrationRepository:
     ) -> WorkspaceRegistrationRecord | None:
         rows = session.exec(
             select(SourceControlWorkspaceRegistrationDB).where(
-                SourceControlWorkspaceRegistrationDB.validation_handle_digest
-                == handle_digest,
-                SourceControlWorkspaceRegistrationDB.tenant_id
-                == scope.tenant_id,
-                SourceControlWorkspaceRegistrationDB.project_id
-                == scope.project_id,
-                SourceControlWorkspaceRegistrationDB.owner_id
-                == scope.owner_id,
+                SourceControlWorkspaceRegistrationDB.validation_handle_digest == handle_digest,
+                SourceControlWorkspaceRegistrationDB.tenant_id == scope.tenant_id,
+                SourceControlWorkspaceRegistrationDB.project_id == scope.project_id,
+                SourceControlWorkspaceRegistrationDB.owner_id == scope.owner_id,
             )
         ).all()
         if len(rows) == 1:
@@ -487,11 +434,7 @@ class SQLSourceControlWorkspaceRegistrationRepository:
             SourceControlWorkspaceValidationDB,
             handle_digest,
         )
-        if (
-            validation is None
-            or not self._scope_matches(validation, scope)
-            or not validation.workspace_id
-        ):
+        if validation is None or not self._scope_matches(validation, scope) or not validation.workspace_id:
             return None
         reused = session.get(
             SourceControlWorkspaceRegistrationDB,
@@ -530,21 +473,14 @@ class SQLSourceControlWorkspaceRegistrationRepository:
         reason_code: str,
         now: float,
     ) -> SourceControlWorkspaceRegistrationAuditDB:
-        if (
-            decision not in {"allow", "deny"}
-            or _REASON.fullmatch(reason_code) is None
-        ):
-            raise SourceControlWorkspacePersistenceError(
-                "workspace_registration_audit_invalid"
-            )
+        if decision not in {"allow", "deny"} or _REASON.fullmatch(reason_code) is None:
+            raise SourceControlWorkspacePersistenceError("workspace_registration_audit_invalid")
         return SourceControlWorkspaceRegistrationAuditDB(
             audit_id=uuid.uuid4().hex,
             tenant_id=scope.tenant_id,
             project_id=scope.project_id,
             actor_id=scope.owner_id,
-            workspace_id_digest=hashlib.sha256(
-                workspace_id.encode("utf-8")
-            ).hexdigest(),
+            workspace_id_digest=hashlib.sha256(workspace_id.encode("utf-8")).hexdigest(),
             event_type=event_type,
             decision=decision,
             reason_code=reason_code,

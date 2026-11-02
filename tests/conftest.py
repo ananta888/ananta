@@ -84,13 +84,11 @@ os.environ["RAG_REPO_ROOT"] = str(_TEST_RAG_REPO_ROOT)
 # (tests of the probe inject their own transport).
 os.environ["ANANTA_CONTEXT_PROVIDER_PROBE"] = "0"
 os.environ["AGENT_NAME"] = "test-agent"
-os.environ["VOICE_DELETION_LEDGER_PATH"] = (
-    f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl"
-)
+os.environ["VOICE_DELETION_LEDGER_PATH"] = f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl"
 os.environ.setdefault("INITIAL_ADMIN_USER", "admin")
 os.environ.setdefault("INITIAL_ADMIN_PASSWORD", "admin")
 
-from tests_support import admin_login_token, reset_auth_state
+from tests.support import admin_login_token, reset_auth_state
 
 _TEST_DB_READY = False
 

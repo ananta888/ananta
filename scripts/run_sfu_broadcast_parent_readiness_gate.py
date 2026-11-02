@@ -251,9 +251,7 @@ def evaluate_parent_readiness(
         config_sha256=config_digest,
         measurements={
             "parent_decision": "go" if passed else str(parent_evidence.get("decision") or "missing"),
-            "parent_rollout_stage": str(
-                parent_evidence.get("rollout_stage") or ("" if passed else "missing")
-            ),
+            "parent_rollout_stage": str(parent_evidence.get("rollout_stage") or ("" if passed else "missing")),
             "parent_task_count": len(parent_todo.get("tasks") or []),
             "parent_task_prerequisite_count": len(required_parent_tasks),
         },

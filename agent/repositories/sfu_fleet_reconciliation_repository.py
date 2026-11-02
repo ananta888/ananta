@@ -17,10 +17,6 @@ from agent.database import engine as default_engine
 from agent.db_models.sfu_broadcast import SfuFanoutRouteDB
 from agent.db_models.sfu_capacity_reservations import SfuCapacityReservationDB
 from agent.db_models.sfu_nodes import SfuNodeDB
-from agent.repositories.sfu_capacity_reservation_repository import (
-    SqlSfuCapacityReservationRepository,
-)
-from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
 from agent.models.sfu_broadcast_projection import SfuBroadcastRoomScope
 from agent.models.sfu_broadcast_route import RouteKeyV1, RouteVersionV1
 from agent.models.sfu_fleet_reconciliation import (
@@ -46,6 +42,10 @@ from agent.ports.sfu_fleet_reconciliation import (
 from agent.ports.sfu_route_reconciliation_projection import (
     SfuRouteReconciliationProjectionPort,
 )
+from agent.repositories.sfu_capacity_reservation_repository import (
+    SqlSfuCapacityReservationRepository,
+)
+from agent.repositories.sfu_node_repository import SqlSfuNodeRepository
 
 
 class SfuFleetReconciliationRepositoryError(RuntimeError):
@@ -85,9 +85,7 @@ class _CursorCodec:
                 raise ValueError
             return tuple(values)
         except (UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_reconciliation_cursor_invalid"
-            ) from exc
+            raise SfuFleetReconciliationRepositoryError("sfu_reconciliation_cursor_invalid") from exc
 
 
 class SqlSfuFleetReconciliationStateRepository:
@@ -129,15 +127,14 @@ class SqlSfuFleetReconciliationStateRepository:
                     statement = statement.where(SfuFanoutRouteDB.tenant_id == partition)
                 if after is not None:
                     if len(after) != 3:
-                        raise SfuFleetReconciliationRepositoryError(
-                            "sfu_reconciliation_cursor_invalid"
-                        )
+                        raise SfuFleetReconciliationRepositoryError("sfu_reconciliation_cursor_invalid")
                     statement = statement.where(
                         sa.tuple_(
                             SfuFanoutRouteDB.tenant_id,
                             SfuFanoutRouteDB.session_id,
                             SfuFanoutRouteDB.id,
-                        ) > after
+                        )
+                        > after
                     )
                 rows = tuple(db.exec(statement).all())
                 selected = rows[:limit]
@@ -145,20 +142,14 @@ class SqlSfuFleetReconciliationStateRepository:
                 next_cursor = None
                 if len(rows) > limit and selected:
                     last = selected[-1]
-                    next_cursor = self._cursors.encode(
-                        (last.tenant_id, last.session_id, last.id)
-                    )
+                    next_cursor = self._cursors.encode((last.tenant_id, last.session_id, last.id))
                 return SfuFleetReconciliationPage(items, next_cursor)
         except SfuFleetReconciliationRepositoryError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_fleet_state_store_unavailable"
-            ) from exc
+            raise SfuFleetReconciliationRepositoryError("sfu_fleet_state_store_unavailable") from exc
 
-    def _item(
-        self, db: Session, route: SfuFanoutRouteDB, now_ms: int
-    ) -> SfuFleetReconciliationItem:
+    def _item(self, db: Session, route: SfuFanoutRouteDB, now_ms: int) -> SfuFleetReconciliationItem:
         reservation = db.exec(
             select(SfuCapacityReservationDB).where(
                 SfuCapacityReservationDB.tenant_id == route.tenant_id,
@@ -196,22 +187,12 @@ class SqlSfuFleetReconciliationStateRepository:
             and reservation is not None
             and reservation.tenant_id == route.tenant_id
             and reservation.room_id == route.session_id
-            and (
-                node is None
-                or (
-                    node.cluster_id == reservation.cluster_id
-                    and node.region == reservation.region
-                )
-            )
+            and (node is None or (node.cluster_id == reservation.cluster_id and node.region == reservation.region))
         )
-        reservation_expires = (
-            int(reservation.lease_expires_at * 1_000) if reservation else now_ms
-        )
+        reservation_expires = int(reservation.lease_expires_at * 1_000) if reservation else now_ms
         return SfuFleetReconciliationItem(
             item_id=route.id,
-            cursor_after=self._cursors.encode(
-                (route.tenant_id, route.session_id, route.id)
-            ),
+            cursor_after=self._cursors.encode((route.tenant_id, route.session_id, route.id)),
             expected_state_version=route.version,
             desired_route=desired,
             desired_route_version=route.route_epoch,
@@ -220,8 +201,7 @@ class SqlSfuFleetReconciliationStateRepository:
             route_intent_expires_at_ms=int(route.expires_at * 1_000),
             reservation_active=reservation_active,
             reservation_orphaned=bool(
-                reservation_active
-                and (not desired or (reservation.observed_node_id and node is None))
+                reservation_active and (not desired or (reservation.observed_node_id and node is None))
             ),
             reservation_expires_at_ms=reservation_expires,
             observation_fresh_until_ms=node_fresh_until,
@@ -232,10 +212,7 @@ class SqlSfuFleetReconciliationStateRepository:
             ),
             node_health=node_health,
             admission_ready=bool(
-                reservation_active
-                and node_health == "healthy"
-                and node is not None
-                and node.drain_state == "active"
+                reservation_active and node_health == "healthy" and node is not None and node.drain_state == "active"
             ),
             control_plane_consistent=consistent,
         )
@@ -258,9 +235,7 @@ class SqlSfuFleetReconciliationMutationRepository:
         self._clock = clock
 
     def fence_route(self, *, item, fencing_token: int, reason_code: str) -> bool:
-        if not self._runtime_routes.fence_route(
-            item=item, fencing_token=fencing_token, reason_code=reason_code
-        ):
+        if not self._runtime_routes.fence_route(item=item, fencing_token=fencing_token, reason_code=reason_code):
             return False
         now = float(self._clock())
         try:
@@ -269,9 +244,7 @@ class SqlSfuFleetReconciliationMutationRepository:
                 if row is None or row.status in {"revoked", "expired", "tombstoned"}:
                     return False
                 if row.version != item.expected_state_version:
-                    raise SfuFleetReconciliationRepositoryError(
-                        "sfu_fleet_route_version_conflict"
-                    )
+                    raise SfuFleetReconciliationRepositoryError("sfu_fleet_route_version_conflict")
                 result = db.exec(
                     sa.update(SfuFanoutRouteDB)
                     .where(
@@ -289,23 +262,17 @@ class SqlSfuFleetReconciliationMutationRepository:
                     )
                 )
                 if result.rowcount != 1:
-                    raise SfuFleetReconciliationRepositoryError(
-                        "sfu_fleet_route_version_conflict"
-                    )
+                    raise SfuFleetReconciliationRepositoryError("sfu_fleet_route_version_conflict")
                 db.commit()
                 return True
         except SfuFleetReconciliationRepositoryError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_fleet_route_store_unavailable"
-            ) from exc
+            raise SfuFleetReconciliationRepositoryError("sfu_fleet_route_store_unavailable") from exc
 
     def release_reservation(self, *, item, fencing_token: int, reason_code: str) -> bool:
         route = self._route(item.item_id)
-        reservation = self._capacity.get(
-            tenant_id=route.tenant_id, room_id=route.session_id
-        )
+        reservation = self._capacity.get(tenant_id=route.tenant_id, room_id=route.session_id)
         if reservation is None or reservation.status != "active":
             return False
         return self._capacity.release_for_room(
@@ -318,9 +285,7 @@ class SqlSfuFleetReconciliationMutationRepository:
 
     def mark_node_unknown(self, *, item, fencing_token: int, reason_code: str) -> bool:
         route = self._route(item.item_id)
-        reservation = self._capacity.get(
-            tenant_id=route.tenant_id, room_id=route.session_id
-        )
+        reservation = self._capacity.get(tenant_id=route.tenant_id, room_id=route.session_id)
         if reservation is None or not reservation.observed_node_id:
             return False
         node = self._nodes.get_node(
@@ -340,9 +305,7 @@ class SqlSfuFleetReconciliationMutationRepository:
         )
         return True
 
-    def reconcile_desired_route(
-        self, *, item, fencing_token: int, access_expires_at_ms: int
-    ) -> bool:
+    def reconcile_desired_route(self, *, item, fencing_token: int, access_expires_at_ms: int) -> bool:
         return bool(
             self._runtime_routes.reconcile_desired_route(
                 item=item,
@@ -356,16 +319,12 @@ class SqlSfuFleetReconciliationMutationRepository:
             with Session(self._engine) as db:
                 row = db.get(SfuFanoutRouteDB, route_id)
                 if row is None:
-                    raise SfuFleetReconciliationRepositoryError(
-                        "sfu_fleet_route_not_found"
-                    )
+                    raise SfuFleetReconciliationRepositoryError("sfu_fleet_route_not_found")
                 return row
         except SfuFleetReconciliationRepositoryError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_fleet_route_store_unavailable"
-            ) from exc
+            raise SfuFleetReconciliationRepositoryError("sfu_fleet_route_store_unavailable") from exc
 
 
 class SfuFanoutRouteReconciliationRepositoryAdapter:
@@ -399,9 +358,7 @@ class SfuFanoutRouteReconciliationRepositoryAdapter:
             return RouteReconciliationPage((), raw.next_cursor)
         route = raw.items[0]
         should_revoke = route.status != "active" or int(route.expires_at * 1_000) <= now_ms
-        expected_phase = (
-            ReconciliationPhase.REVOKE if should_revoke else ReconciliationPhase.ENSURE
-        )
+        expected_phase = ReconciliationPhase.REVOKE if should_revoke else ReconciliationPhase.ENSURE
         if phase is not expected_phase:
             return RouteReconciliationPage((), raw.next_cursor)
         candidate = RouteReconciliationCandidate(
@@ -421,9 +378,7 @@ class SfuFanoutRouteReconciliationRepositoryAdapter:
         now_ms: int,
     ) -> RouteReconciliationAuthority:
         route = self._routes.get(
-            SfuBroadcastRoomScope(
-                candidate.key.tenant_ref, candidate.key.room_ref
-            ),
+            SfuBroadcastRoomScope(candidate.key.tenant_ref, candidate.key.room_ref),
             candidate.candidate_ref,
         )
         expected = observation.projection.version if observation.projection else observation.tombstone_version
@@ -471,19 +426,13 @@ class SfuFanoutRouteReconciliationRepositoryAdapter:
 
 
 class SqlSfuRouteReconciliationScopeRepository:
-    def __init__(
-        self, *, cursor_signing_key: bytes, db_engine=default_engine
-    ) -> None:
+    def __init__(self, *, cursor_signing_key: bytes, db_engine=default_engine) -> None:
         self._engine = db_engine
         self._cursors = _CursorCodec(cursor_signing_key, "route-scopes")
 
-    def page(
-        self, *, cursor: str | None, limit: int
-    ) -> SfuRouteReconciliationScopePage:
+    def page(self, *, cursor: str | None, limit: int) -> SfuRouteReconciliationScopePage:
         if not 1 <= limit <= 1_000:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_route_scope_page_limit_invalid"
-            )
+            raise SfuFleetReconciliationRepositoryError("sfu_route_scope_page_limit_invalid")
         after = self._cursors.decode(cursor) if cursor else None
         try:
             with Session(self._engine) as db:
@@ -496,14 +445,13 @@ class SqlSfuRouteReconciliationScopeRepository:
                 )
                 if after is not None:
                     if len(after) != 2:
-                        raise SfuFleetReconciliationRepositoryError(
-                            "sfu_reconciliation_cursor_invalid"
-                        )
+                        raise SfuFleetReconciliationRepositoryError("sfu_reconciliation_cursor_invalid")
                     statement = statement.where(
                         sa.tuple_(
                             SfuFanoutRouteDB.tenant_id,
                             SfuFanoutRouteDB.session_id,
-                        ) > after
+                        )
+                        > after
                     )
                 rows = tuple(db.exec(statement).all())
                 selected = rows[:limit]
@@ -519,9 +467,7 @@ class SqlSfuRouteReconciliationScopeRepository:
         except SfuFleetReconciliationRepositoryError:
             raise
         except SQLAlchemyError as exc:
-            raise SfuFleetReconciliationRepositoryError(
-                "sfu_route_scope_store_unavailable"
-            ) from exc
+            raise SfuFleetReconciliationRepositoryError("sfu_route_scope_store_unavailable") from exc
 
 
 def _operation_id(candidate_ref: str, fencing_token: str) -> str:

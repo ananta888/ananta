@@ -1,4 +1,5 @@
 """DSL v2 Expression Engine — kein eval/exec, safe regex, fehlende Pfade → None/false."""
+
 from __future__ import annotations
 
 import re
@@ -127,8 +128,14 @@ def _eval(expr: dict[str, Any], context: Any) -> bool | float | None:
         bbox_b = spec.get("b")
         if bbox_a is None or bbox_b is None:
             return False
+
         def _rects_overlap(a: dict, b: dict) -> bool:
-            return not (a["x"] + a["w"] <= b["x"] or b["x"] + b["w"] <= a["x"] or
-                       a["y"] + a["h"] <= b["y"] or b["y"] + b["h"] <= a["y"])
+            return not (
+                a["x"] + a["w"] <= b["x"]
+                or b["x"] + b["w"] <= a["x"]
+                or a["y"] + a["h"] <= b["y"]
+                or b["y"] + b["h"] <= a["y"]
+            )
+
         return _rects_overlap(bbox_a, bbox_b)
     return None

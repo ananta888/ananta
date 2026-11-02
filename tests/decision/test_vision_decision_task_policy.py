@@ -1,4 +1,5 @@
 """VisionTaskPolicy rule table and the escalation executor (chat completion, larger model, human tickets)."""
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,12 @@ from agent.services.vision_decision_escalation_executor import (
     build_escalation_executor,
     escalation_action_type,
 )
-from agent.services.vision_decision_hub_gate import EscalationTarget, VisionEscalation, VisionPolicyVerdict, VisionProposal
+from agent.services.vision_decision_hub_gate import (
+    EscalationTarget,
+    VisionEscalation,
+    VisionPolicyVerdict,
+    VisionProposal,
+)
 from agent.services.vision_decision_provider import VisionDecisionConfigurationError, VisionField
 from agent.services.vision_decision_task_policy import (
     DEFAULT_VISION_TASK_CATALOG,
@@ -102,7 +108,12 @@ def test_unknown_task_status_denies():
 
 def test_evaluate_reads_the_gate_proposal():
     proposal = VisionProposal(
-        schema_id="shapes-v1", field="count", value=2, probability=0.97, margin=0.9, entropy=0.1,
+        schema_id="shapes-v1",
+        field="count",
+        value=2,
+        probability=0.97,
+        margin=0.9,
+        entropy=0.1,
         provenance={"model": MODEL},
     )
     assert VisionTaskPolicy().evaluate(proposal) is VisionPolicyVerdict.ALLOW
@@ -120,15 +131,25 @@ def test_catalog_schemas_are_valid_and_finite():
 
 
 def _escalation(field="shape", target=EscalationTarget.CHAT_COMPLETION):
-    return VisionEscalation(field=field, target=target, reasons=("low_probability",), probability=0.41, margin=0.05,
-                            entropy=1.2, candidate="circle")
+    return VisionEscalation(
+        field=field,
+        target=target,
+        reasons=("low_probability",),
+        probability=0.41,
+        margin=0.05,
+        entropy=1.2,
+        candidate="circle",
+    )
 
 
 class ChatTransport:
     def __init__(self, status=200, content=None, *, raw=None, exc=None, model=MODEL):
         self.status, self.exc = status, exc
-        payload = {"object": "chat.completion", "model": model,
-                   "choices": [{"message": {"role": "assistant", "content": json.dumps(content or {"shape": "square"})}}]}
+        payload = {
+            "object": "chat.completion",
+            "model": model,
+            "choices": [{"message": {"role": "assistant", "content": json.dumps(content or {"shape": "square"})}}],
+        }
         self.body = raw if raw is not None else json.dumps(payload).encode()
         self.calls: list[dict] = []
 
@@ -141,9 +162,12 @@ class ChatTransport:
 
 def _executor(transport=None, *, larger=False, store=None):
     target = ChatTargetConfig(url="http://127.0.0.1:8096", model=MODEL, api_key=KEY)
-    handler = ChatCompletionEscalationHandler(target, timeout_ms=3000, max_image_bytes=1 << 20, max_image_side=256,
-                                              transport=transport)
-    handlers = {EscalationTarget.LARGER_MODEL if larger else EscalationTarget.CHAT_COMPLETION: handler} if transport else {}
+    handler = ChatCompletionEscalationHandler(
+        target, timeout_ms=3000, max_image_bytes=1 << 20, max_image_side=256, transport=transport
+    )
+    handlers = (
+        {EscalationTarget.LARGER_MODEL if larger else EscalationTarget.CHAT_COMPLETION: handler} if transport else {}
+    )
     return VisionEscalationExecutor(handlers, tickets=store or VoiceCommandConfirmationStore())
 
 
@@ -185,7 +209,11 @@ def test_chat_escalation_answers_only_the_escalated_fields():
 def test_failed_machine_escalation_falls_back_to_a_human_ticket(transport, error_code):
     results = _executor(transport).escalate(SHAPES, [_escalation()], principal=ALICE, images=[_png()])
     result = results["shape"]
-    assert (result.status, result.handled_by, result.error_code) == ("awaiting_human", EscalationTarget.HUMAN, error_code)
+    assert (result.status, result.handled_by, result.error_code) == (
+        "awaiting_human",
+        EscalationTarget.HUMAN,
+        error_code,
+    )
     assert result.suggestion is None and result.escalation_id
     assert result.reasons == ("low_probability", "chat_completion_failed")
 
@@ -212,7 +240,9 @@ def test_escalation_field_bound_overflows_to_humans():
     task = VisionTask(task_id="many-v1", status="beta", fields=fields)
     content = {f"f{i}": True for i in range(MAX_CHAT_FIELDS)}
     transport = ChatTransport(content=content)
-    results = _executor(transport).escalate(task, [_escalation(name) for name in fields], principal=ALICE, images=[_png()])
+    results = _executor(transport).escalate(
+        task, [_escalation(name) for name in fields], principal=ALICE, images=[_png()]
+    )
     assert len(transport.calls) == 1
     assert sum(r.status == "answered" for r in results.values()) == MAX_CHAT_FIELDS
     assert [r.reasons[-1] for r in results.values() if r.status == "awaiting_human"] == ["escalation_overflow"] * 2
@@ -237,7 +267,11 @@ def test_ticket_capacity_fails_closed():
     first = executor.escalate(SHAPES, [_escalation("shape")], principal=ALICE, images=[_png()])["shape"]
     second = executor.escalate(SHAPES, [_escalation("color")], principal=ALICE, images=[_png()])["color"]
     assert first.status == "awaiting_human"
-    assert (second.status, second.error_code, second.escalation_id) == ("failed", "confirmation.capacity_exceeded", None)
+    assert (second.status, second.error_code, second.escalation_id) == (
+        "failed",
+        "confirmation.capacity_exceeded",
+        None,
+    )
 
 
 # --- escalation configuration -----------------------------------------------------------------------------
@@ -250,8 +284,12 @@ def test_escalation_config_defaults_and_key_scope():
     assert same.chat.url == decision.url and same.chat.api_key == KEY
     other = VisionEscalationConfig.from_env(
         decision,
-        {"VISION_DECISION_ESCALATION_CHAT": "true", "VISION_DECISION_ESCALATION_CHAT_URL": "http://vlm-large:8080",
-         "VISION_DECISION_ESCALATION_LARGER_URL": "https://big.example.org", "VISION_DECISION_ESCALATION_LARGER_MODEL": "big"},
+        {
+            "VISION_DECISION_ESCALATION_CHAT": "true",
+            "VISION_DECISION_ESCALATION_CHAT_URL": "http://vlm-large:8080",
+            "VISION_DECISION_ESCALATION_LARGER_URL": "https://big.example.org",
+            "VISION_DECISION_ESCALATION_LARGER_MODEL": "big",
+        },
     )
     assert other.chat.api_key is None and other.larger_model.api_key is None  # never sent to another host
     assert other.larger_model.model == "big"

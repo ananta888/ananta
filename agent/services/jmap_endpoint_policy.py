@@ -81,7 +81,9 @@ class JmapEndpointPolicy:
         self._related_origins = frozenset(_origin_from_url(value) for value in config.allowed_related_origins)
         self._local_hosts = frozenset(str(value).strip().lower() for value in config.allowed_local_hosts)
         try:
-            self._local_networks = tuple(ipaddress.ip_network(value, strict=True) for value in config.allowed_local_cidrs)
+            self._local_networks = tuple(
+                ipaddress.ip_network(value, strict=True) for value in config.allowed_local_cidrs
+            )
         except ValueError as exc:
             raise JmapEndpointPolicyError("jmap_local_cidr_invalid") from exc
 

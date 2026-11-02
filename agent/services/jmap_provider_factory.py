@@ -393,9 +393,7 @@ class JmapProviderBindingBuilder:
             return MailProviderResult(ok=False, reason_code="mail_provider_protocol_mismatch")
         dependencies = self._dependencies
         registry = JmapSessionRegistry(transport=dependencies.transport)
-        discovery_cache = JmapDiscoveryCache(
-            ttl_seconds=dependencies.feature_policy.limits.discovery_cache_ttl_seconds
-        )
+        discovery_cache = JmapDiscoveryCache(ttl_seconds=dependencies.feature_policy.limits.discovery_cache_ttl_seconds)
         discovery = JmapDiscoveryService(
             transport=dependencies.transport,
             endpoint_policy=dependencies.endpoint_policy,

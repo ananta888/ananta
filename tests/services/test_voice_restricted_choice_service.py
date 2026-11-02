@@ -166,9 +166,7 @@ def test_path_policy_enforces_logits_engine_and_request_limits() -> None:
     base = _base_result()
 
     logits_transport = _Transport()
-    logits_policy = PathAiModePolicyService(
-        [PathAiModeRule(path_glob="__voice__/**", allow_logits=False)]
-    )
+    logits_policy = PathAiModePolicyService([PathAiModeRule(path_glob="__voice__/**", allow_logits=False)])
     logits = _apply(_service(logits_transport, policy_service=logits_policy), base)
     assert logits.reason_code == "restricted_choice_logits_blocked"
     assert logits_transport.request is None
@@ -187,17 +185,13 @@ def test_path_policy_enforces_logits_engine_and_request_limits() -> None:
     assert engine_transport.request is None
 
     batch_transport = _Transport()
-    batch_policy = PathAiModePolicyService(
-        [PathAiModeRule(path_glob="__voice__/**", max_batch_size=1)]
-    )
+    batch_policy = PathAiModePolicyService([PathAiModeRule(path_glob="__voice__/**", max_batch_size=1)])
     batch = _apply(_service(batch_transport, policy_service=batch_policy), base)
     assert batch.reason_code == "restricted_choice_batch_limit"
     assert batch_transport.request is None
 
     input_transport = _Transport()
-    input_policy = PathAiModePolicyService(
-        [PathAiModeRule(path_glob="__voice__/**", max_input_chars=8)]
-    )
+    input_policy = PathAiModePolicyService([PathAiModeRule(path_glob="__voice__/**", max_input_chars=8)])
     bounded_input = _apply(_service(input_transport, policy_service=input_policy), base)
     assert bounded_input.reason_code == "restricted_choice_input_limit"
     assert input_transport.request is None

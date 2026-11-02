@@ -94,7 +94,7 @@ class LayerSearchIndex:
             if state.get("version") == _SCHEMA_VERSION and known == chain:
                 return "current"
             incremental = state.get("version") == _SCHEMA_VERSION and known and chain[: len(known)] == known
-            pending = chain[len(known):] if incremental else chain
+            pending = chain[len(known) :] if incremental else chain
             with closing(self._connect()) as connection, connection:
                 if not incremental:
                     connection.execute("DELETE FROM chunks")
@@ -147,8 +147,9 @@ class LayerSearchIndex:
             " WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts, 4.0, 3.0, 1.0) LIMIT ?"
         )
         with closing(self._connect()) as connection, connection:
-            total = int(connection.execute("SELECT count(*) FROM chunks_fts WHERE chunks_fts MATCH ?",
-                                           (match,)).fetchone()[0])
+            total = int(
+                connection.execute("SELECT count(*) FROM chunks_fts WHERE chunks_fts MATCH ?", (match,)).fetchone()[0]
+            )
             rows = []
             for phrase in identifier_phrases(query):
                 rows.extend(connection.execute(select, (phrase, limit)).fetchall())

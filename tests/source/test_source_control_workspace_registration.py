@@ -11,9 +11,15 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlmodel import Session, SQLModel, create_engine
 
-import agent.db_models
 from agent.repositories.source_control_workspace_registration_repository import (
     SQLSourceControlWorkspaceRegistrationRepository,
+)
+from agent.routes.source_control_workspace_registrations import (
+    create_source_control_workspace_registrations_blueprint,
+)
+from agent.services.project_access_authority import (
+    AuthorizedProjectScope,
+    ProjectCapability,
 )
 from agent.services.source_control_workspace_catalog import (
     SecureWorkspaceFolderCatalog,
@@ -22,14 +28,7 @@ from agent.services.source_control_workspace_catalog import (
 from agent.services.source_control_workspace_registration_service import (
     SourceControlWorkspaceRegistrationService,
 )
-from agent.routes.source_control_workspace_registrations import (
-    create_source_control_workspace_registrations_blueprint,
-)
 from agent.services.user_session_tokens import issue_user_access_token
-from agent.services.project_access_authority import (
-    AuthorizedProjectScope,
-    ProjectCapability,
-)
 
 
 class _Idempotency:
@@ -180,9 +179,7 @@ def test_manifest_change_invalidates_validate_then_create(
     source = folder / "source.txt"
     source.write_text("before", encoding="utf-8")
     _now, _repository, _folders, service = _service(tmp_path)
-    folder_handle = service.list_folders(
-        principal=_principal()
-    )["items"][0]["folder_handle"]
+    folder_handle = service.list_folders(principal=_principal())["items"][0]["folder_handle"]
     validation = service.validate(
         principal=_principal(),
         payload={"folder_handle": folder_handle},
@@ -203,17 +200,8 @@ def test_new_source_control_schema_identifiers_fit_postgres() -> None:
         "source_control_public_remote",
         "source_control_workspace_",
     )
-    tables = tuple(
-        table
-        for table in SQLModel.metadata.sorted_tables
-        if table.name.startswith(prefixes)
-    )
-    names = [
-        item.name
-        for table in tables
-        for item in (*table.indexes, *table.constraints)
-        if item.name
-    ]
+    tables = tuple(table for table in SQLModel.metadata.sorted_tables if table.name.startswith(prefixes))
+    names = [item.name for table in tables for item in (*table.indexes, *table.constraints) if item.name]
 
     assert names
     assert max(map(len, names)) <= 63
@@ -240,14 +228,11 @@ def test_workspace_route_binds_normal_admin_token_project_selector() -> None:
     app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _WorkspaceRouteService()
-    app.register_blueprint(
-        create_source_control_workspace_registrations_blueprint(service)
-    )
+    app.register_blueprint(create_source_control_workspace_registrations_blueprint(service))
     token = issue_user_access_token(username="admin", role="admin")
 
     response = app.test_client().get(
-        "/api/source-control/v1/workspace-folders"
-        "?project_id=project-example",
+        "/api/source-control/v1/workspace-folders?project_id=project-example",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -262,17 +247,14 @@ def test_workspace_route_authorizes_member_selector_without_project_claim() -> N
     app.extensions["project_access_authority"] = _ProjectAccess()
     app.config["TESTING"] = True
     service = _WorkspaceRouteService()
-    app.register_blueprint(
-        create_source_control_workspace_registrations_blueprint(service)
-    )
+    app.register_blueprint(create_source_control_workspace_registrations_blueprint(service))
     token = issue_user_access_token(
         username="project-owner",
         role="project_owner",
     )
 
     response = app.test_client().get(
-        "/api/source-control/v1/workspace-folders"
-        "?project_id=project-example",
+        "/api/source-control/v1/workspace-folders?project_id=project-example",
         headers={"Authorization": f"Bearer {token}"},
     )
 

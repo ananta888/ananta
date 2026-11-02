@@ -65,12 +65,11 @@ _FULL_SUITE_TRIGGERS = (
     "tests/werkzeug_rule_cache.py",
     "tests/tiering.py",
     "tests/sharding.py",
-    "tests_support.py",
+    "tests/support.py",
     "pyproject.toml",
     "requirements.lock",
     "requirements-dev.lock",
     "requirements.txt",
-    "requirements-dev.txt",
     "docker/compose-next/Dockerfile.tests-backend",
     "docker/compose-next/compose.tests-backend-base.yml",
 )

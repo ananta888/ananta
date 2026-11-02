@@ -65,9 +65,7 @@ class ValidationResult:
         return not self.errors
 
     def merge(self, other: "ValidationResult") -> "ValidationResult":
-        return ValidationResult(
-            errors=self.errors + other.errors, warnings=self.warnings + other.warnings
-        )
+        return ValidationResult(errors=self.errors + other.errors, warnings=self.warnings + other.warnings)
 
 
 def _is_sorted(values: Iterable[str]) -> bool:
@@ -80,9 +78,7 @@ def validate_payload(payload: dict[str, Any]) -> ValidationResult:
 
     schema = payload.get("schema")
     if schema != EXPECTED_SCHEMA:
-        result.errors.append(
-            f"schema mismatch: expected {EXPECTED_SCHEMA!r}, got {schema!r}"
-        )
+        result.errors.append(f"schema mismatch: expected {EXPECTED_SCHEMA!r}, got {schema!r}")
 
     for field_name in (
         "project_root",
@@ -108,9 +104,7 @@ def validate_payload(payload: dict[str, Any]) -> ValidationResult:
             continue
         for required in REQUIRED_DOMAIN_FIELDS:
             if required not in domain:
-                result.errors.append(
-                    f"domain[{index}] missing required field {required!r}"
-                )
+                result.errors.append(f"domain[{index}] missing required field {required!r}")
         domain_id = domain.get("domain_id")
         if isinstance(domain_id, str):
             if domain_id in seen_ids:
@@ -119,46 +113,30 @@ def validate_payload(payload: dict[str, Any]) -> ValidationResult:
             domain_ids.append(domain_id)
         confidence = domain.get("confidence")
         if not isinstance(confidence, (int, float)) or not 0.0 <= float(confidence) <= 1.0:
-            result.errors.append(
-                f"domain[{index}] confidence out of range or wrong type: {confidence!r}"
-            )
+            result.errors.append(f"domain[{index}] confidence out of range or wrong type: {confidence!r}")
         for list_field in ("root_paths", "package_prefixes", "technical_layers", "core_records"):
             value = domain.get(list_field)
             if not isinstance(value, list):
-                result.errors.append(
-                    f"domain[{index}].{list_field} must be a list, got {type(value).__name__}"
-                )
+                result.errors.append(f"domain[{index}].{list_field} must be a list, got {type(value).__name__}")
         evidence = domain.get("evidence") or {}
         if not isinstance(evidence, dict):
             result.errors.append(f"domain[{index}].evidence must be an object")
-        elif not any(
-            evidence.get(key) for key in evidence
-        ):
-            result.warnings.append(
-                f"domain[{index}] has empty evidence object; provenance unverified"
-            )
+        elif not any(evidence.get(key) for key in evidence):
+            result.warnings.append(f"domain[{index}] has empty evidence object; provenance unverified")
         boundary = domain.get("boundary_warnings") or []
         if not isinstance(boundary, list):
-            result.errors.append(
-                f"domain[{index}].boundary_warnings must be a list"
-            )
+            result.errors.append(f"domain[{index}].boundary_warnings must be a list")
         else:
             for j, warning in enumerate(boundary):
                 if not isinstance(warning, dict):
-                    result.errors.append(
-                        f"domain[{index}].boundary_warnings[{j}] is not an object"
-                    )
+                    result.errors.append(f"domain[{index}].boundary_warnings[{j}] is not an object")
                     continue
                 wtype = warning.get("warning_type")
                 if wtype not in ALLOWED_WARNING_TYPES:
-                    result.errors.append(
-                        f"domain[{index}].boundary_warnings[{j}] unknown warning_type {wtype!r}"
-                    )
+                    result.errors.append(f"domain[{index}].boundary_warnings[{j}] unknown warning_type {wtype!r}")
 
     if not _is_sorted(domain_ids):
-        result.errors.append(
-            f"domains are not sorted by domain_id: {domain_ids!r}"
-        )
+        result.errors.append(f"domains are not sorted by domain_id: {domain_ids!r}")
 
     unassigned = payload.get("unassigned_records") or []
     if not isinstance(unassigned, list):
@@ -173,9 +151,7 @@ def validate_coupling_payload(payload: dict[str, Any]) -> ValidationResult:
     result = ValidationResult()
     schema = payload.get("schema")
     if schema != EXPECTED_COUPLING_SCHEMA:
-        result.errors.append(
-            f"coupling schema mismatch: expected {EXPECTED_COUPLING_SCHEMA!r}, got {schema!r}"
-        )
+        result.errors.append(f"coupling schema mismatch: expected {EXPECTED_COUPLING_SCHEMA!r}, got {schema!r}")
     pairs = payload.get("pairs") or []
     if not isinstance(pairs, list):
         result.errors.append("'pairs' must be a list")
@@ -188,9 +164,7 @@ def validate_coupling_payload(payload: dict[str, Any]) -> ValidationResult:
         source = pair.get("source")
         target = pair.get("target")
         if not isinstance(source, str) or not isinstance(target, str):
-            result.errors.append(
-                f"pairs[{index}] source/target must be strings, got {source!r}/{target!r}"
-            )
+            result.errors.append(f"pairs[{index}] source/target must be strings, got {source!r}/{target!r}")
             continue
         key = (source, target)
         if key in seen:

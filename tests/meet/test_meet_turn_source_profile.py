@@ -23,9 +23,10 @@ from worker.meet_media.contract import validate_turn
 def _meet_project():
     """The Hub media tasks these tests start belong to tenant/project (``tasks`` -> ``projects`` FK)."""
     from agent.database import engine
-    from tests.meet_dialog_lifecycle_fixture import ensure_project
+    from tests.meet.meet_dialog_lifecycle_fixture import ensure_project
 
     ensure_project(engine)
+
 
 pytestmark = pytest.mark.timeout(45)
 

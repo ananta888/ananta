@@ -1,11 +1,11 @@
 """SS03.02: Tests für :share TUI-Kommandos."""
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
 
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.models import OperatorState, OperatorMode
+from client_surfaces.operator_tui.models import OperatorMode, OperatorState
 
 
 def _base_state(**kw) -> OperatorState:
@@ -90,7 +90,6 @@ def test_share_key_generate_already_exists():
 
 def test_share_key_show_displays_fingerprint():
     with patch("client_surfaces.operator_tui.device_keys.get_device_key_manager") as mock_mgr:
-        from client_surfaces.operator_tui.device_keys import DeviceKeyManager
         mock_instance = mock_mgr.return_value
         mock_instance.get_public_info.return_value = {"fingerprint": "12:34:56:78:9a:bc:de:f0"}
         state = _base_state()

@@ -320,9 +320,7 @@ def _legacy_descriptor(engine: str, capabilities: frozenset[str]) -> AdapterCapa
             name=capability,
             support=SUPPORT_SUPPORTED if capability in capabilities else SUPPORT_UNSUPPORTED,
             reason_code=(
-                "legacy_registry_declaration"
-                if capability in capabilities
-                else "legacy_registry_not_declared"
+                "legacy_registry_declaration" if capability in capabilities else "legacy_registry_not_declared"
             ),
             operation=CAPABILITY_OPERATION_METHODS.get(capability, ""),
         )

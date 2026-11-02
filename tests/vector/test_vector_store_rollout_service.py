@@ -120,11 +120,14 @@ def test_rollout_rejects_cross_layer_invalid_state_before_persistence(
                 expected_revision=0,
                 actor="admin-b",
             )
-        assert service.get_override(
-            layer="workspace",
-            domain="codecompass",
-            scope_name="workspace-a",
-        ) is None
+        assert (
+            service.get_override(
+                layer="workspace",
+                domain="codecompass",
+                scope_name="workspace-a",
+            )
+            is None
+        )
     else:
         service.set_workspace_override(
             domain="codecompass",
@@ -144,11 +147,14 @@ def test_rollout_rejects_cross_layer_invalid_state_before_persistence(
                 expected_revision=0,
                 actor="admin-b",
             )
-        assert service.get_override(
-            layer="profile",
-            domain="codecompass",
-            scope_name="semantic",
-        ) is None
+        assert (
+            service.get_override(
+                layer="profile",
+                domain="codecompass",
+                scope_name="semantic",
+            )
+            is None
+        )
 
     assert len(audits) == 1
     assert audits[0][0] == "vector_store_override_updated"
@@ -186,21 +192,26 @@ def test_workspace_audit_reports_bounded_mixed_provider_set_across_profiles() ->
     workspace_audit = [
         payload
         for event, payload in audits
-        if event == "vector_store_override_updated"
-        and payload["layer"] == "workspace"
+        if event == "vector_store_override_updated" and payload["layer"] == "workspace"
     ][-1]
     assert workspace_audit["previous_provider"] == "mixed"
     assert workspace_audit["new_provider"] == "mixed"
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-        profile_name="semantic",
-    ).provider == "qdrant"
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-        profile_name="lexical",
-    ).provider == "json"
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+            profile_name="semantic",
+        ).provider
+        == "qdrant"
+    )
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+            profile_name="lexical",
+        ).provider
+        == "json"
+    )
 
 
 def test_workspace_and_wiki_rollout_are_isolated_and_rollback_to_json() -> None:
@@ -220,23 +231,26 @@ def test_workspace_and_wiki_rollout_are_isolated_and_rollback_to_json() -> None:
         actor="admin-a",
     )
 
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-    ).provider == "qdrant"
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-b",
-    ).provider == "json"
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+        ).provider
+        == "qdrant"
+    )
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-b",
+        ).provider
+        == "json"
+    )
     wiki_resolved = service.resolve(
         domain="wiki",
         workspace_id="workspace-a",
     )
     assert wiki_resolved.provider == "qdrant"
-    assert (
-        wiki_resolved.config["qdrant"]["collection_prefix"]
-        == "ananta-wiki"
-    )
+    assert wiki_resolved.config["qdrant"]["collection_prefix"] == "ananta-wiki"
 
     service.rollback(
         layer="workspace",
@@ -245,14 +259,20 @@ def test_workspace_and_wiki_rollout_are_isolated_and_rollback_to_json() -> None:
         expected_revision=record.revision,
         actor="admin-a",
     )
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-    ).provider == "json"
-    assert service.resolve(
-        domain="wiki",
-        workspace_id="workspace-a",
-    ).provider == "qdrant"
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+        ).provider
+        == "json"
+    )
+    assert (
+        service.resolve(
+            domain="wiki",
+            workspace_id="workspace-a",
+        ).provider
+        == "qdrant"
+    )
 
 
 def test_wiki_rollout_rejects_codecompass_collection_prefix() -> None:
@@ -267,9 +287,7 @@ def test_wiki_rollout_rejects_codecompass_collection_prefix() -> None:
             workspace_id="workspace-a",
             override={
                 "provider": "qdrant",
-                "qdrant": {
-                    "collection_prefix": "ananta-codecompass"
-                },
+                "qdrant": {"collection_prefix": "ananta-codecompass"},
             },
             expected_revision=0,
             actor="admin-a",
@@ -349,9 +367,7 @@ def test_rollout_uses_production_parser_and_immutable_hub_security_policy() -> N
                 "provider": "qdrant",
                 "qdrant": {
                     "endpoint": {
-                        "trusted_private_origins": [
-                            "http://attacker.invalid:6333"
-                        ],
+                        "trusted_private_origins": ["http://attacker.invalid:6333"],
                     }
                 },
             },
@@ -394,29 +410,16 @@ def test_rollout_uses_production_parser_and_immutable_hub_security_policy() -> N
         "https://qdrant-backup:6333",
         "https://qdrant:6333",
     ]
-    assert (
-        resolved.config["qdrant"]["endpoint"]["api_key_ref"]
-        == "env://QDRANT_API_KEY"
-    )
+    assert resolved.config["qdrant"]["endpoint"]["api_key_ref"] == "env://QDRANT_API_KEY"
 
 
 @pytest.mark.parametrize("layer", ["profile", "workspace"])
 def test_rollout_forbids_json_index_path_override_but_preserves_global_path(
     layer: str,
 ) -> None:
-    service, _audits = _service(
-        global_config={"json": {"index_path": "/hub-owned/vector-index.json"}}
-    )
-    setter = (
-        service.set_profile_override
-        if layer == "profile"
-        else service.set_workspace_override
-    )
-    scope = (
-        {"profile_name": "default"}
-        if layer == "profile"
-        else {"workspace_id": "workspace-a"}
-    )
+    service, _audits = _service(global_config={"json": {"index_path": "/hub-owned/vector-index.json"}})
+    setter = service.set_profile_override if layer == "profile" else service.set_workspace_override
+    scope = {"profile_name": "default"} if layer == "profile" else {"workspace_id": "workspace-a"}
 
     with pytest.raises(ValueError, match="json_index_path_override_forbidden"):
         setter(
@@ -431,10 +434,7 @@ def test_rollout_forbids_json_index_path_override_but_preserves_global_path(
         domain="codecompass",
         workspace_id="workspace-a",
     )
-    assert (
-        resolved.config["json"]["index_path"]
-        == "/hub-owned/vector-index.json"
-    )
+    assert resolved.config["json"]["index_path"] == "/hub-owned/vector-index.json"
 
 
 def test_resolved_hash_excludes_all_hub_secret_reference_locators() -> None:
@@ -463,13 +463,16 @@ def test_resolved_hash_excludes_all_hub_secret_reference_locators() -> None:
         )
     )
 
-    assert first.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-    ).config_hash == second.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-    ).config_hash
+    assert (
+        first.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+        ).config_hash
+        == second.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+        ).config_hash
+    )
 
 
 def test_hub_env_loader_supports_exact_internal_qdrant_policy() -> None:
@@ -478,12 +481,8 @@ def test_hub_env_loader_supports_exact_internal_qdrant_policy() -> None:
             "ANANTA_QDRANT_REST_URL": "https://qdrant:6333",
             "ANANTA_QDRANT_ALLOWED_ORIGINS": "https://qdrant:6333",
             "ANANTA_QDRANT_TRUSTED_PRIVATE_ORIGINS": "https://qdrant:6333",
-            "ANANTA_QDRANT_API_KEY_REF": (
-                "secretfile:///run/secrets/qdrant-api-key"
-            ),
-            "ANANTA_QDRANT_TLS_CA_CERT_REF": (
-                "secretfile:///run/secrets/qdrant-tls-ca.pem"
-            ),
+            "ANANTA_QDRANT_API_KEY_REF": ("secretfile:///run/secrets/qdrant-api-key"),
+            "ANANTA_QDRANT_TLS_CA_CERT_REF": ("secretfile:///run/secrets/qdrant-tls-ca.pem"),
             "ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED": "false",
             "ANANTA_QDRANT_CONNECT_TIMEOUT_SECONDS": "2",
             "ANANTA_QDRANT_REQUEST_TIMEOUT_SECONDS": "8",
@@ -515,9 +514,7 @@ def test_hub_env_loader_rejects_ambiguous_boolean() -> None:
         ValueError,
         match="vector_store_environment_boolean_invalid",
     ):
-        VectorStoreGlobalEnvConfigLoader(
-            {"ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED": "sometimes"}
-        ).load()
+        VectorStoreGlobalEnvConfigLoader({"ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED": "sometimes"}).load()
 
 
 def test_override_audit_records_effective_provider_policy_and_time() -> None:
@@ -551,16 +548,8 @@ def test_override_audit_records_effective_provider_policy_and_time() -> None:
         actor="admin-a",
     )
 
-    updated = [
-        payload
-        for event, payload in audits
-        if event == "vector_store_override_updated"
-    ]
-    rolled_back = [
-        payload
-        for event, payload in audits
-        if event == "vector_store_override_rolled_back"
-    ]
+    updated = [payload for event, payload in audits if event == "vector_store_override_updated"]
+    rolled_back = [payload for event, payload in audits if event == "vector_store_override_rolled_back"]
     assert (updated[0]["previous_provider"], updated[0]["new_provider"]) == (
         "json",
         "qdrant",
@@ -612,9 +601,7 @@ def test_workspace_rollback_builds_compatible_json_with_trace_and_scope(
         ],
         compatibility=compatibility,
     )
-    service, audits = _service(
-        global_config={"json": {"index_path": str(index_path)}}
-    )
+    service, audits = _service(global_config={"json": {"index_path": str(index_path)}})
     override = service.set_workspace_override(
         domain="codecompass",
         workspace_id="workspace-a",
@@ -622,14 +609,20 @@ def test_workspace_rollback_builds_compatible_json_with_trace_and_scope(
         expected_revision=0,
         actor="admin-a",
     )
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-a",
-    ).provider == "qdrant"
-    assert service.resolve(
-        domain="codecompass",
-        workspace_id="workspace-b",
-    ).provider == "json"
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-a",
+        ).provider
+        == "qdrant"
+    )
+    assert (
+        service.resolve(
+            domain="codecompass",
+            workspace_id="workspace-b",
+        ).provider
+        == "json"
+    )
 
     service.rollback(
         layer="workspace",
@@ -642,9 +635,7 @@ def test_workspace_rollback_builds_compatible_json_with_trace_and_scope(
         domain="codecompass",
         workspace_id="workspace-a",
     )
-    store = VectorStoreFactory().create(
-        VectorStoreConfig.from_mapping(resolved.config)
-    )
+    store = VectorStoreFactory().create(VectorStoreConfig.from_mapping(resolved.config))
     result = store.search_by_vector(
         VectorSearchQuery(
             (1.0, 0.0),
@@ -656,9 +647,7 @@ def test_workspace_rollback_builds_compatible_json_with_trace_and_scope(
 
     assert resolved.provider == "json"
     assert resolved.source_layers == ("global_json_default",)
-    assert [hit.record_id for hit in result.hits] == [
-        "workspace-a-result"
-    ]
+    assert [hit.record_id for hit in result.hits] == ["workspace-a-result"]
     assert all(
         {
             "workspace_id": hit.payload["workspace_id"],
@@ -673,11 +662,7 @@ def test_workspace_rollback_builds_compatible_json_with_trace_and_scope(
     assert result.effective_provider == "json"
     assert result.provider_fallback is False
     assert result.reason == "ok"
-    rollback_audit = [
-        payload
-        for event, payload in audits
-        if event == "vector_store_override_rolled_back"
-    ][-1]
+    rollback_audit = [payload for event, payload in audits if event == "vector_store_override_rolled_back"][-1]
     assert (
         rollback_audit["previous_provider"],
         rollback_audit["new_provider"],
@@ -720,9 +705,7 @@ def test_workspace_rollback_to_incompatible_json_state_fails_closed(
         ],
         compatibility=persisted_compatibility,
     )
-    service, _audits = _service(
-        global_config={"json": {"index_path": str(index_path)}}
-    )
+    service, _audits = _service(global_config={"json": {"index_path": str(index_path)}})
     override = service.set_workspace_override(
         domain="codecompass",
         workspace_id="workspace-a",
@@ -742,9 +725,7 @@ def test_workspace_rollback_to_incompatible_json_state_fails_closed(
         domain="codecompass",
         workspace_id="workspace-a",
     )
-    store = VectorStoreFactory().create(
-        VectorStoreConfig.from_mapping(resolved.config)
-    )
+    store = VectorStoreFactory().create(VectorStoreConfig.from_mapping(resolved.config))
     result = store.search_by_vector(
         VectorSearchQuery(
             (1.0, 0.0),

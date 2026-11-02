@@ -45,4 +45,3 @@ class CenterViewport:
     def make_draw_request(self, payload: dict[str, Any] | None = None) -> ViewportDrawRequest:
         snapshot = self.state
         return ViewportDrawRequest(region=snapshot.region, payload=dict(payload or {}))
-

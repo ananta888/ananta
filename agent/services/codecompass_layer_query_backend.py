@@ -89,8 +89,14 @@ class CodeCompassLayerQueryBackend:
             from agent.services.repository_registry import get_repository_registry
 
             indices = get_repository_registry().knowledge_index_repo
-        return CodeCompassScopedLayers(capability, layers=self._layers, heads=self._heads,
-                                       snapshots=self._snapshots, indices=indices, policy=self._policy)
+        return CodeCompassScopedLayers(
+            capability,
+            layers=self._layers,
+            heads=self._heads,
+            snapshots=self._snapshots,
+            indices=indices,
+            policy=self._policy,
+        )
 
     def diff(self, **kwargs: Any) -> dict[str, Any]:
         old = self._manifest(kwargs.get("from_snapshot_ref"), kwargs.get("old_manifest"))

@@ -3,18 +3,21 @@
 EW-T049: TraceBundle v2 — full execution metadata, produced for all outcomes.
 EW-T050: ModelCallTrace — provider/model/tokens/latency, raw prompt logging disabled.
 """
+
 from __future__ import annotations
 
-import hashlib
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
+if TYPE_CHECKING:
+    from worker.core.execution_envelope import ExecutionEnvelope
 
 # ── Outcome vocabulary ────────────────────────────────────────────────────────
+
 
 class ExecutionOutcome(str, Enum):
     success = "success"
@@ -29,16 +32,18 @@ class ExecutionOutcome(str, Enum):
 
 # ── ModelCallTrace (EW-T050) ──────────────────────────────────────────────────
 
+
 class ModelCallTrace(BaseModel):
     """Records one model call without exposing raw prompt/response. EW-T050.
 
     Raw prompt/response logging is disabled by default.
     Debug logging is scope-limited and redacted when enabled.
     """
+
     call_id: str
     provider_id: str
     model: str
-    local_or_cloud: str    # "local" or "cloud"
+    local_or_cloud: str  # "local" or "cloud"
     prompt_token_estimate: int = 0
     completion_token_estimate: int = 0
     latency_ms: float | None = None
@@ -48,8 +53,8 @@ class ModelCallTrace(BaseModel):
     outcome: str = "success"
     reason_code: str | None = None
     # Raw prompt/response: never logged unless debug_logging explicitly enabled
-    _raw_prompt: str = ""       # NOT serialized
-    _raw_response: str = ""     # NOT serialized
+    _raw_prompt: str = ""  # NOT serialized
+    _raw_response: str = ""  # NOT serialized
 
     def model_post_init(self, __context: Any) -> None:
         pass
@@ -85,6 +90,7 @@ class ModelCallTrace(BaseModel):
             return self.as_trace_event()
 
         from worker.core.sanitizer import sanitize
+
         prompt = (redact_fn or sanitize)(self._raw_prompt).text if self._raw_prompt else ""
         response = (redact_fn or sanitize)(self._raw_response).text if self._raw_response else ""
 
@@ -96,6 +102,7 @@ class ModelCallTrace(BaseModel):
 
 
 # ── TraceBundleV2 (EW-T049) ───────────────────────────────────────────────────
+
 
 @dataclass
 class TraceEventV2:
@@ -120,6 +127,7 @@ class TraceBundleV2:
     Produced for ALL outcomes: success, denial, failure, timeout, cancellation.
     Never contains raw secrets or sensitive payloads.
     """
+
     execution_id: str
     task_id: str
     goal_id: str | None
@@ -147,11 +155,13 @@ class TraceBundleV2:
         reason_code: str | None = None,
         **payload: Any,
     ) -> None:
-        self.events.append(TraceEventV2(
-            event_type=event_type,
-            reason_code=reason_code,
-            payload=payload,
-        ))
+        self.events.append(
+            TraceEventV2(
+                event_type=event_type,
+                reason_code=reason_code,
+                payload=payload,
+            )
+        )
 
     def record_model_call(self, call: ModelCallTrace) -> None:
         self.model_calls.append(call)
@@ -204,13 +214,13 @@ class TraceBundleV2:
     @classmethod
     def from_envelope(
         cls,
-        envelope: "ExecutionEnvelope",  # type: ignore[name-defined]
+        envelope: "ExecutionEnvelope",
         *,
         goal_id: str | None = None,
         model_id: str = "",
         context_hash: str = "",
     ) -> "TraceBundleV2":
-        from worker.core.execution_envelope import ExecutionEnvelope
+
         return cls(
             execution_id=envelope.audit_correlation_id,
             task_id=envelope.task_id,

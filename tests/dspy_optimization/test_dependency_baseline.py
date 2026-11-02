@@ -56,12 +56,16 @@ def test_worker_image_installs_only_the_hash_locked_dspy_dependency_set() -> Non
 
 
 def test_advisory_gate_accepts_only_the_documented_disabled_diskcache_finding() -> None:
-    result = validate_advisory_report({
-        "dependencies": [{
-            "name": "diskcache",
-            "vulns": [{"id": "CVE-2025-69872", "aliases": []}],
-        }],
-    })
+    result = validate_advisory_report(
+        {
+            "dependencies": [
+                {
+                    "name": "diskcache",
+                    "vulns": [{"id": "CVE-2025-69872", "aliases": []}],
+                }
+            ],
+        }
+    )
 
     assert result == {
         "status": "passed",
@@ -72,9 +76,13 @@ def test_advisory_gate_accepts_only_the_documented_disabled_diskcache_finding() 
 
 def test_advisory_gate_rejects_every_unmitigated_finding() -> None:
     with pytest.raises(RuntimeError, match="dspy_unmitigated_dependency_advisory"):
-        validate_advisory_report({
-            "dependencies": [{
-                "name": "dspy",
-                "vulns": [{"id": "CVE-2099-0001", "aliases": []}],
-            }],
-        })
+        validate_advisory_report(
+            {
+                "dependencies": [
+                    {
+                        "name": "dspy",
+                        "vulns": [{"id": "CVE-2099-0001", "aliases": []}],
+                    }
+                ],
+            }
+        )

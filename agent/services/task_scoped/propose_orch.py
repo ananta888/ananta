@@ -1,0 +1,570 @@
+"""Propose orchestrator path for the task-scoped execution service.
+
+Extracted from ``agent.services.task_scoped_execution_service`` as sub-split 001n.
+Owns the ProposeStrategyOrchestrator-based proposal flow: policy resolution,
+context compaction, orchestrator run, result persistence, and response assembly.
+
+Backwards compatibility preserved via delegating wrapper in
+:class:`TaskScopedExecutionService` (12-month deprecation window).
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import TYPE_CHECKING, Any, Callable
+
+from flask import g, has_request_context
+
+from agent.llm_integration import normalize_llm_call_profile_entry
+from agent.services.goal_config_runtime_service import (  # noqa: F401  (test monkeypatch seam)
+    get_goal_config_runtime_service,
+)
+from agent.services.instruction_layer_service import get_instruction_layer_service
+from agent.services.model_routing_contract import (
+    extract_model_routing_from_task,
+    has_model_routing_declaration,
+)
+from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
+from agent.services.product_event_service import record_product_event
+from agent.services.propose_policy_service import get_propose_policy_service
+from agent.services.service_registry import get_core_services
+from agent.services.task_runtime_service import update_local_task_status
+from agent.services.worker_routing_policy_utils import derive_required_capabilities
+from ananta_contracts.model_recovery import (
+    is_recoverable_model_error_type,
+    sanitize_terminal_model_recovery_signal,
+)
+
+if TYPE_CHECKING:
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+
+def _write_review_answer_artifact(*, task: str, task_record: Any, answer: Any) -> None:
+    """Persist the verdict a review task answered with, into that task's workspace.
+
+    Review tasks run through this orchestrator path, while the artifact
+    ``collect_review`` reads (``.ananta/last-final-answer.json``) is written by the
+    mutation loop — a reviewer answered without a loop left the review failing with
+    ``worker_review_answer_missing``. Only an actual verdict object is written; a
+    missing verdict keeps that honest failure. Never raises: proposal persistence
+    must not depend on artifact writing.
+    """
+    try:
+        from agent.services.self_development.final_answer_artifact import (
+            review_workspace_dir,
+            write_final_answer,
+        )
+        from agent.services.worker_workspace_service import get_worker_workspace_service
+
+        workspace = get_worker_workspace_service().resolve_workspace_context(task=task_record)
+        workspace_dir = review_workspace_dir(task_record, workspace.workspace_dir)
+        write_final_answer(workspace_dir, task_id=str(task), answer=str(answer or ""))
+    except Exception:  # pragma: no cover - artifact writing must not fail the proposal
+        import logging
+
+        logging.getLogger(__name__).warning("review_answer_artifact_write_skipped", exc_info=True)
+
+
+def run_propose_orchestrator_path(
+    *,
+    tid: str,
+    task: dict,
+    request_data,
+    base_prompt: str,
+    research_context_summary: dict | None,
+    task_kind: str,
+    citation_contract: str | None,
+    cfg: dict,
+    source_catalog: dict | None,
+    scoped_resolution_source: str,
+    cli_runner: Callable,
+    tool_definitions_resolver: Callable,
+    resolve_cli_backend: Callable,
+    resolve_task_propose_timeout: Callable,
+    invoke_cli_runner: Callable,
+    coalesce_cli_output: Callable,
+    get_system_prompt_for_task: Callable,
+    allow_synthetic_llm_profile_fallback: Callable,
+) -> "TaskScopedRouteResponse":
+    from agent.services.propose_strategy_registry import build_strategy_registry
+    from agent.services.task_scoped.runtime import routing_dimensions
+    from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+    from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
+
+    propose_policy_override = task.get("propose_policy_override", {})
+    task_override = {}
+    if getattr(request_data, "strategy_mode", None):
+        task_override["strategy_mode"] = str(getattr(request_data, "strategy_mode")).strip().lower()
+    policy = get_propose_policy_service().get_effective_policy(
+        task_kind=task_kind,
+        task_override=task_override or None,
+        project_config=cfg,
+        admin_overrides=propose_policy_override,
+    )
+    _record_context_strategy(task, tid, task_kind, base_prompt, research_context_summary, cfg)
+    compaction_payload = None
+    compaction_meta = None
+    if bool(getattr(policy, "context_compaction_enabled", True)) and not _is_long_context_step(task):
+        mode_data = {}
+        if isinstance(task.get("mode_data"), dict):
+            mode_data = {**mode_data, **dict(task.get("mode_data") or {})}
+        if isinstance((task.get("worker_execution_context") or {}).get("mode_data"), dict):
+            mode_data = {**mode_data, **dict((task.get("worker_execution_context") or {}).get("mode_data") or {})}
+        llm_cfg = dict(cfg.get("llm_config") or {})
+        planning_policy = dict(cfg.get("planning_policy") or {})
+        compacted = get_planning_context_compactor_service().compact(
+            goal_text=str(base_prompt or ""),
+            context_text=str((research_context_summary or {}).get("prompt_section") or ""),
+            mode=str(task_kind or "generic"),
+            mode_data=mode_data,
+            planning_policy=planning_policy,
+            llm_config=llm_cfg,
+            policy=policy,
+        )
+        compaction_payload = dict(compacted.payload or {})
+        compaction_meta = dict(compacted.meta or {})
+        _c_status = str(compaction_meta.get("status") or "").strip().lower()
+        if _c_status == "success":
+            record_product_event(
+                "planning_context_compaction_succeeded",
+                actor="task_scoped_execution_service",
+                details={
+                    "task_id": tid,
+                    "status": _c_status,
+                    "input_chars": compaction_meta.get("input_chars"),
+                    "output_chars": compaction_meta.get("output_chars"),
+                    "reduction_ratio": compaction_meta.get("reduction_ratio"),
+                },
+                goal_id=str(task.get("goal_id") or "") or None,
+            )
+        elif _c_status in {"fallback", "bypassed"}:
+            record_product_event(
+                "planning_context_compaction_fallback_used",
+                actor="task_scoped_execution_service",
+                details={
+                    "task_id": tid,
+                    "status": _c_status,
+                    "error_classification": compaction_meta.get("error_classification"),
+                },
+                goal_id=str(task.get("goal_id") or "") or None,
+            )
+        elif _c_status == "failed":
+            record_product_event(
+                "planning_context_compaction_failed",
+                actor="task_scoped_execution_service",
+                details={
+                    "task_id": tid,
+                    "status": _c_status,
+                    "error_classification": compaction_meta.get("error_classification"),
+                },
+                goal_id=str(task.get("goal_id") or "") or None,
+            )
+        if (
+            str(compaction_meta.get("status") or "").strip().lower() == "failed"
+            and bool(getattr(policy, "context_compaction_required", False))
+            and not bool(getattr(policy, "context_compactor_fail_open", False))
+        ):
+            return TaskScopedRouteResponse(
+                status="error",
+                message="planning_context_compaction_failed",
+                data={
+                    "task_id": tid,
+                    "status": "failed",
+                    "context_compaction": compaction_meta,
+                },
+                code=422,
+            )
+    system_prompt = get_system_prompt_for_task(tid)
+    assembled_instruction = get_instruction_layer_service().assemble_for_task(
+        task=task,
+        base_prompt=base_prompt,
+        system_prompt=system_prompt,
+        emit_audit=False,
+    )
+    instruction_stack_payload = dict(assembled_instruction.get("instruction_stack") or {})
+    instruction_diagnostics = dict(assembled_instruction.get("diagnostics") or {})
+    rendered_system_prompt = str(assembled_instruction.get("rendered_system_prompt") or "").strip() or None
+    from agent.services.cognitive_style_overlay_service import (
+        apply_cognitive_style_overlay,
+    )
+
+    style_overlay = apply_cognitive_style_overlay(
+        task=task,
+        system_prompt=rendered_system_prompt,
+        fallback_role=str(task.get("task_kind") or ""),
+    )
+    rendered_system_prompt = style_overlay.rendered_system_prompt
+    instruction_diagnostics["cognitive_style_overlay"] = {
+        "applied": style_overlay.applied,
+        "role_id": style_overlay.role_id,
+        "overlay_id": style_overlay.overlay_id,
+        "permission_delta": style_overlay.permission_delta,
+    }
+
+    strategies = build_strategy_registry()
+    orch = ProposeStrategyOrchestrator(policy, strategies)
+    _active_profile_meta: dict | None = dict(instruction_diagnostics.get("active_agent_profile") or {}) or None
+
+    context = ProposeContext(
+        goal_id=task.get("goal_id", "unknown"),
+        task_id=tid,
+        task=task,
+        base_prompt=base_prompt,
+        research_context=research_context_summary,
+        cli_runner=cli_runner,
+        tool_definitions_resolver=tool_definitions_resolver,
+        policy=policy,
+        effective_config=cfg or None,
+        instruction_stack=instruction_stack_payload or None,
+        rendered_system_prompt=rendered_system_prompt,
+        instruction_diagnostics=instruction_diagnostics or None,
+        planning_context_compaction=compaction_payload,
+        planning_context_compaction_meta=compaction_meta,
+        active_agent_profile=_active_profile_meta,
+    )
+    if citation_contract:
+        context.base_prompt = f"{context.base_prompt}\n\n{citation_contract}"
+
+    had_llm_goal_id = False
+    had_llm_task_id = False
+    previous_llm_goal_id = None
+    previous_llm_task_id = None
+    if has_request_context():
+        had_llm_goal_id = hasattr(g, "llm_goal_id")
+        had_llm_task_id = hasattr(g, "llm_task_id")
+        previous_llm_goal_id = getattr(g, "llm_goal_id", None)
+        previous_llm_task_id = getattr(g, "llm_task_id", None)
+        g.llm_goal_id = str(task.get("goal_id") or "").strip() or None
+        g.llm_task_id = str(tid or "").strip() or None
+    try:
+        result = orch.run(context)
+    finally:
+        if has_request_context():
+            if had_llm_goal_id:
+                g.llm_goal_id = previous_llm_goal_id
+            else:
+                try:
+                    delattr(g, "llm_goal_id")
+                except Exception:
+                    logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
+            if had_llm_task_id:
+                g.llm_task_id = previous_llm_task_id
+            else:
+                try:
+                    delattr(g, "llm_task_id")
+                except Exception:
+                    logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
+
+    result_dict = result.to_dict()
+    routing_contract = extract_model_routing_from_task(task)
+    configured_recovery = list(routing_contract.context_recovery_strategies) if routing_contract is not None else []
+    recovery_explicit = has_model_routing_declaration(task)
+    if routing_contract is not None:
+        recovery_explicit = bool(
+            "context_recovery_strategies" in set(getattr(routing_contract, "model_fields_set", set()) or set())
+        )
+    if not recovery_explicit:
+        from agent.services.model_invocation_service import ModelInvocationService
+
+        configured_recovery = list(
+            ModelInvocationService.default_instance().get_context_recovery_policy().get("context_recovery_strategies")
+            or []
+        )
+    raw_terminal_model_signal = (result.metadata or {}).get("model_recovery_signal")
+    terminal_model_signal = sanitize_terminal_model_recovery_signal(raw_terminal_model_signal)
+    result_metadata = dict(result_dict.get("metadata") or {}) if isinstance(result_dict.get("metadata"), dict) else {}
+    result_metadata.pop("model_recovery_signal", None)
+    if terminal_model_signal is not None:
+        result_metadata["model_recovery_signal"] = terminal_model_signal
+    result_dict["metadata"] = result_metadata
+    fallback_decision_payloads = [
+        dict(item) for item in list((result.metadata or {}).get("fallback_decisions") or []) if isinstance(item, dict)
+    ]
+    policy_terminal = any(
+        bool(item.get("terminal")) and not is_recoverable_model_error_type(item.get("trigger"))
+        for item in fallback_decision_payloads
+    )
+    if (
+        isinstance(raw_terminal_model_signal, dict)
+        and raw_terminal_model_signal.get("terminal") is True
+        and terminal_model_signal is None
+    ):
+        policy_terminal = True
+    defer_to_hub_recovery = bool(
+        not result.is_executable and terminal_model_signal is not None and configured_recovery and not policy_terminal
+    )
+    if not result.is_executable and not defer_to_hub_recovery and not policy_terminal:
+        fallback_backend, fallback_reason = resolve_cli_backend(
+            task_kind,
+            requested_backend="auto",
+            agent_cfg=cfg,
+            required_capabilities=derive_required_capabilities(task, task_kind),
+        )
+        cli_backend = fallback_backend if fallback_backend != "ananta-worker" else "aider"
+        try:
+            rc, cli_out, cli_err, backend_used = invoke_cli_runner(
+                cli_runner,
+                prompt=str(base_prompt or ""),
+                options=["--no-interaction"],
+                timeout=resolve_task_propose_timeout(cfg, task_kind),
+                backend=cli_backend,
+                model=getattr(request_data, "model", None),
+                routing_policy={
+                    "mode": "adaptive",
+                    "task_kind": task_kind,
+                    "policy_version": "v1",
+                    "routing_reason": fallback_reason,
+                    "fallback_backend": cli_backend,
+                },
+                session=None,
+                workdir=None,
+            )
+            raw_res, _output_source = coalesce_cli_output(cli_out, cli_err)
+            parsed = json.loads(str(raw_res or "{}"))
+            fallback_command = str(parsed.get("command") or "").strip() or None
+            fallback_tool_calls = parsed.get("tool_calls") if isinstance(parsed.get("tool_calls"), list) else []
+            fallback_reason = str(parsed.get("reason") or result.reason or "fallback_cli_proposal").strip()
+            _usable = rc == 0 or (
+                rc != 0 and _output_source == "stderr" and bool(fallback_command or fallback_tool_calls)
+            )
+            if _usable and (fallback_command or fallback_tool_calls):
+                result_dict["command"] = fallback_command
+                result_dict["tool_calls"] = fallback_tool_calls
+                result_dict["reason"] = fallback_reason
+                result_dict["backend"] = backend_used
+                result_dict["status"] = "executable"
+        except Exception:
+            logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
+
+    _sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
+    _backend_map = (
+        _sgpt_routing.get("task_kind_backend") if isinstance(_sgpt_routing.get("task_kind_backend"), dict) else {}
+    )
+    _runtime_backend = str(_backend_map.get(task_kind) or _backend_map.get("*") or "").strip() or None
+    propose_strategy_meta = {
+        "attempted_strategies": result.metadata.get("attempted_strategies", []),
+        "selected_strategy": result.metadata.get("selected_strategy"),
+        "proposal_status": result.status,
+        "proposal_reason": result.reason,
+        "normalization_format": result.metadata.get("source_format"),
+        "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None)
+        or task_override.get("strategy_mode"),
+        "goal_config_source": scoped_resolution_source,
+        "runtime_selection": {
+            "provider": cfg.get("default_provider"),
+            "model": cfg.get("default_model"),
+            "backend": _runtime_backend,
+            "source": scoped_resolution_source,
+        },
+        "instruction_stack": {
+            "present": bool(instruction_stack_payload),
+            "checksum": str(instruction_stack_payload.get("checksum") or "").strip() or None,
+            "applied_layers_count": len(list(instruction_diagnostics.get("applied_layers") or [])),
+            "suppressed_layers_count": len(list(instruction_diagnostics.get("suppressed_layers") or [])),
+        },
+        "active_agent_profile": _active_profile_meta,
+        "planning_context_compaction": {
+            "used": bool(compaction_meta is not None),
+            "status": (compaction_meta or {}).get("status"),
+            "reduction_ratio": (compaction_meta or {}).get("reduction_ratio"),
+            "error_classification": (compaction_meta or {}).get("error_classification"),
+            "input_chars": (compaction_meta or {}).get("input_chars"),
+            "output_chars": (compaction_meta or {}).get("output_chars"),
+        },
+        "source_catalog_id": (source_catalog or {}).get("catalog_id") if isinstance(source_catalog, dict) else None,
+        "source_catalog_hash": (source_catalog or {}).get("catalog_hash") if isinstance(source_catalog, dict) else None,
+        "answer_schema": "grounded_answer.v1",
+    }
+    if defer_to_hub_recovery:
+        propose_strategy_meta["hub_recovery_deferred"] = True
+        propose_strategy_meta["configured_context_recovery_strategies"] = configured_recovery
+    if terminal_model_signal is not None:
+        propose_strategy_meta["model_recovery_signal"] = terminal_model_signal
+    fallback_decisions = fallback_decision_payloads
+    if fallback_decisions:
+        propose_strategy_meta["fallback_decisions"] = fallback_decisions[-32:]
+    proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
+    proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
+    proposal_model = str(proposal_meta.get("model") or "").strip() or None
+    strategy_id = str(getattr(result, "strategy_id", "") or "").strip() or None
+    real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
+    if not real_llm_call_profile:
+        real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
+    llm_call_profile = [
+        normalize_llm_call_profile_entry(entry) for entry in real_llm_call_profile if isinstance(entry, dict)
+    ]
+    if not llm_call_profile and allow_synthetic_llm_profile_fallback():
+        llm_call_profile = [
+            {
+                "name": f"propose_{strategy_id or 'orchestrator'}",
+                "backend": "orchestrator",
+                "provider": proposal_provider,
+                "model": proposal_model,
+                "success": True,
+                "latency_ms": None,
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+                "source": "orchestrator_synthetic",
+                "estimated": True,
+                "error_type": None,
+                "error_message": None,
+                "started_at": None,
+                "ended_at": None,
+            }
+        ]
+    cli_result = {
+        "returncode": 0,
+        "latency_ms": None,
+        "stderr_preview": None,
+        "output_source": "orchestrator",
+        **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
+    }
+    resolved_reason = str(result_dict.get("reason") or result.reason or "").strip() or result.reason
+    proposed_command = (
+        result_dict.get("command")
+        if isinstance(result_dict.get("command"), str)
+        else (result.proposal.command if result.is_executable and result.proposal is not None else None)
+    )
+    from agent.services.task_scoped.propose_persist import resolve_declared_command_if_missing
+
+    resolved_command = resolve_declared_command_if_missing(proposed_command, task)
+    _write_review_answer_artifact(task=tid, task_record=task, answer=resolved_reason)
+    resolved_tool_calls = (
+        list(result_dict.get("tool_calls") or [])
+        if isinstance(result_dict.get("tool_calls"), list)
+        else ((result.proposal.tool_calls or []) if result.is_executable and result.proposal is not None else [])
+    )
+    resolved_backend = str(result_dict.get("backend") or "orchestrator").strip() or "orchestrator"
+    get_core_services().task_execution_service.persist_task_proposal_result(
+        tid=tid,
+        task=task,
+        reason=resolved_reason,
+        raw=None,
+        backend=resolved_backend,
+        model=None,
+        routing={
+            "task_kind": task_kind,
+            "propose_strategy_meta": propose_strategy_meta,
+            "goal_config_source": scoped_resolution_source,
+        },
+        cli_result=cli_result,
+        worker_context={"strategy": result.metadata.get("selected_strategy")},
+        trace={"policy_version": "v1"},
+        review=None,
+        command=resolved_command,
+        tool_calls=resolved_tool_calls,
+        research_context=research_context_summary,
+        history_event={
+            "event_type": "proposal_result",
+            "reason": resolved_reason,
+            "backend": resolved_backend,
+            "propose_strategy_meta": propose_strategy_meta,
+        },
+    )
+    if isinstance(source_catalog, dict):
+        verification_status = dict(task.get("verification_status") or {})
+        verification_status["source_catalog"] = {
+            "schema": source_catalog.get("schema"),
+            "source_catalog_id": source_catalog.get("catalog_id"),
+            "source_catalog_hash": source_catalog.get("catalog_hash"),
+            "catalog_state": source_catalog.get("catalog_state"),
+            "source_count": len(list(source_catalog.get("sources") or [])),
+            "rejected_count": len(list(source_catalog.get("rejected_candidates") or [])),
+            "retrieval_trace_id": source_catalog.get("retrieval_trace_id"),
+            "retrieval_context_hash": source_catalog.get("retrieval_context_hash"),
+            "retrieval_manifest_hash": source_catalog.get("retrieval_manifest_hash"),
+            "sources": list(source_catalog.get("sources") or []),
+        }
+        verification_status["answer_verification"] = {
+            **dict(verification_status.get("answer_verification") or {}),
+            "answer_schema": "grounded_answer.v1",
+            "citation_verification_status": "pending",
+        }
+        update_local_task_status(
+            tid,
+            str(task.get("status") or "proposing"),
+            verification_status=verification_status,
+        )
+
+    routing_dims = routing_dimensions(
+        backend_used=resolved_backend,
+        model=None,
+        agent_cfg=cfg,
+    )
+    return TaskScopedRouteResponse(
+        data={
+            **result_dict,
+            "propose_strategy_meta": propose_strategy_meta,
+            "command": resolved_command,
+            "backend": resolved_backend,
+            "routing": {
+                "effective_backend": resolved_backend,
+                "task_kind": task_kind,
+                "goal_config_source": scoped_resolution_source,
+                **routing_dims,
+            },
+        }
+    )
+
+
+_QUESTION_LIKE_KINDS = frozenset({"analysis", "research", "planning_research", "doc", "review"})
+
+
+def _is_long_context_step(task: dict) -> bool:
+    """A step the Hub already sized for the window (LCTX split). Compacting its prompt with another model
+    call adds nothing -- live it cost 4 x 45 s timeouts per step on the workers."""
+    details = task.get("status_reason_details")
+    marker = (details or {}).get("long_context") if isinstance(details, dict) else None
+    return isinstance(marker, dict) and marker.get("role") == "step"
+
+
+def _record_context_strategy(
+    task: dict, tid: str, task_kind: Any, base_prompt: Any, research_context_summary: Any, cfg: dict
+) -> None:
+    """LCTX-004: decide (and record) how a task whose context exceeds the window should be handled.
+
+    Recording only for now (mode shadow); the strategies act on it in active mode (LCTX-005..008)."""
+    try:
+        from agent.services.context_strategy_service import ContextStrategyRequest, get_context_strategy_service
+        from agent.services.long_context_coordinator import material_fit
+
+        service = get_context_strategy_service((cfg or {}).get("context_strategy"))
+        if service.mode == "off":
+            return
+        context_text = (
+            str((research_context_summary or {}).get("prompt_section") or "")
+            if isinstance(research_context_summary, dict)
+            else ""
+        )
+        description = str(task.get("description") or "")
+        # the same room as the coordinator's (window minus reserves and the fixed request part); the base prompt
+        # normally is the description already -- counted once
+        material = [str(base_prompt or ""), context_text]
+        if description not in material[0]:
+            material.append(description)
+        fit = material_fit("\n".join(material), service)
+        if fit.fits:
+            return
+        wec = task.get("worker_execution_context") if isinstance(task.get("worker_execution_context"), dict) else {}
+        input_kind = str(task.get("context_input_kind") or wec.get("context_input_kind") or "unknown")
+        decision = service.decide(
+            ContextStrategyRequest(
+                fit=fit,
+                task_kind=str(task_kind or ""),
+                input_kind=input_kind,
+                question_like=str(task_kind or "") in _QUESTION_LIKE_KINDS,
+                description=str(task.get("title") or "") + "\n" + description[:2000],
+            )
+        )
+        record_product_event(
+            "context_strategy_decided",
+            actor="task_scoped_execution_service",
+            details={"task_id": tid, "mode": service.mode, **decision.to_mapping()},
+            goal_id=str(task.get("goal_id") or "") or None,
+        )
+    except Exception:  # noqa: BLE001 -- the decision point never breaks a propose
+        import logging
+
+        logging.getLogger(__name__).debug("context strategy decision failed", exc_info=True)

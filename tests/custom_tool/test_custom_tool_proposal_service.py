@@ -1,4 +1,5 @@
 """HDE-011: proposal creation — pending only, digest-bound, deduplicated."""
+
 import json
 
 import pytest
@@ -72,7 +73,9 @@ def test_proposal_writes_use_atomic_writer(tmp_path, monkeypatch):
     monkeypatch.setattr(proposal_module, "_atomic_write_json", _recording_write)
     service = CustomToolProposalService(tmp_path)
     stored = service.create_proposal(_proposal())
-    service.update_proposal(stored["proposal_digest"], {"status": "validated", "validated_digest": stored["proposal_digest"]})
+    service.update_proposal(
+        stored["proposal_digest"], {"status": "validated", "validated_digest": stored["proposal_digest"]}
+    )
     assert [status for _, status in writes] == ["pending", "validated"]
 
 

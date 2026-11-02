@@ -8,6 +8,7 @@ to reflect the current classification in the UI.
 The AI-Snake integration (te-012) works by the snake component subscribing to
 the status endpoint — no direct coupling to the task loop needed.
 """
+
 from __future__ import annotations
 
 import threading
@@ -20,7 +21,7 @@ from typing import Any
 class TaskEngineStatus:
     active: bool = False
     intent: str | None = None
-    task_class: str | None = None          # "deterministic" | "hybrid" | "llm_required"
+    task_class: str | None = None  # "deterministic" | "hybrid" | "llm_required"
     llm_required: bool | None = None
     handler_id: str | None = None
     bypassed_llm: bool = False

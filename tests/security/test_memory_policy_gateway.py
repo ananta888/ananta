@@ -45,11 +45,17 @@ def test_manipulated_target_binding_is_denied(field):
     assert not audit.decisions[-1].allowed
 
 
-@pytest.mark.parametrize("scope,field", [
-    (MemoryScope.run, "run_id"), (MemoryScope.task, "task_id"), (MemoryScope.goal, "goal_id"),
-    (MemoryScope.conversation, "conversation_id"), (MemoryScope.workspace, "workspace_id"),
-    (MemoryScope.global_, "tenant_id"),
-])
+@pytest.mark.parametrize(
+    "scope,field",
+    [
+        (MemoryScope.run, "run_id"),
+        (MemoryScope.task, "task_id"),
+        (MemoryScope.goal, "goal_id"),
+        (MemoryScope.conversation, "conversation_id"),
+        (MemoryScope.workspace, "workspace_id"),
+        (MemoryScope.global_, "tenant_id"),
+    ],
+)
 def test_every_scope_has_a_positive_control_and_a_foreign_namespace_control(scope, field):
     namespace = replace(NAMESPACE, conversation_id="synthetic-conversation")
     capability = replace(grant(), namespace=namespace, scope=scope, channel_id="hub-result-memory")
@@ -100,9 +106,13 @@ def test_registered_channel_is_required_independently_of_capability():
 
 def test_sensitivity_cannot_be_lowered_by_requesting_a_different_operation():
     service, _policies, _audit = gateway()
-    secret = replace(target(), security=MemorySecurityMetadata(
-        scope=MemoryScope.run, sensitivity=MemorySensitivity.secret,
-    ))
+    secret = replace(
+        target(),
+        security=MemorySecurityMetadata(
+            scope=MemoryScope.run,
+            sensitivity=MemorySensitivity.secret,
+        ),
+    )
     with pytest.raises(MemoryAccessError, match="capability_missing"):
         service.authorize_read(actor=ACTOR, run_id=NAMESPACE.run_id, target=secret)
 
@@ -119,18 +129,25 @@ def test_promotion_requires_one_step_and_independent_destination_grant():
     service, policies, _audit = gateway(policy((grant(scope=MemoryScope.task, operations=(MemoryOperation.promote,)),)))
     with pytest.raises(MemoryAccessError, match="capability_missing"):
         service.authorize_promote(actor=ACTOR, run_id=NAMESPACE.run_id, target=source, destination=destination)
-    policies.value = policy((grant(scope=MemoryScope.task, operations=(MemoryOperation.promote,)),
-                             grant(scope=MemoryScope.goal, operations=(MemoryOperation.append,))))
+    policies.value = policy(
+        (
+            grant(scope=MemoryScope.task, operations=(MemoryOperation.promote,)),
+            grant(scope=MemoryScope.goal, operations=(MemoryOperation.append,)),
+        )
+    )
     decisions = service.authorize_promote(actor=ACTOR, run_id=NAMESPACE.run_id, target=source, destination=destination)
     assert all(item.allowed for item in decisions)
     with pytest.raises(MemoryAccessError, match="transition_invalid"):
-        service.authorize_promote(actor=ACTOR, run_id=NAMESPACE.run_id, target=source,
-                                  destination=target(MemoryScope.global_))
+        service.authorize_promote(
+            actor=ACTOR, run_id=NAMESPACE.run_id, target=source, destination=target(MemoryScope.global_)
+        )
 
 
 def test_promotion_rejects_changed_policy_even_if_revision_string_is_reused():
-    capabilities = (grant(scope=MemoryScope.task, operations=(MemoryOperation.promote,)),
-                    grant(scope=MemoryScope.goal, operations=(MemoryOperation.append,)))
+    capabilities = (
+        grant(scope=MemoryScope.task, operations=(MemoryOperation.promote,)),
+        grant(scope=MemoryScope.goal, operations=(MemoryOperation.append,)),
+    )
     service, policies, audit = gateway(policy(capabilities))
     original = policies.current
 
@@ -141,6 +158,7 @@ def test_promotion_rejects_changed_policy_even_if_revision_string_is_reused():
 
     policies.current = changed
     with pytest.raises(MemoryAccessError, match="policy_changed"):
-        service.authorize_promote(actor=ACTOR, run_id=NAMESPACE.run_id,
-                                  target=target(MemoryScope.task), destination=target(MemoryScope.goal))
+        service.authorize_promote(
+            actor=ACTOR, run_id=NAMESPACE.run_id, target=target(MemoryScope.task), destination=target(MemoryScope.goal)
+        )
     assert not audit.decisions[-1].allowed and audit.decisions[-1].reason_code == "memory_policy_changed"

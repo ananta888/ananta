@@ -26,6 +26,7 @@ through its ``engine_factory`` and patch the hub ``engine`` and
 ``get_repository_registry`` so the production code never touches a
 real database.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -238,14 +239,8 @@ def test_recovery_plan_can_be_headlessly_granted_by_explicit_hub_policy(
 
     assert request.status == "granted"
     assert request.decided_by == "auto_policy"
-    assert request.decision_reason == (
-        "auto_approved:recovery_plan_materialization"
-    )
-    created = next(
-        details
-        for action, details in audit_log
-        if action == "approval_request_created"
-    )
+    assert request.decision_reason == ("auto_approved:recovery_plan_materialization")
+    created = next(details for action, details in audit_log if action == "approval_request_created")
     assert created["auto_granted"] is True
 
 

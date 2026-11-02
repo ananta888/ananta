@@ -55,16 +55,7 @@ REQUIRED_PATHS = [
     / "views"
     / "eclipse"
     / "AbstractAnantaRuntimeViewPart.java",
-    PLUGIN_ROOT
-    / "src"
-    / "main"
-    / "java"
-    / "io"
-    / "ananta"
-    / "eclipse"
-    / "runtime"
-    / "chat"
-    / "ChatRuntimeModel.java",
+    PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "chat" / "ChatRuntimeModel.java",
     PLUGIN_ROOT
     / "src"
     / "main"

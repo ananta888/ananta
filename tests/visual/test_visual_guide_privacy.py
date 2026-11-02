@@ -5,21 +5,23 @@ exist, tests that depend on it are skipped gracefully via pytest.skip.
 
 Tests that only use snapshot_delta or routes logic run unconditionally.
 """
+
 from __future__ import annotations
 
 import re
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _try_import_service():
     """Return (VisualGuideService, None) or (None, skip_reason)."""
     try:
         from agent.services.visual_guide.service import VisualGuideService  # type: ignore[import]
+
         return VisualGuideService, None
     except ImportError as exc:
         return None, f"visual_guide.service not yet available: {exc}"
@@ -28,6 +30,7 @@ def _try_import_service():
 # ---------------------------------------------------------------------------
 # Tests: VisualGuideService._redact_snapshot (skipped when service missing)
 # ---------------------------------------------------------------------------
+
 
 class TestVisualGuideServiceRedaction:
     """Tests for the _redact_snapshot method on VisualGuideService."""
@@ -96,6 +99,7 @@ class TestVisualGuideServiceRedaction:
 #  always available, without needing VisualGuideService)
 # ---------------------------------------------------------------------------
 
+
 class TestSnapshotRedactionContract:
     """Contract tests that run without VisualGuideService being available."""
 
@@ -108,7 +112,7 @@ class TestSnapshotRedactionContract:
             re.IGNORECASE,
         )
         snapshot = '/login | focus:input[password]="meinPasswort123"'
-        redacted = pattern.sub(r'\1[REDACTED]\3', snapshot)
+        redacted = pattern.sub(r"\1[REDACTED]\3", snapshot)
 
         assert "meinPasswort123" not in redacted
         assert "[REDACTED]" in redacted
@@ -119,7 +123,7 @@ class TestSnapshotRedactionContract:
             re.IGNORECASE,
         )
         snapshot = '/settings | focus:input[api_key]="sk-abc123xyz"'
-        redacted = pattern.sub(r'\1[REDACTED]\3', snapshot)
+        redacted = pattern.sub(r"\1[REDACTED]\3", snapshot)
 
         assert "sk-abc123xyz" not in redacted
         assert "[REDACTED]" in redacted
@@ -130,11 +134,8 @@ class TestSnapshotRedactionContract:
             r'(focus:input\[(?:password|api_key|token|secret)\]=["\'])([^"\']*?)(["\'])',
             re.IGNORECASE,
         )
-        snapshot = (
-            '/auth | focus:input[password]="pass1" | '
-            'focus:input[api_key]="key2"'
-        )
-        redacted = pattern.sub(r'\1[REDACTED]\3', snapshot)
+        snapshot = '/auth | focus:input[password]="pass1" | focus:input[api_key]="key2"'
+        redacted = pattern.sub(r"\1[REDACTED]\3", snapshot)
 
         assert "pass1" not in redacted
         assert "key2" not in redacted
@@ -147,6 +148,6 @@ class TestSnapshotRedactionContract:
             re.IGNORECASE,
         )
         snapshot = '/login | focus:input[password]=""'
-        redacted = pattern.sub(r'\1[REDACTED]\3', snapshot)
+        redacted = pattern.sub(r"\1[REDACTED]\3", snapshot)
         # Empty value is also replaced with [REDACTED]
         assert "[REDACTED]" in redacted

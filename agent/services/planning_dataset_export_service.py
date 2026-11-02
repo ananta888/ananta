@@ -4,7 +4,6 @@ from typing import Any
 
 from agent.services.repository_registry import get_repository_registry
 
-
 _SECRET_KEYS = ("api_key", "token", "password", "secret", "authorization", "credential")
 
 

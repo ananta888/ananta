@@ -9,6 +9,7 @@ This file verifies:
 - The orchestrator (``run_ananta_worker_workspace_mutation``) is reachable
 - The public KIND_* constants are exported
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -64,20 +65,14 @@ def test_workspace_mutation_size_after_split() -> None:
     Splitting it further is out of scope for SGDEC; the smaller helpers
     (signatures, prompts) are extracted into focused sub-modules.
     """
-    from pathlib import Path
 
     sub_dir = Path("agent/cli_backends/workspace_mutation")
     assert sub_dir.exists(), f"{sub_dir} not found"
     orchestrator = sub_dir / "_orchestrator.py"
-    other_subs = [
-        p for p in sorted(sub_dir.glob("*.py"))
-        if p.name not in ("__init__.py", "_orchestrator.py")
-    ]
+    other_subs = [p for p in sorted(sub_dir.glob("*.py")) if p.name not in ("__init__.py", "_orchestrator.py")]
     for sub in other_subs:
         line_count = sum(1 for _ in sub.open(encoding="utf-8"))
-        assert line_count < 300, (
-            f"{sub.name} is {line_count} LOC; expected < 300"
-        )
+        assert line_count < 300, f"{sub.name} is {line_count} LOC; expected < 300"
     # Orchestrator: bounded at < 1000 LOC (mega-function but not unbounded)
     if orchestrator.exists():
         line_count = sum(1 for _ in orchestrator.open(encoding="utf-8"))

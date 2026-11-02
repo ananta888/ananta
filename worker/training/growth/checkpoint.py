@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import inspect
+import json
 
 from ananta_contracts.adaptive_growth import GrowthModelConfig, estimate_parameters
 from worker.training.growth.model import build_model

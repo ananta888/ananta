@@ -16,9 +16,7 @@ RESTRICTED_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.restricte
 GENERATIVE_JUDGE_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.generative-judge-worker"
 GENERATIVE_JUDGE_REQUIREMENTS = ROOT / "docker" / "compose-next" / "requirements.generative-judge-cpu.txt"
 GENERATIVE_CORRECTOR_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.generative-corrector-worker"
-GENERATIVE_CORRECTOR_REQUIREMENTS = (
-    ROOT / "docker" / "compose-next" / "requirements.generative-corrector-cpu.txt"
-)
+GENERATIVE_CORRECTOR_REQUIREMENTS = ROOT / "docker" / "compose-next" / "requirements.generative-corrector-cpu.txt"
 HARDWARE_PROFILES_FILE = ROOT / "config" / "release-gates" / "voice-restricted-hardware-profiles.v1.json"
 
 VOICE_SERVICES = {
@@ -51,12 +49,8 @@ def _render_cpu_voice_environment(overrides: dict[str, str]) -> dict[str, str]:
         {
             "INITIAL_ADMIN_PASSWORD": "compose-config-test-password",
             "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
-            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": (
-                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
-            ),
-            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": (
-                "compose-test-restricted-token-at-least-24-chars"
-            ),
+            "VOICE_PERSONALIZATION_ENCRYPTION_KEY": ("MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="),
+            "RESTRICTED_INFERENCE_INTERNAL_TOKEN": ("compose-test-restricted-token-at-least-24-chars"),
             **overrides,
         }
     )
@@ -107,9 +101,7 @@ def test_network_boundaries_keep_control_planes_internal_and_workers_disjoint(
         "generative-corrector-egress",
     }
     assert {
-        name
-        for name, service in services.items()
-        if "generative-corrector-egress" in service.get("networks", {})
+        name for name, service in services.items() if "generative-corrector-egress" in service.get("networks", {})
     } == {GENERATIVE_CORRECTOR_SERVICE}
 
     hub_networks = set(services["ai-agent-hub"]["networks"])
@@ -190,39 +182,27 @@ def test_cpu_voice_profile_supports_an_explicit_vosk_only_selection(
 ) -> None:
     environment = compose_document["services"]["voice-runtime-cpu"]["environment"]
 
-    assert environment["VOICE_BACKEND_FALLBACK_ORDER"] == (
-        "${VOICE_CPU_BACKEND_FALLBACK_ORDER:-vosk,whisper_cpp}"
-    )
+    assert environment["VOICE_BACKEND_FALLBACK_ORDER"] == ("${VOICE_CPU_BACKEND_FALLBACK_ORDER:-vosk,whisper_cpp}")
     assert environment["VOICE_CALIBRATION_PATH"] == (
         "${VOICE_CPU_CALIBRATION_PATH-/models/voice/calibration/calibration.json}"
     )
     assert environment["VOICE_FUSION_ENABLED"] == "${VOICE_CPU_FUSION_ENABLED:-true}"
-    assert environment["VOICE_FASTER_WHISPER_COMPUTE_TYPE"] == (
-        "${VOICE_CPU_FASTER_WHISPER_COMPUTE_TYPE:-int8}"
-    )
+    assert environment["VOICE_FASTER_WHISPER_COMPUTE_TYPE"] == ("${VOICE_CPU_FASTER_WHISPER_COMPUTE_TYPE:-int8}")
     assert environment["VOICE_FASTER_WHISPER_MODEL_PATH"] == (
         "${VOICE_CPU_FASTER_WHISPER_MODEL_PATH:-/models/voice/faster-whisper}"
     )
-    assert environment["VOICE_POLICY_ALLOWED_BACKENDS"] == (
-        "${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}"
-    )
+    assert environment["VOICE_POLICY_ALLOWED_BACKENDS"] == ("${VOICE_CPU_POLICY_ALLOWED_BACKENDS:-vosk,whisper_cpp}")
     assert environment["VOICE_POLICY_ALLOWED_RECOGNITION_STRATEGIES"] == (
         "${VOICE_CPU_POLICY_ALLOWED_RECOGNITION_STRATEGIES:-single,parallel_compare,classic_then_correct}"
     )
-    assert environment["VOICE_RECOGNITION_STRATEGY"] == (
-        "${VOICE_CPU_RECOGNITION_STRATEGY:-parallel_fusion}"
-    )
+    assert environment["VOICE_RECOGNITION_STRATEGY"] == ("${VOICE_CPU_RECOGNITION_STRATEGY:-parallel_fusion}")
     assert environment["VOICE_RERUN_BACKEND"] == "${VOICE_CPU_RERUN_BACKEND:-whisper_cpp}"
     # No colon is intentional: an operator-provided empty value must survive
     # Compose interpolation instead of restoring the Whisper default.
-    assert environment["VOICE_SECONDARY_BACKENDS"] == (
-        "${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}"
-    )
+    assert environment["VOICE_SECONDARY_BACKENDS"] == ("${VOICE_CPU_SECONDARY_BACKENDS-whisper_cpp}")
     assert environment["VOICE_RUNTIME_MODEL_PATH"] == "${VOICE_CPU_VOXTRAL_MODEL_PATH:-}"
     assert environment["VOICE_VOXTRAL_RUNNER_PATH"] == "${VOICE_CPU_VOXTRAL_RUNNER_PATH:-}"
-    assert environment["VOICE_VOXTRAL_RUNNER_STYLE"] == (
-        "${VOICE_CPU_VOXTRAL_RUNNER_STYLE:-realtime}"
-    )
+    assert environment["VOICE_VOXTRAL_RUNNER_STYLE"] == ("${VOICE_CPU_VOXTRAL_RUNNER_STYLE:-realtime}")
 
 
 def test_cpu_voice_profile_leaves_new_gpu_switch_unset_for_legacy_layers_alias() -> None:
@@ -323,9 +303,7 @@ def test_generative_corrector_is_optional_hardened_and_uses_admin_configured_pro
     assert environment["GENERATIVE_CORRECTOR_EXTERNAL_PROVIDERS"] == (
         "${VOICE_GENERATIVE_CORRECTOR_PROVIDERS:-embedded,lmstudio,ollama}"
     )
-    assert environment["GENERATIVE_CORRECTOR_LMSTUDIO_URL"] == (
-        "${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}"
-    )
+    assert environment["GENERATIVE_CORRECTOR_LMSTUDIO_URL"] == ("${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}")
     assert environment["GENERATIVE_CORRECTOR_OLLAMA_URL"] == (
         "${OLLAMA_URL:-http://host.docker.internal:11434/api/generate}"
     )
@@ -348,8 +326,8 @@ def test_hub_is_the_only_runtime_client_and_owns_service_credentials(compose_doc
     assert environment["ANANTA_RESTRICTED_INFERENCE_URL"] == (
         "http://restricted-inference-worker:8091/internal/v1/restricted-inference"
     )
-    assert environment["ANANTA_RESTRICTED_INFERENCE_ALLOWED_ENDPOINTS"] == (
-        environment["ANANTA_RESTRICTED_INFERENCE_URL"]
+    assert (
+        environment["ANANTA_RESTRICTED_INFERENCE_ALLOWED_ENDPOINTS"] == (environment["ANANTA_RESTRICTED_INFERENCE_URL"])
     )
     assert environment["RESTRICTED_INFERENCE_WORKER_URL"] == "http://restricted-inference-worker:8091"
     assert environment["VOICE_DIRECT_CLIENT_ACCESS"] == "false"
@@ -365,15 +343,17 @@ def test_hub_is_the_only_runtime_client_and_owns_service_credentials(compose_doc
     assert environment["VOICE_GENERATIVE_JUDGE_WORKER_URL"] == (
         "http://generative-judge-worker:8092/internal/v1/generative-judge"
     )
-    assert environment["VOICE_GENERATIVE_JUDGE_WORKER_ALLOWED_ENDPOINTS"] == (
-        environment["VOICE_GENERATIVE_JUDGE_WORKER_URL"]
+    assert (
+        environment["VOICE_GENERATIVE_JUDGE_WORKER_ALLOWED_ENDPOINTS"]
+        == (environment["VOICE_GENERATIVE_JUDGE_WORKER_URL"])
     )
     assert environment["VOICE_GENERATIVE_JUDGE_HUB_ORIGIN"] == "http://ai-agent-hub:5000"
     assert environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"] == (
         "http://generative-corrector-worker:8093/internal/v1/voice-corrector"
     )
-    assert environment["VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS"] == (
-        environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"]
+    assert (
+        environment["VOICE_GENERATIVE_CORRECTOR_WORKER_ALLOWED_ENDPOINTS"]
+        == (environment["VOICE_GENERATIVE_CORRECTOR_WORKER_URL"])
     )
     assert environment["VOICE_GENERATIVE_CORRECTOR_HUB_ORIGIN"] == "http://ai-agent-hub:5000"
     assert environment["VOICE_GENERATIVE_CORRECTOR_PROVIDERS"] == (
@@ -439,9 +419,7 @@ def test_restricted_execution_profiles_require_ready_not_degraded_health(
 
 
 @pytest.mark.parametrize("service_name", sorted(VOICE_SERVICES))
-def test_voice_execution_profiles_require_ready_not_degraded_health(
-    compose_document: dict, service_name: str
-) -> None:
+def test_voice_execution_profiles_require_ready_not_degraded_health(compose_document: dict, service_name: str) -> None:
     health_probe = " ".join(compose_document["services"][service_name]["healthcheck"]["test"])
     assert "payload.get('status') == 'ready'" in health_probe
 
@@ -616,9 +594,7 @@ def test_optional_generative_corrector_profile_renders_only_hub_and_dedicated_wo
             "VOICE_INTERNAL_SERVICE_TOKEN": "compose-test-voice-token-at-least-24-chars",
             "VOICE_PERSONALIZATION_ENCRYPTION_KEY": "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
             "RESTRICTED_INFERENCE_INTERNAL_TOKEN": "compose-test-restricted-token-at-least-24-chars",
-            "VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN": (
-                "compose-test-corrector-token-at-least-24-chars"
-            ),
+            "VOICE_GENERATIVE_CORRECTOR_WORKER_TOKEN": ("compose-test-corrector-token-at-least-24-chars"),
         }
     )
     completed = subprocess.run(

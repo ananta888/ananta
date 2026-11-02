@@ -9,6 +9,7 @@ Security invariants:
 - Two sessions always get different directories.
 - Ephemeral profiles are deleted when ``cleanup_profile()`` is called.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -18,13 +19,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-
 _DEFAULT_PROFILE_ROOT = Path(".ananta/tmp/carbonyl-profiles")
 
 
 @dataclass
 class CarbonylProfile:
     """An isolated Carbonyl browser profile."""
+
     profile_id: str
     profile_dir: Path
     ephemeral: bool
@@ -166,9 +167,7 @@ class CarbonylProfileManager:
         try:
             candidate.relative_to(self._root)
         except ValueError:
-            raise ValueError(
-                f"Profile path {candidate!r} escapes profile_root {self._root!r}"
-            )
+            raise ValueError(f"Profile path {candidate!r} escapes profile_root {self._root!r}")
         return candidate
 
 

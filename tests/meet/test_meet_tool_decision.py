@@ -9,18 +9,34 @@ from worker.meet_media import tool_decision
 
 pytestmark = pytest.mark.timeout(30)
 
-SEARCH = {"type": "function", "function": {"name": "codecompass_search", "description": "search code",
-                                           "parameters": {"type": "object", "properties": {"query": {"type": "string"}},
-                                                          "required": ["query"]}}}
-HEADS = {"type": "function", "function": {"name": "codecompass_layers_heads", "description": "index layers",
-                                          "parameters": {"type": "object", "properties": {}}}}
+SEARCH = {
+    "type": "function",
+    "function": {
+        "name": "codecompass_search",
+        "description": "search code",
+        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+    },
+}
+HEADS = {
+    "type": "function",
+    "function": {
+        "name": "codecompass_layers_heads",
+        "description": "index layers",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
 TOOLS = [SEARCH, HEADS]
 
 
 def answer(tool, p=0.95, text=None, skipped=False):
     fields = {"tool": {"value": tool, "probability": p, "margin": 0.9}}
-    fields["text_argument"] = {"value": text or "", "generated": not skipped, "skipped": skipped, "tokens": 2,
-                               "truncated": False}
+    fields["text_argument"] = {
+        "value": text or "",
+        "generated": not skipped,
+        "skipped": skipped,
+        "tokens": 2,
+        "truncated": False,
+    }
     return {"object": "decision", "results": [{"fields": fields}]}
 
 
@@ -51,18 +67,23 @@ def test_a_decision_goes_through_the_shared_contract():
 
 
 def test_without_the_open_field_a_text_tool_abstains():
-    outcome, client = decide({"object": "decision", "results": [{"fields": {
-        "tool": {"value": "codecompass_search", "probability": 0.95}}}]}, open_field=False)
+    outcome, client = decide(
+        {"object": "decision", "results": [{"fields": {"tool": {"value": "codecompass_search", "probability": 0.95}}}]},
+        open_field=False,
+    )
     assert "text_argument" not in client.requests[0][1]["schema"]
     assert outcome.decision.status == ABSTAIN and outcome.decision.reason == "free_text_arguments"
 
 
-@pytest.mark.parametrize("response, error", [
-    ({"object": "decision", "results": []}, None),
-    (answer("shell_exec"), None),
-    (answer("none", math.nan), None),
-    (None, ValueError("meet_llm_transport_failed")),
-])
+@pytest.mark.parametrize(
+    "response, error",
+    [
+        ({"object": "decision", "results": []}, None),
+        (answer("shell_exec"), None),
+        (answer("none", math.nan), None),
+        (None, ValueError("meet_llm_transport_failed")),
+    ],
+)
 def test_failures_are_outcomes_not_exceptions(response, error):
     outcome, _client = decide(response, error)
     assert outcome.decision is None and outcome.error.startswith(("tool_decision_", "meet_llm_"))
@@ -76,12 +97,15 @@ class Decider:
         return self.outcome
 
 
-@pytest.mark.parametrize("response, passed", [
-    (answer("codecompass_search", 0.93, "CircuitBreaker"), True),
-    (answer("codecompass_search", 0.88, "CircuitBreaker"), False),  # below the calibrated 0.90
-    (answer("none", 0.99, skipped=True), False),                    # respond: the model answers
-    (answer("codecompass_layers_heads", 0.97, skipped=True), True),
-])
+@pytest.mark.parametrize(
+    "response, passed",
+    [
+        (answer("codecompass_search", 0.93, "CircuitBreaker"), True),
+        (answer("codecompass_search", 0.88, "CircuitBreaker"), False),  # below the calibrated 0.90
+        (answer("none", 0.99, skipped=True), False),  # respond: the model answers
+        (answer("codecompass_layers_heads", 0.97, skipped=True), True),
+    ],
+)
 def test_the_fast_path_passes_on_confident_calls_only(response, passed):
     outcome, _client = decide(response)
     fast = tool_decision.FastToolChoice(Decider(outcome))
@@ -95,12 +119,17 @@ def test_settings(tmp_path):
     assert tool_decision.decider_from_env({tool_decision.URL_ENV: "file:///etc"}) is None
     decider = tool_decision.decider_from_env({tool_decision.LEGACY_URL_ENV: "http://h:1"})
     assert isinstance(decider, tool_decision.ToolDecider) and decider._open_field is True
-    assert tool_decision.decider_from_env({tool_decision.URL_ENV: "http://h:1",
-                                           tool_decision.LEGACY_ARGUMENT_ENV: "off"})._open_field is False
+    assert (
+        tool_decision.decider_from_env(
+            {tool_decision.URL_ENV: "http://h:1", tool_decision.LEGACY_ARGUMENT_ENV: "off"}
+        )._open_field
+        is False
+    )
     assert tool_decision.fast_choice_from_env(decider, {}) is None  # off by default
     assert tool_decision.fast_choice_from_env(None, {tool_decision.FAST_ENV: "1"}) is None
     fast = tool_decision.fast_choice_from_env(decider, {tool_decision.FAST_ENV: "1"})
     assert fast._min_confidence == 0.90
+
     # operators may raise the threshold, not lower it below the calibrated value
     def threshold(value):
         env = {tool_decision.FAST_ENV: "1", tool_decision.MIN_CONFIDENCE_ENV: value}

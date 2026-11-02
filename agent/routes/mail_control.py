@@ -15,14 +15,14 @@ from agent.services.mail_application_service import (
     MailApplicationError,
     get_mail_application_service,
 )
-from agent.services.mail_runtime_policy import (
-    get_mail_health_registry,
-    get_mail_runtime_policy,
-)
 from agent.services.mail_operation_intent_service import (
     get_mail_operation_intent_service,
 )
 from agent.services.mail_provider_ports import MailContentAccessRequest
+from agent.services.mail_runtime_policy import (
+    get_mail_health_registry,
+    get_mail_runtime_policy,
+)
 from agent.services.mail_task_service import (
     MAIL_OPERATIONS,
     MailWorkspaceScope,
@@ -73,11 +73,7 @@ def _store_preview(draft: Mapping[str, Any]) -> str:
     ref = _preview_ref(draft)
     now = time.time()
     with _PREVIEW_LOCK:
-        expired = [
-            key
-            for key, value in _PREVIEWS.items()
-            if float(value.get("expires_at") or 0.0) <= now
-        ]
+        expired = [key for key, value in _PREVIEWS.items() if float(value.get("expires_at") or 0.0) <= now]
         for key in expired:
             _PREVIEWS.pop(key, None)
         if len(_PREVIEWS) >= 100:
@@ -106,10 +102,7 @@ def _load_preview(ref: str) -> dict[str, Any]:
 
 def _error(exc: Exception):
     reason = str(exc) or "mail_request_failed"
-    if not (
-        reason.startswith("mail_")
-        or reason in {"workspace_not_allowed", "task_not_found"}
-    ):
+    if not (reason.startswith("mail_") or reason in {"workspace_not_allowed", "task_not_found"}):
         reason = "mail_request_failed"
     status = 403 if isinstance(exc, PermissionError) else 400
     if reason in {"mail_task_not_found", "mail_message_not_found"}:
@@ -223,66 +216,43 @@ def submit_mail_task():
         intent = None
         if operation in {"body", "mutation"}:
             if body.get("explicit_confirmation") is not True:
-                raise MailApplicationError(
-                    "mail_operation_confirmation_required"
-                )
+                raise MailApplicationError("mail_operation_confirmation_required")
             grant_ref = str(body.get("grant_ref") or "").strip()
             if not grant_ref:
                 raise MailApplicationError("mail_operation_grant_ref_required")
             if operation == "body":
                 message_ref = (
                     get_mail_application_service()
-                    .get_provider_message_ref(
-                        str(body.get("mail_ref_id") or "")
-                    )
+                    .get_provider_message_ref(str(body.get("mail_ref_id") or ""))
                     .to_dict()
                 )
                 if message_ref["account_id"] != account_id:
-                    raise MailApplicationError(
-                        "mail_operation_account_mismatch"
-                    )
+                    raise MailApplicationError("mail_operation_account_mismatch")
                 intent_payload = {
                     "message_ref": message_ref,
-                    "release_scope": str(
-                        body.get("release_scope") or "full_body"
-                    ),
+                    "release_scope": str(body.get("release_scope") or "full_body"),
                 }
             else:
                 raw_ids = body.get("mail_ref_ids") or []
                 if not isinstance(raw_ids, list) or not raw_ids:
-                    raise MailApplicationError(
-                        "mail_mutation_message_refs_required"
-                    )
+                    raise MailApplicationError("mail_mutation_message_refs_required")
                 message_refs = [
-                    get_mail_application_service()
-                    .get_provider_message_ref(str(mail_ref_id))
-                    .to_dict()
+                    get_mail_application_service().get_provider_message_ref(str(mail_ref_id)).to_dict()
                     for mail_ref_id in raw_ids
                 ]
-                if any(
-                    ref["account_id"] != account_id
-                    for ref in message_refs
-                ):
-                    raise MailApplicationError(
-                        "mail_operation_account_mismatch"
-                    )
+                if any(ref["account_id"] != account_id for ref in message_refs):
+                    raise MailApplicationError("mail_operation_account_mismatch")
                 intent_payload = {
                     "action": str(body.get("action") or ""),
                     "message_refs": message_refs,
                     "add_keywords": list(body.get("add_keywords") or []),
-                    "remove_keywords": list(
-                        body.get("remove_keywords") or []
-                    ),
-                    "destination_mailbox_ref_ids": list(
-                        body.get("destination_mailbox_ref_ids") or []
-                    ),
+                    "remove_keywords": list(body.get("remove_keywords") or []),
+                    "destination_mailbox_ref_ids": list(body.get("destination_mailbox_ref_ids") or []),
                     "if_in_state": str(body.get("if_in_state") or ""),
                     "permanent": bool(body.get("permanent", False)),
                     "intent_ref": str(body.get("mutation_intent_ref") or ""),
                     "audit_ref": str(body.get("audit_ref") or ""),
-                    "confirmation_ref": str(
-                        body.get("confirmation_ref") or ""
-                    ),
+                    "confirmation_ref": str(body.get("confirmation_ref") or ""),
                 }
             intent = get_mail_operation_intent_service().create(
                 operation=operation,
@@ -374,10 +344,7 @@ def read_mail_body(mail_ref_id: str):
             mail_ref_id=mail_ref_id,
             account_id=str(metadata.get("account_id") or ""),
             workspace_id=_workspace_scope(body).workspace_id,
-            artifact_ref=(
-                f"mail://{mail_ref_id}?scope="
-                f"{str(body.get('release_scope') or 'full_body')}"
-            ),
+            artifact_ref=(f"mail://{mail_ref_id}?scope={str(body.get('release_scope') or 'full_body')}"),
             grant_ref=str(body.get("grant_ref") or ""),
             release_scope=str(body.get("release_scope") or "full_body"),
             explicit_confirmation=body.get("explicit_confirmation") is True,
@@ -391,9 +358,7 @@ def read_mail_body(mail_ref_id: str):
         return _error(exc)
 
 
-@mail_control_bp.post(
-    "/messages/<mail_ref_id>/attachments/<attachment_id>"
-)
+@mail_control_bp.post("/messages/<mail_ref_id>/attachments/<attachment_id>")
 @check_auth
 def read_mail_attachment(mail_ref_id: str, attachment_id: str):
     try:
@@ -451,10 +416,7 @@ def diagnose_mail_account():
             workspace_scope=_workspace_scope(body),
             idempotency_key=str(body.get("idempotency_key") or ""),
             policy_refs={
-                "diagnostic_policy_ref": str(
-                    body.get("diagnostic_policy_ref")
-                    or "policy:mail:diagnostic:v1"
-                )
+                "diagnostic_policy_ref": str(body.get("diagnostic_policy_ref") or "policy:mail:diagnostic:v1")
             },
             actor=_actor(),
         )
@@ -469,14 +431,8 @@ def resolve_mail_operation_intent():
     try:
         body = _body()
         account_ref = str(body.get("account_ref") or "")
-        account_id = (
-            account_ref.split(":", 1)[1]
-            if account_ref.startswith("mail-account:")
-            else account_ref
-        )
-        workspace = MailWorkspaceScope.from_mapping(
-            dict(body.get("workspace_scope") or {})
-        )
+        account_id = account_ref.split(":", 1)[1] if account_ref.startswith("mail-account:") else account_ref
+        workspace = MailWorkspaceScope.from_mapping(dict(body.get("workspace_scope") or {}))
         result = get_mail_operation_intent_service().resolve(
             intent_ref=str(body.get("intent_ref") or ""),
             job_id=str(body.get("job_id") or ""),
@@ -497,14 +453,8 @@ def authorize_mail_operation_content():
     try:
         body = _body()
         account_ref = str(body.get("account_ref") or "")
-        account_id = (
-            account_ref.split(":", 1)[1]
-            if account_ref.startswith("mail-account:")
-            else account_ref
-        )
-        workspace = MailWorkspaceScope.from_mapping(
-            dict(body.get("workspace_scope") or {})
-        )
+        account_id = account_ref.split(":", 1)[1] if account_ref.startswith("mail-account:") else account_ref
+        workspace = MailWorkspaceScope.from_mapping(dict(body.get("workspace_scope") or {}))
         resolved = get_mail_operation_intent_service().resolve(
             intent_ref=str(body.get("intent_ref") or ""),
             job_id=str(body.get("job_id") or ""),
@@ -516,26 +466,16 @@ def authorize_mail_operation_content():
             raise MailApplicationError(resolved.reason_code)
         access_request = body.get("access_request")
         if not isinstance(access_request, Mapping):
-            raise MailApplicationError(
-                "mail_content_access_request_invalid"
-            )
+            raise MailApplicationError("mail_content_access_request_invalid")
         decision = get_mail_operation_intent_service().authorize_content(
             intent=resolved.value,
             request=MailContentAccessRequest(
                 account_id=str(access_request.get("account_id") or ""),
-                workspace_id=str(
-                    access_request.get("workspace_id") or ""
-                ),
-                artifact_ref=str(
-                    access_request.get("artifact_ref") or ""
-                ),
-                mail_ref_id=str(
-                    access_request.get("mail_ref_id") or ""
-                ),
+                workspace_id=str(access_request.get("workspace_id") or ""),
+                artifact_ref=str(access_request.get("artifact_ref") or ""),
+                mail_ref_id=str(access_request.get("mail_ref_id") or ""),
                 grant_ref=str(access_request.get("grant_ref") or ""),
-                release_scope=str(
-                    access_request.get("release_scope") or ""
-                ),
+                release_scope=str(access_request.get("release_scope") or ""),
             ),
         )
         if not decision.ok or decision.value is None:

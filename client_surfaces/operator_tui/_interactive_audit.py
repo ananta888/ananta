@@ -49,9 +49,7 @@ def audit_cleanup_set_choice(tui: InteractiveOperatorTui, choice: str) -> None:
     tui._set_state(
         tui.state.with_updates(
             header_logo_game=game,
-            status_message=(
-                "cleanup auswahl: Loeschen" if normalized == "delete" else "cleanup auswahl: Abbrechen"
-            ),
+            status_message=("cleanup auswahl: Loeschen" if normalized == "delete" else "cleanup auswahl: Abbrechen"),
         )
     )
 
@@ -129,9 +127,7 @@ def audit_cleanup_button_choice_from_click(
     return "delete" if rel_x < button_line_mid else "cancel"
 
 
-def audit_cleanup_handle_mouse_click(
-    tui: InteractiveOperatorTui, *, x: int, y: int, width: int, height: int
-) -> bool:
+def audit_cleanup_handle_mouse_click(tui: InteractiveOperatorTui, *, x: int, y: int, width: int, height: int) -> bool:
     choice = tui._audit_cleanup_button_choice_from_click(x=x, y=y, width=width, height=height)
     if choice is None:
         return False

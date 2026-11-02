@@ -5,6 +5,7 @@ Every command is a small handler with the uniform signature
 ``commands.execute_command`` can dispatch them from one registry together with
 the subsystem command modules.
 """
+
 from __future__ import annotations
 
 import time

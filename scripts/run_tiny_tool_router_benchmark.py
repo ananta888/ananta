@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run the deterministic tiny-router contract benchmark."""
+
 from __future__ import annotations
 
 import argparse
@@ -23,9 +24,7 @@ def build_report(cases_path: Path = DEFAULT_CASES) -> dict:
     profile = ProfileCatalog.load().get("functiongemma-270m")
     if profile is None:
         raise RuntimeError("benchmark_profile_missing")
-    tools = get_tool_schema_adapter().get_openai_tools(
-        ["repo.list_files", "codecompass.search", "git.status"]
-    )
+    tools = get_tool_schema_adapter().get_openai_tools(["repo.list_files", "codecompass.search", "git.status"])
     report = BenchmarkRunner().run(cases, tools=tools, profile=profile)
     return {
         **report.as_dict(),
@@ -61,9 +60,7 @@ def main() -> int:
     if args.csv_out:
         cases = load_benchmark_cases(args.cases)
         profile = ProfileCatalog.load().get("functiongemma-270m")
-        tools = get_tool_schema_adapter().get_openai_tools(
-            ["repo.list_files", "codecompass.search", "git.status"]
-        )
+        tools = get_tool_schema_adapter().get_openai_tools(["repo.list_files", "codecompass.search", "git.status"])
         args.csv_out.write_text(
             BenchmarkRunner().run(cases, tools=tools, profile=profile).to_csv(),
             encoding="utf-8",

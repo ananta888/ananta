@@ -118,10 +118,13 @@ def test_confirmation_rolls_back_when_atomic_audit_enqueue_fails(monkeypatch) ->
             now=1000,
             audit_event=cast(SemanticMediaAuditEvent, object()),
         )
-    assert repository.get_confirmation(
-        scope_id=scope_id,
-        epoch=1,
-        sender_peer_id="alice",
-        recipient_peer_id="bob",
-        now=1000,
-    ) is None
+    assert (
+        repository.get_confirmation(
+            scope_id=scope_id,
+            epoch=1,
+            sender_peer_id="alice",
+            recipient_peer_id="bob",
+            now=1000,
+        )
+        is None
+    )

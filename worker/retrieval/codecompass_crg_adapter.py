@@ -15,6 +15,7 @@ Per CCRIG-DD-007/008/013:
 * missing exports yield ``external_graph_unavailable``
 * confidence is mapped through CRG-004's numeric confidence model
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,6 @@ from agent.services.tools.graph_evidence import (
     validate_graph_evidence,
 )
 from worker.retrieval.codecompass_import_provider import (
-    CodeCompassGraphImportProvider,
     ImportSnapshot,
     ProviderDiagnostics,
     ProviderProbe,
@@ -37,7 +37,6 @@ from worker.retrieval.codecompass_import_provider import (
     assert_within_workspace,
     compute_content_hash,
 )
-
 
 CRG_REVIEWED_REVISION = "b72413cbd34a4ac08cc60dcdd42df1d02f3fc77d"
 CRG_VERSION = "2.3.6"
@@ -85,51 +84,59 @@ def _normalise_export_to_records(
         file_path = str(file_entry.get("path") or "").strip()
         if not file_path:
             continue
-        nodes.append({
-            "id": f"file:{file_path}",
-            "kind": "file",
-            "attrs": {"path": file_path},
-        })
+        nodes.append(
+            {
+                "id": f"file:{file_path}",
+                "kind": "file",
+                "attrs": {"path": file_path},
+            }
+        )
         for func in file_entry.get("functions") or []:
             name = str(func.get("name") or "").strip()
             if not name:
                 continue
-            nodes.append({
-                "id": f"symbol_function:{file_path}:{name}",
-                "kind": "symbol_function",
-                "attrs": {
-                    "file": file_path,
-                    "name": name,
-                    "line_start": func.get("line_start"),
-                    "line_end": func.get("line_end"),
-                },
-                "crg_confidence_kind": _conf_to_kind(func.get("confidence")),
-            })
+            nodes.append(
+                {
+                    "id": f"symbol_function:{file_path}:{name}",
+                    "kind": "symbol_function",
+                    "attrs": {
+                        "file": file_path,
+                        "name": name,
+                        "line_start": func.get("line_start"),
+                        "line_end": func.get("line_end"),
+                    },
+                    "crg_confidence_kind": _conf_to_kind(func.get("confidence")),
+                }
+            )
         for cls in file_entry.get("classes") or []:
             name = str(cls.get("name") or "").strip()
             if not name:
                 continue
-            nodes.append({
-                "id": f"symbol_class:{file_path}:{name}",
-                "kind": "symbol_class",
-                "attrs": {
-                    "file": file_path,
-                    "name": name,
-                    "line_start": cls.get("line_start"),
-                    "line_end": cls.get("line_end"),
-                },
-                "crg_confidence_kind": _conf_to_kind(cls.get("confidence")),
-            })
+            nodes.append(
+                {
+                    "id": f"symbol_class:{file_path}:{name}",
+                    "kind": "symbol_class",
+                    "attrs": {
+                        "file": file_path,
+                        "name": name,
+                        "line_start": cls.get("line_start"),
+                        "line_end": cls.get("line_end"),
+                    },
+                    "crg_confidence_kind": _conf_to_kind(cls.get("confidence")),
+                }
+            )
         for imp in file_entry.get("imports") or []:
             imp_name = str(imp or "").strip()
             if not imp_name:
                 continue
-            edges.append({
-                "from_id": f"file:{file_path}",
-                "to_id": f"file:{imp_name}",
-                "kind": "imports",
-                "crg_confidence_kind": "EXTRACTED",
-            })
+            edges.append(
+                {
+                    "from_id": f"file:{file_path}",
+                    "to_id": f"file:{imp_name}",
+                    "kind": "imports",
+                    "crg_confidence_kind": "EXTRACTED",
+                }
+            )
     for edge in payload.get("edges") or []:
         kind = str(edge.get("kind") or "").strip().lower()
         if kind not in {"calls", "imports", "inherits"}:
@@ -148,23 +155,27 @@ def _normalise_export_to_records(
             tgt = f"symbol_function:{to_file}:{to_sym}" if kind == "calls" else f"file:{to_file}"
         else:
             tgt = f"file:{to_file}"
-        edges.append({
-            "from_id": src,
-            "to_id": tgt,
-            "kind": kind,
-            "crg_confidence_kind": _conf_to_kind(edge.get("confidence")),
-        })
+        edges.append(
+            {
+                "from_id": src,
+                "to_id": tgt,
+                "kind": kind,
+                "crg_confidence_kind": _conf_to_kind(edge.get("confidence")),
+            }
+        )
     for test in payload.get("tests") or []:
         covers = str(test.get("covers_symbol") or "").strip()
         if ":" not in covers:
             continue
         cov_file, cov_name = covers.split(":", 1)
-        edges.append({
-            "from_id": f"symbol_function:{test.get('file')}:{test.get('function')}",
-            "to_id": f"symbol_function:{cov_file}:{cov_name}",
-            "kind": "covers",
-            "crg_confidence_kind": _conf_to_kind(test.get("confidence")),
-        })
+        edges.append(
+            {
+                "from_id": f"symbol_function:{test.get('file')}:{test.get('function')}",
+                "to_id": f"symbol_function:{cov_file}:{cov_name}",
+                "kind": "covers",
+                "crg_confidence_kind": _conf_to_kind(test.get("confidence")),
+            }
+        )
     return nodes, edges
 
 
@@ -230,8 +241,7 @@ class CrgJsonAdapter:
         }
         payload = _read_export(self.workspace_dir)
         if not payload:
-            self._last_run = {**diagnostics, "snapshot_count": 0,
-                              "result": "external_graph_unavailable"}
+            self._last_run = {**diagnostics, "snapshot_count": 0, "result": "external_graph_unavailable"}
             return ImportSnapshot(
                 provider_id=self.provider_id,
                 provider_revision="",
@@ -273,9 +283,13 @@ class CrgJsonAdapter:
                 violations.extend(f"{r.get('id', '?')}: {f.reason}" for f in res.failures)
         diagnostics["violations"] = violations
 
-        self._last_run = {**diagnostics, "snapshot_count": 1,
-                          "result": "ok", "node_count": len(nodes_wrapped),
-                          "edge_count": len(edges_wrapped)}
+        self._last_run = {
+            **diagnostics,
+            "snapshot_count": 1,
+            "result": "ok",
+            "node_count": len(nodes_wrapped),
+            "edge_count": len(edges_wrapped),
+        }
         return ImportSnapshot(
             provider_id=self.provider_id,
             provider_revision=revision,
@@ -297,6 +311,7 @@ class CrgJsonAdapter:
 # ---------------------------------------------------------------------------
 # SQLite adapter (opt-in via crg.allow_direct_sqlite_read)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class CrgSqliteAdapter:
@@ -373,8 +388,7 @@ class CrgSqliteAdapter:
                 nodes = self._read_table(conn, "nodes")
                 edges = self._read_table(conn, "edges")
         except sqlite3.DatabaseError as exc:
-            self._last_run = {**diag, "result": "external_graph_incompatible",
-                              "detail": str(exc)}
+            self._last_run = {**diag, "result": "external_graph_incompatible", "detail": str(exc)}
             return ImportSnapshot(
                 provider_id=self.provider_id,
                 provider_revision=probe.provider_revision or "",
@@ -385,8 +399,7 @@ class CrgSqliteAdapter:
             )
 
         records = tuple(_attach_evidence(r, probe.provider_revision or "") for r in (*nodes, *edges))
-        self._last_run = {**diag, "result": "ok",
-                          "node_count": len(nodes), "edge_count": len(edges)}
+        self._last_run = {**diag, "result": "ok", "node_count": len(nodes), "edge_count": len(edges)}
         return ImportSnapshot(
             provider_id=self.provider_id,
             provider_revision=probe.provider_revision or "",
@@ -408,9 +421,7 @@ class CrgSqliteAdapter:
         # Always read-only. COMBO-008 acceptance: every SQLite access
         # in the adapter must use uri=mode=ro.
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
-            row = conn.execute(
-                "SELECT value FROM meta WHERE key='reviewer_graph_revision'"
-            ).fetchone()
+            row = conn.execute("SELECT value FROM meta WHERE key='reviewer_graph_revision'").fetchone()
         if not row:
             raise sqlite3.DatabaseError("missing reviewer_graph_revision row")
         return str(row[0])
@@ -421,21 +432,19 @@ class CrgSqliteAdapter:
         # Note: this helper takes an *already-opened* read-only
         # connection (the caller passes a ``sqlite3.connect(uri=mode=ro)``).
         if table == "nodes":
-            rows = conn.execute(
-                "SELECT id, kind, file, name, confidence FROM nodes"
-            ).fetchall()
+            rows = conn.execute("SELECT id, kind, file, name, confidence FROM nodes").fetchall()
             return [
-                {"id": r[0], "kind": r[1], "attrs": {"file": r[2], "name": r[3]},
-                 "crg_confidence_kind": (r[4] or "EXTRACTED")}
+                {
+                    "id": r[0],
+                    "kind": r[1],
+                    "attrs": {"file": r[2], "name": r[3]},
+                    "crg_confidence_kind": (r[4] or "EXTRACTED"),
+                }
                 for r in rows
             ]
-        rows = conn.execute(
-            "SELECT source_id, target_id, kind, confidence FROM edges"
-        ).fetchall()
+        rows = conn.execute("SELECT source_id, target_id, kind, confidence FROM edges").fetchall()
         return [
-            {"from_id": r[0], "to_id": r[1], "kind": r[2],
-             "crg_confidence_kind": (r[3] or "EXTRACTED")}
-            for r in rows
+            {"from_id": r[0], "to_id": r[1], "kind": r[2], "crg_confidence_kind": (r[3] or "EXTRACTED")} for r in rows
         ]
 
 

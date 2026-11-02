@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar
 
-
 ROUTE_PORT_CONTRACT_V1 = "ananta.sfu-broadcast-route-port.v1"
 MAX_ROUTE_RECEIVERS_V1 = 7
 MAX_ROUTE_LAYERS_V1 = 3
@@ -180,8 +179,7 @@ class RouteTrafficBudgetV1:
     def __post_init__(self) -> None:
         _require(_valid_identifier(self.traffic_class), "route_traffic_class_invalid")
         _require(
-            _positive_int(self.max_bitrate_bps)
-            and self.max_bitrate_bps <= MAX_ROUTE_BITRATE_BPS_V1,
+            _positive_int(self.max_bitrate_bps) and self.max_bitrate_bps <= MAX_ROUTE_BITRATE_BPS_V1,
             "route_traffic_bitrate_invalid",
         )
         _require(
@@ -190,8 +188,7 @@ class RouteTrafficBudgetV1:
             "route_traffic_packet_rate_invalid",
         )
         _require(
-            _positive_int(self.max_burst_bytes)
-            and self.max_burst_bytes <= MAX_ROUTE_BURST_BYTES_V1,
+            _positive_int(self.max_burst_bytes) and self.max_burst_bytes <= MAX_ROUTE_BURST_BYTES_V1,
             "route_traffic_burst_invalid",
         )
 
@@ -261,7 +258,10 @@ class RouteProjectionV1:
         )
         if self.media_kind is MediaKindV1.AUDIO:
             _require(
-                all(layer.rid is None and layer.spatial_id == 0 and layer.temporal_id == 0 for layer in self.allowed_layers),
+                all(
+                    layer.rid is None and layer.spatial_id == 0 and layer.temporal_id == 0
+                    for layer in self.allowed_layers
+                ),
                 "route_audio_layer_invalid",
             )
         else:
@@ -281,8 +281,7 @@ class RouteProjectionV1:
         _require(_positive_int(self.issued_at_ms), "route_issued_at_invalid")
         _require(_positive_int(self.expires_at_ms), "route_expires_at_invalid")
         _require(
-            self.issued_at_ms < self.expires_at_ms
-            and self.expires_at_ms - self.issued_at_ms <= MAX_ROUTE_TTL_MS_V1,
+            self.issued_at_ms < self.expires_at_ms and self.expires_at_ms - self.issued_at_ms <= MAX_ROUTE_TTL_MS_V1,
             "route_ttl_invalid",
         )
         _require(isinstance(self.version, RouteVersionV1), "route_version_invalid")

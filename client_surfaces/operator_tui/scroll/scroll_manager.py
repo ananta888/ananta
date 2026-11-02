@@ -43,11 +43,7 @@ class ScrollManager:
         ]
 
     def visible_contexts(self) -> list[ScrollContext]:
-        return [
-            self._contexts[cid]
-            for cid in self._order
-            if cid in self._contexts and self._contexts[cid].visible
-        ]
+        return [self._contexts[cid] for cid in self._order if cid in self._contexts and self._contexts[cid].visible]
 
     def remove_stale(self, active_ids: set[str]) -> list[str]:
         removed = [cid for cid in list(self._order) if cid not in active_ids]

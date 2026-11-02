@@ -420,10 +420,7 @@ def _reduce_live_row(
     tally.seen_live_matrix.add(key)
     if factor != 1:
         reasons.append("program_benchmark_live_factor_invalid")
-    if (
-        row["ordinary"].get("offline_saturation") is not None
-        or row["semantic"].get("offline_saturation") is not None
-    ):
+    if row["ordinary"].get("offline_saturation") is not None or row["semantic"].get("offline_saturation") is not None:
         reasons.append("program_benchmark_live_saturation_shape_invalid")
     (ordinary, ordinary_availability), (semantic, semantic_availability) = measured
     if all(
@@ -638,7 +635,8 @@ def _metrics_v2(
     if not 0 <= value["valid_deliveries"] <= value["completed_deliveries"] <= value["expected_deliveries"]:
         reasons.append("program_benchmark_delivery_metrics_invalid")
     loss_micros = (
-        (value["expected_deliveries"] - value["completed_deliveries"]) * 1_000_000
+        (value["expected_deliveries"] - value["completed_deliveries"])
+        * 1_000_000
         // max(1, value["expected_deliveries"])
     )
     if loss_micros > V2_THRESHOLDS["maximum_packet_loss_micros"]:

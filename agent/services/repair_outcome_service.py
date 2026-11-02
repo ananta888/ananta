@@ -1,6 +1,7 @@
 """Repair outcome persistence service.
 DRR-T027: Bridge RepairExecutionResult to RepairExecutionRecordDB persistence.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,15 +79,9 @@ def _build_repair_execution_record(
         )
 
     if result.final_verification:
-        db_entry.verification_evidence_refs = list(
-            result.final_verification.get("evidence_refs") or []
-        )
+        db_entry.verification_evidence_refs = list(result.final_verification.get("evidence_refs") or [])
 
-    problem_class = (
-        (result.step_results[0].evidence or {}).get("problem_class")
-        if result.step_results
-        else ""
-    )
+    problem_class = (result.step_results[0].evidence or {}).get("problem_class") if result.step_results else ""
     if problem_class:
         db_entry.problem_class = str(problem_class)
     return db_entry

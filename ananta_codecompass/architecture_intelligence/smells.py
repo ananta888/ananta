@@ -57,5 +57,15 @@ def detect_smells(projection: dict[str, Any], centrality: dict[str, Any]) -> lis
 
 
 def health_summary(smells: list[dict[str, Any]], node_count: int) -> dict[str, Any]:
-    score = max(0, 100 - 15 * sum(1 for item in smells if item["severity"] == "high") - 7 * sum(1 for item in smells if item["severity"] == "medium"))
-    return {"score": score, "smell_count": len(smells), "node_count": node_count, "status": "ok" if score >= 70 else "watch"}
+    score = max(
+        0,
+        100
+        - 15 * sum(1 for item in smells if item["severity"] == "high")
+        - 7 * sum(1 for item in smells if item["severity"] == "medium"),
+    )
+    return {
+        "score": score,
+        "smell_count": len(smells),
+        "node_count": node_count,
+        "status": "ok" if score >= 70 else "watch",
+    }

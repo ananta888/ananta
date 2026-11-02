@@ -8,19 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from scripts.run_kanban_model_dashboard_release_gate import (
-    EVIDENCE_SCHEMA,
-    OUTPUT_SCHEMA,
-    ReleaseGateError,
-    run_gate,
-)
 from scripts.run_kanban_model_dashboard_evidence import (
     ARTIFACT_BOUNDARY,
     PRODUCER_NAME,
     SUITE_SPECS,
     suite_allowlist_sha256,
 )
-
+from scripts.run_kanban_model_dashboard_release_gate import (
+    EVIDENCE_SCHEMA,
+    OUTPUT_SCHEMA,
+    ReleaseGateError,
+    run_gate,
+)
 
 COMMIT = "a" * 40
 AS_OF = datetime(2026, 7, 23, 12, 0, tzinfo=timezone.utc)
@@ -74,13 +73,7 @@ def _evidence(directory: Path, suite: str, **updates: object) -> None:
     commands = []
     for index, spec in enumerate(SUITE_SPECS[suite].commands):
         argv = [
-            (
-                sys.executable
-                if token == "{python}"
-                else "/usr/bin/npx"
-                if token == "{npx}"
-                else token
-            )
+            (sys.executable if token == "{python}" else "/usr/bin/npx" if token == "{npx}" else token)
             for token in spec.argv
         ]
         commands.append(
@@ -234,9 +227,7 @@ def test_release_gate_fails_closed_for_missing_and_symlinked_evidence(
     )
 
     assert result["status"] == "failed"
-    assert (
-        "performance:evidence_missing_or_unsafe" in result["reason_codes"]
-    )
+    assert "performance:evidence_missing_or_unsafe" in result["reason_codes"]
 
 
 def test_release_gate_rejects_unbound_commit() -> None:
@@ -283,9 +274,7 @@ def test_release_gate_rejects_circular_input_binding(tmp_path: Path) -> None:
     contract_path = evidence_dir / "contract.json"
     contract = json.loads(contract_path.read_text())
     circular = "artifacts/e2e/kanban-model-dashboard/contract.json"
-    contract["input_hashes"] = {
-        circular: contract["inputs"][0]["sha256"]
-    }
+    contract["input_hashes"] = {circular: contract["inputs"][0]["sha256"]}
     contract["inputs"][0]["path"] = circular
     contract_path.write_text(json.dumps(contract))
 

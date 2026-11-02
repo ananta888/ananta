@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import datetime as dt
+from dataclasses import dataclass, field
 from typing import Any
 
 from agent.services.codecompass_retrieval_strategy import (
@@ -53,9 +53,7 @@ class CodeCompassRankingConfig:
         if raw.get("score_weights"):
             if required_override_fields <= set(override_metadata):
                 try:
-                    expires = dt.datetime.fromisoformat(
-                        str(override_metadata["expires_at"]).replace("Z", "+00:00")
-                    )
+                    expires = dt.datetime.fromisoformat(str(override_metadata["expires_at"]).replace("Z", "+00:00"))
                     if expires.tzinfo is None:
                         expires = expires.replace(tzinfo=dt.timezone.utc)
                     governed_override = expires > dt.datetime.now(dt.timezone.utc)
@@ -113,7 +111,9 @@ class CodeCompassRankingConfig:
             semantic_prefilter_top_k_multiplier=multiplier,
             semantic_prefilter_min_results=min_results,
             override_status=override_status,
-            override_metadata={key: str(value) for key, value in override_metadata.items()} if governed_override else {},
+            override_metadata={key: str(value) for key, value in override_metadata.items()}
+            if governed_override
+            else {},
         )
 
     def to_strategy_config(self) -> RetrievalStrategyConfig:

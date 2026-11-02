@@ -5,6 +5,7 @@ is one handler in :data:`AI_DATA_ACTIONS`; :func:`handle_ai_data_command`
 only looks it up. Storage and import/export stay in the training store and
 import/export modules.
 """
+
 from __future__ import annotations
 
 import json
@@ -141,10 +142,7 @@ def _import(args: list[str], state: OperatorState, game: dict[str, Any]) -> Comm
     except ValueError as exc:
         return _reply(state, game, f"ai data import failed: {exc}", "ai data import failed", handled=False)
     if str(result.get("status") or "") == "degraded":
-        status = (
-            f"ai data import degraded readonly reason={result.get('reason')} "
-            f"schema={result.get('schema_version')}"
-        )
+        status = f"ai data import degraded readonly reason={result.get('reason')} schema={result.get('schema_version')}"
         return _reply(state, game, status, "ai data import degraded", handled=False)
     return _reply(state, game, _import_status_message(result, preview), json.dumps(result, ensure_ascii=False))
 

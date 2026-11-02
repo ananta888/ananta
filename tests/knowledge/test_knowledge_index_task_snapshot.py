@@ -102,9 +102,7 @@ def _job(
     ]
     file_manifest = KnowledgeIndexFileManifest.create(raw_files)
     total_bytes = sum(int(item["size_bytes"]) for item in raw_files)
-    largest_file_bytes = max(
-        int(item["size_bytes"]) for item in raw_files
-    )
+    largest_file_bytes = max(int(item["size_bytes"]) for item in raw_files)
     return KnowledgeIndexExecutionJob.create(
         hub_task_id="hub-task-alpha",
         idempotency_key_digest="4" * 64,
@@ -174,9 +172,7 @@ def test_twenty_thousand_file_manifest_fits_bounded_worker_snapshot() -> None:
         allow_nan=False,
     ).encode("utf-8")
 
-    assert len(job["file_manifest"]["files"]) == (
-        MAX_SOURCE_ADMISSION_FILES
-    )
+    assert len(job["file_manifest"]["files"]) == (MAX_SOURCE_ADMISSION_FILES)
     assert len(encoded) > 8 * 1024 * 1024
     assert len(encoded) <= MAX_KNOWLEDGE_INDEX_TASK_SNAPSHOT_BYTES
 
@@ -493,6 +489,7 @@ def test_snapshot_route_hides_assignment_mismatch_like_unknown(
         "knowledge_index_task_snapshot_assignment_denied",
         "knowledge_index_task_snapshot_worker_mismatch",
     ):
+
         class _DeniedService:
             @staticmethod
             def snapshot_for_worker(**_kwargs):
@@ -506,32 +503,19 @@ def test_snapshot_route_hides_assignment_mismatch_like_unknown(
             "get_knowledge_index_task_snapshot_service",
             lambda: _DeniedService(),
         )
-        with app.test_request_context(
-            "/internal/tasks/index-a/knowledge-index-base-snapshot"
-        ):
+        with app.test_request_context("/internal/tasks/index-a/knowledge-index-base-snapshot"):
             g.service_identity = {
                 "worker_id": _WORKER_ID,
                 "worker_url": _WORKER_URL,
             }
-            response, status_code = (
-                route.knowledge_index_base_snapshot.__wrapped__("index-a")
-            )
-            public_responses.append(
-                (status_code, response.get_json())
-            )
+            response, status_code = route.knowledge_index_base_snapshot.__wrapped__("index-a")
+            public_responses.append((status_code, response.get_json()))
 
-    assert all(
-        response == public_responses[0]
-        for response in public_responses[1:]
-    )
+    assert all(response == public_responses[0] for response in public_responses[1:])
     assert public_responses[0][0] == 404
     assert public_responses[0][1]["message"] == "not_found"
-    assert public_responses[0][1]["data"]["reason_code"] == (
-        "not_found"
-    )
-    assert audit_events[-1][1]["reason_code"] == (
-        "knowledge_index_task_snapshot_worker_mismatch"
-    )
+    assert public_responses[0][1]["data"]["reason_code"] == ("not_found")
+    assert audit_events[-1][1]["reason_code"] == ("knowledge_index_task_snapshot_worker_mismatch")
 
 
 def test_hub_snapshot_hides_worker_id_outside_current_assignment() -> None:
@@ -661,9 +645,7 @@ def test_worker_snapshot_rejects_connection_close_before_declared_length() -> No
 
 def test_worker_snapshot_absolute_deadline_rejects_slow_drip() -> None:
     now = [100.0]
-    encoded = json.dumps(
-        {"status": "success", "data": {"task_id": "task-alpha"}}
-    ).encode("utf-8")
+    encoded = json.dumps({"status": "success", "data": {"task_id": "task-alpha"}}).encode("utf-8")
 
     class Response:
         status_code = 200

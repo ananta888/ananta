@@ -38,18 +38,20 @@ def chunk_file(path: str, text: str) -> list[Chunk]:
     return [chunk for chunk in chunker(lines) if chunk.content.strip()]
 
 
-def line_window_chunks(lines: list[str], *, first: int = 1, last: int | None = None,
-                       symbol: str = "", kind: str = "text") -> list[Chunk]:
+def line_window_chunks(
+    lines: list[str], *, first: int = 1, last: int | None = None, symbol: str = "", kind: str = "text"
+) -> list[Chunk]:
     """Windows of at most ``MAX_WINDOW_LINES`` lines / ``MAX_WINDOW_CHARS`` characters."""
     last = len(lines) if last is None else last
     chunks, start = [], first
     while start <= last:
         end, size = start, 0
-        while end <= last and (end == start or (end - start < MAX_WINDOW_LINES
-                                                and size + len(lines[end - 1]) + 1 <= MAX_WINDOW_CHARS)):
+        while end <= last and (
+            end == start or (end - start < MAX_WINDOW_LINES and size + len(lines[end - 1]) + 1 <= MAX_WINDOW_CHARS)
+        ):
             size += len(lines[end - 1]) + 1
             end += 1
-        chunks.append(Chunk(start, end - 1, symbol, kind, "\n".join(lines[start - 1:end - 1])))
+        chunks.append(Chunk(start, end - 1, symbol, kind, "\n".join(lines[start - 1 : end - 1])))
         start = end
     return chunks
 
@@ -119,7 +121,7 @@ def _cover(lines: list[str], spans: list[tuple[int, int, str, str]], *, gap_kind
 
 
 def _bounded(lines: list[str], start: int, end: int, symbol: str, kind: str) -> list[Chunk]:
-    content = "\n".join(lines[start - 1:end])
+    content = "\n".join(lines[start - 1 : end])
     if end - start < MAX_WINDOW_LINES * 2 and len(content) <= MAX_WINDOW_CHARS * 2:
         return [Chunk(start, end, symbol, kind, content)]
     return line_window_chunks(lines, first=start, last=end, symbol=symbol, kind=kind)

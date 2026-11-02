@@ -7,8 +7,7 @@ from sqlmodel import JSON, Column, Field, SQLModel
 class MemorySnapshotDB(SQLModel, table=True):
     __tablename__ = "memory_snapshots"
     __table_args__ = (
-        sa.UniqueConstraint("tenant_id", "run_id", "channel_id", "scope", "phase",
-                            name="uq_memory_snapshot_boundary"),
+        sa.UniqueConstraint("tenant_id", "run_id", "channel_id", "scope", "phase", name="uq_memory_snapshot_boundary"),
         sa.CheckConstraint("phase IN ('before', 'after')", name="ck_memory_snapshot_phase"),
         sa.Index("ix_memory_snapshot_project_run", "tenant_id", "project_id", "run_id"),
     )
@@ -23,4 +22,3 @@ class MemorySnapshotDB(SQLModel, table=True):
     snapshot: dict = Field(sa_column=Column(JSON, nullable=False))
     snapshot_digest: str = Field(max_length=64)
     audit_event_id: str = Field(max_length=90)
-

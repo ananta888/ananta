@@ -25,7 +25,9 @@ def test_timeout_service_skips_non_running_goal(monkeypatch):
         planning_run_repo=SimpleNamespace(get_by_goal_id=lambda *_args, **_kwargs: []),
     )
     called = {"transition": 0}
-    core = SimpleNamespace(goal_lifecycle_service=SimpleNamespace(transition_goal=lambda *a, **k: called.__setitem__("transition", 1)))
+    core = SimpleNamespace(
+        goal_lifecycle_service=SimpleNamespace(transition_goal=lambda *a, **k: called.__setitem__("transition", 1))
+    )
 
     monkeypatch.setattr("agent.services.planning_timeout_service.get_repository_registry", lambda: repos)
     monkeypatch.setattr("agent.services.planning_timeout_service.get_core_services", lambda: core)
@@ -50,7 +52,10 @@ def test_timeout_service_transitions_running_goal(monkeypatch):
     core = SimpleNamespace(goal_lifecycle_service=SimpleNamespace(transition_goal=_transition))
     monkeypatch.setattr("agent.services.planning_timeout_service.get_repository_registry", lambda: repos)
     monkeypatch.setattr("agent.services.planning_timeout_service.get_core_services", lambda: core)
-    monkeypatch.setattr("agent.services.planning_timeout_service.get_planning_telemetry_service", lambda: SimpleNamespace(update_run=lambda *a, **k: None))
+    monkeypatch.setattr(
+        "agent.services.planning_timeout_service.get_planning_telemetry_service",
+        lambda: SimpleNamespace(update_run=lambda *a, **k: None),
+    )
     monkeypatch.setattr("agent.services.planning_timeout_service.record_product_event", lambda *a, **k: None)
 
     svc._run_once(goal_id="g1", timeout_s=0, app=_FakeApp(), sleep_fn=lambda *_: None)

@@ -175,14 +175,18 @@ def artifact() -> str:
 def artifact_handoff() -> str:
     from agent.visual_process.bpmn_execution_support import ANANTA_NS
 
-    return artifact().replace(
-        '<endEvent id="end"/>',
-        '<serviceTask id="artifact_consumer"><extensionElements>'
-        f'<ananta:metadata xmlns:ananta="{ANANTA_NS}">'
-        + '{"inputs":["report"],"native_input_files":{"report":"inputs/report.json"}}'
-        '</ananta:metadata></extensionElements></serviceTask>'
-        '<endEvent id="end"/>',
-    ).replace('sourceRef="artifact_work" targetRef="end"',
-              'sourceRef="artifact_work" targetRef="artifact_consumer"').replace(
-                  '</process>', '<sequenceFlow id="artifact_finish" sourceRef="artifact_consumer" '
-                  'targetRef="end"/></process>')
+    return (
+        artifact()
+        .replace(
+            '<endEvent id="end"/>',
+            '<serviceTask id="artifact_consumer"><extensionElements>'
+            f'<ananta:metadata xmlns:ananta="{ANANTA_NS}">'
+            + '{"inputs":["report"],"native_input_files":{"report":"inputs/report.json"}}'
+            "</ananta:metadata></extensionElements></serviceTask>"
+            '<endEvent id="end"/>',
+        )
+        .replace('sourceRef="artifact_work" targetRef="end"', 'sourceRef="artifact_work" targetRef="artifact_consumer"')
+        .replace(
+            "</process>", '<sequenceFlow id="artifact_finish" sourceRef="artifact_consumer" targetRef="end"/></process>'
+        )
+    )

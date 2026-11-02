@@ -4,6 +4,7 @@ Implements JavaLikeExtractor Protocol:
   pre_scan_types(rel_path, text) -> dict   — builds title+alias map
   parse(rel_path, text, known_package_types) -> (index, details, relations, stats)
 """
+
 from __future__ import annotations
 
 import re
@@ -11,26 +12,27 @@ from typing import Any
 
 try:
     import yaml
+
     _YAML_AVAILABLE = True
 except ImportError:
     _YAML_AVAILABLE = False
 
 from rag_helper.utils.ids import sha1_text
 
-
 # ─── Regex patterns ──────────────────────────────────────────────────────────
 
-WIKILINK_RE = re.compile(r'\[\[([^\[\]]+)\]\]')
-HEADING_RE = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
-INLINE_TAG_RE = re.compile(r'(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)(?!\w)')
+WIKILINK_RE = re.compile(r"\[\[([^\[\]]+)\]\]")
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+INLINE_TAG_RE = re.compile(r"(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)(?!\w)")
 DATAVIEW_BLOCK_RE = re.compile(
-    r'```dataview\s*\n(.*?)```',
+    r"```dataview\s*\n(.*?)```",
     re.DOTALL | re.IGNORECASE,
 )
-DATAVIEW_INLINE_RE = re.compile(r'`=\s*(.+?)`')
+DATAVIEW_INLINE_RE = re.compile(r"`=\s*(.+?)`")
 
 
 # ─── Frontmatter ─────────────────────────────────────────────────────────────
+
 
 def parse_frontmatter(text: str) -> tuple[dict, str]:
     """Parse YAML frontmatter between --- delimiters.
@@ -43,7 +45,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     if end == -1:
         return {}, text
     fm_text = text[3:end].strip()
-    body = text[end + 4:].lstrip("\n")
+    body = text[end + 4 :].lstrip("\n")
     try:
         if _YAML_AVAILABLE:
             result = yaml.safe_load(fm_text)
@@ -57,6 +59,7 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
 
 
 # ─── Headings ────────────────────────────────────────────────────────────────
+
 
 def _is_code_fence(line: str) -> bool:
     stripped = line.strip()
@@ -74,15 +77,17 @@ def extract_headings(body: str) -> list[dict]:
         if _is_code_fence(line):
             in_code = not in_code
         elif not in_code:
-            m = re.match(r'^(#{1,6})\s+(.+)$', line)
+            m = re.match(r"^(#{1,6})\s+(.+)$", line)
             if m:
                 level = len(m.group(1))
                 title = m.group(2).strip()
-                headings.append({
-                    "level": level,
-                    "title": title,
-                    "char_offset": char_offset,
-                })
+                headings.append(
+                    {
+                        "level": level,
+                        "title": title,
+                        "char_offset": char_offset,
+                    }
+                )
         char_offset += len(line) + 1  # +1 for newline
 
     return headings
@@ -91,8 +96,8 @@ def extract_headings(body: str) -> list[dict]:
 def heading_to_anchor(heading_text: str) -> str:
     """Convert heading text to Obsidian-style anchor."""
     anchor = heading_text.lower()
-    anchor = re.sub(r'[^\w\s-]', '', anchor)
-    anchor = re.sub(r'\s+', '-', anchor.strip())
+    anchor = re.sub(r"[^\w\s-]", "", anchor)
+    anchor = re.sub(r"\s+", "-", anchor.strip())
     return anchor
 
 
@@ -119,6 +124,7 @@ def build_heading_path(headings: list[dict], up_to_idx: int) -> str:
 
 
 # ─── Wiki-Links ──────────────────────────────────────────────────────────────
+
 
 def extract_wikilinks(body: str) -> list[dict]:
     """Extract all wikilinks from body text.
@@ -148,12 +154,14 @@ def extract_wikilinks(body: str) -> list[dict]:
             display = display.strip() if display else None
             heading = heading.strip() if heading else None
 
-            links.append({
-                "target": target,
-                "heading": heading,
-                "display": display,
-                "raw": m.group(0),
-            })
+            links.append(
+                {
+                    "target": target,
+                    "heading": heading,
+                    "display": display,
+                    "raw": m.group(0),
+                }
+            )
     return links
 
 
@@ -192,6 +200,7 @@ def resolve_link(
 
 # ─── Tags ────────────────────────────────────────────────────────────────────
 
+
 def extract_tags(frontmatter: dict, body: str) -> list[str]:
     """Extract tags from frontmatter 'tags' field and inline #tags in body."""
     tags: list[str] = []
@@ -226,6 +235,7 @@ def extract_tags(frontmatter: dict, body: str) -> list[str]:
 
 # ─── Code blocks ─────────────────────────────────────────────────────────────
 
+
 def extract_codeblocks(body: str) -> list[dict]:
     """Extract ``` and ~~~ delimited code blocks."""
     blocks = []
@@ -247,12 +257,14 @@ def extract_codeblocks(body: str) -> list[dict]:
                 start_line = i
         else:
             if stripped.startswith(fence_char or "```"):
-                blocks.append({
-                    "language": lang,
-                    "content": "\n".join(block_lines),
-                    "start_line": start_line,
-                    "end_line": i,
-                })
+                blocks.append(
+                    {
+                        "language": lang,
+                        "content": "\n".join(block_lines),
+                        "start_line": start_line,
+                        "end_line": i,
+                    }
+                )
                 in_block = False
                 fence_char = None
                 lang = ""
@@ -265,6 +277,7 @@ def extract_codeblocks(body: str) -> list[dict]:
 
 # ─── Dataview blocks ─────────────────────────────────────────────────────────
 
+
 def extract_dataview_blocks(body: str) -> list[dict]:
     """Extract dataview code blocks as metadata."""
     blocks = []
@@ -273,14 +286,17 @@ def extract_dataview_blocks(body: str) -> list[dict]:
         # Determine query type: TABLE, LIST, TASK, CALENDAR -> DQL; otherwise JS
         first_word = raw_query.split()[0].upper() if raw_query.split() else ""
         q_type = "dql" if first_word in ("TABLE", "LIST", "TASK", "CALENDAR") else "js"
-        blocks.append({
-            "query_type": q_type,
-            "raw_query": raw_query,
-        })
+        blocks.append(
+            {
+                "query_type": q_type,
+                "raw_query": raw_query,
+            }
+        )
     return blocks
 
 
 # ─── Section Chunker ─────────────────────────────────────────────────────────
+
 
 def chunk_by_headings(
     body: str,
@@ -335,6 +351,7 @@ def chunk_by_headings(
 
 
 # ─── Main Extractor ──────────────────────────────────────────────────────────
+
 
 class ObsidianExtractor:
     """Extracts index, detail, and relation records from Obsidian Markdown notes.
@@ -445,9 +462,7 @@ class ObsidianExtractor:
             "title": title,
             "tags": tags,
             "aliases": aliases,
-            "embedding_text": (
-                f"{title} | tags: {', '.join(tags[:10])} | {body[:200]}"
-            ),
+            "embedding_text": (f"{title} | tags: {', '.join(tags[:10])} | {body[:200]}"),
             "source_type": "obsidian_vault",
             "importance_score": 0.5,
         }
@@ -465,18 +480,20 @@ class ObsidianExtractor:
             heading_path = block["heading_path"]
             content = block["content"]
             block_id = f"obs_block:{sha1_text(f'{vault_name}:{rel_path}:{heading_path}:{idx}')}"
-            block_index.append({
-                "id": block_id,
-                "kind": "obsidian_block",
-                "file": rel_path,
-                "vault": vault_name,
-                "heading_path": heading_path,
-                "content": content,
-                "embedding_text": f"{title} > {heading_path} | {content[:400]}",
-                "parent_id": note_id,
-                "source_type": "obsidian_vault",
-                "importance_score": 0.7,
-            })
+            block_index.append(
+                {
+                    "id": block_id,
+                    "kind": "obsidian_block",
+                    "file": rel_path,
+                    "vault": vault_name,
+                    "heading_path": heading_path,
+                    "content": content,
+                    "embedding_text": f"{title} > {heading_path} | {content[:400]}",
+                    "parent_id": note_id,
+                    "source_type": "obsidian_vault",
+                    "importance_score": 0.7,
+                }
+            )
 
         index_records = [note_index] + block_index
 
@@ -495,11 +512,7 @@ class ObsidianExtractor:
                 "heading_count": len(headings),
                 "tag_count": len(tags),
                 "full_content": body[:8000],
-                "dataview_queries": [
-                    b["raw_query"]
-                    for b in dataview_blocks
-                    if b["query_type"] == "dql"
-                ],
+                "dataview_queries": [b["raw_query"] for b in dataview_blocks if b["query_type"] == "dql"],
                 "source_type": "obsidian_vault",
             }
         ]
@@ -511,30 +524,36 @@ class ObsidianExtractor:
         for link in wikilinks:
             resolution = resolve_link(link, known_note_titles, vault_name)
             if resolution["resolved"]:
-                relation_records.append({
-                    "from": note_id,
-                    "to": resolution["target_id"],
-                    "type": "obs_wikilink",
-                    "resolved": True,
-                    "confidence": resolution["confidence"],
-                })
+                relation_records.append(
+                    {
+                        "from": note_id,
+                        "to": resolution["target_id"],
+                        "type": "obs_wikilink",
+                        "resolved": True,
+                        "confidence": resolution["confidence"],
+                    }
+                )
             else:
-                relation_records.append({
-                    "from": note_id,
-                    "to": resolution["target_id"],
-                    "type": "obs_wikilink_unresolved",
-                    "resolved": False,
-                    "confidence": 0.0,
-                    "heuristic": True,
-                })
+                relation_records.append(
+                    {
+                        "from": note_id,
+                        "to": resolution["target_id"],
+                        "type": "obs_wikilink_unresolved",
+                        "resolved": False,
+                        "confidence": 0.0,
+                        "heuristic": True,
+                    }
+                )
 
         # Tag relations
         for tag in tags:
-            relation_records.append({
-                "from": note_id,
-                "to": f"obs_tag:{vault_name}:{tag}",
-                "type": "obs_has_tag",
-            })
+            relation_records.append(
+                {
+                    "from": note_id,
+                    "to": f"obs_tag:{vault_name}:{tag}",
+                    "type": "obs_has_tag",
+                }
+            )
 
         # ── Graph nodes (returned in stats) ───────────────────────────────
         graph_nodes = [

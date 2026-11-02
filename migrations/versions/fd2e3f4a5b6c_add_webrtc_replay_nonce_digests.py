@@ -41,9 +41,7 @@ def upgrade() -> None:
     columns = {column["name"] for column in inspector.get_columns("webrtc_replay_states")}
     if "accepted_nonce_digests" not in columns:
         with op.batch_alter_table("webrtc_replay_states") as batch:
-            batch.add_column(
-                sa.Column("accepted_nonce_digests", sa.JSON(), nullable=False, server_default="{}")
-            )
+            batch.add_column(sa.Column("accepted_nonce_digests", sa.JSON(), nullable=False, server_default="{}"))
 
 
 def downgrade() -> None:

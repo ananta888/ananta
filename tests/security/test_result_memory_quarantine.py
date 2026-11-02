@@ -16,6 +16,7 @@ from agent.repositories.result_memory_quarantine import ResultMemoryQuarantineRe
 from agent.repository import task_repo
 from agent.services.memory_access_context import MemoryAccessContext, bind_memory_access
 from agent.services.memory_policy_gateway import MemoryAccessError
+from agent.services.memory_storage_boundary import MemoryStorageBoundary
 from agent.services.memory_tree_store_service import MemoryTreeStoreService
 from agent.services.result_memory_quarantine_service import ResultMemoryQuarantineService
 from agent.services.result_memory_service import ResultMemoryService
@@ -38,30 +39,64 @@ def secured(monkeypatch):
     monkeypatch.setattr(store_module._db_module, "engine", test_engine)
 
     with Session(_engine()) as session:
-        session.add(ProjectDB(tenant_id=ACTOR.tenant_id, project_id=NAMESPACE.workspace_id,
-                              name="Synthetic memory project", created_by_subject_id=ACTOR.subject))
+        session.add(
+            ProjectDB(
+                tenant_id=ACTOR.tenant_id,
+                project_id=NAMESPACE.workspace_id,
+                name="Synthetic memory project",
+                created_by_subject_id=ACTOR.subject,
+            )
+        )
         session.commit()
         for goal_id in (NAMESPACE.goal_id, "changed-goal"):
-            session.add(GoalDB(id=goal_id, goal="Synthetic memory goal", tenant_id=ACTOR.tenant_id,
-                               project_id=NAMESPACE.workspace_id))
+            session.add(
+                GoalDB(
+                    id=goal_id,
+                    goal="Synthetic memory goal",
+                    tenant_id=ACTOR.tenant_id,
+                    project_id=NAMESPACE.workspace_id,
+                )
+            )
         session.commit()
-    task_repo.save(TaskDB(id=NAMESPACE.task_id, title="Synthetic memory task", tenant_id=ACTOR.tenant_id,
-                          project_id=NAMESPACE.workspace_id, goal_id=NAMESPACE.goal_id))
+    task_repo.save(
+        TaskDB(
+            id=NAMESPACE.task_id,
+            title="Synthetic memory task",
+            tenant_id=ACTOR.tenant_id,
+            project_id=NAMESPACE.workspace_id,
+            goal_id=NAMESPACE.goal_id,
+        )
+    )
     repository = MemoryEntryRepository()
     store = MemoryTreeStoreService()
-    gate, policies, audit = gateway(policy((
-        grant(channel="hub-result-memory", scope=MemoryScope.task),
-        grant(channel="hub-memory-tree", scope=MemoryScope.task),
-    )))
-    service = ResultMemoryService(memory_entry_repository=repository, memory_gateway=gate, auto_ingest_tree=True,
-                                  memory_tree_ingestion_service=SimpleNamespace(_store=store))
+    gate, policies, audit = gateway(
+        policy(
+            (
+                grant(channel="hub-result-memory", scope=MemoryScope.task),
+                grant(channel="hub-memory-tree", scope=MemoryScope.task),
+            )
+        )
+    )
+    service = ResultMemoryService(
+        memory_entry_repository=repository,
+        memory_gateway=gate,
+        auto_ingest_tree=True,
+        memory_tree_ingestion_service=SimpleNamespace(_store=store),
+    )
     return service, repository, store, gate, policies, audit
 
 
 def write(service, **changes):
-    request = dict(task_id=NAMESPACE.task_id, goal_id=NAMESPACE.goal_id, trace_id=None, worker_job_id=None,
-                   title="Synthetic result", output="Changed code and tests passed",
-                   memory_actor=ACTOR, memory_run_id=NAMESPACE.run_id)
+    request = dict(
+        task_id=NAMESPACE.task_id,
+        goal_id=NAMESPACE.goal_id,
+        trace_id=None,
+        worker_job_id=None,
+        title="Synthetic result",
+        output="Changed code and tests passed",
+        memory_actor=ACTOR,
+        memory_run_id=NAMESPACE.run_id,
+    )
     request.update(changes)
     return service.record_worker_result_memory(**request)
 
@@ -78,15 +113,23 @@ def bound(gate):
 
 def derived_chunk_ids(entry_id):
     with Session(_engine()) as session:
-        return list(session.exec(select(MemoryTreeChunkDB.id).where(
-            MemoryTreeChunkDB.provenance_ref == f"memory_entry:{entry_id}")).all())
+        return list(
+            session.exec(
+                select(MemoryTreeChunkDB.id).where(MemoryTreeChunkDB.provenance_ref == f"memory_entry:{entry_id}")
+            ).all()
+        )
 
 
 def events(entry_id):
     with Session(_engine()) as session:
-        return list(session.exec(select(MemoryQuarantineEventDB).where(
-            MemoryQuarantineEventDB.channel_id == "hub-result-memory",
-            MemoryQuarantineEventDB.chunk_id == entry_id)).all())
+        return list(
+            session.exec(
+                select(MemoryQuarantineEventDB).where(
+                    MemoryQuarantineEventDB.channel_id == "hub-result-memory",
+                    MemoryQuarantineEventDB.chunk_id == entry_id,
+                )
+            ).all()
+        )
 
 
 def test_write_ingests_derived_tree_leaf_under_separate_tree_grant(secured):
@@ -100,7 +143,9 @@ def test_quarantine_hides_entry_and_derived_summary_then_release_restores(secure
     entry = write(service)
     chunks = derived_chunk_ids(entry.id)
     assert read(service)[0].id == entry.id
-    quarantine = ResultMemoryQuarantineService(ResultMemoryQuarantineRepository(), derived_tree=store)
+    quarantine = ResultMemoryQuarantineService(
+        ResultMemoryQuarantineRepository(MemoryStorageBoundary("hub-result-memory")), derived_tree=store
+    )
     with bound(gate):
         assert quarantine.quarantine(entry.id, reason_code="suspected_injection")
         assert quarantine.quarantine(entry.id, reason_code="suspected_injection")
@@ -121,7 +166,9 @@ def test_revoked_entry_and_derivation_cannot_be_released(secured):
     service, repository, store, gate, _policies, _audit = secured
     entry = write(service)
     chunks = derived_chunk_ids(entry.id)
-    quarantine = ResultMemoryQuarantineService(ResultMemoryQuarantineRepository(), derived_tree=store)
+    quarantine = ResultMemoryQuarantineService(
+        ResultMemoryQuarantineRepository(MemoryStorageBoundary("hub-result-memory")), derived_tree=store
+    )
     with bound(gate):
         assert quarantine.revoke(entry.id, reason_code="confirmed_compromise")
         assert quarantine.revoke(entry.id, reason_code="confirmed_compromise")
@@ -136,9 +183,14 @@ def test_revoked_entry_and_derivation_cannot_be_released(secured):
 def test_missing_update_grant_cannot_change_state(secured):
     service, _repository, store, _gate, _policies, _audit = secured
     entry = write(service)
-    quarantine = ResultMemoryQuarantineService(ResultMemoryQuarantineRepository(), derived_tree=store)
-    with synthetic_memory_access(channels=("hub-result-memory", "hub-memory-tree"), scopes=(MemoryScope.task,),
-                                 operations=(MemoryOperation.read,)):
+    quarantine = ResultMemoryQuarantineService(
+        ResultMemoryQuarantineRepository(MemoryStorageBoundary("hub-result-memory")), derived_tree=store
+    )
+    with synthetic_memory_access(
+        channels=("hub-result-memory", "hub-memory-tree"),
+        scopes=(MemoryScope.task,),
+        operations=(MemoryOperation.read,),
+    ):
         with pytest.raises(MemoryAccessError):
             quarantine.quarantine(entry.id, reason_code="suspected_injection")
     assert read(service)[0].id == entry.id
@@ -149,7 +201,9 @@ def test_missing_tree_grant_quarantines_entry_and_retry_contains_derivation(secu
     service, _repository, store, gate, _policies, _audit = secured
     entry = write(service)
     chunks = derived_chunk_ids(entry.id)
-    quarantine = ResultMemoryQuarantineService(ResultMemoryQuarantineRepository(), derived_tree=store)
+    quarantine = ResultMemoryQuarantineService(
+        ResultMemoryQuarantineRepository(MemoryStorageBoundary("hub-result-memory")), derived_tree=store
+    )
     with synthetic_memory_access(channels=("hub-result-memory",), scopes=(MemoryScope.task,)):
         with pytest.raises(MemoryAccessError):
             quarantine.quarantine(entry.id, reason_code="suspected_injection")
@@ -166,10 +220,16 @@ def test_missing_tree_grant_quarantines_entry_and_retry_contains_derivation(secu
 
 def test_admission_cannot_supply_a_quarantine_record(secured):
     service, _repository, _store, _gate, _policies, _audit = secured
-    entry = write(service, metadata={"memory_quarantine": {
-        "schema": "ananta.memory-quarantine.v1", "state": "active", "reason_code": "forged"}})
+    entry = write(
+        service,
+        metadata={
+            "memory_quarantine": {"schema": "ananta.memory-quarantine.v1", "state": "active", "reason_code": "forged"}
+        },
+    )
     assert entry.memory_metadata.get("memory_quarantine") is None
-    quarantine = ResultMemoryQuarantineService(ResultMemoryQuarantineRepository())
+    quarantine = ResultMemoryQuarantineService(
+        ResultMemoryQuarantineRepository(MemoryStorageBoundary("hub-result-memory"))
+    )
     with synthetic_memory_access(channels=("hub-result-memory",), scopes=(MemoryScope.task,)):
         assert quarantine.release(entry.id, reason_code="review_cleared") is True
     assert events(entry.id) == []

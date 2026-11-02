@@ -45,8 +45,13 @@ class CodeCompassLayerJobGateway:
             if text is None:
                 raise LayerJobNotFound("codecompass_layer_content_missing")
             texts[digest] = text
-        return {"schema": CONTENT_PART_SCHEMA, "task_id": task_id, "part": int(part), "parts": len(parts),
-                "texts": texts}
+        return {
+            "schema": CONTENT_PART_SCHEMA,
+            "task_id": task_id,
+            "part": int(part),
+            "parts": len(parts),
+            "texts": texts,
+        }
 
     def receive_layer(self, task_id: str, blob: bytes) -> dict[str, Any]:
         spec = job_spec(self._dispatch(task_id))
@@ -60,5 +65,9 @@ class CodeCompassLayerJobGateway:
             if created:
                 self._layers.delete_layer(layer_id)
             raise ValueError("codecompass_layer_upload_binding_invalid")
-        return {"layer_id": layer_id, "created": created, "record_count": int(layer.get("record_count") or 0),
-                "tombstone_count": int(layer.get("tombstone_count") or 0)}
+        return {
+            "layer_id": layer_id,
+            "created": created,
+            "record_count": int(layer.get("record_count") or 0),
+            "tombstone_count": int(layer.get("tombstone_count") or 0),
+        }

@@ -8,6 +8,22 @@ from typing import Any
 from flask import Blueprint, current_app, g, jsonify, request
 from pydantic import BaseModel, ValidationError
 
+from agent.auth import check_auth
+from agent.services.kanban_authorization_service import (
+    KanbanAuthorizationService,
+    KanbanPrincipal,
+)
+from agent.services.kanban_event_stream_service import (
+    get_kanban_event_stream_service,
+)
+from agent.services.kanban_feature_flags import KanbanFeatureFlags
+from agent.services.kanban_projection_service import KanbanProjectionService, KanbanServiceError
+from agent.services.surface_rate_limit_policy import (
+    KANBAN_EVENT_RECONNECT,
+    KANBAN_WRITE,
+    is_auth_disabled,
+    surface_rate_limit_policy,
+)
 from ananta_contracts.kanban import (
     AssignCardCommand,
     BlockCardCommand,
@@ -19,23 +35,6 @@ from ananta_contracts.kanban import (
     MoveCardCommand,
     SetDependenciesCommand,
 )
-from agent.auth import check_auth
-from agent.services.kanban_authorization_service import (
-    KanbanAuthorizationService,
-    KanbanPrincipal,
-)
-from agent.services.kanban_feature_flags import KanbanFeatureFlags
-from agent.services.kanban_event_stream_service import (
-    get_kanban_event_stream_service,
-)
-from agent.services.kanban_projection_service import KanbanProjectionService, KanbanServiceError
-from agent.services.surface_rate_limit_policy import (
-    KANBAN_EVENT_RECONNECT,
-    KANBAN_WRITE,
-    is_auth_disabled,
-    surface_rate_limit_policy,
-)
-
 
 kanban_bp = Blueprint("kanban_v1", __name__, url_prefix="/api/v1/kanban")
 
@@ -60,12 +59,7 @@ def _principal() -> KanbanPrincipal:
     raw = payload.get("capabilities")
     raw = raw if isinstance(raw, (list, tuple, set)) else ()
     return KanbanPrincipal(
-        subject=str(
-            payload.get("sub")
-            or payload.get("id")
-            or payload.get("username")
-            or "anonymous"
-        ),
+        subject=str(payload.get("sub") or payload.get("id") or payload.get("username") or "anonymous"),
         role=str(payload.get("role") or ("admin" if getattr(g, "is_admin", False) else "user")),
         tenant_id=str(payload["tenant_id"]) if payload.get("tenant_id") else None,
         team_id=str(payload["team_id"]) if payload.get("team_id") else None,
@@ -82,9 +76,7 @@ def _limit() -> int:
     try:
         return int(request.args.get("limit", "50"))
     except ValueError as exc:
-        raise KanbanServiceError(
-            "kanban_limit_invalid", "limit must be an integer", status_code=400
-        ) from exc
+        raise KanbanServiceError("kanban_limit_invalid", "limit must be an integer", status_code=400) from exc
 
 
 def _bool_filter(name: str) -> bool | None:
@@ -95,9 +87,7 @@ def _bool_filter(name: str) -> bool | None:
         return True
     if value.lower() in {"false", "0"}:
         return False
-    raise KanbanServiceError(
-        "kanban_filter_invalid", f"{name} must be true or false", status_code=400
-    )
+    raise KanbanServiceError("kanban_filter_invalid", f"{name} must be true or false", status_code=400)
 
 
 def _event_cursor() -> tuple[int, int]:
@@ -108,11 +98,7 @@ def _event_cursor() -> tuple[int, int]:
             "event query contains unsupported parameters",
             status_code=400,
         )
-    raw_after = (
-        request.args.get("after_sequence")
-        or request.headers.get("Last-Event-ID")
-        or "0"
-    )
+    raw_after = request.args.get("after_sequence") or request.headers.get("Last-Event-ID") or "0"
     try:
         after_sequence = int(str(raw_after).strip())
         limit = int(request.args.get("limit", "100"))
@@ -171,9 +157,7 @@ def _endpoint(
                     403,
                 )
             effective_rate_limit = (
-                rate_limit_namespace
-                if rate_limit_namespace is not None
-                else KANBAN_WRITE if write else None
+                rate_limit_namespace if rate_limit_namespace is not None else KANBAN_WRITE if write else None
             )
             if effective_rate_limit is not None:
                 rate_limited = _rate_limit_response(effective_rate_limit)
@@ -200,9 +184,7 @@ def _endpoint(
 @check_auth
 @_endpoint()
 def capabilities():
-    return _success(
-        KanbanProjectionService().capabilities(_principal(), request.args.get("board_id"))
-    )
+    return _success(KanbanProjectionService().capabilities(_principal(), request.args.get("board_id")))
 
 
 @kanban_bp.get("/boards")
@@ -210,9 +192,7 @@ def capabilities():
 @_endpoint()
 def boards():
     return _success(
-        KanbanProjectionService().list_boards(
-            _principal(), limit=_limit(), cursor=request.args.get("cursor")
-        )
+        KanbanProjectionService().list_boards(_principal(), limit=_limit(), cursor=request.args.get("cursor"))
     )
 
 
@@ -220,9 +200,7 @@ def boards():
 @check_auth
 @_endpoint(write=True)
 def create_board():
-    return _success(
-        KanbanProjectionService().create_board(_parse(CreateBoardCommand), _principal()), 201
-    )
+    return _success(KanbanProjectionService().create_board(_parse(CreateBoardCommand), _principal()), 201)
 
 
 @kanban_bp.get("/boards/<path:board_id>")
@@ -236,9 +214,7 @@ def board(board_id: str):
 @check_auth
 @_endpoint()
 def snapshot(board_id: str):
-    return _success(
-        KanbanProjectionService().get_snapshot(board_id, _principal())
-    )
+    return _success(KanbanProjectionService().get_snapshot(board_id, _principal()))
 
 
 @kanban_bp.get("/boards/<path:board_id>/cards")
@@ -249,9 +225,7 @@ def cards(board_id: str):
     try:
         column = KanbanColumnId(column_raw) if column_raw else None
     except ValueError as exc:
-        raise KanbanServiceError(
-            "kanban_filter_invalid", "column_id is invalid", status_code=400
-        ) from exc
+        raise KanbanServiceError("kanban_filter_invalid", "column_id is invalid", status_code=400) from exc
     return _success(
         KanbanProjectionService().list_cards(
             board_id,
@@ -271,9 +245,7 @@ def cards(board_id: str):
 @_endpoint(write=True)
 def create_card(board_id: str):
     return _success(
-        KanbanProjectionService().create_card(
-            board_id, _parse(CreateCardCommand), _principal()
-        ),
+        KanbanProjectionService().create_card(board_id, _parse(CreateCardCommand), _principal()),
         201,
     )
 
@@ -360,9 +332,7 @@ def comment(card_id: str):
 @check_auth
 @_endpoint(write=True)
 def dependencies(card_id: str):
-    return _command(
-        KanbanProjectionService().set_dependencies, SetDependenciesCommand, card_id
-    )
+    return _command(KanbanProjectionService().set_dependencies, SetDependenciesCommand, card_id)
 
 
 @kanban_bp.post("/cards/<card_id>/commands/block")
@@ -376,6 +346,4 @@ def block(card_id: str):
 @check_auth
 @_endpoint(write=True)
 def complete(card_id: str):
-    return _command(
-        KanbanProjectionService().complete_card, CompleteCardCommand, card_id
-    )
+    return _command(KanbanProjectionService().complete_card, CompleteCardCommand, card_id)

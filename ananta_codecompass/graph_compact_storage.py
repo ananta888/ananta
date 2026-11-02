@@ -20,36 +20,21 @@ def compact_storage_payload(payload: dict[str, Any]) -> dict[str, Any]:
     state = dict(stored.get("state") or {})
     manifest_hash = str(state.get("manifest_hash") or "")
     role_edges = {
-        "graph_edges": [
-            dict(item) for item in list(stored.get("edges") or [])
-            if isinstance(item, dict)
-        ],
-        "semantic_edges": [
-            dict(item) for item in list(stored.get("semantic_edges") or [])
-            if isinstance(item, dict)
-        ],
+        "graph_edges": [dict(item) for item in list(stored.get("edges") or []) if isinstance(item, dict)],
+        "semantic_edges": [dict(item) for item in list(stored.get("semantic_edges") or []) if isinstance(item, dict)],
     }
     edge_storage: dict[str, dict[str, Any]] = {}
     for role, edges in role_edges.items():
-        raw_edge_type_derived = bool(edges) and all(
-            "raw_edge_type" in edge for edge in edges
-        )
+        raw_edge_type_derived = bool(edges) and all("raw_edge_type" in edge for edge in edges)
         provenance_defaulted = bool(edges) and all(
             isinstance(edge.get("provenance"), dict)
-            and str((edge.get("provenance") or {}).get("manifest_hash") or "")
-            == manifest_hash
-            and str((edge.get("provenance") or {}).get("output_kind") or "")
-            == role
+            and str((edge.get("provenance") or {}).get("manifest_hash") or "") == manifest_hash
+            and str((edge.get("provenance") or {}).get("output_kind") or "") == role
             for edge in edges
         )
-        edge_ids_derived = bool(edges) and all(
-            str(edge.get("edge_id") or "").strip() for edge in edges
-        )
+        edge_ids_derived = bool(edges) and all(str(edge.get("edge_id") or "").strip() for edge in edges)
         derived_by_strategy = {
-            strategy: [
-                derived_edge_id(edge, strategy=strategy)
-                for edge in edges
-            ]
+            strategy: [derived_edge_id(edge, strategy=strategy) for edge in edges]
             for strategy in (
                 "normalized",
                 "legacy_confidence_default_omitted",
@@ -61,9 +46,7 @@ def compact_storage_payload(payload: dict[str, Any]) -> dict[str, Any]:
             strategy_scores[strategy] = sum(
                 1
                 for edge, candidate in zip(edges, candidates)
-                if candidate
-                and candidate_counts[candidate] == 1
-                and str(edge.get("edge_id") or "") == candidate
+                if candidate and candidate_counts[candidate] == 1 and str(edge.get("edge_id") or "") == candidate
             )
         edge_id_strategy = max(
             strategy_scores,
@@ -81,10 +64,7 @@ def compact_storage_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 and str(compact.get("edge_id") or "") == derived_id
             ):
                 compact.pop("edge_id", None)
-            if (
-                raw_edge_type_derived
-                and compact.get("raw_edge_type") == compact.get("edge_type")
-            ):
+            if raw_edge_type_derived and compact.get("raw_edge_type") == compact.get("edge_type"):
                 compact.pop("raw_edge_type", None)
             if provenance_defaulted:
                 provenance = dict(compact.get("provenance") or {})
@@ -105,11 +85,13 @@ def compact_storage_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
     for key in ("node_index", "semantic_index", "outgoing_index", "incoming_index"):
         stored.pop(key, None)
-    state.update({
-        "edge_index_encoding": "derived",
-        "edge_storage": edge_storage,
-        "storage_encoding": COMPACT_STORAGE_ENCODING,
-    })
+    state.update(
+        {
+            "edge_index_encoding": "derived",
+            "edge_storage": edge_storage,
+            "storage_encoding": COMPACT_STORAGE_ENCODING,
+        }
+    )
     stored["state"] = state
     return stored
 

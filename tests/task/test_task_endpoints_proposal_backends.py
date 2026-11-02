@@ -37,8 +37,8 @@ def force_hub_role(monkeypatch):
     monkeypatch.setattr("agent.config.settings.role", "hub")
 
 
-
 # Split from tests/task/test_task_endpoints.py to keep source files below 1000 lines.
+
 
 def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-AUTO"
@@ -105,7 +105,9 @@ def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_p
     assert model_entry is not None
 
 
-def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(client, app, tmp_path, admin_auth_header):
+def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(
+    client, app, tmp_path, admin_auth_header
+):
     tid = "T-BENCH-PRECEDENCE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -156,7 +158,9 @@ def test_task_propose_respects_ops_routing_to_opencode(client, app, admin_auth_h
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason":"ops","command":"kubectl rollout restart deploy/api"}', "", "opencode")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy to kubernetes"}, headers=admin_auth_header)
+        response = client.post(
+            f"/tasks/{tid}/step/propose", json={"prompt": "deploy to kubernetes"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -211,7 +215,9 @@ def test_task_propose_accepts_stderr_json_as_fallback_output(client, app, admin_
     stderr_json = '{"reason":"stderr fallback","command":"echo from-stderr"}'
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (1, "", stderr_json, "sgpt")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header)
+        response = client.post(
+            f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -257,13 +263,15 @@ def test_task_propose_extracts_embedded_json_after_traceback_output(client, app,
 
     traceback_json = (
         "Traceback (most recent call last):\n"
-        "  File \"/tmp/runner.py\", line 1, in <module>\n"
+        '  File "/tmp/runner.py", line 1, in <module>\n'
         "ValueError: transient parse issue\n"
         '{"reason":"embedded json","command":"echo rescued"}'
     )
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (1, "", traceback_json, "sgpt")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header)
+        response = client.post(
+            f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint"}, headers=admin_auth_header
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -286,7 +294,9 @@ def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, a
 
     calls = {"count": 0}
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
+    def _fake_run_llm_cli_command(
+        prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None
+    ):
         calls["count"] += 1
         if calls["count"] == 1:
             assert model == "primary-model-a"
@@ -338,7 +348,9 @@ def test_task_propose_repairs_invalid_output_after_opencode_failure(client, app,
 
     calls = []
 
-    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None):
+    def _fake_run_llm_cli_command(
+        prompt, options, timeout, backend, model, routing_policy, research_context=None, session=None
+    ):
         calls.append({"backend": backend, "model": model, "prompt": prompt})
         if len(calls) == 1:
             assert backend == "opencode"
@@ -410,7 +422,9 @@ def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, ap
 
     with patch("agent.routes.tasks.execution.tool_registry.get_tool_definitions", side_effect=_fake_tool_defs):
         with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
-            response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement it"}, headers=admin_auth_header)
+            response = client.post(
+                f"/tasks/{tid}/step/propose", json={"prompt": "implement it"}, headers=admin_auth_header
+            )
 
     assert response.status_code == 200
     prompt = captured["prompt"]
@@ -431,7 +445,9 @@ def test_task_propose_passes_temperature_to_cli_and_exposes_routing_field(client
 
     captured: dict = {}
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None, session=None):
+    def _fake_cli(
+        prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None, session=None
+    ):
         captured["temperature"] = temperature
         return 0, '{"reason":"ok","command":"echo temp"}', "", backend
 
@@ -463,7 +479,18 @@ def test_task_propose_uses_dedicated_proposal_timeout(client, app, admin_auth_he
 
     captured: dict = {}
 
-    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, temperature=None, research_context=None, session=None, workdir=None):
+    def _fake_cli(
+        prompt,
+        options,
+        timeout,
+        backend,
+        model,
+        routing_policy,
+        temperature=None,
+        research_context=None,
+        session=None,
+        workdir=None,
+    ):
         captured["timeout"] = timeout
         return 0, '{"reason":"ok","command":"echo timeout"}', "", backend
 
@@ -510,7 +537,11 @@ def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admi
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
         first = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy now"}, headers=admin_auth_header)
-        second = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart kubernetes pods and verify rollout"}, headers=admin_auth_header)
+        second = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "restart kubernetes pods and verify rollout"},
+            headers=admin_auth_header,
+        )
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -528,7 +559,7 @@ def test_task_propose_reuses_stateful_cli_session_when_enabled(client, app, admi
 
     with app.app_context():
         task = _get_local_task_status(tid)
-        cli_session_meta = ((task.get("verification_status") or {}).get("cli_session") or {})
+        cli_session_meta = (task.get("verification_status") or {}).get("cli_session") or {}
         assert cli_session_meta.get("session_id") in {None, first_routing.get("session_id")}
 
 
@@ -550,7 +581,18 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
 
     captured_sessions: list[dict | None] = []
 
-    def _fake_cli(prompt, options=None, timeout=None, backend=None, model=None, routing_policy=None, research_context=None, session=None, workdir=None, **kwargs):
+    def _fake_cli(
+        prompt,
+        options=None,
+        timeout=None,
+        backend=None,
+        model=None,
+        routing_policy=None,
+        research_context=None,
+        session=None,
+        workdir=None,
+        **kwargs,
+    ):
         captured_sessions.append(session)
         return 0, '{"reason":"turn-live","command":"echo live"}', "", "opencode"
 
@@ -566,7 +608,10 @@ def test_task_propose_creates_live_terminal_session_metadata_when_enabled(client
 
     with (
         patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli),
-        patch("agent.services.task_scoped_execution_service.get_live_terminal_session_service", return_value=terminal_service),
+        patch(
+            "agent.services.task_scoped_execution_service.get_live_terminal_session_service",
+            return_value=terminal_service,
+        ),
     ):
         response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart now"}, headers=admin_auth_header)
 
@@ -618,7 +663,18 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
 
     captured_sessions: list[dict | None] = []
 
-    def _fake_cli(prompt, options=None, timeout=None, backend=None, model=None, routing_policy=None, research_context=None, session=None, workdir=None, **kwargs):
+    def _fake_cli(
+        prompt,
+        options=None,
+        timeout=None,
+        backend=None,
+        model=None,
+        routing_policy=None,
+        research_context=None,
+        session=None,
+        workdir=None,
+        **kwargs,
+    ):
         captured_sessions.append(session)
         return 0, '{"reason":"turn-interactive","command":"echo interactive"}', "", "opencode"
 
@@ -636,7 +692,10 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
 
     with (
         patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli),
-        patch("agent.services.task_scoped_execution_service.get_live_terminal_session_service", return_value=terminal_service),
+        patch(
+            "agent.services.task_scoped_execution_service.get_live_terminal_session_service",
+            return_value=terminal_service,
+        ),
     ):
         response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart now"}, headers=admin_auth_header)
 
@@ -670,7 +729,9 @@ def test_task_propose_creates_interactive_terminal_session_metadata_when_enabled
             assert live_meta.get("terminal_session_id") == "cli-interactive-1"
 
 
-def test_task_propose_interactive_terminal_retries_timeout_with_compact_context_and_returns_error(client, app, admin_auth_header):
+def test_task_propose_interactive_terminal_retries_timeout_with_compact_context_and_returns_error(
+    client, app, admin_auth_header
+):
     tid = "T-INTERACTIVE-RETRY-TIMEOUT"
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -755,7 +816,7 @@ def test_task_propose_interactive_terminal_retries_timeout_with_compact_context_
         from agent.routes.tasks.utils import _get_local_task_status
 
         task = _get_local_task_status(tid)
-        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+        metrics = (task.get("verification_status") or {}).get("task_flow_metrics") or {}
         assert metrics.get("propose_ok") is False
         assert metrics.get("execute_ok") is None
         assert metrics.get("artifact_created") is None
@@ -807,7 +868,7 @@ def test_task_execute_interactive_finalize_persists_flow_metrics(client, app, ad
         from agent.routes.tasks.utils import _get_local_task_status
 
         task = _get_local_task_status(tid)
-        metrics = ((task.get("verification_status") or {}).get("task_flow_metrics") or {})
+        metrics = (task.get("verification_status") or {}).get("task_flow_metrics") or {}
         assert metrics.get("run_id") == "trace-interactive-metrics"
         assert metrics.get("propose_ok") is True
         assert metrics.get("execute_ok") is True

@@ -85,10 +85,7 @@ class CriteriaExtractorService:
                 }
                 for item in bounded
             ],
-            criterion_confidence={
-                code: float(response.get("confidence") or 0.0)
-                for code in reason_codes
-            },
+            criterion_confidence={code: float(response.get("confidence") or 0.0) for code in reason_codes},
             requires_review=float(response.get("confidence") or 0.0) < 0.7,
             created_by=actor,
         )

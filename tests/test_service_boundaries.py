@@ -20,6 +20,6 @@ def test_service_boundary_checker_allows_documented_exception(tmp_path):
     services = tmp_path / "agent" / "services"
     services.mkdir(parents=True)
     service_file = services / "task_orchestration_service.py"
-    service_file.write_text("from agent.routes.tasks.orchestration_policy import routing\n", encoding="utf-8")
+    service_file.write_text("from agent.services.orchestration_policy import routing\n", encoding="utf-8")
 
     assert boundaries.check_service_boundaries(root=services) == []

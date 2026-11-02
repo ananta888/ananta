@@ -92,20 +92,14 @@ class HttpDendriticMemoryWorkerPort:
             )
             response = connection.getresponse()
             if 300 <= response.status < 400:
-                raise DendriticMemoryWorkerTransportError(
-                    "dendritic_worker_redirect_forbidden", retryable=False
-                )
+                raise DendriticMemoryWorkerTransportError("dendritic_worker_redirect_forbidden", retryable=False)
             raw = response.read(self._max_response + 1)
             if len(raw) > self._max_response:
-                raise DendriticMemoryWorkerTransportError(
-                    "dendritic_worker_response_too_large", retryable=False
-                )
+                raise DendriticMemoryWorkerTransportError("dendritic_worker_response_too_large", retryable=False)
             try:
                 payload = json.loads(raw.decode(), parse_constant=_reject_non_finite)
             except (UnicodeDecodeError, ValueError) as exc:
-                raise DendriticMemoryWorkerTransportError(
-                    "dendritic_worker_response_invalid", retryable=False
-                ) from exc
+                raise DendriticMemoryWorkerTransportError("dendritic_worker_response_invalid", retryable=False) from exc
             if response.status != 200 or not isinstance(payload, Mapping):
                 raise DendriticMemoryWorkerTransportError(
                     "dendritic_worker_request_failed", retryable=response.status >= 500
@@ -116,14 +110,10 @@ class HttpDendriticMemoryWorkerPort:
                 or result.attempt_id != parsed_assignment.attempt_id
                 or result.fencing_token != parsed_assignment.fencing_token
             ):
-                raise DendriticMemoryWorkerTransportError(
-                    "dendritic_worker_result_binding_invalid", retryable=False
-                )
+                raise DendriticMemoryWorkerTransportError("dendritic_worker_result_binding_invalid", retryable=False)
             return result.to_dict()
         except (OSError, http.client.HTTPException) as exc:
-            raise DendriticMemoryWorkerTransportError(
-                "dendritic_worker_unavailable", retryable=True
-            ) from exc
+            raise DendriticMemoryWorkerTransportError("dendritic_worker_unavailable", retryable=True) from exc
         finally:
             connection.close()
 
@@ -149,9 +139,7 @@ def normalize_dendritic_worker_endpoint(value: str) -> str:
     else:
         raise ValueError("dendritic_worker_endpoint_invalid")
     host = f"[{hostname}]" if ":" in hostname else hostname
-    return urllib.parse.urlunsplit(
-        ("http", f"{host}:{parsed.port}", DENDRITIC_WORKER_BASE_PATH, "", "")
-    )
+    return urllib.parse.urlunsplit(("http", f"{host}:{parsed.port}", DENDRITIC_WORKER_BASE_PATH, "", ""))
 
 
 def _reject_non_finite(value: str) -> None:

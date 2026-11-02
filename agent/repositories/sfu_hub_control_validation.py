@@ -6,7 +6,6 @@ import hashlib
 import math
 import re
 
-
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 
@@ -26,11 +25,7 @@ def _safe_ref(value: object) -> bool:
 
 
 def _safe_reason(value: object) -> bool:
-    return (
-        isinstance(value, str)
-        and 0 < len(value) <= 128
-        and bool(re.fullmatch(r"[a-z0-9][a-z0-9_:-]*", value))
-    )
+    return isinstance(value, str) and 0 < len(value) <= 128 and bool(re.fullmatch(r"[a-z0-9][a-z0-9_:-]*", value))
 
 
 def _finite_time(value: object, reason_code: str) -> float:
@@ -46,9 +41,7 @@ def _finite_time(value: object, reason_code: str) -> float:
 
 def _positive_clock_ms(value: object) -> int:
     if type(value) is not int or value <= 0:
-        raise SfuHubControlRepositoryError(
-            "sfu_reconciliation_clock_invalid"
-        )
+        raise SfuHubControlRepositoryError("sfu_reconciliation_clock_invalid")
     return value
 
 

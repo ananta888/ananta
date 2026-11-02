@@ -103,34 +103,24 @@ def test_recovery_dependency_terminal_status_fails_blocked_child(
 
         TaskQueueService().reconcile_dependencies(
             tasks=repos.task_repo.get_all(),
-            dependency_resolver=lambda task: list(
-                getattr(task, "depends_on", None) or []
-            ),
+            dependency_resolver=lambda task: list(getattr(task, "depends_on", None) or []),
         )
 
         dependent = repos.task_repo.get_by_id(dependent_id)
         assert dependent.status == "failed"
-        marker = dependent.status_reason_details[
-            "recovery_dependency_reconciliation"
-        ]
+        marker = dependent.status_reason_details["recovery_dependency_reconciliation"]
         assert marker["task_id"] == dependent_id
         assert marker["source_task_id"] == source_id
-        assert marker["previous_status"] == (
-            "blocked_by_dependency"
-        )
+        assert marker["previous_status"] == ("blocked_by_dependency")
         assert marker["target_status"] == "failed"
-        assert marker["reason_code"] == (
-            "recovery_dependency_terminal"
-        )
+        assert marker["reason_code"] == ("recovery_dependency_terminal")
         assert marker["dependency_statuses"] == [
             {
                 "task_id": dependency_id,
                 "status": terminal_status,
             }
         ]
-        assert marker["failed_dependency_ids"] == [
-            dependency_id
-        ]
+        assert marker["failed_dependency_ids"] == [dependency_id]
 
 
 def test_ordinary_child_with_source_uses_generic_dependency_failure(
@@ -170,23 +160,17 @@ def test_ordinary_child_with_source_uses_generic_dependency_failure(
 
         transitions = TaskQueueService().reconcile_dependencies(
             tasks=repos.task_repo.get_all(),
-            dependency_resolver=lambda task: list(
-                getattr(task, "depends_on", None) or []
-            ),
+            dependency_resolver=lambda task: list(getattr(task, "depends_on", None) or []),
         )
 
         dependent = repos.task_repo.get_by_id(dependent_id)
         assert dependent.status == "failed"
         assert dependent.status_reason_code == "dependency_terminal"
-        assert (
-            "recovery_dependency_reconciliation"
-            not in dependent.status_reason_details
-        )
+        assert "recovery_dependency_reconciliation" not in dependent.status_reason_details
         assert any(
             transition["task_id"] == dependent_id
             and transition["event_type"] == "dependency_failed"
-            and transition["failed_dependency_ids"]
-            == [dependency_id]
+            and transition["failed_dependency_ids"] == [dependency_id]
             for transition in transitions
         )
 
@@ -217,22 +201,16 @@ def test_missing_recovery_dependency_fails_source_instead_of_deadlocking(app):
 
         transitions = TaskQueueService().reconcile_dependencies(
             tasks=repos.task_repo.get_all(),
-            dependency_resolver=lambda task: list(
-                getattr(task, "depends_on", None) or []
-            ),
+            dependency_resolver=lambda task: list(getattr(task, "depends_on", None) or []),
         )
 
         source = repos.task_repo.get_by_id(source_id)
         assert source.status == "verification_failed"
-        assert source.status_reason_code == (
-            "recovery_source_binding_incomplete"
-        )
+        assert source.status_reason_code == ("recovery_source_binding_incomplete")
         assert any(
             transition["task_id"] == source_id
-            and transition["event_type"]
-            == "recovery_source_finalized"
-            and transition["reason"]
-            == "recovery_source_binding_incomplete"
+            and transition["event_type"] == "recovery_source_finalized"
+            and transition["reason"] == "recovery_source_binding_incomplete"
             for transition in transitions
         )
 
@@ -274,30 +252,25 @@ def test_recovery_source_without_valid_dependencies_fails_closed(
 
         transitions = TaskQueueService().reconcile_dependencies(
             tasks=repos.task_repo.get_all(),
-            dependency_resolver=lambda task: list(
-                getattr(task, "depends_on", None) or []
-            ),
+            dependency_resolver=lambda task: list(getattr(task, "depends_on", None) or []),
         )
 
         source = repos.task_repo.get_by_id(source_id)
         assert source.status == "verification_failed"
-        assert source.status_reason_code == (
-            "recovery_source_binding_incomplete"
-        )
+        assert source.status_reason_code == ("recovery_source_binding_incomplete")
         assert any(
             transition["task_id"] == source_id
-            and transition["event_type"]
-            == "recovery_source_finalized"
+            and transition["event_type"] == "recovery_source_finalized"
             and transition["depends_on"] == []
-            and transition["reason"]
-            == "recovery_source_binding_incomplete"
+            and transition["reason"] == "recovery_source_binding_incomplete"
             for transition in transitions
         )
 
 
 # APR-003: no-candidate reason classification
 def test_classify_no_candidate_reason_no_tasks():
-    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    from agent.services.autopilot.dispatch_policy import classify_no_candidate_reason
+
     reason = classify_no_candidate_reason(all_tasks=[], workers_available_count=2)
     assert reason == "no_tasks"
 
@@ -305,7 +278,7 @@ def test_classify_no_candidate_reason_no_tasks():
 def test_classify_no_candidate_reason_all_terminal():
     from unittest.mock import MagicMock
 
-    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    from agent.services.autopilot.dispatch_policy import classify_no_candidate_reason
 
     tasks = [MagicMock(status="completed"), MagicMock(status="failed")]
     reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=2)
@@ -315,7 +288,7 @@ def test_classify_no_candidate_reason_all_terminal():
 def test_classify_no_candidate_reason_all_blocked_by_dependency():
     from unittest.mock import MagicMock
 
-    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    from agent.services.autopilot.dispatch_policy import classify_no_candidate_reason
 
     tasks = [MagicMock(status="blocked_by_dependency"), MagicMock(status="completed")]
     reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=2)
@@ -325,7 +298,7 @@ def test_classify_no_candidate_reason_all_blocked_by_dependency():
 def test_classify_no_candidate_reason_no_workers():
     from unittest.mock import MagicMock
 
-    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    from agent.services.autopilot.dispatch_policy import classify_no_candidate_reason
 
     tasks = [MagicMock(status="todo")]
     reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=0)
@@ -335,7 +308,7 @@ def test_classify_no_candidate_reason_no_workers():
 def test_classify_no_candidate_reason_policy_or_state_blocked():
     from unittest.mock import MagicMock
 
-    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    from agent.services.autopilot.dispatch_policy import classify_no_candidate_reason
 
     tasks = [MagicMock(status="todo"), MagicMock(status="waiting_for_review")]
     reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=3)
@@ -376,8 +349,7 @@ def test_parallel_claims_have_exactly_one_winner(
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        "agent.services.execution_audit_service."
-        "get_execution_audit_service",
+        "agent.services.execution_audit_service.get_execution_audit_service",
         lambda: SimpleNamespace(
             emit_workflow_transition=lambda **_kwargs: None,
             emit_write_operation=lambda **_kwargs: None,
@@ -444,9 +416,7 @@ def test_claim_denies_task_whose_parent_goal_is_archived(app):
             )
             is False
         )
-        assert repos.task_repo.get_by_id(
-            "archived-goal-task"
-        ).status == "todo"
+        assert repos.task_repo.get_by_id("archived-goal-task").status == "todo"
 
 
 def test_terminal_goal_racing_materialization_leaves_no_runnable_task(
@@ -533,9 +503,7 @@ def test_terminal_goal_racing_materialization_leaves_no_runnable_task(
 
     def archive() -> None:
         barrier.wait(timeout=5)
-        goal = get_repository_registry().goal_repo.get_by_id(
-            "planner-terminal-race"
-        )
+        goal = get_repository_registry().goal_repo.get_by_id("planner-terminal-race")
         get_goal_lifecycle_service().transition_goal(
             goal,
             target_status="archived",
@@ -551,12 +519,8 @@ def test_terminal_goal_racing_materialization_leaves_no_runnable_task(
 
     with app.app_context():
         repos = get_repository_registry()
-        assert repos.goal_repo.get_by_id(
-            "planner-terminal-race"
-        ).status == "archived"
-        task = repos.task_repo.get_by_id(
-            "planner-terminal-race-task"
-        )
+        assert repos.goal_repo.get_by_id("planner-terminal-race").status == "archived"
+        task = repos.task_repo.get_by_id("planner-terminal-race-task")
         if task is not None:
             assert task.status in {
                 "cancelled",

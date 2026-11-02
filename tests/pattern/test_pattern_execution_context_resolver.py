@@ -15,14 +15,11 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from agent.services.pattern_execution_context_resolver import (
     PatternExecutionContextResolver,
     get_pattern_execution_context_resolver,
 )
 from agent.services.pattern_template_renderer import TemplateFile
-
 
 SIMPLE_TEMPLATES = [
     TemplateFile(

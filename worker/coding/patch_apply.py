@@ -47,7 +47,9 @@ def _requires_guarded_root_approval(*, patch_artifact: dict[str, Any], guarded_r
     guarded = [str(item).strip().strip("/") for item in list(guarded_roots or []) if str(item).strip()]
     if not guarded:
         return False
-    changed_files = [str(path).strip().lstrip("/") for path in list(patch_artifact.get("changed_files") or []) if str(path).strip()]
+    changed_files = [
+        str(path).strip().lstrip("/") for path in list(patch_artifact.get("changed_files") or []) if str(path).strip()
+    ]
     for changed in changed_files:
         for root in guarded:
             if changed == root or changed.startswith(f"{root}/"):

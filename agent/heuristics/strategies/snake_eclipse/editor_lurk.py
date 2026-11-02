@@ -1,4 +1,5 @@
 """EclipseEditorLurkStrategy — snake_eclipse_editor_lurk_default."""
+
 from __future__ import annotations
 
 from agent.heuristics.strategies.base import HeuristicStrategyBase, UiMotionPort

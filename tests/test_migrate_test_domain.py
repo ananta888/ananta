@@ -26,7 +26,7 @@ def test_module_names_and_paths_are_rewritten_exactly() -> None:
     moves = {"test_meet_media.py": "meet", "meet_fixture.py": "meet", "meet_bridge.mjs": "meet"}
     source = (
         "from tests.test_meet_media import turn\n"
-        "import tests.meet_fixture as fixture\n"
+        "import tests.meet.meet_fixture as fixture\n"
         "monkeypatch.setattr('tests.test_meet_media.clock', clock)\n"
         "run('tests/test_meet_media.py::test_x')\n"
         "bridge = 'tests/meet_bridge.mjs'\n"
@@ -69,5 +69,7 @@ def test_relative_js_imports_are_deepened() -> None:
 def test_hashed_sources_are_the_named_repository_files_outside_tests_and_the_pinning_dirs() -> None:
     from scripts.migrate_test_domain import ROOT, hashed_sources
 
-    text = '"docs/testing.md", tests/test_x.py, scripts/migrate_test_domain.py, docs/does-not-exist.md, xdocs/testing.md'
+    text = (
+        '"docs/testing.md", tests/test_x.py, scripts/migrate_test_domain.py, docs/does-not-exist.md, xdocs/testing.md'
+    )
     assert hashed_sources(text) == {ROOT / "docs/testing.md"}

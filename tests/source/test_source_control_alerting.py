@@ -46,29 +46,41 @@ def test_health_metric_publisher_clears_firing_series_on_recovery() -> None:
 
     monitor.set_operational_alarm("storage_pressure")
     publisher.publish(monitor.snapshot())
-    assert metrics.value(
-        "source_control_alert_state",
-        reason_code="storage_pressure",
-        status="firing",
-    ) == 1.0
-    assert metrics.value(
-        "source_control_alert_state",
-        reason_code="storage_pressure",
-        status="resolved",
-    ) == 0.0
+    assert (
+        metrics.value(
+            "source_control_alert_state",
+            reason_code="storage_pressure",
+            status="firing",
+        )
+        == 1.0
+    )
+    assert (
+        metrics.value(
+            "source_control_alert_state",
+            reason_code="storage_pressure",
+            status="resolved",
+        )
+        == 0.0
+    )
 
     monitor.set_operational_alarm("storage_pressure", active=False)
     publisher.publish(monitor.snapshot())
-    assert metrics.value(
-        "source_control_alert_state",
-        reason_code="storage_pressure",
-        status="firing",
-    ) == 0.0
-    assert metrics.value(
-        "source_control_alert_state",
-        reason_code="storage_pressure",
-        status="resolved",
-    ) == 1.0
+    assert (
+        metrics.value(
+            "source_control_alert_state",
+            reason_code="storage_pressure",
+            status="firing",
+        )
+        == 0.0
+    )
+    assert (
+        metrics.value(
+            "source_control_alert_state",
+            reason_code="storage_pressure",
+            status="resolved",
+        )
+        == 1.0
+    )
     assert metrics.value("source_control_health", status="healthy") == 1.0
 
 
@@ -84,13 +96,9 @@ def test_source_control_alert_rules_are_bounded_and_operational() -> None:
         assert rule["for"]
         assert rule["labels"]["severity"] in {"warning", "critical"}
         assert rule["labels"]["owner"]
-        assert rule["labels"]["runbook_id"].startswith(
-            "SRCCTRL-R6-001/"
-        )
+        assert rule["labels"]["runbook_id"].startswith("SRCCTRL-R6-001/")
         assert rule["annotations"]["clear_condition"]
-        metrics = set(
-            re.findall(r"source_control_[a-z_]+", rule["expr"])
-        )
+        metrics = set(re.findall(r"source_control_[a-z_]+", rule["expr"]))
         assert metrics and metrics <= ALLOWED_METRICS
         serialized = json.dumps(rule).lower()
         assert not any(
@@ -107,32 +115,13 @@ def test_source_control_alert_rules_are_bounded_and_operational() -> None:
 
 
 def test_prometheus_and_alertmanager_defaults_are_fail_closed() -> None:
-    prometheus = yaml.safe_load(
-        (ROOT / "docker/prometheus/prometheus.yml").read_text(
-            encoding="utf-8"
-        )
-    )
-    alertmanager = yaml.safe_load(
-        (ROOT / "docker/alertmanager/alertmanager.yml").read_text(
-            encoding="utf-8"
-        )
-    )
+    prometheus = yaml.safe_load((ROOT / "docker/prometheus/prometheus.yml").read_text(encoding="utf-8"))
+    alertmanager = yaml.safe_load((ROOT / "docker/alertmanager/alertmanager.yml").read_text(encoding="utf-8"))
 
-    assert prometheus["rule_files"] == [
-        "/etc/prometheus/rules/source-control-alerts.yml"
-    ]
-    assert (
-        prometheus["alerting"]["alertmanagers"][0]["static_configs"][0][
-            "targets"
-        ]
-        == ["alertmanager:9093"]
-    )
-    assert alertmanager["route"]["receiver"] == (
-        "operator-configuration-required"
-    )
-    assert alertmanager["receivers"] == [
-        {"name": "operator-configuration-required"}
-    ]
+    assert prometheus["rule_files"] == ["/etc/prometheus/rules/source-control-alerts.yml"]
+    assert prometheus["alerting"]["alertmanagers"][0]["static_configs"][0]["targets"] == ["alertmanager:9093"]
+    assert alertmanager["route"]["receiver"] == ("operator-configuration-required")
+    assert alertmanager["receivers"] == [{"name": "operator-configuration-required"}]
 
 
 def test_loopback_alert_drill_delivers_firing_and_resolved(
@@ -155,9 +144,7 @@ def test_loopback_alert_drill_delivers_firing_and_resolved(
     assert payload["drill_scope"] == "loopback_only"
     assert payload["pipeline"]["production_alertmanager_exercised"] is False
     assert payload["pipeline"]["production_channels_contacted"] is False
-    assert [
-        event["status"] for event in payload["delivery_sequence"]
-    ] == ["firing", "resolved"]
+    assert [event["status"] for event in payload["delivery_sequence"]] == ["firing", "resolved"]
     assert payload["recovery"] == {
         "firing_metric": 0.0,
         "health_status": "healthy",

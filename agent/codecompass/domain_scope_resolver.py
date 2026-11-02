@@ -12,6 +12,7 @@ Descriptors win over detected root_paths but the conflict is surfaced as
 a warning (CCRDS-005). Unknown domains fail closed in strict mode and
 produce a warning + empty scope otherwise — never invented paths.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,12 +22,12 @@ from typing import Any
 
 from agent.codecompass.domain_scope import (
     HINT_KIND_DOMAIN,
-    DomainScope,
-    DomainScopeViolation,
-    ResolvedDomainScope,
     VIOLATION_ARTIFACT_ERROR,
     VIOLATION_EMPTY_SCOPE,
     VIOLATION_UNKNOWN_DOMAIN,
+    DomainScope,
+    DomainScopeViolation,
+    ResolvedDomainScope,
     normalize_repo_relative_path,
     parse_domain_hint,
 )
@@ -205,12 +206,8 @@ class DomainScopeResolver:
             max_external_reference_chunks=max(0, int(scope.max_external_reference_chunks or 0)),
         )
         domains, artifact_errors = self.load_detected_domains()
-        detected_by_id = {
-            str(entry.get("domain_id") or "").strip().lower(): entry for entry in domains
-        }
-        detected_by_display = {
-            str(entry.get("display_name") or "").strip().lower(): entry for entry in domains
-        }
+        detected_by_id = {str(entry.get("domain_id") or "").strip().lower(): entry for entry in domains}
+        detected_by_display = {str(entry.get("display_name") or "").strip().lower(): entry for entry in domains}
 
         hard_artifact_errors = [e for e in artifact_errors if not e.startswith("domain_artifact_empty")]
         for error in artifact_errors:

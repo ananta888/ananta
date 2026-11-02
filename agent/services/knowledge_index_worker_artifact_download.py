@@ -43,9 +43,7 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
     supports_assignment_bound_legacy_transport = True
 
     def __init__(self, *, opener: Any | None = None) -> None:
-        self._opener = opener or urllib.request.build_opener(
-            KnowledgeIndexWorkerNoRedirectHandler()
-        )
+        self._opener = opener or urllib.request.build_opener(KnowledgeIndexWorkerNoRedirectHandler())
 
     def download(
         self,
@@ -83,9 +81,7 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                 chunks.append(chunk)
                 received += len(chunk)
                 if received > expected_size:
-                    raise ValueError(
-                        "knowledge_index_worker_artifact_size_mismatch"
-                    )
+                    raise ValueError("knowledge_index_worker_artifact_size_mismatch")
         content = b"".join(chunks)
         if len(content) != expected_size:
             raise ValueError("knowledge_index_worker_artifact_size_mismatch")
@@ -174,9 +170,7 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         except urllib.error.HTTPError as exc:
             if 300 <= int(exc.code or 0) < 400:
                 exc.close()
-                raise ValueError(
-                    "knowledge_index_worker_artifact_redirect_forbidden"
-                ) from exc
+                raise ValueError("knowledge_index_worker_artifact_redirect_forbidden") from exc
             raise
         status = getattr(response, "status", None)
         if status is None:
@@ -186,9 +180,7 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
             close = getattr(response, "close", None)
             if callable(close):
                 close()
-            raise ValueError(
-                "knowledge_index_worker_artifact_redirect_forbidden"
-            )
+            raise ValueError("knowledge_index_worker_artifact_redirect_forbidden")
         if transfer_deadline is not None:
             transfer_deadline.require_remaining_seconds()
         return response
@@ -208,9 +200,7 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                 response,
                 min(60.0, remaining),
             ):
-                raise ValueError(
-                    "knowledge_index_worker_artifact_deadline_transport_unsupported"
-                )
+                raise ValueError("knowledge_index_worker_artifact_deadline_transport_unsupported")
         reader = getattr(response, "read1", None)
         if not callable(reader):
             reader = response.read
@@ -272,54 +262,31 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         expected_hash = str(reference.get("sha256") or "").lower()
         if not artifact_id or raw_size < 0 or raw_size > MAX_ARTIFACT_BYTES:
             raise ValueError("knowledge_index_worker_artifact_ref_invalid")
-        if len(expected_hash) != 64 or any(
-            char not in "0123456789abcdef" for char in expected_hash
-        ):
+        if len(expected_hash) != 64 or any(char not in "0123456789abcdef" for char in expected_hash):
             raise ValueError("knowledge_index_worker_artifact_digest_invalid")
-        base_url = urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-        )
+        base_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
         encoded_id = urllib.parse.quote(artifact_id, safe="")
         normalized_token = str(worker_token or "").strip()
         normalized_job_id = str(job_id or "").strip()
         internal_transport_requested = job_id is not None
         if internal_transport_requested:
-            if (
-                not JOB_ID_PATTERN.fullmatch(normalized_job_id)
-            ):
-                raise ValueError(
-                    "knowledge_index_worker_artifact_transport_unavailable"
-                )
-            path = (
-                "/internal/knowledge-index/output-artifacts/"
-                f"{encoded_id}"
-            )
+            if not JOB_ID_PATTERN.fullmatch(normalized_job_id):
+                raise ValueError("knowledge_index_worker_artifact_transport_unavailable")
+            path = f"/internal/knowledge-index/output-artifacts/{encoded_id}"
             headers = {
                 KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER: normalized_job_id,
-                KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER: str(
-                    reference.get("knowledge_index_id") or ""
-                ),
-                KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER: str(
-                    reference.get("run_id") or ""
-                ),
-                KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER: str(
-                    reference.get("role") or ""
-                ),
+                KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER: str(reference.get("knowledge_index_id") or ""),
+                KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER: str(reference.get("run_id") or ""),
+                KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER: str(reference.get("role") or ""),
                 KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER: expected_hash,
                 KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER: str(raw_size),
-                KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER: str(
-                    reference.get("media_type") or ""
-                ),
+                KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER: str(reference.get("media_type") or ""),
             }
             if source_access_manifest is not None:
                 if not isinstance(source_access_manifest, Mapping):
-                    raise ValueError(
-                        "knowledge_index_worker_artifact_transport_unavailable"
-                    )
-                headers[KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER] = (
-                    encode_knowledge_index_output_capability(
-                        source_access_manifest
-                    )
+                    raise ValueError("knowledge_index_worker_artifact_transport_unavailable")
+                headers[KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER] = encode_knowledge_index_output_capability(
+                    source_access_manifest
                 )
             elif normalized_token:
                 legacy_binding = {
@@ -332,22 +299,16 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                     "size_bytes": raw_size,
                     "media_type": str(reference.get("media_type") or ""),
                 }
-                headers[KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER] = (
-                    encode_legacy_output_capability(
-                        legacy_binding, secret=normalized_token
-                    )
+                headers[KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER] = encode_legacy_output_capability(
+                    legacy_binding, secret=normalized_token
                 )
             if normalized_token:
-                headers["Authorization"] = (
-                    f"Bearer {normalized_token}"
-                )
+                headers["Authorization"] = f"Bearer {normalized_token}"
         elif normalized_token:
             path = f"/artifacts/{encoded_id}/content"
             headers = {"Authorization": f"Bearer {normalized_token}"}
         else:
-            raise ValueError(
-                "knowledge_index_worker_artifact_transport_unavailable"
-            )
+            raise ValueError("knowledge_index_worker_artifact_transport_unavailable")
         return (
             urllib.request.Request(
                 f"{base_url}{path}",

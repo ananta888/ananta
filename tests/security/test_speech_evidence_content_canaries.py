@@ -101,9 +101,7 @@ def test_plaintext_dek_nonce_and_wrapped_key_canaries_never_reach_read_surfaces(
         key_row = session.get(SpeechEvidenceKeyDB, envelope.key_id)
     assert key_row is not None and key_row.wrapped_dek and key_row.wrapping_nonce
 
-    admission = SpeechEvidenceAdmissionPolicy(
-        authority=AllowAuthority(), consent=consent_service
-    ).admit(
+    admission = SpeechEvidenceAdmissionPolicy(authority=AllowAuthority(), consent=consent_service).admit(
         principal(prefix),
         record.evidence_id,
         peer_id=consent.speaker_id,

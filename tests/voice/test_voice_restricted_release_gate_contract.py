@@ -171,9 +171,7 @@ def test_hardware_profiles_are_versioned_bounded_and_require_real_evidence() -> 
             "fusion_strategies",
             "no_network",
             "provenance",
-        }.issubset(
-            profile["evidence_required"]
-        )
+        }.issubset(profile["evidence_required"])
         resource_environment = profile["resource_environment"]
         assert "ANANTA_RESTRICTED_INFERENCE_MAX_RAM_BYTES" in resource_environment
         assert "ANANTA_RESTRICTED_INFERENCE_MAX_VRAM_BYTES" in resource_environment

@@ -96,14 +96,10 @@ class WorkerProviderHttpTransport:
             method="POST",
         )
         try:
-            opener = urllib.request.build_opener(
-                _DenyRedirectHandler()
-            )
+            opener = urllib.request.build_opener(_DenyRedirectHandler())
             with opener.open(request, timeout=timeout_seconds) as response:
                 if str(response.geturl() or "") != url:
-                    raise ProviderInvocationBlocked(
-                        "worker_provider_redirect_denied"
-                    )
+                    raise ProviderInvocationBlocked("worker_provider_redirect_denied")
                 raw = response.read(_MAX_RESPONSE_BYTES + 1)
         except (TimeoutError, socket.timeout) as exc:
             raise ProviderInvocationBlocked("worker_provider_timeout") from exc
@@ -199,9 +195,7 @@ class HubBudgetedWorkerTextGeneration:
             max_completion_tokens_per_call=completion_limit,
         )
         if not context.provider_call_id:
-            context = context.for_provider_call(
-                f"provider-call:{uuid.uuid4().hex}"
-            )
+            context = context.for_provider_call(f"provider-call:{uuid.uuid4().hex}")
         timeout_seconds = max(1.0, min(float(values.get("timeout") or 60), 120.0))
         request_url, headers, payload = self._request(
             provider=provider,
@@ -217,9 +211,7 @@ class HubBudgetedWorkerTextGeneration:
             reservation_id=reservation_id,
         )
         if not decision.allowed:
-            raise ProviderInvocationBlocked(
-                decision.reason_code or "worker_provider_hub_budget_denied"
-            )
+            raise ProviderInvocationBlocked(decision.reason_code or "worker_provider_hub_budget_denied")
         response = self._transport.post_json(
             url=request_url,
             headers=headers,
@@ -253,19 +245,13 @@ class HubBudgetedWorkerTextGeneration:
                 endpoint_url=endpoint,
             )
         except ValueError as exc:
-            raise ProviderInvocationBlocked(
-                "provider_endpoint_identity_invalid"
-            ) from exc
+            raise ProviderInvocationBlocked("provider_endpoint_identity_invalid") from exc
         if is_forbidden_provider_endpoint_target(actual_identity):
-            raise ProviderInvocationBlocked(
-                "provider_endpoint_target_denied"
-            )
+            raise ProviderInvocationBlocked("provider_endpoint_target_denied")
         expected_identity = context.provider_endpoint_identity
         endpoint_bound = bool(expected_identity)
         if endpoint_bound and actual_identity != expected_identity:
-            raise ProviderInvocationBlocked(
-                "provider_endpoint_binding_mismatch"
-            )
+            raise ProviderInvocationBlocked("provider_endpoint_binding_mismatch")
         if (
             context.require_hub_provider_budget
             and not endpoint_bound
@@ -274,16 +260,11 @@ class HubBudgetedWorkerTextGeneration:
                 endpoint_url=actual_identity,
             )
         ):
-            raise ProviderInvocationBlocked(
-                "provider_endpoint_binding_required"
-            )
-        if (
-            not context.external_egress_allowed
-            and not is_local_provider_endpoint(
-                endpoint_url=actual_identity,
-                provider_id=provider,
-                endpoint_bound=endpoint_bound,
-            )
+            raise ProviderInvocationBlocked("provider_endpoint_binding_required")
+        if not context.external_egress_allowed and not is_local_provider_endpoint(
+            endpoint_url=actual_identity,
+            provider_id=provider,
+            endpoint_bound=endpoint_bound,
         ):
             raise ProviderInvocationBlocked("provider_egress_denied")
         try:
@@ -293,9 +274,7 @@ class HubBudgetedWorkerTextGeneration:
                 endpoint_bound=endpoint_bound,
             )
         except ValueError as exc:
-            raise ProviderInvocationBlocked(
-                str(exc) or "provider_endpoint_resolution_denied"
-            ) from exc
+            raise ProviderInvocationBlocked(str(exc) or "provider_endpoint_resolution_denied") from exc
 
     def _endpoint(self, provider: str) -> str:
         alias = "openai" if provider == "codex" else provider
@@ -311,9 +290,7 @@ class HubBudgetedWorkerTextGeneration:
             or parsed.fragment
         ):
             raise ProviderInvocationBlocked("worker_provider_endpoint_not_configured")
-        return urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-        )
+        return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
     def _request(
         self,
@@ -331,9 +308,7 @@ class HubBudgetedWorkerTextGeneration:
                 endpoint_url=endpoint,
             )
         except ValueError as exc:
-            raise ProviderInvocationBlocked(
-                "worker_provider_endpoint_not_configured"
-            ) from exc
+            raise ProviderInvocationBlocked("worker_provider_endpoint_not_configured") from exc
         if provider == "ollama" and url.endswith("/api/generate"):
             payload: dict[str, Any] = {"model": model, "prompt": prompt, "stream": False}
             if max_output_tokens > 0:
@@ -349,11 +324,15 @@ class HubBudgetedWorkerTextGeneration:
                     "anthropic-version": "2023-06-01",
                 }
             )
-            return url, headers, {
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_output_tokens or 1024,
-            }
+            return (
+                url,
+                headers,
+                {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_output_tokens or 1024,
+                },
+            )
         api_key = self._api_key(provider)
         if provider not in _LOCAL_PROVIDER_IDS and not api_key:
             raise ProviderInvocationBlocked("worker_provider_credential_missing")
@@ -379,9 +358,7 @@ class HubBudgetedWorkerTextGeneration:
         return str(self._environment.get(name, "") if name else "").strip()
 
     @staticmethod
-    def _response(
-        provider: str, response: Mapping[str, Any]
-    ) -> tuple[str, dict[str, Any]]:
+    def _response(provider: str, response: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
         usage = dict(response.get("usage") or {})
         if provider == "ollama" and "response" in response:
             text = str(response.get("response") or "")
@@ -392,11 +369,7 @@ class HubBudgetedWorkerTextGeneration:
             usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
         elif provider == "anthropic":
             blocks = response.get("content") or ()
-            text = "".join(
-                str(item.get("text") or "")
-                for item in blocks
-                if isinstance(item, Mapping)
-            )
+            text = "".join(str(item.get("text") or "") for item in blocks if isinstance(item, Mapping))
             usage = {
                 "prompt_tokens": int(usage.get("input_tokens") or 0),
                 "completion_tokens": int(usage.get("output_tokens") or 0),
@@ -459,30 +432,18 @@ class HubProfileRoutedWorkerTextGeneration:
             return self._direct.generate_text(**values)
         if not isinstance(raw_contexts, Mapping) or len(raw_contexts) > 8:
             raise ProviderInvocationBlocked("provider_profile_contexts_invalid")
-        primary = ProviderInvocationContext.from_value(
-            values.get("provider_context")
-        )
+        primary = ProviderInvocationContext.from_value(values.get("provider_context"))
         primary.assert_valid()
         provider = str(values.get("provider") or "").strip().lower()
         model = str(values.get("model") or "").strip()
-        if (
-            provider != primary.selected_provider_id.lower()
-            or model != primary.selected_model_id
-        ):
+        if provider != primary.selected_provider_id.lower() or model != primary.selected_model_id:
             raise ProviderInvocationBlocked("provider_selection_binding_mismatch")
         contexts: dict[str, dict[str, Any]] = {}
         parsed_contexts: dict[str, ProviderInvocationContext] = {}
         for raw_profile_id, raw_context in raw_contexts.items():
             profile_id = str(raw_profile_id or "").strip()
-            if (
-                not profile_id
-                or len(profile_id) > 256
-                or "\x00" in profile_id
-                or not isinstance(raw_context, Mapping)
-            ):
-                raise ProviderInvocationBlocked(
-                    "provider_profile_contexts_invalid"
-                )
+            if not profile_id or len(profile_id) > 256 or "\x00" in profile_id or not isinstance(raw_context, Mapping):
+                raise ProviderInvocationBlocked("provider_profile_contexts_invalid")
             candidate = ProviderInvocationContext.from_value(dict(raw_context))
             candidate.assert_valid()
             contexts[profile_id] = dict(raw_context)
@@ -492,24 +453,15 @@ class HubProfileRoutedWorkerTextGeneration:
         )
 
         try:
-            envelope = RuntimeAuthorizationEnvelope.from_mapping(
-                primary.authorization_envelope
-            )
+            envelope = RuntimeAuthorizationEnvelope.from_mapping(primary.authorization_envelope)
         except Exception as exc:
-            raise ProviderInvocationBlocked(
-                "provider_authorization_invalid"
-            ) from exc
+            raise ProviderInvocationBlocked("provider_authorization_invalid") from exc
         signed_plan = envelope.provider_attempt_plan
         if signed_plan:
-            if (
-                set(parsed_contexts)
-                != {item.profile_id for item in signed_plan}
-                or primary.max_attempts
-                != sum(item.maximum_attempts for item in signed_plan)
+            if set(parsed_contexts) != {item.profile_id for item in signed_plan} or primary.max_attempts != sum(
+                item.maximum_attempts for item in signed_plan
             ):
-                raise ProviderInvocationBlocked(
-                    "provider_attempt_plan_context_mismatch"
-                )
+                raise ProviderInvocationBlocked("provider_attempt_plan_context_mismatch")
             for item in signed_plan:
                 candidate = parsed_contexts[item.profile_id]
                 if (
@@ -518,18 +470,12 @@ class HubProfileRoutedWorkerTextGeneration:
                     or candidate.selected_provider_id != item.provider_id
                     or candidate.selected_model_id != item.model_id
                 ):
-                    raise ProviderInvocationBlocked(
-                        "provider_attempt_plan_binding_mismatch"
-                    )
+                    raise ProviderInvocationBlocked("provider_attempt_plan_binding_mismatch")
             if parsed_contexts[signed_plan[0].profile_id] != primary:
-                raise ProviderInvocationBlocked(
-                    "provider_attempt_plan_primary_mismatch"
-                )
+                raise ProviderInvocationBlocked("provider_attempt_plan_primary_mismatch")
         routing = self._model_routing
         if routing is None:
-            raise ProviderInvocationBlocked(
-                "worker_model_routing_unavailable"
-            )
+            raise ProviderInvocationBlocked("worker_model_routing_unavailable")
         routing_context = None
         raw_model_routing = values.get("model_routing")
         if raw_model_routing is not None:
@@ -539,17 +485,13 @@ class HubProfileRoutedWorkerTextGeneration:
                     build_model_routing_context,
                 )
 
-                compiled = ModelRoutingConfig.assert_runtime_mapping(
-                    raw_model_routing
-                )
+                compiled = ModelRoutingConfig.assert_runtime_mapping(raw_model_routing)
                 routing_context = build_model_routing_context(
                     {"model_routing": compiled.as_metadata()},
                     context_text=str(values.get("prompt") or ""),
                 )
             except Exception as exc:
-                raise ProviderInvocationBlocked(
-                    "model_routing_invalid"
-                ) from exc
+                raise ProviderInvocationBlocked("model_routing_invalid") from exc
         result = routing.invoke_result(
             prompt=str(values.get("prompt") or ""),
             model=None,
@@ -557,25 +499,14 @@ class HubProfileRoutedWorkerTextGeneration:
             routing_ctx=routing_context,
             provider_context=values.get("provider_context"),
             provider_contexts_by_profile_id=contexts,
-            provider_attempt_plan=[
-                item.to_dict()
-                for item in signed_plan
-            ],
+            provider_attempt_plan=[item.to_dict() for item in signed_plan],
         )
         return {
             "text": str(result.get("content") or ""),
-            "usage": (
-                dict(result.get("usage") or {})
-                if isinstance(result.get("usage"), Mapping)
-                else {}
-            ),
+            "usage": (dict(result.get("usage") or {}) if isinstance(result.get("usage"), Mapping) else {}),
             "provider": str(result.get("provider") or ""),
             "model": str(result.get("model") or ""),
-            "metadata": (
-                dict(result.get("metadata") or {})
-                if isinstance(result.get("metadata"), Mapping)
-                else {}
-            ),
+            "metadata": (dict(result.get("metadata") or {}) if isinstance(result.get("metadata"), Mapping) else {}),
         }
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 _DEFAULT_FALLBACK_POLICY = {
     "enabled": True,
     "allow_static_providers": True,
@@ -73,13 +72,19 @@ class RoutingDecisionService:
 
     def normalize_fallback_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw if isinstance(raw, dict) else {}
-        unavailable_action = str(raw.get("unavailable_action") or _DEFAULT_FALLBACK_POLICY["unavailable_action"]).strip().lower()
+        unavailable_action = (
+            str(raw.get("unavailable_action") or _DEFAULT_FALLBACK_POLICY["unavailable_action"]).strip().lower()
+        )
         if unavailable_action not in {"mark_unavailable", "skip", "block"}:
             unavailable_action = _DEFAULT_FALLBACK_POLICY["unavailable_action"]
         return {
             "enabled": bool(raw.get("enabled", _DEFAULT_FALLBACK_POLICY["enabled"])),
-            "allow_static_providers": bool(raw.get("allow_static_providers", _DEFAULT_FALLBACK_POLICY["allow_static_providers"])),
-            "allow_local_backends": bool(raw.get("allow_local_backends", _DEFAULT_FALLBACK_POLICY["allow_local_backends"])),
+            "allow_static_providers": bool(
+                raw.get("allow_static_providers", _DEFAULT_FALLBACK_POLICY["allow_static_providers"])
+            ),
+            "allow_local_backends": bool(
+                raw.get("allow_local_backends", _DEFAULT_FALLBACK_POLICY["allow_local_backends"])
+            ),
             "allow_remote_hubs": bool(raw.get("allow_remote_hubs", _DEFAULT_FALLBACK_POLICY["allow_remote_hubs"])),
             "allow_stateful_cli": bool(raw.get("allow_stateful_cli", _DEFAULT_FALLBACK_POLICY["allow_stateful_cli"])),
             "allow_stateless_generation": bool(
@@ -106,7 +111,7 @@ class RoutingDecisionService:
         recommendation: dict[str, Any] | None = None,
         runtime_selection: dict[str, Any] | None = None,
         execution_backend: dict[str, Any] | None = None,
-        context_budget: Any = None,   # ContextBudgetDecision | None — T07
+        context_budget: Any = None,  # ContextBudgetDecision | None — T07
     ) -> dict[str, Any]:
         fallback_policy = self.resolve_fallback_policy(cfg)
         requested = requested if isinstance(requested, dict) else {}
@@ -275,7 +280,11 @@ class RoutingDecisionService:
                 "reason": "worker_runtime_targets_do_not_reference_profile",
                 "target_match": None,
             }
-        if model_role not in {"", "any"} and model_role not in capabilities and f"model_role:{model_role}" not in capabilities:
+        if (
+            model_role not in {"", "any"}
+            and model_role not in capabilities
+            and f"model_role:{model_role}" not in capabilities
+        ):
             return {
                 "policy_version": "routing-decision-v1",
                 "worker_id": worker_id,

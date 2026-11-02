@@ -32,6 +32,4 @@ def resolve_graph_store_diagnostics(
         resolve_codecompass_graph_store,
     )
 
-    return resolve_codecompass_graph_store(
-        arguments, allowed_index_ids=allowed_index_ids
-    )
+    return resolve_codecompass_graph_store(arguments, allowed_index_ids=allowed_index_ids)

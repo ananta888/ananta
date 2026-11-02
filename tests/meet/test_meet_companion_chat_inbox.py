@@ -8,10 +8,16 @@ from worker.meet_media.companion_chat_inbox import ChatInboxError, CompanionChat
 
 
 def page(start=1, count=8):
-    return {"schema": "ananta.meet-chat-batch.draft1", "events": [
-        {"cursor": number, "event": {"message_id": f"{number:032x}", "text": "synthetic",
-                                     "sender_peer_id": "synthetic-human"}}
-        for number in range(start, start + count)]}
+    return {
+        "schema": "ananta.meet-chat-batch.draft1",
+        "events": [
+            {
+                "cursor": number,
+                "event": {"message_id": f"{number:032x}", "text": "synthetic", "sender_peer_id": "synthetic-human"},
+            }
+            for number in range(start, start + count)
+        ],
+    }
 
 
 def test_all_four_pages_retained_until_explicit_processing_without_ack():
@@ -108,17 +114,30 @@ def test_ack_cursor_is_processed_prefix_even_when_later_pages_arrive():
 
 
 def scope(revision=1, **overrides):
-    return {"origin": "https://meet.invalid", "tenant_id": "tenant", "project_id": "project",
-            "task_id": "task", "session_id": "session", "runtime_id": "runtime", "lease_id": "lease",
-            "room_id": "room-aaaaaaaaaaaaaaaaaa", "own_peer_id": "machine", "generation": revision,
-            "membership_epoch": 1, "policy_revision": 1, "deadline_ms": 1_000_000, **overrides}
+    return {
+        "origin": "https://meet.invalid",
+        "tenant_id": "tenant",
+        "project_id": "project",
+        "task_id": "task",
+        "session_id": "session",
+        "runtime_id": "runtime",
+        "lease_id": "lease",
+        "room_id": "room-aaaaaaaaaaaaaaaaaa",
+        "own_peer_id": "machine",
+        "generation": revision,
+        "membership_epoch": 1,
+        "policy_revision": 1,
+        "deadline_ms": 1_000_000,
+        **overrides,
+    }
 
 
 def bound_page(start=1, count=8, generation=1):
     value = page(start, count)
     for item in value["events"]:
-        item["event"].update(session_id="session", room_id="room-aaaaaaaaaaaaaaaaaa",
-                             generation=generation, membership_epoch=1)
+        item["event"].update(
+            session_id="session", room_id="room-aaaaaaaaaaaaaaaaaa", generation=generation, membership_epoch=1
+        )
     return value
 
 
@@ -131,8 +150,10 @@ def test_renewal_preserves_input_content_but_never_reuses_old_ack_cursor():
     assert inbox.completed([f"{1:032x}"]) is None
 
 
-@pytest.mark.parametrize("field", ["tenant_id", "project_id", "task_id", "session_id", "runtime_id",
-                                  "lease_id", "room_id", "own_peer_id", "origin"])
+@pytest.mark.parametrize(
+    "field",
+    ["tenant_id", "project_id", "task_id", "session_id", "runtime_id", "lease_id", "room_id", "own_peer_id", "origin"],
+)
 def test_different_conversation_binding_wipes_held_input(field):
     inbox = CompanionChatInbox()
     inbox.bind(scope())

@@ -172,20 +172,12 @@ class RecoveryRelease:
             if plan is None:
                 return False
             rationale = _mapping(getattr(plan, "rationale", None))
-            current_state = str(
-                rationale.get("materialization_release_state") or ""
-            )
-            current_epoch = str(
-                rationale.get("materialization_release_epoch") or ""
-            )
+            current_state = str(rationale.get("materialization_release_state") or "")
+            current_epoch = str(rationale.get("materialization_release_epoch") or "")
             normalized_epoch = str(release_epoch or "")
             if current_state == "cancelled" and state != "cancelled":
                 return False
-            if (
-                current_epoch
-                and normalized_epoch
-                and current_epoch != normalized_epoch
-            ):
+            if current_epoch and normalized_epoch and current_epoch != normalized_epoch:
                 return False
             if current_state == "completed" and state == "committed":
                 return True
@@ -193,20 +185,11 @@ class RecoveryRelease:
                 **rationale,
                 **dict(release_details or {}),
                 "materialization_release_state": state,
-                **(
-                    {
-                        "materialization_release_epoch": (
-                            normalized_epoch
-                        )
-                    }
-                    if normalized_epoch
-                    else {}
-                ),
+                **({"materialization_release_epoch": (normalized_epoch)} if normalized_epoch else {}),
             }
             plan.updated_at = time.time()
             repos.plan_repo.save(plan)
             return True
-
 
     def cancel_recovery_children(
         self,
@@ -243,9 +226,7 @@ class RecoveryRelease:
             recovery_key=recovery_key,
             team_id=team_id,
         )
-        with self._locks.distributed_task_locks(
-            {source_task_id, *created_task_ids}
-        ) as source_lock_acquired:
+        with self._locks.distributed_task_locks({source_task_id, *created_task_ids}) as source_lock_acquired:
             if not source_lock_acquired:
                 return {
                     "status": "ignored",
@@ -278,12 +259,7 @@ class RecoveryRelease:
                     "needs_review",
                     "blocked_by_dependency",
                 }
-                if (
-                    source_terminal
-                    or source_state_changed
-                    or goal_terminal
-                    or team_binding_changed
-                ):
+                if source_terminal or source_state_changed or goal_terminal or team_binding_changed:
                     self.cancel_recovery_children(
                         created_task_ids=created_task_ids,
                         plan_id=plan_id,
@@ -317,21 +293,9 @@ class RecoveryRelease:
                     }
 
                 authoritative_plan = repos.plan_repo.get_by_id(plan_id)
-                authoritative_rationale = _mapping(
-                    getattr(authoritative_plan, "rationale", None)
-                )
-                release_state = str(
-                    authoritative_rationale.get(
-                        "materialization_release_state"
-                    )
-                    or ""
-                )
-                authoritative_epoch = str(
-                    authoritative_rationale.get(
-                        "materialization_release_epoch"
-                    )
-                    or ""
-                )
+                authoritative_rationale = _mapping(getattr(authoritative_plan, "rationale", None))
+                release_state = str(authoritative_rationale.get("materialization_release_state") or "")
+                authoritative_epoch = str(authoritative_rationale.get("materialization_release_epoch") or "")
                 if release_state == "cancelled":
                     return {
                         "status": "materialized",
@@ -357,16 +321,7 @@ class RecoveryRelease:
                         and str(source_recovery.get("approval_request_id") or "") == approval_id
                         and (
                             not authoritative_epoch
-                            or (
-                                authoritative_epoch
-                                == release_epoch
-                                == str(
-                                    source_recovery.get(
-                                        "release_epoch"
-                                    )
-                                    or ""
-                                )
-                            )
+                            or (authoritative_epoch == release_epoch == str(source_recovery.get("release_epoch") or ""))
                         )
                     ):
                         return {
@@ -447,21 +402,13 @@ class RecoveryRelease:
                             )
                             or []
                         )
-                        if (
-                            str(value or "").strip()
-                            and str(value or "").strip()
-                            not in child_id_set
-                        )
+                        if (str(value or "").strip() and str(value or "").strip() not in child_id_set)
                     )
                 )
-                dependency_binding = (
-                    build_recovery_dependency_binding(
-                        source_task_id=source_task_id,
-                        preexisting_dependency_ids=(
-                            preexisting_dependency_ids
-                        ),
-                        child_task_ids=created_task_ids,
-                    )
+                dependency_binding = build_recovery_dependency_binding(
+                    source_task_id=source_task_id,
+                    preexisting_dependency_ids=(preexisting_dependency_ids),
+                    child_task_ids=created_task_ids,
                 )
                 recovery_state = {
                     "schema": RECOVERY_STATE_SCHEMA,
@@ -475,12 +422,10 @@ class RecoveryRelease:
                     "team_id": team_id,
                     "dependency_binding": dependency_binding,
                 }
-                recovery_strategy_state = (
-                    _transitioned_recovery_strategy(
-                        latest_source,
-                        status="materialized",
-                        reason_code="approved_plan_materialized",
-                    )
+                recovery_strategy_state = _transitioned_recovery_strategy(
+                    latest_source,
+                    status="materialized",
+                    reason_code="approved_plan_materialized",
                 )
                 source_transitioned = self._conditional_update(
                     source_task_id,
@@ -492,11 +437,7 @@ class RecoveryRelease:
                     },
                     force=False,
                     status_reason_code=("recovery_plan_materialized_waiting_for_children"),
-                    depends_on=list(
-                        dependency_binding[
-                            "authoritative_dependency_ids"
-                        ]
-                    ),
+                    depends_on=list(dependency_binding["authoritative_dependency_ids"]),
                     verification_status={
                         **_mapping(
                             getattr(
@@ -506,9 +447,7 @@ class RecoveryRelease:
                             )
                         ),
                         "model_recovery": recovery_state,
-                        "model_recovery_strategy": (
-                            recovery_strategy_state
-                        ),
+                        "model_recovery_strategy": (recovery_strategy_state),
                     },
                     status_reason_details={
                         **_mapping(
@@ -519,9 +458,7 @@ class RecoveryRelease:
                             )
                         ),
                         "model_recovery": recovery_state,
-                        "model_recovery_strategy": (
-                            recovery_strategy_state
-                        ),
+                        "model_recovery_strategy": (recovery_strategy_state),
                     },
                     event_type="task_recovery_plan_materialized",
                     event_actor="hub_approval_dispatcher",
@@ -552,15 +489,11 @@ class RecoveryRelease:
                     }
 
                 release_details = {
-                    "materialization_release_source_task_id": (
-                        source_task_id
-                    ),
+                    "materialization_release_source_task_id": (source_task_id),
                     "materialization_release_goal_id": goal_id,
                     "materialization_release_approval_id": approval_id,
                     "materialization_release_team_id": team_id,
-                    "materialization_dependency_binding_digest": (
-                        dependency_binding["digest"]
-                    ),
+                    "materialization_dependency_binding_digest": (dependency_binding["digest"]),
                 }
                 if not self.save_release_state(
                     repos=repos,
@@ -576,9 +509,7 @@ class RecoveryRelease:
                     )
                     return {
                         "status": "failed",
-                        "reason_code": (
-                            "recovery_release_commit_conflict"
-                        ),
+                        "reason_code": ("recovery_release_commit_conflict"),
                         "plan_id": plan_id,
                         "created_task_ids": created_task_ids,
                         "children_cancelled": True,
@@ -597,11 +528,7 @@ class RecoveryRelease:
                         "approval_request_id": approval_id,
                         "recovery_key": recovery_key,
                         "team_id": team_id,
-                        "task_payload_digest": (
-                            calculate_recovery_task_payload_digest(
-                                child
-                            )
-                        ),
+                        "task_payload_digest": (calculate_recovery_task_payload_digest(child)),
                     }
                     released = self._conditional_update(
                         child_task_id,
@@ -620,9 +547,7 @@ class RecoveryRelease:
                                     None,
                                 )
                             ),
-                            "model_recovery_release": (
-                                child_release_state
-                            ),
+                            "model_recovery_release": (child_release_state),
                         },
                         event_type="task_recovery_child_released",
                         event_actor="hub_approval_dispatcher",
@@ -648,9 +573,7 @@ class RecoveryRelease:
                                             "status_reason_details",
                                             None,
                                         )
-                                    ).get(
-                                        "model_recovery_release"
-                                    )
+                                    ).get("model_recovery_release")
                                 ).get("release_epoch")
                                 or ""
                             )
@@ -694,10 +617,7 @@ class RecoveryRelease:
                     and str(getattr(confirmed_source, "status", "") or "").strip().lower() == "blocked_by_dependency"
                     and str(confirmed_recovery.get("plan_id") or "") == plan_id
                     and str(confirmed_recovery.get("approval_request_id") or "") == approval_id
-                    and str(
-                        confirmed_recovery.get("release_epoch") or ""
-                    )
-                    == release_epoch
+                    and str(confirmed_recovery.get("release_epoch") or "") == release_epoch
                     and team_binding_matches(
                         source_task=confirmed_source,
                         goal=confirmed_goal,

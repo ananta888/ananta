@@ -14,9 +14,7 @@ from agent.routes.snakes_chat_helpers import _build_grounded_snake_prompt
 
 
 def test_empty_user_text_returns_empty_prompt_without_context():
-    grounded_prompt, has_context, summary, domain_info, chunk_meta = (
-        _build_grounded_snake_prompt("")
-    )
+    grounded_prompt, has_context, summary, domain_info, chunk_meta = _build_grounded_snake_prompt("")
 
     assert grounded_prompt == ""
     assert has_context is False
@@ -26,9 +24,7 @@ def test_empty_user_text_returns_empty_prompt_without_context():
 
 
 def test_whitespace_only_user_text_returns_empty_prompt_without_context():
-    grounded_prompt, has_context, summary, domain_info, chunk_meta = (
-        _build_grounded_snake_prompt("   \n\t  ")
-    )
+    grounded_prompt, has_context, summary, domain_info, chunk_meta = _build_grounded_snake_prompt("   \n\t  ")
 
     assert grounded_prompt == ""
     assert has_context is False
@@ -38,9 +34,7 @@ def test_whitespace_only_user_text_returns_empty_prompt_without_context():
 
 
 def test_none_user_text_returns_empty_prompt_without_context():
-    grounded_prompt, has_context, summary, domain_info, chunk_meta = (
-        _build_grounded_snake_prompt(None)  # type: ignore[arg-type]
-    )
+    grounded_prompt, has_context, summary, domain_info, chunk_meta = _build_grounded_snake_prompt(None)  # type: ignore[arg-type]
 
     assert grounded_prompt == ""
     assert has_context is False

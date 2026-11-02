@@ -10,10 +10,8 @@ from rag_helper.extractors.csharp_ast_helpers import (
     extract_field,
     extract_identifier,
     extract_modifiers,
-    extract_type_node_text,
     extract_xml_documentation,
     extract_xml_documentation_summary,
-    first_child_of_type,
     make_relation,
 )
 from rag_helper.extractors.csharp_member_extractor import (
@@ -143,15 +141,17 @@ def extract_type(
                             ctx.same_file_types,
                             using_namespaces=ctx.using_namespaces,
                         ):
-                            relation_records.append(make_relation(
-                                file=ctx.rel_path,
-                                source_id=type_id,
-                                source_kind="cs_type",
-                                source_name=name,
-                                relation="field_type_uses",
-                                target=raw_type,
-                                target_resolved=resolved_target,
-                            ))
+                            relation_records.append(
+                                make_relation(
+                                    file=ctx.rel_path,
+                                    source_id=type_id,
+                                    source_kind="cs_type",
+                                    source_name=name,
+                                    relation="field_type_uses",
+                                    target=raw_type,
+                                    target_resolved=resolved_target,
+                                )
+                            )
 
             elif member.type == "property_declaration":
                 property_record = extract_property_record(member_ctx, name, type_id, member)
@@ -159,39 +159,49 @@ def extract_type(
                 property_indexes.append(property_record)
                 detail_records.append(property_record)
                 used_types_resolved.extend(property_record.get("resolved_property_types", []))
-                for resolved_target in property_record.get("resolved_property_types", []) or [property_record.get("property_type")]:
+                for resolved_target in property_record.get("resolved_property_types", []) or [
+                    property_record.get("property_type")
+                ]:
                     if not resolved_target:
                         continue
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=type_id,
-                        source_kind="cs_type",
-                        source_name=name,
-                        relation="declares_property",
-                        target=property_record["name"],
-                        target_resolved=property_record["id"],
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=property_record["id"],
-                        source_kind="cs_property",
-                        source_name=f"{name}.{property_record['name']}",
-                        relation="property_type_uses",
-                        target=property_record.get("property_type") or "",
-                        target_resolved=resolved_target,
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=property_record["id"],
-                        source_kind="cs_property",
-                        source_name=f"{name}.{property_record['name']}",
-                        relation="child_of_type",
-                        target=name,
-                        target_resolved=type_id,
-                    ))
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=type_id,
+                            source_kind="cs_type",
+                            source_name=name,
+                            relation="declares_property",
+                            target=property_record["name"],
+                            target_resolved=property_record["id"],
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=property_record["id"],
+                            source_kind="cs_property",
+                            source_name=f"{name}.{property_record['name']}",
+                            relation="property_type_uses",
+                            target=property_record.get("property_type") or "",
+                            target_resolved=resolved_target,
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=property_record["id"],
+                            source_kind="cs_property",
+                            source_name=f"{name}.{property_record['name']}",
+                            relation="child_of_type",
+                            target=name,
+                            target_resolved=type_id,
+                        )
+                    )
 
             elif member.type == "method_declaration":
-                method_index, method_detail, method_relations, method_meta = extract_method(member_ctx, name, type_id, member)
+                method_index, method_detail, method_relations, method_meta = extract_method(
+                    member_ctx, name, type_id, member
+                )
                 if ctx.exclude_trivial_methods and method_meta["is_trivial"]:
                     continue
                 if ctx.max_methods_per_class is not None and len(method_signatures) >= ctx.max_methods_per_class:
@@ -208,27 +218,33 @@ def extract_type(
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(method_index.get("type_resolution_conflicts", []))
                 if ctx.relation_mode != "compact":
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=type_id,
-                        source_kind="cs_type",
-                        source_name=name,
-                        relation="declares_method",
-                        target=method_index["name"],
-                        target_resolved=method_index["id"],
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=method_index["id"],
-                        source_kind="cs_method",
-                        source_name=f"{name}.{method_index['name']}",
-                        relation="child_of_type",
-                        target=name,
-                        target_resolved=type_id,
-                    ))
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=type_id,
+                            source_kind="cs_type",
+                            source_name=name,
+                            relation="declares_method",
+                            target=method_index["name"],
+                            target_resolved=method_index["id"],
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=method_index["id"],
+                            source_kind="cs_method",
+                            source_name=f"{name}.{method_index['name']}",
+                            relation="child_of_type",
+                            target=name,
+                            target_resolved=type_id,
+                        )
+                    )
 
             elif member.type == "constructor_declaration":
-                constructor_index, constructor_detail, constructor_relations = extract_constructor(member_ctx, name, type_id, member)
+                constructor_index, constructor_detail, constructor_relations = extract_constructor(
+                    member_ctx, name, type_id, member
+                )
                 constructor_signatures.append(constructor_index["signature"])
                 called_methods.extend(constructor_index["calls"])
                 used_types_resolved.extend(constructor_index["resolved_type_refs"])
@@ -239,24 +255,28 @@ def extract_type(
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(constructor_index.get("type_resolution_conflicts", []))
                 if ctx.relation_mode != "compact":
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=type_id,
-                        source_kind="cs_type",
-                        source_name=name,
-                        relation="declares_constructor",
-                        target=constructor_index["signature"],
-                        target_resolved=constructor_index["id"],
-                    ))
-                    relation_records.append(make_relation(
-                        file=ctx.rel_path,
-                        source_id=constructor_index["id"],
-                        source_kind="cs_constructor",
-                        source_name=f"{name}.{constructor_index['name']}",
-                        relation="child_of_type",
-                        target=name,
-                        target_resolved=type_id,
-                    ))
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=type_id,
+                            source_kind="cs_type",
+                            source_name=name,
+                            relation="declares_constructor",
+                            target=constructor_index["signature"],
+                            target_resolved=constructor_index["id"],
+                        )
+                    )
+                    relation_records.append(
+                        make_relation(
+                            file=ctx.rel_path,
+                            source_id=constructor_index["id"],
+                            source_kind="cs_constructor",
+                            source_name=f"{name}.{constructor_index['name']}",
+                            relation="child_of_type",
+                            target=name,
+                            target_resolved=type_id,
+                        )
+                    )
 
     roles = detect_type_roles(
         type_name=name,
@@ -300,15 +320,17 @@ def extract_type(
 
     if extends:
         for resolved_target in extends_resolved or [extends]:
-            relation_records.append(make_relation(
-                file=ctx.rel_path,
-                source_id=type_id,
-                source_kind="cs_type",
-                source_name=name,
-                relation="extends",
-                target=extends,
-                target_resolved=resolved_target,
-            ))
+            relation_records.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=type_id,
+                    source_kind="cs_type",
+                    source_name=name,
+                    relation="extends",
+                    target=extends,
+                    target_resolved=resolved_target,
+                )
+            )
     for interface_name in implements:
         resolved_interfaces = resolve_type_name(
             interface_name,
@@ -319,15 +341,17 @@ def extract_type(
             using_namespaces=ctx.using_namespaces,
         )
         for resolved_target in resolved_interfaces or [interface_name]:
-            relation_records.append(make_relation(
-                file=ctx.rel_path,
-                source_id=type_id,
-                source_kind="cs_type",
-                source_name=name,
-                relation="implements",
-                target=interface_name,
-                target_resolved=resolved_target,
-            ))
+            relation_records.append(
+                make_relation(
+                    file=ctx.rel_path,
+                    source_id=type_id,
+                    source_kind="cs_type",
+                    source_name=name,
+                    relation="implements",
+                    target=interface_name,
+                    target_resolved=resolved_target,
+                )
+            )
 
     embedding_text = build_embedding_text(
         ctx.embedding_text_mode,
@@ -390,29 +414,40 @@ def extract_type(
     }
 
     if ctx.relation_mode != "compact":
-        relation_records.insert(0, make_relation(
-            file=ctx.rel_path,
-            source_id=file_id,
-            source_kind="cs_file",
-            source_name=ctx.rel_path,
-            relation="contains_type",
-            target=name,
-            target_resolved=type_id,
-        ))
-        relation_records.insert(1, make_relation(
-            file=ctx.rel_path,
-            source_id=type_id,
-            source_kind="cs_type",
-            source_name=name,
-            relation="child_of_file",
-            target=ctx.rel_path,
-            target_resolved=file_id,
-        ))
+        relation_records.insert(
+            0,
+            make_relation(
+                file=ctx.rel_path,
+                source_id=file_id,
+                source_kind="cs_file",
+                source_name=ctx.rel_path,
+                relation="contains_type",
+                target=name,
+                target_resolved=type_id,
+            ),
+        )
+        relation_records.insert(
+            1,
+            make_relation(
+                file=ctx.rel_path,
+                source_id=type_id,
+                source_kind="cs_type",
+                source_name=name,
+                relation="child_of_file",
+                target=ctx.rel_path,
+                target_resolved=file_id,
+            ),
+        )
 
-    return type_record, detail_records, relation_records, {
-        "field_count": len(fields),
-        "property_count": len(property_names),
-        "method_count": len(method_signatures),
-        "constructor_count": len(constructor_signatures),
-        "skipped_method_count": skipped_method_count,
-    }
+    return (
+        type_record,
+        detail_records,
+        relation_records,
+        {
+            "field_count": len(fields),
+            "property_count": len(property_names),
+            "method_count": len(method_signatures),
+            "constructor_count": len(constructor_signatures),
+            "skipped_method_count": skipped_method_count,
+        },
+    )

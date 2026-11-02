@@ -75,9 +75,7 @@ class StatisticalAnalysisPolicy:
             or not math.isfinite(self.robust_z_threshold)
             or not 1.0 <= self.robust_z_threshold <= 20.0
         ):
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_policy_invalid"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_policy_invalid")
 
 
 @dataclass(frozen=True)
@@ -99,9 +97,7 @@ class StatisticalObservation:
         try:
             normalized = Decimal(str(amount))
         except InvalidOperation as exc:
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_amount_invalid"
-            ) from exc
+            raise BusinessControllingStatisticsError("controlling_statistical_amount_invalid") from exc
         if (
             isinstance(period_index, bool)
             or not isinstance(period_index, int)
@@ -109,9 +105,7 @@ class StatisticalObservation:
             or not normalized.is_finite()
             or not isinstance(reference, bool)
         ):
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_observation_invalid"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_observation_invalid")
         return cls(locator, period_index, normalized, reference)
 
 
@@ -138,10 +132,7 @@ class StatisticalAnalysisReceipt:
     output_digest: str
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            field: getattr(self, field)
-            for field in self.__dataclass_fields__
-        }
+        return {field: getattr(self, field) for field in self.__dataclass_fields__}
 
     @property
     def receipt_digest(self) -> str:
@@ -183,37 +174,26 @@ class BusinessControllingStatisticsService:
                 capability.reason_code or "controlling_statistical_capability_denied"
             )
         if not capability.local_execution or capability.network_allowed:
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_offline_execution_required"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_offline_execution_required")
         if (
             capability.skill_name != policy.skill_name
             or capability.catalog_entry_id != policy.catalog_entry_id
             or not capability.upstream_pin
             or len(capability.capability_digest) != 64
         ):
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_capability_binding_invalid"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_capability_binding_invalid")
 
         normalized = tuple(observations)
         if not normalized or len(normalized) > 100_000:
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_observation_budget_invalid"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_observation_budget_invalid")
         self._validate_bindings(dataset, normalized)
         reference = tuple(item for item in normalized if item.reference)
         candidates = tuple(item for item in normalized if not item.reference)
         if len(reference) < policy.minimum_reference_points or not candidates:
-            raise BusinessControllingStatisticsError(
-                "controlling_statistical_reference_insufficient"
-            )
+            raise BusinessControllingStatisticsError("controlling_statistical_reference_insufficient")
 
         baselines = _seasonal_baselines(reference, policy.season_length)
-        residuals = [
-            float(item.amount) - baselines[item.period_index % policy.season_length]
-            for item in reference
-        ]
+        residuals = [float(item.amount) - baselines[item.period_index % policy.season_length] for item in reference]
         residual_center = statistics.median(residuals)
         deviations = [abs(value - residual_center) for value in residuals]
         mad = statistics.median(deviations)
@@ -234,10 +214,7 @@ class BusinessControllingStatisticsService:
                 "locators": [item.locator.to_dict() for item in normalized],
                 "period_indexes": [item.period_index for item in normalized],
                 "reference_flags": [item.reference for item in normalized],
-                "amount_digests": [
-                    hashlib.sha256(str(item.amount).encode()).hexdigest()
-                    for item in normalized
-                ],
+                "amount_digests": [hashlib.sha256(str(item.amount).encode()).hexdigest() for item in normalized],
             }
         )
         execution_id = derive_stable_id(
@@ -311,9 +288,7 @@ class BusinessControllingStatisticsService:
         for item in observations:
             locator = item.locator
             if locator.source_version != dataset.dataset_version:
-                raise BusinessControllingStatisticsError(
-                    "controlling_statistical_locator_scope_mismatch"
-                )
+                raise BusinessControllingStatisticsError("controlling_statistical_locator_scope_mismatch")
             key = (
                 locator.source_kind,
                 locator.source_version,
@@ -321,9 +296,7 @@ class BusinessControllingStatisticsService:
                 locator.locator,
             )
             if key in seen:
-                raise BusinessControllingStatisticsError(
-                    "controlling_statistical_locator_duplicate"
-                )
+                raise BusinessControllingStatisticsError("controlling_statistical_locator_duplicate")
             seen.add(key)
 
 
@@ -332,15 +305,10 @@ def _seasonal_baselines(
     season_length: int,
 ) -> dict[int, float]:
     global_median = statistics.median(float(item.amount) for item in observations)
-    by_season: dict[int, list[float]] = {
-        index: [] for index in range(season_length)
-    }
+    by_season: dict[int, list[float]] = {index: [] for index in range(season_length)}
     for item in observations:
         by_season[item.period_index % season_length].append(float(item.amount))
-    return {
-        index: statistics.median(values) if values else global_median
-        for index, values in by_season.items()
-    }
+    return {index: statistics.median(values) if values else global_median for index, values in by_season.items()}
 
 
 def _finding(

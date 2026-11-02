@@ -35,9 +35,7 @@ THRESHOLDS = {
     "maximum_speaker_linkability_score": 0.25,
     "maximum_membership_inference_score": 0.15,
 }
-FORBIDDEN_FIELDS = frozenset(
-    {"audio", "ciphertext", "features", "pcm", "samples", "transcript", "waveform"}
-)
+FORBIDDEN_FIELDS = frozenset({"audio", "ciphertext", "features", "pcm", "samples", "transcript", "waveform"})
 
 
 def _source_hash() -> str:
@@ -114,12 +112,7 @@ def _reconstruction_attack(rows) -> float:
 def _centroids(rows) -> dict[int, tuple[float, ...]]:
     return {
         profile: tuple(
-            statistics.fmean(
-                row[3][index]
-                for row in rows
-                if row[0] == profile and row[1] < 6
-            )
-            for index in range(128)
+            statistics.fmean(row[3][index] for row in rows if row[0] == profile and row[1] < 6) for index in range(128)
         )
         for profile in range(8)
     }

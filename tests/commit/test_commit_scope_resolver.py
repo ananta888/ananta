@@ -1,4 +1,4 @@
-from agent.services.commit_scope_resolver import CommitScopeResolver, FILE_TO_SCOPE_MAP
+from agent.services.commit_scope_resolver import FILE_TO_SCOPE_MAP, CommitScopeResolver
 
 
 def resolver():
@@ -13,29 +13,35 @@ def test_single_file_known_scope():
 
 
 def test_two_files_same_scope():
-    r = resolver().resolve([
-        "agent/services/goal_config_resolver_service.py",
-        "agent/routes/tasks/goals.py",
-    ])
+    r = resolver().resolve(
+        [
+            "agent/services/goal_config_resolver_service.py",
+            "agent/routes/tasks/goals.py",
+        ]
+    )
     assert r.primary_scope == "goal-config"
     assert r.is_mixed is False
 
 
 def test_two_files_mixed_scope():
-    r = resolver().resolve([
-        "agent/services/goal_config_resolver_service.py",
-        "agent/services/config_profile_service.py",
-    ])
+    r = resolver().resolve(
+        [
+            "agent/services/goal_config_resolver_service.py",
+            "agent/services/config_profile_service.py",
+        ]
+    )
     assert r.is_mixed is True
     assert "goal-config" in r.all_scopes
     assert "profiles" in r.all_scopes
 
 
 def test_modelfile_scope():
-    r = resolver().resolve([
-        "scripts/ollama-autoimport.sh",
-        "autoimport-state/modelfiles/ananta-default.Modelfile",
-    ])
+    r = resolver().resolve(
+        [
+            "scripts/ollama-autoimport.sh",
+            "autoimport-state/modelfiles/ananta-default.Modelfile",
+        ]
+    )
     assert r.primary_scope == "modelfile"
     assert r.is_mixed is False
 
@@ -61,11 +67,13 @@ def test_unknown_path():
 
 
 def test_majority_wins_for_primary_scope():
-    r = resolver().resolve([
-        "agent/llm_integration.py",
-        "agent/services/task_scoped_execution_service.py",
-        "agent/services/config_profile_service.py",
-    ])
+    r = resolver().resolve(
+        [
+            "agent/llm_integration.py",
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/config_profile_service.py",
+        ]
+    )
     assert r.primary_scope == "llm"
     assert "profiles" in r.all_scopes
 

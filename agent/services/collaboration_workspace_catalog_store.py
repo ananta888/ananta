@@ -549,6 +549,7 @@ class CollaborationWorkspaceCatalogStoreMixin:
                 (require_id(tenant_id, "tenant_id"), require_id(actor_binding_id, "actor_binding_id")),
             ).fetchall()
         return [json.loads(row[0]) for row in rows]
+
     def put_resource_offer(self, tenant_id: str, offer: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
         tenant = require_id(tenant_id, "tenant_id")
         workspace = require_id(offer.get("workspace_id"), "workspace_id")

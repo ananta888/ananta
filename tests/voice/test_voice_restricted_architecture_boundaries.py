@@ -62,9 +62,7 @@ def test_hub_voice_and_restricted_ports_do_not_import_productive_ml_frameworks()
 
 
 def test_hub_generative_judge_is_only_a_worker_port_not_a_loopback_engine() -> None:
-    source = (ROOT / "agent" / "services" / "voice_generative_judge_service.py").read_text(
-        encoding="utf-8"
-    )
+    source = (ROOT / "agent" / "services" / "voice_generative_judge_service.py").read_text(encoding="utf-8")
 
     assert "GenerativeJudgeWorkerPort" in source
     assert "LocalGenerativeJudge" not in source
@@ -75,9 +73,7 @@ def test_hub_generative_judge_is_only_a_worker_port_not_a_loopback_engine() -> N
 
 
 def test_hub_generative_corrector_is_only_a_worker_port_not_an_ml_engine() -> None:
-    source = (ROOT / "agent" / "services" / "voice_generative_corrector_service.py").read_text(
-        encoding="utf-8"
-    )
+    source = (ROOT / "agent" / "services" / "voice_generative_corrector_service.py").read_text(encoding="utf-8")
 
     assert "VoiceCorrectorWorkerPort" in source
     assert "EmbeddedTransformersGenerativeCorrectorEngine" not in source

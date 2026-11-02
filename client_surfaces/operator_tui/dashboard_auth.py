@@ -18,8 +18,7 @@ class DashboardReauthenticationRequired(PermissionError):
 class DashboardTokenProvider(Protocol):
     """Small auth port shared by snapshot and live-event transports."""
 
-    def access_token(self, *, force_refresh: bool = False) -> str:
-        ...
+    def access_token(self, *, force_refresh: bool = False) -> str: ...
 
 
 TokenResolver = Callable[..., str]

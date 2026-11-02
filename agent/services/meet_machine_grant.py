@@ -54,9 +54,7 @@ class MeetMachineGrantIssuer:
         )
         return {"origin": scope.origin, "room_id": scope.room_id, "grant": token}
 
-    def issue_companion(
-        self, turn, binding, principal, now, capabilities, runtime_id, session_id, *, ttl=300
-    ):
+    def issue_companion(self, turn, binding, principal, now, capabilities, runtime_id, session_id, *, ttl=300):
         """Long-lived-automation v2 grant carrying explicit capabilities.
 
         The room server only grants chat.read / receive capabilities to v2 grants;

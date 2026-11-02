@@ -149,15 +149,11 @@ def test_mcp_artifact_tool_and_resource_hide_system_managed_artifacts(
     admin_auth_header,
 ) -> None:
     _enable_mcp(app)
-    public = artifact_repo.save(
-        ArtifactDB(id="mcp-public-artifact", artifact_metadata={})
-    )
+    public = artifact_repo.save(ArtifactDB(id="mcp-public-artifact", artifact_metadata={}))
     hidden = artifact_repo.save(
         ArtifactDB(
             id="mcp-hidden-index-payload",
-            artifact_metadata={
-                "system_artifact_kind": "knowledge_index_job_payload"
-            },
+            artifact_metadata={"system_artifact_kind": "knowledge_index_job_payload"},
         )
     )
 
@@ -189,9 +185,7 @@ def test_mcp_artifact_tool_and_resource_hide_system_managed_artifacts(
     assert hidden.id not in tool_ids
 
     assert resource_response.status_code == 200
-    resource_payload = resource_response.get_json()["result"]["contents"][0][
-        "text"
-    ]
+    resource_payload = resource_response.get_json()["result"]["contents"][0]["text"]
     resource_ids = {item["id"] for item in resource_payload["items"]}
     assert public.id in resource_ids
     assert hidden.id not in resource_ids
@@ -364,7 +358,9 @@ def test_operation_inventory_is_admin_only_and_uses_registry_decisions(client, a
     from agent.auth import generate_token
     from agent.config import settings
 
-    admin_response = client.get("/governance/operations?transport=mcp.tool&access_class=read", headers=admin_auth_header)
+    admin_response = client.get(
+        "/governance/operations?transport=mcp.tool&access_class=read", headers=admin_auth_header
+    )
     assert admin_response.status_code == 200
     payload = admin_response.get_json()["data"]
     assert payload["schema"] == "ananta.operation_policy_inventory.v1"
@@ -421,3 +417,43 @@ def test_invalid_operation_policy_update_is_atomic(client, app, admin_auth_heade
     assert response.get_json()["message"] == "operation_policy_operation_unknown"
     with app.app_context():
         assert "operation_policy" not in (app.config.get("AGENT_CONFIG") or {})
+
+
+def test_mcp_initialize_and_ping_standard_handshake(client, app, admin_auth_header):
+    _enable_mcp(app)
+
+    init = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}},
+    )
+    assert init.status_code == 200
+    body = init.get_json()
+    assert body["id"] == 1
+    assert body["result"]["protocolVersion"] == "2025-03-26"
+    assert "tools" in body["result"]["capabilities"]
+    assert body["result"]["serverInfo"]["name"]
+
+    ping = client.post("/v1/mcp", headers=admin_auth_header, json={"jsonrpc": "2.0", "id": 2, "method": "ping"})
+    assert ping.status_code == 200
+    assert ping.get_json()["result"] == {}
+
+
+def test_mcp_initialized_notification_returns_202(client, app, admin_auth_header):
+    _enable_mcp(app)
+    res = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+    )
+    assert res.status_code == 202
+
+
+def test_mcp_initialize_respects_exposure_policy(client, app, admin_auth_header):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "exposure_policy": {"mcp": {"enabled": False}},
+        }
+    res = client.post("/v1/mcp", headers=admin_auth_header, json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+    assert res.status_code == 403

@@ -41,18 +41,21 @@ def test_splash_no_color_respected(monkeypatch):
 
 def test_parse_args_skip_splash():
     from client_surfaces.operator_tui.app import _parse_args
+
     args = _parse_args(["--skip-splash"])
     assert args.skip_splash is True
 
 
 def test_parse_args_splash_seconds():
     from client_surfaces.operator_tui.app import _parse_args
+
     args = _parse_args(["--splash-seconds", "3.5"])
     assert args.splash_seconds == 3.5
 
 
 def test_parse_args_splash_defaults():
     from client_surfaces.operator_tui.app import _parse_args
+
     args = _parse_args([])
     assert args.splash_seconds == 2.0
     assert args.skip_splash is False
@@ -60,6 +63,7 @@ def test_parse_args_splash_defaults():
 
 def test_parse_args_logo_renderer_animation_flags():
     from client_surfaces.operator_tui.app import _parse_args
+
     args = _parse_args(["--logo-renderer", "ansi", "--logo-animation", "shimmer", "--logo-fps", "7", "--no-logo"])
     assert args.logo_renderer == "ansi"
     assert args.logo_animation == "shimmer"

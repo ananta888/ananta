@@ -1,4 +1,5 @@
 import pytest
+
 from agent.services.commit_message_validator import (
     ALLOWED_TYPES,
     BLOCKED_SUBJECTS,

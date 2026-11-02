@@ -1,12 +1,9 @@
 """Tests for the chat-sessions model: CRUD, settings routing, message clearing,
 TUI session-management commands."""
+
 from __future__ import annotations
 
-import sys
 from typing import Any
-
-import pytest
-
 
 # ── chat_state helpers ────────────────────────────────────────────────────
 
@@ -33,7 +30,8 @@ def test_make_session_merges_settings_over_defaults() -> None:
     from client_surfaces.operator_tui.chat_state import make_session
 
     s = make_session(
-        session_id="x", name="X",
+        session_id="x",
+        name="X",
         settings={"chat_backend": "ananta-worker"},
     )
     assert s["settings"]["chat_backend"] == "ananta-worker"
@@ -77,7 +75,7 @@ def test_get_effective_chat_settings_uses_active_session_overrides() -> None:
     }
     eff = get_effective_chat_settings(chat, game)
     assert eff["chat_backend"] == "ananta-worker"  # session override
-    assert eff["chat_use_codecompass"] is True      # session override
+    assert eff["chat_use_codecompass"] is True  # session override
     # writing-coach override (different backend) must NOT leak
     assert "writing-coach" not in str(eff)
 
@@ -93,7 +91,8 @@ def test_get_effective_chat_settings_session_prompt_beats_settings() -> None:
     chat = {
         "ai_sessions": [
             {
-                "id": "x", "name": "X",
+                "id": "x",
+                "name": "X",
                 "system_prompt": "You are X.",
                 "settings": {"chat_system_prompt": "ignore this"},
             },
@@ -129,7 +128,8 @@ def test_clear_session_messages_only_clears_target_channel() -> None:
     session's channel messages, leaving room, notes, system, and
     other sessions' channels untouched."""
     from client_surfaces.operator_tui.chat_state import (
-        clear_session_messages, get_chat_state, default_sessions,
+        clear_session_messages,
+        get_chat_state,
     )
 
     chat = get_chat_state({})
@@ -153,7 +153,8 @@ def test_clear_session_messages_unknown_id_returns_false() -> None:
     """clear_session_messages(chat, 'nonexistent') must return False and
     not raise. The chat state must be unchanged."""
     from client_surfaces.operator_tui.chat_state import (
-        clear_session_messages, get_chat_state,
+        clear_session_messages,
+        get_chat_state,
     )
 
     chat = get_chat_state({})
@@ -167,7 +168,8 @@ def test_clear_all_session_messages_clears_every_session_not_room() -> None:
     does NOT touch room, notes, system — those are non-session
     channels and have their own meaning."""
     from client_surfaces.operator_tui.chat_state import (
-        clear_all_session_messages, get_chat_state,
+        clear_all_session_messages,
+        get_chat_state,
     )
 
     chat = get_chat_state({})
@@ -188,8 +190,12 @@ def test_add_and_delete_session_round_trip() -> None:
     active_session_id must be repaired if the deleted session was
     active."""
     from client_surfaces.operator_tui.chat_state import (
-        add_session, delete_session, get_active_session, get_chat_state,
-        get_session, make_session,
+        add_session,
+        delete_session,
+        get_active_session,
+        get_chat_state,
+        get_session,
+        make_session,
     )
 
     chat = get_chat_state({})
@@ -215,7 +221,9 @@ def test_delete_last_session_is_blocked() -> None:
     otherwise they'd have no chat at all. delete_session must return
     False and the session list must be unchanged."""
     from client_surfaces.operator_tui.chat_state import (
-        delete_session, get_chat_state, set_active_session,
+        delete_session,
+        get_chat_state,
+        set_active_session,
     )
 
     chat = get_chat_state({})
@@ -265,20 +273,20 @@ def test_legacy_chat_state_migrates_to_sessions() -> None:
 
 def _build_tui() -> Any:
     """Build a fresh InteractiveOperatorTui with chat-focus active."""
+    from client_surfaces.operator_tui.chat_state import get_chat_state
     from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
     from client_surfaces.operator_tui.models import FocusPane, OperatorState
-    from client_surfaces.operator_tui.chat_state import get_chat_state
 
     # Initialize a fresh game dict
     game = {"active": True, "alive": True, "ui_steering": True}
     # Ensure chat_state is initialized with default sessions and channels
     chat_state = get_chat_state(game)
-    game["chat_state"] = chat_state # Explicitly assign
+    game["chat_state"] = chat_state  # Explicitly assign
 
     state = OperatorState(
         endpoint="http://localhost:5000",
         focus=FocusPane.HEADER,
-        header_logo_game=game, # Use the initialized game dict
+        header_logo_game=game,  # Use the initialized game dict
     )
     tui = InteractiveOperatorTui(state)
     tui._chat_focus_enter()
@@ -450,12 +458,13 @@ def test_clear_command_with_id_clears_target_session() -> None:
 
 def test_clear_command_all_clears_every_session() -> None:
     """`/clear all` must clear every session's messages."""
-    from client_surfaces.operator_tui.chat_state import get_chat_state, ensure_session_channels
+    from client_surfaces.operator_tui.chat_state import ensure_session_channels, get_chat_state
+
     tui = _build_tui()
     # Ensure chat_state is fully initialized with channels.
     game = tui.state.header_logo_game
     chat = get_chat_state(game)
-    ensure_session_channels(chat) # Re-create all session channels and apply display names
+    ensure_session_channels(chat)  # Re-create all session channels and apply display names
 
     for ch in chat["channels"].values():
         ch["messages"] = [{"text": "msg"}]

@@ -55,6 +55,8 @@ SOURCE_PATHS = (
     "scripts/run_hub_evidence_sfu_turn_gate.py",
     "scripts/spikes/semantic_sfu_three_peer.mjs",
 )
+
+
 class SfuTurnEvidenceGateError(ValueError):
     """Bounded gate configuration or environment failure."""
 
@@ -68,10 +70,7 @@ def sha256_file(path: Path) -> str:
 
 
 def source_manifest(root: Path = ROOT) -> dict[str, Any]:
-    entries = [
-        {"path": value, "sha256": sha256_file((root / value).resolve(strict=True))}
-        for value in SOURCE_PATHS
-    ]
+    entries = [{"path": value, "sha256": sha256_file((root / value).resolve(strict=True))} for value in SOURCE_PATHS]
     return {"entries": entries, "digest": canonical_evidence_digest(entries)}
 
 
@@ -83,15 +82,11 @@ def repository_image_digest(reference: str) -> str:
 
 
 def repository_revision(root: Path = ROOT) -> str:
-    completed = subprocess.run(
-        ("git", "rev-parse", "HEAD"), cwd=root, capture_output=True, text=True, check=False
-    )
+    completed = subprocess.run(("git", "rev-parse", "HEAD"), cwd=root, capture_output=True, text=True, check=False)
     revision = completed.stdout.strip().lower()
     if completed.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
         raise SfuTurnEvidenceGateError("sfu_turn_gate_repository_revision_invalid")
-    changed = subprocess.run(
-        ("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS), cwd=root, check=False
-    )
+    changed = subprocess.run(("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS), cwd=root, check=False)
     if changed.returncode != 0:
         raise SfuTurnEvidenceGateError("sfu_turn_gate_bound_sources_dirty")
     return revision
@@ -172,9 +167,7 @@ def project_relay_result(result: Mapping[str, Any]) -> dict[str, Any]:
         "topology": dict(source.get("topology") or {}),
         "e2ee": {
             "enabled": dict(source.get("e2ee") or {}).get("enabled"),
-            "server_plaintext_access": dict(source.get("e2ee") or {}).get(
-                "server_plaintext_access"
-            ),
+            "server_plaintext_access": dict(source.get("e2ee") or {}).get("server_plaintext_access"),
         },
         "transport_profile": source.get("transport_profile"),
         "engines": projected_engines,
@@ -299,13 +292,10 @@ def execute_gate(
 
     def worker(assignment: Mapping[str, Any]) -> Mapping[str, Any]:
         with tempfile.TemporaryDirectory(prefix="ananta-sfu-turn-hub-") as temporary:
-            result = execute_relay_harness(
-                Path(temporary) / "relay.json", receiver_count=receiver_count
-            )
+            result = execute_relay_harness(Path(temporary) / "relay.json", receiver_count=receiver_count)
         projection = project_relay_result(result)
         immutable_inputs_unchanged = bool(
-            source_manifest()["digest"] == manifest["digest"]
-            and browser_environment() == browsers
+            source_manifest()["digest"] == manifest["digest"] and browser_environment() == browsers
         )
         passed = projection_passed(projection, receiver_count=receiver_count) and immutable_inputs_unchanged
         return {
@@ -347,12 +337,8 @@ def execute_gate(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--receiver-count", type=int, default=3)
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "artifacts/sfu-turn-hub-evidence.json"
-    )
-    parser.add_argument(
-        "--database-url", default=f"sqlite:///{ROOT / 'data/hub-evidence-sfu-turn.sqlite3'}"
-    )
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/sfu-turn-hub-evidence.json")
+    parser.add_argument("--database-url", default=f"sqlite:///{ROOT / 'data/hub-evidence-sfu-turn.sqlite3'}")
     return parser.parse_args()
 
 

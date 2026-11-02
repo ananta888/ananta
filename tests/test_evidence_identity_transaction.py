@@ -19,7 +19,8 @@ from tests.hub.test_hub_evidence_registry_service import _run, _source
 @pytest.fixture
 def evidence_database(tmp_path, monkeypatch):
     database = create_engine(
-        f"sqlite:///{tmp_path / 'transactional-evidence.sqlite3'}", connect_args={"check_same_thread": False},
+        f"sqlite:///{tmp_path / 'transactional-evidence.sqlite3'}",
+        connect_args={"check_same_thread": False},
     )
     SQLModel.metadata.create_all(database)
     monkeypatch.setattr("agent.repositories.tasks._engine", lambda: database)
@@ -38,9 +39,13 @@ def reserve(service):
 
 def record(service, run, *, digest="d" * 64):
     return service.record_result(
-        tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id,
-        assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
-        terminal_state="succeeded", result_digest=digest,
+        tenant_id=run.tenant_id,
+        project_id=run.project_id,
+        run_id=run.run_id,
+        assignment_id=run.assignment_id,
+        dispatch_lease_id=run.dispatch_lease_id,
+        terminal_state="succeeded",
+        result_digest=digest,
     )
 
 
@@ -100,15 +105,23 @@ def test_transactional_registry_replay_and_test_classification_are_preserved(evi
         run = reserve(service)
         assert reserve(service) == run
         projection = service.assignment_projection(
-            tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id,
-            task_id=run.task_id, assignment_id=run.assignment_id, dispatch_lease_id=run.dispatch_lease_id,
+            tenant_id=run.tenant_id,
+            project_id=run.project_id,
+            run_id=run.run_id,
+            task_id=run.task_id,
+            assignment_id=run.assignment_id,
+            dispatch_lease_id=run.dispatch_lease_id,
         )
         assert projection["evidence_scope"] == "test" and projection["run_id"] == run.run_id
         first = record(service, run)
         assert record(service, run) == first
         verification = service.verify_release_binding(
-            tenant_id=run.tenant_id, project_id=run.project_id, run_id=run.run_id,
-            required_scope="production", task_id=run.task_id, repository_revision=run.repository_revision,
+            tenant_id=run.tenant_id,
+            project_id=run.project_id,
+            run_id=run.run_id,
+            required_scope="production",
+            task_id=run.task_id,
+            repository_revision=run.repository_revision,
             source_ids=run.source_ids,
         )
         assert not verification.verified

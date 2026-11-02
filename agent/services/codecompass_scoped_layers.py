@@ -28,8 +28,11 @@ class ScopedSnapshots:
     def get(self, revision):
         manifest = deepcopy(self.manifests.get(revision))
         if manifest is not None:
-            manifest["files"] = [row for row in manifest.get("files", [])
-                                 if isinstance(row, dict) and path_allowed(row.get("path"), self.paths)]
+            manifest["files"] = [
+                row
+                for row in manifest.get("files", [])
+                if isinstance(row, dict) and path_allowed(row.get("path"), self.paths)
+            ]
         return manifest
 
 
@@ -49,8 +52,11 @@ class CodeCompassScopedLayers:
             if not isinstance(metadata, dict):
                 continue
             pointer = metadata.get(CODECOMPASS_LAYER_POINTER_KEY)
-            if (getattr(row, "status", None) != "completed" or not isinstance(pointer, dict)
-                    or pointer.get("schema") != CODECOMPASS_LAYER_POINTER_SCHEMA):
+            if (
+                getattr(row, "status", None) != "completed"
+                or not isinstance(pointer, dict)
+                or pointer.get("schema") != CODECOMPASS_LAYER_POINTER_SCHEMA
+            ):
                 continue
             profile = pointer.get("profile_id")
             if isinstance(profile, str) and profile and pointer_index_id(profile) == index_id:
@@ -73,10 +79,20 @@ class CodeCompassScopedLayers:
         if head is None:
             return None
         # Do not expose arbitrary compatibility metadata or publication history.
-        return {key: deepcopy(head[key]) for key in (
-            "schema", "profile_id", "generation", "artifact_set_revision", "effective_source_revision",
-            "base_layer_set", "ordered_delta_sets", "layer_id",
-        ) if key in head}
+        return {
+            key: deepcopy(head[key])
+            for key in (
+                "schema",
+                "profile_id",
+                "generation",
+                "artifact_set_revision",
+                "effective_source_revision",
+                "base_layer_set",
+                "ordered_delta_sets",
+                "layer_id",
+            )
+            if key in head
+        }
 
     def _manifest(self, supplied, revision):
         stored = self.snapshots.get(revision)
@@ -98,13 +114,16 @@ class CodeCompassScopedLayers:
         old = self._manifest(old_manifest, old_revision) if old_revision else deepcopy(EMPTY_SNAPSHOT)
         if not old_revision and old_manifest and old_manifest != EMPTY_SNAPSHOT:
             raise ValueError("codecompass_layer_snapshot_mismatch")
-        manifests = ScopedSnapshots({old["snapshot_revision"]: old, new["snapshot_revision"]: new},
-                                    self.scope["allowed_paths"])
-        query = CodeCompassLayerQueryBackend(layers=self.layers, heads=FrozenHeads(profile_id, head),
-                                            snapshots=manifests, policy=self.policy)
+        manifests = ScopedSnapshots(
+            {old["snapshot_revision"]: old, new["snapshot_revision"]: new}, self.scope["allowed_paths"]
+        )
+        query = CodeCompassLayerQueryBackend(
+            layers=self.layers, heads=FrozenHeads(profile_id, head), snapshots=manifests, policy=self.policy
+        )
         compatibility = deepcopy((head or {}).get("compatibility_key") or {})
-        plan = query.plan_update(profile_id=profile_id, to_snapshot_ref=new["snapshot_revision"],
-                                 compatibility_key=compatibility)
+        plan = query.plan_update(
+            profile_id=profile_id, to_snapshot_ref=new["snapshot_revision"], compatibility_key=compatibility
+        )
         plan["compatibility_key"] = {"digest": digest(compatibility)}
         if self._head(profile_id) != head:
             raise ValueError("codecompass_layer_head_changed")

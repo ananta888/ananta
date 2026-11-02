@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from typing import Any, Callable, Iterable, Mapping, Protocol
 
@@ -11,16 +12,16 @@ from flask import current_app, g, request
 from agent.auth import get_authenticated_source_control_principal
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.services.project_access_authority import (
+    ProjectAccessError,
+    ProjectCapability,
+)
 from agent.services.source_control_access_policy import (
     HubSourcePrincipal,
     SourceControlAccessPolicy,
     SourceControlAccessPolicyError,
     SourceControlAction,
     SourceObjectBinding,
-)
-from agent.services.project_access_authority import (
-    ProjectAccessError,
-    ProjectCapability,
 )
 
 
@@ -42,9 +43,7 @@ class SourceControlRouteDenyAuditPort(Protocol):
 
 _POLICY = SourceControlAccessPolicy()
 _TRACE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
-_PROJECT_SELECTOR = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$"
-)
+_PROJECT_SELECTOR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,190}$")
 _SCOPE_METADATA_KEYS = (
     "source_control_scope",
     "source_control_binding",
@@ -67,9 +66,7 @@ class SourceControlProjectScopeError(ValueError):
         super().__init__(self.reason_code)
 
 
-_PROJECT_ROLE_MARKERS = frozenset(
-    {"project_owner", "project_maintainer", "project_viewer"}
-)
+_PROJECT_ROLE_MARKERS = frozenset({"project_owner", "project_maintainer", "project_viewer"})
 
 
 def _project_capability(action: SourceControlAction) -> ProjectCapability:
@@ -157,18 +154,10 @@ def bind_source_control_project_selector(
             "project_id_invalid",
             status_code=400,
         )
-    authenticated = (
-        principal
-        if principal is not None
-        else get_authenticated_source_control_principal()
-    )
+    authenticated = principal if principal is not None else get_authenticated_source_control_principal()
     tenant_id = str(getattr(authenticated, "tenant_id", None) or "").strip()
     subject_id = str(getattr(authenticated, "subject_id", None) or "").strip()
-    roles = frozenset(
-        str(role).strip()
-        for role in (getattr(authenticated, "roles", None) or ())
-        if str(role).strip()
-    )
+    roles = frozenset(str(role).strip() for role in (getattr(authenticated, "roles", None) or ()) if str(role).strip())
     if not tenant_id:
         raise SourceControlProjectScopeError(
             "source_control_principal_scope_required",
@@ -179,9 +168,7 @@ def bind_source_control_project_selector(
             "source_control_principal_subject_required",
             status_code=403,
         )
-    token_project = str(
-        getattr(authenticated, "project_id", None) or ""
-    ).strip()
+    token_project = str(getattr(authenticated, "project_id", None) or "").strip()
     if token_project and token_project != selected:
         raise SourceControlProjectScopeError(
             "source_control_not_found",
@@ -234,11 +221,7 @@ def _as_mapping(resource: Any) -> dict[str, Any]:
         payload = resource.dict()
         return dict(payload) if isinstance(payload, Mapping) else {}
     if hasattr(resource, "__dict__"):
-        return {
-            key: value
-            for key, value in vars(resource).items()
-            if not key.startswith("_")
-        }
+        return {key: value for key, value in vars(resource).items() if not key.startswith("_")}
     return {}
 
 
@@ -293,11 +276,7 @@ def _direct_binding(
             ).strip()
             visible = candidate.get("visible_subject_ids") or ()
             if isinstance(visible, (list, tuple, set, frozenset)):
-                visible_subject_ids = frozenset(
-                    str(item).strip()
-                    for item in visible
-                    if str(item).strip()
-                )
+                visible_subject_ids = frozenset(str(item).strip() for item in visible if str(item).strip())
             binding_source = "direct"
             break
     return SourceObjectBinding(
@@ -319,15 +298,8 @@ def project_resource_binding(
     principal: HubSourcePrincipal,
 ) -> SourceObjectBinding:
     binding = _direct_binding(resource=resource, object_id=object_id)
-    if (
-        binding.exists
-        and not binding.is_scoped
-        and principal.tenant_id
-        and principal.project_id
-    ):
-        projection = current_app.extensions.get(
-            "source_control_scope_projection"
-        )
+    if binding.exists and not binding.is_scoped and principal.tenant_id and principal.project_id:
+        projection = current_app.extensions.get("source_control_scope_projection")
         if projection is not None:
             try:
                 projected = projection.resolve_binding(
@@ -390,9 +362,7 @@ def authorize_route_request(
             )
             return api_response(
                 status="error",
-                message=(
-                    "not_found" if exc.status_code == 404 else "forbidden"
-                ),
+                message=("not_found" if exc.status_code == 404 else "forbidden"),
                 data={"reason_code": exc.reason_code},
                 code=exc.status_code,
             )
@@ -433,9 +403,7 @@ def authorize_route_request(
     )
     return api_response(
         status="error",
-        message=(
-            "not_found" if decision.status_code == 404 else "forbidden"
-        ),
+        message=("not_found" if decision.status_code == 404 else "forbidden"),
         data={"reason_code": decision.reason_code},
         code=decision.status_code,
     )
@@ -452,43 +420,17 @@ def record_source_control_route_denial(
 ) -> None:
     """Emit a bounded, content-free denial without foreign raw identifiers."""
 
-    raw_trace = str(
-        request.headers.get("X-Request-ID")
-        or getattr(g, "request_id", "")
-        or ""
-    ).strip()
+    raw_trace = str(request.headers.get("X-Request-ID") or getattr(g, "request_id", "") or "").strip()
     trace_id = raw_trace if _TRACE_ID.fullmatch(raw_trace) else "unavailable"
-    route = (
-        str(request.url_rule.rule)
-        if request.url_rule is not None
-        else "unmatched"
-    )
-    reference = (
-        hashlib.sha256(str(object_id).encode("utf-8")).hexdigest()[:16]
-        if object_id
-        else "collection"
-    )
+    route = str(request.url_rule.rule) if request.url_rule is not None else "unmatched"
+    reference = hashlib.sha256(str(object_id).encode("utf-8")).hexdigest()[:16] if object_id else "collection"
     event: dict[str, object] = {
-        "actor_id": (
-            str(principal.subject_id)[:191]
-            if principal is not None
-            else "anonymous"
-        ),
-        "tenant_id": (
-            str(principal.tenant_id or "")[:191]
-            if principal is not None
-            else ""
-        ),
-        "project_id": (
-            str(principal.project_id or "")[:191]
-            if principal is not None
-            else ""
-        ),
+        "actor_id": (str(principal.subject_id)[:191] if principal is not None else "anonymous"),
+        "tenant_id": (str(principal.tenant_id or "")[:191] if principal is not None else ""),
+        "project_id": (str(principal.project_id or "")[:191] if principal is not None else ""),
         "resource_kind": str(resource_kind or "unknown")[:64],
         "resource_reference": reference,
-        "action": str(
-            action.value if isinstance(action, SourceControlAction) else action
-        )[:32],
+        "action": str(action.value if isinstance(action, SourceControlAction) else action)[:32],
         "reason_code": str(reason_code or "access_denied")[:128],
         "status_code": int(status_code),
         "route": route[:256],
@@ -502,7 +444,7 @@ def record_source_control_route_denial(
             record(event)
             return
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("record_source_control_route_denial: ignored Exception", exc_info=True)
     log_audit("source_control_access_denied", event)
 
 

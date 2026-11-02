@@ -3,6 +3,7 @@
 Provides static analysis of x86/x86-64 assembly: indexing, CFG,
 call graph, and query tools. No binary execution; static analysis only.
 """
+
 from __future__ import annotations
 
 __all__ = [

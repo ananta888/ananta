@@ -61,11 +61,15 @@ class RecursiveQueryPlanner:
         raw = f"{query}:{datetime.now(timezone.utc).isoformat()}"
         return "rlm-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
-    def _create_step(self, query: str, channel: str, depth: int, deps: list[str] | None = None, handle: str = "") -> RetrievalStep:
+    def _create_step(
+        self, query: str, channel: str, depth: int, deps: list[str] | None = None, handle: str = ""
+    ) -> RetrievalStep:
         step_id = hashlib.sha256(f"{query}|{channel}|{depth}|{handle}".encode()).hexdigest()[:12]
         return RetrievalStep(step_id, query, channel, depth, list(deps or []), handle)
 
-    def create_plan(self, query: str, graph: dict[str, Any] | None = None, root_handles: list[str] | None = None) -> RecursivePlan:
+    def create_plan(
+        self, query: str, graph: dict[str, Any] | None = None, root_handles: list[str] | None = None
+    ) -> RecursivePlan:
         steps = [self._create_step(query, "exact", 0)]
         handles = list(root_handles or [])[: self.max_fanout]
         for handle in handles:
@@ -78,7 +82,15 @@ class RecursiveQueryPlanner:
                     break
                 title = str(node.get("title") or node.get("id") or "")
                 if title and title.lower() not in query.lower():
-                    steps.append(self._create_step(f"{query} {title}", "hybrid", 1, [steps[0].step_id], str(node.get("handle") or node.get("id") or "")))
+                    steps.append(
+                        self._create_step(
+                            f"{query} {title}",
+                            "hybrid",
+                            1,
+                            [steps[0].step_id],
+                            str(node.get("handle") or node.get("id") or ""),
+                        )
+                    )
         return RecursivePlan(
             plan_id=self._generate_plan_id(query),
             query=query,

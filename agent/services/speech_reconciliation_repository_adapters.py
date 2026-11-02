@@ -160,11 +160,7 @@ class RepositorySpeechReconciliationLeasePort:
             now_ms=self._clock_ms(),
         )
         binding = self._repository.attempt_audit_binding(lease_id) if fenced else None
-        if (
-            self._audit is None
-            or binding is None
-            or bool(getattr(self._repository, "transactional_audit", False))
-        ):
+        if self._audit is None or binding is None or bool(getattr(self._repository, "transactional_audit", False)):
             return
         tenant_id, job_id, epoch, persisted_reason = binding
         try:

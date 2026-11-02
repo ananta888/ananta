@@ -52,11 +52,7 @@ def _verification_projection(
     if not isinstance(value, Mapping):
         return {}
     return {
-        key: copy.deepcopy(value[key])
-        for key in sorted(
-            RECOVERY_WORKER_VERIFICATION_PROJECTION_FIELDS
-        )
-        if key in value
+        key: copy.deepcopy(value[key]) for key in sorted(RECOVERY_WORKER_VERIFICATION_PROJECTION_FIELDS) if key in value
     }
 
 
@@ -64,10 +60,7 @@ def _matching_boundary(
     task_id: str,
 ) -> DeferredRecoveryTaskWrites | None:
     boundary = _ACTIVE_BOUNDARY.get()
-    if (
-        boundary is None
-        or boundary.task_id != str(task_id or "").strip()
-    ):
+    if boundary is None or boundary.task_id != str(task_id or "").strip():
         return None
     return boundary
 
@@ -121,9 +114,7 @@ def defer_task_status_mutation(
 ) -> bool:
     """Record and suppress a matching status helper mutation."""
 
-    projection = _verification_projection(
-        values.get("verification_status")
-    )
+    projection = _verification_projection(values.get("verification_status"))
     return _record(
         task_id,
         operation="status_update",
@@ -134,11 +125,7 @@ def defer_task_status_mutation(
             "event_details": dict(event_details or {}),
             "force": bool(force),
             "value_keys": sorted(str(key) for key in values),
-            **(
-                {"verification_projection": projection}
-                if projection
-                else {}
-            ),
+            **({"verification_projection": projection} if projection else {}),
         },
     )
 
@@ -152,23 +139,15 @@ def defer_task_compare_and_set(
 ) -> bool:
     """Record and suppress a matching compare-and-set mutation."""
 
-    projection = _verification_projection(
-        values.get("verification_status")
-    )
+    projection = _verification_projection(values.get("verification_status"))
     return _record(
         task_id,
         operation="compare_and_set",
         details={
             "status": str(status or ""),
-            "expected_statuses": sorted(
-                str(value or "") for value in expected_statuses
-            ),
+            "expected_statuses": sorted(str(value or "") for value in expected_statuses),
             "value_keys": sorted(str(key) for key in values),
-            **(
-                {"verification_projection": projection}
-                if projection
-                else {}
-            ),
+            **({"verification_projection": projection} if projection else {}),
         },
     )
 
@@ -180,17 +159,11 @@ def defer_task_repository_save(
 ) -> bool:
     """Record and suppress a matching direct Task repository save."""
 
-    projection = _verification_projection(
-        getattr(task, "verification_status", None)
-    )
+    projection = _verification_projection(getattr(task, "verification_status", None))
     return _record(
         task_id,
         operation="repository_save",
-        details=(
-            {"verification_projection": projection}
-            if projection
-            else None
-        ),
+        details=({"verification_projection": projection} if projection else None),
     )
 
 

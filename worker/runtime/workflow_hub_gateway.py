@@ -66,9 +66,7 @@ class HttpWorkflowHubDecisionClient:
             or parsed.fragment
         ):
             raise ValueError("workflow Hub URL is invalid")
-        self._hub_url = urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-        )
+        self._hub_url = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
         self._bearer_token = str(bearer_token or "")
         token_bytes = self._bearer_token.encode("utf-8")
         if (
@@ -91,15 +89,9 @@ class HttpWorkflowHubDecisionClient:
         env: Mapping[str, str] | None = None,
     ) -> "HttpWorkflowHubDecisionClient | None":
         source = os.environ if env is None else env
-        hub_url = str(
-            source.get("ANANTA_WORKFLOW_HUB_URL")
-            or source.get("ANANTA_LANGGRAPH_HUB_URL")
-            or ""
-        ).strip()
+        hub_url = str(source.get("ANANTA_WORKFLOW_HUB_URL") or source.get("ANANTA_LANGGRAPH_HUB_URL") or "").strip()
         token_file = str(
-            source.get("ANANTA_WORKFLOW_HUB_TOKEN_FILE")
-            or source.get("ANANTA_LANGGRAPH_HUB_TOKEN_FILE")
-            or ""
+            source.get("ANANTA_WORKFLOW_HUB_TOKEN_FILE") or source.get("ANANTA_LANGGRAPH_HUB_TOKEN_FILE") or ""
         ).strip()
         if not hub_url and not token_file:
             return None
@@ -154,9 +146,7 @@ class HttpWorkflowHubDecisionClient:
                 exc.close()
                 raise WorkflowHubDecisionError("workflow_hub_redirect_denied") from exc
             retryable = int(exc.code) >= 500 or int(exc.code) in {408, 425, 429}
-            raise WorkflowHubDecisionError(
-                _http_error_reason(exc), retryable=retryable
-            ) from exc
+            raise WorkflowHubDecisionError(_http_error_reason(exc), retryable=retryable) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise WorkflowHubDecisionError("workflow_hub_unavailable", retryable=True) from exc
         if len(raw) > 1_048_576:
@@ -321,9 +311,7 @@ class HubSideEffectLedgerAdapter:
             )
             SideEffectGatewayReceipt.from_mapping(response)
         except (WorkflowHubDecisionError, WorkflowWorkerContractError, TypeError, ValueError) as exc:
-            raise WorkflowHubDecisionError(
-                getattr(exc, "reason_code", "side_effect_gateway_response_invalid")
-            ) from exc
+            raise WorkflowHubDecisionError(getattr(exc, "reason_code", "side_effect_gateway_response_invalid")) from exc
 
 
 class HubProviderRetryBudgetAdapter:
@@ -366,16 +354,9 @@ class HubProviderBudgetAdapter:
         estimated_prompt_tokens: int,
         reservation_id: str = "",
     ) -> ProviderBudgetDecision:
-        reserved_tokens = max(0, int(estimated_prompt_tokens)) + int(
-            context.max_completion_tokens_per_call
-        )
+        reserved_tokens = max(0, int(estimated_prompt_tokens)) + int(context.max_completion_tokens_per_call)
         reserved_cost = (
-            (
-                reserved_tokens
-                * context.estimated_cost_micros_per_1000_tokens
-                + 999
-            )
-            // 1000
+            (reserved_tokens * context.estimated_cost_micros_per_1000_tokens + 999) // 1000
             if context.estimated_cost_micros_per_1000_tokens
             else 0
         )
@@ -395,9 +376,7 @@ class HubProviderBudgetAdapter:
                 provider_binding_id=context.provider_binding_id,
                 provider_id=context.selected_provider_id,
                 model_id=context.selected_model_id,
-                provider_endpoint_identity=(
-                    context.provider_endpoint_identity
-                ),
+                provider_endpoint_identity=(context.provider_endpoint_identity),
             )
             receipt = ProviderBudgetReceipt.from_mapping(response)
             self._assert_matching_receipt(receipt, response, reservation_id=reservation_id, reconciled=False)
@@ -442,9 +421,7 @@ class HubProviderBudgetAdapter:
                 provider_binding_id=context.provider_binding_id,
                 provider_id=context.selected_provider_id,
                 model_id=context.selected_model_id,
-                provider_endpoint_identity=(
-                    context.provider_endpoint_identity
-                ),
+                provider_endpoint_identity=(context.provider_endpoint_identity),
             )
             receipt = ProviderBudgetReceipt.from_mapping(response)
             self._assert_matching_receipt(receipt, response, reservation_id=reservation_id, reconciled=True)
@@ -455,10 +432,15 @@ class HubProviderBudgetAdapter:
 
     @staticmethod
     def _assert_matching_receipt(
-        receipt: ProviderBudgetReceipt, response: Mapping[str, Any], *, reservation_id: str, reconciled: bool,
+        receipt: ProviderBudgetReceipt,
+        response: Mapping[str, Any],
+        *,
+        reservation_id: str,
+        reconciled: bool,
     ) -> None:
         if (
-            receipt.reservation_id != reservation_id or response.get("reconciled") is not reconciled
+            receipt.reservation_id != reservation_id
+            or response.get("reconciled") is not reconciled
             or receipt.attempts > receipt.maximum_attempts
             or (receipt.maximum_tokens and receipt.tokens > receipt.maximum_tokens)
             or (receipt.maximum_cost_micros and receipt.cost_micros > receipt.maximum_cost_micros)

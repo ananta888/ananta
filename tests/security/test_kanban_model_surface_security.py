@@ -6,6 +6,13 @@ import pytest
 from pydantic import ValidationError
 from sqlmodel import Session
 
+from agent.database import engine
+from agent.db_models.planning import GoalDB
+from agent.services.kanban_authorization_service import (
+    KanbanAuthorizationService,
+    KanbanPrincipal,
+)
+from agent.services.surface_rate_limit_policy import surface_rate_limit_policy
 from ananta_contracts.kanban import (
     AssignCardCommand,
     BlockCardCommand,
@@ -13,8 +20,8 @@ from ananta_contracts.kanban import (
     CompleteCardCommand,
     CreateBoardCommand,
     CreateCardCommand,
-    KanbanCard,
     KanbanCapability,
+    KanbanCard,
     KanbanColumnId,
     KanbanComment,
     MoveCardCommand,
@@ -28,13 +35,6 @@ from ananta_contracts.model_catalog import (
     ModelRuntime,
     ModelSummary,
 )
-from agent.database import engine
-from agent.db_models.planning import GoalDB
-from agent.services.kanban_authorization_service import (
-    KanbanAuthorizationService,
-    KanbanPrincipal,
-)
-from agent.services.surface_rate_limit_policy import surface_rate_limit_policy
 
 
 def _enable_surfaces(app) -> None:
@@ -236,9 +236,7 @@ def test_refresh_rejects_ssrf_path_and_shell_fields_before_discovery(
             json=payload,
         )
         assert response.status_code == 400
-        assert response.get_json()["message"] == (
-            "model_catalog_refresh_command_invalid"
-        )
+        assert response.get_json()["message"] == ("model_catalog_refresh_command_invalid")
     assert called is False
 
 
@@ -333,9 +331,7 @@ def test_auth_disabled_model_write_is_denied(
     )
 
     assert response.status_code == 403
-    assert response.get_json()["data"]["reason_code"] == (
-        "model_catalog_capability_required"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("model_catalog_capability_required")
 
 
 def _create_board(client, headers, key: str) -> str:
@@ -421,9 +417,7 @@ def test_revision_replay_cycle_and_invalid_transition_are_rejected(
         json=move_payload,
     )
     assert replay.status_code == 200
-    assert replay.get_json()["data"]["revision"] == (
-        moved.get_json()["data"]["revision"]
-    )
+    assert replay.get_json()["data"]["revision"] == (moved.get_json()["data"]["revision"])
 
     stale = client.post(
         f"/api/v1/kanban/cards/{first['id']}/commands/move",
@@ -450,10 +444,7 @@ def test_revision_replay_cycle_and_invalid_transition_are_rejected(
     )
     assert first_dependencies.status_code == 200
     current_second = client.get(
-        (
-            f"/api/v1/kanban/boards/{board_id}/cards/"
-            f"{second['id']}"
-        ),
+        (f"/api/v1/kanban/boards/{board_id}/cards/{second['id']}"),
         headers=admin_auth_header,
     )
     assert current_second.status_code == 200
@@ -475,9 +466,7 @@ def test_revision_replay_cycle_and_invalid_transition_are_rejected(
         headers=admin_auth_header,
         json={
             "board_id": board_id,
-            "expected_revision": first_dependencies.get_json()["data"][
-                "revision"
-            ],
+            "expected_revision": first_dependencies.get_json()["data"]["revision"],
             "idempotency_key": "complete-first",
             "outcome": "complete",
         },
@@ -587,12 +576,8 @@ def test_provider_capability_injection_and_foreign_default_fail_closed(
     )
     assert injected_refresh.status_code == 403
     assert injected_default.status_code == 403
-    assert injected_refresh.get_json()["data"]["reason_code"] == (
-        "model_catalog_capability_required"
-    )
-    assert injected_default.get_json()["data"]["reason_code"] == (
-        "model_catalog_capability_required"
-    )
+    assert injected_refresh.get_json()["data"]["reason_code"] == ("model_catalog_capability_required")
+    assert injected_default.get_json()["data"]["reason_code"] == ("model_catalog_capability_required")
 
     foreign_default = client.post(
         "/models/default/v1",
@@ -604,6 +589,4 @@ def test_provider_capability_injection_and_foreign_default_fail_closed(
         },
     )
     assert foreign_default.status_code == 404
-    assert foreign_default.get_json()["message"] == (
-        "model_default_selection_not_allowlisted"
-    )
+    assert foreign_default.get_json()["message"] == ("model_default_selection_not_allowlisted")

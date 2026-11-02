@@ -61,30 +61,18 @@ class SourceAdmissionReceiptDB(SQLModel, table=True):
     admission_digest: str = Field(index=True, max_length=64)
     file_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     total_bytes: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
-    largest_file_bytes: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
+    largest_file_bytes: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     archive_expansion_ratio: float
     symlink_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     hardlink_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
-    sparse_file_count: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
+    sparse_file_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     archive_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     binary_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     secret_findings: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
-    injection_findings: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
-    rejected_type_findings: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
-    malformed_archive_findings: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
-    scan_error_count: int = Field(
-        sa_column=Column(sa.BigInteger(), nullable=False)
-    )
+    injection_findings: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
+    rejected_type_findings: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
+    malformed_archive_findings: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
+    scan_error_count: int = Field(sa_column=Column(sa.BigInteger(), nullable=False))
     evaluated_at_epoch: float
     persisted_at_epoch: float
 

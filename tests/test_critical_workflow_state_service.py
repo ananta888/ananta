@@ -10,10 +10,18 @@ from agent.services.critical_workflow_state_service import WorkflowTransitionErr
 def test_critical_workflow_transitions_and_replay_for_evolution() -> None:
     service = get_critical_workflow_state_service()
     record = service.initialize("evolution_proposal", state="review_required", now=100.0)
-    record = service.transition(record, workflow_type="evolution_proposal", to_state="approved", reason="review_approve", now=101.0)
-    record = service.transition(record, workflow_type="evolution_proposal", to_state="apply_requested", reason="apply_requested", now=102.0)
-    record = service.transition(record, workflow_type="evolution_proposal", to_state="apply_in_progress", reason="started", now=103.0)
-    record = service.transition(record, workflow_type="evolution_proposal", to_state="apply_prepared", reason="prepared", now=104.0)
+    record = service.transition(
+        record, workflow_type="evolution_proposal", to_state="approved", reason="review_approve", now=101.0
+    )
+    record = service.transition(
+        record, workflow_type="evolution_proposal", to_state="apply_requested", reason="apply_requested", now=102.0
+    )
+    record = service.transition(
+        record, workflow_type="evolution_proposal", to_state="apply_in_progress", reason="started", now=103.0
+    )
+    record = service.transition(
+        record, workflow_type="evolution_proposal", to_state="apply_prepared", reason="prepared", now=104.0
+    )
     replay = service.replay(record, workflow_type="evolution_proposal")
 
     assert record["state"] == "apply_prepared"
@@ -60,12 +68,24 @@ def test_critical_workflow_enforces_named_guards() -> None:
 def test_repair_workflow_replay_covers_valid_critical_path() -> None:
     service = get_critical_workflow_state_service()
     record = service.initialize("repair_execution", state="detected", now=10.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="diagnosing", reason="start_diag", now=11.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="proposing", reason="diag_done", now=12.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="approval_required", reason="needs_review", now=13.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="executing", reason="approved", now=14.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="verifying", reason="exec_done", now=15.0)
-    record = service.transition(record, workflow_type="repair_execution", to_state="succeeded", reason="verify_passed", now=16.0)
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="diagnosing", reason="start_diag", now=11.0
+    )
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="proposing", reason="diag_done", now=12.0
+    )
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="approval_required", reason="needs_review", now=13.0
+    )
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="executing", reason="approved", now=14.0
+    )
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="verifying", reason="exec_done", now=15.0
+    )
+    record = service.transition(
+        record, workflow_type="repair_execution", to_state="succeeded", reason="verify_passed", now=16.0
+    )
     replay = service.replay(record, workflow_type="repair_execution")
 
     assert replay["valid"] is True

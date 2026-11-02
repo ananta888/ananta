@@ -6,15 +6,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-BOUND_KNOWLEDGE_INDEX_JOB_SCHEMA = (
-    "ananta.knowledge_index_execution_job.v2"
-)
-RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON = (
-    "knowledge_index_reserved_task_ingress_forbidden"
-)
-BOUND_KNOWLEDGE_INDEX_MUTATION_REASON = (
-    "knowledge_index_task_control_plane_mutation_forbidden"
-)
+BOUND_KNOWLEDGE_INDEX_JOB_SCHEMA = "ananta.knowledge_index_execution_job.v2"
+RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON = "knowledge_index_reserved_task_ingress_forbidden"
+BOUND_KNOWLEDGE_INDEX_MUTATION_REASON = "knowledge_index_task_control_plane_mutation_forbidden"
 RESERVED_KNOWLEDGE_INDEX_TASK_KIND = "codecompass_index_build"
 RESERVED_KNOWLEDGE_INDEX_TASK_SOURCE = "knowledge_index"
 RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY = "knowledge_index_job"
@@ -57,25 +51,15 @@ def find_reserved_knowledge_index_marker(
 
     values = payload if isinstance(payload, Mapping) else {}
     if any(
-        str(candidate or "").strip().lower()
-        == RESERVED_KNOWLEDGE_INDEX_TASK_SOURCE
+        str(candidate or "").strip().lower() == RESERVED_KNOWLEDGE_INDEX_TASK_SOURCE
         for candidate in (source, values.get("source"))
     ):
         return "source"
-    if (
-        str(values.get("task_kind") or "").strip().lower()
-        == RESERVED_KNOWLEDGE_INDEX_TASK_KIND
-    ):
+    if str(values.get("task_kind") or "").strip().lower() == RESERVED_KNOWLEDGE_INDEX_TASK_KIND:
         return "task_kind"
     worker_context = values.get("worker_execution_context")
-    if (
-        isinstance(worker_context, Mapping)
-        and RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY in worker_context
-    ):
-        return (
-            "worker_execution_context."
-            + RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY
-        )
+    if isinstance(worker_context, Mapping) and RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY in worker_context:
+        return "worker_execution_context." + RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY
     return None
 
 
@@ -83,15 +67,8 @@ def has_bound_knowledge_index_job(task: Any) -> bool:
     """Identify the exact persisted v2 control-plane binding."""
 
     worker_context = _payload(task).get("worker_execution_context")
-    job = (
-        worker_context.get(RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY)
-        if isinstance(worker_context, Mapping)
-        else None
-    )
-    return bool(
-        isinstance(job, Mapping)
-        and job.get("schema") == BOUND_KNOWLEDGE_INDEX_JOB_SCHEMA
-    )
+    job = worker_context.get(RESERVED_KNOWLEDGE_INDEX_CONTEXT_KEY) if isinstance(worker_context, Mapping) else None
+    return bool(isinstance(job, Mapping) and job.get("schema") == BOUND_KNOWLEDGE_INDEX_JOB_SCHEMA)
 
 
 def reserved_knowledge_index_ingress_error(

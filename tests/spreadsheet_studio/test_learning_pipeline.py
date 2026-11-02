@@ -98,11 +98,14 @@ def test_feedback_consent_dataset_and_revocation_are_separate_automatic_states(t
     assert row["task_kind"] == "spreadsheet_actions"
     assert row["consent_digest"] == consent["consent_digest"]
     assert dataset["split_lock"]["record_assignments"][event["record_digest"]] == row["split"]
-    assert learning.materialize_dataset(
-        tenant_id="tenant-a",
-        principal_id="user-a",
-        payload=_dataset(event),
-    )["replayed"] is True
+    assert (
+        learning.materialize_dataset(
+            tenant_id="tenant-a",
+            principal_id="user-a",
+            payload=_dataset(event),
+        )["replayed"]
+        is True
+    )
     changed_split = {**_dataset(event), "split_seed": "split-v2"}
     with pytest.raises(SpreadsheetLearningConflict, match="dataset_replay_conflict"):
         learning.materialize_dataset(

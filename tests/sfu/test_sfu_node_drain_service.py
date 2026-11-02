@@ -51,13 +51,9 @@ def service(rooms=None, clock=lambda: 100.0):
     repository = InMemorySfuNodeDrainRepository()
     admission = Admission()
     room_port = rooms or Rooms()
-    matrix = SfuVersionCompatibilityMatrix.from_file(
-        "config/sfu_broadcast_version_compatibility.json"
-    )
+    matrix = SfuVersionCompatibilityMatrix.from_file("config/sfu_broadcast_version_compatibility.json")
     return (
-        SfuNodeDrainService(
-            repository, admission, room_port, matrix, clock=clock
-        ),
+        SfuNodeDrainService(repository, admission, room_port, matrix, clock=clock),
         repository,
         admission,
         room_port,

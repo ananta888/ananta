@@ -2,13 +2,12 @@ import json
 import logging
 import logging.config
 import os
-import re
 from contextvars import ContextVar
 from typing import Optional
 
 import yaml
 
-from agent.common.redaction import redact, VisibilityLevel
+from agent.common.redaction import redact
 
 # ContextVar für Korrelations-ID (Thread-sicher und Async-sicher)
 correlation_id_ctx: ContextVar[str] = ContextVar("correlation_id", default="")

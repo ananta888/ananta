@@ -8,12 +8,15 @@ linking and no shared memory. Rules:
   malformed or schema-invalid responses are ``ok=False`` and carry no value, never a default label;
 * Ananta always sends abstain thresholds and re-checks them locally; a field the server lists in
   ``abstained`` (or that fails the local check) carries no value and must be escalated;
+* every context carries at least one image unless the caller explicitly opts into text-only scoring
+  with ``require_media=False`` (the self-development review gate);
 * a decision value is advisory and never grants a permission; the hub owns policy and fallback.
 
 Images are validated and bounded locally (count, bytes, pixels, side length) and re-encoded as PNG
 (drops metadata) before anything leaves the process; only ``data:`` URIs are sent, never URLs.
 Images, base64, prompt text, decision values and the API key are never logged.
 """
+
 from __future__ import annotations
 
 import base64
@@ -189,7 +192,9 @@ class VisionDecisionConfig:
         if parsed.scheme == "http" and not _is_local_host(parsed.hostname):
             raise VisionDecisionConfigurationError("VISION_DECISION_URL needs https for non-local hosts")
         if self.api_key is not None and (len(self.api_key) < 16 or any(ch.isspace() for ch in self.api_key)):
-            raise VisionDecisionConfigurationError("VISION_DECISION_API_KEY(_FILE) needs at least 16 non-space characters")
+            raise VisionDecisionConfigurationError(
+                "VISION_DECISION_API_KEY(_FILE) needs at least 16 non-space characters"
+            )
         if not 100 <= self.timeout_ms <= 300_000:
             raise VisionDecisionConfigurationError("VISION_DECISION_TIMEOUT_MS must be between 100 and 300000")
         if not 1 <= self.max_media <= MAX_MEDIA_LIMIT:
@@ -267,9 +272,7 @@ class VisionDecisionSchema:
     instructions: str = field(default="", repr=False)
 
     @classmethod
-    def from_mapping(
-        cls, schema_id: str, spec: Mapping[str, Any], *, instructions: str = ""
-    ) -> "VisionDecisionSchema":
+    def from_mapping(cls, schema_id: str, spec: Mapping[str, Any], *, instructions: str = "") -> "VisionDecisionSchema":
         """Build and validate a schema from the fork's compact form; raises ``ValueError``."""
         if not isinstance(spec, Mapping):
             raise ValueError("schema must be an object")
@@ -321,7 +324,9 @@ class VisionDecisionSchema:
             if not f.description.strip() or len(f.description) > 500:
                 raise ValueError("every schema field needs a short description")
             if f.temperature is not None and (
-                isinstance(f.temperature, bool) or not isinstance(f.temperature, (int, float)) or not 0 < f.temperature <= 100
+                isinstance(f.temperature, bool)
+                or not isinstance(f.temperature, (int, float))
+                or not 0 < f.temperature <= 100
             ):
                 raise ValueError("field temperature must be a number in (0, 100]")
             if f.type == "enum":
@@ -476,7 +481,11 @@ class VisionDecisionOutcome:
             "error_code": self.error_code,
             "http_status": self.http_status,
             "contexts": [
-                {"index": r.index, "abstained": len(r.abstained), "fields": [f.as_audit_dict() for f in r.fields.values()]}
+                {
+                    "index": r.index,
+                    "abstained": len(r.abstained),
+                    "fields": [f.as_audit_dict() for f in r.fields.values()],
+                }
                 for r in self.results
             ],
             "provenance": self.provenance(),
@@ -670,32 +679,43 @@ def parse_decision_response(
     except (ValueError, UnicodeError):
         payload = None
     if status != 200:
-        return VisionDecisionOutcome.failure(_error_code(status), _error_message(payload), http_status=status, schema_id=sid)
+        return VisionDecisionOutcome.failure(
+            _error_code(status), _error_message(payload), http_status=status, schema_id=sid
+        )
     if not isinstance(payload, dict) or payload.get("object") != "decision":
-        return VisionDecisionOutcome.failure("bad_response", "response is not a decision object", http_status=status, schema_id=sid)
+        return VisionDecisionOutcome.failure(
+            "bad_response", "response is not a decision object", http_status=status, schema_id=sid
+        )
     if require_cache_isolation:
         cache_policy = payload.get("cache_policy")
-        if (not isinstance(cache_policy, dict) or any(cache_policy.get(key) is not False
-                for key in ("context", "prompt", "media"))):
-            return VisionDecisionOutcome.failure(
-                "cache_isolation_unverified", http_status=status, schema_id=sid
-            )
+        if not isinstance(cache_policy, dict) or any(
+            cache_policy.get(key) is not False for key in ("context", "prompt", "media")
+        ):
+            return VisionDecisionOutcome.failure("cache_isolation_unverified", http_status=status, schema_id=sid)
     model = payload.get("model") if isinstance(payload.get("model"), str) else None
     if not _model_allowed(model, models):
-        return VisionDecisionOutcome.failure("model_not_allowed", "server model is not in VISION_DECISION_MODELS", http_status=status, schema_id=sid)
+        return VisionDecisionOutcome.failure(
+            "model_not_allowed", "server model is not in VISION_DECISION_MODELS", http_status=status, schema_id=sid
+        )
     raw_results = payload.get("results")
     if not isinstance(raw_results, list) or len(raw_results) != n_contexts:
-        return VisionDecisionOutcome.failure("bad_response", "result count does not match the contexts", http_status=status, schema_id=sid)
+        return VisionDecisionOutcome.failure(
+            "bad_response", "result count does not match the contexts", http_status=status, schema_id=sid
+        )
     names = {f.name for f in schema.fields}
     results: list[VisionContextResult] = []
     for index, raw in enumerate(raw_results):
         raw_fields = raw.get("fields") if isinstance(raw, dict) else None
         abstained_raw = raw.get("abstained") if isinstance(raw, dict) else None
         if not isinstance(raw_fields, dict) or set(raw_fields) != names or not isinstance(abstained_raw, list):
-            return VisionDecisionOutcome.failure("bad_response", "result fields do not match the schema", http_status=status, schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "bad_response", "result fields do not match the schema", http_status=status, schema_id=sid
+            )
         listed = {name for name in abstained_raw if isinstance(name, str)}
         if not listed <= names:
-            return VisionDecisionOutcome.failure("bad_response", "abstained lists unknown fields", http_status=status, schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "bad_response", "abstained lists unknown fields", http_status=status, schema_id=sid
+            )
         decision = raw.get("decision")
         fields: dict[str, VisionFieldOutcome] = {}
         for spec in schema.fields:
@@ -707,7 +727,9 @@ def parse_decision_response(
                 min_margin=min_margin,
             )
             if item is None or not isinstance(decision, dict) or decision.get(spec.name) != item.top_value:
-                return VisionDecisionOutcome.failure("bad_response", "a field is malformed or not schema-valid", http_status=status, schema_id=sid)
+                return VisionDecisionOutcome.failure(
+                    "bad_response", "a field is malformed or not schema-valid", http_status=status, schema_id=sid
+                )
             fields[spec.name] = item
         usage = raw.get("usage") if isinstance(raw.get("usage"), dict) else {}
         results.append(
@@ -771,10 +793,17 @@ class VisionDecisionProvider:
         *,
         return_probs: bool = False,
         deadline_monotonic: float | None = None,
+        require_media: bool = True,
     ) -> VisionDecisionOutcome:
         started = self._clock()
         try:
-            outcome = self._decide(schema, contexts, return_probs=return_probs, deadline_monotonic=deadline_monotonic)
+            outcome = self._decide(
+                schema,
+                contexts,
+                return_probs=return_probs,
+                deadline_monotonic=deadline_monotonic,
+                require_media=require_media,
+            )
         except Exception:  # a provider bug never becomes a decision
             _log.exception("vision decision provider failed")
             outcome = VisionDecisionOutcome.failure("provider_error", schema_id=getattr(schema, "schema_id", None))
@@ -804,6 +833,7 @@ class VisionDecisionProvider:
         *,
         return_probs: bool,
         deadline_monotonic: float | None,
+        require_media: bool = True,
     ) -> VisionDecisionOutcome:
         sid = schema.schema_id if isinstance(schema, VisionDecisionSchema) else None
         if not isinstance(schema, VisionDecisionSchema):
@@ -813,20 +843,32 @@ class VisionDecisionProvider:
         except ValueError as exc:
             return VisionDecisionOutcome.failure("invalid_schema", str(exc), schema_id=sid)
         if self._config.schemas and schema.schema_id not in self._config.schemas:
-            return VisionDecisionOutcome.failure("schema_not_allowed", "schema is not in VISION_DECISION_SCHEMAS", schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "schema_not_allowed", "schema is not in VISION_DECISION_SCHEMAS", schema_id=sid
+            )
         if any(f.dependency_mode != "independent" or f.depends_on for f in schema.fields):
             return VisionDecisionOutcome.failure("parallel_dependencies_require_system2", schema_id=sid)
         if not contexts or len(contexts) > MAX_CONTEXTS:
-            return VisionDecisionOutcome.failure("invalid_request", f"1-{MAX_CONTEXTS} contexts are required", schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "invalid_request", f"1-{MAX_CONTEXTS} contexts are required", schema_id=sid
+            )
         n_images = sum(len(c.images) for c in contexts)
         if n_images > self._config.max_media:
-            return VisionDecisionOutcome.failure("too_many_images", "request exceeds VISION_DECISION_MAX_MEDIA", schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "too_many_images", "request exceeds VISION_DECISION_MAX_MEDIA", schema_id=sid
+            )
 
         # Local validation and re-encoding run before anything leaves the process.
         request_contexts: list[list[dict[str, Any]]] = []
         for context in contexts:
-            if not context.images:
-                return VisionDecisionOutcome.failure("invalid_request", "every context needs at least one image", schema_id=sid)
+            if not context.images and require_media:
+                return VisionDecisionOutcome.failure(
+                    "invalid_request", "every context needs at least one image", schema_id=sid
+                )
+            if not context.images and not context.text.strip():
+                return VisionDecisionOutcome.failure(
+                    "invalid_request", "every context needs an image or text", schema_id=sid
+                )
             if len(context.text) > MAX_TEXT_CHARS:
                 return VisionDecisionOutcome.failure("invalid_request", "context text is too long", schema_id=sid)
             parts: list[dict[str, Any]] = []
@@ -836,7 +878,9 @@ class VisionDecisionProvider:
                         image.content, max_bytes=self._config.max_image_bytes, max_side=self._config.max_image_side
                     )
                 except ImageRejected as exc:
-                    return VisionDecisionOutcome.failure(exc.code, f"image rejected before upload: {exc}", schema_id=sid)
+                    return VisionDecisionOutcome.failure(
+                        exc.code, f"image rejected before upload: {exc}", schema_id=sid
+                    )
                 url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
                 parts.append({"type": "image_url", "image_url": {"url": url}})
             if context.text.strip():
@@ -874,7 +918,9 @@ class VisionDecisionProvider:
                 timeout_s=timeout_s,
             )
         except (socket.timeout, TimeoutError):
-            return VisionDecisionOutcome.failure("deadline_exceeded", "vision decision service timed out", schema_id=sid)
+            return VisionDecisionOutcome.failure(
+                "deadline_exceeded", "vision decision service timed out", schema_id=sid
+            )
         except (OSError, http.client.HTTPException):
             return VisionDecisionOutcome.failure("unavailable", "vision decision service not reachable", schema_id=sid)
         return parse_decision_response(

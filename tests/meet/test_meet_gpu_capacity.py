@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_gpu_fixture import DialogGpuFixture
-from tests.meet_gpu_capacity import require_gpu_capacity
+from tests.meet.meet_dialog_gpu_fixture import DialogGpuFixture
+from tests.meet.meet_gpu_capacity import require_gpu_capacity
 
 
 @pytest.mark.parametrize(

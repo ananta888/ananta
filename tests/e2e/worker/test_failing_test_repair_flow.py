@@ -49,7 +49,9 @@ def test_failing_test_repair_flow_returns_repair_artifacts(tmp_path: Path) -> No
         hub_policy_decision="allow",
     )
     assert failed_result["status"] == "failed"
-    hints = build_command_repair_hints(command="python3 -m unittest", exit_code=failed_result["exit_code"], stderr=failed_result["stderr_ref"])
+    hints = build_command_repair_hints(
+        command="python3 -m unittest", exit_code=failed_result["exit_code"], stderr=failed_result["stderr_ref"]
+    )
     assert hints
 
     calc_path = repo / "calc.py"
@@ -92,7 +94,9 @@ def test_failing_test_repair_flow_returns_repair_artifacts(tmp_path: Path) -> No
         extra_evidence_refs=["repair-hints:AW-T29"],
     )
     assert failed_verification["status"] == "failed"
-    verification = build_verification_artifact(task_id="AW-T29", test_results=[passed_result], patch_artifact=patch_artifact)
+    verification = build_verification_artifact(
+        task_id="AW-T29", test_results=[passed_result], patch_artifact=patch_artifact
+    )
     assert verification["status"] == "passed"
     trace = build_trace_metadata(
         trace_id="tr-29",
@@ -100,6 +104,12 @@ def test_failing_test_repair_flow_returns_repair_artifacts(tmp_path: Path) -> No
         capability_id="worker.patch.apply",
         context_hash="ctx-29",
         policy_decision_ref={"decision_id": "d-29", "decision": "approval_required", "policy_version": "v1"},
-        approval_ref={"approval_id": "a-29", "status": "approved", "task_id": "AW-T29", "capability_id": "worker.patch.apply", "context_hash": "ctx-29"},
+        approval_ref={
+            "approval_id": "a-29",
+            "status": "approved",
+            "task_id": "AW-T29",
+            "capability_id": "worker.patch.apply",
+            "context_hash": "ctx-29",
+        },
     )
     assert trace["approval_ref"]["status"] == "approved"

@@ -31,15 +31,23 @@ def _authenticated_owned_snake(snake_id: str):
 
     auth = _authenticated_snake_control_auth()
     if not auth:
-        return None, None, (
-            jsonify({"error": "user_authentication_required"}),
-            401,
+        return (
+            None,
+            None,
+            (
+                jsonify({"error": "user_authentication_required"}),
+                401,
+            ),
         )
     snake = _snakes.get(snake_id)
     if snake is None or not _snake_bound_to_auth(snake, auth):
-        return None, auth, (
-            jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}),
-            404,
+        return (
+            None,
+            auth,
+            (
+                jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}),
+                404,
+            ),
         )
     return snake, auth, None
 
@@ -108,16 +116,18 @@ def list_snakes():
         if _snake_owner_principal(snake) != principal:
             continue
         age = time.time() - float(snake.get("last_heartbeat", 0))
-        result.append({
-            "id": snake["id"],
-            "name": snake["name"],
-            "role": snake["role"],
-            "color": snake["color"],
-            "oidc_id": snake.get("oidc_id") or "",
-            "active": bool(snake.get("active")),
-            "status": "online" if age < 30 else "offline",
-            "last_heartbeat": snake.get("last_heartbeat"),
-        })
+        result.append(
+            {
+                "id": snake["id"],
+                "name": snake["name"],
+                "role": snake["role"],
+                "color": snake["color"],
+                "oidc_id": snake.get("oidc_id") or "",
+                "active": bool(snake.get("active")),
+                "status": "online" if age < 30 else "offline",
+                "last_heartbeat": snake.get("last_heartbeat"),
+            }
+        )
     return jsonify({"snakes": result}), 200
 
 
@@ -200,22 +210,15 @@ def get_messages(snake_id: str):
     msgs = [
         message
         for message in stored_messages
-        if not isinstance(message.get("owner_principal"), dict)
-        or message.get("owner_principal") == expected_owner
+        if not isinstance(message.get("owner_principal"), dict) or message.get("owner_principal") == expected_owner
     ]
     _messages[snake_id] = [
         message
         for message in stored_messages
-        if isinstance(message.get("owner_principal"), dict)
-        and message.get("owner_principal") != expected_owner
+        if isinstance(message.get("owner_principal"), dict) and message.get("owner_principal") != expected_owner
     ]
     return jsonify(
-        {
-            "messages": [
-                {key: value for key, value in message.items() if key != "owner_principal"}
-                for message in msgs
-            ]
-        }
+        {"messages": [{key: value for key, value in message.items() if key != "owner_principal"} for message in msgs]}
     ), 200
 
 
@@ -233,12 +236,14 @@ def list_participants():
         if _snake_owner_principal(snake) != principal:
             continue
         age = now - float(snake.get("last_heartbeat", 0))
-        result.append({
-            "id": snake["id"],
-            "name": snake["name"],
-            "role": snake["role"],
-            "color": snake["color"],
-            "status": "online" if age < 30 else "offline",
-            "last_seen": snake.get("last_heartbeat"),
-        })
+        result.append(
+            {
+                "id": snake["id"],
+                "name": snake["name"],
+                "role": snake["role"],
+                "color": snake["color"],
+                "status": "online" if age < 30 else "offline",
+                "last_seen": snake.get("last_heartbeat"),
+            }
+        )
     return jsonify({"participants": result}), 200

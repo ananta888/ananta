@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from typing import Any, Mapping
 
@@ -79,7 +80,7 @@ class MlInternTrainingControlPolicyMixin:
                     event_details={"job_id": saved.id, "reason_code": saved.error_code},
                 )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("_transition: ignored Exception", exc_info=True)
         return saved
 
     @staticmethod

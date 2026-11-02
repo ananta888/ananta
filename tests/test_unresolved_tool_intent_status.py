@@ -1,6 +1,7 @@
+from unittest.mock import patch
+
 from agent.models import TaskExecutionPolicyContract
 from agent.services.task_execution_service import TaskExecutionService
-from unittest.mock import patch
 
 
 def _policy() -> TaskExecutionPolicyContract:

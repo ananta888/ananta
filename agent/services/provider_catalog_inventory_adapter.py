@@ -43,9 +43,7 @@ class ProviderCatalogModelInventoryAdapter:
                     runtime=item.runtime,
                     source_ids=(self.source_id,),
                     source_kinds=(
-                        (ModelSourceKind.REMOTE,)
-                        if item.runtime is ModelRuntime.REMOTE
-                        else (self.source_kind,)
+                        (ModelSourceKind.REMOTE,) if item.runtime is ModelRuntime.REMOTE else (self.source_kind,)
                     ),
                     availability=item.availability,
                     health=item.health,
@@ -63,17 +61,11 @@ class ProviderCatalogModelInventoryAdapter:
                         )
                         for value in item.capabilities
                     ),
-                    metadata_facts=self._remote_facts(
-                        item.provider_id, remote.get(item.provider_id)
-                    ),
+                    metadata_facts=self._remote_facts(item.provider_id, remote.get(item.provider_id)),
                 )
                 for item in catalog.models
             ),
-            degraded_reason_code=(
-                "provider_catalog_partial"
-                if catalog.provider_failures
-                else None
-            ),
+            degraded_reason_code=("provider_catalog_partial" if catalog.provider_failures else None),
         )
 
     def _remote_facts(
@@ -86,20 +78,24 @@ class ProviderCatalogModelInventoryAdapter:
         facts: list[ModelMetadataFact] = []
         trust_level = str(metadata.get("trust_level") or "").strip()
         if trust_level:
-            facts.append(ModelMetadataFact(
-                fact_id="remote_trust_level",
-                value=trust_level,
-                evidence=ModelMetadataEvidence.DECLARED,
-                source_id=self.source_id,
-            ))
+            facts.append(
+                ModelMetadataFact(
+                    fact_id="remote_trust_level",
+                    value=trust_level,
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                )
+            )
         max_hops = metadata.get("max_hops")
         if isinstance(max_hops, int) and not isinstance(max_hops, bool) and max_hops > 0:
-            facts.append(ModelMetadataFact(
-                fact_id="remote_hop_limit",
-                value=str(max_hops),
-                evidence=ModelMetadataEvidence.DECLARED,
-                source_id=self.source_id,
-            ))
+            facts.append(
+                ModelMetadataFact(
+                    fact_id="remote_hop_limit",
+                    value=str(max_hops),
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                )
+            )
         return tuple(facts)
 
 

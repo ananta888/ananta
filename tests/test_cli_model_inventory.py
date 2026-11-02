@@ -26,9 +26,7 @@ def test_cli_inventory_uses_status_projection_without_commands_or_paths(monkeypa
         "agent.cli_backends.model_inventory.settings.codex_default_model",
         "gpt-5-codex",
     )
-    adapter = CliBackendModelInventoryAdapter(
-        "codex", CliRuntimeStatusCache(status_loader)
-    )
+    adapter = CliBackendModelInventoryAdapter("codex", CliRuntimeStatusCache(status_loader))
     first = adapter.collect()
     second = adapter.collect()
     wire = first.models[0].model_dump(mode="json", by_alias=True)

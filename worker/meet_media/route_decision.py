@@ -33,8 +33,10 @@ MIN_CONFIDENCE_ENV = "MEET_ROUTE_DECISION_MIN_CONFIDENCE"
 URL_ENV = "MEET_TOOL_DECISION_URL"
 DEFAULT_MIN_CONFIDENCE = 0.90
 BUDGET_SECONDS = 2.0
-INSTRUCTIONS = ("Decide where the companion avatar must ground its answer to this meeting chat message, "
-                "and whether the answer needs a lookup in the Ananta code knowledge base.")
+INSTRUCTIONS = (
+    "Decide where the companion avatar must ground its answer to this meeting chat message, "
+    "and whether the answer needs a lookup in the Ananta code knowledge base."
+)
 # Kept identical to benchmarks/decision_providers/companion_route.v1.json (a test checks it).
 ROUTE_OPTIONS = {
     SELF_EXPLANATION: "The user asks how the assistant produced its previous answer, where it got it from, or which "
@@ -49,10 +51,12 @@ ROUTE_OPTIONS = {
     GENERAL_QUESTION: "Smalltalk, greetings, jokes, and general world-knowledge questions that concern neither "
     "Ananta's code nor the current meeting; answered by the LLM alone without CodeCompass.",
 }
-KNOWLEDGE_DESCRIPTION = ("True if answering needs a lookup in the Ananta code knowledge base (CodeCompass): questions "
-                         "about Ananta's repository, code, named identifiers or paths, architecture, or the "
-                         "companion's own implementation; false for smalltalk, general world knowledge, pure "
-                         "meeting-state questions and questions about how the previous answer was produced.")
+KNOWLEDGE_DESCRIPTION = (
+    "True if answering needs a lookup in the Ananta code knowledge base (CodeCompass): questions "
+    "about Ananta's repository, code, named identifiers or paths, architecture, or the "
+    "companion's own implementation; false for smalltalk, general world knowledge, pure "
+    "meeting-state questions and questions about how the previous answer was produced."
+)
 _log = logging.getLogger(__name__)
 
 
@@ -77,12 +81,25 @@ class RouteDecider:
 
     def decide(self, text):
         started = self._clock()
-        body = {"model": self._model, "instructions": INSTRUCTIONS, "mode": "tree", "return_probs": True,
-                "cache_context": False, "contexts": [str(text or "")[:1000]],
-                "schema": {"type": "object", "properties": {
-                    "route": {"enum": list(ROUTE_OPTIONS), "description": "Where to ground the answer. " + " ".join(
-                        f"{key} = {value}" for key, value in ROUTE_OPTIONS.items())},
-                    "knowledge": {"type": "boolean", "description": KNOWLEDGE_DESCRIPTION}}}}
+        body = {
+            "model": self._model,
+            "instructions": INSTRUCTIONS,
+            "mode": "tree",
+            "return_probs": True,
+            "cache_context": False,
+            "contexts": [str(text or "")[:1000]],
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "route": {
+                        "enum": list(ROUTE_OPTIONS),
+                        "description": "Where to ground the answer. "
+                        + " ".join(f"{key} = {value}" for key, value in ROUTE_OPTIONS.items()),
+                    },
+                    "knowledge": {"type": "boolean", "description": KNOWLEDGE_DESCRIPTION},
+                },
+            },
+        }
         try:
             response = self._client.exchange("/v1/decision", body, self._budget)
             fields = response["results"][0]["fields"]
@@ -114,16 +131,28 @@ class DecidedRouting:
 
     def __call__(self, text, rules, *, codecompass_enabled):
         decided = self._decider.decide(text)
-        use = (self._mode == "active" and decided is not None and decided[2] >= self._min_confidence)
+        use = self._mode == "active" and decided is not None and decided[2] >= self._min_confidence
         self.last = {"rules": rules.route, "decided": decided, "used": use, "ms": self._decider.last_ms}
         if decided is not None and (decided[0], decided[1]) != (rules.route, rules.knowledge):
-            _log.info("route decision %s (knowledge=%s, p=%.2f) vs rules %s (knowledge=%s)%s", decided[0],
-                      decided[1], decided[2], rules.route, rules.knowledge, " -> used" if use else "")
+            _log.info(
+                "route decision %s (knowledge=%s, p=%.2f) vs rules %s (knowledge=%s)%s",
+                decided[0],
+                decided[1],
+                decided[2],
+                rules.route,
+                rules.knowledge,
+                " -> used" if use else "",
+            )
         if not use:
             return rules
         route, knowledge, confidence = decided
-        return RouteDecision(route, bool(knowledge and codecompass_enabled), f"route_decision_{confidence:.2f}",
-                             knowledge=bool(knowledge), query=search_query(text) if knowledge else "")
+        return RouteDecision(
+            route,
+            bool(knowledge and codecompass_enabled),
+            f"route_decision_{confidence:.2f}",
+            knowledge=bool(knowledge),
+            query=search_query(text) if knowledge else "",
+        )
 
 
 def routing_from_env(environ=None):

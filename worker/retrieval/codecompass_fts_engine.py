@@ -56,4 +56,3 @@ class CodeCompassFtsEngine:
             )
         weighted.sort(key=lambda item: float(item["score"]), reverse=True)
         return weighted[: max(1, int(top_k))]
-

@@ -1,11 +1,10 @@
 """Round 9 tests: catalog validation, no-hallucination policy, E2E evaluations,
 integration tests with Registry/Loader, and fallback chains."""
+
 from __future__ import annotations
 
 import json
 import os
-
-import pytest
 
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
@@ -18,11 +17,7 @@ _CHAINS_PATH = os.path.join(_ROOT, "heuristics", "fallback_chains.json")
 
 
 def _all_bootstrap_files() -> list[str]:
-    return sorted(
-        os.path.join(_ACTIVE_DIR, fn)
-        for fn in os.listdir(_ACTIVE_DIR)
-        if fn.endswith(".heuristic.json")
-    )
+    return sorted(os.path.join(_ACTIVE_DIR, fn) for fn in os.listdir(_ACTIVE_DIR) if fn.endswith(".heuristic.json"))
 
 
 def _load(path: str) -> dict:
@@ -52,6 +47,7 @@ def _make_def(
 def _load_strategy(heuristic_id: str):
     """Load and instantiate the Python strategy from a python_strategy-mode bootstrap file."""
     from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
     path = os.path.join(_ACTIVE_DIR, f"{heuristic_id}.heuristic.json")
     data = _load(path)
     py = data["runtime"]["python_strategy"]
@@ -69,20 +65,21 @@ def _ctx(surface: str = "tui_snake", **kwargs) -> DecisionContext:
 
 # ── catalog T07.01: Bootstrap catalog validation ──────────────────────────────
 
+
 class TestHeuristicCatalogValidator:
     def _validator(self):
         from agent.services.heuristic_runtime.heuristic_catalog_validator import (
             HeuristicCatalogValidator,
         )
+
         return HeuristicCatalogValidator()
 
     def test_all_bootstrap_files_pass_validation(self):
         v = self._validator()
         result = v.validate_directory(_ACTIVE_DIR)
         failed = [r for r in result.results if not r.passed]
-        assert result.all_passed, (
-            f"{result.failed}/{result.total} failed:\n"
-            + "\n".join(f"  {r.file}: {r.errors}" for r in failed)
+        assert result.all_passed, f"{result.failed}/{result.total} failed:\n" + "\n".join(
+            f"  {r.file}: {r.errors}" for r in failed
         )
 
     def test_validate_directory_counts_all_files(self):
@@ -139,6 +136,7 @@ class TestHeuristicCatalogValidator:
 
 # ── catalog T07.04: No-hallucination and policy tests ─────────────────────────
 
+
 class TestNoHallucinationPolicy:
     def test_all_bootstrap_are_deterministic(self):
         for path in _all_bootstrap_files():
@@ -163,9 +161,7 @@ class TestNoHallucinationPolicy:
     def test_no_bootstrap_has_status_candidate(self):
         for path in _all_bootstrap_files():
             d = _load(path)
-            assert d.get("status") in ("active", None), (
-                f"{os.path.basename(path)}: status={d.get('status')}"
-            )
+            assert d.get("status") in ("active", None), f"{os.path.basename(path)}: status={d.get('status')}"
 
     def test_chat_bootstraps_have_readonly_safety(self):
         for path in _all_bootstrap_files():
@@ -175,15 +171,17 @@ class TestNoHallucinationPolicy:
 
     def test_no_good_match_strategy_always_returns_no_action(self):
         from agent.heuristics.strategies.chat_codecompass.no_good_match import NoGoodMatchStrategy
+
         s = NoGoodMatchStrategy()
         for query in ["", "anything", "class method error fail merge"]:
-            ctx = DecisionContext(source_surface="chat_codecompass", ai_status="available", query=query or None)
+            DecisionContext(source_surface="chat_codecompass", ai_status="available", query=query or None)
             result = s.evaluate(_make_def(), _make_def())
             assert result.action_kind == "no_action"
             assert result.confidence == 1.0
 
 
 # ── catalog T08.01: E2E Snake bootstrap without AI ────────────────────────────
+
 
 class TestE2ESnakeBootstrap:
     def test_artifact_intent_fires_with_artifact(self):
@@ -214,6 +212,7 @@ class TestE2ESnakeBootstrap:
 
     def test_snake_decisions_are_fast(self):
         import time
+
         s, defn = _load_strategy("snake_tui_artifact_intent_default")
         start = time.monotonic()
         for _ in range(100):
@@ -223,6 +222,7 @@ class TestE2ESnakeBootstrap:
 
 
 # ── catalog T08.02: E2E Chat bootstrap ───────────────────────────────────────
+
 
 class TestE2EChatBootstrap:
     def _chat_ctx(self, **kwargs) -> DecisionContext:
@@ -275,6 +275,7 @@ class TestE2EChatBootstrap:
 
 
 # ── catalog T08.03: E2E Helpcenter and Planning ───────────────────────────────
+
 
 class TestE2EHelpcenterPlanningBootstrap:
     def test_failure_triage_shows_context_with_scope(self):
@@ -340,9 +341,11 @@ class TestE2EHelpcenterPlanningBootstrap:
 
 # ── python T08.02: Integration tests with Registry/Loader ─────────────────────
 
+
 class TestPythonStrategyLoaderIntegration:
     def test_all_bindings_load_successfully(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         bindings = json.load(open(_BINDINGS_PATH))["bindings"]
         loader = PythonStrategyLoader()
         failures = []
@@ -355,6 +358,7 @@ class TestPythonStrategyLoaderIntegration:
     def test_all_loaded_strategies_are_base_instances(self):
         from agent.heuristics.strategies.base import HeuristicStrategyBase
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         bindings = json.load(open(_BINDINGS_PATH))["bindings"]
         loader = PythonStrategyLoader()
         for b in bindings:
@@ -363,6 +367,7 @@ class TestPythonStrategyLoaderIntegration:
 
     def test_strategy_id_matches_class_name(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         bindings = json.load(open(_BINDINGS_PATH))["bindings"]
         loader = PythonStrategyLoader()
         for b in bindings:
@@ -371,6 +376,7 @@ class TestPythonStrategyLoaderIntegration:
 
     def test_domain_matches_binding_domain(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         domain_map = {
             "TuiFollowDistanceStrategy": "tui_snake",
             "NoGoodMatchStrategy": "chat_codecompass",
@@ -386,6 +392,7 @@ class TestPythonStrategyLoaderIntegration:
 
     def test_unknown_module_blocked(self):
         from agent.services.heuristic_runtime.python_strategy_loader import PythonStrategyLoader
+
         lr = PythonStrategyLoader().load_module_class("evil.module.path", "EvilStrategy")
         assert not lr.success
         assert "not_allowlisted" in lr.reason_code
@@ -400,6 +407,7 @@ class TestPythonStrategyLoaderIntegration:
 
 
 # ── python T08.03/T08.04: Fallback chains ─────────────────────────────────────
+
 
 class TestFallbackChains:
     def _chains(self) -> dict:

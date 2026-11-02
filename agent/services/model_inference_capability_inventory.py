@@ -130,10 +130,7 @@ def assert_ready_adapter_contract(
 
 def canonical_probe_report_json(reports: list[AdapterContractProbeReport]) -> bytes:
     payload = {
-        "reports": [
-            report.to_dict()
-            for report in sorted(reports, key=lambda item: (item.engine, item.adapter_class))
-        ],
+        "reports": [report.to_dict() for report in sorted(reports, key=lambda item: (item.engine, item.adapter_class))],
         "schema_version": "ananta.model-inference-capability-probes.v1",
     }
     return _canonical_json_bytes(payload) + b"\n"

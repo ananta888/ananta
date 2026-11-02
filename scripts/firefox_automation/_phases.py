@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import re
 import time
-from typing import Dict, List, Optional
 
 from firefox_automation._benchmark import (
     _select_preferred_team,
@@ -12,7 +11,12 @@ from firefox_automation._benchmark import (
     browser_api_json,
     ensure_opencode_execution_mode,
 )
-from firefox_automation._browser_utils import current_route_and_title, settle, step_nav
+from firefox_automation._browser_utils import (
+    current_route_and_title,
+    list_visible_errors,
+    settle,
+    step_nav,
+)
 from firefox_automation._config import APP_BASE, LOGIN_PASS, LOGIN_USER
 from firefox_automation._reporting import gate_visible_errors, record_step
 from firefox_automation._webdriver import (
@@ -68,7 +72,11 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     # Template setup
     t1 = time.time()
     step_nav(session_id, "/templates")
-    wait_for(session_id, "return !![...document.querySelectorAll('h1,h2,h3')].find(x=>/Templates/i.test((x.textContent||'')))", 20)
+    wait_for(
+        session_id,
+        "return !![...document.querySelectorAll('h1,h2,h3')].find(x=>/Templates/i.test((x.textContent||'')))",
+        20,
+    )
     template_name = f"Live UI Template {int(time.time())}"
     template_created = bool(
         js(
@@ -93,7 +101,14 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     )
     time.sleep(2.0)
     print("template_create_clicked", template_created, "template", template_name, flush=True)
-    record_step(report, "setup", "template_create", t1, template_created, {"template_name": template_name, **current_route_and_title(session_id)})
+    record_step(
+        report,
+        "setup",
+        "template_create",
+        t1,
+        template_created,
+        {"template_name": template_name, **current_route_and_title(session_id)},
+    )
     report.setdefault("cleanup_targets", {}).setdefault("template_names", []).append(template_name)
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "setup", hard_fail)
@@ -101,7 +116,11 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     # Blueprint + Team setup
     t2 = time.time()
     step_nav(session_id, "/teams")
-    wait_for(session_id, "return !![...document.querySelectorAll('h1,h2,h3')].find(x=>/Blueprint|Teams/i.test((x.textContent||'')))", 25)
+    wait_for(
+        session_id,
+        "return !![...document.querySelectorAll('h1,h2,h3')].find(x=>/Blueprint|Teams/i.test((x.textContent||'')))",
+        25,
+    )
     blueprint_name = f"Live UI Blueprint {int(time.time())}"
     blueprint_created = bool(
         js(
@@ -197,11 +216,7 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
     teams_payload = _unwrap_envelope(teams_res.get("body")) if teams_res.get("ok") else []
     teams = teams_payload if isinstance(teams_payload, list) else []
     matched_team = next(
-        (
-            item
-            for item in teams
-            if isinstance(item, dict) and str(item.get("name") or "").strip() == team_name
-        ),
+        (item for item in teams if isinstance(item, dict) and str(item.get("name") or "").strip() == team_name),
         None,
     )
     resolved_team_id = str((matched_team or {}).get("id") or "").strip()
@@ -391,9 +406,7 @@ def phase_goal(
     )
     click_debug["goals_before"] = len(goals_before)
     click_debug["goals_before_ids"] = [
-        str(item.get("id") or "")
-        for item in goals_before[-5:]
-        if isinstance(item, dict) and str(item.get("id") or "")
+        str(item.get("id") or "") for item in goals_before[-5:] if isinstance(item, dict) and str(item.get("id") or "")
     ]
     click_debug["fallback_click"] = False
     if not planning_started:
@@ -428,16 +441,19 @@ def phase_goal(
         "return !!document.querySelector('[data-testid=\"goal-submit-result\"]')",
         int(max(20, goal_wait_seconds)),
     )
-    goal_result_details = js(
-        session_id,
-        """
+    goal_result_details = (
+        js(
+            session_id,
+            """
         const panel = document.querySelector('[data-testid="goal-submit-result"]');
         if(!panel) return { found:false, text:'', tasks_created:0 };
         const text = (panel.textContent || '').trim();
         const m = text.match(/(\\d+)\\s+Tasks/);
         return { found:true, text:text.slice(0, 400), tasks_created: m ? Number(m[1]) : 0 };
         """,
-    ).get("value") or {}
+        ).get("value")
+        or {}
+    )
     tasks_created = int(goal_result_details.get("tasks_created") or 0)
     goal_id_match = re.search(
         r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
@@ -468,12 +484,20 @@ def phase_goal(
         report.setdefault("cleanup_targets", {}).setdefault("goal_ids", []).append(created_goal_id)
     click_debug["goals_after"] = len(goals_after)
     click_debug["goals_after_ids"] = [
-        str(item.get("id") or "")
-        for item in goals_after[-5:]
-        if isinstance(item, dict) and str(item.get("id") or "")
+        str(item.get("id") or "") for item in goals_after[-5:] if isinstance(item, dict) and str(item.get("id") or "")
     ]
     ok = goal_clicked and (goal_result or bool(created_goal_id)) and tasks_created > 0
-    print("goal_submit_clicked", goal_clicked, "goal_result_visible", goal_result, "tasks_created", tasks_created, "goal", goal_name, flush=True)
+    print(
+        "goal_submit_clicked",
+        goal_clicked,
+        "goal_result_visible",
+        goal_result,
+        "tasks_created",
+        tasks_created,
+        "goal",
+        goal_name,
+        flush=True,
+    )
     record_step(
         report,
         "goal",
@@ -488,7 +512,9 @@ def phase_goal(
             "tasks_created": tasks_created,
             "created_goal_id": created_goal_id,
             "goal_result_excerpt": str(goal_result_details.get("text") or ""),
-            "detail_tasks_after_fallback": len((detail_after.get("tasks") or [])) if isinstance(detail_after, dict) else 0,
+            "detail_tasks_after_fallback": len((detail_after.get("tasks") or []))
+            if isinstance(detail_after, dict)
+            else 0,
             **current_route_and_title(session_id),
         },
     )
@@ -498,7 +524,9 @@ def phase_goal(
         raise RuntimeError("Goal submit flow failed")
 
 
-def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, wait_tasks_seconds: float):
+def phase_execution(
+    session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float, wait_tasks_seconds: float
+):
     routes = ["/dashboard", "/board", "/templates", "/teams", "/settings"]
     ok_all = True
     for route in routes:
@@ -547,12 +575,17 @@ def phase_review(session_id: str, report: dict, hard_fail: bool, step_delay_seco
     report["ui_signals"]["final_route"] = state["path"]
     report["ui_signals"]["final_title"] = state["title"]
     ok = len(errors) == 0
-    record_step(report, "review", "final_ui_review", t0, ok, {"visible_error_count": len(errors), "contains_401": has_401, **state})
+    record_step(
+        report,
+        "review",
+        "final_ui_review",
+        t0,
+        ok,
+        {"visible_error_count": len(errors), "contains_401": has_401, **state},
+    )
     settle(step_delay_seconds)
     if errors:
         print("visible_errors", len(errors), "contains_401", has_401, flush=True)
         print("visible_error_texts", json.dumps(errors, ensure_ascii=True), flush=True)
         if hard_fail:
             raise RuntimeError("Final review detected visible UI errors")
-
-

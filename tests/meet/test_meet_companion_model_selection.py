@@ -26,8 +26,11 @@ def test_actual_signed_grant_selects_only_hub_authorized_model_profile(models):
     with running_hub(f.app) as endpoint:
         client = AssignedCompanionGrantClient(full, endpoint, KEY)
         result = client.read()
-    assert result["model_execution"] == {"backend": "openai", "model": "synthetic-model",
-                                         "environment_digest": "e" * 64}
+    assert result["model_execution"] == {
+        "backend": "openai",
+        "model": "synthetic-model",
+        "environment_digest": "e" * 64,
+    }
 
 
 def test_missing_model_policy_preserves_legacy_grant_shape(models):
@@ -75,8 +78,9 @@ def test_policy_port_removal_while_signing_cannot_publish_old_selection(models, 
         service.issue(f.request["assignment"])
 
 
-@pytest.mark.parametrize("field,value", [("endpoint", "foreign"), ("model", ""),
-                                        ("backend", "shell"), ("environment_digest", "unverified")])
+@pytest.mark.parametrize(
+    "field,value", [("endpoint", "foreign"), ("model", ""), ("backend", "shell"), ("environment_digest", "unverified")]
+)
 def test_worker_rejects_broadened_or_invalid_profile_metadata(models, field, value):
     f, model_service = models
     service = configure(f, model_service)

@@ -33,9 +33,7 @@ def read_file_managed_bytes(
     try:
         descriptor = os.open(path, flags)
     except (OSError, ValueError) as exc:
-        raise FileCredentialConfigurationError(
-            f"{description} cannot be opened securely"
-        ) from exc
+        raise FileCredentialConfigurationError(f"{description} cannot be opened securely") from exc
 
     try:
         try:
@@ -51,13 +49,9 @@ def read_file_managed_bytes(
         except FileCredentialConfigurationError:
             raise
         except OSError as exc:
-            raise FileCredentialConfigurationError(
-                f"{description} cannot be read securely"
-            ) from exc
+            raise FileCredentialConfigurationError(f"{description} cannot be read securely") from exc
         if _metadata_fingerprint(before) != _metadata_fingerprint(after):
-            raise FileCredentialConfigurationError(
-                f"{description} changed while being read"
-            )
+            raise FileCredentialConfigurationError(f"{description} changed while being read")
     finally:
         try:
             os.close(descriptor)
@@ -86,9 +80,7 @@ def read_file_managed_token(
     try:
         token = raw.decode("utf-8").strip()
     except UnicodeError as exc:
-        raise FileCredentialConfigurationError(
-            f"{description} encoding is invalid"
-        ) from exc
+        raise FileCredentialConfigurationError(f"{description} encoding is invalid") from exc
     token_bytes = token.encode("utf-8")
     if (
         len(token_bytes) < min_bytes
@@ -113,22 +105,15 @@ def _validate_metadata(
         raise FileCredentialConfigurationError(f"{description} link count is unsafe")
     effective_uid = getattr(os, "geteuid", None)
     if not callable(effective_uid):
-        raise FileCredentialConfigurationError(
-            f"{description} owner cannot be verified"
-        )
+        raise FileCredentialConfigurationError(f"{description} owner cannot be verified")
     if metadata.st_uid not in {0, effective_uid()}:
         raise FileCredentialConfigurationError(f"{description} owner is unsafe")
     if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-        raise FileCredentialConfigurationError(
-            f"{description} permissions are unsafe"
-        )
+        raise FileCredentialConfigurationError(f"{description} permissions are unsafe")
     if require_owner_only and (
-        metadata.st_mode & (stat.S_IRWXG | stat.S_IRWXO | stat.S_IXUSR)
-        or not metadata.st_mode & stat.S_IRUSR
+        metadata.st_mode & (stat.S_IRWXG | stat.S_IRWXO | stat.S_IXUSR) or not metadata.st_mode & stat.S_IRUSR
     ):
-        raise FileCredentialConfigurationError(
-            f"{description} private permissions are unsafe"
-        )
+        raise FileCredentialConfigurationError(f"{description} private permissions are unsafe")
     if metadata.st_size < 1 or metadata.st_size > max_bytes:
         raise FileCredentialConfigurationError(f"{description} size is invalid")
 

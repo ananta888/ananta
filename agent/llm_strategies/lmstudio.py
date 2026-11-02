@@ -143,6 +143,7 @@ class LMStudioStrategy(LLMStrategy):
           - "budget:<n>": pass budget_tokens=n (supported by some LMStudio versions)
         """
         import os
+
         mode = os.environ.get("LMSTUDIO_THINKING_MODE", "auto").strip().lower()
         if mode in ("auto", "enabled", ""):
             return None
@@ -227,8 +228,13 @@ class LMStudioStrategy(LLMStrategy):
 
                     before = estimate_tokens(full_prompt)
                     full_prompt = self._truncate_text(full_prompt, max_input, keep="end")
-                    record_truncation("llm.lmstudio_completion", "char_cut", before_tokens=before,
-                                      after_tokens=estimate_tokens(full_prompt), window_tokens=int(context_limit))
+                    record_truncation(
+                        "llm.lmstudio_completion",
+                        "char_cut",
+                        before_tokens=before,
+                        after_tokens=estimate_tokens(full_prompt),
+                        window_tokens=int(context_limit),
+                    )
             payload = {
                 "model": model_id,
                 "prompt": full_prompt,
@@ -289,7 +295,9 @@ class LMStudioStrategy(LLMStrategy):
                         logging.warning(
                             "LMStudio empty response: estimated prompt ~%d tokens exceeds "
                             "resolved context_limit=%d for model=%s; likely context overflow.",
-                            est_tokens, context_limit, model_id,
+                            est_tokens,
+                            context_limit,
+                            model_id,
                         )
                     else:
                         empty_reason = "empty_response_unknown_cause"
@@ -369,7 +377,7 @@ class LMStudioStrategy(LLMStrategy):
             try:
                 session.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("_post_lmstudio: ignored Exception", exc_info=True)
 
         if resp is not None and hasattr(resp, "status_code"):
             if 300 <= resp.status_code < 400:

@@ -7,6 +7,7 @@ warnings, and a schema id.
 This module is intentionally small and side-effect-free so it can be used
 in both worker-runtime and offline-analysis paths.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -86,9 +87,12 @@ def build_x86_worker_context(
                 continue
         fn_instructions.append(n)
 
-    fn_bbs = [n for n in nodes if n.get("kind") == "basic_block" and (
-        not isinstance(start, int) or (isinstance(n.get("address"), int) and n["address"] >= start)
-    )]
+    fn_bbs = [
+        n
+        for n in nodes
+        if n.get("kind") == "basic_block"
+        and (not isinstance(start, int) or (isinstance(n.get("address"), int) and n["address"] >= start))
+    ]
 
     calls: list[dict[str, Any]] = []
     for e in edges:

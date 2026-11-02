@@ -40,11 +40,9 @@ class OrganizationDispatchBindingResolver:
                 OrganizationResearchAssignmentBindingService,
             )
 
-            research_assignment_bindings = (
-                OrganizationResearchAssignmentBindingService(
-                    session_factory=self._session_factory,
-                    clock=clock,
-                )
+            research_assignment_bindings = OrganizationResearchAssignmentBindingService(
+                session_factory=self._session_factory,
+                clock=clock,
             )
         self._research_assignment_bindings = research_assignment_bindings
 
@@ -72,29 +70,19 @@ class OrganizationDispatchBindingResolver:
                 TaskDB.organization_id == organization_id,
             )
             if lock_rows:
-                authoritative_statement = (
-                    authoritative_statement.with_for_update()
-                )
-            authoritative = session.exec(
-                authoritative_statement
-            ).one_or_none()
+                authoritative_statement = authoritative_statement.with_for_update()
+            authoritative = session.exec(authoritative_statement).one_or_none()
             if authoritative is None:
                 return None
-            organization_statement = select(
-                OrganizationInstanceDB
-            ).where(
+            organization_statement = select(OrganizationInstanceDB).where(
                 OrganizationInstanceDB.tenant_id == tenant_id,
                 OrganizationInstanceDB.project_id == project_id,
                 OrganizationInstanceDB.organization_id == organization_id,
                 OrganizationInstanceDB.lifecycle == "active",
             )
             if lock_rows:
-                organization_statement = (
-                    organization_statement.with_for_update()
-                )
-            organization = session.exec(
-                organization_statement
-            ).one_or_none()
+                organization_statement = organization_statement.with_for_update()
+            organization = session.exec(organization_statement).one_or_none()
             if organization is None:
                 return None
             worker_context = dict(authoritative.worker_execution_context or {})
@@ -107,16 +95,16 @@ class OrganizationDispatchBindingResolver:
             ):
                 return None
             dispatch_statement = select(PlanningTaskDispatchDB).where(
-                    PlanningTaskDispatchDB.dispatch_intent_id == str(dispatch_binding.get("dispatch_intent_id") or ""),
-                    PlanningTaskDispatchDB.tenant_id == tenant_id,
-                    PlanningTaskDispatchDB.project_id == project_id,
-                    PlanningTaskDispatchDB.organization_id == organization_id,
-                    PlanningTaskDispatchDB.internal_task_id == task_id,
-                    PlanningTaskDispatchDB.track_revision_id == str(dispatch_binding.get("track_revision_id") or ""),
-                    PlanningTaskDispatchDB.lease_id == str(dispatch_binding.get("lease_id") or ""),
-                    PlanningTaskDispatchDB.requested_worker_id == str(routing.get("selected_agent_id") or ""),
-                    PlanningTaskDispatchDB.status == "dispatching",
-                )
+                PlanningTaskDispatchDB.dispatch_intent_id == str(dispatch_binding.get("dispatch_intent_id") or ""),
+                PlanningTaskDispatchDB.tenant_id == tenant_id,
+                PlanningTaskDispatchDB.project_id == project_id,
+                PlanningTaskDispatchDB.organization_id == organization_id,
+                PlanningTaskDispatchDB.internal_task_id == task_id,
+                PlanningTaskDispatchDB.track_revision_id == str(dispatch_binding.get("track_revision_id") or ""),
+                PlanningTaskDispatchDB.lease_id == str(dispatch_binding.get("lease_id") or ""),
+                PlanningTaskDispatchDB.requested_worker_id == str(routing.get("selected_agent_id") or ""),
+                PlanningTaskDispatchDB.status == "dispatching",
+            )
             if lock_rows:
                 dispatch_statement = dispatch_statement.with_for_update()
             dispatch = session.exec(dispatch_statement).one_or_none()
@@ -144,8 +132,7 @@ class OrganizationDispatchBindingResolver:
             ):
                 return None
             track_statement = select(PlanningArtifactRevisionDB).where(
-                PlanningArtifactRevisionDB.id
-                == dispatch.track_revision_id
+                PlanningArtifactRevisionDB.id == dispatch.track_revision_id
             )
             if lock_rows:
                 track_statement = track_statement.with_for_update()
@@ -159,17 +146,15 @@ class OrganizationDispatchBindingResolver:
                 or track.policy_hash != str(routing.get("effective_policy_hash") or "")
             ):
                 return None
-            assignment_statement = select(
-                OrganizationRoleAssignmentDB
-            ).where(
-                    OrganizationRoleAssignmentDB.id == str(routing.get("selected_assignment_id") or ""),
-                    OrganizationRoleAssignmentDB.tenant_id == tenant_id,
-                    OrganizationRoleAssignmentDB.project_id == project_id,
-                    OrganizationRoleAssignmentDB.organization_id == organization_id,
-                    OrganizationRoleAssignmentDB.role_slot_id == str(authoritative.role_slot_id or ""),
-                    OrganizationRoleAssignmentDB.agent_url == str(routing.get("selected_agent_id") or ""),
-                    OrganizationRoleAssignmentDB.lifecycle == "active",
-                )
+            assignment_statement = select(OrganizationRoleAssignmentDB).where(
+                OrganizationRoleAssignmentDB.id == str(routing.get("selected_assignment_id") or ""),
+                OrganizationRoleAssignmentDB.tenant_id == tenant_id,
+                OrganizationRoleAssignmentDB.project_id == project_id,
+                OrganizationRoleAssignmentDB.organization_id == organization_id,
+                OrganizationRoleAssignmentDB.role_slot_id == str(authoritative.role_slot_id or ""),
+                OrganizationRoleAssignmentDB.agent_url == str(routing.get("selected_agent_id") or ""),
+                OrganizationRoleAssignmentDB.lifecycle == "active",
+            )
             if lock_rows:
                 assignment_statement = assignment_statement.with_for_update()
             assignment = session.exec(assignment_statement).one_or_none()

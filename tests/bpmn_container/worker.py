@@ -55,13 +55,13 @@ class DeterministicHandler:
         scoped = command.input_data.get("workflow_input", {})
         value = scoped.get("value")
         projected_output = {"value": value + 1} if type(value) is int else {}
-        evidence = self._tasks[hub_task_id].get('worker_execution_context', {}).get('synthetic_hub_evidence_assignment')
+        evidence = self._tasks[hub_task_id].get("worker_execution_context", {}).get("synthetic_hub_evidence_assignment")
         if evidence is not None:
             from ananta_contracts.hub_evidence import validate_hub_evidence_assignment
 
             evidence = validate_hub_evidence_assignment(evidence)
-            assert evidence['task_id'] == hub_task_id and evidence['evidence_scope'] == 'test'
-            projected_output['hub_test_evidence_assignment'] = evidence
+            assert evidence["task_id"] == hub_task_id and evidence["evidence_scope"] == "test"
+            projected_output["hub_test_evidence_assignment"] = evidence
         return NativeNodeResult(
             result_id="bpmn-result-" + command.command_id,
             command_id=command.command_id,
@@ -101,8 +101,11 @@ def main() -> None:
 
     app = Flask(__name__)
     app.config.update(MAX_CONTENT_LENGTH=262_144, ROLE="worker")
-    result_directory = (Path("/native-results") if os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") == "1"
-                        else Path("/tmp/native-result-private"))
+    result_directory = (
+        Path("/native-results")
+        if os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") == "1"
+        else Path("/tmp/native-result-private")
+    )
     result_directory.mkdir(mode=0o700, exist_ok=True)
     app.config["ANANTA_NATIVE_RESULT_STORE_PATH"] = str(result_directory / "results.sqlite3")
     initialization = threading.Lock()
@@ -126,8 +129,11 @@ def main() -> None:
     def initialize():
         with initialization:
             if "workflow_adapter_task_consumer" not in app.extensions:
-                public = request_json(HUB_URL + "/verification-keyring", token=os.environ["BPMN_WORKER_TOKEN"],
-                                      headers={"X-Ananta-Worker-ID": WORKER_ID, "X-Ananta-Worker-URL": WORKER_URL})
+                public = request_json(
+                    HUB_URL + "/verification-keyring",
+                    token=os.environ["BPMN_WORKER_TOKEN"],
+                    headers={"X-Ananta-Worker-ID": WORKER_ID, "X-Ananta-Worker-URL": WORKER_URL},
+                )
                 app.extensions["native_execution_verification"] = Ed25519VerificationKeyRing.from_mapping(public)
                 client = HttpWorkflowHubDecisionClient(
                     hub_url=HUB_URL,
@@ -148,12 +154,15 @@ def main() -> None:
                     authorization=HubExecutionAuthorizationAdapter(client),
                     native_adapter=NativeGraphWorkerTaskAdapter(runtime),
                 )
+
     def consume(task):
         initialize()
         handler.bind_task(task)
         result = consume_delegated_workflow_task(task)
-        if (os.environ.get("BPMN_WORKER_LOSS_ENABLED") == "1"
-                and os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") != "1"):
+        if (
+            os.environ.get("BPMN_WORKER_LOSS_ENABLED") == "1"
+            and os.environ.get("BPMN_WORKER_REDELIVERY_ENABLED") != "1"
+        ):
             # Dedicated isolated fault gate: real process/container termination
             # after execution, before any HTTP result reaches Hub admission.
             os._exit(73)
@@ -187,11 +196,15 @@ def main() -> None:
 
         return FaultAfterPublication()
 
-    app.register_blueprint(create_native_execution_blueprint(
-        token_provider=lambda: os.environ["BPMN_WORKER_TOKEN"],
-        recipient_provider=lambda: (WORKER_ID, WORKER_URL), verification_provider=verification, consumer=consume,
-        result_store_provider=result_store,
-    ))
+    app.register_blueprint(
+        create_native_execution_blueprint(
+            token_provider=lambda: os.environ["BPMN_WORKER_TOKEN"],
+            recipient_provider=lambda: (WORKER_ID, WORKER_URL),
+            verification_provider=verification,
+            consumer=consume,
+            result_store_provider=result_store,
+        )
+    )
 
     @app.post("/execute")
     def execute():

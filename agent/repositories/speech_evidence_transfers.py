@@ -363,8 +363,7 @@ class SqlSpeechEvidenceTransferRepository:
                 or group_preview_digest(previews) != offer.group_preview_digest
                 or any(
                     value.preview_version != GROUP_PREVIEW_VERSION
-                    or value.group_id
-                    != group_preview_group_id(value.source_group_digest, value.revision)
+                    or value.group_id != group_preview_group_id(value.source_group_digest, value.revision)
                     or value.resolution_digest
                     != group_preview_resolution_digest(value.source_group_digest, value.revision)
                     for value in previews

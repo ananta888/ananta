@@ -79,4 +79,3 @@ def test_mcp_readonly_adapter_blocks_write_admin_execution() -> None:
     )
     with pytest.raises(PermissionError, match="non_read_tool_forbidden"):
         adapter.execute(tool_id="tasks.update", arguments={"task_id": "t1"})
-

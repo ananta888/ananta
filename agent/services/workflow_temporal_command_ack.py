@@ -8,12 +8,8 @@ from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from ananta_contracts.temporal_workflow import COMMAND_RESULT_SCHEMA
 from ananta_contracts.temporal_workflow import STATUS_SCHEMA as TEMPORAL_STATUS_SCHEMA
 
-_RESULT_KEYS = frozenset(
-    {"schema", "command_id", "accepted", "revision", "status", "reason_code"}
-)
-_STATUSES = frozenset(
-    {"created", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"}
-)
+_RESULT_KEYS = frozenset({"schema", "command_id", "accepted", "revision", "status", "reason_code"})
+_STATUSES = frozenset({"created", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"})
 
 
 def validate_temporal_command_ack(

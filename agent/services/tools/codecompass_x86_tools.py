@@ -41,18 +41,27 @@ def _x86_payload(
     """
     store = resolve_graph_store(arguments)
     if store is None:
-        return ({
-            "schema": "codecompass_x86_graph.v1",
-            "nodes": [], "edges": [], "nodes_by_id": {},
-            "node_count": 0, "edge_count": 0,
-        }, None)
+        return (
+            {
+                "schema": "codecompass_x86_graph.v1",
+                "nodes": [],
+                "edges": [],
+                "nodes_by_id": {},
+                "node_count": 0,
+                "edge_count": 0,
+            },
+            None,
+        )
     payload = store.load()
     x86_index = dict(payload.get("x86_index") or {})
     if not x86_index:
         x86_index = {
             "schema": "codecompass_x86_graph.v1",
-            "nodes": [], "edges": [], "nodes_by_id": {},
-            "node_count": 0, "edge_count": 0,
+            "nodes": [],
+            "edges": [],
+            "nodes_by_id": {},
+            "node_count": 0,
+            "edge_count": 0,
         }
     return (x86_index, store)
 
@@ -68,8 +77,12 @@ def _x86_kind_evidence_kind(node_kind: str) -> str:
 
 # ----- X86CC-023: x86_overview -----
 
+
 def codecompass_x86_overview(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
     resolve_graph_store: GraphStoreResolver = resolve_graph_store,
 ) -> dict[str, Any]:
     """Summarize the x86 extension payload: counts, kinds present, diagnostics.
@@ -105,8 +118,12 @@ def codecompass_x86_overview(
 
 # ----- X86CC-024: x86_address_lookup -----
 
+
 def codecompass_x86_address_lookup(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
     resolve_graph_store: GraphStoreResolver = resolve_graph_store,
 ) -> dict[str, Any]:
     """Resolve a single address (hex 0x... or decimal) to x86 nodes."""
@@ -162,8 +179,12 @@ def codecompass_x86_address_lookup(
 
 # ----- X86CC-025: x86_cfg -----
 
+
 def codecompass_x86_cfg(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
     resolve_graph_store: GraphStoreResolver = resolve_graph_store,
 ) -> dict[str, Any]:
     """CFG traversal (cycle-safe, bounded) from a seed node id."""
@@ -194,7 +215,10 @@ def codecompass_x86_cfg(
         edges_by_source.setdefault(str(e.get("source") or ""), []).append(e)
     idx = build_x86_index(nodes)
     result = X86CFGTraversal().traverse(
-        idx, nodes_by_id, edges_by_source, seed,
+        idx,
+        nodes_by_id,
+        edges_by_source,
+        seed,
         max_depth=int(args.get("max_depth", 20)),
         max_nodes=int(args.get("max_nodes", 200)),
     )
@@ -213,8 +237,12 @@ def codecompass_x86_cfg(
 
 # ----- X86CC-026: x86_call_graph -----
 
+
 def codecompass_x86_call_graph(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
     resolve_graph_store: GraphStoreResolver = resolve_graph_store,
 ) -> dict[str, Any]:
     """Call-graph traversal: classify calls into direct/indirect/import/unresolved."""
@@ -240,7 +268,9 @@ def codecompass_x86_call_graph(
             error=f"unknown_seed_id:{seed!r}",
         )
     result = X86CallGraphTraversal().traverse(
-        nodes_by_id, edges, seed,
+        nodes_by_id,
+        edges,
+        seed,
         max_depth=int(args.get("max_depth", 10)),
         max_nodes=int(args.get("max_nodes", 100)),
     )
@@ -263,8 +293,12 @@ def codecompass_x86_call_graph(
 
 # ----- X86CC-027: x86_find -----
 
+
 def codecompass_x86_find(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
     resolve_graph_store: GraphStoreResolver = resolve_graph_store,
 ) -> dict[str, Any]:
     """Generic x86 finder: address/symbol/function/mnemonic/import/string/section/basic_block."""

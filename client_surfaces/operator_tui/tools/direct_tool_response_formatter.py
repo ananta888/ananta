@@ -1,4 +1,5 @@
 """SCTR-008: compact formatting for direct SnakeChat tool responses."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -66,10 +67,7 @@ def _format_todo(data: dict[str, Any]) -> str:
         )
     tasks = list(data.get("tasks") or [])
     if tasks:
-        return "\n".join(
-            f"{item.get('id')} [{item.get('status')}]: {item.get('title')}"
-            for item in tasks[:60]
-        )
+        return "\n".join(f"{item.get('id')} [{item.get('status')}]: {item.get('title')}" for item in tasks[:60])
     task = data.get("task") if isinstance(data.get("task"), dict) else None
     if task:
         return f"{task.get('id')} [{task.get('status')}]: {task.get('title')}"

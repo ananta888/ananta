@@ -2,6 +2,7 @@
 
 Covers: profile validation, field defaults, validators.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -9,8 +10,8 @@ from pydantic import ValidationError
 
 from agent.obsidian_config import ObsidianVaultProfile, load_vault_profiles
 
-
 # ── Basic construction ────────────────────────────────────────────────────────
+
 
 def test_profile_minimal():
     p = ObsidianVaultProfile(path="/some/vault")
@@ -49,6 +50,7 @@ def test_profile_default_exclude_dirs():
 
 # ── Validators ───────────────────────────────────────────────────────────────
 
+
 def test_privacy_filter_mode_invalid():
     with pytest.raises(ValidationError) as exc_info:
         ObsidianVaultProfile(path="/v", privacy_filter_mode="invalid")
@@ -75,6 +77,7 @@ def test_heading_chunk_level_valid_range():
 
 
 # ── load_vault_profiles ───────────────────────────────────────────────────────
+
 
 def test_load_vault_profiles_empty():
     result = load_vault_profiles({})

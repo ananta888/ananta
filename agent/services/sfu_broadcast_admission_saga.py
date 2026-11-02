@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Mapping, Protocol
 
 from agent.repositories.sfu_broadcast_admission_operation_repository import (
     SfuBroadcastAdmissionOperationCommand,

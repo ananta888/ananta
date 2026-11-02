@@ -10,10 +10,9 @@ version — which documents which error classes were added.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from ananta_contracts.specialist_decision import canonical_digest
 from agent.services.specialist_dataset_split import FrozenHoldout, check_leakage
 from agent.services.specialist_training_examples import (
     ERROR_CLASSES,
@@ -21,6 +20,7 @@ from agent.services.specialist_training_examples import (
     TrainingExample,
     dataset_digest,
 )
+from ananta_contracts.specialist_decision import canonical_digest
 
 DATASET_VERSION_SCHEMA = "ananta.specialist-dataset-version.v1"
 DEFAULT_PRIORITY = {
@@ -97,7 +97,13 @@ class RetrainingCandidateQueue:
         """Convenience for benchmark/gate mismatches: ``error_class`` drives priority."""
         count = 0
         for case in cases:
-            self.enqueue(RetrainingCandidate(raw=case, error_class=str(case.get("error_class") or "counterexample"), verified=bool(case.get("verified", False))))
+            self.enqueue(
+                RetrainingCandidate(
+                    raw=case,
+                    error_class=str(case.get("error_class") or "counterexample"),
+                    verified=bool(case.get("verified", False)),
+                )
+            )
             count += 1
         return count
 
@@ -143,7 +149,9 @@ class RetrainingCandidateQueue:
         added_classes: dict[str, int] = {}
         for example in clean:
             added_classes[example.error_class] = added_classes.get(example.error_class, 0) + 1
-        hard_negatives = [example for example in clean if example.error_class in {"false_allow", "false_deny", "counterexample"}]
+        hard_negatives = [
+            example for example in clean if example.error_class in {"false_allow", "false_deny", "counterexample"}
+        ]
         examples = current + clean
         parent = dataset_digest(current) if current else None
         changelog = tuple(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -82,9 +81,7 @@ def test_cancelled_or_stale_lease_result_is_rejected() -> None:
         ttl_seconds=10,
     )
     assert lease is not None
-    repository.rows[task["job_id"]]["worker_execution_context"][
-        "mail_task_control"
-    ]["lease"] = lease
+    repository.rows[task["job_id"]]["worker_execution_context"]["mail_task_control"]["lease"] = lease
     result = {
         "schema": "ananta.mail_task_result.v1",
         "job_id": task["job_id"],
@@ -111,9 +108,7 @@ def test_cancelled_or_stale_lease_result_is_rejected() -> None:
         ttl_seconds=10,
     )
     assert renewed is not None
-    repository.rows[task["job_id"]]["worker_execution_context"][
-        "mail_task_control"
-    ]["lease"] = renewed
+    repository.rows[task["job_id"]]["worker_execution_context"]["mail_task_control"]["lease"] = renewed
     service.cancel(job_id=task["job_id"], actor="operator")
     result["lease_fencing_token"] = renewed["fencing_token"]
     with pytest.raises(ValueError, match="mail_task_result_terminal_state"):
@@ -153,18 +148,24 @@ def test_body_intent_denies_expiry_grant_and_message_mismatch(tmp_path) -> None:
         grant_ref="wrong-grant",
         release_scope="full_body",
     )
-    assert service.authorize_content(
-        intent=intent,
-        request=request,
-    ).reason_code == "mail_content_access_intent_mismatch"
+    assert (
+        service.authorize_content(
+            intent=intent,
+            request=request,
+        ).reason_code
+        == "mail_content_access_intent_mismatch"
+    )
     now[0] = 131.0
-    assert service.resolve(
-        intent_ref=intent.intent_ref,
-        job_id="job-one",
-        operation="body",
-        account_id="one",
-        workspace_id="repo",
-    ).reason_code == "mail_operation_intent_expired"
+    assert (
+        service.resolve(
+            intent_ref=intent.intent_ref,
+            job_id="job-one",
+            operation="body",
+            account_id="one",
+            workspace_id="repo",
+        ).reason_code
+        == "mail_operation_intent_expired"
+    )
 
 
 def test_migration_corrupt_source_fails_without_target_write(tmp_path: Path) -> None:

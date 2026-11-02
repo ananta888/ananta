@@ -8,6 +8,7 @@ Verifies:
   - Execution plan distinguishes registered vs. executable (VPTEST-003)
   - Validator reacts correctly to registered_only / requires_approval (VPTEST-001)
 """
+
 from __future__ import annotations
 
 from agent.visual_process.models import StepIOContract, VisualProcessGraph, VisualProcessStep
@@ -32,13 +33,18 @@ _REQUIRED_RT_FIELDS = [
 
 _ALLOWED_STATUSES = {"production", "experimental", "stub", "test_only", "design_only", "unknown"}
 _ALLOWED_STATES = {
-    "wired_and_executable", "registered_only", "implemented_not_exposed",
-    "exposed_not_wired", "legacy_alias", "not_implemented",
+    "wired_and_executable",
+    "registered_only",
+    "implemented_not_exposed",
+    "exposed_not_wired",
+    "legacy_alias",
+    "not_implemented",
 }
 _ALLOWED_RISKS = {"none", "low", "medium", "high", "critical"}
 
 
 # ── VPTEST-001: Runtime-Truth field completeness ──────────────────────────────
+
 
 def test_all_kinds_have_required_rt_fields_with_valid_values():
     """Every registered kind must have all 10 runtime-truth fields with allowed values."""
@@ -56,12 +62,11 @@ def test_all_kinds_have_required_rt_fields_with_valid_values():
             f"Kind '{k['id']}' has invalid implementation_state={k['implementation_state']!r}"
         )
     for k in kinds:
-        assert k["risk_level"] in _ALLOWED_RISKS, (
-            f"Kind '{k['id']}' has invalid risk_level={k['risk_level']!r}"
-        )
+        assert k["risk_level"] in _ALLOWED_RISKS, f"Kind '{k['id']}' has invalid risk_level={k['risk_level']!r}"
 
 
 # ── VPTEST-001: Canonical kind correctness ────────────────────────────────────
+
 
 def test_embed_api_is_canonical_not_vector_encode():
     """embed_api must be the canonical kind; vector_encode is only a legacy alias."""
@@ -158,19 +163,16 @@ def test_legacy_map_uses_canonical_targets():
         assert get_task_kind_info(canonical) is not None, (
             f"LEGACY_MAP['{legacy}'] -> '{canonical}' but '{canonical}' is not in _KIND_INFO"
         )
-        assert get_task_kind_info(legacy) is None, (
-            f"Legacy kind '{legacy}' should NOT be in _KIND_INFO directly"
-        )
+        assert get_task_kind_info(legacy) is None, f"Legacy kind '{legacy}' should NOT be in _KIND_INFO directly"
 
 
 # ── VPTEST-001: Policy-Hints consistency ─────────────────────────────────────
 
+
 def test_query_rewrite_no_llm_hint():
     """query_rewrite must not have HINT_LLM_CALL in its policy hints."""
     hints = POLICY_HINTS.get("query_rewrite", [])
-    assert HINT_LLM_CALL not in hints, (
-        f"query_rewrite must not have llm_call hint; got: {hints}"
-    )
+    assert HINT_LLM_CALL not in hints, f"query_rewrite must not have llm_call hint; got: {hints}"
 
 
 def test_shell_execute_has_high_risk_hint():
@@ -182,18 +184,26 @@ def test_shell_execute_has_high_risk_hint():
 
 # ── VPTEST-001: Validator checks ──────────────────────────────────────────────
 
+
 def _make_graph(*steps: VisualProcessStep) -> VisualProcessGraph:
     return VisualProcessGraph(
-        id="test-graph", name="Test Graph", version="1.0",
-        steps=list(steps), edges=[],
+        id="test-graph",
+        name="Test Graph",
+        version="1.0",
+        steps=list(steps),
+        edges=[],
     )
 
 
 def _step(kind: str, gate: bool = False, **kwargs) -> VisualProcessStep:
     return VisualProcessStep(
-        id=f"s-{kind}", label=f"Step {kind}", kind=kind,
-        io=StepIOContract(), position={"x": 0, "y": 0},
-        gate=gate, **kwargs,
+        id=f"s-{kind}",
+        label=f"Step {kind}",
+        kind=kind,
+        io=StepIOContract(),
+        position={"x": 0, "y": 0},
+        gate=gate,
+        **kwargs,
     )
 
 
@@ -254,6 +264,7 @@ def test_validator_requires_approval_no_gate_warning():
 
 # ── VPTEST-003: Execution plan registered vs. executable ─────────────────────
 
+
 def test_execution_plan_worker_dispatch():
     executor = get_step_executor()
     steps = [_step("patch_apply")]
@@ -303,10 +314,10 @@ def test_execution_plan_mixed():
     """Graph with both executable and registered_only steps."""
     executor = get_step_executor()
     steps = [
-        _step("sign_rotation"),            # vp_adapter
-        _step("shell_execute"),             # worker_dispatch
-        _step("evolution_analyze"),         # not_executable
-        _step("codecompass_fts_search"),    # not_executable
+        _step("sign_rotation"),  # vp_adapter
+        _step("shell_execute"),  # worker_dispatch
+        _step("evolution_analyze"),  # not_executable
+        _step("codecompass_fts_search"),  # not_executable
     ]
     plan = executor.execution_plan(steps)
     modes = {p.kind: p.execution_mode for p in plan}

@@ -37,4 +37,3 @@ def test_opencode_alias_maps_to_internal_model():
     )
     assert upstream.id == "local"
     assert model == "intercepted-coder"
-

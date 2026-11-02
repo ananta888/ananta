@@ -1,10 +1,8 @@
 """Tests for HeuristicStrategy implementations — T03.01."""
+
 from __future__ import annotations
 
-import pytest
-
 from agent.services.heuristic_runtime.decision_context import DecisionContext
-from agent.services.heuristic_runtime.decision_result import DecisionResult
 from agent.services.heuristic_runtime.heuristic_registry_service import HeuristicDefinition
 from agent.services.heuristic_runtime.strategy import (
     DefaultChatCodeCompassStrategy,
@@ -14,8 +12,8 @@ from agent.services.heuristic_runtime.strategy import (
     get_strategy,
 )
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _hdef(hid: str, domain: str, strategy_kind: str = "follow", deterministic: bool = True) -> HeuristicDefinition:
     return HeuristicDefinition(
@@ -33,7 +31,9 @@ def _hdef(hid: str, domain: str, strategy_kind: str = "follow", deterministic: b
     )
 
 
-def _ctx(surface: str, goal: str | None = None, panel: str | None = None, artifacts: list[str] | None = None) -> DecisionContext:
+def _ctx(
+    surface: str, goal: str | None = None, panel: str | None = None, artifacts: list[str] | None = None
+) -> DecisionContext:
     return DecisionContext(
         source_surface=surface,
         ai_status="offline",
@@ -44,6 +44,7 @@ def _ctx(surface: str, goal: str | None = None, panel: str | None = None, artifa
 
 
 # ── DefaultTuiSnakeStrategy ───────────────────────────────────────────────────
+
 
 class TestTuiSnakeStrategy:
     def setup_method(self):
@@ -92,6 +93,7 @@ class TestTuiSnakeStrategy:
 
 # ── DefaultEclipseSnakeStrategy ───────────────────────────────────────────────
 
+
 class TestEclipseSnakeStrategy:
     def setup_method(self):
         self.strategy = DefaultEclipseSnakeStrategy()
@@ -132,6 +134,7 @@ class TestEclipseSnakeStrategy:
 
 # ── DefaultChatCodeCompassStrategy ────────────────────────────────────────────
 
+
 class TestChatCodeCompassStrategy:
     def setup_method(self):
         self.strategy = DefaultChatCodeCompassStrategy()
@@ -165,6 +168,7 @@ class TestChatCodeCompassStrategy:
 
 
 # ── get_strategy / decide_for_context ─────────────────────────────────────────
+
 
 def test_get_strategy_returns_correct_type():
     assert isinstance(get_strategy("tui_snake"), DefaultTuiSnakeStrategy)

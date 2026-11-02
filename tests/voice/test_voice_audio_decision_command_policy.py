@@ -1,4 +1,5 @@
 """Hub policy + voice command flow for AudioDecision outcomes (hard rules of the hub gate)."""
+
 from __future__ import annotations
 
 import json
@@ -32,8 +33,17 @@ def _outcome(fields: dict, *, profile: str = "speech-commands-en", status: str =
     return parse_decision_response(200, json.dumps(payload).encode(), expected_profile=profile)
 
 
-def _proposal(value, *, kind=AudioDecisionKind.PROPOSAL, confidence=0.97, profile="speech-commands-en",
-              status="beta", model=MODEL, field="command", grants_permission=False):
+def _proposal(
+    value,
+    *,
+    kind=AudioDecisionKind.PROPOSAL,
+    confidence=0.97,
+    profile="speech-commands-en",
+    status="beta",
+    model=MODEL,
+    field="command",
+    grants_permission=False,
+):
     return AudioDecisionProposal(
         field=field,
         value=value,
@@ -60,13 +70,22 @@ POLICY = VoiceCommandAudioDecisionPolicy()
         (_proposal("stop", profile="unknown-profile"), PolicyVerdict.DENY, "P2_unknown_profile_or_field"),
         (_proposal("stop", field="volume"), PolicyVerdict.DENY, "P2_unknown_profile_or_field"),
         (_proposal("unlock"), PolicyVerdict.DENY, "P3_unknown_label"),
-        (_proposal(True, profile="confirm-en-de", field="confirmed", status="experimental"),
-         PolicyVerdict.CONFIRM, "P8_confirm_only_profile"),
-        (_proposal(1, profile="confirm-en-de", field="confirmed", status="experimental"),
-         PolicyVerdict.DENY, "P3_unknown_label"),
+        (
+            _proposal(True, profile="confirm-en-de", field="confirmed", status="experimental"),
+            PolicyVerdict.CONFIRM,
+            "P8_confirm_only_profile",
+        ),
+        (
+            _proposal(1, profile="confirm-en-de", field="confirmed", status="experimental"),
+            PolicyVerdict.DENY,
+            "P3_unknown_label",
+        ),
         (_proposal("stop", status="retired"), PolicyVerdict.DENY, "P5_unknown_profile_status"),
-        (_proposal("stop", kind=AudioDecisionKind.RANKING, confidence=None), PolicyVerdict.CONFIRM,
-         "P6_uncalibrated_ranking"),
+        (
+            _proposal("stop", kind=AudioDecisionKind.RANKING, confidence=None),
+            PolicyVerdict.CONFIRM,
+            "P6_uncalibrated_ranking",
+        ),
         (_proposal("stop", confidence=None), PolicyVerdict.DENY, "P7_missing_confidence"),
         (_proposal("stop", status="experimental"), PolicyVerdict.CONFIRM, "P8_confirm_only_profile"),
         (_proposal("lights_on", profile="home-control-en"), PolicyVerdict.CONFIRM, "P8_confirm_only_profile"),
@@ -174,8 +193,13 @@ def test_uncalibrated_ok_is_at_most_a_confirmation():
 def test_transcript_with_system2_required_goes_to_system2():
     outcome = _outcome(
         {"command": _field("abstain", reasons=["out_of_set"])},
-        fallback={"used": True, "transcript": SECRET_TRANSCRIPT, "system2_required": True,
-                  "provenance": "whisper_full greedy", "reason": "command:abstain"},
+        fallback={
+            "used": True,
+            "transcript": SECRET_TRANSCRIPT,
+            "system2_required": True,
+            "provenance": "whisper_full greedy",
+            "reason": "command:abstain",
+        },
     )
     spy = SpyPolicy()
     hub = gate_audio_decision(outcome, field_name="command", policy=spy)
@@ -211,8 +235,12 @@ def test_command_flow_acts_on_a_calibrated_direct_command():
     response = result.as_response()
     assert response["hub_action"] == "act" and response["decision_kind"] == "proposal"
     assert response["action"] == {
-        "type": "voice.control.stop", "command": "stop", "field": "command", "profile": "speech-commands-en",
-        "confidence": 0.97, "requires_confirmation": False,
+        "type": "voice.control.stop",
+        "command": "stop",
+        "field": "command",
+        "profile": "speech-commands-en",
+        "confidence": 0.97,
+        "requires_confirmation": False,
     }
     assert response["policy"] == {"verdict": "allow", "rule": "P12_direct_low_risk"}
     assert response["grants_permission"] is False and response["system2"] is None
@@ -232,8 +260,9 @@ def test_command_flow_policy_exception_denies():
         def decide(self, proposal):
             raise RuntimeError("boom")
 
-    result = _run(FakeTransport(200, _speech_result(_field("ok", "stop", calibrated=True, confidence=0.99))),
-                  policy=Broken())
+    result = _run(
+        FakeTransport(200, _speech_result(_field("ok", "stop", calibrated=True, confidence=0.99))), policy=Broken()
+    )
     response = result.as_response()
     assert response["hub_action"] == "deny" and response["action"] is None
     assert response["policy"] == {"verdict": "deny", "rule": "policy_error"}
@@ -268,4 +297,4 @@ def test_command_flow_audit_has_no_label():
     result = _run(FakeTransport(200, _speech_result(_field("ok", "right", calibrated=True, confidence=0.97))))
     audit = result.as_audit_dict()
     assert audit["action"] == "act" and audit["action_type"] == "voice.navigate.right"
-    assert "right\"" not in json.dumps({k: v for k, v in audit.items() if k != "action_type"})
+    assert 'right"' not in json.dumps({k: v for k, v in audit.items() if k != "action_type"})

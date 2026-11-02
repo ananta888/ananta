@@ -29,13 +29,9 @@ except ModuleNotFoundError:
     )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PROFILE = (
-    ROOT / "config/test-profiles/kanban-model-dashboard/release-gate.v1.json"
-)
+DEFAULT_PROFILE = ROOT / "config/test-profiles/kanban-model-dashboard/release-gate.v1.json"
 DEFAULT_EVIDENCE_DIR = ROOT / "artifacts/e2e/kanban-model-dashboard"
-DEFAULT_OUTPUT = (
-    ROOT / "artifacts/test-gates/kanban-model-dashboard-release.json"
-)
+DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/kanban-model-dashboard-release.json"
 PROFILE_SCHEMA = "ananta.kanban-model-dashboard.release-profile.v1"
 EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
 OUTPUT_SCHEMA = "ananta.kanban-model-dashboard.release-result.v1"
@@ -110,11 +106,7 @@ def _validate_profile(profile: Mapping[str, Any]) -> tuple[str, ...]:
             "board_writes",
             "allowlisted_default_selection",
         }
-        stage_ids = {
-            item.get("id")
-            for item in stages
-            if isinstance(item, Mapping)
-        }
+        stage_ids = {item.get("id") for item in stages if isinstance(item, Mapping)}
         if stage_ids != expected:
             reasons.add("profile_rollout_stages_invalid")
     excluded = set(profile.get("excluded_actions") or ())
@@ -195,8 +187,7 @@ def _validate_evidence(
         not isinstance(producer, Mapping)
         or producer.get("name") != PRODUCER_NAME
         or producer.get("artifact_boundary") != ARTIFACT_BOUNDARY
-        or producer.get("allowlist_sha256")
-        != suite_allowlist_sha256(suite)
+        or producer.get("allowlist_sha256") != suite_allowlist_sha256(suite)
     ):
         reasons.add("evidence_producer_invalid")
 
@@ -274,10 +265,7 @@ def _validate_evidence(
     reason_codes = evidence.get("reason_codes")
     if reason_codes != []:
         reasons.add("evidence_reason_codes_not_empty")
-    if any(
-        key in evidence
-        for key in ("run_id", "run_ids", "source_id", "source_ids")
-    ):
+    if any(key in evidence for key in ("run_id", "run_ids", "source_id", "source_ids")):
         reasons.add("evidence_unverified_identifier_present")
 
     return EvidenceResult(
@@ -296,10 +284,7 @@ def run_gate(
     commit_sha: str,
     as_of: datetime,
 ) -> dict[str, Any]:
-    if (
-        len(commit_sha) not in {40, 64}
-        or any(char not in "0123456789abcdef" for char in commit_sha)
-    ):
+    if len(commit_sha) not in {40, 64} or any(char not in "0123456789abcdef" for char in commit_sha):
         raise ReleaseGateError("commit_sha_invalid")
     profile = _read_json(profile_path)
     profile_reasons = _validate_profile(profile)
@@ -323,9 +308,7 @@ def run_gate(
     ]
     reason_codes = set(profile_reasons)
     for result in evidence_results:
-        reason_codes.update(
-            f"{result.suite}:{reason}" for reason in result.reason_codes
-        )
+        reason_codes.update(f"{result.suite}:{reason}" for reason in result.reason_codes)
 
     status = "passed" if not reason_codes else "failed"
     stages = []
@@ -334,10 +317,7 @@ def run_gate(
             continue
         required = stage.get("required_suites") or ()
         stage_reasons = sorted(
-            reason
-            for result in evidence_results
-            if result.suite in required
-            for reason in result.reason_codes
+            reason for result in evidence_results if result.suite in required for reason in result.reason_codes
         )
         stages.append(
             {

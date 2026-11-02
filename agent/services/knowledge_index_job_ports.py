@@ -14,9 +14,7 @@ class KnowledgeIndexCompletionProjectionPending(TransientError):
     reason_code = "knowledge_index_source_projection_pending"
 
     def __init__(self, cause: Exception) -> None:
-        projection_reason = str(
-            getattr(cause, "reason_code", None) or type(cause).__name__
-        )
+        projection_reason = str(getattr(cause, "reason_code", None) or type(cause).__name__)
         super().__init__(
             self.reason_code,
             details={"projection_reason_code": projection_reason},

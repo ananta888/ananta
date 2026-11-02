@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-
 LIVE_RUN_ENV = "RUN_JMAP_LIVE_PROVIDER_E2E"
 LIVE_MUTATION_ACK_ENV = "ANANTA_JMAP_LIVE_DEDICATED_ACCOUNT_ACK"
 RUN_ID_PATTERN = re.compile(r"^RUN_[A-Za-z0-9_.:-]+$")
@@ -56,9 +55,7 @@ class LiveJmapProviderConfig:
             raise ValueError("jmap_live_auth_mode_unsupported")
         evidence_value = source.get("ANANTA_JMAP_LIVE_EVIDENCE_PATH")
         evidence_path = (
-            Path(evidence_value).expanduser()
-            if evidence_value
-            else repo_root / "artifacts/e2e/jmap-mail-gate.json"
+            Path(evidence_value).expanduser() if evidence_value else repo_root / "artifacts/e2e/jmap-mail-gate.json"
         )
         if not evidence_path.is_absolute():
             evidence_path = repo_root / evidence_path

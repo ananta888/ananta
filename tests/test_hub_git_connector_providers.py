@@ -153,9 +153,7 @@ class FakeCommandSession:
         if "ls-tree" in command:
             return GitCommandResult(
                 0,
-                (
-                    f"100644 blob {self.object_id} {self.tree_size}\tREADME.md\0"
-                ).encode("ascii"),
+                (f"100644 blob {self.object_id} {self.tree_size}\tREADME.md\0").encode("ascii"),
             )
         if "count-objects" in command:
             return GitCommandResult(
@@ -234,9 +232,7 @@ def test_revocation_and_scope_loss_are_projected_fail_closed(
         )
     )
 
-    assert endpoint.authorization_state != "active" or (
-        "contents:read" not in endpoint.granted_scopes
-    )
+    assert endpoint.authorization_state != "active" or ("contents:read" not in endpoint.granted_scopes)
 
 
 def test_commit_resolution_uses_pinned_plan_and_opaque_reference(
@@ -358,9 +354,7 @@ def test_materialization_excludes_binary_files_and_reports_them(
     assert materialization.metrics.file_count == 0
     assert materialization.metrics.total_file_bytes == 0
     assert materialization.metrics.largest_file_bytes == 0
-    assert materialization.metrics.exclusions == (
-        {"reason_code": "git_binary_file_excluded", "count": 1},
-    )
+    assert materialization.metrics.exclusions == ({"reason_code": "git_binary_file_excluded", "count": 1},)
     assert list(tmp_path.iterdir()) == []
 
 
@@ -466,9 +460,7 @@ def test_generic_provider_resolves_registered_remote_and_commit(
     assert endpoint is not None
     assert endpoint.connection_ref == "remote-primary"
     assert resolution.commit_sha == COMMIT
-    assert "secret://git/remote-primary" not in "\n".join(
-        item for call in session.calls for item in call
-    )
+    assert "secret://git/remote-primary" not in "\n".join(item for call in session.calls for item in call)
 
 
 class _FakeSecretResolver:

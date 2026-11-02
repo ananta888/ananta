@@ -63,9 +63,7 @@ def main() -> int:
     )
     with tempfile.TemporaryDirectory(prefix="ananta-peer-media-alternative-") as measurement_dir:
         child_environment = os.environ.copy()
-        child_environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"] = json.dumps(
-            reservation.assignment, sort_keys=True
-        )
+        child_environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"] = json.dumps(reservation.assignment, sort_keys=True)
         child_environment["ANANTA_PEER_MEDIA_ALTERNATIVE_DIR"] = measurement_dir
         cpu_before = resource.getrusage(resource.RUSAGE_CHILDREN)
         with localhost_origin() as origin:
@@ -131,5 +129,7 @@ def _evaluation_complete(exit_code: int, measurements: list[dict[str, Any]]) -> 
         and all(row.get("decision") in EXPECTED_OUTCOMES for row in measurements)
         and all(row.get("humanInterventionRequired") is False for row in measurements)
     )
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -7,6 +7,7 @@ Commands:
   normalize — normalize a heuristic JSON/YAML file to canonical form
   catalog   — validate all active heuristics in the catalog
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,9 +19,7 @@ from typing import Any
 
 SUBCOMMANDS = ["list", "show", "validate", "normalize", "catalog"]
 
-_DEFAULT_HEURISTICS_DIR = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics")
-)
+_DEFAULT_HEURISTICS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "heuristics"))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -104,6 +103,7 @@ def register(subparsers: Any) -> None:
 
 # ── list ──────────────────────────────────────────────────────────────────────
 
+
 def _load_index(index_path: str) -> dict[str, Any] | None:
     if not index_path:
         index_path = os.path.join(_DEFAULT_HEURISTICS_DIR, "index.json")
@@ -154,6 +154,7 @@ def _cmd_list(parsed: argparse.Namespace) -> int:
 
 # ── show ──────────────────────────────────────────────────────────────────────
 
+
 def _cmd_show(parsed: argparse.Namespace) -> int:
     hid = parsed.heuristic_id
     index = _load_index(getattr(parsed, "index", ""))
@@ -199,13 +200,14 @@ def _cmd_show(parsed: argparse.Namespace) -> int:
 
 # ── validate ──────────────────────────────────────────────────────────────────
 
+
 def _cmd_validate(parsed: argparse.Namespace) -> int:
     file_path = parsed.file
     strict = getattr(parsed, "strict", False)
     as_json = getattr(parsed, "as_json", False)
 
-    from agent.services.heuristic_runtime.heuristic_catalog_validator import HeuristicCatalogValidator
     from agent.services.heuristic_runtime.format_validator import HeuristicFormatValidator
+    from agent.services.heuristic_runtime.heuristic_catalog_validator import HeuristicCatalogValidator
 
     if not os.path.isfile(file_path):
         print(f"ERROR: File not found: {file_path}", file=sys.stderr)
@@ -236,12 +238,17 @@ def _cmd_validate(parsed: argparse.Namespace) -> int:
         passed = False
 
     if as_json:
-        print(json.dumps({
-            "passed": passed,
-            "file": file_path,
-            "errors": all_errors,
-            "warnings": all_warnings,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "passed": passed,
+                    "file": file_path,
+                    "errors": all_errors,
+                    "warnings": all_warnings,
+                },
+                indent=2,
+            )
+        )
         return 0 if passed else 1
 
     status = "PASS" if passed else "FAIL"
@@ -257,12 +264,14 @@ def _cmd_validate(parsed: argparse.Namespace) -> int:
 
 # ── normalize ────────────────────────────────────────────────────────────────
 
+
 def _cmd_normalize(parsed: argparse.Namespace) -> int:
     file_path = parsed.file
     out_path = getattr(parsed, "out", "")
     dry_run = getattr(parsed, "dry_run", False)
 
     from agent.services.heuristic_runtime.heuristic_normalizer import HeuristicNormalizer
+
     normalizer = HeuristicNormalizer()
 
     try:
@@ -307,24 +316,31 @@ def _cmd_normalize(parsed: argparse.Namespace) -> int:
 
 # ── catalog ───────────────────────────────────────────────────────────────────
 
+
 def _cmd_catalog(parsed: argparse.Namespace) -> int:
     active_dir = getattr(parsed, "dir", "") or os.path.join(_DEFAULT_HEURISTICS_DIR, "active")
     as_json = getattr(parsed, "as_json", False)
 
     from agent.services.heuristic_runtime.heuristic_catalog_validator import HeuristicCatalogValidator
+
     validator = HeuristicCatalogValidator()
     result = validator.validate_directory(active_dir)
 
     if as_json:
-        print(json.dumps({
-            "total": result.total,
-            "passed": result.passed,
-            "failed": result.failed,
-            "files": [
-                {"file": r.file, "passed": r.passed, "errors": r.errors, "warnings": r.warnings}
-                for r in result.results
-            ],
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "total": result.total,
+                    "passed": result.passed,
+                    "failed": result.failed,
+                    "files": [
+                        {"file": r.file, "passed": r.passed, "errors": r.errors, "warnings": r.warnings}
+                        for r in result.results
+                    ],
+                },
+                indent=2,
+            )
+        )
         return 0 if result.failed == 0 else 1
 
     status = "PASS" if result.failed == 0 else "FAIL"

@@ -2,12 +2,12 @@ from types import SimpleNamespace
 
 from flask import Flask
 
-from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE_DURATION_SECONDS
 from agent.db_models import TaskDB
+from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE_DURATION_SECONDS
 from agent.repository import task_repo
-from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
-from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
 from agent.routes.tasks.auto_planner import auto_planner
+from agent.services.autopilot.dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
+from agent.services.autopilot.tick_engine import _dispatch_one_task
 
 
 def _sample_value(metric, sample_name: str) -> float:
@@ -27,7 +27,7 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
             return {}
 
         def _forward_with_retry(self, _url, endpoint, _payload, token=None):
-            if endpoint.endswith('/step/propose'):
+            if endpoint.endswith("/step/propose"):
                 return {"command": "echo ok", "tool_calls": None, "reason": "ok"}
             return {"status": "completed", "exit_code": 0, "output": "ok"}
 
@@ -95,7 +95,11 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
         loop=_Loop(),
         services=services,
         policy={"execute_timeout": 10, "execute_retries": 0, "level": "safe"},
-        fallback_policy={"allow_hub_worker_fallback": True, "escalate_on_fallback_block": True, "fallback_block_status": "blocked"},
+        fallback_policy={
+            "allow_hub_worker_fallback": True,
+            "escalate_on_fallback_block": True,
+            "fallback_block_status": "blocked",
+        },
         runtime_caps={"runtime": {}, "models": {}},
         queue_positions={},
         local_worker_url="http://local",

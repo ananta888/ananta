@@ -18,14 +18,18 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "schemas" / "patterns" / "pattern_catalog.v1.json"
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "patterns" / "pattern.schema.v1.json"
 
 NOTATION_PATTERN_IDS = [
-    "mermaid.class", "mermaid.sequence", "mermaid.state",
-    "mermaid.usecase", "mermaid.activity",
-    "bpmn.process", "bpmn.pool_lane", "bpmn.collaboration",
+    "mermaid.class",
+    "mermaid.sequence",
+    "mermaid.state",
+    "mermaid.usecase",
+    "mermaid.activity",
+    "bpmn.process",
+    "bpmn.pool_lane",
+    "bpmn.collaboration",
 ]
 
 
@@ -98,9 +102,18 @@ def test_notation_patterns_have_required_contract_fields(catalog):
     for pid in NOTATION_PATTERN_IDS:
         entry = by_pid[pid]
         for field_name in (
-            "pattern_id", "version", "category", "language", "title",
-            "description", "parameters", "required_artifacts",
-            "steps", "invariants", "acceptance_gates", "examples",
+            "pattern_id",
+            "version",
+            "category",
+            "language",
+            "title",
+            "description",
+            "parameters",
+            "required_artifacts",
+            "steps",
+            "invariants",
+            "acceptance_gates",
+            "examples",
         ):
             assert field_name in entry, f"{pid} missing {field_name!r}"
         assert entry["version"] == "1.0.0"
@@ -152,13 +165,9 @@ def test_notation_patterns_glob_list_parameters_are_consistent(catalog):
             if param.get("type") == "glob_list":
                 # At least one example input must be a list for this param.
                 examples = by_pid[pid]["examples"]
-                used_as_list = any(
-                    isinstance(ex["inputs"].get(param["name"]), list)
-                    for ex in examples
-                )
+                used_as_list = any(isinstance(ex["inputs"].get(param["name"]), list) for ex in examples)
                 assert used_as_list, (
-                    f"{pid}: glob_list parameter {param['name']!r} "
-                    f"is never used as a list in any example"
+                    f"{pid}: glob_list parameter {param['name']!r} is never used as a list in any example"
                 )
 
 
@@ -187,22 +196,21 @@ def test_notation_patterns_examples_render_with_the_notation_renderer():
     resulting source containing all must_contain markers and none
     of the must_not_contain markers."""
     from agent.services.notation_renderer import get_notation_renderer
+
     r = get_notation_renderer()
     catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
     by_pid = _by_pid(catalog)
     for pid in NOTATION_PATTERN_IDS:
         lang = by_pid[pid]["language"]
         for ex in by_pid[pid]["examples"]:
-            art = r.render(pattern_plan={
-                "pattern_id": pid,
-                "language": lang,
-                "parameters": ex["inputs"],
-            })
+            art = r.render(
+                pattern_plan={
+                    "pattern_id": pid,
+                    "language": lang,
+                    "parameters": ex["inputs"],
+                }
+            )
             for marker in ex["must_contain"]:
-                assert marker in art.source, (
-                    f"{pid}.{ex['name']}: must_contain {marker!r} not in output"
-                )
+                assert marker in art.source, f"{pid}.{ex['name']}: must_contain {marker!r} not in output"
             for marker in ex["must_not_contain"]:
-                assert marker not in art.source, (
-                    f"{pid}.{ex['name']}: must_not_contain {marker!r} found in output"
-                )
+                assert marker not in art.source, f"{pid}.{ex['name']}: must_not_contain {marker!r} found in output"

@@ -44,7 +44,12 @@ def test_submit_ollama_benchmark_job_records_failed_job(monkeypatch):
         lambda: type(
             "FakeOllamaService",
             (),
-            {"run_full_benchmark": lambda self, **kwargs: {"status": "failed", "summary": {"total_tests": 2, "failed": 2}}},
+            {
+                "run_full_benchmark": lambda self, **kwargs: {
+                    "status": "failed",
+                    "summary": {"total_tests": 2, "failed": 2},
+                }
+            },
         )(),
     )
 
@@ -103,7 +108,9 @@ def test_style_rebenchmark_batch_advances_revision_serially(monkeypatch):
         )
         return CognitiveStyleRebenchmarkWorkItem(
             profile=ModelProfile(
-                profile_id=profile_id, provider_id="lmstudio", model=profile_id,
+                profile_id=profile_id,
+                provider_id="lmstudio",
+                model=profile_id,
             ),
             plan=CognitiveStyleBenchmarkSuite.plan(context),
         )

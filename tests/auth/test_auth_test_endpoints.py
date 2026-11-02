@@ -1,9 +1,9 @@
 from sqlmodel import Session, select
+from werkzeug.security import generate_password_hash
 
 from agent.config import settings
-from agent.db_models import PasswordHistoryDB, RefreshTokenDB, UserDB
 from agent.database import engine
-from werkzeug.security import generate_password_hash
+from agent.db_models import PasswordHistoryDB, RefreshTokenDB, UserDB
 
 
 def test_test_provision_and_delete_user_endpoints(client):
@@ -12,8 +12,8 @@ def test_test_provision_and_delete_user_endpoints(client):
     password = "ProvisionUser1!A"
 
     create_res = client.post(
-      "/test/provision-user",
-      json={"username": username, "password": password, "role": "user", "overwrite": True},
+        "/test/provision-user",
+        json={"username": username, "password": password, "role": "user", "overwrite": True},
     )
     assert create_res.status_code == 200
 
@@ -38,7 +38,9 @@ def test_test_reset_user_auth_state(client):
     username = "test_reset_user"
     password = "ResetUser1!A"
 
-    provision = client.post("/test/provision-user", json={"username": username, "password": password, "overwrite": True})
+    provision = client.post(
+        "/test/provision-user", json={"username": username, "password": password, "overwrite": True}
+    )
     assert provision.status_code == 200
 
     with Session(engine) as session:

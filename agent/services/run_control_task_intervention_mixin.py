@@ -16,10 +16,7 @@ def _accepts_vector_authorization(intervene) -> bool:
         return True
     return bool(
         "vector_authorization" in parameters
-        or any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in parameters.values()
-        )
+        or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values())
     )
 
 
@@ -38,11 +35,9 @@ class RunControlTaskInterventionMixin:
             get_vector_store_authorization_policy,
         )
 
-        authorization = (
-            get_vector_store_authorization_policy().system_context(
-                actor=cmd.requested_by,
-                purpose="run_control",
-            )
+        authorization = get_vector_store_authorization_policy().system_context(
+            actor=cmd.requested_by,
+            purpose="run_control",
         )
         task_admin = get_core_services().task_admin_service
         intervene = task_admin.intervene_task
@@ -61,20 +56,15 @@ class RunControlTaskInterventionMixin:
                 get_vector_task_admin_guard_service,
             )
 
-            if (
-                get_vector_task_admin_guard_service()
-                .require_authorized_if_vector(
-                    task_id=task_id,
-                    authorization=authorization,
-                )
+            if get_vector_task_admin_guard_service().require_authorized_if_vector(
+                task_id=task_id,
+                authorization=authorization,
             ):
                 outcome = (
                     False,
                     "vector_index_task_admin_adapter_incompatible",
                     {
-                        "reason_code": (
-                            "vector_index_task_admin_adapter_incompatible"
-                        ),
+                        "reason_code": ("vector_index_task_admin_adapter_incompatible"),
                         "http_status": 409,
                     },
                 )
@@ -92,27 +82,16 @@ class RunControlTaskInterventionMixin:
             return
 
         try:
-            intervention_status = int(
-                data.get("http_status") or 0
-            )
+            intervention_status = int(data.get("http_status") or 0)
         except (TypeError, ValueError):
             intervention_status = 0
         cmd.status = (
-            "rejected_by_policy"
-            if (
-                message == "invalid_transition"
-                or 400 <= intervention_status < 500
-            )
-            else "failed"
+            "rejected_by_policy" if (message == "invalid_transition" or 400 <= intervention_status < 500) else "failed"
         )
         cmd.result.update(
             {
                 "error": message,
-                **{
-                    key: value
-                    for key, value in data.items()
-                    if key != "error"
-                },
+                **{key: value for key, value in data.items() if key != "error"},
             }
         )
 

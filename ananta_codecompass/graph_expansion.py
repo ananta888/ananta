@@ -113,4 +113,3 @@ def expand_codecompass_graph(
         "deterministic": True,
         "bounded": bool(traversal.get("bounded")),
     }
-

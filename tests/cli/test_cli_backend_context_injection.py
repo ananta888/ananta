@@ -5,6 +5,7 @@ via ``monkeypatch.setattr(context, 'approval_request_service', fake)`` and
 sub-modules that use ``default_context.approval_request_service`` must
 respect the override.
 """
+
 from __future__ import annotations
 
 import sys
@@ -12,7 +13,7 @@ import sys
 
 def test_context_property_delegates_to_service_getter() -> None:
     """The CliBackendContext property must return the live service handle."""
-    from agent.cli_backends.context import CliBackendContext, default_context
+    from agent.cli_backends.context import CliBackendContext
 
     # Just verify the property doesn't raise and returns a non-None value.
     # We don't assert identity because some services are lazy/singletons.

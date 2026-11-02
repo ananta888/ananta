@@ -22,40 +22,82 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-
 # Default allow-list by task_kind. Keep this conservative: the LLM
 # can only suggest patterns we have catalogued. Risky patterns live
 # in a separate bucket and are off by default.
 DEFAULT_ALLOWLIST: dict[str, set[str]] = {
     "coding": {
-        "strategy", "state", "command", "observer", "adapter",
-        "facade", "factory_method", "builder",
-        "python.strategy", "python.state", "python.command",
-        "python.adapter", "python.factory_method", "python.builder",
-        "java.strategy", "java.state", "java.command",
-        "java.adapter", "java.factory_method", "java.builder",
-        "ts.strategy", "ts.state", "ts.command",
-        "ts.adapter", "ts.factory_method", "ts.builder",
+        "strategy",
+        "state",
+        "command",
+        "observer",
+        "adapter",
+        "facade",
+        "factory_method",
+        "builder",
+        "python.strategy",
+        "python.state",
+        "python.command",
+        "python.adapter",
+        "python.factory_method",
+        "python.builder",
+        "java.strategy",
+        "java.state",
+        "java.command",
+        "java.adapter",
+        "java.factory_method",
+        "java.builder",
+        "ts.strategy",
+        "ts.state",
+        "ts.command",
+        "ts.adapter",
+        "ts.factory_method",
+        "ts.builder",
     },
     "refactoring": {
-        "strategy", "state", "command", "observer", "adapter",
-        "facade", "proxy", "factory_method", "builder",
-        "python.strategy", "python.state", "python.command",
-        "python.adapter", "python.factory_method", "python.builder",
-        "java.strategy", "java.state", "java.command",
-        "java.adapter", "java.factory_method", "java.builder",
-        "ts.strategy", "ts.state", "ts.command",
-        "ts.adapter", "ts.factory_method", "ts.builder",
+        "strategy",
+        "state",
+        "command",
+        "observer",
+        "adapter",
+        "facade",
+        "proxy",
+        "factory_method",
+        "builder",
+        "python.strategy",
+        "python.state",
+        "python.command",
+        "python.adapter",
+        "python.factory_method",
+        "python.builder",
+        "java.strategy",
+        "java.state",
+        "java.command",
+        "java.adapter",
+        "java.factory_method",
+        "java.builder",
+        "ts.strategy",
+        "ts.state",
+        "ts.command",
+        "ts.adapter",
+        "ts.factory_method",
+        "ts.builder",
     },
     "security": {
-        "proxy", "adapter", "facade",
-        "python.adapter", "java.adapter", "ts.adapter",
+        "proxy",
+        "adapter",
+        "facade",
+        "python.adapter",
+        "java.adapter",
+        "ts.adapter",
     },
     "test_template": {
-        "ts.vitest_scaffold", "cli.retry_wrap",
+        "ts.vitest_scaffold",
+        "cli.retry_wrap",
     },
     "tooling": {
-        "cli.retry_wrap", "workflow.sequential_emit",
+        "cli.retry_wrap",
+        "workflow.sequential_emit",
     },
     "control_policy": {
         "java.default_deny_gate",
@@ -91,11 +133,18 @@ RISKY_PATTERN_IDS: set[str] = {
 # risk classification as code patterns would force unnecessary
 # opt-in friction. List them explicitly so the policy has a clear,
 # auditable answer to "is this safe?".
-NOTATION_PATTERN_IDS: frozenset[str] = frozenset({
-    "mermaid.class", "mermaid.sequence", "mermaid.state",
-    "mermaid.usecase", "mermaid.activity",
-    "bpmn.process", "bpmn.pool_lane", "bpmn.collaboration",
-})
+NOTATION_PATTERN_IDS: frozenset[str] = frozenset(
+    {
+        "mermaid.class",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.usecase",
+        "mermaid.activity",
+        "bpmn.process",
+        "bpmn.pool_lane",
+        "bpmn.collaboration",
+    }
+)
 
 
 # Short helper so tests and callers can answer the question
@@ -149,9 +198,7 @@ class PatternSelectionPolicy:
         allowlist: Optional[dict[str, set[str]]] = None,
         risky_pattern_ids: Optional[set[str]] = None,
     ) -> None:
-        self._allowlist: dict[str, set[str]] = {
-            k: set(v) for k, v in (allowlist or DEFAULT_ALLOWLIST).items()
-        }
+        self._allowlist: dict[str, set[str]] = {k: set(v) for k, v in (allowlist or DEFAULT_ALLOWLIST).items()}
         self._risky: set[str] = set(risky_pattern_ids or RISKY_PATTERN_IDS)
 
     # --- public surface -----------------------------------------------
@@ -207,8 +254,7 @@ class PatternSelectionPolicy:
             return PolicyDecision(
                 allowed=False,
                 blocked_reason=(
-                    f"pattern_id '{pattern_id}' is not in the default allow-list for "
-                    f"task_kind '{task_kind}'"
+                    f"pattern_id '{pattern_id}' is not in the default allow-list for task_kind '{task_kind}'"
                 ),
                 pattern_id=pattern_id,
                 task_kind=task_kind,
@@ -219,10 +265,7 @@ class PatternSelectionPolicy:
         if pattern_id in self._risky and not allow_risky_patterns:
             return PolicyDecision(
                 allowed=False,
-                blocked_reason=(
-                    f"pattern_id '{pattern_id}' is marked risky and requires "
-                    "allow_risky_patterns=True"
-                ),
+                blocked_reason=(f"pattern_id '{pattern_id}' is marked risky and requires allow_risky_patterns=True"),
                 pattern_id=pattern_id,
                 task_kind=task_kind,
                 risk_level="high",

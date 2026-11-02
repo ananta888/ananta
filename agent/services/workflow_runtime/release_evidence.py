@@ -252,11 +252,7 @@ class RuntimeEvidenceSink:
             _lock_evidence_file(handle)
             try:
                 handle.seek(0)
-                existing = [
-                    RuntimeRunEvidence.from_mapping(json.loads(line))
-                    for line in handle
-                    if line.strip()
-                ]
+                existing = [RuntimeRunEvidence.from_mapping(json.loads(line)) for line in handle if line.strip()]
                 assert_evidence_chain(existing, expected_command_id=self._binding.command_id)
                 ordered = sorted(existing, key=lambda item: item.chain_index)
                 previous_hash = ordered[-1].record_hash if ordered else EVIDENCE_CHAIN_GENESIS
@@ -347,11 +343,7 @@ def load_runtime_release_evidence(
     records_raw = raw.get("records")
     if not isinstance(records_raw, list) or not records_raw:
         raise ValueError("workflow_release_input_records_missing")
-    records = tuple(
-        RuntimeRunEvidence.from_mapping(item)
-        for item in records_raw
-        if isinstance(item, Mapping)
-    )
+    records = tuple(RuntimeRunEvidence.from_mapping(item) for item in records_raw if isinstance(item, Mapping))
     if len(records) != len(records_raw):
         raise ValueError("workflow_release_input_record_invalid")
     if any(record.contract_hash != expected_contract_hash for record in records):
@@ -458,12 +450,7 @@ def _nonnegative_numbers(value: Any) -> dict[str, int | float]:
         raise ValueError("workflow_release_budget_usage_invalid")
     result: dict[str, int | float] = {}
     for raw_key, raw_value in value.items():
-        if (
-            not str(raw_key)
-            or isinstance(raw_value, bool)
-            or not isinstance(raw_value, (int, float))
-            or raw_value < 0
-        ):
+        if not str(raw_key) or isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)) or raw_value < 0:
             raise ValueError("workflow_release_budget_usage_invalid")
         result[str(raw_key)] = raw_value
     return result

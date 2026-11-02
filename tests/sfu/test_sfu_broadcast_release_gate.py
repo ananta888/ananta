@@ -5,10 +5,7 @@ from scripts.run_sfu_broadcast_release_gate import DEFAULT_TODO, evaluate_releas
 
 
 def test_release_gate_default_todo_tracks_the_active_source() -> None:
-    assert DEFAULT_TODO == (
-        Path(__file__).resolve().parents[2]
-        / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
-    )
+    assert DEFAULT_TODO == (Path(__file__).resolve().parents[2] / "todos/active/todo.webrtc-sfu-broadcast-fanout.json")
     assert DEFAULT_TODO.is_file()
 
 
@@ -16,10 +13,12 @@ def test_release_gate_never_activates_when_parent_is_no_go(tmp_path: Path) -> No
     digest = "a" * 64
     todo = {
         "cross_track_prerequisites": ["parent.json:PARENT-1"],
-        "tasks": [{
-            "id": "SFB-GATE-011",
-            "depends_on": ["parent.json:PARENT-1"],
-        }],
+        "tasks": [
+            {
+                "id": "SFB-GATE-011",
+                "depends_on": ["parent.json:PARENT-1"],
+            }
+        ],
     }
     gate_manifest = {
         "manifest_version": 1,
@@ -102,10 +101,12 @@ def test_release_gate_rejects_cross_track_dependency_drift(tmp_path: Path) -> No
         },
         todo={
             "cross_track_prerequisites": ["parent.json:PARENT-2"],
-            "tasks": [{
-                "id": "SFB-GATE-011",
-                "depends_on": ["parent.json:PARENT-1"],
-            }],
+            "tasks": [
+                {
+                    "id": "SFB-GATE-011",
+                    "depends_on": ["parent.json:PARENT-1"],
+                }
+            ],
         },
         parent={
             "decision": "go",

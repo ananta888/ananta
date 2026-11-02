@@ -1,4 +1,5 @@
 """HDE-001/HDE-003: deterministic pre-worker routing tests."""
+
 import pytest
 
 from agent.services.hub_direct_execution_router import (
@@ -7,7 +8,6 @@ from agent.services.hub_direct_execution_router import (
     REASON_MUTATION_INTENT,
     REASON_NO_RULE_MATCH,
     REASON_TOOL_NOT_ALLOWED,
-    DirectExecutionDecision,
     HubDirectExecutionRouter,
 )
 

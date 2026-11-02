@@ -12,7 +12,6 @@ from agent.services.restricted_inference_management_service import (
     RestrictedInferenceManagementService,
 )
 
-
 _ENDPOINT = "http://restricted-worker:8091/internal/v1/restricted-inference"
 _TOKEN = "restricted-inference-circuit-test-token"
 

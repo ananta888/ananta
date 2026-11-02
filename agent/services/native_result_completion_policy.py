@@ -26,9 +26,11 @@ class NativeResultCompletionPolicy:
         command = native_task_command(task)
         command_digest = native_context_digest(command.to_dict())
         if old is not None and (
-            not is_native_task(old) or command_digest != native_context_digest(native_task_command(old).to_dict())
+            not is_native_task(old)
+            or command_digest != native_context_digest(native_task_command(old).to_dict())
             or any(getattr(old, field) != getattr(task, field) for field in ("id", "tenant_id", "project_id"))
-            or old.assigned_agent_url and old.assigned_agent_url != task.assigned_agent_url
+            or old.assigned_agent_url
+            and old.assigned_agent_url != task.assigned_agent_url
         ):
             raise ValueError("native_result_task_binding_immutable")
         verification = dict(task.verification_status or {})
@@ -41,7 +43,8 @@ class NativeResultCompletionPolicy:
         if previous is not None:
             native_task_result(task, command)
             if (
-                not isinstance(previous, dict) or previous.get("command_digest") != command_digest
+                not isinstance(previous, dict)
+                or previous.get("command_digest") != command_digest
                 or previous.get("result_digest") != native_result_digest(task)
                 or native_result_digest(task) != native_result_digest(old)
             ):
@@ -67,12 +70,20 @@ class NativeResultCompletionPolicy:
 
             require_native_transport_recovery(session=session, task=old, authority=authority)
         artifacts = require_registered_native_artifacts(
-            session=session, task=task, command=command, result=result, authority=authority,
+            session=session,
+            task=task,
+            command=command,
+            result=result,
+            authority=authority,
         )
         verification[NATIVE_RESULT_RECEIPT] = {
-            "schema": "ananta.native-result-receipt.v1", "classification": "technical_observation",
-            "hub_task_id": task.id, "tenant_id": task.tenant_id, "project_id": task.project_id,
-            "command_digest": command_digest, "result_digest": native_result_digest(task),
+            "schema": "ananta.native-result-receipt.v1",
+            "classification": "technical_observation",
+            "hub_task_id": task.id,
+            "tenant_id": task.tenant_id,
+            "project_id": task.project_id,
+            "command_digest": command_digest,
+            "result_digest": native_result_digest(task),
             "authority": asdict(authority),
             **({"artifacts": artifacts} if artifacts else {}),
         }

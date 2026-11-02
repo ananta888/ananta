@@ -12,9 +12,15 @@ from worker.meet_media.companion_task_environment import assigned_model_environm
 
 
 def test_environment_preserves_provider_settings_without_mutating_legacy_parent():
-    parent = {"MEET_HUB_ASSIST_URL": "http://synthetic/legacy", "MEET_WORKER_KEY_FILE": "/synthetic/key",
-              "MEET_COMPANION_TOOLS": "1", "ANANTA_MEET_AVATAR_CODECOMPASS": "1",
-              "MEET_COMPANION_RAG_PREFIX": "1", "MEET_LLM_URL": "http://synthetic-model", "PIPER_MODEL": "voice"}
+    parent = {
+        "MEET_HUB_ASSIST_URL": "http://synthetic/legacy",
+        "MEET_WORKER_KEY_FILE": "/synthetic/key",
+        "MEET_COMPANION_TOOLS": "1",
+        "ANANTA_MEET_AVATAR_CODECOMPASS": "1",
+        "MEET_COMPANION_RAG_PREFIX": "1",
+        "MEET_LLM_URL": "http://synthetic-model",
+        "PIPER_MODEL": "voice",
+    }
     before = dict(parent)
     child = assigned_model_environment(assignment(), environment=parent)
     assert parent == before and child is not parent
@@ -32,10 +38,15 @@ def test_unnegotiated_assignment_cannot_construct_assigned_model_environment():
 
 @pytest.mark.timeout(10)
 def test_actual_model_child_builds_dialog_without_tools_or_retrieval_even_when_legacy_flags_are_on(tmp_path):
-    parent = os.environ | {"MEET_COMPANION_TOOLS": "1", "ANANTA_MEET_AVATAR_CODECOMPASS": "1",
-                           "MEET_COMPANION_RAG_PREFIX": "1", "MEET_HUB_ASSIST_URL": "http://127.0.0.1:9",
-                           "MEET_WORKER_KEY_FILE": "/synthetic/private-key",
-                           "MEET_COMPANION_LOG": str(tmp_path / "synthetic.log"), "MEET_ROUTE_DECISION": "off"}
+    parent = os.environ | {
+        "MEET_COMPANION_TOOLS": "1",
+        "ANANTA_MEET_AVATAR_CODECOMPASS": "1",
+        "MEET_COMPANION_RAG_PREFIX": "1",
+        "MEET_HUB_ASSIST_URL": "http://127.0.0.1:9",
+        "MEET_WORKER_KEY_FILE": "/synthetic/private-key",
+        "MEET_COMPANION_LOG": str(tmp_path / "synthetic.log"),
+        "MEET_ROUTE_DECISION": "off",
+    }
     script = """
 import json,os,sys
 request=json.loads(sys.stdin.readline())
@@ -51,10 +62,13 @@ assert dialog._tools is None and dialog._retriever is None and not dialog._codec
 companion.generate_reply(request['text'])
 print(json.dumps({'kind':request['kind'],'result':'Synthetic closed-profile answer'}),flush=True)
 """
-    execution = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", script),
-        environment=assigned_model_environment(assignment(), environment=parent))
+    execution = CompanionExecutionProcess(
+        command=(sys.executable, "-u", "-c", script),
+        environment=assigned_model_environment(assignment(), environment=parent),
+    )
     try:
         assert execution.call("answer", "Wie ist die Architektur aufgebaut?", cooperate=lambda: None) == (
-            "Synthetic closed-profile answer")
+            "Synthetic closed-profile answer"
+        )
     finally:
         execution.close()

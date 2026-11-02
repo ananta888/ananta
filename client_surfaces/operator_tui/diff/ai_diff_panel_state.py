@@ -73,4 +73,3 @@ def set_ai_diff_mode(payload: dict[str, Any], *, mode: str, status: str = "idle"
     if errors:
         raise ValueError(f"invalid_ai_diff_panel_state:{'; '.join(errors)}")
     return next_payload
-

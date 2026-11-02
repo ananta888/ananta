@@ -37,11 +37,9 @@ def test_parallel_workers_share_one_atomic_provider_attempt_budget() -> None:
         results = tuple(executor.map(reserve, range(8)))
 
     assert sum(not isinstance(result, ProviderBudgetError) for result in results) == 1
-    assert {
-        result.reason_code
-        for result in results
-        if isinstance(result, ProviderBudgetError)
-    } == {"provider_retry_budget_exceeded"}
+    assert {result.reason_code for result in results if isinstance(result, ProviderBudgetError)} == {
+        "provider_retry_budget_exceeded"
+    }
 
 
 def test_reconciliation_is_idempotent_and_records_actual_overrun() -> None:
@@ -69,13 +67,16 @@ def test_reconciliation_is_idempotent_and_records_actual_overrun() -> None:
     )
     assert reconciled.tokens == 25
     assert reconciled.reason_code == "provider_budget_overrun_recorded"
-    assert store.reconcile(
-        tenant_id="tenant-a",
-        run_id="run-a",
-        policy_version="policy-v1",
-        reservation_id="provider-call-1",
-        actual_total_tokens=25,
-    ) == reconciled
+    assert (
+        store.reconcile(
+            tenant_id="tenant-a",
+            run_id="run-a",
+            policy_version="policy-v1",
+            reservation_id="provider-call-1",
+            actual_total_tokens=25,
+        )
+        == reconciled
+    )
     with pytest.raises(ProviderBudgetError, match="reconciliation_conflict"):
         store.reconcile(
             tenant_id="tenant-a",

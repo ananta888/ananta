@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import math
 import statistics
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
@@ -254,12 +254,8 @@ class ModelEvaluationComparisonService:
             baseline_value = baseline.metrics[definition.name]
             candidate_value = candidate.metrics[definition.name]
             delta = candidate_value - baseline_value
-            within_tolerance = (
-                abs(delta) <= definition.absolute_tolerance
-            )
-            directional_delta = (
-                -delta if definition.higher_is_better else delta
-            )
+            within_tolerance = abs(delta) <= definition.absolute_tolerance
+            directional_delta = -delta if definition.higher_is_better else delta
             comparisons.append(
                 MetricComparison(
                     name=definition.name,
@@ -267,10 +263,7 @@ class ModelEvaluationComparisonService:
                     candidate=candidate_value,
                     delta=delta,
                     within_tolerance=within_tolerance,
-                    regression=(
-                        directional_delta > definition.regression_threshold
-                        and not within_tolerance
-                    ),
+                    regression=(directional_delta > definition.regression_threshold and not within_tolerance),
                 )
             )
         return EvaluationComparison(
@@ -289,10 +282,7 @@ class ModelEvaluationComparisonService:
     ) -> str | None:
         if baseline.profile.digest != candidate.profile.digest:
             return "evaluation_profile_incompatible"
-        if (
-            baseline.profile.require_same_runtime
-            and baseline.runtime.digest != candidate.runtime.digest
-        ):
+        if baseline.profile.require_same_runtime and baseline.runtime.digest != candidate.runtime.digest:
             return "evaluation_runtime_incompatible"
         if (
             baseline.profile.comparison_dimension == "performance"

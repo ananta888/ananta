@@ -144,7 +144,7 @@ def compact_recovery_context(task: Any, *, actions: list[str]) -> tuple[str, dic
     payload.pop("compactor_meta", None)
     compact_json = json.dumps(payload, ensure_ascii=False)
     _record_recovery_cut("recovery.context", compact_json, _recovery_context_chars())
-    return compact_json[:_recovery_context_chars()], {
+    return compact_json[: _recovery_context_chars()], {
         key: value
         for key, value in dict(compacted.meta or {}).items()
         if key

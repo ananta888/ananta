@@ -15,9 +15,7 @@ class ModelPromptPrefixService:
         profile: Any,
     ) -> list[dict[str, Any]]:
         copied = [dict(message) for message in messages]
-        prefix = str(
-            getattr(profile, "system_prompt_prefix", None) or ""
-        ).strip()
+        prefix = str(getattr(profile, "system_prompt_prefix", None) or "").strip()
         if not prefix:
             return copied
 

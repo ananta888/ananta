@@ -28,14 +28,21 @@ def endpoint_bridge():
         bundle = os.environ.get("ANANTA_TEST_MEET_CHAT_ENDPOINT_BUNDLE")
         if not node or not bundle:
             pytest.skip("real client endpoint requires explicit Node and bundled endpoint paths")
-        process = subprocess.Popen([node, str(Path(__file__).with_name("meet_chat_endpoint_bridge.mjs"))],
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                   text=True, close_fds=True)
+        process = subprocess.Popen(
+            [node, str(Path(__file__).with_name("meet_chat_endpoint_bridge.mjs"))],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            close_fds=True,
+        )
         processes.append(process)
 
         def call(operation, now, message_count, argument=None):
-            process.stdin.write(json.dumps({"operation": operation, "now": now, "message_count": message_count,
-                                            "argument": argument}) + "\n")
+            process.stdin.write(
+                json.dumps({"operation": operation, "now": now, "message_count": message_count, "argument": argument})
+                + "\n"
+            )
             process.stdin.flush()
             if not select.select([process.stdout], [], [], 5)[0]:
                 pytest.fail("synthetic real endpoint response timeout")
@@ -100,7 +107,8 @@ class CooperativeMedia:
 @pytest.mark.parametrize("client_transport", ["fixture", "real_endpoint"])
 @pytest.mark.parametrize("avatar_on", [False, True])
 def test_actual_companion_collects_input_during_long_answer_and_renews(
-        monkeypatch, tmp_path, message_count, client_transport, endpoint_bridge, avatar_on):
+    monkeypatch, tmp_path, message_count, client_transport, endpoint_bridge, avatar_on
+):
     monkeypatch.setenv("MEET_COMPANION_LOG", str(tmp_path / "synthetic-companion.log"))
     companion = importlib.import_module("worker.meet_media.companion")
     now, stopped, renewals, answered, replies = [0.0], [False], [], [], []
@@ -141,10 +149,21 @@ def test_actual_companion_collects_input_during_long_answer_and_renews(
                 self.opened_generation = self.generation
                 self.queued.clear()
                 self.serial = 0
-                return {"origin": "https://meet.invalid", "tenant_id": "tenant", "project_id": "project",
-                        "task_id": "task", "runtime_id": "runtime", "session_id": "session", "lease_id": "lease",
-                        "room_id": room, "own_peer_id": "machine", "generation": self.generation,
-                        "membership_epoch": 1, "policy_revision": 1, "deadline_ms": 1_000_000}
+                return {
+                    "origin": "https://meet.invalid",
+                    "tenant_id": "tenant",
+                    "project_id": "project",
+                    "task_id": "task",
+                    "runtime_id": "runtime",
+                    "session_id": "session",
+                    "lease_id": "lease",
+                    "room_id": room,
+                    "own_peer_id": "machine",
+                    "generation": self.generation,
+                    "membership_epoch": 1,
+                    "policy_revision": 1,
+                    "deadline_ms": 1_000_000,
+                }
             if ".chat.poll(" in expression:
                 if self.opened_generation != self.generation:
                     raise RuntimeError("Page.evaluate: Error: meet_chat_authority_changed")
@@ -152,22 +171,36 @@ def test_actual_companion_collects_input_during_long_answer_and_renews(
                     if now[0] >= sent_at and number not in self.admitted and now[0] - sent_at <= 30:
                         self.admitted.add(number)
                         self.serial += 1
-                        self.queued.append({"cursor": self.serial, "sent_at": sent_at, "event": {
-                            "message_id": f"{number:032x}", "text": f"synthetic question {number}",
-                            "session_id": "session", "room_id": room, "generation": self.generation,
-                            "membership_epoch": 1, "sender_peer_id": "human"}})
+                        self.queued.append(
+                            {
+                                "cursor": self.serial,
+                                "sent_at": sent_at,
+                                "event": {
+                                    "message_id": f"{number:032x}",
+                                    "text": f"synthetic question {number}",
+                                    "session_id": "session",
+                                    "room_id": room,
+                                    "generation": self.generation,
+                                    "membership_epoch": 1,
+                                    "sender_peer_id": "human",
+                                },
+                            }
+                        )
                 self.queued = [item for item in self.queued if now[0] - item["sent_at"] <= 30]
                 events = [
                     {"cursor": item["cursor"], "event": item["event"]}
-                    for item in self.queued if item["cursor"] > argument][:8]
+                    for item in self.queued
+                    if item["cursor"] > argument
+                ][:8]
                 for item in events:
                     self.delivered[item["event"]["message_id"]] = now[0]
                 return {"schema": "ananta.meet-chat-batch.draft1", "events": events}
             if ".chat.redeliver(" in expression:
                 if self.opened_generation != self.generation:
                     raise RuntimeError("Page.evaluate: Error: meet_chat_authority_changed")
-                if any(identity not in self.delivered or now[0] - self.delivered[identity] > 120
-                       for identity in argument):
+                if any(
+                    identity not in self.delivered or now[0] - self.delivered[identity] > 120 for identity in argument
+                ):
                     raise RuntimeError("Page.evaluate: Error: meet_chat_redelivery_denied")
                 for identity in argument:
                     self.delivered[identity] = now[0]
@@ -178,11 +211,11 @@ def test_actual_companion_collects_input_during_long_answer_and_renews(
                 replies.append(tuple(argument))
 
     page = Page()
-    browser = SimpleNamespace(new_context=lambda **kwargs: SimpleNamespace(new_page=lambda: page),
-                              close=lambda: None)
+    browser = SimpleNamespace(new_context=lambda **kwargs: SimpleNamespace(new_page=lambda: page), close=lambda: None)
     playwright = SimpleNamespace(chromium=SimpleNamespace(launch=lambda **kwargs: browser))
-    monkeypatch.setitem(sys.modules, "playwright.sync_api",
-                        SimpleNamespace(sync_playwright=lambda: nullcontext(playwright)))
+    monkeypatch.setitem(
+        sys.modules, "playwright.sync_api", SimpleNamespace(sync_playwright=lambda: nullcontext(playwright))
+    )
 
     class Execution:
         closed = False
@@ -204,10 +237,16 @@ def test_actual_companion_collects_input_during_long_answer_and_renews(
     media = CooperativeMedia(now)
     monkeypatch.setattr(companion, "CompanionExecutionProcess", lambda: execution)
     monkeypatch.setattr(companion, "CompanionMediaPreparationProcess", lambda: media)
-    monkeypatch.setattr(companion, "avatar_ports", lambda *_args: AvatarPorts(
-        lambda _payload: 1, lambda _generation: None, lambda _samples: 1, lambda *_args: None))
-    monkeypatch.setattr(companion, "CompanionChatPump", lambda *args, **kwargs:
-                        CompanionChatPump(*args, **kwargs, clock=lambda: now[0]))
+    monkeypatch.setattr(
+        companion,
+        "avatar_ports",
+        lambda *_args: AvatarPorts(
+            lambda _payload: 1, lambda _generation: None, lambda _samples: 1, lambda *_args: None
+        ),
+    )
+    monkeypatch.setattr(
+        companion, "CompanionChatPump", lambda *args, **kwargs: CompanionChatPump(*args, **kwargs, clock=lambda: now[0])
+    )
     monkeypatch.setattr(companion, "STOP_FILE", SimpleNamespace(exists=lambda: stopped[0]))
     monkeypatch.setattr(companion, "fetch_grant", lambda *args: {"room_id": room, "grant": token})
     monkeypatch.setattr(companion, "ensure_public_room", lambda: None)

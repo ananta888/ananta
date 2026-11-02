@@ -1,10 +1,11 @@
 """WSM-T003: codex-cli-like patch proposal strategy."""
+
 from __future__ import annotations
 
 import re
 
+from worker.core.propose import ExecutableProposal, PatchProposalArtifact, ProposeStrategyResult
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
-from worker.core.propose import ProposeStrategyResult, PatchProposalArtifact, ExecutableProposal
 
 
 class CliAgentPatchStrategy(ProposeStrategy):

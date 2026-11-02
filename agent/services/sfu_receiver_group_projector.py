@@ -134,9 +134,7 @@ class ReceiverGroupProjectionResult:
 
 
 class MemberDigestCreatePort(Protocol):
-    def create_digest(
-        self, *, member_identifier: str, scope: str
-    ) -> SfuMemberDigest: ...
+    def create_digest(self, *, member_identifier: str, scope: str) -> SfuMemberDigest: ...
 
 
 class SfuReceiverGroupProjector:
@@ -149,9 +147,7 @@ class SfuReceiverGroupProjector:
         self._digests = digest_provider
         self._config = config
 
-    def project(
-        self, request: ReceiverGroupProjectionRequest
-    ) -> ReceiverGroupProjectionResult:
+    def project(self, request: ReceiverGroupProjectionRequest) -> ReceiverGroupProjectionResult:
         previous = request.previous
         if request.elapsed_ms > self._config.recompute_deadline_ms:
             return self._fallback(request, ReceiverGroupProjectionReason.DEADLINE)
@@ -162,17 +158,13 @@ class SfuReceiverGroupProjector:
             if event.sequence <= previous.last_sequence:
                 if receipts.get(event.sequence) == digest:
                     continue
-                return self._fallback(
-                    request, ReceiverGroupProjectionReason.EVENT_CONFLICT
-                )
+                return self._fallback(request, ReceiverGroupProjectionReason.EVENT_CONFLICT)
             new_events.append(event)
         if new_events:
             expected = previous.last_sequence + 1
             for event in new_events:
                 if event.sequence != expected:
-                    return self._fallback(
-                        request, ReceiverGroupProjectionReason.EVENT_GAP
-                    )
+                    return self._fallback(request, ReceiverGroupProjectionReason.EVENT_GAP)
                 expected += 1
         members = self._members_from_state(previous)
         affected: set[tuple[str, str, str]] = set()
@@ -185,15 +177,11 @@ class SfuReceiverGroupProjector:
                 ReceiverGroupEventKind.POLICY_CHANGE,
             ):
                 if event.member is None or not self._member_in_scope(previous, event.member):
-                    return self._fallback(
-                        request, ReceiverGroupProjectionReason.SCOPE_MISMATCH
-                    )
+                    return self._fallback(request, ReceiverGroupProjectionReason.SCOPE_MISMATCH)
                 members[event.member.stable_ref] = event.member
                 affected.add(event.member.bucket)
             else:
-                member_ref = event.member_ref or (
-                    event.member.stable_ref if event.member else None
-                )
+                member_ref = event.member_ref or (event.member.stable_ref if event.member else None)
                 if member_ref is not None:
                     members.pop(member_ref, None)
 
@@ -202,23 +190,15 @@ class SfuReceiverGroupProjector:
         try:
             rebuilt = self._build_groups(previous, tuple(members.values()), affected)
         except _DigestCollision:
-            return self._fallback(
-                request, ReceiverGroupProjectionReason.DIGEST_COLLISION
-            )
+            return self._fallback(request, ReceiverGroupProjectionReason.DIGEST_COLLISION)
         except Exception:
-            return self._fallback(
-                request, ReceiverGroupProjectionReason.DIGEST_FAILURE
-            )
-        changed_group_count = sum(
-            1 for group in rebuilt if group.bucket in affected
-        )
+            return self._fallback(request, ReceiverGroupProjectionReason.DIGEST_FAILURE)
+        changed_group_count = sum(1 for group in rebuilt if group.bucket in affected)
         if changed_group_count > max(1, len(new_events)) * self._config.groups_per_event_max:
             return self._fallback(request, ReceiverGroupProjectionReason.CHANGE_LIMIT)
         for event in new_events:
             receipts[event.sequence] = _canonical_digest(asdict(event))
-        last_sequence = (
-            new_events[-1].sequence if new_events else previous.last_sequence
-        )
+        last_sequence = new_events[-1].sequence if new_events else previous.last_sequence
         state = ReceiverGroupProjectionState(
             tenant_id=previous.tenant_id,
             room_ref=previous.room_ref,
@@ -231,9 +211,7 @@ class SfuReceiverGroupProjector:
             event_receipts=tuple(sorted(receipts.items())),
         )
         reason = (
-            ReceiverGroupProjectionReason.APPLIED
-            if new_events
-            else ReceiverGroupProjectionReason.DUPLICATE_IGNORED
+            ReceiverGroupProjectionReason.APPLIED if new_events else ReceiverGroupProjectionReason.DUPLICATE_IGNORED
         )
         return ReceiverGroupProjectionResult(
             state,
@@ -265,9 +243,7 @@ class SfuReceiverGroupProjector:
             topology_epoch=state.topology_epoch,
             last_sequence=state.last_sequence if last_sequence is None else last_sequence,
             groups=groups,
-            event_receipts=(
-                state.event_receipts if event_receipts is None else event_receipts
-            ),
+            event_receipts=(state.event_receipts if event_receipts is None else event_receipts),
         )
 
     def _fallback(
@@ -331,19 +307,13 @@ class SfuReceiverGroupProjector:
         members: tuple[ReceiverGroupMember, ...],
         affected: set[tuple[str, str, str]] | None,
     ) -> tuple[ProjectedReceiverGroup, ...]:
-        retained = (
-            []
-            if affected is None
-            else [group for group in state.groups if group.bucket not in affected]
-        )
+        retained = [] if affected is None else [group for group in state.groups if group.bucket not in affected]
         buckets: dict[tuple[str, str, str], list[ReceiverGroupMember]] = {}
         for member in members:
             if affected is None or member.bucket in affected:
                 buckets.setdefault(member.bucket, []).append(member)
         generated: list[ProjectedReceiverGroup] = []
-        seen_digests: dict[str, tuple[str, ...]] = {
-            group.membership_digest: group.member_refs for group in retained
-        }
+        seen_digests: dict[str, tuple[str, ...]] = {group.membership_digest: group.member_refs for group in retained}
         for bucket in sorted(buckets):
             ordered = sorted(buckets[bucket], key=lambda member: member.stable_ref)
             for index in range(0, len(ordered), self._config.members_per_group_max):
@@ -355,13 +325,8 @@ class SfuReceiverGroupProjector:
                         "members": member_refs,
                     }
                 )
-                scope = (
-                    f"{state.tenant_id}/{state.room_ref}/{state.publication_ref}/"
-                    f"key-epoch/{state.key_epoch}"
-                )
-                digest = self._digests.create_digest(
-                    member_identifier=canonical_members, scope=scope
-                )
+                scope = f"{state.tenant_id}/{state.room_ref}/{state.publication_ref}/key-epoch/{state.key_epoch}"
+                digest = self._digests.create_digest(member_identifier=canonical_members, scope=scope)
                 membership_digest = _digest_to_hex(digest)
                 previous_members = seen_digests.get(membership_digest)
                 if previous_members is not None and previous_members != member_refs:
@@ -431,9 +396,7 @@ class SfuReceiverGroupProjector:
         return members
 
     @staticmethod
-    def _member_in_scope(
-        state: ReceiverGroupProjectionState, member: ReceiverGroupMember
-    ) -> bool:
+    def _member_in_scope(state: ReceiverGroupProjectionState, member: ReceiverGroupMember) -> bool:
         return (
             member.tenant_id == state.tenant_id
             and member.room_ref == state.room_ref

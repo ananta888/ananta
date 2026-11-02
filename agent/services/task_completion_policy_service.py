@@ -3,20 +3,20 @@
 Malformed model JSON is advisory only. Completion is based on artifacts, manifests,
 verification evidence and exit status.
 """
+
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from worker.core.artifact_completion_policy import (
-    ArtifactCompletionPolicy,
-    CompletionDecision,
     DECISION_COMPLETED,
+    DECISION_DEGRADED,
     DECISION_FAILED,
     DECISION_NEEDS_REVIEW,
     DECISION_RETRYABLE_FAILED,
-    DECISION_DEGRADED,
+    ArtifactCompletionPolicy,
+    CompletionDecision,
 )
 
 log = logging.getLogger(__name__)
@@ -69,7 +69,9 @@ class TaskCompletionPolicyService:
 
         log.info(
             "TaskCompletionPolicyService: task=%s decision=%s reason_codes=%s",
-            task_id, decision.decision, decision.reason_codes,
+            task_id,
+            decision.decision,
+            decision.reason_codes,
         )
         return decision
 

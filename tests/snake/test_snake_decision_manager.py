@@ -1,10 +1,11 @@
 """Tests for SnakeDecisionManager — T04.01 + T04.02."""
+
 from __future__ import annotations
 
 import time
 
 import pytest
-from sqlmodel import SQLModel, Session, delete
+from sqlmodel import Session, SQLModel, delete
 
 from agent.database import engine
 from agent.db_models import DecisionTraceDB, HeuristicDecisionLeaseDB
@@ -31,9 +32,17 @@ def _fresh_db():
 
 def _make_heuristic(hid="snake-follow-v1", domain="tui_snake"):
     return HeuristicDefinition(
-        heuristic_id=hid, version="1.0.0", domain=domain,
-        strategy_kind="follow", description="test", deterministic=True,
-        safety_class="bounded", capabilities=(), inputs=(), outputs=(), parameters={},
+        heuristic_id=hid,
+        version="1.0.0",
+        domain=domain,
+        strategy_kind="follow",
+        description="test",
+        deterministic=True,
+        safety_class="bounded",
+        capabilities=(),
+        inputs=(),
+        outputs=(),
+        parameters={},
     )
 
 
@@ -59,6 +68,7 @@ def _make_manager(heuristics=None, domain="tui_snake"):
 
 
 # ── decide ────────────────────────────────────────────────────────────────────
+
 
 def test_decide_returns_heuristic_result_when_ai_offline():
     mgr = _make_manager()
@@ -99,6 +109,7 @@ def test_decide_persists_trace(tmp_path):
 
 # ── state machine integration ─────────────────────────────────────────────────
 
+
 def test_initial_state_is_lurking():
     mgr = _make_manager()
     assert mgr.state_name == "lurking"
@@ -136,6 +147,7 @@ def test_is_fallback_active_property():
 
 # ── lease management ──────────────────────────────────────────────────────────
 
+
 def test_get_current_lease_returns_none_when_ai_available():
     mgr = _make_manager()
     mgr.decide(_ctx(ai_status="available"))
@@ -152,6 +164,7 @@ def test_get_current_lease_returns_lease_when_offline():
 
 # ── tick / expiry ─────────────────────────────────────────────────────────────
 
+
 def test_tick_sweeps_expired_leases():
     mgr = _make_manager()
     mgr.decide(_ctx(ai_status="offline"))
@@ -166,6 +179,7 @@ def test_tick_sweeps_expired_leases():
 
 # ── metrics ───────────────────────────────────────────────────────────────────
 
+
 def test_metrics_accumulate():
     mgr = _make_manager()
     mgr.decide(_ctx(ai_status="offline"))
@@ -177,6 +191,7 @@ def test_metrics_accumulate():
 
 # ── FollowWithDistanceCommand ─────────────────────────────────────────────────
 
+
 def test_follow_with_distance_command():
     cmd = FollowWithDistanceCommand(dx=1, dy=0)
     result = cmd.to_decision_result()
@@ -185,6 +200,7 @@ def test_follow_with_distance_command():
 
 
 # ── LurkNearCommand ───────────────────────────────────────────────────────────
+
 
 def test_lurk_near_command():
     cmd = LurkNearCommand(lurk_zone_radius=3)

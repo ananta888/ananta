@@ -77,7 +77,9 @@ class WorkerWorkspace:
         return {"file_count": file_count, "byte_count": byte_count}
 
 
-def create_worker_workspace(*, task_id: str, constraints: WorkspaceConstraints, base_dir: Path | None = None) -> WorkerWorkspace:
+def create_worker_workspace(
+    *, task_id: str, constraints: WorkspaceConstraints, base_dir: Path | None = None
+) -> WorkerWorkspace:
     constraints.validate()
     workspace_path = Path(
         tempfile.mkdtemp(

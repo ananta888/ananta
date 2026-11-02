@@ -73,10 +73,7 @@ def infer_arc_output(training: tuple[tuple[Grid, Grid], ...], test_input: Grid) 
         if not color_mapping:
             break
     if color_mapping:
-        return tuple(
-            tuple(color_mapping.get(color, color) for color in row)
-            for row in test_input
-        )
+        return tuple(tuple(color_mapping.get(color, color) for color in row) for row in test_input)
     return None
 
 
@@ -91,9 +88,7 @@ def validate_arc_record(record: Mapping[str, Any]) -> tuple[tuple[tuple[Grid, Gr
     for pair in raw_training:
         if not isinstance(pair, Mapping) or set(pair) != {"input", "output"}:
             raise PuzzleValidationError("hrm.arc_training_invalid")
-        training.append(
-            (require_color_grid(pair["input"]), require_color_grid(pair["output"]))
-        )
+        training.append((require_color_grid(pair["input"]), require_color_grid(pair["output"])))
     test = record["test"]
     if not isinstance(test, Mapping) or set(test) != {"input", "output"}:
         raise PuzzleValidationError("hrm.arc_test_invalid")

@@ -20,7 +20,9 @@ def diagnostic_http(http):  # noqa: F811
     client, app, _, runtime = http
     service = Mock()
     service.accept.side_effect = lambda payload: {
-        "schema": "ananta.meet-dialog-diagnostics-accepted.v1", "nonce": payload["nonce"], "accepted": True
+        "schema": "ananta.meet-dialog-diagnostics-accepted.v1",
+        "nonce": payload["nonce"],
+        "accepted": True,
     }
     service.inspect.return_value = {"observation_status": "missing"}
     app.extensions["meet_dialog_diagnostics"] = service
@@ -31,11 +33,16 @@ def post(f, *, payload=None, raw=None, headers=None, url=CALLBACK, **kwargs):
     client, app, _, _ = f
     if raw is None:
         raw = json.dumps(request() | {"sent_at": int(time.time())} | (payload or {})).encode()
-    return client.post(url, data=raw, headers={
-        "Content-Type": "application/json",
-        "X-Ananta-Dialog-Diagnostics-Signature": request_signature(app.extensions["meet_media_worker_key"], raw),
-        **(headers or {}),
-    }, **kwargs), raw
+    return client.post(
+        url,
+        data=raw,
+        headers={
+            "Content-Type": "application/json",
+            "X-Ananta-Dialog-Diagnostics-Signature": request_signature(app.extensions["meet_media_worker_key"], raw),
+            **(headers or {}),
+        },
+        **kwargs,
+    ), raw
 
 
 def test_signed_callback_binds_request_response_without_calling_execution(diagnostic_http):
@@ -50,10 +57,23 @@ def test_signed_callback_binds_request_response_without_calling_execution(diagno
     assert not runtime.mock_calls
 
 
-@pytest.mark.parametrize("mutation", [
-    "signature", "other-domain", "auth", "query", "type", "large", "duplicate", "expired", "content", "chunked",
-    "disabled", "worker",
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "signature",
+        "other-domain",
+        "auth",
+        "query",
+        "type",
+        "large",
+        "duplicate",
+        "expired",
+        "content",
+        "chunked",
+        "disabled",
+        "worker",
+    ],
+)
 def test_callback_rejects_mutation_before_admission(diagnostic_http, mutation):
     _, app, service, _ = diagnostic_http
     kwargs = {}
@@ -61,10 +81,13 @@ def test_callback_rejects_mutation_before_admission(diagnostic_http, mutation):
         kwargs["headers"] = {"X-Ananta-Dialog-Diagnostics-Signature": "bad"}
     elif mutation == "other-domain":
         from ananta_contracts.meet_dialog import request_signature as normal_signature
+
         kwargs["raw"] = json.dumps(request() | {"sent_at": int(time.time())}).encode()
-        kwargs["headers"] = {"X-Ananta-Dialog-Diagnostics-Signature": normal_signature(
-            app.extensions["meet_media_worker_key"], kwargs["raw"]
-        )}
+        kwargs["headers"] = {
+            "X-Ananta-Dialog-Diagnostics-Signature": normal_signature(
+                app.extensions["meet_media_worker_key"], kwargs["raw"]
+            )
+        }
     elif mutation == "auth":
         kwargs["headers"] = {"Authorization": "Bearer synthetic-user"}
     elif mutation == "query":

@@ -244,11 +244,20 @@ def test_worker_assignment_projection_rejects_mutation(service) -> None:
     assert str(caught.value) == "hub_evidence_assignment_digest_mismatch"
 
 
-@pytest.mark.parametrize("field,value", [
-    ("input_digest", _D), ("environment_digest", _D), ("repository_revision", "2" * 40),
-    ("source_ids", []), ("evidence_scope", "test"), ("synthetic", True),
-    ("issuer", "changed-issuer"), ("binding_digest", _D), ("reservation_key_digest", _D),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("input_digest", _D),
+        ("environment_digest", _D),
+        ("repository_revision", "2" * 40),
+        ("source_ids", []),
+        ("evidence_scope", "test"),
+        ("synthetic", True),
+        ("issuer", "changed-issuer"),
+        ("binding_digest", _D),
+        ("reservation_key_digest", _D),
+    ],
+)
 def test_persisted_run_mutation_cannot_be_projected_to_worker(service, field, value):
     source = _source(service)
     reserved = _run(service, source_id=source.source_id)
@@ -257,8 +266,12 @@ def test_persisted_run_mutation_cannot_be_projected_to_worker(service, field, va
         session.commit()
     with pytest.raises(HubEvidenceRegistryError, match="assignment_identity_mutated"):
         service.assignment_projection(
-            tenant_id="tenant-1", project_id="project-1", run_id=reserved.run_id,
-            task_id="task-1", assignment_id="assignment-1", dispatch_lease_id="lease-1",
+            tenant_id="tenant-1",
+            project_id="project-1",
+            run_id=reserved.run_id,
+            task_id="task-1",
+            assignment_id="assignment-1",
+            dispatch_lease_id="lease-1",
         )
 
 
@@ -271,8 +284,12 @@ def test_mutated_source_cannot_be_projected_under_reserved_run(service, field, v
         session.commit()
     with pytest.raises(HubEvidenceRegistryError):
         service.assignment_projection(
-            tenant_id="tenant-1", project_id="project-1", run_id=reserved.run_id,
-            task_id="task-1", assignment_id="assignment-1", dispatch_lease_id="lease-1",
+            tenant_id="tenant-1",
+            project_id="project-1",
+            run_id=reserved.run_id,
+            task_id="task-1",
+            assignment_id="assignment-1",
+            dispatch_lease_id="lease-1",
         )
 
 

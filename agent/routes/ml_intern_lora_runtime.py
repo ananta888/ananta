@@ -94,13 +94,9 @@ def rollback_endpoint(endpoint_id: str):
             "ml_intern_runtime_endpoint_rollback",
             {
                 "endpoint_id": endpoint_id,
-                "reason_sha256": hashlib.sha256(
-                    reason.encode("utf-8")
-                ).hexdigest(),
+                "reason_sha256": hashlib.sha256(reason.encode("utf-8")).hexdigest(),
                 "endpoint_revision": result.get("endpoint_revision"),
-                "restored_from_revision": result.get(
-                    "restored_from_revision"
-                ),
+                "restored_from_revision": result.get("restored_from_revision"),
             },
         )
         return api_response(data=result)
@@ -140,12 +136,7 @@ def _management_request() -> tuple[str, int | None]:
 
 def _registry_scope() -> dict[str, str]:
     identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
-    subject = str(
-        identity.get("sub")
-        or identity.get("username")
-        or identity.get("agent_id")
-        or "hub-admin"
-    ).strip()
+    subject = str(identity.get("sub") or identity.get("username") or identity.get("agent_id") or "hub-admin").strip()
     tenant = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
     return {"tenant_id": tenant, "owner_subject": subject}
 

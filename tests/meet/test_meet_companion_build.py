@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.meet_companion_build import require_current_browser_build
+from tests.meet.meet_companion_build import require_current_browser_build
 
 
 @pytest.fixture

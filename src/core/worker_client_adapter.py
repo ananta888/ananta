@@ -1,8 +1,11 @@
-from client_surfaces import ClientSurface
 from worker_engine import WorkerEngine
+
+from client_surfaces import ClientSurface
+
 
 class WorkerClientAdapter:
     """Adapter responsible for mediating communication between ClientSurface abstractions and the core WorkerEngine. This decouples the client view from the worker execution implementation, adhering to the Adapter Pattern and DIP."""
+
     def __init__(self, client_surface: ClientSurface, worker_instance: WorkerEngine):
         self.client_surface = client_surface
         self.worker = worker_instance

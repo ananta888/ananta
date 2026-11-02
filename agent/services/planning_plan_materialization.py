@@ -84,22 +84,13 @@ def prepare_materialization(
             node.node_key: (
                 "goal-"
                 + hashlib.sha256(
-                    (
-                        str(deterministic_seed)
-                        + "\x00"
-                        + str(node.id)
-                        + "\x00"
-                        + str(node.node_key)
-                    ).encode("utf-8")
+                    (str(deterministic_seed) + "\x00" + str(node.id) + "\x00" + str(node.node_key)).encode("utf-8")
                 ).hexdigest()[:16]
             )
             for node in nodes
         }
     else:
-        node_to_task_id = {
-            node.node_key: f"goal-{uuid.uuid4().hex[:8]}"
-            for node in nodes
-        }
+        node_to_task_id = {node.node_key: f"goal-{uuid.uuid4().hex[:8]}" for node in nodes}
     staged: list[dict[str, Any]] = []
     created_order: list[str] = []
     staged_graph: dict[str, list[str]] = {}
@@ -109,9 +100,7 @@ def prepare_materialization(
         is_parallel_node = bool((node.rationale or {}).get("parallel"))
         dependency_mode = str((node.rationale or {}).get("dependency_mode") or "").strip().lower()
         if node.depends_on:
-            task_depends_on = [
-                node_to_task_id[dep] for dep in node.depends_on
-            ]
+            task_depends_on = [node_to_task_id[dep] for dep in node.depends_on]
         elif dependency_mode == "sequential" and not is_parallel_node and created_order:
             task_depends_on = created_order[-1:]
         task_depends_on = normalize_depends_on(task_depends_on, task_id)
@@ -146,43 +135,33 @@ class PlanMaterializer:
     ) -> tuple[list[str], str | None]:
         repos = self._ports.repositories()
         if goal_id:
-            authoritative_goal = repos.goal_repo.get_by_id(
-                str(goal_id)
-            )
+            authoritative_goal = repos.goal_repo.get_by_id(str(goal_id))
             from agent.services.organization_planning_adapter import (
                 is_organization_goal,
             )
 
             if is_organization_goal(authoritative_goal):
                 return [], "organization_planning_legacy_bypass_blocked"
-            if (
-                authoritative_goal is None
-                or str(
-                    getattr(
-                        authoritative_goal,
-                        "status",
-                        "",
-                    )
-                    or ""
+            if authoritative_goal is None or str(
+                getattr(
+                    authoritative_goal,
+                    "status",
+                    "",
                 )
-                .strip()
-                .lower()
-                in {
-                    "completed",
-                    "failed",
-                    "cancelled",
-                    "aborted",
-                    "timeout",
-                    "archived",
-                }
-            ):
+                or ""
+            ).strip().lower() in {
+                "completed",
+                "failed",
+                "cancelled",
+                "aborted",
+                "timeout",
+                "archived",
+            }:
                 return [], "goal_terminal"
         staged = prepare_materialization(
             nodes=nodes,
             deterministic_seed=(
-                str(getattr(plan, "id", "") or "")
-                if deterministic_task_ids and plan is not None
-                else None
+                str(getattr(plan, "id", "") or "") if deterministic_task_ids and plan is not None else None
             ),
         )
         if staged is None:
@@ -266,9 +245,7 @@ class PlanMaterializer:
             return [], "materialization_failed"
 
         materialized_ids = [
-            str(entry["task_id"])
-            for entry in staged
-            if str(entry["task_id"]) in set(existing_ids + newly_created_ids)
+            str(entry["task_id"]) for entry in staged if str(entry["task_id"]) in set(existing_ids + newly_created_ids)
         ]
         if plan:
             plan.status = "materialized" if materialized_ids else "draft"
@@ -297,9 +274,7 @@ class PlanMaterializer:
         """
         normalized_plan_id = str(plan_id or "").strip()
         normalized_approval_id = str(approval_request_id or "").strip()
-        normalized_initial_status = str(
-            initial_task_status or "todo"
-        ).strip().lower()
+        normalized_initial_status = str(initial_task_status or "todo").strip().lower()
         if not normalized_plan_id:
             return {"status": "failed", "reason_code": "plan_id_required", "created_task_ids": []}
         if not normalized_approval_id:
@@ -315,9 +290,7 @@ class PlanMaterializer:
                 "created_task_ids": [],
             }
 
-        with self._ports.plan_mutation_lock(
-            normalized_plan_id
-        ) as distributed_lock_acquired:
+        with self._ports.plan_mutation_lock(normalized_plan_id) as distributed_lock_acquired:
             if not distributed_lock_acquired:
                 return {
                     "status": "failed",
@@ -329,23 +302,15 @@ class PlanMaterializer:
             plan = repos.plan_repo.get_by_id(normalized_plan_id)
             if plan is None:
                 return {"status": "failed", "reason_code": "plan_not_found", "created_task_ids": []}
-            if str(
-                dict(plan.rationale or {}).get("approval_request_id") or ""
-            ) != normalized_approval_id:
+            if str(dict(plan.rationale or {}).get("approval_request_id") or "") != normalized_approval_id:
                 return {
                     "status": "failed",
                     "reason_code": "plan_approval_binding_mismatch",
                     "plan_id": plan.id,
                     "created_task_ids": [],
                 }
-            already_materialized = (
-                str(plan.status or "") == "materialized"
-            )
-            if (
-                not already_materialized
-                and str(plan.status or "")
-                not in {"draft", "pending_approval", "approved"}
-            ):
+            already_materialized = str(plan.status or "") == "materialized"
+            if not already_materialized and str(plan.status or "") not in {"draft", "pending_approval", "approved"}:
                 return {
                     "status": "failed",
                     "reason_code": f"plan_status_not_materializable:{plan.status}",
@@ -361,18 +326,11 @@ class PlanMaterializer:
                     "plan_id": plan.id,
                     "created_task_ids": [],
                 }
-            normalized_expected_digest = str(
-                expected_plan_digest or ""
-            ).strip()
+            normalized_expected_digest = str(expected_plan_digest or "").strip()
             if normalized_expected_digest:
                 current_digest = calculate_recovery_plan_digest(plan, nodes)
-                bound_digest = str(
-                    dict(plan.rationale or {}).get("plan_digest") or ""
-                ).strip()
-                if (
-                    current_digest != normalized_expected_digest
-                    or bound_digest != normalized_expected_digest
-                ):
+                bound_digest = str(dict(plan.rationale or {}).get("plan_digest") or "").strip()
+                if current_digest != normalized_expected_digest or bound_digest != normalized_expected_digest:
                     return {
                         "status": "failed",
                         "reason_code": "recovery_plan_digest_stale",
@@ -408,10 +366,7 @@ class PlanMaterializer:
                 if binding_error is not None or missing_entries:
                     return {
                         "status": "failed",
-                        "reason_code": (
-                            binding_error
-                            or "materialized_tasks_missing"
-                        ),
+                        "reason_code": (binding_error or "materialized_tasks_missing"),
                         "plan_id": plan.id,
                         "created_task_ids": [],
                     }
@@ -507,9 +462,7 @@ class PlanMaterializer:
         for entry in staged:
             node = entry["node"]
             task_id = str(entry["task_id"])
-            bound_task_id = str(
-                getattr(node, "materialized_task_id", "") or ""
-            ).strip()
+            bound_task_id = str(getattr(node, "materialized_task_id", "") or "").strip()
             if bound_task_id and bound_task_id != task_id:
                 return [], [], "materialization_binding_conflict"
 
@@ -584,15 +537,15 @@ class PlanMaterializer:
             **dict(plan.rationale or {}),
             "approval_state": "materialization_retryable",
             "materialization_error": str(error)[:500],
-            "materialization_survivor_task_ids": list(
-                existing_ids
-            ),
+            "materialization_survivor_task_ids": list(existing_ids),
         }
         plan.updated_at = time.time()
         repos.plan_repo.save(plan)
         return True
 
-    def rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
+    def rollback_materialization(
+        self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str
+    ) -> None:
         repos = self._ports.repositories()
         for task_id in created_ids:
             try:

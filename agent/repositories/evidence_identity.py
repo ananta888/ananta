@@ -31,9 +31,7 @@ class SqlEvidenceIdentityRepository:
     def __init__(self, database=engine) -> None:
         self._database = database
 
-    def register_source(
-        self, identity: SourceEvidenceIdentity
-    ) -> SourceEvidenceIdentity:
+    def register_source(self, identity: SourceEvidenceIdentity) -> SourceEvidenceIdentity:
         row = self._source_row(identity)
         with sqlite_transaction_guard(self._database), Session(self._database) as session:
             existing = session.get(
@@ -49,8 +47,7 @@ class SqlEvidenceIdentityRepository:
                 session.rollback()
                 existing = session.exec(
                     select(HubSourceEvidenceIdentityDB).where(
-                        HubSourceEvidenceIdentityDB.binding_digest
-                        == identity.binding_digest
+                        HubSourceEvidenceIdentityDB.binding_digest == identity.binding_digest
                     )
                 ).first()
                 if existing is None:
@@ -59,9 +56,7 @@ class SqlEvidenceIdentityRepository:
             session.refresh(row)
             return self._source(row)
 
-    def get_source(
-        self, *, tenant_id: str, project_id: str, source_id: str
-    ) -> SourceEvidenceIdentity | None:
+    def get_source(self, *, tenant_id: str, project_id: str, source_id: str) -> SourceEvidenceIdentity | None:
         with sqlite_transaction_guard(self._database), Session(self._database) as session:
             row = session.exec(
                 select(HubSourceEvidenceIdentityDB).where(
@@ -90,9 +85,7 @@ class SqlEvidenceIdentityRepository:
                 )
             ).all()
             if {value.source_id for value in sources} != set(identity.source_ids):
-                raise EvidenceIdentityPersistenceError(
-                    "evidence_run_source_identity_unavailable"
-                )
+                raise EvidenceIdentityPersistenceError("evidence_run_source_identity_unavailable")
             session.add(row)
             try:
                 session.commit()
@@ -100,8 +93,7 @@ class SqlEvidenceIdentityRepository:
                 session.rollback()
                 existing = session.exec(
                     select(HubRunEvidenceIdentityDB).where(
-                        HubRunEvidenceIdentityDB.reservation_key_digest
-                        == identity.reservation_key_digest
+                        HubRunEvidenceIdentityDB.reservation_key_digest == identity.reservation_key_digest
                     )
                 ).first()
                 if existing is None:
@@ -110,9 +102,7 @@ class SqlEvidenceIdentityRepository:
             session.refresh(row)
             return self._run(row)
 
-    def get_run(
-        self, *, tenant_id: str, project_id: str, run_id: str
-    ) -> RunEvidenceIdentity | None:
+    def get_run(self, *, tenant_id: str, project_id: str, run_id: str) -> RunEvidenceIdentity | None:
         with sqlite_transaction_guard(self._database), Session(self._database) as session:
             row = session.exec(
                 select(HubRunEvidenceIdentityDB).where(
@@ -146,8 +136,12 @@ class SqlEvidenceIdentityRepository:
                 .with_for_update()
             ).first()
             apply_run_result(
-                row, assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
-                terminal_state=terminal_state, result_digest=result_digest, updated_at_epoch=updated_at_epoch,
+                row,
+                assignment_id=assignment_id,
+                dispatch_lease_id=dispatch_lease_id,
+                terminal_state=terminal_state,
+                result_digest=result_digest,
+                updated_at_epoch=updated_at_epoch,
             )
             session.add(row)
             session.commit()

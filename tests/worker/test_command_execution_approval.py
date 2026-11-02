@@ -7,7 +7,6 @@ import pytest
 
 from worker.shell.command_executor import execute_command_plan
 
-
 POLICY = {
     "allowlist": ["echo", "python", "python3", "pytest"],
     "approval_required_commands": ["pip", "npm"],

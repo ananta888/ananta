@@ -9,12 +9,10 @@ Backwards compat: pre-LCG callers (no provider_config) must keep working
 with no behavioural change beyond a new 'embedding_provider' key in the
 metadata that is None when no config is injected.
 """
+
 from __future__ import annotations
 
-import pytest
-
 from worker.retrieval.codecompass_retriever import CodeCompassRetriever
-
 
 # ── Backwards compat: no config injected ───────────────────────────────
 
@@ -103,8 +101,7 @@ def test_custom_scope_is_passed_to_service(monkeypatch):
 
     monkeypatch.setattr(mod, "EmbeddingProviderConfigService", FakeService)
 
-    r = CodeCompassRetriever(provider_config={"provider": "hash"},
-                             scope="workflow_chain")
+    r = CodeCompassRetriever(provider_config={"provider": "hash"}, scope="workflow_chain")
     _ = r.resolved_provider
     assert captured["scope"] == "workflow_chain"
 
@@ -118,6 +115,7 @@ def test_service_import_failure_does_not_crash_query(monkeypatch):
     pre-LCG code paths must not regress on a missing optional service.
     """
     from agent.services import embedding_provider_config_service as mod
+
     # Make the import blow up.
     monkeypatch.setattr(mod, "EmbeddingProviderConfigService", None)
 
@@ -137,19 +135,20 @@ def test_langchain_adapter_uses_configured_embedding_scope():
     from agent.providers.lc_lg import LangChainProviderConfig
     from worker.adapters.langchain_adapter import LangChainAdapter
 
-    cfg = LangChainProviderConfig(enabled=True, mode="dry_run",
-                                  embedding_provider_scope="custom_scope")
+    cfg = LangChainProviderConfig(enabled=True, mode="dry_run", embedding_provider_scope="custom_scope")
     a = LangChainAdapter(cfg)
     assert a._retriever._scope == "custom_scope"  # noqa: SLF001
 
 
 def test_langchain_adapter_default_scope_is_codecompass_vector():
     from worker.adapters.langchain_adapter import LangChainAdapter
+
     a = LangChainAdapter()  # default-off config
     assert a._retriever._scope == "codecompass_vector"  # noqa: SLF001
 
 
 def test_langgraph_adapter_uses_codecompass_vector_scope():
     from worker.adapters.langgraph_adapter import LangGraphAdapter
+
     g = LangGraphAdapter()
     assert g._retriever._scope == "codecompass_vector"  # noqa: SLF001

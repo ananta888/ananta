@@ -1,4 +1,5 @@
 """Tests for ExpertDefinition and ExpertRegistry — COSMOS-001"""
+
 from __future__ import annotations
 
 import textwrap
@@ -8,8 +9,8 @@ import pytest
 
 from agent.services.expert_definition import ExpertDefinition, ExpertRegistry
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_expert(**overrides) -> ExpertDefinition:
     defaults = dict(
@@ -34,6 +35,7 @@ def _make_expert(**overrides) -> ExpertDefinition:
 
 # ── Tool access ───────────────────────────────────────────────────────────────
 
+
 def test_is_tool_allowed_in_allowed_list():
     expert = _make_expert(allowed_tools=["read_file", "plan_context"], denied_tools=[])
     assert expert.is_tool_allowed("read_file") is True
@@ -54,6 +56,7 @@ def test_is_tool_not_in_allowed_returns_false():
 
 
 # ── Path access ───────────────────────────────────────────────────────────────
+
 
 def test_is_path_allowed_pattern_match():
     expert = _make_expert(
@@ -90,6 +93,7 @@ def test_denied_git_path():
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
+
 def test_validate_missing_expert_id():
     expert = _make_expert(expert_id="")
     errors = expert.validate()
@@ -109,6 +113,7 @@ def test_validate_invalid_min_policy_scope():
 
 
 # ── Policy intersection ───────────────────────────────────────────────────────
+
 
 def test_policy_intersection_limits_tools():
     """Hub allows only ['read_file'] — expert must be limited to that."""
@@ -159,6 +164,7 @@ def test_policy_intersection_wildcard_hub_allows_all_expert_paths():
 
 # ── YAML parsing ──────────────────────────────────────────────────────────────
 
+
 def test_load_from_yaml_string(tmp_path: Path):
     yaml_content = textwrap.dedent("""\
         expert_id: yaml_expert
@@ -198,6 +204,7 @@ def test_load_from_yaml_string(tmp_path: Path):
 
 
 # ── Registry behaviour ────────────────────────────────────────────────────────
+
 
 def test_registry_get_unknown():
     registry = ExpertRegistry.__new__(ExpertRegistry)

@@ -20,6 +20,7 @@ Usage
 
 Output is JSON to stdout.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -106,8 +107,9 @@ def main() -> int:
 
     # Real probes
     try:
-        import sys as _sys
         import os as _os
+        import sys as _sys
+
         # Add repo root to path if running as a script
         repo_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
         if repo_root not in _sys.path:

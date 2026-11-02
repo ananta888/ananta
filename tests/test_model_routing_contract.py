@@ -128,9 +128,7 @@ def test_task_extraction_supports_object_native_command_shape() -> None:
             }
         )
     )
-    task = SimpleNamespace(
-        worker_execution_context={"native_node_command": command}
-    )
+    task = SimpleNamespace(worker_execution_context={"native_node_command": command})
 
     routing = extract_model_routing_from_task(task)
 
@@ -142,11 +140,7 @@ def test_task_extraction_supports_object_native_command_shape() -> None:
 def test_invalid_high_precedence_routing_does_not_fall_through() -> None:
     task = {
         "model_routing": {"preferred_profile_id": "outer"},
-        "worker_execution_context": {
-            "native_node_command": {
-                "node": {"metadata": {"model_routing": "not-an-object"}}
-            }
-        },
+        "worker_execution_context": {"native_node_command": {"node": {"metadata": {"model_routing": "not-an-object"}}}},
     }
 
     assert has_model_routing_declaration(task) is True

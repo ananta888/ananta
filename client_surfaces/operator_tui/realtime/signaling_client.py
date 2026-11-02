@@ -11,6 +11,7 @@ WebSocket implementation strategy:
 
 The URL allowlist is checked BEFORE any network connection is attempted.
 """
+
 from __future__ import annotations
 
 import base64
@@ -22,7 +23,6 @@ import socket
 import ssl
 import struct
 import threading
-import time
 import urllib.parse
 from typing import TYPE_CHECKING
 
@@ -31,10 +31,10 @@ if TYPE_CHECKING:
 
 from .signaling_models import SignalingMessage
 
-
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
+
 
 class SignalingClientError(Exception):
     """Base error for SignalingClient."""
@@ -51,6 +51,7 @@ class SignalingConnectionError(SignalingClientError):
 # ---------------------------------------------------------------------------
 # Minimal RFC 6455 WebSocket framing (stdlib only)
 # ---------------------------------------------------------------------------
+
 
 def _make_websocket_key() -> str:
     return base64.b64encode(os.urandom(16)).decode()
@@ -222,6 +223,7 @@ class _MinimalWebSocket:
 # SignalingClient
 # ---------------------------------------------------------------------------
 
+
 class SignalingClient:
     """Allowlisted WebSocket signaling client.
 
@@ -308,8 +310,7 @@ class SignalingClient:
             if _websocket_url_allowed(url, _parse_allowed_websocket_url(allowed)):
                 return
         raise SignalingNotAllowedError(
-            f"Server URL not in allowlist: {self._server_url!r}. "
-            f"Allowed: {self._allowed_servers}"
+            f"Server URL not in allowlist: {self._server_url!r}. Allowed: {self._allowed_servers}"
         )
 
     def _start_recv_thread(self) -> None:

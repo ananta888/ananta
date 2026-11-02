@@ -89,9 +89,7 @@ class LoopbackGenerativeJudgeEngine:
         if set(payload) == {"schema_version", "corrected_text"} and payload.get("schema_version") == "1.0":
             corrected = payload.get("corrected_text")
             if isinstance(corrected, str):
-                matches: list[str] = [
-                    str(item.choice_id) for item in request.candidates if item.text == corrected
-                ]
+                matches: list[str] = [str(item.choice_id) for item in request.candidates if item.text == corrected]
                 if len(matches) == 1:
                     return matches[0]
         raise ValueError("local judge engine returned an unprovenanced choice")
@@ -210,9 +208,7 @@ class EmbeddedTransformersGenerativeJudgeEngine:
         output = str(tokenizer.decode(generated_tokens, skip_special_tokens=True)).strip()
         known_ids = {candidate.choice_id for candidate in request.candidates}
         matches: set[str] = {
-            match
-            for match in re.findall(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}", output)
-            if match in known_ids
+            match for match in re.findall(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}", output) if match in known_ids
         }
         if len(matches) != 1:
             raise ValueError("embedded judge did not return exactly one known candidate")
@@ -220,9 +216,7 @@ class EmbeddedTransformersGenerativeJudgeEngine:
 
     @staticmethod
     def _remaining_seconds(request: GenerativeJudgeWorkerRequest) -> float:
-        remaining = float(
-            (request.deadline_epoch_ms - time.time_ns() // 1_000_000) / 1000.0
-        )
+        remaining = float((request.deadline_epoch_ms - time.time_ns() // 1_000_000) / 1000.0)
         if remaining <= 0:
             raise TimeoutError("embedded judge deadline expired")
         return remaining
@@ -252,9 +246,7 @@ class EmbeddedTransformersGenerativeJudgeEngine:
         return self._tokenizer, self._model
 
     def _prompt(self, request: GenerativeJudgeWorkerRequest) -> str:
-        candidates = "\n".join(
-            f"{candidate.choice_id}: {candidate.text}" for candidate in request.candidates
-        )
+        candidates = "\n".join(f"{candidate.choice_id}: {candidate.text}" for candidate in request.candidates)
         prompt = (
             "Select the single best transcript candidate. Return only its candidate ID.\n"
             f"Baseline: {request.baseline_choice_id}\nCandidates:\n{candidates}\nSelection:"

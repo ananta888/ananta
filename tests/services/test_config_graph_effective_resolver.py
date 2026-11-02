@@ -1,19 +1,23 @@
 """VACGE-008: Tests for EffectiveConfigResolver."""
+
 from __future__ import annotations
 
 import json
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from agent.services.config_graph_models import ConfigGraph
+
 from agent.services.config_graph_builder_service import (
+    EDGE_MAY_CALL_TOOL,
+    NODE_TOOL,
     ConfigGraphBuilderService,
     ConfigGraphEdge,
     ConfigGraphNode,
-    EDGE_MAY_CALL_TOOL,
-    NODE_TOOL,
-    VIEW_IDS,
 )
 from agent.services.config_graph_effective_resolver import EffectiveConfigResolver
 
@@ -21,7 +25,7 @@ from agent.services.config_graph_effective_resolver import EffectiveConfigResolv
 def make_graph(
     profile_map: dict | None = None,
     path_ai_modes: list | None = None,
-) -> "import agent.services.config_graph_builder_service as m; m.ConfigGraph":
+) -> "ConfigGraph":
     tmp = Path(tempfile.mkdtemp())
     (tmp / "docs/agent-profiles").mkdir(parents=True)
     (tmp / "AGENTS.md").write_text("# Root\n")
@@ -63,6 +67,7 @@ def surface_only_result():
 
 # ── Instruction layers ────────────────────────────────────────────────────────
 
+
 def test_resolve_surface_puts_root_instruction_layer_first_and_traces_merge(surface_only_result):
     result = surface_only_result
     assert result.instruction_layers[0]["layer"] == "root"
@@ -72,6 +77,7 @@ def test_resolve_surface_puts_root_instruction_layer_first_and_traces_merge(surf
 
 
 # ── Agent profile matching ────────────────────────────────────────────────────
+
 
 def test_resolve_surface_matches_profile_without_goal_template(surface_only_result):
     result = surface_only_result
@@ -100,6 +106,7 @@ def test_no_profile_match_adds_warning():
 
 # ── Goal template matching ────────────────────────────────────────────────────
 
+
 def test_resolve_bugfix_task_kind_matches_goal_template_with_ordered_merge_trace():
     graph = make_graph()
     resolver = EffectiveConfigResolver(graph)
@@ -125,10 +132,13 @@ def test_stale_template_adds_warning():
 
 # ── Path-based AI mode restrictions ──────────────────────────────────────────
 
+
 def test_path_rule_blocks_modes():
-    graph = make_graph(path_ai_modes=[
-        {"path_glob": "src/security/**", "blocked_ai_modes": ["full_llm", "direct_llm"]},
-    ])
+    graph = make_graph(
+        path_ai_modes=[
+            {"path_glob": "src/security/**", "blocked_ai_modes": ["full_llm", "direct_llm"]},
+        ]
+    )
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat", path="src/security/auth.py")
     assert "full_llm" in result.effective_ai_modes_blocked
@@ -136,32 +146,37 @@ def test_path_rule_blocks_modes():
 
 
 def test_path_rule_allows_modes():
-    graph = make_graph(path_ai_modes=[
-        {
-            "path_glob": "docs/**",
-            "blocked_ai_modes": [],
-            "allowed_ai_modes": ["full_llm", "embedding_only"],
-        }
-    ])
+    graph = make_graph(
+        path_ai_modes=[
+            {
+                "path_glob": "docs/**",
+                "blocked_ai_modes": [],
+                "allowed_ai_modes": ["full_llm", "embedding_only"],
+            }
+        ]
+    )
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat", path="docs/readme.md")
     assert "full_llm" in result.effective_ai_modes_allowed
 
 
 def test_no_path_rule_match_leaves_modes_empty():
-    graph = make_graph(path_ai_modes=[
-        {"path_glob": "src/security/**", "blocked_ai_modes": ["full_llm"]},
-    ])
+    graph = make_graph(
+        path_ai_modes=[
+            {"path_glob": "src/security/**", "blocked_ai_modes": ["full_llm"]},
+        ]
+    )
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat", path="docs/readme.md")
     assert result.effective_ai_modes_blocked == []
 
 
 def test_all_modes_blocked_adds_warning():
-    graph = make_graph(path_ai_modes=[
-        {"path_glob": "**", "blocked_ai_modes": ["full_llm", "direct_llm"],
-         "allowed_ai_modes": []},
-    ])
+    graph = make_graph(
+        path_ai_modes=[
+            {"path_glob": "**", "blocked_ai_modes": ["full_llm", "direct_llm"], "allowed_ai_modes": []},
+        ]
+    )
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat", path="any/file.py")
     # Warning only when ALL allowed modes are blocked
@@ -170,15 +185,26 @@ def test_all_modes_blocked_adds_warning():
 
 # ── to_dict ───────────────────────────────────────────────────────────────────
 
+
 def test_to_dict_keys():
     graph = make_graph()
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat")
     d = result.to_dict()
     for k in (
-        "surface", "task_kind", "path", "instruction_layers", "agent_profile",
-        "goal_template", "effective_ai_modes_allowed", "effective_ai_modes_blocked",
-        "tools_allowed", "policies_active", "merge_trace", "warnings", "effective_node_ids",
+        "surface",
+        "task_kind",
+        "path",
+        "instruction_layers",
+        "agent_profile",
+        "goal_template",
+        "effective_ai_modes_allowed",
+        "effective_ai_modes_blocked",
+        "tools_allowed",
+        "policies_active",
+        "merge_trace",
+        "warnings",
+        "effective_node_ids",
     ):
         assert k in d, f"missing key: {k}"
 
@@ -195,6 +221,7 @@ def test_to_dict_surface_preserved():
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
+
 def test_missing_tool_policy_defaults_to_no_tools_with_warning(surface_only_result):
     result = surface_only_result
     assert isinstance(result.tools_allowed, list)
@@ -206,7 +233,7 @@ def test_missing_tool_policy_defaults_to_no_tools_with_warning(surface_only_resu
 def test_tool_edges_respected():
     graph = make_graph()
     # Add a tool node and wire it to the profile
-    from agent.services.config_graph_builder_service import ConfigGraphNode, NODE_TOOL
+
     tool_node = ConfigGraphNode(
         id="tool::my_tool",
         node_type=NODE_TOOL,
@@ -215,11 +242,13 @@ def test_tool_edges_respected():
         data={"name": "my_tool"},
     )
     graph.add_node(tool_node)
-    graph.add_edge(ConfigGraphEdge(
-        source="agent_profile::ai_snake_chat",
-        target="tool::my_tool",
-        edge_type=EDGE_MAY_CALL_TOOL,
-    ))
+    graph.add_edge(
+        ConfigGraphEdge(
+            source="agent_profile::ai_snake_chat",
+            target="tool::my_tool",
+            edge_type=EDGE_MAY_CALL_TOOL,
+        )
+    )
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat")
     assert "my_tool" in result.tools_allowed

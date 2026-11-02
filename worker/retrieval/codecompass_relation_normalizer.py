@@ -38,17 +38,15 @@ def normalize_relation_records(*, records: list[dict[str, Any]], manifest_hash: 
             str(record.get("relation") or record.get("type") or record.get("relation_type") or "")
         )
         source_id = str(
-            record.get("source_id")
-            or record.get("from_id")
-            or record.get("from")
-            or record.get("record_id")
-            or ""
+            record.get("source_id") or record.get("from_id") or record.get("from") or record.get("record_id") or ""
         ).strip()
         if not source_id:
             malformed_count += 1
             continue
         confidence = float(record.get("confidence") or (0.8 if relation_type in _SUPPORTED_RELATIONS else 0.6))
-        target_id = str(record.get("target_id") or record.get("to_id") or record.get("target") or record.get("to") or "").strip()
+        target_id = str(
+            record.get("target_id") or record.get("to_id") or record.get("target") or record.get("to") or ""
+        ).strip()
         provenance = {
             "manifest_hash": str(manifest_hash or ""),
             "record_id": str(record.get("id") or f"relation:{index}"),

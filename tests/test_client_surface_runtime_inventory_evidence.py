@@ -37,8 +37,12 @@ def test_runtime_mvp_surfaces_have_real_runtime_evidence() -> None:
         )
         runtime_evidence = _runtime_paths(entry)
         assert runtime_evidence, f"{surface_name} must list runtime evidence"
-        assert any(not path.endswith(".keep") for path in runtime_evidence), f"{surface_name} runtime evidence is .keep-only"
-        assert any(not path.startswith("docs/") for path in runtime_evidence), f"{surface_name} runtime evidence is docs-only"
+        assert any(not path.endswith(".keep") for path in runtime_evidence), (
+            f"{surface_name} runtime evidence is .keep-only"
+        )
+        assert any(not path.startswith("docs/") for path in runtime_evidence), (
+            f"{surface_name} runtime evidence is docs-only"
+        )
         assert any("agent/services/" not in path for path in runtime_evidence), (
             f"{surface_name} runtime evidence is foundation-service-only"
         )

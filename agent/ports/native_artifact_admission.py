@@ -11,6 +11,12 @@ class NativeArtifactDispatchPort(Protocol):
 
 class NativeArtifactStoragePort(Protocol):
     def store_immutable_bytes(
-        self, *, artifact_id: str, version_number: int, filename: str, content: bytes,
-        expected_sha256: str, media_type: str,
+        self,
+        *,
+        artifact_id: str,
+        version_number: int,
+        filename: str,
+        content: bytes,
+        expected_sha256: str,
+        media_type: str,
     ) -> dict: ...

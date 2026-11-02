@@ -17,8 +17,8 @@ def private_receive(tmp_path, *, source):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 
-    from tests.meet_companion_build import require_current_browser_build
-    from tests.meet_dialog_browser_fixture import docker
+    from tests.meet.meet_companion_build import require_current_browser_build
+    from tests.meet.meet_dialog_browser_fixture import docker
     from tests.test_meet_dialog_cross_repository import close_bridge
 
     if not isinstance(source, str) or source not in {"camera", "screen", "microphone", "screen-audio"}:

@@ -29,10 +29,7 @@ class FakeDownloads:
         self.download_calls = 0
 
     def list_files(self, *, model_id: str, revision: str):
-        return [
-            ModelFileMetadata(path=name, size=len(content))
-            for name, content in self.files.items()
-        ]
+        return [ModelFileMetadata(path=name, size=len(content)) for name, content in self.files.items()]
 
     def download(
         self,

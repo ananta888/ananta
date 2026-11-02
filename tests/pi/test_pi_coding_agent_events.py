@@ -13,7 +13,9 @@ from tests.pi.pi_protocol_examples import pi_events as events
 def parse(records):
     return parse_pi_one_shot(
         "\n".join(json.dumps(event, ensure_ascii=False) for event in records),
-        provider="ananta", model="selected-model", workspace=Path("/workspace"),
+        provider="ananta",
+        model="selected-model",
+        workspace=Path("/workspace"),
     )
 
 
@@ -65,10 +67,13 @@ def test_pi_rejects_model_or_provider_substitution(field):
         parse(records)
 
 
-@pytest.mark.parametrize("event", [
-    {"type": "tool_execution_start"},
-    {"type": "message_update", "assistantMessageEvent": {"type": "toolcall_start"}},
-])
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"type": "tool_execution_start"},
+        {"type": "message_update", "assistantMessageEvent": {"type": "toolcall_start"}},
+    ],
+)
 def test_pi_rejects_tool_execution_in_no_tools_profile(event):
     records = events()
     records[6] = event
@@ -76,10 +81,17 @@ def test_pi_rejects_tool_execution_in_no_tools_profile(event):
         parse(records)
 
 
-@pytest.mark.parametrize("raw", [
-    '[]', '{"type":"session","type":"agent_settled"}', '{"value":NaN}', '{broken',
-    '{"type":[]}', '[' * 2000 + '0' + ']' * 2000,
-])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "[]",
+        '{"type":"session","type":"agent_settled"}',
+        '{"value":NaN}',
+        "{broken",
+        '{"type":[]}',
+        "[" * 2000 + "0" + "]" * 2000,
+    ],
+)
 def test_pi_rejects_malformed_json_with_closed_diagnostic(raw):
     with pytest.raises(PiProtocolError, match="^pi_event_contract_invalid$"):
         parse_pi_one_shot(raw, provider="ananta", model="selected-model", workspace=Path("/workspace"))

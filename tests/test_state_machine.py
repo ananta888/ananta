@@ -1,4 +1,5 @@
 """Tests for SnakeStateMachine and ChatStateMachine — state_machine.py."""
+
 from __future__ import annotations
 
 import time
@@ -7,10 +8,8 @@ import pytest
 
 from agent.services.heuristic_runtime.state_machine import (
     ChatStateMachine,
-    FallbackActiveState,
     FollowingState,
     InvalidTransitionError,
-    LurkingState,
     SnakeStateMachine,
     WaitingAiState,
 )
@@ -21,6 +20,7 @@ def _ev(kind: str, ts: float | None = None) -> dict:
 
 
 # ── SnakeStateMachine ─────────────────────────────────────────────────────────
+
 
 class TestSnakeStateMachine:
     def test_initial_state_is_lurking(self):
@@ -108,6 +108,7 @@ class TestSnakeStateMachine:
 
 # ── ChatStateMachine ──────────────────────────────────────────────────────────
 
+
 class TestChatStateMachine:
     def test_initial_state_is_waiting_ai(self):
         sm = ChatStateMachine()
@@ -158,6 +159,7 @@ class TestChatStateMachine:
 
     def test_waiting_ai_auto_timeout(self):
         from agent.services.heuristic_runtime.state_machine import ChatWaitingAiState
+
         state = ChatWaitingAiState()
         state._entered_at = time.time() - 10
         next_s = state.on_event(_ev("unknown"))

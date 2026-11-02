@@ -92,11 +92,7 @@ def admit_claims(
     actual_digest = "sha256:" + hashlib.sha256(str(source_text).encode("utf-8")).hexdigest()
     supplied_digest = str(content_digest or "").strip()
     identifier_like = source_token.startswith(("SRC_", "RUN_"))
-    source_verified = bool(
-        identifier_like
-        and allowed_source_refs is not None
-        and source_token in allowed_source_refs
-    )
+    source_verified = bool(identifier_like and allowed_source_refs is not None and source_token in allowed_source_refs)
     if identifier_like and not source_verified:
         return {
             "schema": "codecompass.claim-extraction.v1",
@@ -110,9 +106,7 @@ def admit_claims(
             "claims": [],
         }
     rejection_reason = ""
-    if run_token.startswith("RUN_") and (
-        allowed_run_refs is None or run_token not in allowed_run_refs
-    ):
+    if run_token.startswith("RUN_") and (allowed_run_refs is None or run_token not in allowed_run_refs):
         rejection_reason = "unknown_run_reference"
     elif allowed_revisions is not None and str(revision) not in allowed_revisions:
         rejection_reason = "revision_not_allowed"

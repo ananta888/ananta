@@ -4,6 +4,7 @@ Proves that execute_task_step uses validate_executable_proposal (dataclass-safe)
 not the Pydantic model_validate, and that invalid proposal shapes produce
 deterministic denied responses.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -11,9 +12,6 @@ import pytest
 from worker.core.propose import (
     ExecutableProposal,
     validate_executable_proposal,
-    AdvisoryProposalArtifact,
-    PatchProposalArtifact,
-    FileProposalArtifact,
 )
 
 
@@ -39,18 +37,14 @@ class TestValidateExecutableProposal:
         assert reason == "template_matched"
 
     def test_valid_executable_proposal_instance(self):
-        p = ExecutableProposal.from_command(
-            goal_id="g1", task_id="t1", strategy_id="s1", command="ls -la"
-        )
+        p = ExecutableProposal.from_command(goal_id="g1", task_id="t1", strategy_id="s1", command="ls -la")
         cmd, tcs, reason = validate_executable_proposal(p)
         assert cmd == "ls -la"
         assert tcs == []
 
     def test_valid_tool_calls_instance(self):
         tc = [{"name": "write_file", "args": {"path": "main.py"}}]
-        p = ExecutableProposal.from_tool_calls(
-            goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc
-        )
+        p = ExecutableProposal.from_tool_calls(goal_id="g1", task_id="t1", strategy_id="s1", tool_calls=tc)
         cmd, tcs, _ = validate_executable_proposal(p)
         assert cmd is None
         assert tcs == tc

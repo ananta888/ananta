@@ -159,11 +159,7 @@ def normalize_extraction_records(
             record.setdefault("line_start", line_start)
             record.setdefault("line_end", line_end)
 
-            semantic_projection = {
-                key: value
-                for key, value in record.items()
-                if key not in _POSITIONAL_FIELDS
-            }
+            semantic_projection = {key: value for key, value in record.items() if key not in _POSITIONAL_FIELDS}
             projection_json = json.dumps(
                 semantic_projection,
                 ensure_ascii=False,
@@ -180,9 +176,7 @@ def normalize_extraction_records(
             )
 
             evidence_text = "".join(source_lines[line_start - 1 : line_end])
-            hash_material = (
-                f"{rel_path}\0{line_start}\0{line_end}\0{evidence_text}"
-            ).encode("utf-8")
+            hash_material = (f"{rel_path}\0{line_start}\0{line_end}\0{evidence_text}").encode("utf-8")
             content_hash = hashlib.sha256(hash_material).hexdigest()
             record.setdefault("content_hash", content_hash)
 

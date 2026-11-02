@@ -34,11 +34,7 @@ class _WorkspaceRegistrations:
         self.root = root
 
     def resolve_workspace(self, workspace_id):
-        return (
-            _WorkspaceRegistration(self.root)
-            if workspace_id == "workspace-example"
-            else None
-        )
+        return _WorkspaceRegistration(self.root) if workspace_id == "workspace-example" else None
 
 
 class _Profiles:
@@ -114,17 +110,18 @@ def test_workspace_catalog_rejects_path_bearing_registry_binding(
     root = tmp_path / "workspace"
     root.mkdir()
     catalog = SourceRegistryRegisteredWorkspaceCatalog(
-        registry=_Registry(
-            _descriptor("owner-example", root=str(root))
-        ),
+        registry=_Registry(_descriptor("owner-example", root=str(root))),
         registrations=_WorkspaceRegistrations(root),
     )
 
-    assert catalog.list_registered(
-        tenant_id="tenant-example",
-        project_id="project-example",
-        owner_id="owner-example",
-    ) == ()
+    assert (
+        catalog.list_registered(
+            tenant_id="tenant-example",
+            project_id="project-example",
+            owner_id="owner-example",
+        )
+        == ()
+    )
 
 
 @pytest.mark.parametrize(

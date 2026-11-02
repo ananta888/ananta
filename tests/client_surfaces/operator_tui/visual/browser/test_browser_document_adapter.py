@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.visual.browser.browser_document_adapter import (
     BrowserDocumentAdapter,
     _escape_plain_text,
@@ -13,10 +11,10 @@ from client_surfaces.operator_tui.visual.browser.center_content_snapshot import 
     unsupported_snapshot,
 )
 
-
 # ---------------------------------------------------------------------------
 # Plain-text escaping
 # ---------------------------------------------------------------------------
+
 
 class TestEscapePlainText:
     def test_angle_brackets_escaped(self) -> None:
@@ -43,6 +41,7 @@ class TestEscapePlainText:
 # ---------------------------------------------------------------------------
 # HTML sanitization
 # ---------------------------------------------------------------------------
+
 
 class TestSanitizeHtml:
     def test_script_tag_removed(self) -> None:
@@ -76,6 +75,7 @@ class TestSanitizeHtml:
 # ---------------------------------------------------------------------------
 # Markdown conversion
 # ---------------------------------------------------------------------------
+
 
 class TestMarkdownToHtml:
     def test_heading_h1(self) -> None:
@@ -144,13 +144,16 @@ class TestMarkdownToHtml:
 # BrowserDocumentAdapter integration
 # ---------------------------------------------------------------------------
 
+
 class TestBrowserDocumentAdapter:
     def setup_method(self) -> None:
         # Use a minimal template to avoid filesystem access in tests
         self.template = "<!DOCTYPE html><html><head><title>{{TITLE}}</title></head><body>{{BODY}}</body></html>"
         self.adapter = BrowserDocumentAdapter(template_override=self.template)
 
-    def _snap(self, content_type: str, source_text: str = "", html_text: str = "", title: str = "T") -> CenterContentSnapshot:
+    def _snap(
+        self, content_type: str, source_text: str = "", html_text: str = "", title: str = "T"
+    ) -> CenterContentSnapshot:
         return CenterContentSnapshot(
             content_type=content_type,
             title=title,

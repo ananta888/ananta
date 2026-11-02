@@ -67,10 +67,7 @@ class DendriticMemoryRuntimeLoader:
                 raise ValueError("dendritic_runtime_pack_path_invalid")
             payload = candidate.read_bytes()
             total += len(payload)
-            if (
-                len(payload) != metadata["size_bytes"]
-                or hashlib.sha256(payload).hexdigest() != metadata["sha256"]
-            ):
+            if len(payload) != metadata["size_bytes"] or hashlib.sha256(payload).hexdigest() != metadata["sha256"]:
                 raise ValueError("dendritic_runtime_pack_digest_mismatch")
             payloads[name] = payload
         if total > self._max_pack_bytes:

@@ -125,9 +125,7 @@ class ChatTransport:
         self._middleware = middleware_provider
         self._http_post = http_post
         self._cancelled = cancellation_probe
-        self._lmstudio_lock = (
-            _LMSTUDIO_INFERENCE_LOCK if lmstudio_inference_lock is None else lmstudio_inference_lock
-        )
+        self._lmstudio_lock = _LMSTUDIO_INFERENCE_LOCK if lmstudio_inference_lock is None else lmstudio_inference_lock
 
     def _enforce_provider_response_limit(
         self,
@@ -630,4 +628,4 @@ def _finalize_prompt_trace_success(prompt_trace: Any, trace_svc: Any, *, payload
         )
         trace_svc.store(finalized)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_finalize_prompt_trace_success: ignored Exception", exc_info=True)

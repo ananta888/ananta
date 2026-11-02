@@ -5,9 +5,8 @@ Covers:
   EW-T009 — Fail-closed default-deny: unknown task kinds, tools, providers
   EW-T010 — Capability snapshot integrity via verify_snapshot_integrity()
 """
-import time
 
-import pytest
+import time
 
 from worker.core.execution_envelope import (
     ApprovalRef,
@@ -15,12 +14,9 @@ from worker.core.execution_envelope import (
     ExecutionEnvelope,
     ModelPolicy,
     ToolPolicy,
-    TraceBundle,
-    WorkerResult,
     WorkerResultStatus,
     make_trace,
 )
-from worker.core.runtime_target import SelectedWorkerRuntimeRef, WorkerKind, WorkerRuntimeKind, WorkerSelectionMode
 from worker.core.preflight import (
     REASON_APPROVAL_MISSING,
     REASON_CONTEXT_MISSING,
@@ -35,9 +31,10 @@ from worker.core.preflight import (
     PreflightGate,
     verify_snapshot_integrity,
 )
-
+from worker.core.runtime_target import SelectedWorkerRuntimeRef, WorkerKind, WorkerRuntimeKind, WorkerSelectionMode
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _env(**overrides) -> ExecutionEnvelope:
     defaults = dict(
@@ -72,6 +69,7 @@ KNOWN_TASK_KINDS = frozenset({"plan", "patch", "shell", "test"})
 
 
 # ── EW-T008: Basic preflight check ───────────────────────────────────────────
+
 
 class TestPreflightCheck:
     def test_valid_low_risk_envelope_allowed(self):
@@ -150,6 +148,7 @@ class TestPreflightCheck:
 
 # ── EW-T009: Fail-closed default-deny ────────────────────────────────────────
 
+
 class TestFailClosed:
     def test_unknown_provider_blocked_when_allowlist_set(self):
         # With an explicit allowlist, providers not in it are blocked (fail-closed)
@@ -196,10 +195,12 @@ class TestFailClosed:
         assert result.allowed
 
     def test_denied_tool_via_override_blocked(self):
-        env = _env(tool_policy=ToolPolicy(
-            allowed_tool_ids=["read_file", "shell_exec"],
-            approval_overrides={"shell_exec": "deny"},
-        ))
+        env = _env(
+            tool_policy=ToolPolicy(
+                allowed_tool_ids=["read_file", "shell_exec"],
+                approval_overrides={"shell_exec": "deny"},
+            )
+        )
         result = GATE.check_tool(env, "shell_exec")
         assert result.decision == PreflightDecision.blocked
 
@@ -246,6 +247,7 @@ class TestFailClosed:
 
 # ── EW-T010: Capability snapshot integrity ────────────────────────────────────
 
+
 class TestSnapshotIntegrity:
     def test_matching_snapshot_passes(self):
         env = _env()
@@ -282,9 +284,11 @@ class TestSnapshotIntegrity:
 
 # ── to_worker_result adapter ──────────────────────────────────────────────────
 
+
 class TestToWorkerResult:
     def test_confirm_required_becomes_needs_approval(self):
         from worker.core.preflight import PreflightResult
+
         env = _env()
         trace = make_trace(env)
         pr = PreflightResult(
@@ -298,6 +302,7 @@ class TestToWorkerResult:
 
     def test_blocked_becomes_denied(self):
         from worker.core.preflight import PreflightResult
+
         env = _env()
         trace = make_trace(env)
         pr = PreflightResult(
@@ -310,6 +315,7 @@ class TestToWorkerResult:
 
     def test_trace_bundle_always_present_in_result(self):
         from worker.core.preflight import PreflightResult
+
         env = _env()
         trace = make_trace(env)
         pr = PreflightResult(decision=PreflightDecision.blocked, reason_code="x")
@@ -318,6 +324,7 @@ class TestToWorkerResult:
 
 
 # ── Integration: full envelope-through-gate flow ──────────────────────────────
+
 
 class TestIntegration:
     def test_low_risk_envelope_passes_all_checks(self):

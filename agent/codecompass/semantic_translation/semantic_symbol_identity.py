@@ -16,9 +16,7 @@ from pathlib import PurePosixPath
 from typing import Final, Protocol
 from urllib.parse import quote
 
-SEMANTIC_SYMBOL_IDENTITY_STRATEGY: Final = (
-    "repo_relative_file_provenance_canonical_symbol_sha256.v2"
-)
+SEMANTIC_SYMBOL_IDENTITY_STRATEGY: Final = "repo_relative_file_provenance_canonical_symbol_sha256.v2"
 CANONICAL_SEMANTIC_ID_ATTRIBUTE: Final = "canonical_semantic_id"
 SEMANTIC_IDENTITY_STRATEGY_ATTRIBUTE: Final = "semantic_identity_strategy"
 
@@ -109,11 +107,7 @@ class DeterministicSemanticSymbolIdentityFactory:
                 "provenance_line_start": provenance_line_start,
                 "strategy": SEMANTIC_SYMBOL_IDENTITY_STRATEGY,
                 "symbol_kind": canonical_kind,
-                **(
-                    {"legacy_identity_sha256": _legacy_identity_sha256}
-                    if _legacy_identity_sha256
-                    else {}
-                ),
+                **({"legacy_identity_sha256": _legacy_identity_sha256} if _legacy_identity_sha256 else {}),
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -121,10 +115,7 @@ class DeterministicSemanticSymbolIdentityFactory:
         )
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         readable = self._readable(normalized_qualifier)
-        return (
-            f"semantic:{canonical_language}:local:v2:"
-            f"{canonical_kind}:{readable}:{digest}"
-        )
+        return f"semantic:{canonical_language}:local:v2:{canonical_kind}:{readable}:{digest}"
 
     @staticmethod
     def _identity_value(
@@ -134,11 +125,7 @@ class DeterministicSemanticSymbolIdentityFactory:
         error: str,
     ) -> str:
         normalized = str(value or "").strip()
-        if (
-            not normalized
-            or "\x00" in normalized
-            or len(normalized) > maximum_length
-        ):
+        if not normalized or "\x00" in normalized or len(normalized) > maximum_length:
             raise ValueError(error)
         return normalized
 
@@ -146,12 +133,7 @@ class DeterministicSemanticSymbolIdentityFactory:
     def _canonical_path(path: str) -> str:
         normalized = str(path or "").replace("\\", "/")
         parsed = PurePosixPath(normalized)
-        if (
-            not normalized
-            or "\x00" in normalized
-            or parsed.is_absolute()
-            or ".." in parsed.parts
-        ):
+        if not normalized or "\x00" in normalized or parsed.is_absolute() or ".." in parsed.parts:
             raise ValueError("semantic_symbol_identity_path_invalid")
         canonical = parsed.as_posix().removeprefix("./")
         if not canonical or canonical == ".":
@@ -226,14 +208,10 @@ def _accepts_occurrence_provenance(symbol_id: object) -> bool:
     except (TypeError, ValueError):
         return False
     names = {parameter.name for parameter in parameters}
-    return (
-        {
-            "provenance_line_start",
-            "provenance_column_start",
-        }
-        <= names
-        or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
-    )
+    return {
+        "provenance_line_start",
+        "provenance_column_start",
+    } <= names or any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
 
 
 def semantic_identity_attributes(canonical_id: str) -> dict[str, str]:
@@ -244,9 +222,7 @@ def semantic_identity_attributes(canonical_id: str) -> dict[str, str]:
         raise ValueError("semantic_symbol_identity_canonical_id_invalid")
     return {
         CANONICAL_SEMANTIC_ID_ATTRIBUTE: normalized,
-        SEMANTIC_IDENTITY_STRATEGY_ATTRIBUTE: (
-            SEMANTIC_SYMBOL_IDENTITY_STRATEGY
-        ),
+        SEMANTIC_IDENTITY_STRATEGY_ATTRIBUTE: (SEMANTIC_SYMBOL_IDENTITY_STRATEGY),
     }
 
 

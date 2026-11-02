@@ -40,10 +40,7 @@ def _load_catalog():
 
 def _workflow_blueprints():
     catalog = _load_catalog()
-    return [
-        bp for bp in catalog["blueprints"]
-        if isinstance(bp, dict) and isinstance(bp.get("workflow"), dict)
-    ]
+    return [bp for bp in catalog["blueprints"] if isinstance(bp, dict) and isinstance(bp.get("workflow"), dict)]
 
 
 # ---------------------------------------------------------------------------
@@ -73,9 +70,7 @@ class TestCatalog:
         break the hub startup with a 500."""
         catalog = get_seed_blueprint_catalog()
         catalog.load()
-        assert catalog.load_error is None, (
-            f"catalog failed to load: {catalog.load_error}"
-        )
+        assert catalog.load_error is None, f"catalog failed to load: {catalog.load_error}"
         seed_map = catalog.as_seed_blueprint_map()
         assert "Scrum-OpenCode" in seed_map
         assert "Code-Repair" in seed_map
@@ -109,13 +104,8 @@ class TestWorkflowsValidate:
             goal_seeds.add("Incident Report")
         if blueprint_name == "Security-Review":
             goal_seeds.add("Code Changes")
-        report = validate_workflow_artifact_graph(
-            steps=wf["steps"], goal_seed_artifact_keys=list(goal_seeds)
-        )
-        assert report.is_valid, (
-            f"{blueprint_name}: "
-            f"{[v.to_dict() for v in report.violations]}"
-        )
+        report = validate_workflow_artifact_graph(steps=wf["steps"], goal_seed_artifact_keys=list(goal_seeds))
+        assert report.is_valid, f"{blueprint_name}: {[v.to_dict() for v in report.violations]}"
 
     def test_workflow_has_gate_step(self, blueprint_name):
         """Every standard workflow has at least one explicit
@@ -127,18 +117,14 @@ class TestWorkflowsValidate:
         gates = [s for s in steps if s.get("gate")]
         assert len(gates) >= 1, f"{blueprint_name}: no gate step"
         for gate in gates:
-            assert "checks" in gate and gate["checks"], (
-                f"{blueprint_name}: gate step {gate['id']} has no checks"
-            )
+            assert "checks" in gate and gate["checks"], f"{blueprint_name}: gate step {gate['id']} has no checks"
             assert "failure_policy" in gate
 
     def test_workflow_step_ids_unique(self, blueprint_name):
         catalog = _load_catalog()
         bp = next(b for b in catalog["blueprints"] if b["name"] == blueprint_name)
         step_ids = [s["id"] for s in bp["workflow"]["steps"]]
-        assert len(step_ids) == len(set(step_ids)), (
-            f"{blueprint_name}: duplicate step ids {step_ids}"
-        )
+        assert len(step_ids) == len(set(step_ids)), f"{blueprint_name}: duplicate step ids {step_ids}"
 
     def test_workflow_step_role_matches_role_list(self, blueprint_name):
         """Each step's role must match a role name in the
@@ -148,10 +134,7 @@ class TestWorkflowsValidate:
         bp = next(b for b in catalog["blueprints"] if b["name"] == blueprint_name)
         role_names = {r["name"] for r in bp.get("roles", [])}
         for step in bp["workflow"]["steps"]:
-            assert step["role"] in role_names, (
-                f"{blueprint_name} step {step['id']} role "
-                f"{step['role']!r} not in roles"
-            )
+            assert step["role"] in role_names, f"{blueprint_name} step {step['id']} role {step['role']!r} not in roles"
 
 
 class TestBackwardsCompat:

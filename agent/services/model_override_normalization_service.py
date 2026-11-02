@@ -6,10 +6,11 @@ planning_model_profiles.default.json entries into the new ModelProfile schema.
 
 Also resolves the effective profile_id when a caller has only a provider+model string.
 """
+
 from __future__ import annotations
 
-import os
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -76,12 +77,7 @@ class ModelOverrideNormalizationService:
         Returns None if data is empty or unusable.
         """
         provider = str(data.get("provider") or data.get("provider_id") or "").strip()
-        model = str(
-            data.get("model")
-            or data.get("model_name_pattern")
-            or data.get("model_id")
-            or ""
-        ).strip()
+        model = str(data.get("model") or data.get("model_name_pattern") or data.get("model_id") or "").strip()
         if not provider and not model:
             return None
         return self._build(
@@ -123,9 +119,7 @@ class ModelOverrideNormalizationService:
         original_provider = provider
         normalized_provider = self.normalize_provider_id(provider)
         if normalized_provider != provider:
-            warnings.append(
-                f"legacy_provider_normalized:{provider!r}→{normalized_provider!r}"
-            )
+            warnings.append(f"legacy_provider_normalized:{provider!r}→{normalized_provider!r}")
 
         extra = extra_data or {}
         is_cloud = normalized_provider in {"openai", "openrouter"}

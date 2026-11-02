@@ -1,9 +1,8 @@
 import time
-from unittest.mock import MagicMock, patch
-
-
+from unittest.mock import patch
 
 # Split from tests/cli_backends/test_codex_cli_backend.py to keep source files below 1000 lines.
+
 
 def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
     from agent.cli_backends.sgpt import resolve_codex_runtime_config

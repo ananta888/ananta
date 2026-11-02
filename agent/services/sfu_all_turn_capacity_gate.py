@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import math
 import re
 import statistics
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
+
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
 
 
 class SfuAllTurnGateError(RuntimeError):

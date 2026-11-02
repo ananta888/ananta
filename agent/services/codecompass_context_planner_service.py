@@ -32,29 +32,55 @@ _TRUST_RANK = {
 # Buckets are described in the public docs/architecture/code-review-graph-adapter.md
 # and docs/architecture/repository-intelligence-graph.md.
 TASK_KIND_WEIGHTS: dict[str, dict[str, float]] = {
-    "review":         {"changed_files": 0.10, "symbol_neighbors": 0.40,
-                       "build_test_evidence": 0.10, "semantic_chunks": 0.30,
-                       "policy_evidence": 0.10},
-    "bugfix":         {"changed_files": 0.10, "symbol_neighbors": 0.30,
-                       "build_test_evidence": 0.20, "semantic_chunks": 0.30,
-                       "policy_evidence": 0.10},
-    "ci":             {"changed_files": 0.05, "symbol_neighbors": 0.15,
-                       "build_test_evidence": 0.55, "semantic_chunks": 0.15,
-                       "policy_evidence": 0.10},
-    "build":          {"changed_files": 0.05, "symbol_neighbors": 0.15,
-                       "build_test_evidence": 0.55, "semantic_chunks": 0.15,
-                       "policy_evidence": 0.10},
-    "architecture_question": {"changed_files": 0.05, "symbol_neighbors": 0.30,
-                              "build_test_evidence": 0.20, "semantic_chunks": 0.35,
-                              "policy_evidence": 0.10},
-    "security_policy_task":  {"changed_files": 0.05, "symbol_neighbors": 0.20,
-                              "build_test_evidence": 0.15, "semantic_chunks": 0.20,
-                              "policy_evidence": 0.40},
+    "review": {
+        "changed_files": 0.10,
+        "symbol_neighbors": 0.40,
+        "build_test_evidence": 0.10,
+        "semantic_chunks": 0.30,
+        "policy_evidence": 0.10,
+    },
+    "bugfix": {
+        "changed_files": 0.10,
+        "symbol_neighbors": 0.30,
+        "build_test_evidence": 0.20,
+        "semantic_chunks": 0.30,
+        "policy_evidence": 0.10,
+    },
+    "ci": {
+        "changed_files": 0.05,
+        "symbol_neighbors": 0.15,
+        "build_test_evidence": 0.55,
+        "semantic_chunks": 0.15,
+        "policy_evidence": 0.10,
+    },
+    "build": {
+        "changed_files": 0.05,
+        "symbol_neighbors": 0.15,
+        "build_test_evidence": 0.55,
+        "semantic_chunks": 0.15,
+        "policy_evidence": 0.10,
+    },
+    "architecture_question": {
+        "changed_files": 0.05,
+        "symbol_neighbors": 0.30,
+        "build_test_evidence": 0.20,
+        "semantic_chunks": 0.35,
+        "policy_evidence": 0.10,
+    },
+    "security_policy_task": {
+        "changed_files": 0.05,
+        "symbol_neighbors": 0.20,
+        "build_test_evidence": 0.15,
+        "semantic_chunks": 0.20,
+        "policy_evidence": 0.40,
+    },
 }
 
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "changed_files": 0.10, "symbol_neighbors": 0.30,
-    "build_test_evidence": 0.20, "semantic_chunks": 0.30,
+    "changed_files": 0.10,
+    "symbol_neighbors": 0.30,
+    "build_test_evidence": 0.20,
+    "semantic_chunks": 0.30,
     "policy_evidence": 0.10,
 }
 
@@ -340,10 +366,7 @@ class CodeCompassContextPlanner:
             raw.get("line_start") or raw.get("start_line") or metadata.get("line_start") or metadata.get("start_line")
         )
         line_end = self._to_int(
-            raw.get("line_end")
-            or raw.get("end_line")
-            or metadata.get("line_end")
-            or metadata.get("end_line")
+            raw.get("line_end") or raw.get("end_line") or metadata.get("line_end") or metadata.get("end_line")
         )
         if line_start is None or line_end is None or line_start < 1 or line_end < line_start:
             return None
@@ -356,14 +379,9 @@ class CodeCompassContextPlanner:
             or metadata.get("verification_status")
             or (metadata.get("source_id_verification") or {}).get("status")
         )
-        trust_level = self._trust_level(
-            raw.get("trust_level") or metadata.get("trust_level")
-        )
+        trust_level = self._trust_level(raw.get("trust_level") or metadata.get("trust_level"))
         record_id = self._bounded_text(
-            raw.get("record_id")
-            or raw.get("id")
-            or metadata.get("record_id")
-            or "",
+            raw.get("record_id") or raw.get("id") or metadata.get("record_id") or "",
             300,
         )
         return self._location_ref(
@@ -396,9 +414,7 @@ class CodeCompassContextPlanner:
         path = self._bounded_text(merged.get("file") or merged.get("path"), 1_000)
         if not path:
             return None
-        line_start = self._to_int(
-            merged.get("line_start") or merged.get("start_line") or merged.get("from_line")
-        )
+        line_start = self._to_int(merged.get("line_start") or merged.get("start_line") or merged.get("from_line"))
         line_end = self._to_int(merged.get("line_end") or merged.get("end_line") or merged.get("to_line"))
         if line_start is None:
             line_start = 1
@@ -681,13 +697,7 @@ class CodeCompassContextPlanner:
         supplied = raw.get("estimated_tokens", metadata.get("estimated_tokens"))
         if isinstance(supplied, int) and not isinstance(supplied, bool) and supplied > 0:
             return min(supplied, 1_000_000)
-        content = str(
-            raw.get("content")
-            or raw.get("text")
-            or raw.get("snippet")
-            or metadata.get("content")
-            or ""
-        )
+        content = str(raw.get("content") or raw.get("text") or raw.get("snippet") or metadata.get("content") or "")
         if content:
             return max(1, math.ceil(len(content) / 4))
         line_start = CodeCompassContextPlanner._to_int(raw.get("line_start") or metadata.get("line_start"))
@@ -719,11 +729,7 @@ class CodeCompassContextPlanner:
             )
             or None,
             "path": CodeCompassContextPlanner._bounded_text(
-                ref.get("path")
-                or ref.get("source")
-                or ref.get("file")
-                or metadata.get("path")
-                or metadata.get("file"),
+                ref.get("path") or ref.get("source") or ref.get("file") or metadata.get("path") or metadata.get("file"),
                 1_000,
             )
             or None,
@@ -830,19 +836,25 @@ class CodeCompassContextPlanner:
         warnings: list[str] = []
 
         raw_inputs = bucket_inputs or {}
-        for bucket_name in ("changed_files", "symbol_neighbors",
-                            "build_test_evidence", "semantic_chunks",
-                            "policy_evidence"):
+        for bucket_name in (
+            "changed_files",
+            "symbol_neighbors",
+            "build_test_evidence",
+            "semantic_chunks",
+            "policy_evidence",
+        ):
             items = list(raw_inputs.get(bucket_name) or [])
             bounded = items[: effective.max_ranges]
             if len(items) > len(bounded):
-                decisions.append({
-                    "bucket": bucket_name,
-                    "reason": "bucket_max_applied",
-                    "weight": weights.get(bucket_name, 0.0),
-                    "input_count": len(items),
-                    "selected_count": len(bounded),
-                })
+                decisions.append(
+                    {
+                        "bucket": bucket_name,
+                        "reason": "bucket_max_applied",
+                        "weight": weights.get(bucket_name, 0.0),
+                        "input_count": len(items),
+                        "selected_count": len(bounded),
+                    }
+                )
             buckets[bucket_name] = bounded
 
         for bucket_name in raw_inputs:
@@ -852,18 +864,23 @@ class CodeCompassContextPlanner:
         if not bucket_inputs:
             # Fall back to the legacy plan_context behaviour so callers
             # that only pass query/task_kind keep working.
-            legacy = self.plan_context(query=query, task_kind=task_kind,
-                                       budget=budget,
-                                       workspace_dir=workspace_dir,
-                                       include_neighbors=include_neighbors)
+            legacy = self.plan_context(
+                query=query,
+                task_kind=task_kind,
+                budget=budget,
+                workspace_dir=workspace_dir,
+                include_neighbors=include_neighbors,
+            )
             buckets["symbol_neighbors"] = legacy.get("location_refs", [])
-            decisions.append({
-                "bucket": "symbol_neighbors",
-                "reason": "legacy_plan_context_fallback",
-                "weight": weights.get("symbol_neighbors", 0.0),
-                "input_count": len(buckets["symbol_neighbors"]),
-                "selected_count": len(buckets["symbol_neighbors"]),
-            })
+            decisions.append(
+                {
+                    "bucket": "symbol_neighbors",
+                    "reason": "legacy_plan_context_fallback",
+                    "weight": weights.get("symbol_neighbors", 0.0),
+                    "input_count": len(buckets["symbol_neighbors"]),
+                    "selected_count": len(buckets["symbol_neighbors"]),
+                }
+            )
             warnings.extend(legacy.get("warnings") or [])
 
         core = {
@@ -875,9 +892,7 @@ class CodeCompassContextPlanner:
             "decisions": decisions,
             "diagnostics": {
                 "bucket_counts": {k: len(v) for k, v in buckets.items()},
-                "weighted_total": round(
-                    sum(weights.get(k, 0.0) * len(v)
-                        for k, v in buckets.items()), 4),
+                "weighted_total": round(sum(weights.get(k, 0.0) * len(v) for k, v in buckets.items()), 4),
                 "workspace_dir": str(workspace_dir or ""),
             },
             "warnings": sorted(set(warnings)),

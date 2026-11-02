@@ -108,5 +108,3 @@ class WorkflowEventDedupeReadPort(Protocol):
         run_id: str,
         dedupe_key: str,
     ) -> CanonicalWorkflowEvent | None: ...
-
-

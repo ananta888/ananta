@@ -25,9 +25,7 @@ class WorkerForwardOutcomeRecorder(Protocol):
 def get_worker_forward_outcome_recorder() -> WorkerForwardOutcomeRecorder | None:
     """Resolve the optional control-plane observer without coupling to routes."""
 
-    recorder = current_app.extensions.get(
-        WORKER_FORWARD_OUTCOME_RECORDER_EXTENSION
-    )
+    recorder = current_app.extensions.get(WORKER_FORWARD_OUTCOME_RECORDER_EXTENSION)
     if recorder is None:
         return None
     if not callable(getattr(recorder, "record_worker_forward_success", None)):

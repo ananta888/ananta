@@ -139,7 +139,9 @@ class DiffEngine:
                         "status": "modified",
                         "binary": False,
                         "unsupported": False,
-                        "hunks": [{"header": "@@ pair @@", "old_lines": left_lines, "new_lines": right_lines, "rows": rows}],
+                        "hunks": [
+                            {"header": "@@ pair @@", "old_lines": left_lines, "new_lines": right_lines, "rows": rows}
+                        ],
                     }
                 ],
                 "stats": {"files": 1, "hunks": 1, "truncated": truncated},
@@ -184,4 +186,3 @@ class DiffEngine:
             ],
             "stats": {"files": 1, "hunks": 1, "truncated": truncated},
         }
-

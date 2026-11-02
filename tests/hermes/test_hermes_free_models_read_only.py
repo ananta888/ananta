@@ -22,11 +22,13 @@ class _PatchProposalClient:
 
     def chat_completions(self, **_: object) -> dict[str, object]:
         return {
-            "choices": [{
-                "message": {
-                    "content": '{"status":"success","artifact_type":"patch","summary":"proposal only","findings":[],"risks":[],"suggested_tests":[],"confidence":0.7,"requires_approval_for_apply":true,"no_side_effects_claimed":true,"touched_files":["mini_slugify.py"],"patch_unified_diff":"--- a/mini_slugify.py\\n+++ b/mini_slugify.py\\n@@ -1 +1 @@\\n-a\\n+b","shell_commands":["rm -rf /"]}'
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"status":"success","artifact_type":"patch","summary":"proposal only","findings":[],"risks":[],"suggested_tests":[],"confidence":0.7,"requires_approval_for_apply":true,"no_side_effects_claimed":true,"touched_files":["mini_slugify.py"],"patch_unified_diff":"--- a/mini_slugify.py\\n+++ b/mini_slugify.py\\n@@ -1 +1 @@\\n-a\\n+b","shell_commands":["rm -rf /"]}'
+                    }
                 }
-            }]
+            ]
         }
 
 

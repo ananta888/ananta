@@ -7,6 +7,7 @@ Usage:
 Prints capability diagnostics and renders a sample Markdown+Mermaid document
 through the selected adapter, reporting whether image output or text fallback was used.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,6 +63,7 @@ def greet(name: str) -> str:
 def _print_capabilities() -> dict:
     print("\n=== Capability Diagnostics ===")
     import shutil
+
     caps: dict = {}
 
     # Mermaid backends
@@ -71,6 +73,7 @@ def _print_capabilities() -> dict:
 
     try:
         import importlib.util
+
         pw_ok = importlib.util.find_spec("playwright") is not None
     except Exception:
         pw_ok = False
@@ -78,7 +81,6 @@ def _print_capabilities() -> dict:
     print(f"  playwright:           {'✓ installed' if pw_ok else '✗ not installed'}")
 
     try:
-        import cairosvg  # type: ignore
         cairo_ok = True
     except Exception:
         cairo_ok = False
@@ -86,7 +88,6 @@ def _print_capabilities() -> dict:
     print(f"  cairosvg:             {'✓ available' if cairo_ok else '✗ not installed'}")
 
     try:
-        from PIL import Image  # type: ignore
         pil_ok = True
     except Exception:
         pil_ok = False
@@ -95,6 +96,7 @@ def _print_capabilities() -> dict:
 
     # Terminal
     import os
+
     term = os.environ.get("TERM", "")
     term_prog = os.environ.get("TERM_PROGRAM", "")
     kitty_ok = "kitty" in term.lower() or "kitty" in term_prog.lower()
@@ -102,14 +104,16 @@ def _print_capabilities() -> dict:
     caps["kitty"] = kitty_ok
     caps["sixel"] = sixel_ok
     print(f"  Kitty terminal:       {'✓ detected' if kitty_ok else '✗ not detected (TERM=' + term + ')'}")
-    print(f"  Sixel terminal:       {'✓ SIXEL_SUPPORTED=1' if sixel_ok else '✗ not detected (set SIXEL_SUPPORTED=1 to enable)'}")
+    print(
+        f"  Sixel terminal:       {'✓ SIXEL_SUPPORTED=1' if sixel_ok else '✗ not detected (set SIXEL_SUPPORTED=1 to enable)'}"
+    )
     return caps
 
 
 def _render_ansi(width: int = 80) -> None:
-    from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
+
     from client_surfaces.operator_tui.visual.markdown.markdown_ansi_renderer import render_markdown_ansi_lines
-    import re
+    from client_surfaces.operator_tui.visual.markdown.markdown_parser import parse_markdown
 
     print("\n=== ANSI Markdown Rendering ===")
     blocks = parse_markdown(_SAMPLE_MD)
@@ -155,14 +159,15 @@ def _render_kitty(caps: dict) -> None:
         print("        Set TERM=xterm-kitty or use Kitty terminal for image output")
         return
 
+    import sys
+
+    from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
+    from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
     from client_surfaces.operator_tui.visual.markdown.mermaid_renderer import MermaidRenderer
+    from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
     from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
     from client_surfaces.operator_tui.visual.runtime.frame_model import RenderScene
-    from client_surfaces.operator_tui.visual.renderers.base_renderer import RenderContext
-    from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
-    from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
     from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
-    import sys
 
     print("\n[kitty] Attempting Mermaid→PNG→Kitty output...")
     renderer = MermaidRenderer()
@@ -176,8 +181,10 @@ def _render_kitty(caps: dict) -> None:
         "diagram_id": "smoke_1",
         "image_format": result.image_format,
         "image_data": result.image_data,
-        "x": 0, "y": 0,
-        "requested_width": 400, "requested_height": 200,
+        "x": 0,
+        "y": 0,
+        "requested_width": 400,
+        "requested_height": 200,
         "alt_text": "Smoke test diagram",
     }
     scene = RenderScene(scene_type="markdown_mermaid_document", nodes=[node], metadata={"animated": False})
@@ -198,11 +205,12 @@ def _render_kitty(caps: dict) -> None:
 
 
 def _render_sixel(caps: dict) -> None:
-    from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
+    import sys
+
     from client_surfaces.operator_tui.visual.adapters.base_output_adapter import DrawContext
+    from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
     from client_surfaces.operator_tui.visual.runtime.frame_model import RenderFrame
     from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
-    import sys
 
     print("\n[sixel] Checking Sixel encoder...")
     if not caps.get("sixel"):
@@ -211,9 +219,13 @@ def _render_sixel(caps: dict) -> None:
     adapter = SixelOutputAdapter(supported=caps.get("sixel", False), enabled=True)
     payload = bytes([200, 100, 50, 255] * (4 * 4))  # tiny 4x4 RGBA image
     frame = RenderFrame(
-        frame_type="raster", width=4, height=4,
+        frame_type="raster",
+        width=4,
+        height=4,
         payload={"pixels": payload, "width": 4, "height": 4, "mode": "RGBA"},
-        mime_or_format="application/x-rgba", timestamp=1.0, metadata={},
+        mime_or_format="application/x-rgba",
+        timestamp=1.0,
+        metadata={},
     )
     region = ViewportRegion(x=0, y=0, columns=10, rows=4, pixel_width=40, pixel_height=16)
     result = adapter.draw(frame, region=region, stream=sys.stdout, context=DrawContext(now=time.monotonic()))
@@ -246,7 +258,7 @@ def main() -> int:
     print("\n=== Summary ===")
     print(f"  Adapter:             {args.adapter}")
     print(f"  Mermaid image:       {'✓ available' if sample_ok else '✗ fallback only'}")
-    print(f"  ANSI fallback:       ✓ always available")
+    print("  ANSI fallback:       ✓ always available")
 
     if args.require_image and not sample_ok:
         print("\n✗ --require-image: image rendering not available")

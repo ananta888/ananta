@@ -58,11 +58,7 @@ class JmapMutationReconciler:
             or any(not isinstance(value, str) for value in not_found)
         ):
             return _unknown_report(normalized, original_reason_code)
-        by_id = {
-            str(row.get("id")): dict(row)
-            for row in rows
-            if isinstance(row.get("id"), str)
-        }
+        by_id = {str(row.get("id")): dict(row) for row in rows if isinstance(row.get("id"), str)}
         missing = set(not_found)
         items: list[MailMutationItem] = []
         for target in normalized:
@@ -75,21 +71,13 @@ class JmapMutationReconciler:
                 MailMutationItem(
                     mail_ref_id=target.mail_ref_id,
                     ok=observed,
-                    reason_code=(
-                        "jmap_mutation_reconciled"
-                        if observed
-                        else "jmap_mutation_outcome_unknown"
-                    ),
+                    reason_code=("jmap_mutation_reconciled" if observed else "jmap_mutation_outcome_unknown"),
                 )
             )
         all_reconciled = all(item.ok for item in items)
         return MailProviderResult(
             ok=all_reconciled,
-            reason_code=(
-                "jmap_mutation_reconciled"
-                if all_reconciled
-                else "jmap_mutation_outcome_unknown"
-            ),
+            reason_code=("jmap_mutation_reconciled" if all_reconciled else "jmap_mutation_outcome_unknown"),
             value=MailMutationReport(
                 items=tuple(items),
                 new_state=str(response.value.arguments.get("state") or ""),
@@ -105,9 +93,7 @@ def _patch_matches(row: Mapping[str, Any] | None, patch: Mapping[str, Any]) -> b
     for path, expected in patch.items():
         if path == "mailboxIds":
             actual = row.get("mailboxIds")
-            if not isinstance(actual, Mapping) or {
-                str(key) for key, value in actual.items() if bool(value)
-            } != {
+            if not isinstance(actual, Mapping) or {str(key) for key, value in actual.items() if bool(value)} != {
                 str(key) for key, value in dict(expected or {}).items() if bool(value)
             }:
                 return False

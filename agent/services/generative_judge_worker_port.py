@@ -222,8 +222,5 @@ def _resolve_addresses(hostname: str, port: int) -> tuple[str, ...]:
         return (str(ipaddress.ip_address(hostname)),)
     except ValueError:
         return tuple(
-            dict.fromkeys(
-                str(item[4][0])
-                for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-            )
+            dict.fromkeys(str(item[4][0]) for item in socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM))
         )

@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from flask import current_app, g, has_request_context
@@ -8,6 +9,7 @@ from agent.tools_registry import registry
 
 def _check_git_access(operation: str = "read") -> tuple[bool, str]:
     from agent.services.platform_governance_service import get_platform_governance_service
+
     gov = get_platform_governance_service()
     cfg = current_app.config.get("AGENT_CONFIG")
     if not gov.evaluate_action_pack_access("git", cfg):
@@ -22,7 +24,7 @@ def _git_cwd() -> str | None:
             if wd:
                 return str(wd)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_git_cwd: ignored Exception", exc_info=True)
     return None
 
 
@@ -63,6 +65,7 @@ def git_status_tool():
         return {"error": err}
 
     import subprocess
+
     try:
         res = subprocess.run(["git", "status"], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
         return {"output": res.stdout}
@@ -87,6 +90,7 @@ def git_diff_tool(path: Optional[str] = None, cached: bool = False):
         return {"error": err}
 
     import subprocess
+
     cmd = ["git", "diff"]
     if cached:
         cmd.append("--cached")
@@ -116,6 +120,7 @@ def git_log_tool(limit: int = 10):
         return {"error": err}
 
     import subprocess
+
     try:
         res = subprocess.run(
             ["git", "log", "-n", str(limit), "--oneline"],
@@ -147,13 +152,15 @@ def git_commit_tool(message: str):
 
     try:
         from agent.services.commit_message_validator import CommitMessageValidator
+
         result = CommitMessageValidator().validate(message)
         if not result.valid:
             return {"error": "invalid_commit_message", "details": result.errors}
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("git_commit_tool: ignored Exception", exc_info=True)
 
     import subprocess
+
     try:
         res = subprocess.run(
             ["git", "commit", "-m", message],
@@ -210,10 +217,10 @@ def git_push_tool():
     branch = getattr(git_ctx, "branch", "HEAD")
 
     import subprocess
+
     try:
         res = subprocess.run(
-            ["git", "push", "origin", branch],
-            capture_output=True, text=True, timeout=30, cwd=_git_cwd()
+            ["git", "push", "origin", branch], capture_output=True, text=True, timeout=30, cwd=_git_cwd()
         )
         _audit_legacy_git(
             "git_push",

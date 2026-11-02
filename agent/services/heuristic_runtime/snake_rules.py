@@ -8,9 +8,10 @@ Priority order:
   5  IdleLurkRule        — no active goal → lurk
   99 DefaultFollowRule   — always handled, follow fallback
 """
+
 from __future__ import annotations
 
-from agent.services.heuristic_runtime.chain import ChainResult, HeuristicRuleChainElement
+from agent.services.heuristic_runtime.chain import ChainResult, HeuristicRuleChainElement, RuleChain
 from agent.services.heuristic_runtime.decision_context import DecisionContext
 from agent.services.heuristic_runtime.decision_result import DecisionResult
 
@@ -107,11 +108,14 @@ class DefaultFollowRule(HeuristicRuleChainElement):
 
 def build_snake_rule_chain() -> "RuleChain":
     from agent.services.heuristic_runtime.chain import RuleChain
-    return RuleChain([
-        ArtifactHoverRule(),
-        DiffFocusRule(),
-        ChatFocusRule(),
-        ErrorFocusRule(),
-        IdleLurkRule(),
-        DefaultFollowRule(),
-    ])
+
+    return RuleChain(
+        [
+            ArtifactHoverRule(),
+            DiffFocusRule(),
+            ChatFocusRule(),
+            ErrorFocusRule(),
+            IdleLurkRule(),
+            DefaultFollowRule(),
+        ]
+    )

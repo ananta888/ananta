@@ -150,11 +150,14 @@ def update_chat_profile(profile_id: str):
     data = request.get_json(silent=True) or {}
     custom = list((dependencies.get_manager().load().get("chat_profiles") or []))
     profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
-    if profile is None or not authorize_owned_record(
-        profile,
-        principal,
-        legacy_default_owner=_legacy_chat_owner(),
-    )[0]:
+    if (
+        profile is None
+        or not authorize_owned_record(
+            profile,
+            principal,
+            legacy_default_owner=_legacy_chat_owner(),
+        )[0]
+    ):
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
     for key in ("name", "icon", "description", "system_prompt"):
         if key in data:
@@ -215,11 +218,14 @@ def delete_chat_profile(profile_id: str):
         return jsonify({"error": "profile is still used by chats"}), 409
     custom = list((dependencies.get_manager().load().get("chat_profiles") or []))
     profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
-    if profile is None or not authorize_owned_record(
-        profile,
-        principal,
-        legacy_default_owner=_legacy_chat_owner(),
-    )[0]:
+    if (
+        profile is None
+        or not authorize_owned_record(
+            profile,
+            principal,
+            legacy_default_owner=_legacy_chat_owner(),
+        )[0]
+    ):
         return jsonify({"error": f"Profile '{profile_id}' not found"}), 404
     kept = [p for p in custom if p is not profile]
     _save_custom_profiles(kept)

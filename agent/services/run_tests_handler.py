@@ -17,24 +17,25 @@ Registration
 ------------
 Call ``register_run_tests_handler(app)`` from the app factory.
 """
+
 from __future__ import annotations
 
 import shlex
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask
 
 from agent.services.task_handler_registry import register_task_handler
 
-
 # ── Profiles ──────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class TestRunnerProfile:
     name: str
-    allowed_prefixes: tuple[str, ...]       # command must start with one of these
+    allowed_prefixes: tuple[str, ...]  # command must start with one of these
     default_command: str
     timeout_seconds: int = 120
 
@@ -83,6 +84,7 @@ def _command_allowed(cmd: str, profile: TestRunnerProfile) -> bool:
 
 
 # ── Handler ───────────────────────────────────────────────────────────────────
+
 
 class RunTestsHandler:
     """Hybrid handler: runs a profile-gated test command deterministically."""

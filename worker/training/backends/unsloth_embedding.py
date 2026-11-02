@@ -25,9 +25,7 @@ class UnslothEmbeddingTrainingBackend:
 
     def __init__(self) -> None:
         self._lifecycle = PeftTrlTrainingBackend()
-        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(
-            backend_name=self.name
-        )
+        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(backend_name=self.name)
 
     def availability(self) -> tuple[bool, str | None]:
         missing = [name for name in self._requirements if importlib.util.find_spec(name) is None]
@@ -74,7 +72,9 @@ class UnslothEmbeddingTrainingBackend:
             raise TrainingBackendError("dependency_unavailable", str(exc)) from exc
         except Exception as exc:
             if isinstance(exc, MemoryError) or "out of memory" in str(exc).lower():
-                raise TrainingBackendError("out_of_memory", "embedding model preparation exhausted memory", retryable=True) from exc
+                raise TrainingBackendError(
+                    "out_of_memory", "embedding model preparation exhausted memory", retryable=True
+                ) from exc
             raise TrainingBackendError("model_load_failed", f"embedding model could not be prepared: {exc}") from exc
 
     def train(self, context: TrainingContext, prepared: Mapping[str, Any]) -> dict[str, Any]:
@@ -122,7 +122,9 @@ class UnslothEmbeddingTrainingBackend:
             if context.cancel.cancelled:
                 context.cancel.raise_if_cancelled()
             if isinstance(exc, MemoryError) or "out of memory" in str(exc).lower():
-                raise TrainingBackendError("out_of_memory", "embedding training exhausted memory", retryable=True) from exc
+                raise TrainingBackendError(
+                    "out_of_memory", "embedding training exhausted memory", retryable=True
+                ) from exc
             raise TrainingBackendError("training_failed", f"embedding training failed: {exc}") from exc
 
     def evaluate(self, context: TrainingContext, prepared: Any, trained: Any) -> Mapping[str, Any]:
@@ -153,12 +155,10 @@ class UnslothEmbeddingTrainingBackend:
             context.artifact_root.mkdir(parents=True, exist_ok=True)
             trained["trainer"].model.save_pretrained(str(context.artifact_root), safe_serialization=True)
         except Exception as exc:
-            raise TrainingBackendError("artifact_save_failed", f"embedding artifacts could not be saved: {exc}") from exc
-        artifacts = tuple(
-            path
-            for path in context.artifact_root.rglob("*")
-            if path.is_file() and not path.is_symlink()
-        )
+            raise TrainingBackendError(
+                "artifact_save_failed", f"embedding artifacts could not be saved: {exc}"
+            ) from exc
+        artifacts = tuple(path for path in context.artifact_root.rglob("*") if path.is_file() and not path.is_symlink())
         best = getattr(trained["trainer"].state, "best_model_checkpoint", None)
         return TrainingOutcome(metrics=metrics, artifacts=artifacts, best_checkpoint=Path(best) if best else None)
 

@@ -20,30 +20,25 @@ def resolve_claude_runtime_config(
         claude_cfg = {}
 
     enabled = bool(claude_cfg.get("enabled", False))
-    command = str(
-        claude_cfg.get("command")
-        or getattr(settings, "claude_path", "claude")
-        or "claude"
-    ).strip() or "claude"
+    command = (
+        str(claude_cfg.get("command") or getattr(settings, "claude_path", "claude") or "claude").strip() or "claude"
+    )
     raw_auth_mode = claude_cfg.get("auth_mode") if isinstance(claude_cfg.get("auth_mode"), str) else None
     if raw_auth_mode is not None:
         auth_mode = raw_auth_mode.strip().lower() or "claude_login"
     else:
-        auth_mode = str(
-            getattr(settings, "claude_auth_mode", "claude_login") or "claude_login"
-        ).strip().lower() or "claude_login"
+        auth_mode = (
+            str(getattr(settings, "claude_auth_mode", "claude_login") or "claude_login").strip().lower()
+            or "claude_login"
+        )
     if auth_mode not in ("claude_login", "api_key"):
         auth_mode = "claude_login"
 
-    default_model = str(
-        claude_cfg.get("default_model")
-        or getattr(settings, "claude_default_model", "")
-        or ""
-    ).strip() or None
+    default_model = (
+        str(claude_cfg.get("default_model") or getattr(settings, "claude_default_model", "") or "").strip() or None
+    )
     permission_mode = str(
-        claude_cfg.get("permission_mode")
-        or getattr(settings, "claude_permission_mode", "plan")
-        or "plan"
+        claude_cfg.get("permission_mode") or getattr(settings, "claude_permission_mode", "plan") or "plan"
     ).strip()
     if permission_mode == "default":
         permission_mode = "manual"
@@ -108,22 +103,23 @@ def run_claude_command(
     environ: Mapping[str, str],
 ) -> tuple[int, str, str]:
     if not runtime_config["enabled"]:
-        return -1, "", (
-            "Claude CLI backend ist deaktiviert (claude_cli.enabled=false). "
-            "Aktivieren via POST /config mit {'claude_cli': {'enabled': true}}."
+        return (
+            -1,
+            "",
+            (
+                "Claude CLI backend ist deaktiviert (claude_cli.enabled=false). "
+                "Aktivieren via POST /config mit {'claude_cli': {'enabled': true}}."
+            ),
         )
     claude_bin = str(runtime_config["command"])
     claude_resolved = which(claude_bin) or provisioned_binary("claude_code")
     if claude_resolved is None:
-        return -1, "", (
-            f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code"
-        )
+        return -1, "", (f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code")
     allowed_paths = list(runtime_config["allowed_paths"])
     if workdir and allowed_paths:
         workdir_abs = os.path.realpath(workdir)
         if not any(
-            workdir_abs == os.path.realpath(path)
-            or workdir_abs.startswith(os.path.realpath(path) + os.sep)
+            workdir_abs == os.path.realpath(path) or workdir_abs.startswith(os.path.realpath(path) + os.sep)
             for path in allowed_paths
         ):
             return -1, "", f"Workdir '{workdir}' liegt ausserhalb von claude_cli.allowed_paths"

@@ -27,9 +27,7 @@ from ananta_contracts.runtime_authorization_crypto import (
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/bootstrap-dev-workflow-keyrings.py"
 COMPOSE = ROOT / "docker/compose-next/compose.dev.ollama.yml"
-DEV_AUTH_COMPOSE = (
-    ROOT / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"
-)
+DEV_AUTH_COMPOSE = ROOT / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"
 COMPOSE_BASE = ROOT / "docker/compose-next/compose.base.yml"
 DOCKERIGNORE = ROOT / ".dockerignore"
 
@@ -96,9 +94,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
     verification = json.loads(verification_path.read_text(encoding="utf-8"))
     dispatch = json.loads(dispatch_path.read_text(encoding="utf-8"))
     source_access_path = root / "worker/source-access-hmac-keyring.json"
-    source_access = json.loads(
-        source_access_path.read_text(encoding="utf-8")
-    )
+    source_access = json.loads(source_access_path.read_text(encoding="utf-8"))
     signer = Ed25519SigningKeyRing.from_mapping(signing)
     verifier = Ed25519VerificationKeyRing.from_mapping(verification)
     key_id, signature = signer.sign(namespace="test", payload={"value": 1})
@@ -111,9 +107,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
     )
     dispatch_key_id = dispatch["active_key_id"]
     Fernet(dispatch["keys"][dispatch_key_id].encode("ascii"))
-    assert source_access["schema"] == (
-        "ananta.source-access-hmac-keyring.v1"
-    )
+    assert source_access["schema"] == ("ananta.source-access-hmac-keyring.v1")
     source_access_key_id = source_access["active_key_id"]
     source_access_secret = base64.b64decode(
         source_access["keys"][source_access_key_id],
@@ -127,9 +121,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
             secret=source_access_secret,
         )
     ).sign(manifest_digest=source_access_digest)
-    assert WorkerSourceAccessManifestVerifier(
-        {source_access_key_id: source_access_secret}
-    ).verify(
+    assert WorkerSourceAccessManifestVerifier({source_access_key_id: source_access_secret}).verify(
         manifest_digest=source_access_digest,
         signature=source_access_signature,
     )
@@ -148,10 +140,7 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
         root / "beta/worker-registration-token",
         root / "beta/worker-session-signing-key",
     ]
-    private_values = [
-        path.read_text(encoding="utf-8").strip()
-        for path in private_paths
-    ]
+    private_values = [path.read_text(encoding="utf-8").strip() for path in private_paths]
     assert len(set(private_values)) == len(private_values)
     assert all(len(value.encode("utf-8")) >= 32 for value in private_values)
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in private_paths)
@@ -168,23 +157,13 @@ def test_bootstrap_creates_disjoint_valid_keyrings_and_reuses_them(tmp_path):
         ("ananta-worker-2", "beta", "http://ai-agent-beta:5000"),
     ):
         row = registration["workers"][worker_id]
-        service_token = (
-            root / logical_name / "worker-service-token"
-        ).read_text(encoding="utf-8").strip()
-        registration_token = (
-            root / logical_name / "worker-registration-token"
-        ).read_text(encoding="utf-8").strip()
-        session_key = (
-            root / logical_name / "worker-session-signing-key"
-        ).read_text(encoding="utf-8").strip()
+        service_token = (root / logical_name / "worker-service-token").read_text(encoding="utf-8").strip()
+        registration_token = (root / logical_name / "worker-registration-token").read_text(encoding="utf-8").strip()
+        session_key = (root / logical_name / "worker-session-signing-key").read_text(encoding="utf-8").strip()
         assert row["worker_url"] == worker_url
         assert row["registration_token"] == registration_token
-        assert row["service_token_sha256"] == hashlib.sha256(
-            service_token.encode("utf-8")
-        ).hexdigest()
-        assert row["session_signing_key_sha256"] == hashlib.sha256(
-            session_key.encode("utf-8")
-        ).hexdigest()
+        assert row["service_token_sha256"] == hashlib.sha256(service_token.encode("utf-8")).hexdigest()
+        assert row["session_signing_key_sha256"] == hashlib.sha256(session_key.encode("utf-8")).hexdigest()
         assert "planning" in row["allowed_capabilities"]
         assert {
             "retrieval",
@@ -239,9 +218,7 @@ def test_bootstrap_upgrades_legacy_authorization_keyrings_without_rotation(
         root / "worker/workflow-auth-verification-keyring.json",
         root / "hub/workflow-dispatch-keyring.json",
     )
-    before = {
-        path: _digest(path) for path in authorization_paths
-    }
+    before = {path: _digest(path) for path in authorization_paths}
     for path in (
         root / "hub/worker-registration-keyring.json",
         root / "hub/hub-service-token",
@@ -258,15 +235,9 @@ def test_bootstrap_upgrades_legacy_authorization_keyrings_without_rotation(
     upgraded = _run(root)
 
     assert upgraded.returncode == 0, upgraded.stderr
-    assert upgraded.stdout.strip() == (
-        "development workflow keyrings upgraded"
-    )
-    assert {
-        path: _digest(path) for path in authorization_paths
-    } == before
-    assert (
-        root / "hub/worker-registration-keyring.json"
-    ).is_file()
+    assert upgraded.stdout.strip() == ("development workflow keyrings upgraded")
+    assert {path: _digest(path) for path in authorization_paths} == before
+    assert (root / "hub/worker-registration-keyring.json").is_file()
 
 
 def test_bootstrap_adds_source_access_keyring_without_rotating_credentials(
@@ -308,10 +279,7 @@ def test_bootstrap_recovers_legacy_create_before_source_access_upgrade(
                 "schema": "ananta.dev-workflow-bootstrap-transaction.v1",
                 "mode": "create",
                 "staging_name": ".bootstrap-staging-legacy-create",
-                "target_hashes": {
-                    name: _digest(paths[name])
-                    for name in module._LEGACY_ALL_DOCUMENTS
-                },
+                "target_hashes": {name: _digest(paths[name]) for name in module._LEGACY_ALL_DOCUMENTS},
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -337,9 +305,7 @@ def test_bootstrap_upgrades_known_capabilities_before_source_access(
     source_access_path = root / "worker/source-access-hmac-keyring.json"
     source_access_path.unlink()
     registration_path = root / "hub/worker-registration-keyring.json"
-    registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
     for row in registration["workers"].values():
         row["allowed_capabilities"].remove("source_analysis")
     registration_path.write_text(
@@ -352,11 +318,7 @@ def test_bootstrap_upgrades_known_capabilities_before_source_access(
         encoding="utf-8",
     )
     registration_path.chmod(0o600)
-    stable_paths = tuple(
-        path
-        for path in root.rglob("*")
-        if path.is_file() and path != registration_path
-    )
+    stable_paths = tuple(path for path in root.rglob("*") if path.is_file() and path != registration_path)
     before = {path: _digest(path) for path in stable_paths}
 
     upgraded = _run(root)
@@ -365,13 +327,8 @@ def test_bootstrap_upgrades_known_capabilities_before_source_access(
     assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
     assert {path: _digest(path) for path in stable_paths} == before
     assert source_access_path.is_file()
-    upgraded_registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
-    assert all(
-        "source_analysis" in row["allowed_capabilities"]
-        for row in upgraded_registration["workers"].values()
-    )
+    upgraded_registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    assert all("source_analysis" in row["allowed_capabilities"] for row in upgraded_registration["workers"].values())
 
 
 def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
@@ -379,17 +336,14 @@ def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
 ):
     root = (tmp_path / "workflow-secrets").resolve()
     assert _run(root).returncode == 0
-    registration_path = (
-        root / "hub/worker-registration-keyring.json"
-    )
-    registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
     for row in registration["workers"].values():
         row["allowed_capabilities"] = [
             capability
             for capability in row["allowed_capabilities"]
-            if capability not in {
+            if capability
+            not in {
                 "index_write",
                 "vector_index_operation",
             }
@@ -404,29 +358,15 @@ def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
         encoding="utf-8",
     )
     registration_path.chmod(0o600)
-    private_paths = tuple(
-        path
-        for path in root.rglob("*")
-        if path.is_file() and path != registration_path
-    )
-    before = {
-        path: _digest(path)
-        for path in private_paths
-    }
+    private_paths = tuple(path for path in root.rglob("*") if path.is_file() and path != registration_path)
+    before = {path: _digest(path) for path in private_paths}
 
     upgraded = _run(root)
 
     assert upgraded.returncode == 0, upgraded.stderr
-    assert upgraded.stdout.strip() == (
-        "development workflow keyrings upgraded"
-    )
-    assert {
-        path: _digest(path)
-        for path in private_paths
-    } == before
-    upgraded_registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
+    assert upgraded.stdout.strip() == ("development workflow keyrings upgraded")
+    assert {path: _digest(path) for path in private_paths} == before
+    upgraded_registration = json.loads(registration_path.read_text(encoding="utf-8"))
     for row in upgraded_registration["workers"].values():
         assert {
             "retrieval",
@@ -435,9 +375,7 @@ def test_bootstrap_adds_vector_capabilities_without_rotating_credentials(
         }.issubset(row["allowed_capabilities"])
     reused = _run(root)
     assert reused.returncode == 0, reused.stderr
-    assert reused.stdout.strip() == (
-        "development workflow keyrings reused"
-    )
+    assert reused.stdout.strip() == ("development workflow keyrings reused")
 
 
 def test_bootstrap_adds_source_analysis_without_rotating_credentials(
@@ -446,9 +384,7 @@ def test_bootstrap_adds_source_analysis_without_rotating_credentials(
     root = (tmp_path / "workflow-secrets").resolve()
     assert _run(root).returncode == 0
     registration_path = root / "hub/worker-registration-keyring.json"
-    registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
     for row in registration["workers"].values():
         row["allowed_capabilities"].remove("source_analysis")
     registration_path.write_text(
@@ -461,11 +397,7 @@ def test_bootstrap_adds_source_analysis_without_rotating_credentials(
         encoding="utf-8",
     )
     registration_path.chmod(0o600)
-    private_paths = tuple(
-        path
-        for path in root.rglob("*")
-        if path.is_file() and path != registration_path
-    )
+    private_paths = tuple(path for path in root.rglob("*") if path.is_file() and path != registration_path)
     before = {path: _digest(path) for path in private_paths}
 
     upgraded = _run(root)
@@ -473,9 +405,7 @@ def test_bootstrap_adds_source_analysis_without_rotating_credentials(
     assert upgraded.returncode == 0, upgraded.stderr
     assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
     assert {path: _digest(path) for path in private_paths} == before
-    upgraded_registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
+    upgraded_registration = json.loads(registration_path.read_text(encoding="utf-8"))
     for row in upgraded_registration["workers"].values():
         assert "source_analysis" in row["allowed_capabilities"]
 
@@ -489,15 +419,9 @@ def test_bootstrap_does_not_upgrade_an_unknown_capability_edit(
 ):
     root = (tmp_path / "workflow-secrets").resolve()
     assert _run(root).returncode == 0
-    registration_path = (
-        root / "hub/worker-registration-keyring.json"
-    )
-    registration = json.loads(
-        registration_path.read_text(encoding="utf-8")
-    )
-    registration["workers"]["ananta-worker-1"][
-        "allowed_capabilities"
-    ].remove("planning")
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    registration["workers"]["ananta-worker-1"]["allowed_capabilities"].remove("planning")
     registration_path.write_text(
         json.dumps(
             registration,
@@ -513,10 +437,7 @@ def test_bootstrap_does_not_upgrade_an_unknown_capability_edit(
     rejected = _run(root)
 
     assert rejected.returncode == 64
-    assert (
-        "registration keyring does not match credentials"
-        in rejected.stderr
-    )
+    assert "registration keyring does not match credentials" in rejected.stderr
     assert registration_path.read_bytes() == before
 
 
@@ -586,52 +507,30 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
     ]
 
     hub = services["ai-agent-hub"]
-    assert hub["environment"]["CORS_ORIGINS"] == (
-        "${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}"
-    )
+    assert hub["environment"]["CORS_ORIGINS"] == ("${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}")
     assert hub["environment"]["ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE"].endswith(
         "/workflow-auth-signing-keyring.json"
     )
-    assert hub["environment"]["ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE"].endswith(
-        "/workflow-dispatch-keyring.json"
+    assert hub["environment"]["ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE"].endswith("/workflow-dispatch-keyring.json")
+    assert hub["environment"]["ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"] == "1"
+    assert hub["environment"]["ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"].endswith(
+        "/worker-registration-keyring.json"
     )
-    assert (
-        hub["environment"]["ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"]
-        == "1"
-    )
-    assert hub["environment"][
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
-    ].endswith("/worker-registration-keyring.json")
     assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
         "/run/ananta-source-access/source-access-hmac-keyring.json"
     )
-    assert hub["environment"][
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-    ] == "0"
-    assert hub["environment"]["AGENT_TOKEN_FILE"].endswith(
-        "/hub-service-token"
-    )
-    assert hub["environment"]["SECRET_KEY_FILE"].endswith(
-        "/hub-session-signing-key"
-    )
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
+    assert hub["environment"]["AGENT_TOKEN_FILE"].endswith("/hub-service-token")
+    assert hub["environment"]["SECRET_KEY_FILE"].endswith("/hub-session-signing-key")
     assert hub["environment"]["AGENT_TOKEN_PERSISTENCE"] == "0"
-    assert (
-        hub["depends_on"]["workflow-keyring-bootstrap"]["condition"]
-        == "service_completed_successfully"
-    )
+    assert hub["depends_on"]["workflow-keyring-bootstrap"]["condition"] == "service_completed_successfully"
     hub_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if isinstance(mount, dict)
-        and mount["target"] == "/run/ananta-dev-workflow"
+        mount for mount in hub["volumes"] if isinstance(mount, dict) and mount["target"] == "/run/ananta-dev-workflow"
     )
     assert hub_mount["source"].endswith("/hub")
     assert hub_mount["read_only"] is True
     source_access_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if isinstance(mount, dict)
-        and mount["target"] == "/run/ananta-source-access"
+        mount for mount in hub["volumes"] if isinstance(mount, dict) and mount["target"] == "/run/ananta-source-access"
     )
     assert source_access_mount["source"].endswith("/worker")
     assert source_access_mount["read_only"] is True
@@ -641,26 +540,22 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
         ("ai-agent-beta", "beta"),
     ):
         worker = services[name]
-        assert set(worker["environment"]) & {
-            "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE",
-            "ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE",
-        } == set()
-        assert worker["environment"][
-            "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE"
-        ] == (
-            "/run/ananta-dev-workflow/public/"
-            "workflow-auth-verification-keyring.json"
+        assert (
+            set(worker["environment"])
+            & {
+                "ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE",
+                "ANANTA_WORKFLOW_DISPATCH_KEYRING_FILE",
+            }
+            == set()
+        )
+        assert worker["environment"]["ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE"] == (
+            "/run/ananta-dev-workflow/public/workflow-auth-verification-keyring.json"
         )
         assert worker["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
-            "/run/ananta-dev-workflow/public/"
-            "source-access-hmac-keyring.json"
+            "/run/ananta-dev-workflow/public/source-access-hmac-keyring.json"
         )
-        assert worker["environment"][
-            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-        ] == "0"
-        assert worker["environment"]["AGENT_TOKEN_FILE"] == (
-            "/run/ananta-dev-workflow/private/worker-service-token"
-        )
+        assert worker["environment"]["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
+        assert worker["environment"]["AGENT_TOKEN_FILE"] == ("/run/ananta-dev-workflow/private/worker-service-token")
         assert worker["environment"]["SECRET_KEY_FILE"] == (
             "/run/ananta-dev-workflow/private/worker-session-signing-key"
         )
@@ -670,22 +565,18 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
         assert worker["environment"]["ANANTA_WORKFLOW_HUB_TOKEN_FILE"] == (
             "/run/ananta-dev-workflow/private/worker-service-token"
         )
-        assert worker["environment"]["ANANTA_WORKFLOW_HUB_URL"] == (
-            "http://ai-agent-hub:5000"
-        )
+        assert worker["environment"]["ANANTA_WORKFLOW_HUB_URL"] == ("http://ai-agent-hub:5000")
         assert worker["environment"]["AGENT_TOKEN_PERSISTENCE"] == "0"
         assert worker["environment"]["DISABLE_INITIAL_ADMIN"] == "1"
         public_mount = next(
             value
             for value in worker["volumes"]
-            if isinstance(value, dict)
-            and value["target"] == "/run/ananta-dev-workflow/public"
+            if isinstance(value, dict) and value["target"] == "/run/ananta-dev-workflow/public"
         )
         private_mount = next(
             value
             for value in worker["volumes"]
-            if isinstance(value, dict)
-            and value["target"] == "/run/ananta-dev-workflow/private"
+            if isinstance(value, dict) and value["target"] == "/run/ananta-dev-workflow/private"
         )
         assert public_mount["source"].endswith("/worker")
         assert public_mount["read_only"] is True
@@ -694,9 +585,7 @@ def test_ollama_dev_compose_bootstraps_least_privilege_workflow_keyrings():
 
 
 def test_stack_dev_auth_overlay_prepares_unprivileged_runtime_ownership():
-    compose = yaml.safe_load(
-        DEV_AUTH_COMPOSE.read_text(encoding="utf-8")
-    )
+    compose = yaml.safe_load(DEV_AUTH_COMPOSE.read_text(encoding="utf-8"))
     services = compose["services"]
     runtime = services["runtime-data-bootstrap"]
 
@@ -713,48 +602,29 @@ def test_stack_dev_auth_overlay_prepares_unprivileged_runtime_ownership():
 
     for name in ("ai-agent-hub", "ai-agent-alpha", "ai-agent-beta"):
         service = services[name]
-        assert service["user"] == (
-            "${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}"
-        )
+        assert service["user"] == ("${ANANTA_HOST_UID:-1000}:${ANANTA_HOST_GID:-1000}")
         assert service["environment"]["HOME"] == "/app/data/home"
-        assert service["environment"]["XDG_CACHE_HOME"] == (
-            "/app/data/cache"
-        )
-        assert service["depends_on"]["runtime-data-bootstrap"] == {
-            "condition": "service_completed_successfully"
-        }
+        assert service["environment"]["XDG_CACHE_HOME"] == ("/app/data/cache")
+        assert service["depends_on"]["runtime-data-bootstrap"] == {"condition": "service_completed_successfully"}
 
     hub = services["ai-agent-hub"]
-    assert hub["environment"]["CORS_ORIGINS"] == (
-        "${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}"
-    )
+    assert hub["environment"]["CORS_ORIGINS"] == ("${CORS_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}")
     assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
         "/run/ananta-source-access/source-access-hmac-keyring.json"
     )
-    assert hub["environment"][
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-    ] == "0"
-    source_access_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if mount["target"] == "/run/ananta-source-access"
-    )
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
+    source_access_mount = next(mount for mount in hub["volumes"] if mount["target"] == "/run/ananta-source-access")
     assert source_access_mount["source"].endswith("/worker")
     assert source_access_mount["read_only"] is True
     assert source_access_mount["bind"]["create_host_path"] is False
     for worker_name in ("ai-agent-alpha", "ai-agent-beta"):
-        assert services[worker_name]["environment"][
-            "ANANTA_SOURCE_ACCESS_KEYRING_FILE"
-        ] == (
-            "/run/ananta-dev-workflow/public/"
-            "source-access-hmac-keyring.json"
+        assert services[worker_name]["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
+            "/run/ananta-dev-workflow/public/source-access-hmac-keyring.json"
         )
-        assert services[worker_name]["environment"][
-            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-        ] == "0"
-    assert services["workflow-keyring-bootstrap"]["depends_on"][
-        "runtime-data-bootstrap"
-    ] == {"condition": "service_completed_successfully"}
+        assert services[worker_name]["environment"]["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
+    assert services["workflow-keyring-bootstrap"]["depends_on"]["runtime-data-bootstrap"] == {
+        "condition": "service_completed_successfully"
+    }
 
 
 def test_ollama_dev_compose_effectively_clears_inherited_worker_secrets():
@@ -773,15 +643,9 @@ def test_ollama_dev_compose_effectively_clears_inherited_worker_secrets():
             **services[service_name]["environment"],
         }
         assert effective_environment["SECRET_KEY"] == ""
-        assert effective_environment["SECRET_KEY_FILE"].endswith(
-            "session-signing-key"
-        )
+        assert effective_environment["SECRET_KEY_FILE"].endswith("session-signing-key")
         volume_sources = [
-            (
-                str(volume.get("source") or "")
-                if isinstance(volume, dict)
-                else str(volume).split(":", 1)[0]
-            )
+            (str(volume.get("source") or "") if isinstance(volume, dict) else str(volume).split(":", 1)[0])
             for volume in services[service_name]["volumes"]
         ]
         assert "../.." not in volume_sources
@@ -795,9 +659,7 @@ def test_ollama_dev_compose_effectively_clears_inherited_worker_secrets():
         assert effective_environment["INITIAL_ADMIN_PASSWORD"] == ""
         assert effective_environment["OPENROUTER_API_KEY"] == ""
         assert effective_environment["REDIS_URL"] == ""
-        assert effective_environment["DATABASE_URL"].startswith(
-            "sqlite:////app/data/"
-        )
+        assert effective_environment["DATABASE_URL"].startswith("sqlite:////app/data/")
 
 
 def test_local_workflow_keyrings_are_excluded_from_docker_build_context():
@@ -823,13 +685,21 @@ def test_bootstrap_module_has_no_import_time_file_writes(tmp_path):
     assert list(tmp_path.iterdir()) == []
 
 
-@pytest.mark.parametrize("missing", [
-    {"codecompass_layer_build"},
-    {"local_runtime_capability_discovery"},
-    {"codecompass_layer_build", "local_runtime_capability_discovery"},
-])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        {"codecompass_layer_build"},
+        {"local_runtime_capability_discovery"},
+        {"codecompass"},
+        {"codecompass_layer_build", "local_runtime_capability_discovery"},
+        {"codecompass", "codecompass_layer_build"},
+        {"codecompass", "local_runtime_capability_discovery"},
+        {"codecompass", "codecompass_layer_build", "local_runtime_capability_discovery"},
+    ],
+)
 def test_bootstrap_adds_the_codecompass_layer_capability_without_rotating_credentials(
-    tmp_path, missing,
+    tmp_path,
+    missing,
 ):
     """Keyrings written before these Worker capabilities existed are upgraded in place."""
     root = (tmp_path / "workflow-secrets").resolve()
@@ -840,8 +710,9 @@ def test_bootstrap_adds_the_codecompass_layer_capability_without_rotating_creden
         row["allowed_capabilities"] = [
             capability for capability in row["allowed_capabilities"] if capability not in missing
         ]
-    registration_path.write_text(json.dumps(registration, sort_keys=True, separators=(",", ":")) + "\n",
-                                 encoding="utf-8")
+    registration_path.write_text(
+        json.dumps(registration, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
+    )
     registration_path.chmod(0o600)
     private_paths = tuple(path for path in root.rglob("*") if path.is_file() and path != registration_path)
     before = {path: _digest(path) for path in private_paths}

@@ -1,7 +1,8 @@
 """CaseFlow Status Machine — validates status transitions per case type."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 
@@ -58,10 +59,7 @@ class CaseStatusDefinition:
             return TransitionResult(
                 valid=False,
                 error_code="TRANSITION_NOT_ALLOWED",
-                error_detail=(
-                    f"Transition from '{from_status}' to '{to_status}' is not allowed. "
-                    f"Allowed: {allowed}"
-                ),
+                error_detail=(f"Transition from '{from_status}' to '{to_status}' is not allowed. Allowed: {allowed}"),
             )
         return TransitionResult(valid=True, suggested_event_type="status_changed")
 

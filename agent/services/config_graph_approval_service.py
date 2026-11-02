@@ -4,6 +4,7 @@ The graph editor must not treat an arbitrary string as approval.  Approval
 tokens are bound to the canonical patch payload, the resolved risk tier and a
 server-side secret.
 """
+
 from __future__ import annotations
 
 import hashlib

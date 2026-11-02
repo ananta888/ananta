@@ -239,12 +239,16 @@ def _authorize_mcp_target(
     _emit_policy_execution_audit(decision, params=params, trace_id=trace_id)
     if decision.allowed:
         return descriptor, decision, None
-    return descriptor, decision, _jsonrpc_error(
-        req_id=req_id,
-        code=-32000,
-        message="forbidden",
-        data={"details": "operation_forbidden", "trace_id": trace_id},
-        http_status=403,
+    return (
+        descriptor,
+        decision,
+        _jsonrpc_error(
+            req_id=req_id,
+            code=-32000,
+            message="forbidden",
+            data={"details": "operation_forbidden", "trace_id": trace_id},
+            http_status=403,
+        ),
     )
 
 
@@ -300,6 +304,20 @@ def mcp_jsonrpc():
         forbidden_payload, status_code = blocked
         forbidden_payload["id"] = req_id
         return forbidden_payload, status_code
+
+    # MCP-Handshake (2025-03-26): Standard-Clients (OpenCode, Claude, etc.)
+    # senden zuerst initialize; Notifications ohne id beantworten wir mit 202.
+    if method == "initialize":
+        result = {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {"tools": {}, "resources": {}},
+            "serverInfo": {"name": "ananta-mcp", "version": "1.0.0"},
+        }
+        return {"jsonrpc": "2.0", "id": req_id, "result": result}
+    if method == "ping":
+        return {"jsonrpc": "2.0", "id": req_id, "result": {}}
+    if req_id is None and method.startswith("notifications/"):
+        return ("", 202)
 
     registry = get_core_services().mcp_registry_service
     trace_id = get_correlation_id()
@@ -402,4 +420,4 @@ def mcp_jsonrpc():
     except ValueError as exc:
         return _jsonrpc_error(req_id=req_id, code=-32602, message="invalid_params", data={"details": str(exc)})
 
-    return {"jsonrpc": "2.0", "id": req_id, "result": result, "trace_id": trace_id}
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}

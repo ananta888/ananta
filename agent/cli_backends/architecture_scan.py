@@ -100,7 +100,9 @@ def _load_source_file_batches(
         omitted = len(blocks) - max_files
         log.debug(
             "ananta-worker context budget: keeping top %s/%s blocks, omitting %s lower-scored",
-            max_files, len(blocks), omitted,
+            max_files,
+            len(blocks),
+            omitted,
         )
         blocks = blocks[:max_files]
 
@@ -127,7 +129,7 @@ def _collect_research_context_blocks(
         data = json.loads(research_json.read_text(encoding="utf-8", errors="replace"))
         _blocks.collect_ref_blocks(_blocks.select_scope_refs(data), repo_root, budget, collector)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_collect_research_context_blocks: ignored Exception", exc_info=True)
     return collector.blocks
 
 
@@ -259,7 +261,9 @@ def _read_research_context(workdir: str | None) -> dict:
 
 def _is_architecture_full_scan_context(ctx: dict) -> bool:
     profile = dict((ctx or {}).get("retrieval_profile") or {})
-    return str(profile.get("analysis_mode") or (ctx or {}).get("analysis_mode") or "").strip() == "architecture_full_scan"
+    return (
+        str(profile.get("analysis_mode") or (ctx or {}).get("analysis_mode") or "").strip() == "architecture_full_scan"
+    )
 
 
 def _write_json(path: pathlib.Path, payload: dict) -> None:
@@ -313,7 +317,7 @@ def _extract_json_object(text: str) -> dict | None:
         end = raw.rfind("}")
         if start >= 0 and end > start:
             try:
-                obj = json.loads(raw[start:end + 1])
+                obj = json.loads(raw[start : end + 1])
                 return dict(obj) if isinstance(obj, dict) else None
             except Exception:
                 return None
@@ -344,7 +348,12 @@ def _merge_batch_analysis(summary: dict, batch_result: dict | None, *, batch: li
             "schema": "architecture_batch_analysis.v1",
             "status": "degraded",
             "analyzed_refs": [
-                {"path": b.get("rel_path"), "source_kind": b.get("source_kind"), "start_line": b.get("start_line"), "end_line": b.get("end_line")}
+                {
+                    "path": b.get("rel_path"),
+                    "source_kind": b.get("source_kind"),
+                    "start_line": b.get("start_line"),
+                    "end_line": b.get("end_line"),
+                }
                 for b in batch
             ],
             "source_evidence": [
@@ -359,11 +368,25 @@ def _merge_batch_analysis(summary: dict, batch_result: dict | None, *, batch: li
     _append_unique(summary["edges"], list(result.get("edges") or []), ("from", "to", "relation"))
     _append_unique(summary["entrypoints"], list(result.get("entrypoints") or []), ("path", "symbol"))
     _append_unique(summary["data_flows"], list(result.get("data_flows") or []), ("from", "to", "description"))
-    _append_unique(summary["security_boundaries"], list(result.get("security_notes") or result.get("security_boundaries") or []), ("source", "description"))
-    _append_unique(summary["configuration_points"], list(result.get("config_notes") or result.get("configuration_points") or []), ("source", "key"))
+    _append_unique(
+        summary["security_boundaries"],
+        list(result.get("security_notes") or result.get("security_boundaries") or []),
+        ("source", "description"),
+    )
+    _append_unique(
+        summary["configuration_points"],
+        list(result.get("config_notes") or result.get("configuration_points") or []),
+        ("source", "key"),
+    )
     _append_unique(summary["runtime_paths"], list(result.get("runtime_paths") or []), ("name", "source"))
-    _append_unique(summary["open_questions"], list(result.get("unresolved_questions") or result.get("open_questions") or []), ("question",))
-    _append_unique(summary["source_evidence"], list(result.get("source_evidence") or []), ("source", "source_kind", "note"))
+    _append_unique(
+        summary["open_questions"],
+        list(result.get("unresolved_questions") or result.get("open_questions") or []),
+        ("question",),
+    )
+    _append_unique(
+        summary["source_evidence"], list(result.get("source_evidence") or []), ("source", "source_kind", "note")
+    )
 
     coverage = dict(summary.get("coverage") or {})
     processed = int(coverage.get("processed_refs") or 0)
@@ -398,7 +421,9 @@ def _summary_for_prompt(summary: dict, max_chars: int) -> str:
     return text
 
 
-def _build_architecture_batch_prompt(original_prompt: str, *, batch: list[dict], summary: dict, step: int, total_steps: int, max_summary_chars: int) -> str:
+def _build_architecture_batch_prompt(
+    original_prompt: str, *, batch: list[dict], summary: dict, step: int, total_steps: int, max_summary_chars: int
+) -> str:
     parts = [
         original_prompt.rstrip(),
         "\n\n---\n\n",
@@ -418,7 +443,9 @@ def _build_architecture_batch_prompt(original_prompt: str, *, batch: list[dict],
     return "".join(parts)
 
 
-def _build_architecture_synthesis_prompt(original_prompt: str, *, plan: dict, summary: dict, output_intent: str, max_summary_chars: int) -> str:
+def _build_architecture_synthesis_prompt(
+    original_prompt: str, *, plan: dict, summary: dict, output_intent: str, max_summary_chars: int
+) -> str:
     diagram_instruction = {
         "mermaid_sequence_diagram": "Erzeuge ein Mermaid sequenceDiagram fuer die wichtigsten Runtime-Flows.",
         "mermaid_component_diagram": "Erzeuge ein Mermaid flowchart fuer Komponenten und Abhaengigkeiten.",
@@ -445,7 +472,6 @@ def _run_architecture_full_scan(
     research_context: dict,
 ) -> tuple[int, str, str]:
     from agent.cli_backends.sgpt import run_sgpt_command
-
 
     profile = dict(research_context.get("retrieval_profile") or {})
     full_scan_enabled = bool(getattr(settings, "ananta_worker_full_scan_enabled", True))
@@ -540,7 +566,9 @@ def _run_architecture_full_scan(
             total_steps=total,
             max_summary_chars=max_summary_chars,
         )
-        rc, out, err = run_sgpt_command(prompt=iter_prompt, options=options, timeout=timeout, model=model, workdir=workdir)
+        rc, out, err = run_sgpt_command(
+            prompt=iter_prompt, options=options, timeout=timeout, model=model, workdir=workdir
+        )
         last_rc, last_err = rc, err
         if out:
             last_out = out
@@ -582,7 +610,12 @@ def _run_architecture_full_scan(
             _write_json(summary_path, summary)
             break
 
-    summary["status"] = "done" if int((summary.get("coverage") or {}).get("processed_refs") or 0) >= int((summary.get("coverage") or {}).get("planned_refs") or 0) else summary.get("status", "partial")
+    summary["status"] = (
+        "done"
+        if int((summary.get("coverage") or {}).get("processed_refs") or 0)
+        >= int((summary.get("coverage") or {}).get("planned_refs") or 0)
+        else summary.get("status", "partial")
+    )
     _write_json(summary_path, summary)
 
     output_intent = str(plan.get("output_intent") or profile.get("output_intent") or "architecture_overview")
@@ -593,7 +626,9 @@ def _run_architecture_full_scan(
         output_intent=output_intent,
         max_summary_chars=max_summary_chars,
     )
-    rc, out, err = run_sgpt_command(prompt=synthesis_prompt, options=options, timeout=timeout, model=model, workdir=workdir)
+    rc, out, err = run_sgpt_command(
+        prompt=synthesis_prompt, options=options, timeout=timeout, model=model, workdir=workdir
+    )
     if out:
         last_rc, last_out, last_err = rc, out, err
         try:

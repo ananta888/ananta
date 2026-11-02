@@ -139,15 +139,11 @@ def test_strict_checkpoint_route_passes_authenticated_worker_identity(
                     "langgraph-worker-1": {
                         "worker_url": "http://langgraph-worker:5000",
                         "registration_token": bootstrap,
-                        "service_token_sha256": hashlib.sha256(
-                            worker_token.encode("utf-8")
-                        ).hexdigest(),
+                        "service_token_sha256": hashlib.sha256(worker_token.encode("utf-8")).hexdigest(),
                         "session_signing_key_sha256": hashlib.sha256(
                             b"langgraph-session-signing-key-0123456789abcdef"
                         ).hexdigest(),
-                        "allowed_capabilities": [
-                            "workflow.adapter.langgraph"
-                        ],
+                        "allowed_capabilities": ["workflow.adapter.langgraph"],
                     }
                 },
             }

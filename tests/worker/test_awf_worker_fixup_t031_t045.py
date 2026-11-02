@@ -16,23 +16,27 @@ AWF-T043: Provider fallback and cloud-block
 AWF-T044: Worker security regression suite
 AWF-T045: Docs and track update
 """
+
 from __future__ import annotations
 
 import time
-import pytest
 
+import pytest
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T031: Baseline skills
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT031BaselineSkills:
     def _registry(self):
         from worker.skills.skill_registry import SkillRegistry
+
         return SkillRegistry()
 
     def test_five_builtin_skills_exist(self):
         from worker.skills.builtin.manifests import BUILTIN_SKILLS
+
         ids = {s.id for s in BUILTIN_SKILLS}
         assert "repo_context_review" in ids
         assert "test_failure_triage" in ids
@@ -41,7 +45,8 @@ class TestT031BaselineSkills:
         assert "result_summary" in ids
 
     def test_load_builtin_skills_registers_all(self):
-        from worker.skills.builtin.manifests import load_builtin_skills, BUILTIN_SKILLS
+        from worker.skills.builtin.manifests import BUILTIN_SKILLS, load_builtin_skills
+
         reg = self._registry()
         errors = load_builtin_skills(reg)
         assert errors == [], f"Unexpected errors: {errors}"
@@ -50,6 +55,7 @@ class TestT031BaselineSkills:
 
     def test_builtin_skills_disabled_by_default(self):
         from worker.skills.builtin.manifests import load_builtin_skills
+
         reg = self._registry()
         load_builtin_skills(reg)
         for d in reg.list_diagnostics():
@@ -57,29 +63,34 @@ class TestT031BaselineSkills:
 
     def test_no_baseline_skill_allows_shell_execute(self):
         from worker.skills.builtin.manifests import BUILTIN_SKILLS
+
         for skill in BUILTIN_SKILLS:
             assert "run_shell" not in skill.allowed_tools, f"{skill.id} allows run_shell"
             assert "shell_execute" not in skill.allowed_tools, f"{skill.id} allows shell_execute"
 
     def test_no_baseline_skill_allows_patch_apply(self):
         from worker.skills.builtin.manifests import BUILTIN_SKILLS
+
         for skill in BUILTIN_SKILLS:
             assert "patch_apply" not in skill.allowed_tools, f"{skill.id} allows patch_apply"
 
     def test_baseline_skills_have_low_or_medium_risk(self):
         from worker.skills.builtin.manifests import BUILTIN_SKILLS
+
         for skill in BUILTIN_SKILLS:
             assert skill.risk_class in {"low", "medium"}, f"{skill.id} has risk_class={skill.risk_class}"
 
     def test_each_builtin_skill_valid(self):
         from worker.skills.builtin.manifests import BUILTIN_SKILLS
         from worker.skills.skill_manifest import validate_skill_manifest
+
         for skill in BUILTIN_SKILLS:
             errors = validate_skill_manifest(skill)
             assert errors == [], f"{skill.id}: {errors}"
 
     def test_enable_builtin_skill(self):
         from worker.skills.builtin.manifests import load_builtin_skills
+
         reg = self._registry()
         load_builtin_skills(reg)
         assert reg.enable("result_summary") is True
@@ -90,8 +101,10 @@ class TestT031BaselineSkills:
 # AWF-T032: SubworkerEnvelope capability subset enforcement
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _make_envelope(**kwargs):
     from worker.core.subworker_envelope import create_subworker_envelope
+
     defaults = dict(
         parent_execution_id="parent-1",
         child_task_id="child-t-1",
@@ -145,11 +158,19 @@ class TestT032SubworkerEnvelope:
 # AWF-T033: DelegationArtifact
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT033DelegationArtifact:
     def _build(self, children=None):
         from worker.core.delegation_artifact import build_delegation_artifact
+
         children = children or [
-            {"execution_id": "c-1", "task_id": "t-1", "status": "success", "artifact_refs": ["a1"], "trace_refs": ["tr1"]},
+            {
+                "execution_id": "c-1",
+                "task_id": "t-1",
+                "status": "success",
+                "artifact_refs": ["a1"],
+                "trace_refs": ["tr1"],
+            },
             {"execution_id": "c-2", "task_id": "t-2", "status": "failed", "artifact_refs": [], "trace_refs": []},
         ]
         return build_delegation_artifact(
@@ -176,6 +197,7 @@ class TestT033DelegationArtifact:
 
     def test_all_succeeded_true_when_all_ok(self):
         from worker.core.delegation_artifact import build_delegation_artifact
+
         art = build_delegation_artifact(
             parent_execution_id="p-1",
             children=[
@@ -200,6 +222,7 @@ class TestT033DelegationArtifact:
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T034: Subworker recursion/fan-out/mutation limits
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestT034SubworkerLimits:
     def test_depth_limit_exceeded_returns_error(self):
@@ -234,6 +257,7 @@ class TestT034SubworkerLimits:
 # AWF-T035: Cancellation and timeout propagation
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT035CancellationTimeout:
     def test_expired_envelope_detected(self):
         env, _ = _make_envelope(timeout_seconds=0.001)
@@ -246,16 +270,19 @@ class TestT035CancellationTimeout:
 
     def test_worker_result_v2_supports_cancelled_status(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(status="cancelled", reason_code="parent_cancelled")
         assert r.status == "cancelled"
 
     def test_worker_result_v2_supports_timeout_status(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(status="timeout", reason_code="deadline_exceeded")
         assert r.status == "timeout"
 
     def test_map_native_result_cancelled(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         r = map_native_result_to_v2({"status": "cancelled", "reason": "user_cancel"})
         assert r.status == "cancelled"
 
@@ -264,25 +291,30 @@ class TestT035CancellationTimeout:
 # AWF-T036: WorkerResult v2
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT036WorkerResultV2:
     def test_success_status(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(status="success")
         assert r.status == "success"
 
     def test_invalid_status_raises(self):
         from worker.core.worker_result import WorkerResultV2
+
         with pytest.raises(ValueError, match="invalid_worker_result_status"):
             WorkerResultV2(status="unknown_xyz")
 
     def test_all_valid_statuses(self):
-        from worker.core.worker_result import WorkerResultV2, _VALID_STATUSES
+        from worker.core.worker_result import _VALID_STATUSES, WorkerResultV2
+
         for status in _VALID_STATUSES:
             r = WorkerResultV2(status=status)
             assert r.status == status
 
     def test_as_dict_schema_field(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(status="success", summary="done")
         d = r.as_dict()
         assert d["schema"] == "worker_result.v2"
@@ -290,22 +322,26 @@ class TestT036WorkerResultV2:
 
     def test_map_passed_to_success(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         r = map_native_result_to_v2({"status": "passed"})
         assert r.status == "success"
 
     def test_map_blocked_to_denied(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         r = map_native_result_to_v2({"status": "blocked"})
         assert r.status == "denied"
 
     def test_map_preserves_artifacts(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         arts = [{"kind": "test_result_artifact"}]
         r = map_native_result_to_v2({"status": "success", "artifacts": arts})
         assert r.artifacts == arts
 
     def test_no_side_effects_confirmed(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(status="success", no_side_effects_confirmed=True)
         assert r.no_side_effects_confirmed is True
 
@@ -314,9 +350,11 @@ class TestT036WorkerResultV2:
 # AWF-T037: TraceBundle v2
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT037TraceBundleV2:
     def _bundle(self, **kwargs):
         from worker.core.trace_bundle import TraceBundleV2
+
         defaults = dict(execution_id="ex-1", task_id="t-1")
         defaults.update(kwargs)
         return TraceBundleV2(**defaults)
@@ -353,7 +391,8 @@ class TestT037TraceBundleV2:
         assert b.as_dict()["context_hash"] == "ctx-hash-xyz"
 
     def test_provider_call_recorded(self):
-        from worker.core.trace_bundle import TraceBundleV2, ProviderCallRecord
+        from worker.core.trace_bundle import ProviderCallRecord
+
         b = self._bundle()
         b.provider_calls.append(ProviderCallRecord(provider="native_worker", model=None, status="ok"))
         d = b.as_dict()
@@ -361,7 +400,8 @@ class TestT037TraceBundleV2:
         assert d["provider_calls"][0]["provider"] == "native_worker"
 
     def test_tool_call_recorded(self):
-        from worker.core.trace_bundle import TraceBundleV2, ToolCallRecord
+        from worker.core.trace_bundle import ToolCallRecord
+
         b = self._bundle()
         b.tool_calls.append(ToolCallRecord(tool_id="run_shell", output_chars=100))
         d = b.as_dict()
@@ -372,26 +412,31 @@ class TestT037TraceBundleV2:
 # AWF-T038: Typed artifact enforcement
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT038ArtifactEnforcement:
     def test_known_kind_is_typed(self):
         from worker.core.artifact_types import is_typed_artifact
+
         assert is_typed_artifact({"kind": "test_result_artifact"}) is True
         assert is_typed_artifact({"kind": "patch_artifact"}) is True
         assert is_typed_artifact({"kind": "delegation_artifact"}) is True
 
     def test_unknown_kind_not_typed(self):
         from worker.core.artifact_types import is_typed_artifact
+
         assert is_typed_artifact({"kind": "raw_stdout"}) is False
         assert is_typed_artifact({}) is False
 
     def test_success_command_execute_no_artifact_violates(self):
         from worker.core.artifact_types import enforce_artifact_first
+
         violations = enforce_artifact_first(artifacts=[], mode="command_execute", status="success")
         assert len(violations) >= 1
         assert "artifact_first_violation" in violations[0]
 
     def test_success_command_execute_with_typed_artifact_ok(self):
         from worker.core.artifact_types import enforce_artifact_first
+
         violations = enforce_artifact_first(
             artifacts=[{"kind": "test_result_artifact"}],
             mode="command_execute",
@@ -401,11 +446,13 @@ class TestT038ArtifactEnforcement:
 
     def test_denied_status_no_enforcement(self):
         from worker.core.artifact_types import enforce_artifact_first
+
         violations = enforce_artifact_first(artifacts=[], mode="shell_execute", status="denied")
         assert violations == []
 
     def test_all_typed_kinds_registered(self):
         from worker.core.artifact_types import TYPED_ARTIFACT_KINDS
+
         for kind in ("memory_proposal_artifact", "skill_proposal_artifact", "delegation_artifact"):
             assert kind in TYPED_ARTIFACT_KINDS
 
@@ -414,9 +461,11 @@ class TestT038ArtifactEnforcement:
 # AWF-T039: Worker diagnostics read model
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT039WorkerDiagnostics:
     def _diag(self, **kwargs):
         from worker.core.diagnostics import build_worker_diagnostics_read_model
+
         return build_worker_diagnostics_read_model(**kwargs)
 
     def test_required_fields_present(self):
@@ -443,8 +492,9 @@ class TestT039WorkerDiagnostics:
         assert gates.get("tool_registry_check") is True
 
     def test_skill_registry_summary_populated(self):
+        from worker.skills.builtin.manifests import BUILTIN_SKILLS, load_builtin_skills
         from worker.skills.skill_registry import SkillRegistry
-        from worker.skills.builtin.manifests import load_builtin_skills, BUILTIN_SKILLS
+
         reg = SkillRegistry()
         load_builtin_skills(reg)
         reg.enable("result_summary")
@@ -455,6 +505,7 @@ class TestT039WorkerDiagnostics:
 
     def test_memory_policy_summary_strips_sensitive_keys(self):
         from agent.services.result_memory_service import normalize_result_memory_policy
+
         policy = normalize_result_memory_policy(None)
         d = self._diag(memory_policy=policy)
         assert "enabled" in d.memory_policy_summary
@@ -462,6 +513,7 @@ class TestT039WorkerDiagnostics:
 
     def test_tool_registry_summary(self):
         from worker.core.tool_registry import build_default_registry
+
         reg = build_default_registry()
         d = self._diag(tool_registry=reg)
         assert d.tool_registry_summary["registered_count"] > 0
@@ -471,9 +523,11 @@ class TestT039WorkerDiagnostics:
 # AWF-T040: Audit events for sensitive worker transitions
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT040AuditEvents:
     def test_known_event_emitted(self):
         from worker.core.audit_events import emit_worker_audit_event
+
         event = emit_worker_audit_event(
             event_type="worker_preflight_decision",
             task_id="t-1",
@@ -486,17 +540,20 @@ class TestT040AuditEvents:
 
     def test_unknown_event_type_raises(self):
         from worker.core.audit_events import emit_worker_audit_event
+
         with pytest.raises(ValueError, match="unknown_worker_audit_event"):
             emit_worker_audit_event(event_type="custom_arbitrary_event", task_id="t-1")
 
     def test_all_defined_event_types_emittable(self):
-        from worker.core.audit_events import emit_worker_audit_event, WORKER_AUDIT_EVENTS
+        from worker.core.audit_events import WORKER_AUDIT_EVENTS, emit_worker_audit_event
+
         for event_type in WORKER_AUDIT_EVENTS:
             event = emit_worker_audit_event(event_type=event_type, task_id="t-1")
             assert event["event_type"] == event_type
 
     def test_sensitive_keys_scrubbed(self):
         from worker.core.audit_events import emit_worker_audit_event
+
         event = emit_worker_audit_event(
             event_type="worker_provider_call",
             task_id="t-1",
@@ -507,10 +564,13 @@ class TestT040AuditEvents:
 
     def test_trace_port_called(self):
         from worker.core.audit_events import emit_worker_audit_event
+
         emitted = []
+
         class FakePort:
             def emit(self, *, event_type, payload):
                 emitted.append((event_type, payload))
+
         emit_worker_audit_event(
             event_type="worker_memory_write",
             task_id="t-1",
@@ -521,6 +581,7 @@ class TestT040AuditEvents:
 
     def test_events_include_required_fields(self):
         from worker.core.audit_events import emit_worker_audit_event
+
         event = emit_worker_audit_event(
             event_type="worker_tool_invocation",
             task_id="t-1",
@@ -538,13 +599,17 @@ class TestT040AuditEvents:
 # AWF-T041: E2E native worker safe plan/review flow
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT041E2ESafeWorkerFlow:
     def _make_runtime(self):
         from tests.worker.test_awf_worker_fixup_t001_t010 import (
-            _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort,
+            _AllowPolicyPort,
+            _ListTracePort,
+            _ManifestArtifactPort,
         )
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         tp = _ListTracePort()
         ap = _ManifestArtifactPort()
         rt = StandaloneRuntime(
@@ -557,6 +622,7 @@ class TestT041E2ESafeWorkerFlow:
 
     def _safe_plan_contract(self):
         from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
+
         contract = _todo_contract()
         # plan_only mode — no shell execution, no workspace mutation
         contract["execution"]["mode"] = "plan_only"
@@ -574,8 +640,9 @@ class TestT041E2ESafeWorkerFlow:
 
     def test_standalone_contract_no_workspace_mutation(self):
         from tests.worker.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         rt = StandaloneRuntime(
             policy_port=_AllowPolicyPort(),
             trace_port=_ListTracePort(),
@@ -599,6 +666,7 @@ class TestT041E2ESafeWorkerFlow:
 
     def test_context_hash_tracked(self):
         from worker.core.trace_bundle import TraceBundleV2
+
         b = TraceBundleV2(
             execution_id="ex-e2e",
             task_id="t-e2e",
@@ -612,6 +680,7 @@ class TestT041E2ESafeWorkerFlow:
 
     def test_worker_result_v2_no_mutation_confirmed(self):
         from worker.core.worker_result import WorkerResultV2
+
         r = WorkerResultV2(
             status="success",
             no_side_effects_confirmed=True,
@@ -625,13 +694,17 @@ class TestT041E2ESafeWorkerFlow:
 # AWF-T042: E2E command execute denial and approval
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT042CommandExecuteDenialApproval:
     def _make_runtime(self, policy_port=None):
         from tests.worker.test_awf_worker_fixup_t001_t010 import (
-            _ListTracePort, _ManifestArtifactPort, _AllowPolicyPort,
+            _AllowPolicyPort,
+            _ListTracePort,
+            _ManifestArtifactPort,
         )
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         return StandaloneRuntime(
             policy_port=policy_port or _AllowPolicyPort(),
             trace_port=_ListTracePort(),
@@ -641,6 +714,7 @@ class TestT042CommandExecuteDenialApproval:
 
     def test_policy_deny_blocks_execution(self):
         from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort
+
         rt = self._make_runtime(policy_port=_DenyPolicyPort())
         result = rt.run(
             task_contract={
@@ -660,8 +734,11 @@ class TestT042CommandExecuteDenialApproval:
     def test_shell_execute_requires_approval_from_preflight(self):
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
         from worker.core.preflight import PreflightGate
+
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
+            task_id="t-1",
+            actor_ref="hub",
+            audit_correlation_id="a",
             context_envelope_ref="ctx",
             capability_grant=CapabilityGrant(capabilities=["shell_execute"]),
         )
@@ -671,21 +748,25 @@ class TestT042CommandExecuteDenialApproval:
         assert decision.reason_code in {"approval_required", "confirm_required", "approval_missing"}
 
     def test_approved_shell_execute_passes_preflight(self):
-        from worker.core.execution_envelope import (
-            CapabilityGrant, ExecutionEnvelope, ApprovalRef
-        )
-        from worker.core.preflight import PreflightGate
         import time as _time
+
+        from worker.core.execution_envelope import ApprovalRef, CapabilityGrant, ExecutionEnvelope
+        from worker.core.preflight import PreflightGate
+
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
+            task_id="t-1",
+            actor_ref="hub",
+            audit_correlation_id="a",
             context_envelope_ref="ctx",
             capability_grant=CapabilityGrant(capabilities=["shell_execute"]),
-            approval_refs=[ApprovalRef(
-                ref_id="ref-1",
-                operation="shell_execute",
-                granted_at=_time.time(),
-                granted_by="hub",
-            )],
+            approval_refs=[
+                ApprovalRef(
+                    ref_id="ref-1",
+                    operation="shell_execute",
+                    granted_at=_time.time(),
+                    granted_by="hub",
+                )
+            ],
         )
         gate = PreflightGate()
         decision = gate.check(env)
@@ -693,11 +774,13 @@ class TestT042CommandExecuteDenialApproval:
 
     def test_policy_denied_result_in_status(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         r = map_native_result_to_v2({"status": "denied", "reason": "policy_denied"})
         assert r.status == "denied"
 
     def test_needs_approval_status_preserved(self):
         from worker.core.worker_result import map_native_result_to_v2
+
         r = map_native_result_to_v2({"status": "needs_approval"})
         assert r.status == "needs_approval"
 
@@ -706,12 +789,17 @@ class TestT042CommandExecuteDenialApproval:
 # AWF-T043: Provider fallback and cloud-block integration
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT043ProviderCloudBlock:
     def test_cloud_blocked_when_cloud_not_allowed(self):
         from worker.core.provider_registry import (
-            WorkerProviderRegistry, ProviderSelectionGate, ModelPolicy,
-            ProviderEntry, ProviderKind,
+            ModelPolicy,
+            ProviderEntry,
+            ProviderKind,
+            ProviderSelectionGate,
+            WorkerProviderRegistry,
         )
+
         reg = WorkerProviderRegistry()
         reg.register(ProviderEntry(id="local_llm", kind=ProviderKind.local, priority=10))
         reg.register(ProviderEntry(id="openai", kind=ProviderKind.cloud, priority=50))
@@ -723,9 +811,13 @@ class TestT043ProviderCloudBlock:
 
     def test_local_selected_when_available(self):
         from worker.core.provider_registry import (
-            WorkerProviderRegistry, ProviderSelectionGate, ModelPolicy,
-            ProviderEntry, ProviderKind,
+            ModelPolicy,
+            ProviderEntry,
+            ProviderKind,
+            ProviderSelectionGate,
+            WorkerProviderRegistry,
         )
+
         reg = WorkerProviderRegistry()
         reg.register(ProviderEntry(id="local_llm", kind=ProviderKind.local, priority=10))
         policy = ModelPolicy(cloud_allowed=True, allowed_providers=["local_llm"])
@@ -737,8 +829,11 @@ class TestT043ProviderCloudBlock:
 
     def test_unavailable_provider_returns_degraded_not_crash(self):
         from worker.core.provider_registry import (
-            WorkerProviderRegistry, ProviderSelectionGate, ModelPolicy,
+            ModelPolicy,
+            ProviderSelectionGate,
+            WorkerProviderRegistry,
         )
+
         reg = WorkerProviderRegistry()
         policy = ModelPolicy(cloud_allowed=False, allowed_providers=["nonexistent"])
         gate = ProviderSelectionGate(reg)
@@ -748,6 +843,7 @@ class TestT043ProviderCloudBlock:
 
     def test_provider_credentials_not_in_provenance(self):
         from worker.core.provider_registry import ProviderProvenanceRef
+
         prov = ProviderProvenanceRef.native_worker()
         d = prov.as_dict()
         content = str(d)
@@ -755,11 +851,24 @@ class TestT043ProviderCloudBlock:
         assert "password" not in content.lower()
 
     def test_context_sensitivity_filter_blocks_confidential_for_cloud(self):
-        from worker.core.context_resolver import ContextSensitivityFilter, ContextBlock, ContextSensitivity
+        from worker.core.context_resolver import ContextBlock, ContextSensitivity, ContextSensitivityFilter
+
         f = ContextSensitivityFilter()
         blocks = [
-            ContextBlock(source_type="task", origin_id="t1", provenance="p", sensitivity=ContextSensitivity.customer_confidential, content="secret stuff"),
-            ContextBlock(source_type="task", origin_id="t2", provenance="p", sensitivity=ContextSensitivity.public, content="public stuff"),
+            ContextBlock(
+                source_type="task",
+                origin_id="t1",
+                provenance="p",
+                sensitivity=ContextSensitivity.customer_confidential,
+                content="secret stuff",
+            ),
+            ContextBlock(
+                source_type="task",
+                origin_id="t2",
+                provenance="p",
+                sensitivity=ContextSensitivity.public,
+                content="public stuff",
+            ),
         ]
         kept, redacted = f.filter_for_cloud(blocks)
         assert len(kept) == 1
@@ -772,19 +881,19 @@ class TestT043ProviderCloudBlock:
 # Each test has a comment naming the bypass class it prevents.
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT044SecurityRegression:
-
-
     def test_tool_not_registered_denied(self):
         # BYPASS: calling unregistered tool skips all resource/policy enforcement
         from worker.core.tool_registry import WorkerToolRegistry
+
         reg = WorkerToolRegistry()
         assert reg.is_registered("custom_dangerous_tool") is False
-
 
     def test_memory_redaction_before_persist(self):
         # BYPASS: raw secrets written to memory DB
         from worker.core.redaction import redact_text
+
         raw = "API_KEY=sk-supersecret123"
         redacted = redact_text(raw)
         assert "sk-supersecret123" not in redacted
@@ -797,19 +906,22 @@ class TestT044SecurityRegression:
         )
         assert any("subworker_capability_escalation" in e for e in errors)
 
-
     def test_skill_disabled_by_default_cannot_run(self):
         # BYPASS: skill auto-enabled and executed before review
+        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
-        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+
         reg = SkillRegistry()
         from tests.worker.test_awf_worker_fixup_t021_t030 import _minimal_manifest
+
         reg.register(_minimal_manifest())
         # NOT enabled — must not run
         runner = SkillRunner(reg)
         env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
+            task_id="t-1",
+            actor_ref="hub",
+            audit_correlation_id="a",
             context_envelope_ref="ctx",
             capability_grant=CapabilityGrant(capabilities=["skill_execute"]),
         )
@@ -820,14 +932,16 @@ class TestT044SecurityRegression:
     def test_unknown_audit_event_raises(self):
         # BYPASS: arbitrary event bypasses audit gate
         from worker.core.audit_events import emit_worker_audit_event
+
         with pytest.raises(ValueError):
             emit_worker_audit_event(event_type="not_a_real_event", task_id="t-1")
 
     def test_code_aware_mode_without_context_denied(self):
         # BYPASS: code-aware mode runs without context ref (no grounding)
         from tests.worker.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
-        from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
+        from worker.runtime.standalone_runtime import StandaloneRuntime
+
         rt = StandaloneRuntime(
             policy_port=_AllowPolicyPort(),
             trace_port=_ListTracePort(),
@@ -835,6 +949,7 @@ class TestT044SecurityRegression:
             tool_registry=build_default_registry(),
         )
         from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
+
         contract = _todo_contract()
         contract["control_manifest"].pop("context_ref", None)
         contract["control_manifest"].pop("context_hash", None)
@@ -848,19 +963,23 @@ class TestT044SecurityRegression:
 # AWF-T045: Docs and track update verification
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestT045DocsAndTrackUpdate:
     def _todo_path(self):
         from pathlib import Path
+
         return Path(__file__).parents[2] / "todos" / "archiv" / "todo.ananta-worker-fixup.json"
 
     def test_todo_file_is_valid_json(self):
         import json
+
         data = json.loads(self._todo_path().read_text())
         assert data.get("version") == 1
         assert data.get("track")
 
     def test_architecture_doc_exists(self):
         from pathlib import Path
+
         doc = Path(__file__).parents[2] / "docs" / "architecture" / "ananta_native_worker.md"
         assert doc.exists()
         content = doc.read_text()
@@ -868,6 +987,7 @@ class TestT045DocsAndTrackUpdate:
 
     def test_setup_doc_exists(self):
         from pathlib import Path
+
         doc = Path(__file__).parents[2] / "docs" / "setup" / "native-worker.md"
         assert doc.exists()
         content = doc.read_text()
@@ -875,6 +995,7 @@ class TestT045DocsAndTrackUpdate:
 
     def test_all_t031_t040_marked_done(self):
         import json
+
         data = json.loads(self._todo_path().read_text())
         targets = {f"AWF-T0{i}" for i in range(31, 46)}
         for task in data["tasks"]:

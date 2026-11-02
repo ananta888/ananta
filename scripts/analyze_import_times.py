@@ -1,6 +1,7 @@
+import os
 import subprocess
 import sys
-import os
+
 
 def analyze_imports():
     print("Analyzing import times for agent.ai_agent...")
@@ -10,7 +11,9 @@ def analyze_imports():
     env["PYTHONPATH"] = "."
 
     cmd = [sys.executable, "-X", "importtime", "-c", "from agent.ai_agent import create_app"]
-    process = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env=env, text=True, encoding="utf-8")
+    process = subprocess.Popen(
+        cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env=env, text=True, encoding="utf-8"
+    )
     _, stderr = process.communicate()
 
     # Simple summary: find the top slowest imports
@@ -36,7 +39,8 @@ def analyze_imports():
     print(f"{'Cumul (ms)':>10} | {'Self (ms)':>10} | {'Module'}")
     print("-" * 60)
     for cum_us, self_us, module in imports[:20]:
-        print(f"{cum_us/1000:>10.2f} | {self_us/1000:>10.2f} | {module}")
+        print(f"{cum_us / 1000:>10.2f} | {self_us / 1000:>10.2f} | {module}")
+
 
 if __name__ == "__main__":
     analyze_imports()

@@ -54,8 +54,7 @@ class BusinessControllingProvenanceService:
         if (
             finding.dataset_id != dataset.dataset_id
             or finding.dataset_version != dataset.dataset_version
-            or finding.execution_receipt_digest
-            != _digest(execution_receipt.to_dict())
+            or finding.execution_receipt_digest != _digest(execution_receipt.to_dict())
             or explanation.finding_id != finding.finding_id
             or len(mapping_digest) != 64
         ):
@@ -64,12 +63,16 @@ class BusinessControllingProvenanceService:
         execution_node_id = f"business-execution:{execution_receipt.execution_id}"
         finding_node_id = f"business-finding:{finding.finding_id}"
         explanation_node_id = f"business-explanation:{explanation.explanation_id}"
-        locator = finding.locator.to_dict() if allow_record_locator else {
-            "source_kind": finding.locator.source_kind,
-            "source_version": finding.locator.source_version,
-            "locator_kind": finding.locator.locator_kind,
-            "locator": "redacted",
-        }
+        locator = (
+            finding.locator.to_dict()
+            if allow_record_locator
+            else {
+                "source_kind": finding.locator.source_kind,
+                "source_version": finding.locator.source_version,
+                "locator_kind": finding.locator.locator_kind,
+                "locator": "redacted",
+            }
+        )
         nodes = (
             _node(
                 dataset_node_id,

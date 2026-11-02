@@ -3,6 +3,7 @@
 These schemas are validated without LangChain/LangGraph installed —
 they are the contract; the framework is an implementation detail.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,6 @@ import pytest
 # jsonschema is already a transitive dependency of pydantic in this
 # codebase, but we use it directly here to make the intent explicit.
 from jsonschema import Draft202012Validator, ValidationError
-
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "docs" / "contracts"
 CHAIN_SCHEMA = SCHEMA_DIR / "langchain-chain-descriptor.schema.json"
@@ -116,10 +116,18 @@ def test_chain_retriever_must_be_codecompass_or_null(chain_validator):
 # ── Graph node kinds enum ─────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("kind", [
-    "llm", "tool", "human_gate", "router", "artifact_writer",
-    "retriever", "end",
-])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "llm",
+        "tool",
+        "human_gate",
+        "router",
+        "artifact_writer",
+        "retriever",
+        "end",
+    ],
+)
 def test_graph_accepts_all_documented_node_kinds(graph_validator, kind):
     g = {
         "schema": "langgraph-graph-descriptor.v1",
@@ -241,8 +249,7 @@ def test_graph_v11_conditional_edge_object(graph_v11_validator):
             {"id": "sad", "kind": "end"},
         ],
         edges=[
-            {"from": "router", "to": "happy",
-             "condition": {"on_stop_reason": "success"}},
+            {"from": "router", "to": "happy", "condition": {"on_stop_reason": "success"}},
             {"from": "router", "to": "sad"},
         ],
         entrypoint="router",

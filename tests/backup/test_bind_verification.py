@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
+from scripts.ananta_backup.archive import SafeTarExtractor
 from scripts.ananta_backup.bind_verification import (
     OllamaModelVerifier,
     WorkflowCredentialVerifier,
 )
-from scripts.ananta_backup.archive import SafeTarExtractor
 from scripts.ananta_backup.errors import BackupError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -95,9 +95,7 @@ def test_workflow_credential_verifier_rejects_key_identifier_mismatch(
         alpha_worker_id="ananta-worker-1",
         beta_worker_id="ananta-worker-2",
     )
-    verification_path = (
-        root / "worker" / "workflow-auth-verification-keyring.json"
-    )
+    verification_path = root / "worker" / "workflow-auth-verification-keyring.json"
     verification = json.loads(verification_path.read_text(encoding="utf-8"))
     public_key = next(iter(verification["public_keys"].values()))
     verification["public_keys"] = {"different-key-id": public_key}
@@ -123,9 +121,7 @@ def test_workflow_credential_verifier_rejects_private_public_mismatch(
     signing_path = root / "hub" / "workflow-auth-signing-keyring.json"
     signing = json.loads(signing_path.read_text(encoding="utf-8"))
     active_key_id = signing["active_key_id"]
-    signing["private_keys"][active_key_id] = base64.b64encode(
-        b"x" * 32
-    ).decode("ascii")
+    signing["private_keys"][active_key_id] = base64.b64encode(b"x" * 32).decode("ascii")
     signing_path.write_text(json.dumps(signing), encoding="utf-8")
 
     with pytest.raises(BackupError, match="private keys do not match"):
@@ -152,10 +148,7 @@ def test_safe_archive_extraction_preserves_verifiable_credentials(
     SafeTarExtractor.extract_file(archive_path, destination)
 
     verification_mode = (
-        destination
-        / "workflow"
-        / "worker"
-        / "workflow-auth-verification-keyring.json"
+        destination / "workflow" / "worker" / "workflow-auth-verification-keyring.json"
     ).stat().st_mode & 0o777
     assert verification_mode == 0o400
     WorkflowCredentialVerifier().verify(destination / "workflow")
@@ -164,14 +157,7 @@ def test_safe_archive_extraction_preserves_verifiable_credentials(
 def _ollama_models(tmp_path: Path) -> tuple[Path, Path]:
     models = tmp_path / "models"
     blobs = models / "blobs"
-    manifest = (
-        models
-        / "manifests"
-        / "registry.ollama.ai"
-        / "library"
-        / "phi4-mini"
-        / "latest"
-    )
+    manifest = models / "manifests" / "registry.ollama.ai" / "library" / "phi4-mini" / "latest"
     blobs.mkdir(parents=True)
     manifest.parent.mkdir(parents=True)
     content = b"quantized-test-model"

@@ -202,11 +202,7 @@ def test_matrix_keeps_configured_runtime_verified_and_effective_separate() -> No
     def xml_relationships(matrix: dict[str, object]) -> dict[str, object]:
         rows = matrix["rows"]
         assert isinstance(rows, list)
-        row = next(
-            item
-            for item in rows
-            if item["format_id"] == "xml" and item["pipeline"] == "rag_helper"
-        )
+        row = next(item for item in rows if item["format_id"] == "xml" and item["pipeline"] == "rag_helper")
         return row["capabilities"][CapabilityDimension.RELATIONSHIPS.value]
 
     missing = xml_relationships(missing_runtime)
@@ -226,8 +222,7 @@ def test_semantic_translation_claims_relationships_only_for_verified_adapters() 
     effective_relationships = {
         row["format_id"]
         for row in matrix["rows"]
-        if row["pipeline"] == "semantic_translation"
-        and row["capabilities"]["relationships"]["effective"] is True
+        if row["pipeline"] == "semantic_translation" and row["capabilities"]["relationships"]["effective"] is True
     }
 
     assert effective_relationships == {"java", "javascript", "python", "typescript"}
@@ -272,10 +267,7 @@ def test_repository_map_runtime_requirements_do_not_treat_import_as_parser_truth
         for requirement in descriptor.support_for(pipeline).capability(dimension).runtime_requirements
     }
     assert "python-module:tree_sitter_languages" not in runtime_requirements
-    assert all(
-        not requirement.startswith("python-module:tree_sitter_")
-        for requirement in runtime_requirements
-    )
+    assert all(not requirement.startswith("python-module:tree_sitter_") for requirement in runtime_requirements)
 
 
 def test_new_rag_helper_formats_distinguish_symbols_from_relationships() -> None:
@@ -310,24 +302,56 @@ def test_all_declared_evidence_is_repository_relative_and_exists() -> None:
 
 def test_registry_covers_requested_extensions_and_special_filenames() -> None:
     registry = _registry()
-    extensions = {
-        extension
-        for descriptor in registry.descriptors
-        for extension in descriptor.selectors.extensions
-    }
+    extensions = {extension for descriptor in registry.descriptors for extension in descriptor.selectors.extensions}
     requested = {
-        ".html", ".scss", ".css", ".sass", ".less", ".md", ".mdx", ".rst",
-        ".yaml", ".yml", ".sh", ".bash", ".zsh", ".fish", ".ps1", ".toml", ".xml",
-        ".sql", ".vue", ".svelte", ".kt", ".kts", ".swift", ".scala", ".lua",
-        ".dart", ".proto", ".graphql", ".gql", ".tf", ".tfvars", ".ini", ".cfg",
-        ".conf", ".properties", ".csv", ".tsv", ".ipynb", ".adoc", ".drawio",
-        ".mmd", ".mermaid", ".puml", ".plantuml", ".dot", ".gv",
+        ".html",
+        ".scss",
+        ".css",
+        ".sass",
+        ".less",
+        ".md",
+        ".mdx",
+        ".rst",
+        ".yaml",
+        ".yml",
+        ".sh",
+        ".bash",
+        ".zsh",
+        ".fish",
+        ".ps1",
+        ".toml",
+        ".xml",
+        ".sql",
+        ".vue",
+        ".svelte",
+        ".kt",
+        ".kts",
+        ".swift",
+        ".scala",
+        ".lua",
+        ".dart",
+        ".proto",
+        ".graphql",
+        ".gql",
+        ".tf",
+        ".tfvars",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".properties",
+        ".csv",
+        ".tsv",
+        ".ipynb",
+        ".adoc",
+        ".drawio",
+        ".mmd",
+        ".mermaid",
+        ".puml",
+        ".plantuml",
+        ".dot",
+        ".gv",
     }
-    exact_names = {
-        name
-        for descriptor in registry.descriptors
-        for name in descriptor.selectors.exact_filenames
-    }
+    exact_names = {name for descriptor in registry.descriptors for name in descriptor.selectors.exact_filenames}
 
     assert requested <= extensions
     assert {"Containerfile", "Dockerfile", "Makefile", "Jenkinsfile"} <= exact_names

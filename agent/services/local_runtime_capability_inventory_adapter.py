@@ -30,9 +30,7 @@ class LocalRuntimeCapabilityInventoryAdapter:
         return ModelInventorySnapshot(
             models=tuple(self._descriptor(item) for item in snapshots),
             degraded_reason_code=(
-                "local_runtime_capability_snapshot_stale"
-                if any(item.stale for item in snapshots)
-                else None
+                "local_runtime_capability_snapshot_stale" if any(item.stale for item in snapshots) else None
             ),
         )
 
@@ -83,7 +81,8 @@ class LocalRuntimeCapabilityInventoryAdapter:
                     confidence=item.confidence,
                 )
                 for item in snapshot.capabilities
-            ) + (
+            )
+            + (
                 ModelMetadataFact(
                     fact_id="template.family",
                     value=snapshot.template_family,

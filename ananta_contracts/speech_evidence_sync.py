@@ -21,16 +21,16 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+from ananta_contracts.speech_evidence_sync_payloads import (
+    group_preview_comparison_digest,
+    group_preview_group_id,
+    group_preview_resolution_digest,
+    validate_payload,
+)
 from ananta_contracts.speech_evidence_sync_primitives import (
-    canonical_json,
-    canonical_sha256,
-    _closed,
+    _TOP_LEVEL_FIELDS,
     CONTROL_TYPES,
-    _digest,
     GROUP_PREVIEW_VERSION,
-    _identifier,
-    _integer,
-    _mapping,
     MAX_CANDIDATES,
     MAX_CHUNK_CIPHERTEXT_BYTES,
     MAX_CHUNK_PLAINTEXT_BYTES,
@@ -45,19 +45,19 @@ from ananta_contracts.speech_evidence_sync_primitives import (
     MESSAGE_TYPES,
     OFFER_PROTOCOL_VERSION,
     PROTOCOL_VERSION,
-    _replay_key,
     SIGNATURE_ALGORITHM,
-    _signature_bytes,
     SIGNATURE_DOMAIN,
-    SpeechEvidenceProtocolError,
     SUPPORTED_PROTOCOL_VERSIONS,
-    _TOP_LEVEL_FIELDS,
-)
-from ananta_contracts.speech_evidence_sync_payloads import (
-    group_preview_comparison_digest,
-    group_preview_group_id,
-    group_preview_resolution_digest,
-    validate_payload,
+    SpeechEvidenceProtocolError,
+    _closed,
+    _digest,
+    _identifier,
+    _integer,
+    _mapping,
+    _replay_key,
+    _signature_bytes,
+    canonical_json,
+    canonical_sha256,
 )
 
 
@@ -355,9 +355,7 @@ def parse_header(raw: Mapping[str, Any], *, now_ms: int | None = None) -> Speech
         audience_id=_identifier(raw.get("audience_id"), "speech_evidence_audience_invalid"),
         epoch=_integer(raw.get("epoch"), 1, 2**31 - 1, "speech_evidence_epoch_invalid"),
         sequence=_integer(raw.get("sequence"), 1, MAX_SEQUENCE, "speech_evidence_sequence_invalid"),
-        consent_version=_integer(
-            raw.get("consent_version"), 1, 2**31 - 1, "speech_evidence_consent_version_invalid"
-        ),
+        consent_version=_integer(raw.get("consent_version"), 1, 2**31 - 1, "speech_evidence_consent_version_invalid"),
         key_id=_identifier(raw.get("key_id"), "speech_evidence_key_id_invalid"),
         issued_at_ms=_integer(raw.get("issued_at_ms"), 1, MAX_SEQUENCE, "speech_evidence_issued_at_invalid"),
         expires_at_ms=_integer(raw.get("expires_at_ms"), 1, MAX_SEQUENCE, "speech_evidence_expiry_invalid"),

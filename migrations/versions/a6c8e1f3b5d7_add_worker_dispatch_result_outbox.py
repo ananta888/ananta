@@ -25,17 +25,13 @@ def _columns() -> set[str]:
     inspector = sa.inspect(op.get_bind())
     if _TABLE not in set(inspector.get_table_names()):
         return set()
-    return {
-        column["name"] for column in inspector.get_columns(_TABLE)
-    }
+    return {column["name"] for column in inspector.get_columns(_TABLE)}
 
 
 def upgrade() -> None:
     columns = _columns()
     if not columns:
-        raise RuntimeError(
-            "knowledge_index_worker_dispatch_receipt_table_missing"
-        )
+        raise RuntimeError("knowledge_index_worker_dispatch_receipt_table_missing")
     additions = (
         sa.Column(
             "state",

@@ -40,7 +40,9 @@ def build_system_instruction(*, tools_desc: str, context, stream: bool) -> str:
         f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n"
     )
     if context:
-        instruction += f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
+        instruction += (
+            f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
+        )
     instruction += (
         "\nWenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format.\n"
         "Beginne die Antwort mit '{' und ende mit '}'. Keine Vor- oder Nachtexte, kein Markdown, kein Prefix wie 'Assistant:'.\n"
@@ -62,7 +64,7 @@ def build_sse_response(text: str):
     def _event_stream():
         chunk_size = 80
         for index in range(0, len(text), chunk_size):
-            yield f"data: {text[index:index + chunk_size]}\n\n"
+            yield f"data: {text[index : index + chunk_size]}\n\n"
         yield "event: done\ndata: [DONE]\n\n"
 
     return Response(stream_with_context(_event_stream()), mimetype="text/event-stream")

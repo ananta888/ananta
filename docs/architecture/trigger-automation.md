@@ -32,13 +32,13 @@ Signale. Was daraus folgt, entscheidet allein der Hub.
 ```python
 @dataclass
 class TriggerEvent:
-    trigger_id: str         # uuid, unveränderlich
-    source: str             # Wert aus Trigger-Quellen-Tabelle
-    payload_hash: str       # sha256 des Payloads (nicht der Payload selbst)
+    trigger_id: str  # uuid, unveränderlich
+    source: str  # Wert aus Trigger-Quellen-Tabelle
+    payload_hash: str  # sha256 des Payloads (nicht der Payload selbst)
     scope_hint: str | None  # z.B. repo-Pfad, Projekt-ID — ungeprüfter Hint
-    created_at: float       # unix timestamp
-    rate_limit_key: str     # für Rate-Limiting (z.B. "webhook:repo:main")
-    validated: bool         # True nur nach HMAC/Token-Verifikation
+    created_at: float  # unix timestamp
+    rate_limit_key: str  # für Rate-Limiting (z.B. "webhook:repo:main")
+    validated: bool  # True nur nach HMAC/Token-Verifikation
     raw_payload_ref: str | None  # artifact_id für "internal" artifact, nie direkt eingebettet
 ```
 

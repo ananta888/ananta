@@ -9,8 +9,7 @@ from agent.db_models.turn_accounting import (
 
 def test_turn_accounting_migration_extends_current_single_head():
     migration = runpy.run_path(
-        Path(__file__).resolve().parents[2]
-        / "migrations/versions/c46bf2a3d5e7_add_turn_accounting_ledger.py"
+        Path(__file__).resolve().parents[2] / "migrations/versions/c46bf2a3d5e7_add_turn_accounting_ledger.py"
     )
 
     assert migration["revision"] == "c46bf2a3d5e7"

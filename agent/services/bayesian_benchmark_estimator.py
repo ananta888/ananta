@@ -11,6 +11,7 @@ Evidence hierarchy (strongest to weakest):
 
 When quality_passed is available, it is used as the primary signal.
 """
+
 from __future__ import annotations
 
 import math
@@ -45,6 +46,7 @@ class UncertaintyLabel(dict):
 
 # ── Evidence normalisation ─────────────────────────────────────────────────────
 
+
 def normalize_sample_to_evidence(
     sample: dict[str, Any],
     *,
@@ -63,9 +65,7 @@ def normalize_sample_to_evidence(
 
     success = bool(sample.get("success", False))
     raw_qp = sample.get("quality_passed", _SENTINEL)
-    quality_passed: bool | None = (
-        bool(raw_qp) if raw_qp is not _SENTINEL and raw_qp is not None else None
-    )
+    quality_passed: bool | None = bool(raw_qp) if raw_qp is not _SENTINEL and raw_qp is not None else None
     deterministic_signal = quality_passed if quality_passed is not None else success
 
     def _int(val: Any, default: int = 0) -> int:
@@ -103,6 +103,7 @@ def normalize_sample_to_evidence(
 
 # ── Beta credible interval ─────────────────────────────────────────────────────
 
+
 def _beta_credible_interval_90(alpha: float, beta: float) -> tuple[float, float]:
     """
     90% credible interval for Beta(alpha, beta) via Normal approximation.
@@ -111,7 +112,7 @@ def _beta_credible_interval_90(alpha: float, beta: float) -> tuple[float, float]
     """
     total = alpha + beta
     mean = alpha / total
-    variance = (alpha * beta) / (total ** 2 * (total + 1))
+    variance = (alpha * beta) / (total**2 * (total + 1))
     std = math.sqrt(variance) if variance > 0 else 0.0
     z = 1.6449  # 95th percentile of standard Normal → 90% two-sided CI
     lower = max(0.0, mean - z * std)
@@ -120,6 +121,7 @@ def _beta_credible_interval_90(alpha: float, beta: float) -> tuple[float, float]
 
 
 # ── Posterior computation ──────────────────────────────────────────────────────
+
 
 def compute_posterior(
     *,
@@ -175,7 +177,7 @@ def compute_posterior(
     total_ab = posterior_alpha + posterior_beta
 
     posterior_mean = posterior_alpha / total_ab
-    posterior_variance = (posterior_alpha * posterior_beta) / (total_ab ** 2 * (total_ab + 1))
+    posterior_variance = (posterior_alpha * posterior_beta) / (total_ab**2 * (total_ab + 1))
     posterior_std = math.sqrt(posterior_variance)
     ci_90 = _beta_credible_interval_90(posterior_alpha, posterior_beta)
 
@@ -265,6 +267,7 @@ def label_uncertainty(
 
 
 # ── Cumulative success estimate ────────────────────────────────────────────────
+
 
 def _attempts_for_cumulative_target(p: float, target: float) -> int | None:
     """
@@ -369,6 +372,7 @@ def estimate_cumulative_success(
 
 # ── Main high-level entry point ────────────────────────────────────────────────
 
+
 def estimate_bayesian_for_samples(
     samples: list[dict[str, Any]],
     *,
@@ -395,9 +399,7 @@ def estimate_bayesian_for_samples(
     evidence: list[BayesianEvidence] = []
     for s in samples or []:
         if isinstance(s, dict):
-            evidence.append(
-                normalize_sample_to_evidence(s, source=source, provider=provider, model=model)
-            )
+            evidence.append(normalize_sample_to_evidence(s, source=source, provider=provider, model=model))
 
     quality_evidence = [e for e in evidence if e.get("quality_passed") is not None]
 
@@ -430,9 +432,7 @@ def estimate_bayesian_for_samples(
 
     result: dict[str, Any] = {
         "posterior_success_probability": success_posterior["posterior_mean"],
-        "posterior_quality_probability": (
-            quality_posterior["posterior_mean"] if quality_posterior else None
-        ),
+        "posterior_quality_probability": (quality_posterior["posterior_mean"] if quality_posterior else None),
         "primary_signal": primary_signal,
         "evidence_count": primary_posterior["sample_count"],
         "success_count": success_posterior["success_count"],
@@ -440,9 +440,7 @@ def estimate_bayesian_for_samples(
         "credible_interval_90": primary_posterior["credible_interval_90"],
         "uncertainty": uncertainty,
         "low_confidence": uncertainty["low_confidence"],
-        "estimate_status": (
-            "prior_only" if primary_posterior["sample_count"] == 0 else "active"
-        ),
+        "estimate_status": ("prior_only" if primary_posterior["sample_count"] == 0 else "active"),
     }
 
     if include_attempt_estimates:

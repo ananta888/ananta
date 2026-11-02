@@ -7,6 +7,7 @@ suffix plus optional HTTP method), then by the static endpoint payloads, and
 finally with 404. The payloads live in ``fixture_payloads``; this module only
 routes (SRP), and a new fixture endpoint is one more route row (OCP).
 """
+
 from __future__ import annotations
 
 import json

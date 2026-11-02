@@ -26,6 +26,7 @@ from agent.services.pattern_gate_result import CheckDetail, GateResult
 # File content helpers
 # ---------------------------------------------------------------------------
 
+
 def _read_files(root: Path, paths: list[str]) -> dict[str, str]:
     """Return {rel_path: content} for all existing files; missing files map to ''."""
     result: dict[str, str] = {}
@@ -51,9 +52,11 @@ def _files_exist(root: Path, paths: list[str]) -> list[str]:
 # Language-specific matchers
 # ---------------------------------------------------------------------------
 
+
 def _python_has_protocol(contents: dict[str, str]) -> bool:
-    return _any_file_contains(contents, r"\bclass\b.*\(Protocol\)") or \
-           _any_file_contains(contents, r"\bclass\b.*\(ABC\)")
+    return _any_file_contains(contents, r"\bclass\b.*\(Protocol\)") or _any_file_contains(
+        contents, r"\bclass\b.*\(ABC\)"
+    )
 
 
 def _python_has_context(contents: dict[str, str]) -> bool:
@@ -62,7 +65,8 @@ def _python_has_context(contents: dict[str, str]) -> bool:
 
 def _python_has_concrete(contents: dict[str, str]) -> bool:
     count = sum(
-        1 for text in contents.values()
+        1
+        for text in contents.values()
         if re.search(r"\bclass\b\s+\w+Strategy\b|\bdef execute\b", text or "", re.IGNORECASE)
     )
     return count >= 2  # at least 2 files with execute / Strategy
@@ -77,10 +81,7 @@ def _java_has_context(contents: dict[str, str]) -> bool:
 
 
 def _java_has_concrete(contents: dict[str, str]) -> bool:
-    count = sum(
-        1 for text in contents.values()
-        if re.search(r"\bimplements\b.*Strategy\b", text or "", re.IGNORECASE)
-    )
+    count = sum(1 for text in contents.values() if re.search(r"\bimplements\b.*Strategy\b", text or "", re.IGNORECASE))
     return count >= 2
 
 
@@ -97,15 +98,13 @@ def _ts_has_concrete(contents: dict[str, str]) -> bool:
 
 
 def _has_test_file(contents: dict[str, str]) -> bool:
-    return any(
-        "test" in p.lower() and text.strip()
-        for p, text in contents.items()
-    )
+    return any("test" in p.lower() and text.strip() for p, text in contents.items())
 
 
 # ---------------------------------------------------------------------------
 # Strategy gate (Java / Python / TypeScript)
 # ---------------------------------------------------------------------------
+
 
 def _strategy_gate(
     root: Path,
@@ -120,81 +119,106 @@ def _strategy_gate(
 
     # --- files exist ---
     missing = [f for f in output_files if f not in existing]
-    checks.append(CheckDetail(
-        name="files_exist",
-        passed=not missing,
-        message=f"all {len(output_files)} output files present" if not missing
-                else f"missing: {missing}",
-        remediation="Re-run the renderer or inspect template path mapping." if missing else "",
-    ))
+    checks.append(
+        CheckDetail(
+            name="files_exist",
+            passed=not missing,
+            message=f"all {len(output_files)} output files present" if not missing else f"missing: {missing}",
+            remediation="Re-run the renderer or inspect template path mapping." if missing else "",
+        )
+    )
 
     lang = language.lower()
     if lang == "python":
-        checks.append(CheckDetail(
-            name="has_protocol_or_abc",
-            passed=_python_has_protocol(all_contents),
-            message="Protocol/ABC base found" if _python_has_protocol(all_contents) else "No Protocol/ABC found",
-            remediation="Add a Protocol or ABC base class for the strategy interface.",
-        ))
-        checks.append(CheckDetail(
-            name="has_context_class",
-            passed=_python_has_context(all_contents),
-            message="Context class found" if _python_has_context(all_contents) else "No Context class",
-            remediation="Add a Context class that holds a reference to the strategy.",
-        ))
-        checks.append(CheckDetail(
-            name="has_concrete_strategies",
-            passed=_python_has_concrete(all_contents),
-            message="≥2 concrete strategies found" if _python_has_concrete(all_contents) else "<2 concrete strategies",
-            remediation="Add at least two concrete strategy implementations.",
-        ))
+        checks.append(
+            CheckDetail(
+                name="has_protocol_or_abc",
+                passed=_python_has_protocol(all_contents),
+                message="Protocol/ABC base found" if _python_has_protocol(all_contents) else "No Protocol/ABC found",
+                remediation="Add a Protocol or ABC base class for the strategy interface.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_context_class",
+                passed=_python_has_context(all_contents),
+                message="Context class found" if _python_has_context(all_contents) else "No Context class",
+                remediation="Add a Context class that holds a reference to the strategy.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_concrete_strategies",
+                passed=_python_has_concrete(all_contents),
+                message="≥2 concrete strategies found"
+                if _python_has_concrete(all_contents)
+                else "<2 concrete strategies",
+                remediation="Add at least two concrete strategy implementations.",
+            )
+        )
     elif lang == "java":
-        checks.append(CheckDetail(
-            name="has_strategy_interface",
-            passed=_java_has_interface(all_contents),
-            message="Strategy interface found" if _java_has_interface(all_contents) else "No Strategy interface",
-            remediation="Add a Java interface named <Name>Strategy.",
-        ))
-        checks.append(CheckDetail(
-            name="has_context_class",
-            passed=_java_has_context(all_contents),
-            message="Context class found" if _java_has_context(all_contents) else "No Context class",
-            remediation="Add a Context class that holds a Strategy reference.",
-        ))
-        checks.append(CheckDetail(
-            name="has_concrete_strategies",
-            passed=_java_has_concrete(all_contents),
-            message="≥2 concrete strategies found" if _java_has_concrete(all_contents) else "<2 concrete strategies",
-            remediation="Add at least two classes that implement the Strategy interface.",
-        ))
+        checks.append(
+            CheckDetail(
+                name="has_strategy_interface",
+                passed=_java_has_interface(all_contents),
+                message="Strategy interface found" if _java_has_interface(all_contents) else "No Strategy interface",
+                remediation="Add a Java interface named <Name>Strategy.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_context_class",
+                passed=_java_has_context(all_contents),
+                message="Context class found" if _java_has_context(all_contents) else "No Context class",
+                remediation="Add a Context class that holds a Strategy reference.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_concrete_strategies",
+                passed=_java_has_concrete(all_contents),
+                message="≥2 concrete strategies found"
+                if _java_has_concrete(all_contents)
+                else "<2 concrete strategies",
+                remediation="Add at least two classes that implement the Strategy interface.",
+            )
+        )
     elif lang in ("typescript", "ts"):
-        checks.append(CheckDetail(
-            name="has_strategy_interface",
-            passed=_ts_has_interface(all_contents),
-            message="Strategy interface found" if _ts_has_interface(all_contents) else "No Strategy interface",
-            remediation="Add a TypeScript interface <Name>Strategy.",
-        ))
-        checks.append(CheckDetail(
-            name="has_context_class",
-            passed=_ts_has_context(all_contents),
-            message="Context class found" if _ts_has_context(all_contents) else "No Context class",
-            remediation="Add a Context class that holds a strategy reference.",
-        ))
-        checks.append(CheckDetail(
-            name="has_concrete_strategies",
-            passed=_ts_has_concrete(all_contents),
-            message="Concrete strategy found" if _ts_has_concrete(all_contents) else "No class implements Strategy",
-            remediation="Add at least one class implementing the Strategy interface.",
-        ))
+        checks.append(
+            CheckDetail(
+                name="has_strategy_interface",
+                passed=_ts_has_interface(all_contents),
+                message="Strategy interface found" if _ts_has_interface(all_contents) else "No Strategy interface",
+                remediation="Add a TypeScript interface <Name>Strategy.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_context_class",
+                passed=_ts_has_context(all_contents),
+                message="Context class found" if _ts_has_context(all_contents) else "No Context class",
+                remediation="Add a Context class that holds a strategy reference.",
+            )
+        )
+        checks.append(
+            CheckDetail(
+                name="has_concrete_strategies",
+                passed=_ts_has_concrete(all_contents),
+                message="Concrete strategy found" if _ts_has_concrete(all_contents) else "No class implements Strategy",
+                remediation="Add at least one class implementing the Strategy interface.",
+            )
+        )
 
     if require_tests:
         has_test = _has_test_file(all_contents)
-        checks.append(CheckDetail(
-            name="has_test_file",
-            passed=has_test,
-            message="Test file present" if has_test else "No test file found",
-            remediation="Add a test file (test_*.py, *Test.java, *.test.ts).",
-        ))
+        checks.append(
+            CheckDetail(
+                name="has_test_file",
+                passed=has_test,
+                message="Test file present" if has_test else "No test file found",
+                remediation="Add a test file (test_*.py, *Test.java, *.test.ts).",
+            )
+        )
 
     passed_names = [c.name for c in checks if c.passed]
     failed_names = [c.name for c in checks if not c.passed]
@@ -260,8 +284,7 @@ class PatternGateService:
             detail = CheckDetail(
                 name="files_exist",
                 passed=not missing,
-                message=f"all {len(output_files)} output files present" if not missing
-                        else f"missing: {missing}",
+                message=f"all {len(output_files)} output files present" if not missing else f"missing: {missing}",
                 remediation="Re-run the renderer." if missing else "",
             )
             return GateResult(

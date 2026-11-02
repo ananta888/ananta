@@ -141,9 +141,7 @@ class ResearchBudgetV1:
         return cls(
             gpu_hours=_number(value.get("gpu_hours"), "budget_gpu_hours", 0, 100_000),
             storage_bytes=_integer(value.get("storage_bytes"), "budget_storage_bytes", 1, 1 << 50),
-            estimated_cost_microunits=_integer(
-                value.get("estimated_cost_microunits"), "budget_cost", 0, 10**15
-            ),
+            estimated_cost_microunits=_integer(value.get("estimated_cost_microunits"), "budget_cost", 0, 10**15),
         )
 
     def to_dict(self) -> dict[str, Any]:

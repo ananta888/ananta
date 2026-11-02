@@ -10,7 +10,6 @@ from agent.services._eclipse_plugin_utils import (  # noqa: F401
     build_eclipse_diff_review_render,
 )
 
-
 ECLIPSE_PLUGIN_TARGET_MODEL: dict[str, Any] = {
     "schema": "eclipse_plugin_target_model_v1",
     "adapter_role": "thin_ide_adapter",
@@ -51,8 +50,6 @@ ECLIPSE_OPERATION_PRESETS: dict[str, Any] = {
     ],
     "terminology_aligned_with_readme": True,
 }
-
-
 
 
 def build_eclipse_minimum_support_matrix(
@@ -168,8 +165,6 @@ def build_eclipse_goal_input_panel(
     }
 
 
-
-
 def build_eclipse_task_artifact_view(
     *,
     tasks: list[dict[str, Any]],
@@ -199,8 +194,6 @@ def build_eclipse_task_refresh_flow(
         "lightweight_polling": True,
         "avoids_backend_spam": interval >= 5,
     }
-
-
 
 
 def build_eclipse_review_approval_action_support(

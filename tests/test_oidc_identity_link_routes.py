@@ -307,9 +307,7 @@ def test_oidc_provider_failures_never_expose_sensitive_exception_details(
     assert exchange.status_code == 401
     assert exchange.get_json()["data"]["reason_code"] == "oidc_code_exchange_failed"
     captured = capsys.readouterr()
-    rendered_responses = repr(
-        [login.get_json(), callback.get_json(), exchange.get_json()]
-    )
+    rendered_responses = repr([login.get_json(), callback.get_json(), exchange.get_json()])
     assert sensitive_marker not in rendered_responses
     assert sensitive_marker not in caplog.text
     assert sensitive_marker not in captured.out
@@ -535,9 +533,7 @@ def test_classic_code_exchange_provisioning_failure_is_503_without_user_session(
     )
 
     assert response.status_code == 503
-    assert response.get_json()["data"]["reason_code"] == (
-        "oidc_identity_provisioning_unavailable"
-    )
+    assert response.get_json()["data"]["reason_code"] == ("oidc_identity_provisioning_unavailable")
     with client.session_transaction() as oidc_session:
         assert "user" not in oidc_session
 

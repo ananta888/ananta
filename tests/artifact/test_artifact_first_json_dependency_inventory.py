@@ -6,11 +6,10 @@ that drives task graph state directly from model chat output.
 Safe patterns (Hub-generated contracts, schema validation) are whitelisted.
 Unsafe patterns (json.loads on model chat output driving completed state) are flagged.
 """
+
 from __future__ import annotations
 
-import ast
 import re
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -20,7 +19,7 @@ AGENT_SERVICES = REPO_ROOT / "agent" / "services"
 
 # Files where json.loads on model chat is acceptable (Hub-built contracts, schemas, etc.)
 SAFE_FILES = {
-    "planning_utils.py",          # parse_followup_analysis is now advisory
+    "planning_utils.py",  # parse_followup_analysis is now advisory
     "worker_todo_planner_service.py",  # planner LLM disabled by default; proposal artifact wraps output
     "planning_service.py",
     "planning_strategies.py",
@@ -40,20 +39,21 @@ SAFE_FILES = {
 # Patterns considered unsafe when they drive authoritative task state
 UNSAFE_CALL_PATTERNS = [
     # parse_followup_analysis result used to directly set completed/queued state
-    re.compile(r'parse_followup_analysis\b.*task_complete.*(?:status|completed|queue)', re.DOTALL),
+    re.compile(r"parse_followup_analysis\b.*task_complete.*(?:status|completed|queue)", re.DOTALL),
 ]
 
 # Anti-pattern: "Return JSON only" prompt that drives completion
 AUTHORITATIVE_JSON_PROMPT_PATTERN = re.compile(
-    r'(?:Return JSON only|JSON\s+only\s*\.|respond.*with.*JSON\s+only).*'
-    r'(?:task_complete|status.*complete|mark.*complete)',
+    r"(?:Return JSON only|JSON\s+only\s*\.|respond.*with.*JSON\s+only).*"
+    r"(?:task_complete|status.*complete|mark.*complete)",
     re.IGNORECASE | re.DOTALL,
 )
 
 
 def _collect_service_files() -> list[Path]:
     return [
-        p for p in AGENT_SERVICES.rglob("*.py")
+        p
+        for p in AGENT_SERVICES.rglob("*.py")
         if p.is_file() and p.name not in SAFE_FILES and "__pycache__" not in p.parts
     ]
 
@@ -64,7 +64,7 @@ def _get_json_loads_uses(source: str) -> list[tuple[int, str]]:
     lines = source.splitlines()
     for i, line in enumerate(lines, start=1):
         if "json.loads(" in line:
-            context = "\n".join(lines[max(0, i - 5):i + 5])
+            context = "\n".join(lines[max(0, i - 5) : i + 5])
             hits.append((i, context))
     return hits
 
@@ -107,8 +107,7 @@ class TestJsonDependencyInventory:
         planner_path = AGENT_SERVICES / "worker_todo_planner_service.py"
         source = planner_path.read_text(encoding="utf-8")
         assert '"planner_llm_enabled": False' in source or "'planner_llm_enabled': False" in source, (
-            "planner_llm_enabled must default to False. "
-            "LLM planner refinement must be opt-in, not default."
+            "planner_llm_enabled must default to False. LLM planner refinement must be opt-in, not default."
         )
 
     def test_parse_followup_analysis_is_advisory(self) -> None:
@@ -120,12 +119,12 @@ class TestJsonDependencyInventory:
         assert result["advisory"] is True, "parse_followup_analysis must be advisory"
         assert result["parse_error"] is True
         assert result["task_complete"] is None, (
-            "task_complete must be None on parse error, not True. "
-            "Malformed follow-up JSON must not drive retry loops."
+            "task_complete must be None on parse error, not True. Malformed follow-up JSON must not drive retry loops."
         )
 
         # Valid JSON — advisory flag must still be set
         import json
+
         valid = parse_followup_analysis(json.dumps({"task_complete": True, "followup_tasks": []}))
         assert valid["advisory"] is True, "parse_followup_analysis is always advisory"
 

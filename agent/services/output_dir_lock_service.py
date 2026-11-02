@@ -37,7 +37,9 @@ class OutputDirLockService:
     def canonical_output_dir(path: str) -> str:
         return os.path.realpath(str(path or "")).rstrip("/")
 
-    def acquire(self, *, output_dir: str, owner: str, ttl_seconds: int = 1800) -> tuple[bool, OutputDirLockLease | None, str | None]:
+    def acquire(
+        self, *, output_dir: str, owner: str, ttl_seconds: int = 1800
+    ) -> tuple[bool, OutputDirLockLease | None, str | None]:
         canonical = self.canonical_output_dir(output_dir)
         now = time.time()
         with self._lock:
@@ -52,7 +54,9 @@ class OutputDirLockService:
                 self._leases.pop(canonical, None)
                 lease = None
             if lease:
-                self._record_event("acquire_conflict", output_dir=canonical, owner=owner, details={"held_by": lease.owner})
+                self._record_event(
+                    "acquire_conflict", output_dir=canonical, owner=owner, details={"held_by": lease.owner}
+                )
                 return False, lease, "output_dir_busy"
             next_lease = OutputDirLockLease(
                 lock_id=f"outdir-{abs(hash((canonical, owner, int(now))))}",
@@ -62,7 +66,12 @@ class OutputDirLockService:
                 expires_at=now + max(60, int(ttl_seconds or 1800)),
             )
             self._leases[canonical] = next_lease
-            self._record_event("acquire_ok", output_dir=canonical, owner=owner, details={"ttl_seconds": max(60, int(ttl_seconds or 1800))})
+            self._record_event(
+                "acquire_ok",
+                output_dir=canonical,
+                owner=owner,
+                details={"ttl_seconds": max(60, int(ttl_seconds or 1800))},
+            )
             return True, next_lease, None
 
     def release(self, *, output_dir: str, owner: str | None = None) -> None:

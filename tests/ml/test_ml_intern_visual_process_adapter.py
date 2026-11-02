@@ -124,10 +124,7 @@ def test_build_step_ingests_bounded_upstream_records_via_catalog_and_returns_can
         return catalog
 
     adapter = MlInternBuildLoraDatasetAdapter(catalog_factory=catalog_factory)
-    records = [
-        {"instruction": f"Bounded instruction {index}", "output": f"Answer {index}"}
-        for index in range(6)
-    ]
+    records = [{"instruction": f"Bounded instruction {index}", "output": f"Answer {index}"} for index in range(6)]
     result = adapter.execute(
         _build_step(
             name="VP records",

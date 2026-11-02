@@ -156,18 +156,24 @@ def _fit_answer_to_chars(
         if compressed_text:
             value = compressed_text
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("_fit_answer_to_chars: ignored Exception", exc_info=True)
 
-    if (never_truncate if never_truncate is not None else _chat_never_truncate_answers()):
+    if never_truncate if never_truncate is not None else _chat_never_truncate_answers():
         return value
 
     marker = "\n\n[gekuerzt]"
     return value[: max(0, safe_limit - len(marker))].rstrip() + marker
 
 
-def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str = "room",
-                            sender_id: str = "ai-snake", ui_snapshot: str = "",
-                            owner_principal: dict[str, str] | None = None) -> None:
+def _append_room_ai_message(
+    *,
+    text: str,
+    session_id: str = "",
+    visibility: str = "room",
+    sender_id: str = "ai-snake",
+    ui_snapshot: str = "",
+    owner_principal: dict[str, str] | None = None,
+) -> None:
     if not text:
         return
     msg: dict[str, Any] = {
@@ -189,6 +195,7 @@ def _append_room_ai_message(*, text: str, session_id: str = "", visibility: str 
     if ui_snapshot:
         msg["ui_snapshot"] = ui_snapshot[:500]
     from agent.routes.snakes_state import _MAX_ROOM_MSGS, _room_messages
+
     _room_messages.append(msg)
     if len(_room_messages) > _MAX_ROOM_MSGS:
         del _room_messages[:-_MAX_ROOM_MSGS]
@@ -204,6 +211,7 @@ def _build_room_conversation_history(
 ) -> list[dict[str, str]]:
     """Return recent room messages before the current user turn for LLM history."""
     from agent.routes.snakes_state import _room_messages
+
     current = str(current_text or "").strip()
     requested_session_id = str(session_id or "").strip()
     expected_owner = dict(owner_principal or {})
@@ -217,6 +225,7 @@ def _build_room_conversation_history(
         # Legacy messages may only be reused inside an explicitly authorized
         # session; never from the global/sessionless room.
         return bool(requested_session_id and expected_owner)
+
     current_idx: int | None = None
     for idx in range(len(_room_messages) - 1, -1, -1):
         msg = _room_messages[idx]
@@ -234,10 +243,7 @@ def _build_room_conversation_history(
 
     prior_messages = _room_messages[:current_idx] if current_idx is not None else list(_room_messages)
     if requested_session_id:
-        prior_messages = [
-            msg for msg in prior_messages
-            if str(msg.get("session_id") or "") == requested_session_id
-        ]
+        prior_messages = [msg for msg in prior_messages if str(msg.get("session_id") or "") == requested_session_id]
     prior_messages = [msg for msg in prior_messages if _visible_to_owner(msg)]
     history: list[dict[str, str]] = []
     for msg in prior_messages[-max(1, int(max_messages)) :]:
@@ -284,6 +290,7 @@ def _build_grounded_snake_prompt(
 
         # QIE-001: Phase 0 — extract clean search intent before CodeCompass
         from agent.services.query_intent_extractor import extract_query_intent
+
         _qi = extract_query_intent(prompt, cfg)
         _search_query = _qi.search_query
 
@@ -306,12 +313,18 @@ def _build_grounded_snake_prompt(
             chunk_meta: list[dict[str, Any]] = []
             for chunk in chunks:
                 metadata = dict((chunk or {}).get("metadata") or {})
-                st = str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower() or "unknown"
+                st = (
+                    str(metadata.get("source_type") or (chunk or {}).get("engine") or "unknown").strip().lower()
+                    or "unknown"
+                )
                 src_type_counts[st] = int(src_type_counts.get(st, 0)) + 1
                 path = str(
-                    metadata.get("file_path") or metadata.get("path")
-                    or metadata.get("source_id") or (chunk or {}).get("source")
-                    or (chunk or {}).get("path") or ""
+                    metadata.get("file_path")
+                    or metadata.get("path")
+                    or metadata.get("source_id")
+                    or (chunk or {}).get("source")
+                    or (chunk or {}).get("path")
+                    or ""
                 ).strip()
                 if path.startswith("/app/"):
                     path = path[5:]
@@ -335,11 +348,7 @@ def _build_grounded_snake_prompt(
         pass
     local_fallback = _build_local_repo_fallback_context(prompt)
     if local_fallback:
-        grounded = (
-            f"{prompt}\n\n"
-            "Lokaler Projektkontext (Fallback, wenn RAG leer ist):\n"
-            f"{local_fallback}"
-        )
+        grounded = f"{prompt}\n\nLokaler Projektkontext (Fallback, wenn RAG leer ist):\n{local_fallback}"
         return prompt, True, "Kontext: 1 Treffer (repo_fallback:1)", {}, []
     return prompt, False, "Kontext: 0 Treffer", {}, []
 
@@ -347,6 +356,7 @@ def _build_grounded_snake_prompt(
 def _trace_feature_enabled() -> bool:
     try:
         from agent.routes.ai_snake_config import _current_config
+
         cfg = _current_config()
         return bool(cfg.get("ai_snake_trace_enabled", True))
     except Exception:
@@ -355,10 +365,12 @@ def _trace_feature_enabled() -> bool:
 
 # ── Ananta-Settings guided tour ───────────────────────────────────────────────
 
+
 def _ensure_ui_guide(force: bool = False) -> str:
     """Return the UI guide markdown, generating/refreshing as needed."""
     try:
         from agent.routes.snakes_ananta_config_tool_loop import ensure_ui_guide
+
         return ensure_ui_guide(force=force)
     except Exception as exc:
         logging.getLogger(__name__).warning("UI guide unavailable: %s", exc)
@@ -370,6 +382,7 @@ def _read_ananta_settings_summary() -> str:
     parts: list[str] = []
     try:
         from client_surfaces.operator_tui.config.user_config_manager import get_manager
+
         s = get_manager().load()
         active_sid = str(s.get("chat_active_session_id") or "")
         sessions = s.get("chat_sessions") or []
@@ -389,16 +402,20 @@ def _read_ananta_settings_summary() -> str:
             sm = str(scfg.get("chat_backend_model") or "")
             sess_lines.append(f"  - {sname} ({sid}): backend={sb or '(global)'} model={sm or '(global)'}")
 
-        parts.append("\n".join([
-            "## Aktuelle Ananta-Einstellungen (live)",
-            f"- Aktive Session: {active_sid or '(keine)'}",
-            f"- Standard-Backend: {backend}",
-            f"- Standard-Modell: {model}",
-            f"- CodeCompass: {'an' if cc_on else 'aus'}",
-            f"- Retrieval-Profil: {profile}",
-            f"- Konfigurierte Chat-Sessions ({len(sessions)}):",
-            *sess_lines,
-        ]))
+        parts.append(
+            "\n".join(
+                [
+                    "## Aktuelle Ananta-Einstellungen (live)",
+                    f"- Aktive Session: {active_sid or '(keine)'}",
+                    f"- Standard-Backend: {backend}",
+                    f"- Standard-Modell: {model}",
+                    f"- CodeCompass: {'an' if cc_on else 'aus'}",
+                    f"- Retrieval-Profil: {profile}",
+                    f"- Konfigurierte Chat-Sessions ({len(sessions)}):",
+                    *sess_lines,
+                ]
+            )
+        )
     except Exception as exc:
         parts.append(f"(Live-Einstellungen nicht lesbar: {exc})")
 
@@ -411,9 +428,25 @@ def _read_ananta_settings_summary() -> str:
 
 _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
-        ["pair", "pair dev", "pair-dev", "pairdev", "pari", "pari-dev", "pairing", "share session", "share-session", "zusammen", "kollaboration"],
         [
-            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 3000},
+            "pair",
+            "pair dev",
+            "pair-dev",
+            "pairdev",
+            "pari",
+            "pari-dev",
+            "pairing",
+            "share session",
+            "share-session",
+            "zusammen",
+            "kollaboration",
+        ],
+        [
+            {
+                "waypoint": "assistant.snake-chat-btn",
+                "bubble": "'Snake Chat' öffnen (💬 unten rechts)",
+                "delay_ms": 3000,
+            },
             {"waypoint": "assistant.tab-pair-dev", "bubble": "Tab 'Pair Dev' wählen", "delay_ms": 3000},
             {"waypoint": "snake.tab-pair", "bubble": "Hier Pair-Dev-Session starten oder beitreten", "delay_ms": 4000},
         ],
@@ -424,7 +457,11 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
             {"waypoint": "nav./chats", "bubble": "Zum Bereich 'AI Chats' navigieren", "delay_ms": 2500},
             {"waypoint": "chat.new-session", "bubble": "Mit '+' neue Chat-Session anlegen", "delay_ms": 3000},
             {"waypoint": "chat.settings-tab", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.backend-select", "bubble": "Hier Backend auswählen (z.B. ananta-worker)", "delay_ms": 3500},
+            {
+                "waypoint": "chat.backend-select",
+                "bubble": "Hier Backend auswählen (z.B. ananta-worker)",
+                "delay_ms": 3500,
+            },
             {"waypoint": "chat.system-prompt", "bubble": "System-Prompt für diese Session eingeben", "delay_ms": 4000},
         ],
     ),
@@ -433,7 +470,11 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
         [
             {"waypoint": "nav./chats", "bubble": "Zum Chat-Bereich navigieren", "delay_ms": 2000},
             {"waypoint": "chat.settings-tab", "bubble": "Einstellungen der aktiven Session öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.backend-select", "bubble": "Hier Backend/Modell für die Session wechseln", "delay_ms": 4000},
+            {
+                "waypoint": "chat.backend-select",
+                "bubble": "Hier Backend/Modell für die Session wechseln",
+                "delay_ms": 4000,
+            },
         ],
     ),
     (
@@ -447,7 +488,11 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
         [
             {"waypoint": "nav./teams", "bubble": "Navigiere zu 'Teams & Blueprints' im Menü", "delay_ms": 3000},
             {"waypoint": "teams.tab-blueprints", "bubble": "Tab 'Blueprints' öffnen", "delay_ms": 2500},
-            {"waypoint": "teams.blueprint-catalog", "bubble": "Hier siehst du den Blueprint-Katalog — wähle einen aus oder erstelle einen neuen", "delay_ms": 4000},
+            {
+                "waypoint": "teams.blueprint-catalog",
+                "bubble": "Hier siehst du den Blueprint-Katalog — wähle einen aus oder erstelle einen neuen",
+                "delay_ms": 4000,
+            },
         ],
     ),
     (
@@ -466,14 +511,26 @@ _ANANTA_UI_GUIDE_MAP: list[tuple[list[str], list[dict]]] = [
     (
         ["codecompass", "rag", "retrieval", "code compass"],
         [
-            {"waypoint": "cc.codecompass", "bubble": "Control Center → CodeCompass-Verwaltung öffnen", "delay_ms": 3000},
-            {"waypoint": "chat.retrieval-profile", "bubble": "Retrieval-Profil in Session-Einstellungen", "delay_ms": 3500},
+            {
+                "waypoint": "cc.codecompass",
+                "bubble": "Control Center → CodeCompass-Verwaltung öffnen",
+                "delay_ms": 3000,
+            },
+            {
+                "waypoint": "chat.retrieval-profile",
+                "bubble": "Retrieval-Profil in Session-Einstellungen",
+                "delay_ms": 3500,
+            },
         ],
     ),
     (
         ["einstellungen", "settings", "konfigurieren", "konfiguration", "einrichten", "setup"],
         [
-            {"waypoint": "assistant.snake-chat-btn", "bubble": "'Snake Chat' öffnen (💬 unten rechts)", "delay_ms": 2500},
+            {
+                "waypoint": "assistant.snake-chat-btn",
+                "bubble": "'Snake Chat' öffnen (💬 unten rechts)",
+                "delay_ms": 2500,
+            },
             {"waypoint": "assistant.tab-settings", "bubble": "Tab 'Einstellungen' öffnen", "delay_ms": 3000},
             {"waypoint": "snake.tab-settings", "bubble": "Hier Snake-Chat-Einstellungen anpassen", "delay_ms": 3500},
         ],
@@ -510,8 +567,21 @@ def _should_include_light_ui_context(
         return True
     normalized = str(prompt or "").lower()
     navigation_terms = (
-        "wo finde", "wo ist", "wie komme ich", "navig", "klick", "öffne",
-        "oeffne", "button", "menü", "menu", "tab", "ansicht", "oberfläche",
-        "oberflaeche", "ui ", "route",
+        "wo finde",
+        "wo ist",
+        "wie komme ich",
+        "navig",
+        "klick",
+        "öffne",
+        "oeffne",
+        "button",
+        "menü",
+        "menu",
+        "tab",
+        "ansicht",
+        "oberfläche",
+        "oberflaeche",
+        "ui ",
+        "route",
     )
     return any(term in normalized for term in navigation_terms)

@@ -3,12 +3,12 @@
 DRR-T043: Repair runtime must handle bad evidence, missing environment,
 unavailable tools, and persistence failure safely.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from worker.core.execution_envelope import (
-    ApprovalRef,
     CapabilityGrant,
     ExecutionEnvelope,
     RepairProcedure,
@@ -16,8 +16,8 @@ from worker.core.execution_envelope import (
 )
 from worker.repair.repair_procedure_runner import RepairProcedureRunner
 
-
 # ── Malformed input tests ──────────────────────────────────────────────────────
+
 
 class TestMalformedEvidenceHandling:
     def test_malformed_evidence_does_not_crash_analysis(self) -> None:
@@ -65,6 +65,7 @@ class TestMalformedEvidenceHandling:
 
 
 # ── Missing/incomplete envelope tests ─────────────────────────────────────────
+
 
 class TestMissingEnvelopeComponents:
     def test_missing_repair_procedure_returns_denied(self) -> None:
@@ -130,6 +131,7 @@ class TestMissingEnvelopeComponents:
 
 # ── Unsafe tool tests ─────────────────────────────────────────────────────────
 
+
 class TestUnsafeCommandDenied:
     def test_rm_rf_root_command_never_executes(self) -> None:
         """rm -rf / must never be executed by the runner. DRR-T043."""
@@ -165,6 +167,7 @@ class TestUnsafeCommandDenied:
 
 
 # ── Outcome persistence failure tests ─────────────────────────────────────────
+
 
 class TestPersistenceFailureHandling:
     def test_persistence_failure_does_not_pretend_success(self) -> None:
@@ -206,6 +209,7 @@ class TestPersistenceFailureHandling:
 
 # ── Playbook validation failure tests ─────────────────────────────────────────
 
+
 class TestPlaybookValidationFailures:
     def test_playbook_with_mutation_step_is_rejected(self) -> None:
         from agent.services.deterministic_repair_path_service import (
@@ -238,10 +242,16 @@ class TestPlaybookValidationFailures:
 
 # ── Hub-side plan validation failure tests ────────────────────────────────────
 
+
 class TestPlanValidationFailures:
     def test_plan_with_empty_procedure_id_rejected(self) -> None:
-        from agent.services.repair_execution_plan_service import RepairProcedureExecutionPlan, RepairStepExecutionPlan, RepairActionType
         from pydantic import ValidationError
+
+        from agent.services.repair_execution_plan_service import (
+            RepairActionType,
+            RepairProcedureExecutionPlan,
+            RepairStepExecutionPlan,
+        )
 
         with pytest.raises((ValueError, ValidationError)):
             RepairProcedureExecutionPlan(
@@ -257,8 +267,13 @@ class TestPlanValidationFailures:
             )
 
     def test_plan_with_non_hub_creator_rejected(self) -> None:
-        from agent.services.repair_execution_plan_service import RepairProcedureExecutionPlan, RepairStepExecutionPlan, RepairActionType
         from pydantic import ValidationError
+
+        from agent.services.repair_execution_plan_service import (
+            RepairActionType,
+            RepairProcedureExecutionPlan,
+            RepairStepExecutionPlan,
+        )
 
         with pytest.raises((ValueError, ValidationError)):
             RepairProcedureExecutionPlan(

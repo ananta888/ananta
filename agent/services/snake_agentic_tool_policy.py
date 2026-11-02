@@ -36,13 +36,15 @@ def resolve_snake_agentic_tool_decision(
     automatic = (
         codecompass_enabled
         and profile.domain == DOMAIN_CODECOMPASS
-        and profile.intent in {
+        and profile.intent
+        in {
             INTENT_CODE_EXPLANATION,
             INTENT_ARCHITECTURE,
             INTENT_ARCHITECTURE_FULL_SCAN,
         }
     )
     simple = automatic and not explicit and profile.intent == INTENT_CODE_EXPLANATION
+
     def _budget(key: str, default: int) -> int:
         try:
             return max(0, min(100, int(config.get(key, default))))

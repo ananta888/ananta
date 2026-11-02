@@ -55,9 +55,7 @@ def test_json_batch_contract_is_bounded_and_strict() -> None:
 def test_sse_event_uses_last_event_id_without_weakening_event_contract() -> None:
     event = _event(1)
     event.pop("event_id")
-    raw = b"id: 1\nevent: kanban\n" + (
-        b"data: " + json.dumps(event).encode("utf-8") + b"\n\n"
-    )
+    raw = b"id: 1\nevent: kanban\n" + (b"data: " + json.dumps(event).encode("utf-8") + b"\n\n")
 
     batch = parse_sse_payload(
         raw,

@@ -123,9 +123,7 @@ class HmacModelIntelligenceCorrelationService:
         task = _identifier(worker_task_id, "correlation_task_id_invalid")
         if artifact_ref is not None and not isinstance(artifact_ref, ArtifactRef):
             raise ModelIntelligenceObservabilityError("correlation_artifact_ref_invalid")
-        artifact_material = (
-            f"{artifact_ref.artifact_id}:{artifact_ref.sha256}" if artifact_ref is not None else "none"
-        )
+        artifact_material = f"{artifact_ref.artifact_id}:{artifact_ref.sha256}" if artifact_ref is not None else "none"
         return SanitizedModelIntelligenceCorrelation(
             correlation_id=_correlation_digest(
                 self._secret,
@@ -135,9 +133,7 @@ class HmacModelIntelligenceCorrelationService:
             hub_job_scope=_correlation_digest(self._secret, "job", job),
             worker_task_scope=_correlation_digest(self._secret, "task", task),
             artifact_scope=(
-                _correlation_digest(self._secret, "artifact", artifact_material)
-                if artifact_ref is not None
-                else None
+                _correlation_digest(self._secret, "artifact", artifact_material) if artifact_ref is not None else None
             ),
         )
 
@@ -159,9 +155,7 @@ class ModelIntelligenceQuotaLimits:
         )
         if any(isinstance(value, bool) or value <= 0 for value in values):
             raise ModelIntelligenceObservabilityError("quota_limit_invalid")
-        if self.max_vram_bytes is not None and (
-            isinstance(self.max_vram_bytes, bool) or self.max_vram_bytes < 0
-        ):
+        if self.max_vram_bytes is not None and (isinstance(self.max_vram_bytes, bool) or self.max_vram_bytes < 0):
             raise ModelIntelligenceObservabilityError("quota_limit_invalid")
 
 

@@ -3,6 +3,7 @@
 Mounted onto the shared ``auth_bp`` blueprint via :func:`register_routes`.
 Behavior preserved 1:1 from the original auth.py (lines 663-892).
 """
+
 from __future__ import annotations
 
 from flask import request

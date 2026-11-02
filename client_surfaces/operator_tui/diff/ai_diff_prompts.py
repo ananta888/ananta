@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-
 _PROMPTS: dict[str, dict[str, str]] = {
     "review": {
         "control": "Return strict JSON only.",
@@ -54,4 +53,3 @@ def render_ai_diff_prompt(*, mode: str, context_envelope: dict[str, Any]) -> str
         "CODECOMPASS_CONTEXT:\nnone\n\n"
         f"OUTPUT_SCHEMA:\n{prompt['output_schema']}\n"
     )
-

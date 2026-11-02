@@ -79,11 +79,7 @@ class _HubCheckpointGateway:
             metadata=dict(values["metadata"]),
             pending_writes=(),
             config=config,
-            parent_config=(
-                dict(self.latest.config)
-                if self.latest is not None
-                else None
-            ),
+            parent_config=(dict(self.latest.config) if self.latest is not None else None),
             revision=revision,
             head_revision=revision,
             signed_checkpoint_ref=f"wfc-release-{revision}",
@@ -124,11 +120,15 @@ def _adapter(
         external_calls_allowed=False,
         human_in_loop_required_for=[],
     )
-    return LangGraphAdapter(
-        config,
-        checkpoint_gateway=gateway,
-        execution_plan_node_executor=executor,
-    ), executor, gateway
+    return (
+        LangGraphAdapter(
+            config,
+            checkpoint_gateway=gateway,
+            execution_plan_node_executor=executor,
+        ),
+        executor,
+        gateway,
+    )
 
 
 def _payload(scenario_id: str, *, task_id: str, run_id: str) -> dict:
@@ -230,11 +230,7 @@ def test_langgraph_reference_runtime_probe_is_offline_and_repeatable(
     assert gateway.reads > reads_before_restore
 
     artifact = completed.artifacts[0]
-    observed_events = {
-        str(event.get("event") or "")
-        for event in artifact["trace"]
-        if str(event.get("event") or "")
-    }
+    observed_events = {str(event.get("event") or "") for event in artifact["trace"] if str(event.get("event") or "")}
     if executor.side_effect_operations:
         observed_events.add("workflow.side_effect.completed")
     explicit_proofs = {"port", "security", "event", "artifact"}

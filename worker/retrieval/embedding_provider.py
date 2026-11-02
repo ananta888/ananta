@@ -37,9 +37,7 @@ class _EmbeddingNoRedirectHandler(request.HTTPRedirectHandler):
     """Prevent credentials from following an embedding HTTP redirect."""
 
     def redirect_request(self, *_args: Any, **_kwargs: Any):
-        raise EmbeddingProviderRequestFailed(
-            "embedding_provider_redirect_forbidden"
-        )
+        raise EmbeddingProviderRequestFailed("embedding_provider_redirect_forbidden")
 
 
 def _hash_vector(value: str, *, dimensions: int) -> list[float]:
@@ -134,11 +132,7 @@ class OpenAICompatibleEmbeddingProvider:
         )
         try:
             opener = (
-                request.urlopen
-                if self.follow_redirects
-                else request.build_opener(
-                    _EmbeddingNoRedirectHandler()
-                ).open
+                request.urlopen if self.follow_redirects else request.build_opener(_EmbeddingNoRedirectHandler()).open
             )
             with opener(req, timeout=max(1, int(self.timeout_seconds))) as response:
                 raw = response.read().decode("utf-8")
@@ -231,9 +225,7 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
         base_url = str(payload.get("base_url") or "").rstrip("/")
         allowed = [str(u).rstrip("/") for u in payload["allowed_base_urls"]]
         if base_url and not _base_url_allowed(base_url, allowed):
-            raise ValueError(
-                f"embedding_provider_base_url_not_allowed:{base_url!r}"
-            )
+            raise ValueError(f"embedding_provider_base_url_not_allowed:{base_url!r}")
 
     if provider in {"fake", "test"}:
         return FakeEmbeddingProvider(
@@ -257,9 +249,7 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
             model_version=str(payload.get("model_version") or model),
             dimensions=max(1, int(payload.get("dimensions") or 1536)),
             timeout_seconds=max(1, int(payload.get("timeout_seconds") or 20)),
-            follow_redirects=bool(
-                payload.get("follow_redirects", True)
-            ),
+            follow_redirects=bool(payload.get("follow_redirects", True)),
         )
     if provider in {"ollama", "ollama_native"}:
         base_url = str(payload.get("base_url") or "").strip()

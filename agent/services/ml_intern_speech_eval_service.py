@@ -63,11 +63,7 @@ class MlInternSpeechEvalService:
         lifecycle_mock = hardware == "mock-cpu-no-model"
         if lifecycle_mock:
             reasons.append("speech_evaluation_mock_has_no_quality_claim")
-        passed = not any(
-            reason
-            for reason in reasons
-            if reason != "speech_evaluation_mock_has_no_quality_claim"
-        )
+        passed = not any(reason for reason in reasons if reason != "speech_evaluation_mock_has_no_quality_claim")
         return SpeechEvaluationDecision(
             report_digest=digest,
             passed=passed,

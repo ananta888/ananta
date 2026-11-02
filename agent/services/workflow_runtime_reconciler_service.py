@@ -18,25 +18,13 @@ class WorkflowRuntimeReconcilerService:
     def run_once(self, *, limit: int = 100) -> dict[str, Any]:
         bounded = max(1, min(int(limit), 1000))
         result = dict(self._control.reconcile_active(limit=bounded))
-        runtime_ids = [
-            str(value)
-            for value in result.get("runtime_ids") or ()
-            if str(value).strip()
-        ]
-        reports = [
-            dict(value)
-            for value in result.get("reports") or ()
-            if isinstance(value, dict)
-        ]
+        runtime_ids = [str(value) for value in result.get("runtime_ids") or () if str(value).strip()]
+        reports = [dict(value) for value in result.get("reports") or () if isinstance(value, dict)]
         return {
             "runtime_id": str(result.get("runtime_id") or ""),
             "runtime_ids": runtime_ids,
             "processed": max(0, int(result.get("processed") or 0)),
-            "failed": [
-                dict(value)
-                for value in result.get("failed") or ()
-                if isinstance(value, dict)
-            ],
+            "failed": [dict(value) for value in result.get("failed") or () if isinstance(value, dict)],
             "reports": reports,
         }
 

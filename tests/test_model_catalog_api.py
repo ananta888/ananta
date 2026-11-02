@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from agent.routes.config import providers, settings as settings_routes
+from agent.routes.config import providers
+from agent.routes.config import settings as settings_routes
 from agent.services.model_catalog_service import CatalogQuery
-from agent.services.model_routing_transfer_service import (
-    ModelRoutingTransferService,
+from agent.services.model_profile_loader import ModelProfile
+from agent.services.model_routing_legacy_migration_service import (
+    ModelRoutingLegacyMigrationService,
 )
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
 )
-from agent.services.model_routing_legacy_migration_service import (
-    ModelRoutingLegacyMigrationService,
+from agent.services.model_routing_transfer_service import (
+    ModelRoutingTransferService,
 )
-from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_selection_service import (
     InMemoryModelRoutingConfigurationRepository,
     ModelConsumerRegistry,
@@ -74,25 +75,29 @@ class _FakeInventory:
         self.force_refresh_values.append(force_refresh)
         return ModelCatalogV2(
             catalog_revision=2,
-            models=(ModelInventoryDescriptor(
-                provider_id="codex",
-                model_id="gpt-safe",
-                executor_id="cli:codex",
-                display_name="Codex",
-                runtime=ModelRuntime.CLOUD,
-                source_ids=("cli:codex",),
-                source_kinds=(ModelSourceKind.CONFIGURED,),
-                availability=ModelAvailability.UNKNOWN,
-                health=ModelHealth.UNKNOWN,
-                installed=True,
-                listing_supported=False,
-            ),),
-            sources=(ModelInventorySourceStatus(
-                source_id="cli:codex",
-                source_kind=ModelSourceKind.CONFIGURED,
-                status="healthy",
-                model_count=1,
-            ),),
+            models=(
+                ModelInventoryDescriptor(
+                    provider_id="codex",
+                    model_id="gpt-safe",
+                    executor_id="cli:codex",
+                    display_name="Codex",
+                    runtime=ModelRuntime.CLOUD,
+                    source_ids=("cli:codex",),
+                    source_kinds=(ModelSourceKind.CONFIGURED,),
+                    availability=ModelAvailability.UNKNOWN,
+                    health=ModelHealth.UNKNOWN,
+                    installed=True,
+                    listing_supported=False,
+                ),
+            ),
+            sources=(
+                ModelInventorySourceStatus(
+                    source_id="cli:codex",
+                    source_kind=ModelSourceKind.CONFIGURED,
+                    status="healthy",
+                    model_count=1,
+                ),
+            ),
         )
 
 
@@ -106,9 +111,7 @@ def test_feature_contract_defaults_false_and_rejects_string_updates(
     )
 
     assert response.status_code == 200
-    assert response.json["data"]["schema"] == (
-        "ananta.dashboard-feature-flags.v1"
-    )
+    assert response.json["data"]["schema"] == ("ananta.dashboard-feature-flags.v1")
     assert response.json["data"]["features"] == {
         "angular_kanban": False,
         "angular_model_dashboard": False,
@@ -125,10 +128,7 @@ def test_feature_contract_defaults_false_and_rejects_string_updates(
         headers=_headers(admin_token),
     )
     assert rejected.status_code == 400
-    assert (
-        rejected.json["message"]
-        == "invalid_feature_angular_model_dashboard_enabled"
-    )
+    assert rejected.json["message"] == "invalid_feature_angular_model_dashboard_enabled"
 
 
 def test_routing_editor_activation_is_blocked_by_release_gate(
@@ -169,9 +169,7 @@ def test_routing_editor_activation_is_blocked_by_release_gate(
 
     assert response.status_code == 409
     assert response.json["message"] == "model_routing_editor_release_gate_failed"
-    assert app.config["AGENT_CONFIG"].get(
-        "feature_model_routing_editor_enabled"
-    ) is not True
+    assert app.config["AGENT_CONFIG"].get("feature_model_routing_editor_enabled") is not True
 
 
 def test_versioned_catalog_is_canonical_without_dashboard_feature_flag(
@@ -252,12 +250,8 @@ def test_catalog_v2_and_refresh_use_canonical_inventory_service(
     inventory = _FakeInventory()
     monkeypatch.setattr(providers, "_model_inventory_service", lambda: inventory)
 
-    read = client.get(
-        "/models/catalog/v2", headers=_headers(admin_token)
-    )
-    refreshed = client.post(
-        "/models/catalog/v2/refresh", headers=_headers(admin_token)
-    )
+    read = client.get("/models/catalog/v2", headers=_headers(admin_token))
+    refreshed = client.post("/models/catalog/v2/refresh", headers=_headers(admin_token))
 
     assert read.status_code == refreshed.status_code == 200
     assert read.json["data"]["schema"] == "ananta.model-catalog.v2"
@@ -329,10 +323,7 @@ def test_refresh_and_default_selection_require_capability(
     )
 
     assert refresh.status_code == selection.status_code == 403
-    assert (
-        refresh.json["data"]["reason_code"]
-        == "model_catalog_capability_required"
-    )
+    assert refresh.json["data"]["reason_code"] == "model_catalog_capability_required"
 
 
 def test_default_selection_command_rejects_urls_paths_and_shell_fields(
@@ -356,10 +347,7 @@ def test_default_selection_command_rejects_urls_paths_and_shell_fields(
     )
 
     assert response.status_code == 400
-    assert (
-        response.json["message"]
-        == "model_default_selection_command_invalid"
-    )
+    assert response.json["message"] == "model_default_selection_command_invalid"
 
 
 class _FakeEffectiveRouting:
@@ -377,13 +365,15 @@ class _FakeEffectiveRouting:
             provider_id="lmstudio",
             model_id="kat-coder",
             candidate_profile_ids=("local-code",),
-            decisions=(ModelRouteDecision(
-                rank=1,
-                source="request_runtime_override",
-                profile_id="local-code",
-                accepted=True,
-                reason="accepted",
-            ),),
+            decisions=(
+                ModelRouteDecision(
+                    rank=1,
+                    source="request_runtime_override",
+                    profile_id="local-code",
+                    accepted=True,
+                    reason="accepted",
+                ),
+            ),
             executable=True,
         )
 
@@ -448,14 +438,10 @@ def test_effective_model_routing_projection_covers_routable_consumers_only(
     monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
     monkeypatch.setattr(providers, "_effective_model_routing_service", lambda: fake)
 
-    response = client.get(
-        "/models/routing/v1/effective", headers=_headers(admin_token)
-    )
+    response = client.get("/models/routing/v1/effective", headers=_headers(admin_token))
 
     assert response.status_code == 200
-    assert response.json["data"]["schema"] == (
-        "ananta.effective-model-routing-projection.v1"
-    )
+    assert response.json["data"]["schema"] == ("ananta.effective-model-routing-projection.v1")
     ids = {item["consumer_id"] for item in response.json["data"]["routes"]}
     assert "task.coding" in ids
     assert "knowledge.embedding" not in ids
@@ -476,9 +462,7 @@ def test_model_routing_dry_run_requires_read_capability(
     )
 
     assert response.status_code == 403
-    assert response.json["data"]["reason_code"] == (
-        "model_catalog_capability_required"
-    )
+    assert response.json["data"]["reason_code"] == ("model_catalog_capability_required")
 
 
 def test_model_routing_export_preview_and_confirmed_import_flow(
@@ -488,11 +472,13 @@ def test_model_routing_export_preview_and_confirmed_import_flow(
     monkeypatch,
 ):
     _enable_model_dashboard(app)
-    transfer = ModelRoutingTransferService(ModelRoutingAssignmentService(
-        repository=InMemoryModelRoutingConfigurationRepository(),
-        consumers=ModelConsumerRegistry.defaults(),
-        known_profile_ids=("local-code",),
-    ))
+    transfer = ModelRoutingTransferService(
+        ModelRoutingAssignmentService(
+            repository=InMemoryModelRoutingConfigurationRepository(),
+            consumers=ModelConsumerRegistry.defaults(),
+            known_profile_ids=("local-code",),
+        )
+    )
     monkeypatch.setattr(
         providers,
         "_model_routing_transfer_service",
@@ -504,28 +490,26 @@ def test_model_routing_export_preview_and_confirmed_import_flow(
         "configuration": {
             "schema": "ananta.model-routing-config.v1",
             "revision": 77,
-            "assignments": [{
-                "consumer_id": "task.coding",
-                "scope": "global",
-                "scope_id": "global",
-                "mode": "profile",
-                "profile_id": "local-code",
-            }],
+            "assignments": [
+                {
+                    "consumer_id": "task.coding",
+                    "scope": "global",
+                    "scope_id": "global",
+                    "mode": "profile",
+                    "profile_id": "local-code",
+                }
+            ],
             "fallback_groups": [],
         },
     }
 
-    exported = client.get(
-        "/models/routing/v1/export", headers=_headers(admin_token)
-    )
+    exported = client.get("/models/routing/v1/export", headers=_headers(admin_token))
     previewed = client.post(
         "/models/routing/v1/import/preview",
         json=body,
         headers=_headers(admin_token),
     )
-    body["confirmation_digest"] = previewed.json["data"][
-        "confirmation_digest"
-    ]
+    body["confirmation_digest"] = previewed.json["data"]["confirmation_digest"]
     applied = client.post(
         "/models/routing/v1/import/apply",
         json=body,
@@ -554,22 +538,24 @@ def test_model_routing_templates_are_read_only_secret_free_drafts(
     )
     templates = ModelRoutingTemplateService(
         consumers=ModelConsumerRegistry.defaults(),
-        profiles=(ModelProfile(
-            profile_id="local-safe", provider_id="lmstudio", model="safe",
-            local=True, supports_tools=True, supports_json=True,
-        ),),
+        profiles=(
+            ModelProfile(
+                profile_id="local-safe",
+                provider_id="lmstudio",
+                model="safe",
+                local=True,
+                supports_tools=True,
+                supports_json=True,
+            ),
+        ),
     )
     monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
     monkeypatch.setattr(providers, "_model_routing_template_service", lambda: templates)
 
-    response = client.get(
-        "/models/routing/v1/templates", headers=_headers(admin_token)
-    )
+    response = client.get("/models/routing/v1/templates", headers=_headers(admin_token))
 
     assert response.status_code == 200
-    assert response.json["data"]["schema"] == (
-        "ananta.model-routing-template-catalog.v1"
-    )
+    assert response.json["data"]["schema"] == ("ananta.model-routing-template-catalog.v1")
     assert response.json["data"]["configuration_revision"] == 0
     assert len(response.json["data"]["templates"]) == 4
     assert "base_url" not in response.text
@@ -584,7 +570,9 @@ def test_legacy_migration_preview_apply_shadow_and_release_gate(
 ):
     _enable_model_dashboard(app)
     profile = ModelProfile(
-        profile_id="local-chat", provider_id="lmstudio", model="lfm2.5",
+        profile_id="local-chat",
+        provider_id="lmstudio",
+        model="lfm2.5",
         local=True,
     )
     assignments = ModelRoutingAssignmentService(
@@ -597,16 +585,13 @@ def test_legacy_migration_preview_apply_shadow_and_release_gate(
         assignments=assignments,
         profiles=(profile,),
         legacy_config={
-            "default_provider": "lmstudio", "default_model": "lfm2.5",
+            "default_provider": "lmstudio",
+            "default_model": "lfm2.5",
         },
     )
-    monkeypatch.setattr(
-        providers, "_model_routing_legacy_migration_service", lambda: migration
-    )
+    monkeypatch.setattr(providers, "_model_routing_legacy_migration_service", lambda: migration)
 
-    preview = client.get(
-        "/models/routing/v1/migration/preview", headers=_headers(admin_token)
-    )
+    preview = client.get("/models/routing/v1/migration/preview", headers=_headers(admin_token))
     applied = client.post(
         "/models/routing/v1/migration/apply",
         json={
@@ -616,12 +601,8 @@ def test_legacy_migration_preview_apply_shadow_and_release_gate(
         },
         headers=_headers(admin_token),
     )
-    shadow = client.get(
-        "/models/routing/v1/shadow", headers=_headers(admin_token)
-    )
-    gate = client.get(
-        "/models/routing/v1/release-gate", headers=_headers(admin_token)
-    )
+    shadow = client.get("/models/routing/v1/shadow", headers=_headers(admin_token))
+    gate = client.get("/models/routing/v1/release-gate", headers=_headers(admin_token))
 
     assert preview.status_code == applied.status_code == 200
     assert preview.json["data"]["applicable"] is True
@@ -673,12 +654,8 @@ def test_model_routing_diagnostics_and_download_are_secret_free(
     monkeypatch.setattr(providers, "_effective_model_routing_service", lambda: _Effective())
     monkeypatch.setattr(providers, "_known_model_profiles", lambda: ())
 
-    read = client.get(
-        "/models/routing/v1/diagnostics", headers=_headers(admin_token)
-    )
-    exported = client.get(
-        "/models/routing/v1/diagnostics/export", headers=_headers(admin_token)
-    )
+    read = client.get("/models/routing/v1/diagnostics", headers=_headers(admin_token))
+    exported = client.get("/models/routing/v1/diagnostics/export", headers=_headers(admin_token))
 
     assert read.status_code == exported.status_code == 200
     assert read.json["data"]["schema"] == "ananta.model-routing-diagnostics.v1"
@@ -694,9 +671,7 @@ def test_model_routing_transfer_capabilities_are_separated(
     user_auth_header,
 ):
     _enable_model_dashboard(app)
-    exported = client.get(
-        "/models/routing/v1/export", headers=user_auth_header
-    )
+    exported = client.get("/models/routing/v1/export", headers=user_auth_header)
     previewed = client.post(
         "/models/routing/v1/import/preview",
         json={},

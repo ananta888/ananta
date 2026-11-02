@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,17 +11,17 @@ from worker.training.data_recipe_materializer import (
     DataRecipeMaterializationError,
     FilesystemDatasetRecipeMaterializer,
 )
-from worker.training.unsloth_task_handlers import (
-    UnslothDataRecipeTaskHandler,
-    UnslothMcpStopTrainingTaskHandler,
-    UnslothStorageCleanupTaskHandler,
-    build_unsloth_model_import_task_handler,
-)
 from worker.training.storage_cleanup import (
     WorkerStorageCleanupExecutor,
 )
 from worker.training.unsloth_mcp_control import (
     UnslothMcpStopTrainingClient,
+)
+from worker.training.unsloth_task_handlers import (
+    UnslothDataRecipeTaskHandler,
+    UnslothMcpStopTrainingTaskHandler,
+    UnslothStorageCleanupTaskHandler,
+    build_unsloth_model_import_task_handler,
 )
 
 MODEL_IMPORT_MODE = "model_import_network"
@@ -52,13 +52,7 @@ class UnslothWorkerRuntime:
         return self.status == "ready"
 
     def health_snapshot(self) -> dict[str, Any]:
-        capabilities = sorted(
-            {
-                capability
-                for binding in self.bindings
-                for capability in binding.capabilities
-            }
-        )
+        capabilities = sorted({capability for binding in self.bindings for capability in binding.capabilities})
         return {
             "status": self.status,
             "ready": self.ready,
@@ -66,10 +60,7 @@ class UnslothWorkerRuntime:
             "reason_code": self.reason_code,
             "network_access": self.network_access,
             "capabilities": capabilities,
-            "task_kinds": [
-                binding.task_kind
-                for binding in self.bindings
-            ],
+            "task_kinds": [binding.task_kind for binding in self.bindings],
         }
 
 
@@ -77,9 +68,7 @@ def build_unsloth_worker_runtime(
     env: Mapping[str, str] | None = None,
 ) -> UnslothWorkerRuntime:
     source = os.environ if env is None else env
-    profile = str(
-        source.get("ANANTA_UNSLOTH_WORKER_MODE") or ""
-    ).strip()
+    profile = str(source.get("ANANTA_UNSLOTH_WORKER_MODE") or "").strip()
     if not profile:
         return UnslothWorkerRuntime(
             profile="",
@@ -89,14 +78,8 @@ def build_unsloth_worker_runtime(
         )
     try:
         if profile == MODEL_IMPORT_MODE:
-            if not _truthy(
-                source.get(
-                    "ANANTA_UNSLOTH_MODEL_NETWORK_ENABLED"
-                )
-            ):
-                raise ValueError(
-                    "unsloth_model_import_network_opt_in_required"
-                )
+            if not _truthy(source.get("ANANTA_UNSLOTH_MODEL_NETWORK_ENABLED")):
+                raise ValueError("unsloth_model_import_network_opt_in_required")
             handler = build_unsloth_model_import_task_handler(
                 cache_root=_directory(
                     source,
@@ -116,9 +99,7 @@ def build_unsloth_worker_runtime(
                     "worker_only": True,
                     "hub_delegation_required": True,
                     "worker_orchestration_forbidden": True,
-                    "network_access": (
-                        "huggingface_snapshot_only"
-                    ),
+                    "network_access": ("huggingface_snapshot_only"),
                     "network_opt_in_required": True,
                 },
                 verification_hooks=(
@@ -143,9 +124,7 @@ def build_unsloth_worker_runtime(
                     "TRANSFORMERS_OFFLINE",
                 )
             ):
-                raise ValueError(
-                    "unsloth_data_recipe_offline_mode_required"
-                )
+                raise ValueError("unsloth_data_recipe_offline_mode_required")
             handler = UnslothDataRecipeTaskHandler(
                 FilesystemDatasetRecipeMaterializer(
                     dataset_root=_directory(
@@ -154,26 +133,17 @@ def build_unsloth_worker_runtime(
                     ),
                     attempt_output_root=_directory(
                         source,
-                        (
-                            "ANANTA_UNSLOTH_RECIPE_"
-                            "ATTEMPT_OUTPUT_ROOT"
-                        ),
+                        ("ANANTA_UNSLOTH_RECIPE_ATTEMPT_OUTPUT_ROOT"),
                     ),
                     max_dataset_bytes=_bounded_int(
                         source,
-                        (
-                            "ANANTA_UNSLOTH_RECIPE_"
-                            "MAX_DATASET_BYTES"
-                        ),
+                        ("ANANTA_UNSLOTH_RECIPE_MAX_DATASET_BYTES"),
                         default=4 * 1024**3,
                         maximum=100 * 1024**3,
                     ),
                     max_output_bytes=_bounded_int(
                         source,
-                        (
-                            "ANANTA_UNSLOTH_RECIPE_"
-                            "MAX_OUTPUT_BYTES"
-                        ),
+                        ("ANANTA_UNSLOTH_RECIPE_MAX_OUTPUT_BYTES"),
                         default=8 * 1024**3,
                         maximum=200 * 1024**3,
                     ),
@@ -188,9 +158,7 @@ def build_unsloth_worker_runtime(
             binding = UnslothWorkerHandlerBinding(
                 task_kind="ml.dataset.recipe.materialize",
                 handler=handler,
-                capabilities=(
-                    "unsloth_dataset_materialization",
-                ),
+                capabilities=("unsloth_dataset_materialization",),
                 safety_flags={
                     "worker_only": True,
                     "hub_delegation_required": True,
@@ -221,10 +189,7 @@ def build_unsloth_worker_runtime(
                     ),
                     workspace_root=_directory(
                         source,
-                        (
-                            "ANANTA_UNSLOTH_STORAGE_CLEANUP_"
-                            "WORKSPACE_ROOT"
-                        ),
+                        ("ANANTA_UNSLOTH_STORAGE_CLEANUP_WORKSPACE_ROOT"),
                     ),
                 )
             )
@@ -254,11 +219,7 @@ def build_unsloth_worker_runtime(
                 bindings=(binding,),
             )
         if profile == MCP_CONTROL_MODE:
-            handler = UnslothMcpStopTrainingTaskHandler(
-                UnslothMcpStopTrainingClient.from_environment(
-                    source
-                )
-            )
+            handler = UnslothMcpStopTrainingTaskHandler(UnslothMcpStopTrainingClient.from_environment(source))
             binding = UnslothWorkerHandlerBinding(
                 task_kind="unsloth.mcp.stop_training",
                 handler=handler,
@@ -293,18 +254,11 @@ def build_unsloth_worker_runtime(
         return UnslothWorkerRuntime(
             profile=profile,
             status="error",
-            reason_code=(
-                reason
-                or "unsloth_worker_configuration_invalid"
-            ),
+            reason_code=(reason or "unsloth_worker_configuration_invalid"),
             network_access=(
                 "huggingface_snapshot_only"
                 if profile == MODEL_IMPORT_MODE
-                else (
-                    "studio_internal_only"
-                    if profile == MCP_CONTROL_MODE
-                    else "none"
-                )
+                else ("studio_internal_only" if profile == MCP_CONTROL_MODE else "none")
             ),
         )
 
@@ -315,12 +269,7 @@ def _directory(
 ) -> Path:
     raw = str(source.get(name) or "").strip()
     path = Path(raw)
-    if (
-        not raw
-        or not path.is_absolute()
-        or not path.is_dir()
-        or path.is_symlink()
-    ):
+    if not raw or not path.is_absolute() or not path.is_dir() or path.is_symlink():
         raise ValueError(f"{name.lower()}_invalid")
     return path
 
@@ -336,9 +285,7 @@ def _bounded_int(
     try:
         value = int(raw) if raw else int(default)
     except ValueError as exc:
-        raise ValueError(
-            f"{name.lower()}_invalid"
-        ) from exc
+        raise ValueError(f"{name.lower()}_invalid") from exc
     if not 0 < value <= maximum:
         raise ValueError(f"{name.lower()}_invalid")
     return value

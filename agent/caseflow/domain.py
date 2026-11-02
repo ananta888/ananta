@@ -1,4 +1,5 @@
 """CaseFlow Domain Registry — maps case_type strings to CaseTypeDefinitions."""
+
 from __future__ import annotations
 
 from agent.caseflow.models import CaseTypeDefinition

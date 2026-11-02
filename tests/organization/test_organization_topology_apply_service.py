@@ -4,12 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from agent.services.organization_assignment_eligibility_service import (
+    OrganizationAssignmentEligibilityService,
+)
 from agent.services.organization_topology_apply_service import (
     OrganizationPatchState,
     OrganizationTopologyPatchDocument,
-)
-from agent.services.organization_assignment_eligibility_service import (
-    OrganizationAssignmentEligibilityService,
 )
 from agent.services.organization_topology_patch_evaluator import (
     OrganizationTopologyPatchEvaluator,

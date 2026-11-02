@@ -154,14 +154,8 @@ def build_file_snapshots(
     return snapshots
 
 
-def is_cache_entry_reusable(
-    entry: dict | None, sha1: str | None, options_signature: str
-) -> bool:
-    return (
-        bool(entry)
-        and entry.get("sha1") == sha1
-        and entry.get("options_signature") == options_signature
-    )
+def is_cache_entry_reusable(entry: dict | None, sha1: str | None, options_signature: str) -> bool:
+    return bool(entry) and entry.get("sha1") == sha1 and entry.get("options_signature") == options_signature
 
 
 def build_package_type_index(
@@ -188,9 +182,7 @@ def build_package_type_index(
                 scan = (
                     java_extractor.pre_scan_types(snapshot.rel_path, snapshot.text)
                     if snapshot.ext == "java"
-                    else csharp_extractor.pre_scan_types(
-                        snapshot.rel_path, snapshot.text
-                    )
+                    else csharp_extractor.pre_scan_types(snapshot.rel_path, snapshot.text)
                 )
             except Exception as exc:
                 scan_errors.append(

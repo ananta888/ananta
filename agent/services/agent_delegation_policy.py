@@ -31,9 +31,14 @@ class DelegationProposal:
     requested_depth: int = 1
 
     def assert_valid(self) -> None:
-        for name, value in (("proposal_id", self.proposal_id), ("proposer_role_key", self.proposer_role_key),
-                            ("target_role_key", self.target_role_key), ("goal_id", self.goal_id),
-                            ("project_id", self.project_id), ("capability", self.capability)):
+        for name, value in (
+            ("proposal_id", self.proposal_id),
+            ("proposer_role_key", self.proposer_role_key),
+            ("target_role_key", self.target_role_key),
+            ("goal_id", self.goal_id),
+            ("project_id", self.project_id),
+            ("capability", self.capability),
+        ):
             if not isinstance(value, str) or not value or len(value) > 200:
                 raise ValueError(f"delegation_{name}_invalid")
         if self.task_id is not None and (not isinstance(self.task_id, str) or not self.task_id):
@@ -72,8 +77,9 @@ class HubDelegationPolicy:
     def __init__(self, *, reporting: Mapping[str, str | None]):
         self._reporting = dict(reporting)
 
-    def validate(self, proposal: DelegationProposal, *, role_capabilities: Mapping[str, Set[str]],
-                 scope: DelegationScope) -> DelegationDecision:
+    def validate(
+        self, proposal: DelegationProposal, *, role_capabilities: Mapping[str, Set[str]], scope: DelegationScope
+    ) -> DelegationDecision:
         try:
             proposal.assert_valid()
             scope.assert_valid()

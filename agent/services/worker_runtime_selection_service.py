@@ -4,11 +4,19 @@ Implements the first practical backend slice for DRR-T048. The service chooses
 one worker and one concrete runtime target from validated policies and candidate
 metadata. It is deterministic and records rejected candidates with reason codes.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
+from ananta_contracts.context_access_policy import (
+    ContextAccessPolicy,
+    ContextAccessPolicyEvaluator,
+    Decision,
+    RequestedOperation,
+    build_destination_context,
+)
 from worker.core.runtime_target import (
     RejectedWorkerRuntimeCandidate,
     RuntimeHealthState,
@@ -21,14 +29,6 @@ from worker.core.runtime_target import (
     WorkerSelectionMode,
     WorkerSelectionPolicy,
 )
-from ananta_contracts.context_access_policy import (
-    ContextAccessPolicy,
-    ContextAccessPolicyEvaluator,
-    Decision,
-    RequestedOperation,
-    build_destination_context,
-)
-
 
 _MUTATION_CAPABILITIES = {
     "patch_apply",
@@ -68,7 +68,7 @@ class WorkerRuntimeSelectionService:
         required = _dedupe([*policy.required_capabilities, *request.required_capabilities])
         rejected: list[RejectedWorkerRuntimeCandidate] = []
 
-        worker_by_id = {w.worker_id: w for w in request.workers}
+        {w.worker_id: w for w in request.workers}
         runtime_by_id = {r.runtime_target_id: r for r in request.runtime_targets}
 
         if policy.mode == WorkerSelectionMode.fixed:
@@ -91,11 +91,13 @@ class WorkerRuntimeSelectionService:
 
             runtimes = self._candidate_runtimes(worker, runtime_by_id, request.runtime_targets)
             if not runtimes:
-                rejected.append(RejectedWorkerRuntimeCandidate(
-                    worker_id=worker.worker_id,
-                    worker_kind=worker.worker_kind,
-                    reason_code="no_runtime_target",
-                ))
+                rejected.append(
+                    RejectedWorkerRuntimeCandidate(
+                        worker_id=worker.worker_id,
+                        worker_kind=worker.worker_kind,
+                        reason_code="no_runtime_target",
+                    )
+                )
                 continue
 
             any_runtime_ok = False
@@ -113,20 +115,22 @@ class WorkerRuntimeSelectionService:
 
                 # CAP-BE-T021: Integrate context policy
                 if request.context_access_policy and (request.context_blocks or request.required_context_class):
-                     if not self._is_context_allowed(
-                         request.context_access_policy,
-                         worker,
-                         runtime,
-                         request.required_context_class,
-                         request.context_blocks or [],
-                     ):
-                         rejected.append(RejectedWorkerRuntimeCandidate(
-                             worker_id=worker.worker_id,
-                             worker_kind=worker.worker_kind,
-                             runtime_target_id=runtime.runtime_target_id,
-                             reason_code="context_block_denied_by_policy",
-                         ))
-                         continue
+                    if not self._is_context_allowed(
+                        request.context_access_policy,
+                        worker,
+                        runtime,
+                        request.required_context_class,
+                        request.context_blocks or [],
+                    ):
+                        rejected.append(
+                            RejectedWorkerRuntimeCandidate(
+                                worker_id=worker.worker_id,
+                                worker_kind=worker.worker_kind,
+                                runtime_target_id=runtime.runtime_target_id,
+                                reason_code="context_block_denied_by_policy",
+                            )
+                        )
+                        continue
 
                 any_runtime_ok = True
                 score = self._score(
@@ -155,7 +159,13 @@ class WorkerRuntimeSelectionService:
 
         score, selected_worker, selected_runtime = sorted(
             scored,
-            key=lambda item: (item[0], item[1].priority, item[1].worker_kind.value, item[1].worker_id, item[2].runtime_target_id),
+            key=lambda item: (
+                item[0],
+                item[1].priority,
+                item[1].worker_kind.value,
+                item[1].worker_id,
+                item[2].runtime_target_id,
+            ),
         )[0]
         return WorkerRuntimeSelectionDecision(
             selected_worker_id=selected_worker.worker_id,
@@ -189,11 +199,13 @@ class WorkerRuntimeSelectionService:
         # Fallback for callers that only provide class but no block metadata.
         blocks = context_blocks
         if not blocks and context_class:
-            blocks = [{
-                "source_type": "memory",
-                "source_ref": "required_context_class",
-                "sensitivity": context_class,
-            }]
+            blocks = [
+                {
+                    "source_type": "memory",
+                    "source_ref": "required_context_class",
+                    "sensitivity": context_class,
+                }
+            ]
         if not blocks:
             return True
 
@@ -225,6 +237,7 @@ class WorkerRuntimeSelectionService:
             rules.append(raw if hasattr(raw, "id") else dict(raw))
         # Reuse pydantic-like constructor via dataclass kwargs from dict rules.
         from ananta_contracts.context_access_policy import ContextAccessRule
+
         coerced_rules = [r if isinstance(r, ContextAccessRule) else ContextAccessRule(**r) for r in rules]
         return ContextAccessPolicy(
             policy_id=(policy or {}).get("policy_id", "selection-default"),
@@ -250,7 +263,10 @@ class WorkerRuntimeSelectionService:
         if not policy.allows_worker_kind(worker.worker_kind):
             if worker.worker_kind in policy.denied_worker_kinds:
                 reason = "worker_kind_denied_by_policy"
-            elif worker.worker_kind in {WorkerKind.hermes, WorkerKind.remote_worker, WorkerKind.custom_worker} and not policy.allow_external_workers:
+            elif (
+                worker.worker_kind in {WorkerKind.hermes, WorkerKind.remote_worker, WorkerKind.custom_worker}
+                and not policy.allow_external_workers
+            ):
                 reason = "external_worker_denied_allow_external_false"
             else:
                 reason = "worker_kind_not_allowed"
@@ -260,7 +276,11 @@ class WorkerRuntimeSelectionService:
             return False, self._reject_worker(worker, "missing_worker_capabilities", missing)
         if any(cap in _MUTATION_CAPABILITIES for cap in required) and worker.worker_kind in _ANALYSIS_ONLY_WORKER_KINDS:
             return False, self._reject_worker(worker, "analysis_only_worker_rejected_for_mutation")
-        if execution_mode and worker.supported_execution_modes and execution_mode not in worker.supported_execution_modes:
+        if (
+            execution_mode
+            and worker.supported_execution_modes
+            and execution_mode not in worker.supported_execution_modes
+        ):
             return False, self._reject_worker(worker, "execution_mode_not_supported")
         current = max(0, int(current_load_by_worker_id.get(worker.worker_id, 0)))
         max_parallel = max(1, int(getattr(worker, "max_parallel_tasks", 1) or 1))
@@ -323,7 +343,9 @@ class WorkerRuntimeSelectionService:
     ) -> int:
         score = worker.priority
         score += self._runtime_score(policy, runtime)
-        if worker.worker_kind == WorkerKind.native_ananta_worker and any(cap.startswith("repair.execute") for cap in required):
+        if worker.worker_kind == WorkerKind.native_ananta_worker and any(
+            cap.startswith("repair.execute") for cap in required
+        ):
             score -= 40
         if worker.worker_kind == WorkerKind.opencode and "patch_propose" in required:
             score -= 20
@@ -346,7 +368,9 @@ class WorkerRuntimeSelectionService:
             return 70
         return 40
 
-    def _selected_reason(self, policy: WorkerSelectionPolicy, worker: WorkerCandidate, runtime: WorkerRuntimeTarget, score: int) -> str:
+    def _selected_reason(
+        self, policy: WorkerSelectionPolicy, worker: WorkerCandidate, runtime: WorkerRuntimeTarget, score: int
+    ) -> str:
         return (
             f"selected {worker.worker_kind.value}/{worker.worker_id} on "
             f"{runtime.runtime_kind.value}/{runtime.runtime_target_id} "

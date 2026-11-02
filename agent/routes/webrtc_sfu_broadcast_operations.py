@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -14,7 +14,6 @@ from agent.services.sfu_broadcast_operations_read_model import (
     SfuBroadcastOperationsQuery,
     SfuBroadcastOperationsReadModel,
 )
-
 
 webrtc_sfu_broadcast_operations_bp = Blueprint("webrtc_sfu_broadcast_operations", __name__)
 _QUERY_KEYS = frozenset({"room_ref", "receiver_ref", "tenant_ref", "region", "page_size", "cursor"})

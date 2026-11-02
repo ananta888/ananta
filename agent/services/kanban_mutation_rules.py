@@ -88,9 +88,7 @@ def rank_kanban_tasks(
         values = [
             task
             for task in tasks
-            if task.id != moved.id
-            and is_kanban_rankable_task(task)
-            and kanban_column(task.status) == column
+            if task.id != moved.id and is_kanban_rankable_task(task) and kanban_column(task.status) == column
         ]
         values.sort(key=kanban_sort_key)
         if column == target:
@@ -121,9 +119,7 @@ def require_acyclic_kanban_dependencies(target: TaskDB, dependencies: tuple[str,
     dependencies = tuple(dict.fromkeys(dependencies))
     by_id = {task.id: task for task in tasks}
     if target.id in dependencies:
-        raise KanbanServiceError(
-            "kanban_dependency_cycle", "a card cannot depend on itself", status_code=409
-        )
+        raise KanbanServiceError("kanban_dependency_cycle", "a card cannot depend on itself", status_code=409)
     missing = [value for value in dependencies if value not in by_id]
     if missing:
         raise KanbanServiceError(
@@ -132,10 +128,7 @@ def require_acyclic_kanban_dependencies(target: TaskDB, dependencies: tuple[str,
             status_code=404,
             details={"missing": missing},
         )
-    graph = {
-        task.id: list(dependencies if task.id == target.id else (task.depends_on or []))
-        for task in tasks
-    }
+    graph = {task.id: list(dependencies if task.id == target.id else (task.depends_on or [])) for task in tasks}
 
     def reaches(node: str, visited: set[str]) -> bool:
         if node == target.id:
@@ -146,9 +139,7 @@ def require_acyclic_kanban_dependencies(target: TaskDB, dependencies: tuple[str,
         return any(reaches(child, visited) for child in graph.get(node, []))
 
     if any(reaches(value, set()) for value in dependencies):
-        raise KanbanServiceError(
-            "kanban_dependency_cycle", "dependencies would create a cycle", status_code=409
-        )
+        raise KanbanServiceError("kanban_dependency_cycle", "dependencies would create a cycle", status_code=409)
 
 
 def kanban_store_error(exc: Exception) -> KanbanServiceError:

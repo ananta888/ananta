@@ -6,9 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-KNOWLEDGE_INDEX_DISPATCH_SERVICE_AUTH_REQUIRED = (
-    "knowledge_index_dispatch_service_auth_required"
-)
+KNOWLEDGE_INDEX_DISPATCH_SERVICE_AUTH_REQUIRED = "knowledge_index_dispatch_service_auth_required"
 
 _HUB_SERVICE_AUTH_MODES = frozenset(
     {
@@ -53,17 +51,11 @@ class KnowledgeIndexDispatchRequestAuthPolicy:
         return KnowledgeIndexDispatchRequestAuthDecision(
             dispatch_present=True,
             allowed=allowed,
-            reason_code=(
-                None
-                if allowed
-                else KNOWLEDGE_INDEX_DISPATCH_SERVICE_AUTH_REQUIRED
-            ),
+            reason_code=(None if allowed else KNOWLEDGE_INDEX_DISPATCH_SERVICE_AUTH_REQUIRED),
         )
 
 
-knowledge_index_dispatch_request_auth_policy = (
-    KnowledgeIndexDispatchRequestAuthPolicy()
-)
+knowledge_index_dispatch_request_auth_policy = KnowledgeIndexDispatchRequestAuthPolicy()
 
 
 __all__ = [

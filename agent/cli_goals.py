@@ -229,23 +229,65 @@ Examples:
     parser.add_argument("--team", "-t", help="Team ID to assign tasks to")
     parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
-    parser.add_argument("--output-dir", "-o", help="Directory where generated files are written. Relative names (e.g. 'fibonacci') map to /project-workspaces/<name> in the container and ./project-workspaces/<name> on the host.")
-    parser.add_argument("--rag-sources", "-R", help="Comma-separated knowledge sources to attach (col:<id>, art:<id>, path:<rel>). Included as research context for every task in the goal.")
-    parser.add_argument("--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)")
-    parser.add_argument("--exec", dest="exec_script", action="store_true", help="Review then optionally execute the generated script (repair-script only)")
-    parser.add_argument("--tui", dest="tui_flag", action="store_true", help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)")
-    parser.add_argument("--loop", dest="loop_flag", action="store_true", help="TUI loop: plan → approve → execute → test → retry until fixed (repair-script only)")
-    parser.add_argument("--max-iterations", type=int, default=3, metavar="N", help="Maximum loop iterations for --loop (default 3)")
-    parser.add_argument("--scan", dest="scan_flag", action="store_true", help="Host-Diagnose vor LLM-Submission: sammelt Systemzustand lokal (repair-script only)")
-    parser.add_argument("--wait-timeout", type=int, default=300, metavar="SECONDS", help="Max seconds to wait for goal completion, default 300 (repair-script only)")
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        help="Directory where generated files are written. Relative names (e.g. 'fibonacci') map to /project-workspaces/<name> in the container and ./project-workspaces/<name> on the host.",
+    )
+    parser.add_argument(
+        "--rag-sources",
+        "-R",
+        help="Comma-separated knowledge sources to attach (col:<id>, art:<id>, path:<rel>). Included as research context for every task in the goal.",
+    )
+    parser.add_argument(
+        "--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)"
+    )
+    parser.add_argument(
+        "--exec",
+        dest="exec_script",
+        action="store_true",
+        help="Review then optionally execute the generated script (repair-script only)",
+    )
+    parser.add_argument(
+        "--tui",
+        dest="tui_flag",
+        action="store_true",
+        help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)",
+    )
+    parser.add_argument(
+        "--loop",
+        dest="loop_flag",
+        action="store_true",
+        help="TUI loop: plan → approve → execute → test → retry until fixed (repair-script only)",
+    )
+    parser.add_argument(
+        "--max-iterations", type=int, default=3, metavar="N", help="Maximum loop iterations for --loop (default 3)"
+    )
+    parser.add_argument(
+        "--scan",
+        dest="scan_flag",
+        action="store_true",
+        help="Host-Diagnose vor LLM-Submission: sammelt Systemzustand lokal (repair-script only)",
+    )
+    parser.add_argument(
+        "--wait-timeout",
+        type=int,
+        default=300,
+        metavar="SECONDS",
+        help="Max seconds to wait for goal completion, default 300 (repair-script only)",
+    )
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
-    parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
+    parser.add_argument(
+        "--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help"
+    )
     parser.add_argument("--goals", action="store_true", help="List goals")
     parser.add_argument("--goal-detail", help="Show detail for a goal ID")
     parser.add_argument("--goal-tasks", help="List all tasks for a goal ID")
     parser.add_argument("--goal-purge", help="Purge one goal and all related records (admin only)")
-    parser.add_argument("--yes", action="store_true", help="Required confirmation for destructive actions like --goal-purge")
+    parser.add_argument(
+        "--yes", action="store_true", help="Required confirmation for destructive actions like --goal-purge"
+    )
     parser.add_argument("--modes", action="store_true", help="List guided goal modes")
     parser.add_argument("--tasks", action="store_true", help="List recent tasks")
     parser.add_argument("--task-status", help="Filter tasks by status")
@@ -264,17 +306,41 @@ Examples:
         help="Planning strategy: llm (default), template, auto. Overrides server-side default.",
     )
     # PRI-013: planning diagnostics
-    parser.add_argument("--planning-stuck", action="store_true", help="List goals stuck in planning_running/queued with expired lease")
-    parser.add_argument("--recover-stale", action="store_true", help="Cancel stale planning goals with expired lease (use --yes to execute, default: dry-run)")
-    parser.add_argument("--cancel-tree", metavar="GOAL_ID", help="Cancel all tasks for a goal and mark it failed (admin, requires --yes)")
-    parser.add_argument("--kill-requests", metavar="GOAL_ID", help="Abort all in-flight LM Studio requests for a goal (admin)")
-    parser.add_argument("--kill-all-requests", action="store_true", help="Abort all in-flight LM Studio requests across all goals (admin)")
-    parser.add_argument("--dry-run", action="store_true", help="Preview operation without writing state (sources bootstrap)")
-    parser.add_argument("--skip-source", action="append", default=[], help="Source ID to skip (repeatable, sources bootstrap)")
-    parser.add_argument("--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap")
+    parser.add_argument(
+        "--planning-stuck", action="store_true", help="List goals stuck in planning_running/queued with expired lease"
+    )
+    parser.add_argument(
+        "--recover-stale",
+        action="store_true",
+        help="Cancel stale planning goals with expired lease (use --yes to execute, default: dry-run)",
+    )
+    parser.add_argument(
+        "--cancel-tree",
+        metavar="GOAL_ID",
+        help="Cancel all tasks for a goal and mark it failed (admin, requires --yes)",
+    )
+    parser.add_argument(
+        "--kill-requests", metavar="GOAL_ID", help="Abort all in-flight LM Studio requests for a goal (admin)"
+    )
+    parser.add_argument(
+        "--kill-all-requests",
+        action="store_true",
+        help="Abort all in-flight LM Studio requests across all goals (admin)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview operation without writing state (sources bootstrap)"
+    )
+    parser.add_argument(
+        "--skip-source", action="append", default=[], help="Source ID to skip (repeatable, sources bootstrap)"
+    )
+    parser.add_argument(
+        "--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap"
+    )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output (sources doctor)")
     parser.add_argument("--write", action="store_true", help="Write changes for plan summary fix/migrate")
-    parser.add_argument("--convert-epics", action="store_true", help="Convert legacy epics.tasks in plan summary migrate")
+    parser.add_argument(
+        "--convert-epics", action="store_true", help="Convert legacy epics.tasks in plan summary migrate"
+    )
     return parser
 
 

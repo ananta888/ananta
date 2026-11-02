@@ -32,7 +32,9 @@ class PlanningTelemetryService:
         return dict(getattr(run, "mode_data", {}) or {})
 
     @staticmethod
-    def _resolve_output_shape(*, raw_output_preview: str | None, mode_output_shape: str | None) -> tuple[str | None, str | None]:
+    def _resolve_output_shape(
+        *, raw_output_preview: str | None, mode_output_shape: str | None
+    ) -> tuple[str | None, str | None]:
         raw_shape = None
         if raw_output_preview and str(raw_output_preview).strip():
             raw_shape = str(classify_output_shape(raw_output_preview).get("primary_shape") or "").strip() or None

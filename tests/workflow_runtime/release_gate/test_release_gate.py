@@ -88,14 +88,8 @@ def _explicit_test_evidence(gate: WorkflowRuntimeReleaseGate) -> tuple[RuntimeRu
                 if scenario.invariants.side_effect_operations:
                     passed_proofs.add("ledger")
                 if iteration == 1 and (
-                    (
-                        requirement.runtime_id in {"native", "langgraph"}
-                        and scenario_id == "research"
-                    )
-                    or (
-                        requirement.runtime_id == "temporal"
-                        and scenario_id == "long-running-resume"
-                    )
+                    (requirement.runtime_id in {"native", "langgraph"} and scenario_id == "research")
+                    or (requirement.runtime_id == "temporal" and scenario_id == "long-running-resume")
                 ):
                     passed_proofs.update({"checkpoint", "recovery"})
                     if not durable:
@@ -356,9 +350,7 @@ def test_non_durable_local_ephemeral_events_cannot_source_production_proofs() ->
     target = next(
         item
         for item in evidence
-        if item.runtime_id == "langgraph"
-        and item.scenario_id == "research"
-        and item.iteration == 1
+        if item.runtime_id == "langgraph" and item.scenario_id == "research" and item.iteration == 1
     )
     event_types = (
         set(target.observation.event_types)

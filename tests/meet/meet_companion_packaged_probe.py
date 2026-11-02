@@ -38,15 +38,29 @@ def main():
     assert not list(Path("/dev").glob("nvidia*"))
     # Import/construct the new transport with no Hub package or network. Actual
     # signed HTTP verification is a separate host-side integration gate.
-    assignment = {"schema": "ananta.meet-dialog-assignment.v1", "task_id": "task", "lease_id": "dispatch",
-                  "runtime_id": "runtime", "session_id": "session", "tenant_id": "synthetic",
-                  "project_id": "synthetic", "deadline": int(time.time()) + 60,
-                  "capabilities": ["chat.read", "chat.send"], "audio_mode": "off",
-                  "companion_execution": True,
-                  "meeting": {"origin": "https://meet.synthetic.test", "room_id": "room-" + "a" * 18,
-                              "grant": "synthetic.grant.placeholder"}}
-    client = AssignedCompanionGrantClient(assignment,
-        "http://127.0.0.1/api/meet/v1/internal/companion/task-grant", b"synthetic-private-worker-key-32bytes")
+    assignment = {
+        "schema": "ananta.meet-dialog-assignment.v1",
+        "task_id": "task",
+        "lease_id": "dispatch",
+        "runtime_id": "runtime",
+        "session_id": "session",
+        "tenant_id": "synthetic",
+        "project_id": "synthetic",
+        "deadline": int(time.time()) + 60,
+        "capabilities": ["chat.read", "chat.send"],
+        "audio_mode": "off",
+        "companion_execution": True,
+        "meeting": {
+            "origin": "https://meet.synthetic.test",
+            "room_id": "room-" + "a" * 18,
+            "grant": "synthetic.grant.placeholder",
+        },
+    }
+    client = AssignedCompanionGrantClient(
+        assignment,
+        "http://127.0.0.1/api/meet/v1/internal/companion/task-grant",
+        b"synthetic-private-worker-key-32bytes",
+    )
     assert client.assignment == assignment
     tools = AssignedCompanionToolClient(client)
     assert tools.endpoint.endswith("/internal/companion/task-tool") and tools.deadline == client.deadline
@@ -56,18 +70,25 @@ def main():
     assert model_process.endpoint == client.endpoint and model_process.deadline == client.deadline
     tool_process = AssignedCompanionToolProcess(client)
     assert tool_process.endpoint == client.endpoint and tool_process.deadline == client.deadline
-    model_environment = assigned_model_environment(assignment, environment={
-        'MEET_COMPANION_TOOLS': '1', 'ANANTA_MEET_AVATAR_CODECOMPASS': '1',
-        'MEET_COMPANION_RAG_PREFIX': '1', 'MEET_WORKER_KEY_FILE': '/synthetic/key',
-    })
-    assert model_environment['MEET_COMPANION_TOOLS'] == model_environment['MEET_COMPANION_RAG_PREFIX'] == '0'
-    assert 'MEET_WORKER_KEY_FILE' not in model_environment
+    model_environment = assigned_model_environment(
+        assignment,
+        environment={
+            "MEET_COMPANION_TOOLS": "1",
+            "ANANTA_MEET_AVATAR_CODECOMPASS": "1",
+            "MEET_COMPANION_RAG_PREFIX": "1",
+            "MEET_WORKER_KEY_FILE": "/synthetic/key",
+        },
+    )
+    assert model_environment["MEET_COMPANION_TOOLS"] == model_environment["MEET_COMPANION_RAG_PREFIX"] == "0"
+    assert "MEET_WORKER_KEY_FILE" not in model_environment
     assert callable(AssignedCompanionExecution.answer) and callable(AssignedCompanionSession.tick)
-    executor = DialogExecutor('/state/synthetic-replay.sqlite', slots=1)
-    assert executor.slots.snapshot() == {'capacity': 1, 'active': 0}
+    executor = DialogExecutor("/state/synthetic-replay.sqlite", slots=1)
+    assert executor.slots.snapshot() == {"capacity": 1, "active": 0}
     invalid_assignment = subprocess.run(
         [sys.executable, "-m", "worker.meet_media.companion_task_runtime"],
-        input=b'{"schema":"foreign","grant":"synthetic-private-value"}\n', capture_output=True, timeout=10,
+        input=b'{"schema":"foreign","grant":"synthetic-private-value"}\n',
+        capture_output=True,
+        timeout=10,
     )
     assert invalid_assignment.returncode == 1
     assert invalid_assignment.stdout == b"" and invalid_assignment.stderr == b""
@@ -83,22 +104,33 @@ def main():
     expected = json.loads(os.environ["ANANTA_TEST_SOURCE_DIGESTS"])
     for relative, digest in expected.items():
         assert hashlib.sha256((Path("/app") / relative).read_bytes()).hexdigest() == digest
-    locked = subprocess.run([sys.executable, "/app/check_meet_runtime_lock.py", "/app/requirements.lock"],
-                            capture_output=True, timeout=10)
+    locked = subprocess.run(
+        [sys.executable, "/app/check_meet_runtime_lock.py", "/app/requirements.lock"], capture_output=True, timeout=10
+    )
     assert locked.returncode == 0 and locked.stdout == b"meet-runtime-lock-ok\n"
     default_model = subprocess.run(
         [sys.executable, "-m", "worker.meet_media.companion_execution_runtime"],
-        input=b'{"kind":"foreign","text":"synthetic"}\n', capture_output=True, timeout=10)
+        input=b'{"kind":"foreign","text":"synthetic"}\n',
+        capture_output=True,
+        timeout=10,
+    )
     assert default_model.returncode == 2 and default_model.stdout == b"" and default_model.stderr == b""
     ticks = []
     media = CompanionMediaPreparationProcess()
-    model = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", """
+    model = CompanionExecutionProcess(
+        command=(
+            sys.executable,
+            "-u",
+            "-c",
+            """
 import json,sys,time
 count=0
 for line in sys.stdin:
     request=json.loads(line);count+=1;time.sleep(0.15)
     print(json.dumps({'kind':request['kind'],'result':str(count)}),flush=True)
-"""))
+""",
+        )
+    )
     try:
         assert model.call("answer", "synthetic", cooperate=lambda: ticks.append(True)) == "1"
         assert model.call("answer", "synthetic", cooperate=lambda: ticks.append(True)) == "2"
@@ -112,14 +144,22 @@ for line in sys.stdin:
     assert media._transport.process.poll() is not None and model._process.poll() is not None
 
     port_calls = []
-    port_model = CompanionExecutionProcess(command=(sys.executable, "-u", "-c", """
+    port_model = CompanionExecutionProcess(
+        command=(
+            sys.executable,
+            "-u",
+            "-c",
+            """
 import json,sys
 from worker.meet_media.companion_execution_ports import CompanionExecutionPorts
 request=json.loads(sys.stdin.buffer.readline())
 ports=CompanionExecutionPorts(sys.stdin.buffer,sys.stdout.buffer,allowed={'tool'})
 result=ports.call('tool',{'query':request['text']})
 print(json.dumps({'kind':'answer','result':result['text']}),flush=True)
-"""), ports={"tool": lambda arguments, **kwargs: port_calls.append(arguments) or {"text": "synthetic"}})
+""",
+        ),
+        ports={"tool": lambda arguments, **kwargs: port_calls.append(arguments) or {"text": "synthetic"}},
+    )
     try:
         assert port_model.call("answer", "scoped", cooperate=lambda: ticks.append(True)) == "synthetic"
         assert port_calls == [{"query": "scoped"}]
@@ -139,12 +179,22 @@ print(json.dumps({'kind':'answer','result':result['text']}),flush=True)
         assert cancelled._transport.process.poll() is not None
     finally:
         cancelled.close()
-    print(json.dumps({"schema": "ananta.meet-companion-packaged-probe.v1", "nonroot": True,
-                      "hub_package_absent": True, "exact_source_modules": len(expected),
-                      "runtime_lock": "passed", "persistent_model_pipe": "passed",
-                      "default_model_entry_denial": "passed",
-                      "execution_ports": "passed",
-                      "real_cpu_media_entry": "passed", "media_cancellation": "passed"}))
+    print(
+        json.dumps(
+            {
+                "schema": "ananta.meet-companion-packaged-probe.v1",
+                "nonroot": True,
+                "hub_package_absent": True,
+                "exact_source_modules": len(expected),
+                "runtime_lock": "passed",
+                "persistent_model_pipe": "passed",
+                "default_model_entry_denial": "passed",
+                "execution_ports": "passed",
+                "real_cpu_media_entry": "passed",
+                "media_cancellation": "passed",
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

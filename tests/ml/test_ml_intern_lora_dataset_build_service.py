@@ -20,15 +20,17 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
 
 def test_build_instruction_dataset_from_curated_records(tmp_path):
     svc = MlInternLoraDatasetBuildService(dataset_root=tmp_path)
-    result = svc.build_dataset({
-        "output_path": "train.jsonl",
-        "records": [
-            {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}', "quality_label": "approved"},
-            {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}', "quality_label": "approved"},
-            {"instruction": "x", "output": "too short"},
-        ],
-        "require_secret_scan": True,
-    })
+    result = svc.build_dataset(
+        {
+            "output_path": "train.jsonl",
+            "records": [
+                {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}', "quality_label": "approved"},
+                {"instruction": "Erzeuge Todo JSON", "output": '{"tasks":[]}', "quality_label": "approved"},
+                {"instruction": "x", "output": "too short"},
+            ],
+            "require_secret_scan": True,
+        }
+    )
 
     assert result.status == "completed"
     assert result.dataset_path == "train.jsonl"
@@ -45,12 +47,14 @@ def test_build_dataset_from_jsonl_source_file(tmp_path):
     _write_jsonl(source, [{"prompt": "Plane zwei Schritte", "response": "1. Pruefen\n2. Ausfuehren"}])
     svc = MlInternLoraDatasetBuildService(dataset_root=tmp_path)
 
-    result = svc.build_dataset({
-        "source_paths": ["curated/examples.jsonl"],
-        "output_path": "built/train.jsonl",
-        "format": "instruction",
-        "require_secret_scan": False,
-    })
+    result = svc.build_dataset(
+        {
+            "source_paths": ["curated/examples.jsonl"],
+            "output_path": "built/train.jsonl",
+            "format": "instruction",
+            "require_secret_scan": False,
+        }
+    )
 
     assert result.status == "completed"
     assert result.dataset_path == "built/train.jsonl"
@@ -61,12 +65,14 @@ def test_build_dataset_from_jsonl_source_file(tmp_path):
 
 def test_build_chat_dataset_from_instruction_records(tmp_path):
     svc = MlInternLoraDatasetBuildService(dataset_root=tmp_path)
-    result = svc.build_dataset({
-        "format": "chat",
-        "output_path": "chat.jsonl",
-        "records": [{"instruction": "Hallo", "output": "Hallo zurueck"}],
-        "require_secret_scan": False,
-    })
+    result = svc.build_dataset(
+        {
+            "format": "chat",
+            "output_path": "chat.jsonl",
+            "records": [{"instruction": "Hallo", "output": "Hallo zurueck"}],
+            "require_secret_scan": False,
+        }
+    )
 
     assert result.status == "completed"
     record = json.loads((tmp_path / "chat.jsonl").read_text(encoding="utf-8"))
@@ -76,11 +82,13 @@ def test_build_chat_dataset_from_instruction_records(tmp_path):
 
 def test_build_dataset_secret_validation_failure(tmp_path):
     svc = MlInternLoraDatasetBuildService(dataset_root=tmp_path)
-    result = svc.build_dataset({
-        "output_path": "secret.jsonl",
-        "records": [{"instruction": "Config", "output": "api_key: sk-abcdefghijklmnop12345678901234567890"}],
-        "require_secret_scan": True,
-    })
+    result = svc.build_dataset(
+        {
+            "output_path": "secret.jsonl",
+            "records": [{"instruction": "Config", "output": "api_key: sk-abcdefghijklmnop12345678901234567890"}],
+            "require_secret_scan": True,
+        }
+    )
 
     assert result.status == "validation_failed"
     assert any("potential secret" in error for error in result.errors)
@@ -89,7 +97,9 @@ def test_build_dataset_secret_validation_failure(tmp_path):
 def test_build_dataset_rejects_output_path_escape(tmp_path):
     svc = MlInternLoraDatasetBuildService(dataset_root=tmp_path)
     with pytest.raises(DatasetBuildError, match="inside dataset_root"):
-        svc.build_dataset({
-            "output_path": "../escape.jsonl",
-            "records": [{"instruction": "Hallo", "output": "Welt"}],
-        })
+        svc.build_dataset(
+            {
+                "output_path": "../escape.jsonl",
+                "records": [{"instruction": "Hallo", "output": "Welt"}],
+            }
+        )

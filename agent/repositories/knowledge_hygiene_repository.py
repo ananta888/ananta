@@ -32,7 +32,6 @@ from ananta_contracts.knowledge_hygiene import (
     KnowledgeHygieneRun,
 )
 
-
 T = TypeVar("T")
 
 
@@ -66,8 +65,12 @@ class KnowledgeHygieneRepository(Protocol):
     def list_claims(self, project_id: str, *, cursor: str | None = None, limit: int = 100) -> Page[KnowledgeClaim]: ...
     def put_conflict(self, conflict: KnowledgeConflict) -> KnowledgeConflict: ...
     def get_conflict(self, project_id: str, conflict_id: str) -> KnowledgeConflict | None: ...
-    def list_conflicts(self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100) -> Page[KnowledgeConflict]: ...
-    def decide_conflict(self, conflict: KnowledgeConflict, decision: KnowledgeConflictDecision) -> KnowledgeConflict: ...
+    def list_conflicts(
+        self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100
+    ) -> Page[KnowledgeConflict]: ...
+    def decide_conflict(
+        self, conflict: KnowledgeConflict, decision: KnowledgeConflictDecision
+    ) -> KnowledgeConflict: ...
     def update_conflict(self, conflict: KnowledgeConflict, *, expected_version: int) -> KnowledgeConflict: ...
     def put_page(self, page: CuratedWikiPage) -> CuratedWikiPage: ...
     def get_page(self, project_id: str, slug: str, revision: int | None = None) -> CuratedWikiPage | None: ...
@@ -78,7 +81,9 @@ class KnowledgeHygieneRepository(Protocol):
     def latest_health(self, project_id: str) -> KnowledgeHealthSnapshot | None: ...
     def put_correction(self, proposal: CorrectionProposal, *, state: str = "proposed") -> CorrectionProposal: ...
     def get_correction(self, project_id: str, correction_id: str) -> tuple[CorrectionProposal, str] | None: ...
-    def update_correction(self, proposal: CorrectionProposal, *, expected_state: str, state: str) -> CorrectionProposal: ...
+    def update_correction(
+        self, proposal: CorrectionProposal, *, expected_state: str, state: str
+    ) -> CorrectionProposal: ...
     def append_audit(self, event: AuditRecord) -> AuditRecord: ...
     def list_audit(self, project_id: str, aggregate_id: str, *, limit: int = 200) -> tuple[AuditRecord, ...]: ...
 
@@ -101,7 +106,9 @@ def _health_from_mapping(raw: Mapping[str, object]) -> KnowledgeHealthSnapshot:
         scope_version=str(raw["scope_version"]),
         coverage=CoverageState(str(raw["coverage"])),
         counts=dict(raw.get("counts") or {}),
-        oldest_open_age_seconds=float(raw["oldest_open_age_seconds"]) if raw.get("oldest_open_age_seconds") is not None else None,
+        oldest_open_age_seconds=float(raw["oldest_open_age_seconds"])
+        if raw.get("oldest_open_age_seconds") is not None
+        else None,
         trend=dict(raw.get("trend") or {}),
         basis_digest=str(raw["basis_digest"]),
     )
@@ -121,7 +128,9 @@ def _correction_from_mapping(raw: Mapping[str, object]) -> CorrectionProposal:
         proposed_by_run_id=str(raw["proposed_by_run_id"]),
         created_at=float(raw["created_at"]),
         writeback_approved_by=str(raw["writeback_approved_by"]) if raw.get("writeback_approved_by") else None,
-        writeback_approved_at=float(raw["writeback_approved_at"]) if raw.get("writeback_approved_at") is not None else None,
+        writeback_approved_at=float(raw["writeback_approved_at"])
+        if raw.get("writeback_approved_at") is not None
+        else None,
     )
 
 
@@ -157,7 +166,8 @@ class InMemoryKnowledgeHygieneRepository:
     def get_claim(self, project_id: str, claim_id: str, revision: int | None = None) -> KnowledgeClaim | None:
         with self._lock:
             candidates = [
-                item for (pid, cid, _), item in self._claims.items()
+                item
+                for (pid, cid, _), item in self._claims.items()
                 if pid == project_id and cid == claim_id and (revision is None or item.revision == revision)
             ]
         return max(candidates, key=lambda item: item.revision) if candidates else None
@@ -188,11 +198,14 @@ class InMemoryKnowledgeHygieneRepository:
         with self._lock:
             return self._conflicts.get((project_id, conflict_id))
 
-    def list_conflicts(self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100) -> Page[KnowledgeConflict]:
+    def list_conflicts(
+        self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100
+    ) -> Page[KnowledgeConflict]:
         with self._lock:
             items = sorted(
                 (
-                    item for (pid, _), item in self._conflicts.items()
+                    item
+                    for (pid, _), item in self._conflicts.items()
                     if pid == project_id and (state is None or item.state.value == state)
                 ),
                 key=lambda item: item.conflict_id,
@@ -235,7 +248,8 @@ class InMemoryKnowledgeHygieneRepository:
 
     def _replace_conflict_pair(self, conflict: KnowledgeConflict) -> None:
         stale_keys = [
-            key for key, item in self._conflict_pairs.items()
+            key
+            for key, item in self._conflict_pairs.items()
             if item.project_id == conflict.project_id and item.conflict_id == conflict.conflict_id
         ]
         for key in stale_keys:
@@ -254,7 +268,8 @@ class InMemoryKnowledgeHygieneRepository:
     def get_page(self, project_id: str, slug: str, revision: int | None = None) -> CuratedWikiPage | None:
         with self._lock:
             candidates = [
-                item for (pid, page_slug, _), item in self._pages.items()
+                item
+                for (pid, page_slug, _), item in self._pages.items()
                 if pid == project_id and page_slug == slug and (revision is None or item.revision == revision)
             ]
         return max(candidates, key=lambda item: item.revision) if candidates else None
@@ -265,7 +280,9 @@ class InMemoryKnowledgeHygieneRepository:
             for (pid, slug, _), item in self._pages.items():
                 if pid == project_id and (slug not in latest or latest[slug].revision < item.revision):
                     latest[slug] = item
-        return _page(sorted(latest.values(), key=lambda item: item.slug), cursor=cursor, limit=limit, key=lambda item: item.slug)
+        return _page(
+            sorted(latest.values(), key=lambda item: item.slug), cursor=cursor, limit=limit, key=lambda item: item.slug
+        )
 
     def put_run(self, run: KnowledgeHygieneRun, *, expected_state: str | None = None) -> KnowledgeHygieneRun:
         key = (run.project_id, run.run_id)
@@ -328,7 +345,11 @@ class InMemoryKnowledgeHygieneRepository:
 
     def list_audit(self, project_id: str, aggregate_id: str, *, limit: int = 200) -> tuple[AuditRecord, ...]:
         with self._lock:
-            items = [item for item in self._audit.values() if item.project_id == project_id and item.aggregate_id == aggregate_id]
+            items = [
+                item
+                for item in self._audit.values()
+                if item.project_id == project_id and item.aggregate_id == aggregate_id
+            ]
         items.sort(key=lambda item: (item.created_at, item.event_id))
         return tuple(items[-limit:])
 
@@ -459,7 +480,9 @@ class SqlKnowledgeHygieneRepository:
                 return None
             return KnowledgeConflict.from_mapping(row.payload)
 
-    def list_conflicts(self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100) -> Page[KnowledgeConflict]:
+    def list_conflicts(
+        self, project_id: str, *, state: str | None = None, cursor: str | None = None, limit: int = 100
+    ) -> Page[KnowledgeConflict]:
         bounded = max(1, min(int(limit), 500))
         statement = select(KnowledgeConflictDB).where(KnowledgeConflictDB.project_id == project_id)
         if state:

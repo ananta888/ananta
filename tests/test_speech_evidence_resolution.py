@@ -34,8 +34,7 @@ def test_ambiguous_lexical_and_incompatible_source_regions_remain_unresolved() -
     assert service.resolve(incompatible).unresolved_region_ids
     lexical_resolution = service.resolve(lexical)
     assert any(
-        item.selected_candidate_id is None and "lexical" in item.reason_code
-        for item in lexical_resolution.decisions
+        item.selected_candidate_id is None and "lexical" in item.reason_code for item in lexical_resolution.decisions
     )
 
 

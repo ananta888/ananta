@@ -80,9 +80,7 @@ def test_workspace_identity_is_derived_from_scoped_catalog(
     assert nested.implementation_connector_type == "local_directory"
     assert nested.relative_path == "src/agent"
 
-    with pytest.raises(
-        ValueError, match="workspace_relative_path_invalid"
-    ):
+    with pytest.raises(ValueError, match="workspace_relative_path_invalid"):
         resolver.resolve(
             principal=_Principal(),
             payload={

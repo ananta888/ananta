@@ -18,9 +18,7 @@ from worker.retrieval.knowledge_index_job_contract import MAX_PAYLOAD_BYTES
 _PAYLOAD_READ_CHUNK_BYTES = 1024 * 1024
 
 
-class _KnowledgeIndexPayloadNoRedirectHandler(
-    urllib.request.HTTPRedirectHandler
-):
+class _KnowledgeIndexPayloadNoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Keep a delegated payload capability on the configured Hub request."""
 
     def redirect_request(
@@ -65,9 +63,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         if not artifact_id or expected_size < 0 or expected_size > MAX_PAYLOAD_BYTES:
             raise ValueError("knowledge_index_payload_artifact_ref_invalid")
         if not isinstance(source_access_manifest, Mapping):
-            raise ValueError(
-                "knowledge_index_payload_capability_required"
-            )
+            raise ValueError("knowledge_index_payload_capability_required")
         # Governed reads always return through the Hub so the signed,
         # assignment-bound capability is revalidated against live authority.
         # A shared filesystem must never bypass that control-plane decision.
@@ -118,9 +114,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             }
         )
         if source_access_manifest is not None and not token:
-            raise ValueError(
-                "knowledge_index_payload_worker_service_token_required"
-            )
+            raise ValueError("knowledge_index_payload_worker_service_token_required")
         headers: dict[str, str] = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -136,10 +130,8 @@ class HubArtifactKnowledgeIndexPayloadLoader:
                 encode_knowledge_index_payload_capability,
             )
 
-            headers[KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER] = (
-                encode_knowledge_index_payload_capability(
-                    source_access_manifest
-                )
+            headers[KNOWLEDGE_INDEX_PAYLOAD_CAPABILITY_HEADER] = encode_knowledge_index_payload_capability(
+                source_access_manifest
             )
         encoded_id = urllib.parse.quote(artifact_id, safe="")
         request = urllib.request.Request(
@@ -147,9 +139,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             headers=headers,
             method="GET",
         )
-        opener = urllib.request.build_opener(
-            _KnowledgeIndexPayloadNoRedirectHandler()
-        )
+        opener = urllib.request.build_opener(_KnowledgeIndexPayloadNoRedirectHandler())
         timeout = 60.0
         if execution_deadline is not None:
             execution_deadline.checkpoint()
@@ -166,9 +156,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
         except urllib.error.HTTPError as exc:
             if 300 <= int(exc.code or 0) < 400:
                 exc.close()
-                raise ValueError(
-                    "knowledge_index_payload_redirect_forbidden"
-                ) from exc
+                raise ValueError("knowledge_index_payload_redirect_forbidden") from exc
             raise
         status = getattr(response, "status", None)
         if status is None:
@@ -176,9 +164,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
             status = getcode() if callable(getcode) else None
         if status is not None and 300 <= int(status) < 400:
             response.close()
-            raise ValueError(
-                "knowledge_index_payload_redirect_forbidden"
-            )
+            raise ValueError("knowledge_index_payload_redirect_forbidden")
         with response:
             if execution_deadline is not None:
                 execution_deadline.checkpoint()
@@ -207,9 +193,7 @@ class HubArtifactKnowledgeIndexPayloadLoader:
                 chunks.append(chunk)
                 received += len(chunk)
                 if received > expected_size:
-                    raise ValueError(
-                        "knowledge_index_payload_artifact_size_mismatch"
-                    )
+                    raise ValueError("knowledge_index_payload_artifact_size_mismatch")
             content = b"".join(chunks)
         if len(content) != expected_size:
             raise ValueError("knowledge_index_payload_artifact_size_mismatch")

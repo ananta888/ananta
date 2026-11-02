@@ -108,9 +108,7 @@ def _archive_old_tasks(tasks_path=None):
                             or now
                         )
                         >= cutoff_archive
-                        or archive_utils._is_recovery_related_task(
-                            task
-                        )
+                        or archive_utils._is_recovery_related_task(task)
                     )
                 }
 
@@ -249,17 +247,11 @@ def register_with_hub(
             dict.fromkeys(
                 [
                     *GENERAL_PURPOSE_WORKER_CAPABILITIES,
-                    *(
-                        str(value).strip()
-                        for value in (capabilities or [])
-                        if str(value).strip()
-                    ),
+                    *(str(value).strip() for value in (capabilities or []) if str(value).strip()),
                 ]
             )
         )
-        payload["runtime_targets"] = [
-            dict(value) for value in (runtime_targets or []) if isinstance(value, dict)
-        ]
+        payload["runtime_targets"] = [dict(value) for value in (runtime_targets or []) if isinstance(value, dict)]
         payload["execution_limits"] = {"max_parallel_tasks": 2, "max_runtime_seconds": 1800, "max_workspace_mb": 2048}
         if execution_limits:
             from ananta_contracts.native_result_maintenance import (
@@ -268,9 +260,10 @@ def register_with_hub(
             )
 
             if set(execution_limits) != {RESULT_STORE_BINDING_LIMIT}:
-                raise ValueError('native_result_store_registration_limits_invalid')
-            payload['execution_limits'][RESULT_STORE_BINDING_LIMIT] = require_result_store_identifier(
-                execution_limits[RESULT_STORE_BINDING_LIMIT])
+                raise ValueError("native_result_store_registration_limits_invalid")
+            payload["execution_limits"][RESULT_STORE_BINDING_LIMIT] = require_result_store_identifier(
+                execution_limits[RESULT_STORE_BINDING_LIMIT]
+            )
     effective_registration_token = registration_token or settings.registration_token
     if effective_registration_token:
         payload["registration_token"] = effective_registration_token

@@ -4,8 +4,10 @@ Provides an auditable, type-checked interface to the Compressed Content
 Reference (CCR) store so agents can safely retrieve original content that
 was replaced by a compression placeholder.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -113,10 +115,7 @@ class CCRRetrievalTool:
                 content=None,
                 content_type=content_type,
                 decision="type_not_allowed",
-                reason=(
-                    f"content_type {content_type!r} not in allowed list "
-                    f"{request.allowed_content_types!r}"
-                ),
+                reason=(f"content_type {content_type!r} not in allowed list {request.allowed_content_types!r}"),
                 byte_size=0,
                 elapsed_ms=elapsed,
             )
@@ -147,7 +146,7 @@ class CCRRetrievalTool:
                 try:
                     diagnostics = dict(self._store.diagnostics() or {})
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("describe: ignored Exception", exc_info=True)
         return {
             "enabled": enabled,
             "store_path": store_path,

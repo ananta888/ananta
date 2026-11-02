@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from agent.services.browser_artifact_service import BrowserArtifactService
 
 
@@ -13,6 +11,7 @@ def test_schema_validation_rejects_missing_fields():
 
 def test_persist_with_provenance_works(tmp_path, monkeypatch):
     from agent.services import artifact_store as mod
+
     mod.artifact_store.base_dir = tmp_path
 
     svc = BrowserArtifactService()
@@ -35,5 +34,7 @@ def test_completion_gate_requires_evidence_and_sources():
     ok = svc.verify_completion_gate(payload=payload, min_source_count=1, require_evidence=True)
     assert ok.valid is True
 
-    fail = svc.verify_completion_gate(payload={"extracted_data": {}, "page_evidence": [], "sources": []}, min_source_count=1, require_evidence=True)
+    fail = svc.verify_completion_gate(
+        payload={"extracted_data": {}, "page_evidence": [], "sources": []}, min_source_count=1, require_evidence=True
+    )
     assert fail.valid is False

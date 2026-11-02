@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from client_surfaces.freecad.workbench.client import FreecadHubClient
 from client_surfaces.freecad.workbench.commands import (
     capture_active_context_command,
     preview_active_export_plan,
@@ -9,7 +10,6 @@ from client_surfaces.freecad.workbench.commands import (
     submit_active_document_goal,
 )
 from client_surfaces.freecad.workbench.settings import FreecadWorkbenchSettings
-from client_surfaces.freecad.workbench.client import FreecadHubClient
 
 
 class FakeSelection:
@@ -21,7 +21,14 @@ class FakeSelection:
 
 
 def _runtime_modules():
-    body = SimpleNamespace(Label="Body", Name="Body", TypeId="Part::Feature", ViewObject=SimpleNamespace(Visibility=True), Shape=SimpleNamespace(Volume=5.0), Constraints=[])
+    body = SimpleNamespace(
+        Label="Body",
+        Name="Body",
+        TypeId="Part::Feature",
+        ViewObject=SimpleNamespace(Visibility=True),
+        Shape=SimpleNamespace(Volume=5.0),
+        Constraints=[],
+    )
     document = SimpleNamespace(Name="Asm", FileName="/tmp/model.FCStd", UnitSystem="mm", Objects=[body])
     app_module = SimpleNamespace(ActiveDocument=document)
     gui_module = SimpleNamespace(Selection=FakeSelection([body]))
@@ -34,8 +41,12 @@ def test_command_hooks_use_active_context_capture() -> None:
 
     captured = capture_active_context_command(app_module=app_module, gui_module=gui_module)
     submitted = submit_active_document_goal(client, goal="Inspect body", app_module=app_module, gui_module=gui_module)
-    export_preview = preview_active_export_plan(client, fmt="step", target_path="/tmp/out.step", app_module=app_module, gui_module=gui_module)
-    macro_preview = preview_active_macro_plan(client, objective="lighten body", app_module=app_module, gui_module=gui_module)
+    export_preview = preview_active_export_plan(
+        client, fmt="step", target_path="/tmp/out.step", app_module=app_module, gui_module=gui_module
+    )
+    macro_preview = preview_active_macro_plan(
+        client, objective="lighten body", app_module=app_module, gui_module=gui_module
+    )
 
     assert captured["status"] == "accepted"
     assert captured["context"]["document"]["name"] == "Asm"

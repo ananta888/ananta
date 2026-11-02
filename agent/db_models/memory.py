@@ -26,6 +26,7 @@ class MemoryEntryDB(SQLModel, table=True):
 
 class MemoryTreeChunkDB(SQLModel, table=True):
     """Individual content unit in the Memory Tree (a leaf or summary chunk)."""
+
     __tablename__ = "memory_tree_chunks"
     id: str = Field(primary_key=True)
     source_id: str = Field(index=True)
@@ -47,6 +48,7 @@ class MemoryTreeChunkDB(SQLModel, table=True):
 
 class MemoryTreeNodeDB(SQLModel, table=True):
     """Summary node in the source/topic/global tree hierarchy."""
+
     __tablename__ = "memory_tree_nodes"
     id: str = Field(primary_key=True)
     node_type: str = "source"
@@ -62,6 +64,7 @@ class MemoryTreeNodeDB(SQLModel, table=True):
 
 class MemoryTreeJobDB(SQLModel, table=True):
     """Durable ingest/seal/digest job queue entry."""
+
     __tablename__ = "memory_tree_jobs"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     kind: str = "ingest_source"

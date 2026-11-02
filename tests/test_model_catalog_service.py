@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
-
 import pytest
 from pydantic import ValidationError
 
@@ -11,7 +9,6 @@ from agent.services.model_catalog_service import (
     ModelCatalogService,
     ModelDefaultSelectionError,
     ModelDefaultSelectionService,
-    ProviderDiscovery,
 )
 from ananta_contracts.model_catalog import (
     MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA,
@@ -92,9 +89,7 @@ def _service() -> ModelCatalogService:
 
 
 def test_provider_failure_isolated_and_versioned_catalog_has_no_secrets():
-    catalog = _service().versioned_catalog(
-        CatalogQuery(default_provider="openai", default_model="gpt-safe")
-    )
+    catalog = _service().versioned_catalog(CatalogQuery(default_provider="openai", default_model="gpt-safe"))
     payload = catalog.to_wire()
 
     assert {(item["provider_id"], item["model_id"]) for item in payload["models"]} == {

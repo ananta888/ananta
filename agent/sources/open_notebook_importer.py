@@ -415,7 +415,9 @@ class OpenNotebookImporter:
         if collection is not None:
             collection_ids_out.append(str(collection.id))
         for extra_name in collection_names[1:]:
-            extra = self._link_collection(artifact_id=str(artifact.id), collection_name=extra_name, created_by=created_by)
+            extra = self._link_collection(
+                artifact_id=str(artifact.id), collection_name=extra_name, created_by=created_by
+            )
             if extra is not None:
                 collection_ids_out.append(str(extra))
 
@@ -501,7 +503,9 @@ class OpenNotebookImporter:
 
         collection = self._knowledge_collection_repo.get_by_name(collection_name)
         if collection is None:
-            collection = self._knowledge_collection_repo.save(KnowledgeCollectionDB(name=collection_name, created_by=created_by))
+            collection = self._knowledge_collection_repo.save(
+                KnowledgeCollectionDB(name=collection_name, created_by=created_by)
+            )
         existing = self._knowledge_link_repo.get_by_artifact(artifact_id)
         if any(str(getattr(link, "collection_id", "")) == str(collection.id) for link in existing):
             return str(collection.id)

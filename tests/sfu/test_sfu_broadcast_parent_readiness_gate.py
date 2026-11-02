@@ -6,10 +6,10 @@ from scripts.run_sfu_broadcast_parent_readiness_gate import (
     DEFAULT_CHILD_TODO,
     DEFAULT_PARENT_EVIDENCE,
     DEFAULT_PARENT_TODO,
+    PARENT_GATE_ID,
+    _load_json,
     evaluate_parent_readiness,
 )
-from scripts.run_sfu_broadcast_parent_readiness_gate import PARENT_GATE_ID
-from scripts.run_sfu_broadcast_parent_readiness_gate import _load_json
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -99,4 +99,3 @@ def test_parent_readiness_accepts_verified_parent_go_task_set() -> None:
     assert evidence.gate_id == PARENT_GATE_ID
     assert evidence.status in {"failed", "passed", "unverified"}
     assert evidence.config_sha256
-

@@ -13,11 +13,7 @@ class PuzzleValidationError(ValueError):
 
 def require_record_id(record: dict[str, Any]) -> str:
     record_id = record.get("puzzle_id")
-    if (
-        not isinstance(record_id, str)
-        or not record_id
-        or len(record_id) > 128
-    ):
+    if not isinstance(record_id, str) or not record_id or len(record_id) > 128:
         raise PuzzleValidationError("hrm.puzzle_id_invalid")
     return record_id
 

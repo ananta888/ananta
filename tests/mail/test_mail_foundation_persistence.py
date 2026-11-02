@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 import pytest
 
 from agent.services.mail_account_service import MailAccountService
-from agent.services.mail_contract_service import MailAccountV2, MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
+from agent.services.mail_contract_service import (
+    MailAccountV2,
+    MailMessageMetadata,
+    MailMessageRefV2,
+    stable_mail_ref_id,
+)
 from agent.services.mail_metadata_store_service import MailMetadataStore
 from agent.services.mail_provider_ports import (
     MailContentAccessDecision,
@@ -26,18 +31,20 @@ class _Allow:
 
 
 def _access(mail_ref_id: str):
-    return MailContentAccessVerifier(
-        policy=_Allow(), now=lambda: datetime(2029, 1, 1, tzinfo=UTC)
-    ).verify(
-        MailContentAccessRequest(
-            account_id="a",
-            workspace_id="w",
-            artifact_ref=f"mail://{mail_ref_id}?scope=body_excerpt",
-            mail_ref_id=mail_ref_id,
-            grant_ref="grant",
-            release_scope="body_excerpt",
+    return (
+        MailContentAccessVerifier(policy=_Allow(), now=lambda: datetime(2029, 1, 1, tzinfo=UTC))
+        .verify(
+            MailContentAccessRequest(
+                account_id="a",
+                workspace_id="w",
+                artifact_ref=f"mail://{mail_ref_id}?scope=body_excerpt",
+                mail_ref_id=mail_ref_id,
+                grant_ref="grant",
+                release_scope="body_excerpt",
+            )
         )
-    ).value
+        .value
+    )
 
 
 def test_account_service_is_v2_only_and_does_not_migrate_on_read(tmp_path) -> None:

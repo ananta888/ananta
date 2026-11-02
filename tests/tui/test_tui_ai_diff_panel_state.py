@@ -10,7 +10,9 @@ from client_surfaces.operator_tui.diff.ai_diff_panel_state import (
 
 
 def test_ai_diff_panel_state_contains_required_fields() -> None:
-    payload = build_ai_diff_panel_state(mode="review", selected_panels=["A", "B"], selected_hunks=["h1"], context_refs=["ctx:1"])
+    payload = build_ai_diff_panel_state(
+        mode="review", selected_panels=["A", "B"], selected_hunks=["h1"], context_refs=["ctx:1"]
+    )
     assert payload["mode"] == "review"
     assert payload["selected_panels"] == ["A", "B"]
     assert payload["selected_hunks"] == ["h1"]
@@ -37,4 +39,3 @@ def test_ai_diff_panel_state_mode_switch_updates_prompt_template() -> None:
 def test_ai_diff_panel_state_rejects_invalid_mode() -> None:
     with pytest.raises(ValueError):
         build_ai_diff_panel_state(mode="invalid", selected_panels=["A"])
-

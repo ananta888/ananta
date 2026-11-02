@@ -1,10 +1,12 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from enum import Enum
 
 UNCERTAIN_THRESHOLD = 0.3
 CORROBORATION_BONUS = 0.05
 MAX_CORROBORATION_BONUS = 0.15
+
 
 class EvidenceType(str, Enum):
     AST_CALL = "ast_call"
@@ -17,6 +19,7 @@ class EvidenceType(str, Enum):
     LLM_ASSESSMENT = "llm_assessment"
     MANUAL = "manual"
 
+
 EVIDENCE_BASE_CONFIDENCE: dict[str, float] = {
     EvidenceType.AST_CALL: 0.9,
     EvidenceType.AST_IMPORT: 0.85,
@@ -27,6 +30,7 @@ EVIDENCE_BASE_CONFIDENCE: dict[str, float] = {
     EvidenceType.HEURISTIC: 0.35,
     EvidenceType.LLM_ASSESSMENT: 0.3,
 }
+
 
 @dataclass
 class EvidenceItem:
@@ -45,6 +49,7 @@ class EvidenceItem:
             "description": self.description,
         }
 
+
 @dataclass
 class ContextItemEvidence:
     evidence_items: list[EvidenceItem]
@@ -53,6 +58,7 @@ class ContextItemEvidence:
     corroboration_count: int
     is_uncertain: bool
     summary: str
+
 
 class ContextEvidenceService:
     def compute_confidence(self, evidence_items: list[EvidenceItem]) -> float:
@@ -102,13 +108,31 @@ class ContextEvidenceService:
         return evidence.summary
 
     def create_ast_evidence(self, source_file: str, line: int | None = None, description: str = "") -> EvidenceItem:
-        return EvidenceItem(EvidenceType.AST_CALL, source_file, line, EVIDENCE_BASE_CONFIDENCE[EvidenceType.AST_CALL], description or "AST call reference")
+        return EvidenceItem(
+            EvidenceType.AST_CALL,
+            source_file,
+            line,
+            EVIDENCE_BASE_CONFIDENCE[EvidenceType.AST_CALL],
+            description or "AST call reference",
+        )
 
     def create_heuristic_evidence(self, source_file: str, description: str = "") -> EvidenceItem:
-        return EvidenceItem(EvidenceType.HEURISTIC, source_file, None, EVIDENCE_BASE_CONFIDENCE[EvidenceType.HEURISTIC], description or "heuristic")
+        return EvidenceItem(
+            EvidenceType.HEURISTIC,
+            source_file,
+            None,
+            EVIDENCE_BASE_CONFIDENCE[EvidenceType.HEURISTIC],
+            description or "heuristic",
+        )
 
     def create_llm_evidence(self, source_file: str, description: str = "") -> EvidenceItem:
-        return EvidenceItem(EvidenceType.LLM_ASSESSMENT, source_file, None, EVIDENCE_BASE_CONFIDENCE[EvidenceType.LLM_ASSESSMENT], description or "LLM assessment")
+        return EvidenceItem(
+            EvidenceType.LLM_ASSESSMENT,
+            source_file,
+            None,
+            EVIDENCE_BASE_CONFIDENCE[EvidenceType.LLM_ASSESSMENT],
+            description or "LLM assessment",
+        )
 
     def default_evidence(self, provider: str, path: str) -> list[EvidenceItem]:
         return [self.create_heuristic_evidence(path, f"default evidence from {provider}")]

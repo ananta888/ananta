@@ -53,6 +53,8 @@ def test_behavior_profile_derives_prompt_style_from_observed_output_shape_only(m
         ),
     )
 
-    result = ModelResponseBehaviorProfileService().resolve(provider="lmstudio", model_name="qwen/qwen-2.5-coder-32b-instruct")
+    result = ModelResponseBehaviorProfileService().resolve(
+        provider="lmstudio", model_name="qwen/qwen-2.5-coder-32b-instruct"
+    )
     assert result["preferred_prompt_style"] == "stepwise_then_json"
     assert result["observed_output_shape"] == "markdown_bullets"

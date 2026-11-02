@@ -48,12 +48,7 @@ def _optional_header_identity(raw: str) -> str:
     value = str(raw or "").strip()
     if not value:
         return ""
-    if (
-        len(value.encode("utf-8")) > 256
-        or "\x00" in value
-        or "\r" in value
-        or "\n" in value
-    ):
+    if len(value.encode("utf-8")) > 256 or "\x00" in value or "\r" in value or "\n" in value:
         raise ValueError("workflow Worker ID is invalid")
     return value
 
@@ -78,9 +73,7 @@ def _optional_worker_url(raw: str) -> str:
         or "\n" in value
     ):
         raise ValueError("workflow Worker URL is invalid")
-    return urllib.parse.urlunsplit(
-        (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
-    )
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
 
 __all__ = ["WorkflowServiceIdentity"]

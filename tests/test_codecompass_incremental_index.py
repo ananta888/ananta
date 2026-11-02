@@ -5,10 +5,10 @@ from pathlib import Path
 
 import jsonschema
 
+from worker.incremental_index.compaction import CompactionPlanner
 from worker.incremental_index.compatibility import profile_digest, profiles_share_artifact
 from worker.incremental_index.coordinator import IncrementalIndexCoordinator
 from worker.incremental_index.decision_engine import DecisionType, IncrementalBuildDecisionEngine
-from worker.incremental_index.compaction import CompactionPlanner
 from worker.incremental_index.effective_view import LayeredEffectiveViewResolver, overlay_records
 from worker.incremental_index.head_registry import LayerHeadRegistry
 from worker.incremental_index.layer_store import ArtifactLayerStore

@@ -1,6 +1,7 @@
 """Fixed assigned-origin HTTP/WS restriction, not an ICE or container firewall."""
 
 import ipaddress
+import logging
 import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
@@ -96,12 +97,12 @@ def restrict_meet_browser_network(context, origin):
             try:
                 route.abort("blockedbyclient")
             except Exception:
-                pass  # A closing context cannot fall back to unrestricted I/O.
+                logging.getLogger(__name__).debug("request: ignored Exception", exc_info=True)
         finally:
             if response is not None:
                 try:
                     response.dispose()
                 except Exception:
-                    pass  # Browser teardown may have already released it.
+                    logging.getLogger(__name__).debug("request: ignored Exception", exc_info=True)
 
     context.route("**/*", request)

@@ -1,4 +1,5 @@
 """HDE-013: dynamic tools in prompt descriptions and the direct router."""
+
 import pytest
 
 from agent.services.ananta_tool_registry_service import get_ananta_tool_registry_service
@@ -62,9 +63,7 @@ def test_describe_for_prompt_includes_active_dynamic_tools(dynamic_registry):
 
 def test_allowed_tools_filters_dynamic_tools(dynamic_registry):
     _activate(dynamic_registry)
-    text = get_ananta_tool_registry_service().describe_for_prompt(
-        allowed_tools=["repo.grep"], include_dynamic=True
-    )
+    text = get_ananta_tool_registry_service().describe_for_prompt(allowed_tools=["repo.grep"], include_dynamic=True)
     assert "custom.count_todos" not in text
 
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.tui_action_dispatcher import (
     ActionRequest,
     TuiActionDispatcher,

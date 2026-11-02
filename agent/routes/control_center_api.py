@@ -3,10 +3,12 @@
 Additive adapter layer: exposes stable /api contracts for the Angular control center
 without breaking existing route behavior.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import time
 import uuid
@@ -109,15 +111,11 @@ def _task_item(task: Any) -> dict[str, Any]:
             "description": str(item.get("description") or ""),
             "status": normalize_task_status(str(item.get("status") or "todo")),
             "priority": str(item.get("priority") or "Medium"),
-            "project_id": str(
-                item.get("project_id") or item.get("team_id") or ""
-            ),
+            "project_id": str(item.get("project_id") or item.get("team_id") or ""),
             "team_id": str(item.get("team_id") or ""),
             "assigned_agent_url": str(item.get("assigned_agent_url") or ""),
             "goal_id": str(item.get("goal_id") or "") or None,
-            "verification_status": projection.verification_summary(
-                getattr(task, "verification_status", None)
-            ),
+            "verification_status": projection.verification_summary(getattr(task, "verification_status", None)),
             "created_at": float(item.get("created_at") or 0.0),
             "updated_at": float(item.get("updated_at") or 0.0),
         }
@@ -127,9 +125,7 @@ def _task_item(task: Any) -> dict[str, Any]:
 
 def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
     snapshot = (
-        _repos().policy_snapshot_repo.get_by_id(
-            str(session.policy_snapshot_id or "")
-        )
+        _repos().policy_snapshot_repo.get_by_id(str(session.policy_snapshot_id or ""))
         if session.policy_snapshot_id
         else None
     )
@@ -186,20 +182,14 @@ def _append_event(
             "user_id": str(scope.get("user_id") or "").strip(),
             "project_id": str(scope.get("project_id") or "").strip(),
             "session_ids": tuple(
-                sorted(
-                    {
-                        str(item).strip()
-                        for item in scope.get("session_ids") or ()
-                        if str(item).strip()
-                    }
-                )
+                sorted({str(item).strip() for item in scope.get("session_ids") or () if str(item).strip()})
             ),
         },
     }
     with _EVENT_COND:
         _EVENT_LOG.append(event)
         if len(_EVENT_LOG) > _EVENT_MAX:
-            del _EVENT_LOG[0:len(_EVENT_LOG) - _EVENT_MAX]
+            del _EVENT_LOG[0 : len(_EVENT_LOG) - _EVENT_MAX]
         _EVENT_COND.notify_all()
 
 
@@ -248,7 +238,7 @@ def _event_poll_loop(repository_provider: Callable[[], Any]) -> None:
                     _EVENT_LAST_POLICY_TS = created_at
         except Exception:
             # Keep stream infrastructure alive even if one poll cycle fails.
-            pass
+            logging.getLogger(__name__).debug("_event_poll_loop: ignored Exception", exc_info=True)
         _EVENT_POLL_STOP.wait(timeout=2.0)
 
 
@@ -316,7 +306,7 @@ def get_task_detail(task_id: str):
         if str(getattr(p, "task_id", "") or "") == task_id
     ]
     artifacts = []
-    for artifact in (_repos().artifact_repo.get_all() or []):
+    for artifact in _repos().artifact_repo.get_all() or []:
         metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
         if str(metadata.get("task_id") or "") != task_id:
             continue
@@ -329,9 +319,7 @@ def get_task_detail(task_id: str):
             "policy_decisions": policy_decisions,
             "artifacts": artifacts,
             "sessions": [_agent_session_item(s) for s in linked_sessions],
-            "verification": projection.verification_summary(
-                raw_task.get("verification_status")
-            ),
+            "verification": projection.verification_summary(raw_task.get("verification_status")),
         }
     )
 
@@ -387,12 +375,7 @@ def get_session(session_id: str):
         if str((getattr(p, "details", None) or {}).get("session_id") or "") == session_id
     ]
 
-    tool_calls = [
-        _tool_call_item(item)
-        for item in _repos().tool_call_repo.get_by_session_id(
-            session_id
-        )
-    ]
+    tool_calls = [_tool_call_item(item) for item in _repos().tool_call_repo.get_by_session_id(session_id)]
     return api_response(
         data={
             "session": _agent_session_item(persisted),
@@ -435,14 +418,10 @@ def create_task_session(task_id: str):
 
     body = request.get_json(silent=True) or {}
     device_id = str(
-        body.get("owner_device_id")
-        or request.headers.get("X-Ananta-Device-Id")
-        or "web-control-center"
+        body.get("owner_device_id") or request.headers.get("X-Ananta-Device-Id") or "web-control-center"
     ).strip()
     permissions = (
-        dict(body.get("permissions"))
-        if isinstance(body.get("permissions"), dict)
-        else {"chat": True, "view_tui": True}
+        dict(body.get("permissions")) if isinstance(body.get("permissions"), dict) else {"chat": True, "view_tui": True}
     )
     session = _share_sessions().create_session(
         owner_user_id=user_id,
@@ -576,13 +555,7 @@ def list_session_policy_decisions(session_id: str):
             {
                 "id": str(getattr(tc, "id", "") or ""),
                 "decision": (
-                    "require_approval"
-                    if status == "require_approval"
-                    else (
-                        "deny"
-                        if status == "denied"
-                        else "allow"
-                    )
+                    "require_approval" if status == "require_approval" else ("deny" if status == "denied" else "allow")
                 ),
                 "decision_type": "tool_call_gate",
                 "reason": f"tool_call:{getattr(tc, 'tool_name', '')}",
@@ -854,11 +827,7 @@ def stream_control_center_events():
                     session_id=session_id_filter,
                 ):
                     continue
-                public_event = {
-                    key: value
-                    for key, value in event.items()
-                    if not str(key).startswith("_")
-                }
+                public_event = {key: value for key, value in event.items() if not str(key).startswith("_")}
                 yield f"id: {public_event['id']}\n"
                 yield f"data: {json.dumps(public_event)}\n\n"
             heartbeat = {

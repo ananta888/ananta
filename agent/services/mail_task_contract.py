@@ -5,9 +5,7 @@ from __future__ import annotations
 MAIL_TASK_SCHEMA = "ananta.mail_task.v1"
 MAIL_TASK_RESULT_SCHEMA = "ananta.mail_task_result.v1"
 MAIL_TASK_KIND = "mail_operation"
-MAIL_OPERATIONS = frozenset(
-    {"discovery", "sync", "body", "mutation", "migration", "cutover", "diagnose"}
-)
+MAIL_OPERATIONS = frozenset({"discovery", "sync", "body", "mutation", "migration", "cutover", "diagnose"})
 MAIL_PROVIDERS = frozenset({"imap", "jmap"})
 MAIL_TASK_ACTIVE_STATUSES = frozenset(
     {"created", "todo", "blocked", "blocked_by_dependency", "assigned", "in_progress", "running"}

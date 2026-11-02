@@ -13,17 +13,17 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from agent.services.seed_blueprint_catalog import SeedBlueprintCatalog, _normalize_pattern_hints
 from agent.services.blueprint_planning_adapter import BlueprintPlanningAdapter
-
+from agent.services.seed_blueprint_catalog import _normalize_pattern_hints
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_step(
     step_id: str,
@@ -54,11 +54,13 @@ def _make_step(
 # PAT-013: normalize_pattern_hints
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizePatternHints:
     def test_valid_allowed_and_preferred(self):
         hints = _normalize_pattern_hints(
             {"allowed_patterns": ["python.strategy", "java.strategy"], "preferred_patterns": ["python.strategy"]},
-            blueprint_name="bp", step_id="s1",
+            blueprint_name="bp",
+            step_id="s1",
         )
         assert hints["allowed_patterns"] == ["python.strategy", "java.strategy"]
         assert hints["preferred_patterns"] == ["python.strategy"]
@@ -68,14 +70,16 @@ class TestNormalizePatternHints:
         with pytest.raises(ValueError, match="invalid id"):
             _normalize_pattern_hints(
                 {"allowed_patterns": ["INVALID-ID!"]},
-                blueprint_name="bp", step_id="s1",
+                blueprint_name="bp",
+                step_id="s1",
             )
 
     def test_preferred_not_in_allowed_rejected(self):
         with pytest.raises(ValueError, match="preferred_patterns contains ids not in allowed_patterns"):
             _normalize_pattern_hints(
                 {"allowed_patterns": ["java.strategy"], "preferred_patterns": ["python.strategy"]},
-                blueprint_name="bp", step_id="s1",
+                blueprint_name="bp",
+                step_id="s1",
             )
 
     def test_non_dict_raises(self):
@@ -85,21 +89,24 @@ class TestNormalizePatternHints:
     def test_forbid_patterns_stored(self):
         hints = _normalize_pattern_hints(
             {"forbid_patterns": ["java.default_deny_gate"]},
-            blueprint_name="bp", step_id="s1",
+            blueprint_name="bp",
+            step_id="s1",
         )
         assert hints["forbid_patterns"] == ["java.default_deny_gate"]
 
     def test_require_tests_false(self):
         hints = _normalize_pattern_hints(
             {"require_tests": False},
-            blueprint_name="bp", step_id="s1",
+            blueprint_name="bp",
+            step_id="s1",
         )
         assert hints["require_tests"] is False
 
     def test_language_targets_normalized(self):
         hints = _normalize_pattern_hints(
             {"language_targets": ["Python", "JAVA"]},
-            blueprint_name="bp", step_id="s1",
+            blueprint_name="bp",
+            step_id="s1",
         )
         assert "python" in hints["language_targets"]
         assert "java" in hints["language_targets"]
@@ -111,7 +118,8 @@ class TestNormalizePatternHints:
     def test_preferred_empty_allowed_no_error(self):
         hints = _normalize_pattern_hints(
             {"preferred_patterns": ["python.strategy"]},
-            blueprint_name="bp", step_id="s1",
+            blueprint_name="bp",
+            step_id="s1",
         )
         assert hints["preferred_patterns"] == ["python.strategy"]
 
@@ -119,6 +127,7 @@ class TestNormalizePatternHints:
 # ---------------------------------------------------------------------------
 # PAT-014: _build_subtasks_from_workflow passes hints
 # ---------------------------------------------------------------------------
+
 
 class TestBuildSubtasksPatternHints:
     def test_step_with_hints_propagates_normalized(self):

@@ -23,12 +23,20 @@ def grants(tmp_path):
     request = linear_request()
     service = SQLAlchemyWorkflowAuthorizationGrantService(engine, clock=lambda: now[0])
     leases = BpmnRunLeaseService(
-        checkpoints=SQLAlchemyCheckpointStore(engine), keys=keys, clock=lambda: now[0],
+        checkpoints=SQLAlchemyCheckpointStore(engine),
+        keys=keys,
+        clock=lambda: now[0],
     )
     envelope = RuntimeAuthorizationEnvelope.issue(
-        key_ring=keys, tenant_id=request.plan.tenant_id, workflow_id=request.plan.workflow_id,
-        run_id=request.run_id, step_id="work", plan_hash=request.plan.plan_hash,
-        policy_version=request.plan.policy_version, ttl_seconds=200, now=100,
+        key_ring=keys,
+        tenant_id=request.plan.tenant_id,
+        workflow_id=request.plan.workflow_id,
+        run_id=request.run_id,
+        step_id="work",
+        plan_hash=request.plan.plan_hash,
+        policy_version=request.plan.policy_version,
+        ttl_seconds=200,
+        now=100,
     )
     yield SimpleNamespace(service=service, leases=leases, request=request, envelope=envelope, now=now)
     engine.dispose()
@@ -37,8 +45,11 @@ def grants(tmp_path):
 def lookup(s):
     envelope = s.envelope
     return s.service.get(
-        tenant_id=envelope.tenant_id, workflow_id=envelope.workflow_id, run_id=envelope.run_id,
-        step_id=envelope.step_id, envelope_id=envelope.envelope_id,
+        tenant_id=envelope.tenant_id,
+        workflow_id=envelope.workflow_id,
+        run_id=envelope.run_id,
+        step_id=envelope.step_id,
+        envelope_id=envelope.envelope_id,
     )
 
 
@@ -49,9 +60,14 @@ def test_current_grant_and_revoke_commit_idempotently(grants):
         assert s.service.grant_fenced(s.envelope, lease=lease) == original
         revoked = s.service.revoke_fenced(s.envelope.envelope_id, lease=lease, reason_code="synthetic-cancel")
         assert revoked.status == "revoked" and revoked.revision == original.revision + 1
-        assert s.service.revoke_fenced(
-            s.envelope.envelope_id, lease=lease, reason_code="synthetic-cancel",
-        ) == revoked
+        assert (
+            s.service.revoke_fenced(
+                s.envelope.envelope_id,
+                lease=lease,
+                reason_code="synthetic-cancel",
+            )
+            == revoked
+        )
 
 
 @pytest.mark.parametrize("operation", ["grant", "revoke"])

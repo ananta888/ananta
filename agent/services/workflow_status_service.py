@@ -63,9 +63,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.common.redaction import DEFAULT_SENSITIVE_KEYS, VisibilityLevel, redact
+from agent.common.redaction import VisibilityLevel, redact
 from agent.services.workflow_event_service import list_handoffs_for_goal
-
 
 WORKFLOW_STATUS_SCHEMA = "workflow_status.v1"
 
@@ -191,9 +190,7 @@ def _workflow_block_for_task(task: Any) -> dict[str, Any] | None:
     return None
 
 
-def _step_status_summary(
-    *, step_id: str, role: str, task_kind: str, gate: bool, task: Any
-) -> dict[str, Any]:
+def _step_status_summary(*, step_id: str, role: str, task_kind: str, gate: bool, task: Any) -> dict[str, Any]:
     """Compose a single step's status block (no redaction yet).
 
     The caller applies redaction on the whole response before
@@ -239,14 +236,14 @@ def _audit_log_actions(goal_id: str) -> list[str]:
     audit query's point of view.
     """
     try:
-        from agent.common.audit import _engine  # type: ignore
         from sqlmodel import Session, select
+
+        from agent.common.audit import _engine  # type: ignore
         from agent.db_models import AuditLogDB
+
         with Session(_engine()) as session:
             rows = session.exec(
-                select(AuditLogDB.action)
-                .where(AuditLogDB.goal_id == goal_id)
-                .order_by(AuditLogDB.id.asc())
+                select(AuditLogDB.action).where(AuditLogDB.goal_id == goal_id).order_by(AuditLogDB.id.asc())
             ).all()
         return [str(a) for a in rows if a]
     except Exception:  # noqa: BLE001
@@ -334,19 +331,13 @@ def build_workflow_status(
             blocked_reasons.append("not_materialised")
         # Missing consumes (WFG-016)
         consumes = _step_consumes(step)
-        produced = {
-            str(k).strip()
-            for k in list(produced_artifact_keys or [])
-            if str(k).strip()
-        }
+        produced = {str(k).strip() for k in list(produced_artifact_keys or []) if str(k).strip()}
         missing_consumes = [c for c in consumes if c not in produced]
         if missing_consumes:
             blocked_reasons.append("missing_artifacts")
         summary["blocked_reasons"] = blocked_reasons
         summary["missing_consumes"] = missing_consumes
-        summary["is_blocker"] = bool(
-            blocked_reasons or summary["is_blocker"]
-        )
+        summary["is_blocker"] = bool(blocked_reasons or summary["is_blocker"])
         steps_out.append(summary)
     # Tasks that have workflow-step provenance but are not in
     # ``steps`` (e.g. a half-materialised workflow). Surface them
@@ -358,9 +349,7 @@ def build_workflow_status(
         ws = (
             dict(task.get("worker_execution_context") or {}).get("workflow_step")
             if isinstance(task, dict)
-            else dict(getattr(task, "worker_execution_context", None) or {}).get(
-                "workflow_step"
-            )
+            else dict(getattr(task, "worker_execution_context", None) or {}).get("workflow_step")
         )
         if not isinstance(ws, dict):
             continue
@@ -371,18 +360,14 @@ def build_workflow_status(
             gate=bool(ws.get("gate", False)),
             task=task,
         )
-        blocked_reasons = (
-            [summary["task_blocker_reason"]] if summary["task_blocker_reason"] else []
-        )
+        blocked_reasons = [summary["task_blocker_reason"]] if summary["task_blocker_reason"] else []
         summary["blocked_reasons"] = blocked_reasons
         summary["missing_consumes"] = []
         summary["is_blocker"] = bool(blocked_reasons or summary["is_blocker"])
         steps_out.append(summary)
     # Handoff events: aggregate across the goal's tasks.
     handoff_events = list_handoffs_for_goal(tasks=task_list)
-    audit_actions = (
-        _audit_log_actions(goal_id) if include_audit_log else []
-    )
+    audit_actions = _audit_log_actions(goal_id) if include_audit_log else []
     response: dict[str, Any] = {
         "schema": WORKFLOW_STATUS_SCHEMA,
         "goal_id": str(goal_id or "").strip(),
@@ -450,9 +435,7 @@ def debug_workflow_status(
     if status.get("blueprint_id"):
         lines.append(f"  blueprint: {status['blueprint_id']}@v{status.get('blueprint_version', '')}")
     lines.append(f"  steps: {len(status['steps'])}")
-    blocking = [
-        s for s in status["steps"] if s.get("is_blocker")
-    ]
+    blocking = [s for s in status["steps"] if s.get("is_blocker")]
     if not blocking:
         lines.append("  no blocking steps.")
     else:

@@ -14,16 +14,13 @@ from agent.services.sfu_receiver_quality_ingestion_service import (
     SfuReceiverQualityIngestionService,
 )
 
-
 webrtc_sfu_broadcast_quality_bp = Blueprint(
     "webrtc_sfu_broadcast_quality",
     __name__,
 )
 
 
-@webrtc_sfu_broadcast_quality_bp.post(
-    "/v1/semantic-media/sfu/quality-observations/<subscription_ref>"
-)
+@webrtc_sfu_broadcast_quality_bp.post("/v1/semantic-media/sfu/quality-observations/<subscription_ref>")
 @check_user_auth
 def ingest_receiver_quality(subscription_ref: str):
     try:
@@ -36,9 +33,7 @@ def ingest_receiver_quality(subscription_ref: str):
     return jsonify(result.payload()), 200 if result.status == "dropped" else 202
 
 
-@webrtc_sfu_broadcast_quality_bp.get(
-    "/v1/semantic-media/sfu/quality-observations/<subscription_ref>"
-)
+@webrtc_sfu_broadcast_quality_bp.get("/v1/semantic-media/sfu/quality-observations/<subscription_ref>")
 @check_user_auth
 def read_receiver_quality_window(subscription_ref: str):
     try:
@@ -57,9 +52,7 @@ def read_receiver_quality_window(subscription_ref: str):
     )
 
 
-@webrtc_sfu_broadcast_quality_bp.delete(
-    "/v1/semantic-media/sfu/quality-observations/<subscription_ref>"
-)
+@webrtc_sfu_broadcast_quality_bp.delete("/v1/semantic-media/sfu/quality-observations/<subscription_ref>")
 @check_user_auth
 def clear_receiver_quality_subscription(subscription_ref: str):
     try:
@@ -78,9 +71,7 @@ def clear_receiver_quality_subscription(subscription_ref: str):
     return jsonify({"ok": True, "reason_code": "quality_subscription_cleared", "removed": removed})
 
 
-@webrtc_sfu_broadcast_quality_bp.delete(
-    "/v1/semantic-media/sfu/quality-observations"
-)
+@webrtc_sfu_broadcast_quality_bp.delete("/v1/semantic-media/sfu/quality-observations")
 @check_user_auth
 def clear_receiver_quality_participant():
     try:

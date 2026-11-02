@@ -46,6 +46,4 @@ class NativeGraphWorkerTaskAdapter:
 
 
 class NativeExecutionScopePort(Protocol):
-    def bind(
-        self, command: NativeNodeCommand, *, task: Mapping[str, Any]
-    ): ...
+    def bind(self, command: NativeNodeCommand, *, task: Mapping[str, Any]): ...

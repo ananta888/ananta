@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-
 _DEFAULT_PROFILE_NAME = "local-dev"
 
 _RUNTIME_PROFILE_CATALOG: dict[str, dict[str, Any]] = {

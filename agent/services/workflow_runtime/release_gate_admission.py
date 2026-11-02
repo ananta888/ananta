@@ -62,16 +62,10 @@ class WorkflowRuntimeGateEvidenceVerifier:
         ):
             return False, "release_gate_scenario_incompatible"
         invariant_matrix = artifact.get("invariant_matrix")
-        runtime_invariants = (
-            invariant_matrix.get(runtime_id)
-            if isinstance(invariant_matrix, Mapping)
-            else None
-        )
+        runtime_invariants = invariant_matrix.get(runtime_id) if isinstance(invariant_matrix, Mapping) else None
         invariant_evidence = artifact.get("invariant_evidence")
         runtime_invariant_evidence = (
-            invariant_evidence.get(runtime_id)
-            if isinstance(invariant_evidence, Mapping)
-            else None
+            invariant_evidence.get(runtime_id) if isinstance(invariant_evidence, Mapping) else None
         )
         if not isinstance(runtime_invariants, Mapping) or not isinstance(
             runtime_invariant_evidence,

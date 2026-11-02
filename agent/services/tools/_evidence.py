@@ -8,6 +8,7 @@ every worker answer can reference bounded, reproducible evidence.
 Contract: ``docs/contracts/ananta-worker-tool-loop.md``
 (``ananta_tool_result.v1``).
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -8,7 +8,6 @@ from copy import deepcopy
 from json import JSONDecodeError
 from typing import Any
 
-
 HUB_BENCH_TASK_KINDS = {"planning", "research", "coding", "review", "testing", "ops", "analysis", "doc"}
 DEFAULT_HUB_ROLE_BENCHMARKS = {
     "planner": {
@@ -366,9 +365,8 @@ def recommend_hub_models(
         }
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
-            bayes = estimate_bayesian_for_samples(
-                filtered, source="hub", provider=provider, model=model
-            )
+
+            bayes = estimate_bayesian_for_samples(filtered, source="hub", provider=provider, model=model)
             candidate["bayesian_estimate"] = bayes
             candidate["estimated_attempts_for_50_percent"] = bayes.get("estimated_attempts_for_50_percent")
             candidate["estimated_attempts_for_80_percent"] = bayes.get("estimated_attempts_for_80_percent")
@@ -413,9 +411,10 @@ def hub_benchmark_rows(
             row["focus"] = overall
         if include_bayesian:
             from agent.services.bayesian_benchmark_estimator import estimate_bayesian_for_samples
+
             focus_bucket = (
-                (entry.get("roles") or {}).get(role_match) if role_match else None
-            ) or entry.get("overall") or {}
+                ((entry.get("roles") or {}).get(role_match) if role_match else None) or entry.get("overall") or {}
+            )
             samples = list(focus_bucket.get("samples") or [])
             row["bayesian_estimate"] = estimate_bayesian_for_samples(
                 samples,

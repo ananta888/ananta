@@ -28,6 +28,7 @@ def test_contract_persist_session_can_be_set():
 
 def test_contract_blocked_domains_default():
     from agent.services.browser_task_contract import _DEFAULT_BLOCKED_DOMAINS
+
     c = BrowserTaskContract.from_payload({"allowed_domains": ["example.com"]})
     assert c.blocked_domains == _DEFAULT_BLOCKED_DOMAINS
     assert "localhost" in c.blocked_domains
@@ -35,9 +36,11 @@ def test_contract_blocked_domains_default():
 
 
 def test_contract_blocked_domains_custom():
-    c = BrowserTaskContract.from_payload({
-        "allowed_domains": ["example.com"],
-        "blocked_domains": ["evil.com", "bad.net"],
-    })
+    c = BrowserTaskContract.from_payload(
+        {
+            "allowed_domains": ["example.com"],
+            "blocked_domains": ["evil.com", "bad.net"],
+        }
+    )
     assert "evil.com" in c.blocked_domains
     assert "bad.net" in c.blocked_domains

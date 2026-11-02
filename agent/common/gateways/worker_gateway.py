@@ -65,9 +65,7 @@ class HttpWorkerGateway(WorkerGateway):
     def _response_payload(response: Any) -> Any:
         if response is None or isinstance(response, Mapping):
             return response
-        status_code = int(
-            getattr(response, "status_code", 500) or 500
-        )
+        status_code = int(getattr(response, "status_code", 500) or 500)
         close = getattr(response, "close", None)
         try:
             if 300 <= status_code < 400:
@@ -90,6 +88,7 @@ class HttpWorkerGateway(WorkerGateway):
         finally:
             if callable(close):
                 close()
+
 
 # Singleton-Instanz für den Hub
 _default_worker_gateway = None

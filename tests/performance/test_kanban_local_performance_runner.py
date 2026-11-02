@@ -114,6 +114,4 @@ def test_report_cannot_be_promoted_to_release_evidence() -> None:
     assert report["release_evidence"] is False
     assert report["formal_gate_eligible"] is False
     assert report["missing_surface_metrics"] == ["angular", "tui"]
-    assert report["diagnostic_status"] == (
-        "within_local_budgets_without_surface_evidence"
-    )
+    assert report["diagnostic_status"] == ("within_local_budgets_without_surface_evidence")

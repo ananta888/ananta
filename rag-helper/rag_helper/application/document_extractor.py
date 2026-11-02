@@ -91,9 +91,7 @@ def build_extractors(
     n8n_extractor_cls=None,
     teaching_extractor_cls=None,
 ) -> dict[str, object]:
-    adoc_extractor = build_extractor(
-        adoc_extractor_cls, embedding_text_mode=limits.embedding_text_mode
-    )
+    adoc_extractor = build_extractor(adoc_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
     extractors = {
         "java": java_extractor_cls(
             include_code_snippets=include_code_snippets,
@@ -107,9 +105,7 @@ def build_extractors(
             resolve_framework_relations=limits.resolve_framework_relations,
             embedding_text_mode=limits.embedding_text_mode,
         ),
-        "adoc": AdocProvenanceAdapter(
-            adoc_extractor, embedding_text_mode=limits.embedding_text_mode
-        ),
+        "adoc": AdocProvenanceAdapter(adoc_extractor, embedding_text_mode=limits.embedding_text_mode),
         "xml": build_extractor(
             xml_extractor_cls,
             include_xml_node_details=include_xml_node_details,
@@ -144,9 +140,7 @@ def build_extractors(
             embedding_text_mode=limits.embedding_text_mode,
         )
     if text_extractor_cls is not None:
-        text_extractor = build_extractor(
-            text_extractor_cls, embedding_text_mode=limits.embedding_text_mode
-        )
+        text_extractor = build_extractor(text_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
         extractors.update(
             {
                 "properties": text_extractor,
@@ -314,9 +308,7 @@ def build_extractors(
         max_depth=limits.max_parser_depth,
     )
     if teaching_extractor_cls is not None:
-        extractors["md"] = build_extractor(
-            teaching_extractor_cls, embedding_text_mode=limits.embedding_text_mode
-        )
+        extractors["md"] = build_extractor(teaching_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
     return extractors
 
 
@@ -452,9 +444,7 @@ def build_oversized_xml_fallback(
         details=[],
         relations=[],
         manifest_entry=manifest_entry,
-        cache_entry=build_cache_entry(
-            snapshot, options_signature, manifest_entry, index, [], [], pre_scan
-        ),
+        cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, index, [], [], pre_scan),
     )
 
 
@@ -489,9 +479,7 @@ def process_snapshot(
     file_size_ceilings = [
         value
         for value in (
-            limits.max_file_size_kb * 1024
-            if limits.max_file_size_kb is not None
-            else None,
+            limits.max_file_size_kb * 1024 if limits.max_file_size_kb is not None else None,
             limits.max_file_size_bytes,
         )
         if value is not None
@@ -515,9 +503,7 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
 
     text = snapshot.text
@@ -536,9 +522,7 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
 
     line_count = len(text.splitlines())
@@ -562,9 +546,7 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
 
     generated_info = detect_generated_code(
@@ -592,9 +574,7 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
 
     try:
@@ -631,9 +611,7 @@ def process_snapshot(
                 details=[],
                 relations=[],
                 manifest_entry=manifest_entry,
-                cache_entry=build_cache_entry(
-                    snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-                ),
+                cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
             )
 
         if ext == "java":
@@ -648,8 +626,10 @@ def process_snapshot(
                 text=text,
                 known_namespace_types=known_namespace_types,
             )
-        elif ext in {"md", "canvas"} and obsidian_extractor_cls is not None and not (
-            ext == "md" and teaching_extractor_cls is not None
+        elif (
+            ext in {"md", "canvas"}
+            and obsidian_extractor_cls is not None
+            and not (ext == "md" and teaching_extractor_cls is not None)
         ):
             # ObsidianExtractor: pass known_note_titles via known_package_types slot
             idx, det, rel, stats = extractor.parse(
@@ -700,10 +680,7 @@ def process_snapshot(
             stats["relation_compaction"] = relation_compaction_stats
 
         total_records = len(idx) + len(det) + len(rel)
-        if (
-            limits.max_records_per_file is not None
-            and total_records > limits.max_records_per_file
-        ):
+        if limits.max_records_per_file is not None and total_records > limits.max_records_per_file:
             manifest_entry = {
                 "file": rel_path,
                 "ext": ext,
@@ -727,9 +704,7 @@ def process_snapshot(
                 details=[],
                 relations=[],
                 manifest_entry=manifest_entry,
-                cache_entry=build_cache_entry(
-                    snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-                ),
+                cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
             )
 
         annotate_generated_records(idx, generated_info)
@@ -757,9 +732,7 @@ def process_snapshot(
             details=det,
             relations=rel,
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, idx, det, rel, pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, idx, det, rel, pre_scan),
         )
     except FileSkipped as skipped:
         manifest_entry = {
@@ -783,9 +756,7 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
     except Exception as exc:
         if ext in {"xml", "xsd"} and "max_xml_nodes_exceeded" in str(exc):
@@ -796,9 +767,7 @@ def process_snapshot(
                 pre_scan=pre_scan,
             )
             if fallback_result is not None:
-                fallback_result.manifest_entry["duration_ms"] = round(
-                    (perf_counter() - started_at) * 1000, 3
-                )
+                fallback_result.manifest_entry["duration_ms"] = round((perf_counter() - started_at) * 1000, 3)
                 return fallback_result
         manifest_entry = {
             "file": rel_path,
@@ -817,7 +786,5 @@ def process_snapshot(
             details=[],
             relations=[],
             manifest_entry=manifest_entry,
-            cache_entry=build_cache_entry(
-                snapshot, options_signature, manifest_entry, [], [], [], pre_scan
-            ),
+            cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )

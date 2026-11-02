@@ -56,9 +56,7 @@ def hub_bound_context(
         workflow_id="workflow-1",
         step_id="step-1",
         plan_hash="a" * 64,
-        authorization_envelope={
-            "schema": "ananta.runtime_authorization.v1"
-        },
+        authorization_envelope={"schema": "ananta.runtime_authorization.v1"},
         attempt_id="attempt-1",
         fencing_token=1,
     )
@@ -135,9 +133,7 @@ def test_signed_local_provider_endpoints_are_allowed_without_external_egress(
     endpoint_url: str,
     endpoint_identity: str,
 ) -> None:
-    subject = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    subject = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
 
     prepared = subject.prepare(
         context=hub_bound_context(
@@ -152,16 +148,11 @@ def test_signed_local_provider_endpoints_are_allowed_without_external_egress(
     )
 
     assert prepared.uses_hub_budget is True
-    assert (
-        prepared.context.provider_endpoint_identity
-        == endpoint_identity
-    )
+    assert prepared.context.provider_endpoint_identity == endpoint_identity
 
 
 def test_unsigned_hub_bound_lan_endpoint_requires_narrow_legacy_default() -> None:
-    subject = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    subject = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
 
     with pytest.raises(
         ProviderInvocationBlocked,
@@ -211,9 +202,7 @@ def test_forbidden_literal_targets_are_denied_even_when_signed_and_egress_allowe
         provider_id="ollama",
         endpoint_url=endpoint_url,
     )
-    subject = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    subject = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
 
     with pytest.raises(
         ProviderInvocationBlocked,
@@ -336,9 +325,7 @@ def test_cloud_provider_label_cannot_authorize_loopback_dns_alias() -> None:
 def test_cloud_provider_label_cannot_authorize_private_literal(
     endpoint: str,
 ) -> None:
-    subject = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    subject = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
 
     with pytest.raises(
         ProviderInvocationBlocked,
@@ -369,9 +356,7 @@ def test_cloud_provider_label_cannot_authorize_private_literal(
 def test_signed_openai_compatible_private_literals_remain_local(
     endpoint: str,
 ) -> None:
-    prepared = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    ).prepare(
+    prepared = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger()).prepare(
         context=hub_bound_context(
             provider="openai_compatible",
             model="model-a",
@@ -407,10 +392,13 @@ def test_provider_request_url_builder_has_one_exact_standard_target(
     endpoint: str,
     expected: str,
 ) -> None:
-    assert build_provider_request_url(
-        provider_id=provider,
-        endpoint_url=endpoint,
-    ) == expected
+    assert (
+        build_provider_request_url(
+            provider_id=provider,
+            endpoint_url=endpoint,
+        )
+        == expected
+    )
 
 
 def test_provider_request_url_builder_denies_ambiguous_custom_path() -> None:
@@ -435,9 +423,7 @@ def test_provider_request_url_builder_denies_ambiguous_custom_path() -> None:
 def test_signed_endpoint_port_and_path_cannot_be_changed(
     endpoint_url: str,
 ) -> None:
-    subject = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    subject = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
 
     with pytest.raises(
         ProviderInvocationBlocked,
@@ -447,9 +433,7 @@ def test_signed_endpoint_port_and_path_cannot_be_changed(
             context=hub_bound_context(
                 provider="ollama",
                 model="phi4-mini",
-                endpoint_identity=(
-                    "http://ollama:11434/v1/chat/completions"
-                ),
+                endpoint_identity=("http://ollama:11434/v1/chat/completions"),
             ),
             provider="ollama",
             model="phi4-mini",
@@ -464,13 +448,9 @@ def test_signed_public_endpoint_still_requires_external_egress_grant(
     endpoint = "https://api.openai.com/v1/chat/completions"
     monkeypatch.setattr(
         "ananta_contracts.provider_endpoint_policy.socket.getaddrinfo",
-        lambda *args, **kwargs: [
-            (2, 1, 6, "", ("93.184.216.34", 443))
-        ],
+        lambda *args, **kwargs: [(2, 1, 6, "", ("93.184.216.34", 443))],
     )
-    blocked = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    )
+    blocked = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger())
     with pytest.raises(
         ProviderInvocationBlocked,
         match="provider_egress_denied",
@@ -487,9 +467,7 @@ def test_signed_public_endpoint_still_requires_external_egress_grant(
             payload={"messages": []},
         )
 
-    allowed = ProviderInvocationMiddleware(
-        hub_budgets=AtomicProviderBudgetLedger()
-    ).prepare(
+    allowed = ProviderInvocationMiddleware(hub_budgets=AtomicProviderBudgetLedger()).prepare(
         context=hub_bound_context(
             provider="openai",
             model="gpt-test",
@@ -638,17 +616,11 @@ def test_provider_retry_consumes_shared_hub_budget_and_missing_port_fails_closed
     with pytest.raises(ProviderInvocationBlocked, match="combined_retry_budget_unavailable"):
         unavailable.prepare(**request)
 
-    shared = ProviderInvocationMiddleware(
-        retry_budgets=RetryBudgetOwnerProviderAdapter(owner)
-    )
+    shared = ProviderInvocationMiddleware(retry_budgets=RetryBudgetOwnerProviderAdapter(owner))
     shared.prepare(**request)
     # Delivery of the same retry reservation is idempotent.
-    ProviderInvocationMiddleware(
-        retry_budgets=RetryBudgetOwnerProviderAdapter(owner)
-    ).prepare(**request)
-    exhausted = ProviderInvocationMiddleware(
-        retry_budgets=RetryBudgetOwnerProviderAdapter(owner)
-    )
+    ProviderInvocationMiddleware(retry_budgets=RetryBudgetOwnerProviderAdapter(owner)).prepare(**request)
+    exhausted = ProviderInvocationMiddleware(retry_budgets=RetryBudgetOwnerProviderAdapter(owner))
     with pytest.raises(ProviderInvocationBlocked, match="retry_budget_exhausted"):
         exhausted.prepare(
             **{
@@ -679,9 +651,7 @@ def test_workflow_provider_token_and_cost_budget_uses_shared_hub_port() -> None:
         selected_provider_id="local",
         selected_model_id="model-a",
         provider_binding_id="provider-binding:test",
-        provider_endpoint_identity=(
-            "http://localhost/v1/chat/completions"
-        ),
+        provider_endpoint_identity=("http://localhost/v1/chat/completions"),
         provider_transport_mode="hub_bound",
         provider_decision_reason="hub_provider_policy_selected",
         workflow_id="workflow-1",
@@ -731,9 +701,7 @@ def test_hub_provider_selection_is_bound_to_the_actual_invocation() -> None:
 
 
 def test_hub_provider_budget_requires_complete_server_selection_binding() -> None:
-    with pytest.raises(
-        ProviderInvocationBlocked, match="provider_selection_binding_required"
-    ):
+    with pytest.raises(ProviderInvocationBlocked, match="provider_selection_binding_required"):
         context(
             require_hub_provider_budget=True,
             workflow_id="workflow-1",
@@ -843,11 +811,7 @@ def test_model_invocation_denies_redirect_without_following_target(
             "status_code": status_code,
             "text": "",
             "url": response_url,
-            "headers": {
-                "Location": (
-                    "http://169.254.169.254/latest/meta-data"
-                )
-            },
+            "headers": {"Location": ("http://169.254.169.254/latest/meta-data")},
         },
     )()
 
@@ -872,9 +836,7 @@ def test_model_invocation_denies_redirect_without_following_target(
             response_format=None,
             attempt={
                 "provider": "local",
-                "url": (
-                    "http://localhost:11434/v1/chat/completions"
-                ),
+                "url": ("http://localhost:11434/v1/chat/completions"),
                 "model": "model-a",
                 "timeout": 3,
                 "profile": None,

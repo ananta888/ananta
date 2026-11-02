@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from agent.cli.logo_layout import (
     COMPACT_HEADER_LINES,
-    render_compact_header,
-    _visible_length,
     _max_line_width,
+    _visible_length,
+    render_compact_header,
 )
 from agent.cli.status_snapshot import StatusSnapshot
 

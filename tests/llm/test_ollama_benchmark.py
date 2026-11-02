@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -83,7 +83,7 @@ class TestOllamaBenchmarkCore:
         assert result["updated_at"] == 12345
 
     def test_scrum_role_templates_defined(self):
-        from agent.ollama_benchmark import SCRUM_ROLE_TEMPLATES, get_role_template_names, get_scrum_role_templates
+        from agent.ollama_benchmark import get_role_template_names, get_scrum_role_templates
 
         templates = get_scrum_role_templates()
         assert isinstance(templates, dict)
@@ -172,7 +172,7 @@ class TestOllamaBenchmarkCore:
         assert result["suitability_score"] >= 0.0
 
     def test_recommend_ollama_model(self, temp_data_dir):
-        from agent.ollama_benchmark import record_ollama_benchmark_sample, recommend_ollama_model
+        from agent.ollama_benchmark import recommend_ollama_model, record_ollama_benchmark_sample
 
         for i in range(3):
             record_ollama_benchmark_sample(
@@ -199,7 +199,7 @@ class TestOllamaBenchmarkCore:
         assert result is None
 
     def test_ollama_benchmark_rows(self, temp_data_dir):
-        from agent.ollama_benchmark import record_ollama_benchmark_sample, ollama_benchmark_rows
+        from agent.ollama_benchmark import ollama_benchmark_rows, record_ollama_benchmark_sample
 
         record_ollama_benchmark_sample(
             data_dir=temp_data_dir,
@@ -417,7 +417,7 @@ class TestOllamaBenchmarkConstants:
         assert "research" in OLLAMA_BENCH_TASK_KINDS
 
     def test_all_scrum_roles_have_valid_task_kinds(self):
-        from agent.ollama_benchmark import SCRUM_ROLE_TEMPLATES, OLLAMA_BENCH_TASK_KINDS
+        from agent.ollama_benchmark import OLLAMA_BENCH_TASK_KINDS, SCRUM_ROLE_TEMPLATES
 
         for role_name, role_cfg in SCRUM_ROLE_TEMPLATES.items():
             assert role_cfg["task_kind"] in OLLAMA_BENCH_TASK_KINDS, f"Role {role_name} has invalid task_kind"

@@ -46,9 +46,7 @@ def require_allowlisted_restricted_inference_endpoint(
     allowed_endpoints: tuple[str, ...],
 ) -> str:
     normalized = normalize_restricted_inference_endpoint(endpoint)
-    allowed = {
-        normalize_restricted_inference_endpoint(item) for item in allowed_endpoints
-    }
+    allowed = {normalize_restricted_inference_endpoint(item) for item in allowed_endpoints}
     if normalized not in allowed:
         raise ValueError("restricted inference endpoint is not exactly allowlisted")
     return normalized

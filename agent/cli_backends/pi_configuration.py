@@ -34,8 +34,13 @@ def validate_pi_target(target: CodingAgentInferenceTarget | None) -> str | None:
     try:
         url = urlsplit(target.base_url)
         if (
-            url.scheme not in {"http", "https"} or not url.hostname or url.username is not None
-            or url.password is not None or url.query or url.fragment or any(ord(c) < 33 for c in target.base_url)
+            url.scheme not in {"http", "https"}
+            or not url.hostname
+            or url.username is not None
+            or url.password is not None
+            or url.query
+            or url.fragment
+            or any(ord(c) < 33 for c in target.base_url)
             or (target.provider_id == "openrouter" and url.scheme != "https")
         ):
             return "pi_endpoint_invalid"
@@ -43,7 +48,9 @@ def validate_pi_target(target: CodingAgentInferenceTarget | None) -> str | None:
     except ValueError:
         return "pi_endpoint_invalid"
     if (
-        not isinstance(target.api_key, str) or not target.api_key or len(target.api_key) > 8192
+        not isinstance(target.api_key, str)
+        or not target.api_key
+        or len(target.api_key) > 8192
         or any(ord(char) < 32 for char in target.api_key)
     ):
         return "pi_auth_required"
@@ -72,7 +79,11 @@ class PiInvocation:
 
 @contextmanager
 def isolated_pi_configuration(
-    target: CodingAgentInferenceTarget, *, project: Path, runtime_root: Path | None = None, max_tokens: int = 1024,
+    target: CodingAgentInferenceTarget,
+    *,
+    project: Path,
+    runtime_root: Path | None = None,
+    max_tokens: int = 1024,
 ) -> Iterator[PiInvocation]:
     reason = validate_pi_target(target)
     if reason:
@@ -88,27 +99,50 @@ def isolated_pi_configuration(
         cwd.mkdir(mode=0o700)
         configuration.mkdir(mode=0o700)
         settings = {
-            "defaultProjectTrust": "never", "quietStartup": True, "lastChangelogVersion": PI_VERSION,
+            "defaultProjectTrust": "never",
+            "quietStartup": True,
+            "lastChangelogVersion": PI_VERSION,
             "compaction": {"enabled": False},
             "retry": {"enabled": False, "maxRetries": 0, "provider": {"maxRetries": 0}},
-            "packages": [], "extensions": [], "skills": [], "prompts": [], "themes": [], "defaultTools": [],
-            "enableInstallTelemetry": False, "enableAnalytics": False,
+            "packages": [],
+            "extensions": [],
+            "skills": [],
+            "prompts": [],
+            "themes": [],
+            "defaultTools": [],
+            "enableInstallTelemetry": False,
+            "enableAnalytics": False,
         }
         compatibility = {
-            "maxTokensField": "max_tokens", "supportsStore": False,
-            "supportsDeveloperRole": False, "supportsReasoningEffort": False,
-            "supportsUsageInStreaming": False, "supportsFinishReason": True,
+            "maxTokensField": "max_tokens",
+            "supportsStore": False,
+            "supportsDeveloperRole": False,
+            "supportsReasoningEffort": False,
+            "supportsUsageInStreaming": False,
+            "supportsFinishReason": True,
         }
         if target.provider_id == "openrouter":
             compatibility["openRouterRouting"] = {"allow_fallbacks": False, "require_parameters": True}
-        models = {"providers": {PI_PROVIDER_NAME: {
-            "baseUrl": target.base_url, "api": "openai-completions", "apiKey": "$ANANTA_PI_API_KEY",
-            "authHeader": True, "compat": compatibility,
-            "models": [{"id": target.model, "contextWindow": pi_context_window(target), "maxTokens": max_tokens}],
-        }}}
+        models = {
+            "providers": {
+                PI_PROVIDER_NAME: {
+                    "baseUrl": target.base_url,
+                    "api": "openai-completions",
+                    "apiKey": "$ANANTA_PI_API_KEY",
+                    "authHeader": True,
+                    "compat": compatibility,
+                    "models": [
+                        {"id": target.model, "contextWindow": pi_context_window(target), "maxTokens": max_tokens}
+                    ],
+                }
+            }
+        }
         files = {
-            "settings.json": json.dumps(settings), "models.json": json.dumps(models), "auth.json": "{}",
-            "hub-system.md": PI_SYSTEM_PROMPT, "hub-append.md": "",
+            "settings.json": json.dumps(settings),
+            "models.json": json.dumps(models),
+            "auth.json": "{}",
+            "hub-system.md": PI_SYSTEM_PROMPT,
+            "hub-append.md": "",
         }
         for name, content in files.items():
             path = configuration / name

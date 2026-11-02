@@ -1,10 +1,13 @@
 import unittest
 from unittest.mock import MagicMock
+
 # Assuming these imports are correctly structured in the workspace
 from src.core.worker_client_adapter import WorkerClientAdapter
 
+
 class TestWorkerClientAdapter(unittest.TestCase):
     """Tests the WorkerClientAdapter ensuring correct delegation and handling of worker input."""
+
     def setUp(self):
         # Setup mocks for dependencies to isolate the adapter's unit responsibility
         self.mock_client = MagicMock()
@@ -36,5 +39,5 @@ class TestWorkerClientAdapter(unittest.TestCase):
         # Note: For robustness, the adapter should probably wrap this in a try/except, but for this test, we check the exception propagation.
         with self.assertRaises(Exception) as e:
             self.adapter.execute_task(test_id, payload)
-        
+
         self.assertIn("Worker service unavailable", str(e.exception))

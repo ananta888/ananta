@@ -46,11 +46,7 @@ def _worker_app(
     )
     app.extensions["vector_index_worker_registration"] = {
         "ready": vector_ready,
-        "reason_code": (
-            None
-            if vector_ready
-            else "vector_index_task_verification_keyring_required"
-        ),
+        "reason_code": (None if vector_ready else "vector_index_task_verification_keyring_required"),
     }
     app.extensions["workflow_adapter_worker_registration"] = {
         "capabilities": list(advertised_capabilities),
@@ -58,11 +54,7 @@ def _worker_app(
     monkeypatch.setattr(
         readiness_route,
         "get_registration_state",
-        lambda: (
-            hub_registration
-            if hub_registration is not None
-            else _hub_registration()
-        ),
+        lambda: hub_registration if hub_registration is not None else _hub_registration(),
     )
     monkeypatch.setattr(readiness_route.time, "time", lambda: 1000.0)
     monkeypatch.setattr(
@@ -70,9 +62,7 @@ def _worker_app(
         "agent_offline_timeout",
         300,
     )
-    app.register_blueprint(
-        readiness_route.worker_vector_index_readiness_bp
-    )
+    app.register_blueprint(readiness_route.worker_vector_index_readiness_bp)
     return app
 
 
@@ -89,17 +79,12 @@ def test_vector_index_worker_readiness_returns_503_before_hub_registration(
         },
     )
 
-    response = app.test_client().get(
-        "/internal/worker/vector-index-readiness"
-    )
+    response = app.test_client().get("/internal/worker/vector-index-readiness")
 
     assert response.status_code == 503
     assert response.json["ready"] is False
     assert response.json["hub_registration"]["ready"] is False
-    assert (
-        "vector_index_worker_hub_registration_pending"
-        in response.json["reason_codes"]
-    )
+    assert "vector_index_worker_hub_registration_pending" in response.json["reason_codes"]
 
 
 def test_vector_index_worker_readiness_returns_503_for_local_composition_failure(
@@ -107,16 +92,12 @@ def test_vector_index_worker_readiness_returns_503_for_local_composition_failure
 ) -> None:
     app = _worker_app(monkeypatch, vector_ready=False)
 
-    response = app.test_client().get(
-        "/internal/worker/vector-index-readiness"
-    )
+    response = app.test_client().get("/internal/worker/vector-index-readiness")
 
     assert response.status_code == 503
     assert response.json["vector_index_worker_registration"] == {
         "ready": False,
-        "reason_code": (
-            "vector_index_task_verification_keyring_required"
-        ),
+        "reason_code": ("vector_index_task_verification_keyring_required"),
     }
 
 
@@ -144,14 +125,10 @@ def test_vector_index_worker_readiness_requires_all_three_capabilities(
     app = _worker_app(
         monkeypatch,
         advertised_capabilities=advertised,
-        hub_registration=_hub_registration(
-            capabilities=registered
-        ),
+        hub_registration=_hub_registration(capabilities=registered),
     )
 
-    response = app.test_client().get(
-        "/internal/worker/vector-index-readiness"
-    )
+    response = app.test_client().get("/internal/worker/vector-index-readiness")
 
     assert response.status_code == 503
     assert reason_code in response.json["reason_codes"]
@@ -165,16 +142,11 @@ def test_vector_index_worker_readiness_rejects_stale_hub_registration(
         hub_registration=_hub_registration(last_success_at=699.0),
     )
 
-    response = app.test_client().get(
-        "/internal/worker/vector-index-readiness"
-    )
+    response = app.test_client().get("/internal/worker/vector-index-readiness")
 
     assert response.status_code == 503
     assert response.json["hub_registration"]["ready"] is False
-    assert (
-        "vector_index_worker_hub_registration_stale"
-        in response.json["reason_codes"]
-    )
+    assert "vector_index_worker_hub_registration_stale" in response.json["reason_codes"]
 
 
 def test_vector_index_worker_readiness_returns_200_after_exact_registration(
@@ -182,9 +154,7 @@ def test_vector_index_worker_readiness_returns_200_after_exact_registration(
 ) -> None:
     app = _worker_app(monkeypatch)
 
-    response = app.test_client().get(
-        "/internal/worker/vector-index-readiness"
-    )
+    response = app.test_client().get("/internal/worker/vector-index-readiness")
 
     assert response.status_code == 200
     assert response.json == {
@@ -229,9 +199,7 @@ def test_policy_rejects_non_worker_role() -> None:
     )
 
     assert snapshot.ready is False
-    assert snapshot.reason_codes == (
-        "vector_index_worker_role_required",
-    )
+    assert snapshot.reason_codes == ("vector_index_worker_role_required",)
 
 
 def test_hub_role_does_not_register_worker_readiness_route(
@@ -242,7 +210,4 @@ def test_hub_role_does_not_register_worker_readiness_route(
 
     ai_agent._register_worker_domain_handlers(app)
 
-    assert (
-        "/internal/worker/vector-index-readiness"
-        not in {rule.rule for rule in app.url_map.iter_rules()}
-    )
+    assert "/internal/worker/vector-index-readiness" not in {rule.rule for rule in app.url_map.iter_rules()}

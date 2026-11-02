@@ -26,8 +26,8 @@ def test_auto_planner_template_ids_resolve_without_llm_call(app, monkeypatch, te
     def _fail_if_called(*args, **kwargs):  # noqa: ANN002, ANN003
         raise AssertionError("LLM should not be called when catalog template resolves")
 
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fail_if_called)
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", _fail_if_called)
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
     planner = AutoPlanner()
     planner.configure(auto_start_autopilot=False)
 
@@ -52,8 +52,8 @@ def test_auto_planner_keyword_matching_works_for_german_and_english_goals(app, m
     def _fail_if_called(*args, **kwargs):  # noqa: ANN002, ANN003
         raise AssertionError("LLM should not be called when keyword template resolves")
 
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fail_if_called)
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.generate_text", _fail_if_called)
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
     planner = AutoPlanner()
     planner.configure(auto_start_autopilot=False)
 
@@ -67,12 +67,12 @@ def test_auto_planner_keyword_matching_works_for_german_and_english_goals(app, m
 
 def test_auto_planner_falls_back_to_llm_when_no_catalog_or_blueprint_match(app, monkeypatch) -> None:
     monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
+        "agent.services.autopilot.auto_planner_engine.generate_text",
         lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: json.dumps(
             [{"title": "Investigate", "description": "Analyze unknown objective", "priority": "High"}]
         ),
     )
-    monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+    monkeypatch.setattr("agent.services.autopilot.auto_planner_engine.config_repo", MagicMock(save=MagicMock()))
     planner = AutoPlanner()
     planner.configure(auto_start_autopilot=False)
 

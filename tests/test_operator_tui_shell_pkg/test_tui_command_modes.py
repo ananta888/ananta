@@ -2,39 +2,20 @@ from __future__ import annotations
 
 import json
 import os
-import re
-import sys
 import time
 from importlib import reload
-from argparse import Namespace
 from pathlib import Path
 
-from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
+from agent.cli.main import _run_tui
 from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
     refresh_chat_backend_models,
 )
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
+from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
 from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
 
 
 def test_operator_tui_focus_command_is_typed() -> None:
@@ -44,7 +25,6 @@ def test_operator_tui_focus_command_is_typed() -> None:
 
     assert result.handled is True
     assert result.state.focus is FocusPane.DETAIL
-
 
 
 def test_operator_tui_mouse_command_toggles_follow_mode() -> None:
@@ -60,7 +40,6 @@ def test_operator_tui_mouse_command_toggles_follow_mode() -> None:
     assert bool((off.state.header_logo_game or {}).get("mouse_follow_enabled")) is False
 
 
-
 def test_operator_tui_ai_command_controls_mode_and_status() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"ai_snake_mode": "lurking_follow"})
 
@@ -74,14 +53,12 @@ def test_operator_tui_ai_command_controls_mode_and_status() -> None:
     assert (explain.state.header_logo_game or {}).get("ai_force_question") is True
 
 
-
 def test_ananta_tui_default_uses_operator_render_once(capsys) -> None:
     exit_code = _run_tui(["--render-once", "--skip-splash", "--section", "tasks", "--width", "90", "--height", "20"])
 
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "ananta" in captured.out
-
 
 
 def test_ananta_tui_help_lists_logo_renderer_flags(capsys) -> None:
@@ -95,7 +72,6 @@ def test_ananta_tui_help_lists_logo_renderer_flags(capsys) -> None:
     assert "--no-logo" in captured.out
 
 
-
 def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
     state = load_active_section(OperatorState(endpoint="http://localhost:5000", section_id="tasks"))
     state = execute_command(":inspect", state).state
@@ -104,7 +80,6 @@ def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
 
     assert "inspect:" in output
     assert "browser=http://localhost:5000/t" in output
-
 
 
 def test_codecompass_outputs_auto_build_from_repo_when_missing(tmp_path, monkeypatch) -> None:
@@ -145,7 +120,6 @@ def test_codecompass_outputs_auto_build_from_repo_when_missing(tmp_path, monkeyp
     assert (resolved / "index.jsonl").exists()
 
 
-
 def test_local_selection_uses_local_snake_color() -> None:
     lines = ["abcdefghij"]
     game = {
@@ -161,7 +135,6 @@ def test_local_selection_uses_local_snake_color() -> None:
     out = _overlay_fullscreen_snake(lines, state, width=10)
 
     assert "\x1b[48;2;170;255;210m" in out[0]
-
 
 
 def test_free_mode_snake_board_keeps_full_terminal_width(monkeypatch) -> None:
@@ -184,13 +157,15 @@ def test_free_mode_snake_board_keeps_full_terminal_width(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr("client_surfaces.operator_tui.snake_tick_mixin.time.monotonic", lambda: 1.0)
-    monkeypatch.setattr("client_surfaces.operator_tui.snake_tick_mixin.shutil.get_terminal_size", lambda fallback: os.terminal_size((120, 32)))
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.snake_tick_mixin.shutil.get_terminal_size",
+        lambda fallback: os.terminal_size((120, 32)),
+    )
 
     tui._tick_header_snake()
 
     updated = tui.state.header_logo_game or {}
     assert updated.get("board_w") == 120
-
 
 
 def test_command_backspace_updates_command_line() -> None:
@@ -206,7 +181,6 @@ def test_command_backspace_updates_command_line() -> None:
 
     assert tui.state.command_line == "abc"
     assert tui._command_buffer == "abc"
-
 
 
 def test_command_backspace_on_empty_exits_command_mode() -> None:
@@ -225,7 +199,6 @@ def test_command_backspace_on_empty_exits_command_mode() -> None:
     assert tui.state.mode is OperatorMode.NORMAL
     assert tui.state.command_line == ""
     assert "command: beendet" in str(tui.state.status_message or "")
-
 
 
 def test_command_input_supports_cursor_delete_and_history() -> None:
@@ -260,7 +233,6 @@ def test_command_input_supports_cursor_delete_and_history() -> None:
     assert tui.state.command_line == "draft"
 
 
-
 def test_command_line_renders_cursor_marker() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -272,7 +244,6 @@ def test_command_line_renders_cursor_marker() -> None:
     output = render_operator_shell(state, width=96, height=20)
 
     assert ":ab_cd" in output
-
 
 
 def test_handle_quit_key_exits_in_command_mode() -> None:
@@ -302,7 +273,6 @@ def test_handle_quit_key_exits_in_command_mode() -> None:
     assert tui._command_buffer == ":chat backend status"
 
 
-
 def test_ctrl_c_cancel_does_not_exit_chat_input_mode() -> None:
     from client_surfaces.operator_tui.chat_state import get_chat_state
 
@@ -317,7 +287,6 @@ def test_ctrl_c_cancel_does_not_exit_chat_input_mode() -> None:
     assert handled is False
     assert bool(chat.get("chat_focus")) is True
     assert str(chat.get("chat_input_buffer") or "") == "abc"
-
 
 
 def test_poll_tutor_ask_result_sets_timeout_answer() -> None:
@@ -344,7 +313,6 @@ def test_poll_tutor_ask_result_sets_timeout_answer() -> None:
     assert tui._tutor_ask_future is None
 
 
-
 def test_command_from_chat_does_not_force_chat_focus_after_run() -> None:
     game = {"active": True, "alive": True, "ui_steering": True, "free_mode": True}
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
@@ -366,7 +334,6 @@ def test_command_from_chat_does_not_force_chat_focus_after_run() -> None:
     chat_after = get_chat_state(updated)
     assert chat_after.get("chat_focus") is False
     assert tui.state.mode is OperatorMode.NORMAL
-
 
 
 def test_toggle_snake_mode_preserves_tutorial_setting() -> None:
@@ -397,7 +364,6 @@ def test_toggle_snake_mode_preserves_tutorial_setting() -> None:
     assert on_state.get("ui_steering") is True
 
 
-
 def test_toggle_tutorial_ai_mode_removes_visual_ai_snake_immediately() -> None:
     game = {
         "active": True,
@@ -423,7 +389,6 @@ def test_toggle_tutorial_ai_mode_removes_visual_ai_snake_immediately() -> None:
     assert "visual ai-snake: aus" in str(tui.state.status_message or "")
 
 
-
 def test_config_command_toggles_ai_snake_config_panel() -> None:
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"chat_panel_open": True})
     opened = execute_command(":config", state).state
@@ -437,14 +402,12 @@ def test_config_command_toggles_ai_snake_config_panel() -> None:
     assert bool(game_closed.get("ai_snake_config_open")) is False
 
 
-
 def test_execute_command_strips_multiple_prefix_chars() -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     result = execute_command("::config", state)
     game = dict(result.state.header_logo_game or {})
     assert bool(game.get("ai_snake_config_open")) is True
     assert result.handled is True
-
 
 
 def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkeypatch) -> None:
@@ -460,7 +423,6 @@ def test_default_header_snake_loads_persisted_tui_chat_settings(tmp_path, monkey
 
     assert game.get("chat_backend") == "lmstudio"
     assert game.get("chat_context_chars") == 5000
-
 
 
 def test_default_header_snake_explicit_chat_env_overrides_persisted_settings(tmp_path, monkeypatch) -> None:
@@ -480,7 +442,6 @@ def test_default_header_snake_explicit_chat_env_overrides_persisted_settings(tmp
     assert game.get("chat_backend") == "ananta-worker"
     assert game.get("chat_backend_model") == "microsoft_-_phi-3.5-mini"
     assert game.get("chat_rag_top_k") == "16"
-
 
 
 def test_default_header_snake_loads_persisted_chat_input_history(monkeypatch) -> None:
@@ -503,7 +464,6 @@ def test_default_header_snake_loads_persisted_chat_input_history(monkeypatch) ->
     chat = get_chat_state(tui._default_header_snake())
 
     assert chat["chat_input_history"] == ["alte frage", "neuere frage"]
-
 
 
 def test_default_header_snake_starts_in_snake_chat_mode(monkeypatch) -> None:
@@ -532,7 +492,6 @@ def test_default_header_snake_starts_in_snake_chat_mode(monkeypatch) -> None:
     assert chat.get("chat_focus") is True
 
 
-
 def test_toggle_chat_panel_persists_setting(tmp_path, monkeypatch) -> None:
     import client_surfaces.operator_tui.snake_persistence as sp
 
@@ -545,7 +504,6 @@ def test_toggle_chat_panel_persists_setting(tmp_path, monkeypatch) -> None:
     assert isinstance(persisted.get("chat_panel_open"), bool)
 
 
-
 def test_toggle_tutorial_mode_persists_setting(tmp_path, monkeypatch) -> None:
     import client_surfaces.operator_tui.snake_persistence as sp
 
@@ -556,7 +514,6 @@ def test_toggle_tutorial_mode_persists_setting(tmp_path, monkeypatch) -> None:
     persisted = load_tui_chat_settings(cwd=Path.cwd())
 
     assert isinstance(persisted.get("tutorial_mode"), bool)
-
 
 
 def test_keybinding_conflicts_detect_duplicate_keys(tmp_path, monkeypatch) -> None:
@@ -581,7 +538,6 @@ def test_keybinding_conflicts_detect_duplicate_keys(tmp_path, monkeypatch) -> No
     assert conflicts
     assert conflicts[0]["key"] == "c-w"
     assert set(conflicts[0]["actions"]) == {"a_one", "a_two"}
-
 
 
 def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatch) -> None:
@@ -621,7 +577,6 @@ def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatc
     assert any("localhost:1234" in call for call in calls)
 
 
-
 def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> None:
     monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
     state = OperatorState(endpoint="http://lmstudio.local:1234/v1")
@@ -630,6 +585,7 @@ def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> N
 
     def _fake_urlopen(req, timeout=0):
         calls.append(req.full_url)
+
         class _Resp:
             headers: dict[str, str] = {}
 
@@ -662,7 +618,6 @@ def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> N
     assert calls == ["http://lmstudio.local:1234/v1/chat/completions"]
 
 
-
 def test_resolve_ask_worker_response_is_not_clipped_to_600(monkeypatch) -> None:
     long_answer = "A" * 1200
     state = OperatorState(
@@ -681,7 +636,9 @@ def test_resolve_ask_worker_response_is_not_clipped_to_600(monkeypatch) -> None:
         def read(self):
             return json.dumps({"answer": long_answer}).encode()
 
-    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", lambda req, timeout=0: _Resp())
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", lambda req, timeout=0: _Resp()
+    )
     monkeypatch.setattr(tui, "_rag_context_for_question", lambda *args, **kwargs: [])
     monkeypatch.setattr(tui, "_build_active_target_excerpt", lambda: "")
     monkeypatch.setattr(tui, "_chat_codecompass_context_for_question", lambda **kwargs: [])
@@ -696,7 +653,6 @@ def test_resolve_ask_worker_response_is_not_clipped_to_600(monkeypatch) -> None:
     )
 
     assert len(answer) == 1200
-
 
 
 def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
@@ -722,7 +678,6 @@ def test_terminal_context_shortcut_prepares_ai_chat_context() -> None:
     tui._chat_append("?")
     chat = (tui.state.header_logo_game or {}).get("chat_state") or {}
     assert chat.get("chat_input_buffer") == "?"
-
 
 
 def test_escape_resets_to_start_state_from_input_modes() -> None:

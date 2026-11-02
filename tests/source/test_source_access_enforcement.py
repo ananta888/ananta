@@ -99,9 +99,7 @@ class _Signer:
 class _Verifier:
     @staticmethod
     def verify_manifest(manifest) -> bool:
-        return manifest.get("signature") == (
-            "signature:" + str(manifest.get("binding_digest") or "")
-        )
+        return manifest.get("signature") == ("signature:" + str(manifest.get("binding_digest") or ""))
 
 
 def _service(
@@ -140,9 +138,7 @@ def test_exact_grant_produces_assignment_bound_worker_manifest() -> None:
     assert authorized.manifest.assignment_id == "assignment-example"
     assert authorized.manifest.lease_id == "lease-example"
     assert authorized.manifest.source_revision_id == "srev_" + "a" * 64
-    assert consumptions.calls[0]["consumption_digest"] == (
-        authorized.manifest.binding_digest
-    )
+    assert consumptions.calls[0]["consumption_digest"] == (authorized.manifest.binding_digest)
 
 
 @pytest.mark.parametrize(
@@ -208,8 +204,7 @@ def test_nearly_expired_grant_is_denied_before_consumption() -> None:
     assert consumptions.calls == []
 
 
-def test_runtime_and_transfer_window_is_required_before_one_time_consumption(
-) -> None:
+def test_runtime_and_transfer_window_is_required_before_one_time_consumption() -> None:
     grant = _grant(expires_at=NOW + timedelta(seconds=121))
     consumptions = _Consumptions()
     service = SourceAccessEnforcementService(
@@ -381,9 +376,7 @@ def test_grant_purpose_policy_and_identity_are_fully_bound(
     grant = _grant()
     binding = {
         "source_access_grant_id": grant.grant_id,
-        "source_access_grant_digest": source_access_grant_digest(
-            grant
-        ),
+        "source_access_grant_digest": source_access_grant_digest(grant),
         **request_override,
     }
     request = _request(**binding)

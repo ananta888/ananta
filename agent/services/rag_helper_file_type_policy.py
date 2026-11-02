@@ -40,9 +40,7 @@ class RagHelperFileTypePolicy:
         self.registry = registry
         self.rollout = rollout
         self._classifier = FileTypeClassifier(registry)
-        self._runtime_dispatch_keys = frozenset(
-            str(key).strip().lower() for key in runtime_dispatch_keys
-        )
+        self._runtime_dispatch_keys = frozenset(str(key).strip().lower() for key in runtime_dispatch_keys)
         self._dispatch_key_resolver = dispatch_key_resolver
 
     def dispatch_keys(self) -> frozenset[str]:
@@ -65,9 +63,7 @@ class RagHelperFileTypePolicy:
                 details.append(f"missing_selector_dispatch={','.join(sorted(missing_selectors))}")
             if unsupported_keys:
                 details.append(f"missing_runtime_dispatch={','.join(unsupported_keys)}")
-            raise RagHelperFileTypePolicyError(
-                "rag_helper_file_type_registry_drift:" + ";".join(details)
-            )
+            raise RagHelperFileTypePolicyError("rag_helper_file_type_registry_drift:" + ";".join(details))
         if not keys:
             raise RagHelperFileTypePolicyError("rag_helper_no_enabled_file_types")
         return frozenset(sorted(keys))
@@ -77,11 +73,7 @@ class RagHelperFileTypePolicy:
 
         return self._classifier.classify(
             relative_path,
-            first_line=(
-                self._bounded_first_line(path)
-                if not Path(relative_path).suffix
-                else None
-            ),
+            first_line=(self._bounded_first_line(path) if not Path(relative_path).suffix else None),
             is_text=False,
         )
 
@@ -100,9 +92,7 @@ class RagHelperFileTypePolicy:
         unsupported = sorted(keys - self._runtime_dispatch_keys)
         if not keys or unsupported:
             detail = ",".join(unsupported) or descriptor.format_id
-            raise RagHelperFileTypePolicyError(
-                f"rag_helper_file_type_registry_drift:{detail}"
-            )
+            raise RagHelperFileTypePolicyError(f"rag_helper_file_type_registry_drift:{detail}")
         return frozenset(sorted(keys))
 
     def as_dict(self) -> dict[str, object]:
@@ -114,9 +104,7 @@ class RagHelperFileTypePolicy:
             "dispatch_keys": sorted(self.dispatch_keys()),
             "descriptor_hashes": file_type_descriptor_hashes(self.registry),
             "enabled_pipeline_format_ids": [
-                descriptor.format_id
-                for descriptor in self.registry.descriptors
-                if self._allows_descriptor(descriptor)
+                descriptor.format_id for descriptor in self.registry.descriptors if self._allows_descriptor(descriptor)
             ],
         }
 
@@ -127,23 +115,15 @@ class RagHelperFileTypePolicy:
         return frozenset(
             descriptor.format_id
             for descriptor in self.registry.descriptors
-            if self._allows_descriptor(descriptor)
-            and bool(self._descriptor_dispatch_keys(descriptor) & active_keys)
+            if self._allows_descriptor(descriptor) and bool(self._descriptor_dispatch_keys(descriptor) & active_keys)
         )
 
     def _allows_descriptor(self, descriptor: FileTypeDescriptor) -> bool:
-        return (
-            self.rollout.allows(descriptor)
-            and descriptor.support_for(self.PIPELINE).indexed.configured
-        )
+        return self.rollout.allows(descriptor) and descriptor.support_for(self.PIPELINE).indexed.configured
 
     def _descriptor_dispatch_keys(self, descriptor: FileTypeDescriptor) -> set[str]:
         selectors = descriptor.selectors
-        keys = {
-            selector.removeprefix(".").lower()
-            for selector in selectors.extensions
-            if selector.removeprefix(".")
-        }
+        keys = {selector.removeprefix(".").lower() for selector in selectors.extensions if selector.removeprefix(".")}
         synthetic_names = (
             *selectors.exact_filenames,
             *selectors.filename_patterns,

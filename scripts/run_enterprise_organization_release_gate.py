@@ -19,10 +19,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TODO = (
-    ROOT
-    / "todos/archive/todo.enterprise-agentic-scrum-organization-blueprints.json"
-)
+DEFAULT_TODO = ROOT / "todos/archive/todo.enterprise-agentic-scrum-organization-blueprints.json"
 DEFAULT_PROFILE = ROOT / "config/test-profiles/enterprise-organizations/release-gate.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/enterprise-agentic-scrum-organization-release.json"
 REPORT_SCHEMA = "ananta.enterprise-organization.release-result.v1"
@@ -267,17 +264,13 @@ def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
     if command[0] == "python":
         command[0] = sys.executable
     try:
-        with tempfile.TemporaryDirectory(
-            prefix="ananta-enterprise-gate-pycache-"
-        ) as pycache_dir:
+        with tempfile.TemporaryDirectory(prefix="ananta-enterprise-gate-pycache-") as pycache_dir:
             process_env = os.environ.copy()
             process_env["PYTHONPYCACHEPREFIX"] = pycache_dir
             if any(str(value).startswith("tests/integration/") for value in command):
                 process_env["RUN_INTEGRATION_TESTS"] = "1"
             if suite["tier"] == "full_e2e":
-                process_env["E2E_RESULTS_DIR"] = str(
-                    Path(pycache_dir) / "playwright-results"
-                )
+                process_env["E2E_RESULTS_DIR"] = str(Path(pycache_dir) / "playwright-results")
                 process_env["E2E_PORT"] = str(_available_loopback_port())
                 process_env["E2E_TEST_TIMEOUT_MS"] = "180000"
             completed = subprocess.run(
@@ -393,9 +386,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--execute-static", action="store_true", help="run only cheap static suites")
-    mode.add_argument(
-        "--execute-full", action="store_true", help="run every suite non-interactively"
-    )
+    mode.add_argument("--execute-full", action="store_true", help="run every suite non-interactively")
     parser.add_argument("--todo", type=Path, default=DEFAULT_TODO)
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

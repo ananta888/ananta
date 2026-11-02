@@ -3,6 +3,7 @@
 Based on build_prediction_trace() pattern from pipeline_trace.py.
 No sensitive raw data is stored: text fields are hashed or truncated.
 """
+
 from __future__ import annotations
 
 import time
@@ -76,6 +77,7 @@ class DecisionTrace:
         lease_id: str | None = None,
     ) -> "DecisionTrace":
         from agent.services.heuristic_runtime.decision_result import DecisionResult
+
         r: DecisionResult = result
         return DecisionTrace(
             surface=surface,
@@ -93,6 +95,7 @@ class DecisionTrace:
 
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class DomainMetrics:

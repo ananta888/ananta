@@ -97,9 +97,7 @@ def erase_semantic_media_tenant_audit():
         return _error(exc)
 
 
-@semantic_media_privacy_bp.get(
-    "/v1/semantic-media/privacy/speech-datasets/<manifest_digest>/preview"
-)
+@semantic_media_privacy_bp.get("/v1/semantic-media/privacy/speech-datasets/<manifest_digest>/preview")
 @check_user_auth
 def preview_speech_dataset(manifest_digest: str):
     """Return a bounded aggregate preview; raw refs require a separate grant."""
@@ -120,10 +118,7 @@ def preview_speech_dataset(manifest_digest: str):
             )
         include_raw_audio = _query_boolean(request.args.get("include_raw_audio", "false"))
         grant_ref = str(request.headers.get("X-Speech-Preview-Grant") or "").strip()
-        if grant_ref and (
-            not 8 <= len(grant_ref) <= 256
-            or any(character.isspace() for character in grant_ref)
-        ):
+        if grant_ref and (not 8 <= len(grant_ref) <= 256 or any(character.isspace() for character in grant_ref)):
             raise SpeechDatasetPrivacyPreviewError(
                 "speech_preview_raw_audio_grant_invalid",
                 status_code=400,

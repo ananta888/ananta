@@ -20,9 +20,13 @@ def _payload_store(tmp_path):
         tables=[ArtifactDB.__table__, ArtifactVersionDB.__table__],
     )
     artifacts = ArtifactStore(tmp_path / "artifacts")
-    return engine, artifacts, ContentAddressedKnowledgeIndexPayloadStore(
-        engine=engine,
-        artifact_store=artifacts,
+    return (
+        engine,
+        artifacts,
+        ContentAddressedKnowledgeIndexPayloadStore(
+            engine=engine,
+            artifact_store=artifacts,
+        ),
     )
 
 
@@ -50,13 +54,16 @@ def test_payload_reference_is_content_addressed_across_store_restart(
 
     assert replay == first
     assert first["artifact_id"] == f"knowledge-index-payload-{fingerprint}"
-    assert artifacts.load_immutable_bytes(
-        artifact_id=str(first["artifact_id"]),
-        version_number=1,
-        filename="payload.json",
-        expected_sha256=fingerprint,
-        expected_size=len(content),
-    ) == content
+    assert (
+        artifacts.load_immutable_bytes(
+            artifact_id=str(first["artifact_id"]),
+            version_number=1,
+            filename="payload.json",
+            expected_sha256=fingerprint,
+            expected_size=len(content),
+        )
+        == content
+    )
     with Session(engine) as session:
         assert len(session.exec(select(ArtifactDB)).all()) == 1
         assert len(session.exec(select(ArtifactVersionDB)).all()) == 1
@@ -81,9 +88,7 @@ def test_failed_atomic_publish_cleans_temp_and_writes_no_metadata(
             created_by="owner-alice",
         )
 
-    artifact_directory = (
-        artifacts.base_dir / f"knowledge-index-payload-{fingerprint}"
-    )
+    artifact_directory = artifacts.base_dir / f"knowledge-index-payload-{fingerprint}"
     assert list(artifact_directory.iterdir()) == []
     with Session(engine) as session:
         assert session.exec(select(ArtifactDB)).all() == []
@@ -95,13 +100,16 @@ def test_failed_atomic_publish_cleans_temp_and_writes_no_metadata(
         fingerprint=fingerprint,
         created_by="owner-alice",
     )
-    assert artifacts.load_immutable_bytes(
-        artifact_id=str(stored["artifact_id"]),
-        version_number=1,
-        filename="payload.json",
-        expected_sha256=fingerprint,
-        expected_size=len(content),
-    ) == content
+    assert (
+        artifacts.load_immutable_bytes(
+            artifact_id=str(stored["artifact_id"]),
+            version_number=1,
+            filename="payload.json",
+            expected_sha256=fingerprint,
+            expected_size=len(content),
+        )
+        == content
+    )
 
 
 def test_restart_repairs_metadata_after_publish_completed_before_commit(

@@ -12,7 +12,6 @@ from agent.services.sfu_broadcast_metrics_service import (
 )
 from agent.services.sfu_broadcast_observability_policy import SfuBroadcastObservabilityPolicy
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -71,12 +70,19 @@ def test_sink_failure_is_bounded_retried_and_never_raises_sink_details():
         histogram_port=sink,
         gauge_port=sink,
         audit_port=sink,
-        limits=SfuBroadcastMetricBufferLimits(max_items=1, max_bytes=1024, max_age_seconds=5, retry_deadline_seconds=.01),
+        limits=SfuBroadcastMetricBufferLimits(
+            max_items=1, max_bytes=1024, max_age_seconds=5, retry_deadline_seconds=0.01
+        ),
         clock=lambda: now[0],
     )
     kwargs = dict(
-        metric_name="ananta_sfu_broadcast_drop_count", unit="events", value=1,
-        labels={"drop_reason": "backpressure"}, scope_id="room-a", cohort_size=10, now_seconds=10,
+        metric_name="ananta_sfu_broadcast_drop_count",
+        unit="events",
+        value=1,
+        labels={"drop_reason": "backpressure"},
+        scope_id="room-a",
+        cohort_size=10,
+        now_seconds=10,
     )
     assert service.increment(**kwargs).reason_code == "sfu_metrics_export_deferred"
     assert service.increment(**kwargs).reason_code == "sfu_metrics_backpressure_dropped"
@@ -101,13 +107,23 @@ def test_closed_audit_catalog_and_prometheus_adapter_export_only_public_dimensio
         },
     )
     service.gauge(
-        "ananta_sfu_broadcast_group_members", unit="participants", value=10,
+        "ananta_sfu_broadcast_group_members",
+        unit="participants",
+        value=10,
         labels={"operation": "reconcile", "outcome": "accepted"},
-        scope_id="ROOM-ORIGINAL", cohort_size=10, now_seconds=3600,
+        scope_id="ROOM-ORIGINAL",
+        cohort_size=10,
+        now_seconds=3600,
     )
-    service.audit("sfu_broadcast_control", outcome="accepted", reason_code="policy_allowed", labels={"path": "hub"}, now_seconds=3600)
+    service.audit(
+        "sfu_broadcast_control",
+        outcome="accepted",
+        reason_code="policy_allowed",
+        labels={"path": "hub"},
+        now_seconds=3600,
+    )
     rendered = adapter.render_openmetrics()
     assert "ROOM-ORIGINAL" not in rendered
-    assert "scope_pseudonym=\"sfb1." in rendered
+    assert 'scope_pseudonym="sfb1.' in rendered
     with pytest.raises(SfuBroadcastMetricsError, match="audit_event_not_registered"):
         service.audit("invented", outcome="accepted", reason_code="policy_allowed", labels={}, now_seconds=3600)

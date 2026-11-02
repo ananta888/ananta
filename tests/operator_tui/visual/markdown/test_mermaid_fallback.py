@@ -76,9 +76,7 @@ def test_multiple_mermaid_blocks_independent():
     ]
     fallbacks = {
         "graph A-->B": MermaidFallbackInfo(source="graph A-->B", reason="mmdc missing"),
-        "sequenceDiagram\nX->>Y:msg": MermaidFallbackInfo(
-            source="sequenceDiagram\nX->>Y:msg", reason="timeout"
-        ),
+        "sequenceDiagram\nX->>Y:msg": MermaidFallbackInfo(source="sequenceDiagram\nX->>Y:msg", reason="timeout"),
     }
     combined = _visible(render_markdown_ansi(blocks, width=60, height=30, mermaid_fallbacks=fallbacks))
     assert "Start" in combined
@@ -90,9 +88,9 @@ def test_multiple_mermaid_blocks_independent():
 
 def test_source_only_config_skips_image_rendering():
     from client_surfaces.operator_tui.visual.markdown.config import MarkdownMermaidConfig
-    from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
-    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
     from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion
+    from client_surfaces.operator_tui.visual.views.base_view import ViewContext
+    from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
 
     view = MarkdownMermaidDocumentView()
     view._config = MarkdownMermaidConfig(mermaid_mode="disabled")

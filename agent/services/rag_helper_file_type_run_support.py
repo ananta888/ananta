@@ -52,9 +52,7 @@ def rag_helper_file_type_run_contract(
         "effective_dispatch_keys": sorted(dispatch_keys),
         "effective_format_ids": sorted(policy.effective_format_ids(dispatch_keys)),
     }
-    digest = hashlib.sha256(
-        json.dumps(contract, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256(json.dumps(contract, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     return contract, digest
 
 

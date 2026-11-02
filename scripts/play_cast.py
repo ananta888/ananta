@@ -3,6 +3,7 @@
 Minimal asciinema v2 cast player for the terminal.
 Usage:  python scripts/play_cast.py tests/output/operator_tui_e2e.cast [--speed N]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,7 +18,7 @@ _TERMINAL_RESTORE = (
     "\x1b[?1003l"  # any-event tracking
     "\x1b[?1006l"  # SGR mouse mode
     "\x1b[?1015l"  # urxvt mouse mode
-    "\x1b[?25h"    # show cursor
+    "\x1b[?25h"  # show cursor
     "\x1b[?1049l"  # leave alternate screen if active
 )
 
@@ -33,7 +34,7 @@ def play(path: str, speed: float = 1.0, pause: bool = False) -> None:
 
     header = json.loads(lines[0])
     labels: dict[str, str] = header.get("labels", {})
-    title  = header.get("title", path)
+    title = header.get("title", path)
     events = [json.loads(l) for l in lines[1:]]
 
     print(f"\x1b[1m{title}\x1b[0m  ({len(events)} frames, {speed}x speed)")
@@ -57,8 +58,7 @@ def play(path: str, speed: float = 1.0, pause: bool = False) -> None:
 
             sys.stdout.write(data)
             if label:
-                sys.stdout.write(f"\x1b[s\x1b[{header['height']};0H\x1b[2K"
-                                 f"\x1b[2m── {label} ──\x1b[0m\x1b[u")
+                sys.stdout.write(f"\x1b[s\x1b[{header['height']};0H\x1b[2K\x1b[2m── {label} ──\x1b[0m\x1b[u")
             sys.stdout.flush()
     finally:
         _restore_terminal_modes()

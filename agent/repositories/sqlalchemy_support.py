@@ -15,9 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 SessionFactory = Callable[[], Session]
 _SQLITE_LOCKS_GUARD = threading.Lock()
-_SQLITE_ENGINE_LOCKS: weakref.WeakKeyDictionary[
-    Engine, threading.RLock
-] = weakref.WeakKeyDictionary()
+_SQLITE_ENGINE_LOCKS: weakref.WeakKeyDictionary[Engine, threading.RLock] = weakref.WeakKeyDictionary()
 
 
 def _sqlite_engine_lock(engine: Engine) -> threading.RLock:
@@ -98,9 +96,7 @@ class SQLAlchemyStoreSupport:
         # StaticPool connection. Database constraints remain the cross-process
         # defense for file-backed SQLite.
         self._lock = (
-            _sqlite_engine_lock(engine)
-            if self._dialect_name == "sqlite" and engine is not None
-            else threading.RLock()
+            _sqlite_engine_lock(engine) if self._dialect_name == "sqlite" and engine is not None else threading.RLock()
         )
 
     @contextmanager

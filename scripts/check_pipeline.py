@@ -66,13 +66,51 @@ def check_complexity_suppressions():
     return run_command([sys.executable, "scripts/check_complexity_suppressions.py"])
 
 
+def check_test_line_budget():
+    print("\n--- Checking Test Line Budget (CLN-046) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_test_line_budget.py"])
+
+
+def check_env_reference():
+    print("\n--- Checking Env Reference (CLN-065) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_env_reference.py"])
+
+
+def check_singleton_freeze():
+    print("\n--- Checking Singleton Freeze (CLN-035) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_singleton_freeze.py"])
+
+
+def check_cli_backend_context_seam():
+    print("\n--- Checking CLI Backend DI Seam (CLN-052) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_cli_backend_context_seam.py"])
+
+
+def check_worker_boundaries():
+    print("\n--- Checking Hub/Worker Boundaries (CLN-029/CLN-055) ---", flush=True)
+    return run_command([sys.executable, "scripts/check_worker_boundaries.py"])
+
+
+def check_hotspot_budgets():
+    print("\n--- Checking Hotspot Size Budgets (CLN-026) ---", flush=True)
+    return run_command(
+        [
+            sys.executable,
+            "scripts/check_hotspot_guardrails.py",
+            "--fail-on-over-budget",
+            "--allowlist",
+            "reports/hotspot-budget-allowlist.json",
+        ]
+    )
+
+
 def check_fast_tests():
     print("\n--- Running Fast Tests (pytest) ---", flush=True)
     # Running core unit tests, contract tests and smoke tests as fast tests
     fast_test_paths = [
         "tests/test_system_health_standard.py",
         "tests/test_task_state_machine_service.py",
-        "tests/test_utils_extra.py",
+        "tests/test_utils_extraction.py",
         "tests/test_result_memory_service.py",
         "tests/test_api_contract_tasks.py",
         "tests/test_evolution_engine_contract.py",
@@ -135,11 +173,23 @@ def main():
             success = False
         if not check_cycles():
             success = False
+        if not check_worker_boundaries():
+            success = False
+        if not check_cli_backend_context_seam():
+            success = False
+        if not check_singleton_freeze():
+            success = False
+        if not check_env_reference():
+            success = False
+        if not check_test_line_budget():
+            success = False
         if not check_duplicates():
             success = False
         if not check_dead_code():
             success = False
         if not check_complexity_suppressions():
+            success = False
+        if not check_hotspot_budgets():
             success = False
         if not check_fast_tests():
             success = False

@@ -4,6 +4,7 @@ Defines what is permitted in a WebRTC session.
 All media capabilities are disabled by default.
 Artifact exchange requires explicit user acceptance.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -57,14 +58,10 @@ class WebRtcPolicy:
     def __post_init__(self) -> None:
         if self.artifact_exchange not in _ARTIFACT_EXCHANGE_VALUES:
             raise ValueError(
-                f"artifact_exchange must be one of {sorted(_ARTIFACT_EXCHANGE_VALUES)}, "
-                f"got {self.artifact_exchange!r}"
+                f"artifact_exchange must be one of {sorted(_ARTIFACT_EXCHANGE_VALUES)}, got {self.artifact_exchange!r}"
             )
         if self.remote_urls not in _REMOTE_URLS_VALUES:
-            raise ValueError(
-                f"remote_urls must be one of {sorted(_REMOTE_URLS_VALUES)}, "
-                f"got {self.remote_urls!r}"
-            )
+            raise ValueError(f"remote_urls must be one of {sorted(_REMOTE_URLS_VALUES)}, got {self.remote_urls!r}")
 
     # ------------------------------------------------------------------
     # Query helpers

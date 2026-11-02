@@ -3,6 +3,7 @@
 ``ml_intern_train_lora`` materializes a VP step as the canonical Hub-owned
 asynchronous training job via ``MlInternTrainingControlService.create_job``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -166,9 +167,7 @@ class MlInternTrainLoraAdapter(StepAdapter):
         config: Mapping[str, Any],
     ) -> str:
         normalized = cls._normalized_config(config)
-        return str(
-            artifacts.get("mode") or metadata.get("mode") or normalized["mode"]
-        ).strip().lower()
+        return str(artifacts.get("mode") or metadata.get("mode") or normalized["mode"]).strip().lower()
 
     def _training_profile(
         self,
@@ -178,18 +177,22 @@ class MlInternTrainLoraAdapter(StepAdapter):
         *,
         legacy_mode: bool,
     ) -> str:
-        profile = str(
-            artifacts.get("training_profile_id")
-            or artifacts.get("trainingProfileId")
-            or artifacts.get("training_profile")
-            or metadata.get("training_profile_id")
-            or metadata.get("trainingProfileId")
-            or metadata.get("training_profile")
-            or metadata.get("trainingProfile")
-            or artifacts.get("gpu_profile")
-            or metadata.get("gpu_profile")
-            or ""
-        ).strip().lower()
+        profile = (
+            str(
+                artifacts.get("training_profile_id")
+                or artifacts.get("trainingProfileId")
+                or artifacts.get("training_profile")
+                or metadata.get("training_profile_id")
+                or metadata.get("trainingProfileId")
+                or metadata.get("training_profile")
+                or metadata.get("trainingProfile")
+                or artifacts.get("gpu_profile")
+                or metadata.get("gpu_profile")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
         if not profile and legacy_mode:
             profile = str(config.get("gpu_profile") or "rtx3080-safe").strip().lower()
         if not profile:

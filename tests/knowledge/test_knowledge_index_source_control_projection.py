@@ -99,9 +99,7 @@ def envelope():
                 artifact_id="artifact-payload",
                 sha256="4" * 64,
                 size_bytes=1,
-                media_type=(
-                    "application/vnd.ananta.knowledge-index-job+json"
-                ),
+                media_type=("application/vnd.ananta.knowledge-index-job+json"),
             )
         ),
         assignment=KnowledgeIndexExecutionAssignment(
@@ -186,9 +184,7 @@ def test_projects_completed_result_and_exact_replay() -> None:
 
 
 def test_rejects_public_manifest_for_another_revision() -> None:
-    projector = KnowledgeIndexSourceControlCompletionProjector(
-        repository=Repository()
-    )
+    projector = KnowledgeIndexSourceControlCompletionProjector(repository=Repository())
 
     with pytest.raises(
         KnowledgeIndexSourceControlProjectionError,
@@ -239,11 +235,7 @@ def test_finalize_failure_never_projects_completed_source_control_state(
         execution_binding_service=Bindings(),
         task_repository=SimpleNamespace(
             get_by_id=lambda _job_id: SimpleNamespace(
-                model_dump=lambda: {
-                    "worker_execution_context": {
-                        "knowledge_index_job": envelope()
-                    }
-                }
+                model_dump=lambda: {"worker_execution_context": {"knowledge_index_job": envelope()}}
             )
         ),
     )
@@ -262,8 +254,7 @@ def test_finalize_failure_never_projects_completed_source_control_state(
     assert projector.calls == 0
 
 
-def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up(
-) -> None:
+def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up() -> None:
     events = []
 
     class ArtifactService:
@@ -314,9 +305,7 @@ def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up(
 
     task_payload = {
         "status": "running",
-        "worker_execution_context": {
-            "knowledge_index_job": envelope()
-        },
+        "worker_execution_context": {"knowledge_index_job": envelope()},
     }
     bindings = Bindings()
     projector = Projector()
@@ -324,16 +313,10 @@ def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up(
         worker_artifact_service=ArtifactService(),
         source_control_completion_projector=projector,
         execution_binding_service=bindings,
-        task_repository=SimpleNamespace(
-            get_by_id=lambda _job_id: SimpleNamespace(
-                model_dump=lambda: task_payload
-            )
-        ),
+        task_repository=SimpleNamespace(get_by_id=lambda _job_id: SimpleNamespace(model_dump=lambda: task_payload)),
     )
 
-    with pytest.raises(
-        KnowledgeIndexCompletionProjectionPending
-    ) as pending:
+    with pytest.raises(KnowledgeIndexCompletionProjectionPending) as pending:
         service.materialize_worker_result(
             job_id=envelope()["job_id"],
             result={},
@@ -343,9 +326,7 @@ def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up(
 
     assert pending.value.retryable is True
     assert pending.value.status_code == 503
-    assert pending.value.details == {
-        "projection_reason_code": "RuntimeError"
-    }
+    assert pending.value.details == {"projection_reason_code": "RuntimeError"}
     assert task_payload["status"] == "running"
     assert events == ["materialize", "atomic_commit", "project"]
 
@@ -368,8 +349,7 @@ def test_projection_failure_after_finalize_is_retryable_and_replay_catches_up(
     ]
 
 
-def test_failed_result_deadline_expiry_after_cas_is_not_fake_projection_pending(
-) -> None:
+def test_failed_result_deadline_expiry_after_cas_is_not_fake_projection_pending() -> None:
     failed = {
         "status": "failed",
         "reason_code": "knowledge_index_worker_execution_deadline_exceeded",
@@ -411,11 +391,7 @@ def test_failed_result_deadline_expiry_after_cas_is_not_fake_projection_pending(
         execution_binding_service=bindings,
         task_repository=SimpleNamespace(
             get_by_id=lambda _job_id: SimpleNamespace(
-                model_dump=lambda: {
-                    "worker_execution_context": {
-                        "knowledge_index_job": envelope()
-                    }
-                }
+                model_dump=lambda: {"worker_execution_context": {"knowledge_index_job": envelope()}}
             )
         ),
     )
@@ -423,11 +399,7 @@ def test_failed_result_deadline_expiry_after_cas_is_not_fake_projection_pending(
     admitted = service.materialize_worker_result(
         job_id=envelope()["job_id"],
         result=failed,
-        task={
-            "worker_execution_context": {
-                "knowledge_index_job": envelope()
-            }
-        },
+        task={"worker_execution_context": {"knowledge_index_job": envelope()}},
         authenticated_worker_id="worker-1",
         transfer_deadline=deadline,
     )
@@ -436,8 +408,7 @@ def test_failed_result_deadline_expiry_after_cas_is_not_fake_projection_pending(
     assert bindings.finalized == 1
 
 
-def test_deadline_after_atomic_completion_is_hub_only_pending(
-) -> None:
+def test_deadline_after_atomic_completion_is_hub_only_pending() -> None:
     events = []
 
     class Deadline:
@@ -488,11 +459,7 @@ def test_deadline_after_atomic_completion_is_hub_only_pending(
         source_control_completion_projector=Projector(),
         task_repository=SimpleNamespace(
             get_by_id=lambda _job_id: SimpleNamespace(
-                model_dump=lambda: {
-                    "worker_execution_context": {
-                        "knowledge_index_job": envelope()
-                    }
-                }
+                model_dump=lambda: {"worker_execution_context": {"knowledge_index_job": envelope()}}
             )
         ),
     )
@@ -501,11 +468,7 @@ def test_deadline_after_atomic_completion_is_hub_only_pending(
         service.materialize_worker_result(
             job_id=envelope()["job_id"],
             result={},
-            task={
-                "worker_execution_context": {
-                    "knowledge_index_job": envelope()
-                }
-            },
+            task={"worker_execution_context": {"knowledge_index_job": envelope()}},
             authenticated_worker_id="worker-1",
             transfer_deadline=deadline,
         )
@@ -513,8 +476,7 @@ def test_deadline_after_atomic_completion_is_hub_only_pending(
     assert events == ["materialize", "atomic_commit"]
 
 
-def test_explicit_completion_reconciler_uses_outbox_without_worker_call(
-) -> None:
+def test_explicit_completion_reconciler_uses_outbox_without_worker_call() -> None:
     events = []
     projection = SimpleNamespace(
         job_id=envelope()["job_id"],
@@ -572,9 +534,7 @@ def test_explicit_completion_reconciler_uses_outbox_without_worker_call(
         goal_id = None
         goal_trace_id = None
         plan_id = None
-        worker_execution_context = {
-            "knowledge_index_job": envelope()
-        }
+        worker_execution_context = {"knowledge_index_job": envelope()}
 
         def model_dump(self):
             return {
@@ -602,10 +562,7 @@ def test_explicit_completion_reconciler_uses_outbox_without_worker_call(
             mutate,
         ):
             previous_status = task.status
-            if (
-                previous_status not in expected_statuses
-                or not predicate(task)
-            ):
+            if previous_status not in expected_statuses or not predicate(task):
                 return SimpleNamespace(
                     updated=False,
                     task=task,
@@ -640,6 +597,4 @@ def test_explicit_completion_reconciler_uses_outbox_without_worker_call(
         "load_outbox",
     ]
     assert task.status == "completed"
-    assert task.verification_status["knowledge_index_job_result"] == (
-        result()
-    )
+    assert task.verification_status["knowledge_index_job_result"] == (result())

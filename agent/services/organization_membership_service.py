@@ -122,10 +122,7 @@ class OrganizationMembershipService:
             or str(getattr(membership, "organization_id", "")) != organization_id
             or str(getattr(membership, "principal_id", "")) != principal.principal_id
             or str(getattr(membership, "membership_kind", "")) != "organization_admin"
-            or (
-                getattr(membership, "expires_at", None) is not None
-                and float(membership.expires_at) < now
-            )
+            or (getattr(membership, "expires_at", None) is not None and float(membership.expires_at) < now)
         ):
             return False
         allowed_grant_kinds = {str(grant_kind or ""), "organization_admin", "*"}
@@ -136,10 +133,7 @@ class OrganizationMembershipService:
             and str(getattr(row, "principal_id", "")) == principal.principal_id
             and str(getattr(row, "grant_kind", "")) in allowed_grant_kinds
             and getattr(row, "revoked_at", None) is None
-            and (
-                getattr(row, "expires_at", None) is None
-                or float(row.expires_at) >= now
-            )
+            and (getattr(row, "expires_at", None) is None or float(row.expires_at) >= now)
             for row in grants
         )
 

@@ -141,9 +141,7 @@ class BusinessControllingImportService:
             inferred_type=inferred_type,
             null_count=len(values) - len(non_null),
             invalid_count=len(invalid_rows),
-            invalid_locators=tuple(
-                f"row_{index}" for index in invalid_rows[: cls.MAX_INVALID_LOCATORS_PER_COLUMN]
-            ),
+            invalid_locators=tuple(f"row_{index}" for index in invalid_rows[: cls.MAX_INVALID_LOCATORS_PER_COLUMN]),
         )
 
 

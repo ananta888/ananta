@@ -14,8 +14,8 @@ from agent.services.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
 )
-from agent.services.mail_provider_ports import MailSyncCursor, VerifiedMailContentAccess
 from agent.services.mail_migration_journal import MailFileLock
+from agent.services.mail_provider_ports import MailSyncCursor, VerifiedMailContentAccess
 
 R = TypeVar("R")
 
@@ -146,7 +146,11 @@ class MailMetadataStore:
         payload = self._load()
         rows = [dict(item) for item in payload["messages"] if isinstance(item, dict)]
         existing = next(
-            (row for row in rows if str(dict(row.get("message_ref") or {}).get("mail_ref_id") or "") == message_ref.mail_ref_id),
+            (
+                row
+                for row in rows
+                if str(dict(row.get("message_ref") or {}).get("mail_ref_id") or "") == message_ref.mail_ref_id
+            ),
             None,
         )
         row = {
@@ -209,9 +213,7 @@ class MailMetadataStore:
         if account_id is None:
             return rows
         return [
-            row
-            for row in rows
-            if str(dict(row.get("message_ref") or {}).get("account_id") or "") == str(account_id)
+            row for row in rows if str(dict(row.get("message_ref") or {}).get("account_id") or "") == str(account_id)
         ]
 
     @_locked
@@ -294,9 +296,7 @@ class MailMetadataStore:
         payload = self._load()
         rows = [dict(item) for item in payload["messages"] if isinstance(item, dict)]
         kept = [
-            row
-            for row in rows
-            if str(dict(row.get("message_ref") or {}).get("mail_ref_id") or "") != str(mail_ref_id)
+            row for row in rows if str(dict(row.get("message_ref") or {}).get("mail_ref_id") or "") != str(mail_ref_id)
         ]
         if len(kept) == len(rows):
             return False

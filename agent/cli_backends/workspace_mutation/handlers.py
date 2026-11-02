@@ -5,6 +5,7 @@ Each handler consumes one parsed model message and returns either a final
 collected evidence). ``ACTION_HANDLERS`` maps message kinds to handlers so
 new kinds are added by registration instead of growing the loop (OCP).
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -20,6 +21,7 @@ from agent.cli_backends.workspace_mutation.audit_events import emit_final_answer
 from agent.cli_backends.workspace_mutation.session import LoopResult, LoopTurn, MutationSession
 from agent.cli_backends.workspace_mutation.tool_actions import (
     KIND_PATCH_REQUEST,
+    block_unanalyzed_mutation,
     handle_patch_request,
     handle_tool_request,
 )
@@ -36,7 +38,81 @@ KIND_WORKSPACE_WRITE = "workspace_write"
 ActionHandler = Callable[[MutationSession, LoopTurn], "LoopResult | None"]
 
 
-def handle_final_answer(session: MutationSession, turn: LoopTurn) -> LoopResult:
+FINAL_ANSWER_CORRECTION_BUDGET = 2
+ANALYSIS_REJECTION_LIMIT = 5
+
+
+def handle_final_answer(session: MutationSession, turn: LoopTurn) -> "LoopResult | None":
+    if session.cfg.get("require_code_analysis") is True and session.analysis_gate.pending:
+        # A premature final_answer is correctable first: the loop stays alive for a
+        # bounded number of correction turns and shows the required sequence again;
+        # only after the budget does it end with the bounded prerequisite failure.
+        refusals = int(getattr(session, "final_answer_refusals", 0)) + 1
+        session.final_answer_refusals = refusals
+        turn.row["result"] = "code_analysis_required"
+        session.add_evidence(
+            {
+                "kind": "code_analysis_result",
+                "status": "policy_blocked",
+                "error": "code_analysis_required",
+                "data": session.analysis_gate.state(),
+            }
+        )
+        if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
+            if session.analysis_gate.codecompass_observed:
+                from agent.cli_backends.workspace_mutation.prompts import (
+                    analysis_step_correction_nudge,
+                )
+
+                session.correction = analysis_step_correction_nudge(
+                    session.analysis_gate.state().get("observed_sources")
+                )
+            else:
+                from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_CORRECTION_NUDGE
+
+                session.correction = ANALYSIS_CORRECTION_NUDGE
+            return None
+        return session.finish_with_summary(
+            "code_analysis_required",
+            {
+                "kind": "final_answer_blocked",
+                "reason": "code_analysis_required",
+                "code_analysis": session.analysis_gate.state(),
+            },
+            turn.err,
+        )
+    if (
+        session.cfg.get("return_executable_proposal")
+        and not str(getattr(session, "verification_command", "") or "").strip()
+    ):
+        commands = list(session.cfg.get("allowlisted_test_commands") or [])
+        if len(commands) != 1:
+            # The proposal boundary cannot hand back a command that never ran:
+            # correct toward test.run with a bounded budget instead of aborting.
+            refusals = int(getattr(session, "verification_refusals", 0)) + 1
+            session.verification_refusals = refusals
+            turn.row["result"] = "verification_command_required"
+            session.add_evidence(
+                {
+                    "kind": "verification_result",
+                    "status": "policy_blocked",
+                    "error": "verification_command_required",
+                    "data": {
+                        "action_required": "run_test_dot_run_with_an_allowlisted_command",
+                        "allowlisted_test_commands": commands,
+                    },
+                }
+            )
+            if refusals <= FINAL_ANSWER_CORRECTION_BUDGET:
+                from agent.cli_backends.workspace_mutation.prompts import VERIFICATION_CORRECTION_NUDGE
+
+                session.correction = VERIFICATION_CORRECTION_NUDGE
+                return None
+            return session.finish_with_summary(
+                "verification_command_required",
+                {"kind": "loop_aborted", "reason": "verification_command_required"},
+                turn.err,
+            )
     final_check = session.hub_check(iteration_number=turn.iteration)
     policy_status = str((final_check.get("policy_result") or {}).get("status") or "ok")
     source_line_status = str((final_check.get("source_line_policy_result") or {}).get("status") or "ok")
@@ -125,6 +201,8 @@ def _write_one_file(
 
 
 def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResult | None:
+    if block_unanalyzed_mutation(session, turn):
+        return None
     if session.mode != "controlled_workspace":
         turn.row["result"] = "rejected_direct_write_in_strict_mode"
         session.add_evidence(
@@ -157,14 +235,74 @@ def handle_workspace_write(session: MutationSession, turn: LoopTurn) -> LoopResu
     turn.row["applied"] = applied
     turn.row["rejected"] = rejected
     turn.row["source_line_policy_statuses"] = [str(row.get("status") or "") for row in source_line_results]
-    session.add_evidence(check)
+    if applied:
+        session.record_source_change_feedback(check)
+    else:
+        session.add_evidence(check)
     if session.no_progress_detected(check, applied=bool(applied)):
         summary = {"kind": "loop_aborted", "reason": "no_progress_detected"}
         return session.finish_with_summary("no_progress_detected", summary, turn.err)
     return None
 
 
+def _rejection_hint(reason: str, state: dict) -> str:
+    """Machine-readable next step for a rejected analysis, so the model acts instead of guessing."""
+    if reason == "code_analysis_source_not_observed":
+        return (
+            "cite_an_observed_source_range_with_its_sha256"
+            if state.get("observed_sources")
+            else "read_a_source_file_range_first"
+        )
+    if reason == "codecompass_inspection_required":
+        return "call_codecompass_first"
+    return ""
+
+
+def handle_code_analysis(session: MutationSession, turn: LoopTurn) -> "LoopResult | None":
+    payload = {key: value for key, value in turn.message.items() if key != "kind"}
+    reason = session.analysis_gate.accept(payload)
+    turn.row["analysis_status"] = reason or "accepted"
+    data: dict = dict(session.analysis_gate.state())
+    if not reason:
+        session.analysis_rejection_streak = 0
+        session.correction = None
+        session.add_evidence({"kind": "code_analysis_result", "status": "ok", "error": None, "data": data})
+        return None
+    hint = _rejection_hint(reason, data)
+    if hint:
+        data["action_required"] = hint
+    session.add_evidence({"kind": "code_analysis_result", "status": "error", "error": reason, "data": data})
+    if not session.analysis_gate.pending:
+        # The gate is already open: a superfluous re-analysis of stale bytes is
+        # corrected, but it never spends the rejection budget of the loop.
+        from agent.cli_backends.workspace_mutation.prompts import ANALYSIS_ALREADY_ACCEPTED_NUDGE
+
+        session.correction = ANALYSIS_ALREADY_ACCEPTED_NUDGE
+        return None
+    # A rejected citation must not spin out the iteration budget: correct it
+    # explicitly and stop after a bounded number of failures instead of burning
+    # every remaining turn on a contract the model is not satisfying.
+    streak = int(getattr(session, "analysis_rejection_streak", 0)) + 1
+    session.analysis_rejection_streak = streak
+    from agent.cli_backends.workspace_mutation.prompts import analysis_citation_correction_nudge
+
+    session.correction = analysis_citation_correction_nudge(data.get("observed_sources"))
+    if streak >= ANALYSIS_REJECTION_LIMIT:
+        return session.finish_with_summary(
+            "analysis_rejected_repeatedly",
+            {
+                "kind": "loop_aborted",
+                "reason": "analysis_rejected_repeatedly",
+                "last_error": reason,
+                "code_analysis": data,
+            },
+            turn.err,
+        )
+    return None
+
+
 ACTION_HANDLERS: dict[str, ActionHandler] = {
+    "code_analysis": handle_code_analysis,
     KIND_FINAL_ANSWER: handle_final_answer,
     KIND_NEEDS_APPROVAL: handle_stop_request,
     KIND_CANNOT_CONTINUE: handle_stop_request,

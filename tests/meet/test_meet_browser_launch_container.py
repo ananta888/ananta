@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from tests.meet_dialog_browser_fixture import DialogBrowserFixture, docker
+from tests.meet.meet_dialog_browser_fixture import DialogBrowserFixture, docker
 
 
 @pytest.mark.skipif(os.environ.get("MEET_BROWSER_LAUNCH_GATE") != "1", reason="explicit private browser launch gate")

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from agent.services.autopilot_runtime_service import get_autopilot_runtime_service
 from agent.services.trigger_runtime_service import get_trigger_runtime_service
 
@@ -12,17 +14,17 @@ class AutomationSnapshotService:
         try:
             snapshot["autopilot"] = get_autopilot_runtime_service().status()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("build_snapshot: ignored Exception", exc_info=True)
         try:
-            from agent.routes.tasks.auto_planner import auto_planner
+            from agent.services.autopilot.auto_planner_engine import auto_planner
 
             snapshot["auto_planner"] = auto_planner.status()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("build_snapshot: ignored Exception", exc_info=True)
         try:
             snapshot["triggers"] = get_trigger_runtime_service().status()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("build_snapshot: ignored Exception", exc_info=True)
         return snapshot
 
 

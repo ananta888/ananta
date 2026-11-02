@@ -55,4 +55,3 @@ def test_domain_approval_request_schema_allows_stale_or_denied_states() -> None:
     validator = Draft202012Validator(_load_schema())
     assert list(validator.iter_errors(denied)) == []
     assert list(validator.iter_errors(expired)) == []
-

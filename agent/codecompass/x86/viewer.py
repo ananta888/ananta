@@ -1,4 +1,5 @@
 """X86CC-029: Viewer model for x86 assembly analysis output."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ from typing import Any
 @dataclass
 class X86ViewerView:
     """A single view (function_overview / cfg_view / call_graph_view / section_map)."""
+
     nodes: list[dict[str, Any]] = field(default_factory=list)
     edges: list[dict[str, Any]] = field(default_factory=list)
     labels: dict[str, str] = field(default_factory=dict)
@@ -29,6 +31,7 @@ class X86ViewerView:
 @dataclass
 class X86ViewerModel:
     """Top-level viewer model with multiple views."""
+
     function_overview: X86ViewerView = field(default_factory=X86ViewerView)
     cfg_view: X86ViewerView = field(default_factory=X86ViewerView)
     call_graph_view: X86ViewerView = field(default_factory=X86ViewerView)
@@ -84,10 +87,7 @@ def build_function_overview(
     model.function_overview = X86ViewerView(
         nodes=fn_nodes + import_nodes,
         edges=[e for e in edges if e.get("edge_type") in {"calls", "indirect_calls", "references_import"}],
-        labels={
-            str(n.get("id", "")): (n.get("attributes") or {}).get("name", str(n.get("id", "")))
-            for n in fn_nodes
-        },
+        labels={str(n.get("id", "")): (n.get("attributes") or {}).get("name", str(n.get("id", ""))) for n in fn_nodes},
         address_refs=[_address_ref(n) for n in fn_nodes],
         warnings=warnings,
         truncation_flags=list(truncation_flags),
@@ -102,9 +102,16 @@ def build_function_overview(
     model.cfg_view = X86ViewerView(
         nodes=bb_nodes + fn_nodes,
         edges=cfg_edges,
-        labels={str(n.get("id", "")): f"bb@{n.get('address', 0):x}" if isinstance(n.get("address"), int) else str(n.get("id", "")) for n in bb_nodes},
+        labels={
+            str(n.get("id", "")): f"bb@{n.get('address', 0):x}"
+            if isinstance(n.get("address"), int)
+            else str(n.get("id", ""))
+            for n in bb_nodes
+        },
         address_refs=[_address_ref(n) for n in bb_nodes],
-        warnings=["cfg_incomplete:indirect_jump"] if any(e.get("edge_type") == "cfg_indirect_jump" for e in cfg_edges) else [],
+        warnings=["cfg_incomplete:indirect_jump"]
+        if any(e.get("edge_type") == "cfg_indirect_jump" for e in cfg_edges)
+        else [],
         truncation_flags=list(truncation_flags),
     )
 

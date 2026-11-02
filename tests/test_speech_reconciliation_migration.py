@@ -83,23 +83,15 @@ def test_speech_reconciliation_migration_recovers_from_committed_partial_ddl(mon
         # recovered partial execution.
         migration.upgrade()
         migration.downgrade()
-        assert not {
-            name
-            for name in inspect(connection).get_table_names()
-            if name.startswith("speech_reconciliation_")
-        }
+        assert not {name for name in inspect(connection).get_table_names() if name.startswith("speech_reconciliation_")}
 
 
 def test_speech_reconciliation_mutation_receipt_migration_is_additive_and_replay_safe(monkeypatch) -> None:
     db = create_engine("sqlite://")
     with db.begin() as connection:
         connection.execute(sa.text("CREATE TABLE legacy_voice (id VARCHAR PRIMARY KEY)"))
-        connection.execute(
-            sa.text("CREATE TABLE speech_reconciliation_jobs (id VARCHAR PRIMARY KEY)")
-        )
-        migration = importlib.import_module(
-            "migrations.versions.4f9c2a7e1b6d_add_speech_reconciliation_mutations"
-        )
+        connection.execute(sa.text("CREATE TABLE speech_reconciliation_jobs (id VARCHAR PRIMARY KEY)"))
+        migration = importlib.import_module("migrations.versions.4f9c2a7e1b6d_add_speech_reconciliation_mutations")
         assert migration.down_revision == "ff4a5b6c7d8e"
         monkeypatch.setattr(migration, "op", Operations(MigrationContext.configure(connection)))
 
@@ -120,10 +112,7 @@ def test_speech_reconciliation_mutation_receipt_migration_is_additive_and_replay
             "affected_fencing_epoch",
             "state_changed",
             "created_at_ms",
-        } <= {
-            column["name"]
-            for column in inspector.get_columns("speech_reconciliation_mutations")
-        }
+        } <= {column["name"] for column in inspector.get_columns("speech_reconciliation_mutations")}
         assert any(
             constraint.get("name") == "uq_speech_reconciliation_mutation_idempotency"
             and constraint.get("column_names")
@@ -134,9 +123,7 @@ def test_speech_reconciliation_mutation_receipt_migration_is_additive_and_replay
                 "operation",
                 "idempotency_key_digest",
             ]
-            for constraint in inspector.get_unique_constraints(
-                "speech_reconciliation_mutations"
-            )
+            for constraint in inspector.get_unique_constraints("speech_reconciliation_mutations")
         )
 
         migration.downgrade()

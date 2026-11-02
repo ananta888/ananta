@@ -52,9 +52,7 @@ from agent.sources.source_connectors import SourceConnectorError
 
 COMMIT = "a" * 40
 CONTENT = b"remote payload\n"
-BLOB = __import__("hashlib").sha1(
-    f"blob {len(CONTENT)}\0".encode("ascii") + CONTENT
-).hexdigest()
+BLOB = __import__("hashlib").sha1(f"blob {len(CONTENT)}\0".encode("ascii") + CONTENT).hexdigest()
 
 
 class _Transport:
@@ -224,9 +222,7 @@ def test_git_fetch_scan_and_run_share_one_content_addressed_payload(tmp_path: Pa
         artifact_store=ArtifactStore(tmp_path / "artifacts"),
     )
     transport = _Transport()
-    provider = HubGitContentProvider(
-        registry=registry, transport=transport, payload_store=store
-    )
+    provider = HubGitContentProvider(registry=registry, transport=transport, payload_store=store)
     revision_digest = git_source_revision_digest(
         connector_type="github_repository",
         source_id="github-installation:example",
@@ -246,16 +242,19 @@ def test_git_fetch_scan_and_run_share_one_content_addressed_payload(tmp_path: Pa
     )
     metrics = provider.fetch(request)
     assert provider.inventory(request).manifest_digest == metrics.manifest_digest
-    assert provider.resolve_stored_commit(
-        GitStoredPayloadQuery(
-            scope=scope,
-            connector_type=request.connector_type,
-            source_id=request.source_id,
-            connection_ref=request.connection_ref,
-            repository_identifier=request.repository_identifier,
-            requested_ref=request.requested_ref,
+    assert (
+        provider.resolve_stored_commit(
+            GitStoredPayloadQuery(
+                scope=scope,
+                connector_type=request.connector_type,
+                source_id=request.source_id,
+                connection_ref=request.connection_ref,
+                repository_identifier=request.repository_identifier,
+                requested_ref=request.requested_ref,
+            )
         )
-    ) == COMMIT
+        == COMMIT
+    )
     assert transport.fetches == 1
 
     connection_id = "conn_" + "c" * 64
@@ -334,9 +333,7 @@ def test_git_fetch_scan_and_run_share_one_content_addressed_payload(tmp_path: Pa
                 revision_digest=revision_digest,
                 metadata={"commit_sha": COMMIT},
             ),
-            inventory=SimpleNamespace(
-                manifest_digest=metrics.manifest_digest
-            ),
+            inventory=SimpleNamespace(manifest_digest=metrics.manifest_digest),
         )
     result = admission.scan_source(
         descriptor=descriptor,

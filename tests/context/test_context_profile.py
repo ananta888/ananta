@@ -26,8 +26,11 @@ class _Settings(SimpleNamespace):
 
 
 def _settings(profile="standard_32k", tokens=32768, explicit_tokens=False):
-    return _Settings(context_profile=profile, default_context_tokens=tokens,
-                     model_fields_set={"default_context_tokens"} if explicit_tokens else set())
+    return _Settings(
+        context_profile=profile,
+        default_context_tokens=tokens,
+        model_fields_set={"default_context_tokens"} if explicit_tokens else set(),
+    )
 
 
 @pytest.fixture
@@ -59,7 +62,9 @@ def test_profile_sets_the_window(window):
 
 def test_explicit_tokens_win_and_runtime_config_wins_over_environment():
     env = _settings("full_64k", tokens=49152, explicit_tokens=True)
-    assert configured_window({}, settings=env).tokens == 49152 and configured_window({}, settings=env).profile == "custom"
+    assert (
+        configured_window({}, settings=env).tokens == 49152 and configured_window({}, settings=env).profile == "custom"
+    )
     runtime = {"context_window": {"profile": "extended_128k"}}
     assert configured_window(runtime, settings=env).source == "runtime_profile"
     assert configured_window({"context_window": {"profile": "custom", "tokens": 40000}}, settings=env).tokens == 40000
@@ -92,8 +97,10 @@ def test_a_larger_provider_limit_never_widens_the_window(profile, window):
 
 def test_a_seeded_llm_config_limit_is_not_a_model_limit_but_a_real_one_is(profile):
     cfg = profile(131072)
-    assert effective_window(agent_cfg={**cfg, "llm_config": {"provider": "llamacpp", "context_limit": 32768}}).tokens \
-        == 131072  # the old seed (= 32k default) does not cap a 128k profile
+    assert (
+        effective_window(agent_cfg={**cfg, "llm_config": {"provider": "llamacpp", "context_limit": 32768}}).tokens
+        == 131072
+    )  # the old seed (= 32k default) does not cap a 128k profile
     declared = effective_window(agent_cfg={"llm_config": {"provider": "llamacpp", "context_limit": 16384}})
     assert declared.tokens == 16384 and declared.limited_by == "model"
 
@@ -133,8 +140,9 @@ def test_32k_budgets_are_the_former_fixed_values():
     assert budgets.chars("recovery_context") == 32768
 
 
-@pytest.mark.parametrize("window,bundle_range", [(32768, (12000, 16500)), (65536, (24000, 33000)),
-                                                 (131072, (48000, 66000))])
+@pytest.mark.parametrize(
+    "window,bundle_range", [(32768, (12000, 16500)), (65536, (24000, 33000)), (131072, (48000, 66000))]
+)
 def test_context_bundle_budget_grows_with_the_profile(profile, window, bundle_range):
     from agent.services.context_bundle_service import resolve_context_bundle_policy
 
@@ -286,10 +294,14 @@ def test_the_worker_route_applies_the_assigned_window(client, admin_auth_header,
 
             return TaskScopedRouteResponse(data={"reason": "ok", "raw": ""})
 
-    monkeypatch.setattr("agent.routes.tasks.execution._services",
-                        lambda: SimpleNamespace(task_scoped_execution_service=_Service()))
-    response = client.post("/tasks/T-1/step/propose", json={"task_id": "T-1", "context_window": {"profile": "full_64k"}},
-                           headers=admin_auth_header)
+    monkeypatch.setattr(
+        "agent.routes.tasks.execution._services", lambda: SimpleNamespace(task_scoped_execution_service=_Service())
+    )
+    response = client.post(
+        "/tasks/T-1/step/propose",
+        json={"task_id": "T-1", "context_window": {"profile": "full_64k"}},
+        headers=admin_auth_header,
+    )
     assert response.status_code == 200, response.get_data(as_text=True)
     assert seen and seen[0].tokens == 65536 and seen[0].source == "hub_assignment"
 
@@ -310,7 +322,7 @@ def test_the_profile_limits_local_runtimes_only(profile, window):
 
 
 def test_forwarded_steps_carry_the_hub_window_unless_leased():
-    from agent.services._task_scoped_forwarding import _with_hub_context_window
+    from agent.services.task_scoped.forwarding import _with_hub_context_window
 
     plain = _with_hub_context_window("/tasks/T/step/propose", {"task_id": "T"})
     assert plain["context_window"]["profile"] in PROFILES or plain["context_window"]["profile"] == "custom"

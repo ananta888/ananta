@@ -5,10 +5,10 @@ from agent.cli_backends.coding_agent_contract import ProcessExecutionResult
 
 
 def test_run_codex_command_injects_lmstudio_openai_compatible_env():
-    from agent.cli_backends.sgpt import run_codex_command
-
     from contextlib import contextmanager
     from types import SimpleNamespace as _NS
+
+    from agent.cli_backends.sgpt import run_codex_command
 
     @contextmanager
     def _fake_permit(*a, **kw):
@@ -101,10 +101,7 @@ def test_run_codex_command_prefers_explicit_codex_cli_runtime_from_agent_config(
     assert err == ""
     args = mock_run.call_args[0][0]
     assert 'model_provider="ananta_openai_compatible"' in args
-    assert (
-        'model_providers.ananta_openai_compatible.base_url="http://192.168.1.10:1234/v1"'
-        in args
-    )
+    assert 'model_providers.ananta_openai_compatible.base_url="http://192.168.1.10:1234/v1"' in args
     assert args[-1] == "-"
     assert mock_run.call_args[1]["input"] == "review repository"
     env = mock_run.call_args[1]["env"]
@@ -383,9 +380,16 @@ def test_resolve_opencode_runtime_config_forces_target_provider_over_lmstudio_pr
             "default_provider": "lmstudio",
             "default_model": "lmstudio/qwen2.5-coder-7b-instruct",
             "opencode_default_model": "lmstudio/qwen2.5-coder-7b-instruct",
-            "opencode_runtime": {"tool_mode": "toolless", "execution_mode": "interactive_terminal", "target_provider": "ollama"},
+            "opencode_runtime": {
+                "tool_mode": "toolless",
+                "execution_mode": "interactive_terminal",
+                "target_provider": "ollama",
+            },
         }
-        app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434/api/chat", "lmstudio": "http://127.0.0.1:1234/v1"}
+        app.config["PROVIDER_URLS"] = {
+            "ollama": "http://127.0.0.1:11434/api/chat",
+            "lmstudio": "http://127.0.0.1:1234/v1",
+        }
         mock_settings = MagicMock()
         with (
             patch("agent.cli_backends.opencode.resolve_ollama_model", return_value="ananta-default"),
@@ -447,8 +451,12 @@ def test_resolve_opencode_runtime_config_resolves_short_ollama_model_to_installe
             mock_settings.http_timeout = 30
             resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
-    assert resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
-    assert resolved["target_model"] == "bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    assert (
+        resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    )
+    assert (
+        resolved["target_model"] == "bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    )
 
 
 def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(app):
@@ -480,7 +488,9 @@ def test_resolve_opencode_runtime_config_falls_back_to_settings_provider_urls(ap
             resolved = resolve_opencode_runtime_config(backend_settings=mock_settings)
 
     assert resolved["base_url"] == "http://ollama:11434/v1"
-    assert resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    assert (
+        resolved["model"] == "ollama/bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s:latest"
+    )
     assert resolved["provider_config"]["model"] == resolved["model"]
 
 
@@ -555,9 +565,7 @@ def test_resolve_opencode_runtime_config_preserves_namespaced_lmstudio_model(app
             "default_model": "qwen/qwen3.5-9b",
             "opencode_runtime": {"tool_mode": "toolless"},
         }
-        app.config["PROVIDER_URLS"] = {
-            "lmstudio": "http://127.0.0.1:1234/v1"
-        }
+        app.config["PROVIDER_URLS"] = {"lmstudio": "http://127.0.0.1:1234/v1"}
         mock_settings = MagicMock()
         with (
             patch(
@@ -573,22 +581,19 @@ def test_resolve_opencode_runtime_config_preserves_namespaced_lmstudio_model(app
                 model="qwen/qwen3.5-9b",
                 context_token_limit=32768,
                 output_token_limit=4096,
-                           backend_settings=mock_settings,
+                backend_settings=mock_settings,
             )
 
     assert resolved["target_provider"] == "lmstudio"
     assert resolved["target_model"] == "qwen/qwen3.5-9b"
     assert resolved["model"] == "lmstudio/qwen/qwen3.5-9b"
-    assert resolved["provider_config"]["model"] == (
-        "lmstudio/qwen/qwen3.5-9b"
-    )
+    assert resolved["provider_config"]["model"] == ("lmstudio/qwen/qwen3.5-9b")
     assert resolved["provider_config"]["default_agent"] == "ananta-worker"
-    assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"][
-        "bash"
-    ] is False
-    assert resolved["provider_config"]["provider"]["lmstudio"]["models"][
-        "qwen/qwen3.5-9b"
-    ]["limit"] == {"context": 32768, "output": 4096}
+    assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"]["bash"] is False
+    assert resolved["provider_config"]["provider"]["lmstudio"]["models"]["qwen/qwen3.5-9b"]["limit"] == {
+        "context": 32768,
+        "output": 4096,
+    }
 
 
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
@@ -716,7 +721,10 @@ def test_run_opencode_command_uses_live_terminal_session(app):
 
     with (
         patch("agent.cli_backends.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
-        patch("agent.services.live_terminal_session_service.get_live_terminal_session_service", return_value=runtime_service),
+        patch(
+            "agent.services.live_terminal_session_service.get_live_terminal_session_service",
+            return_value=runtime_service,
+        ),
     ):
         rc, out, err = run_opencode_command("say hi", session=session, workdir="/tmp/live")
 
@@ -744,8 +752,14 @@ def test_run_opencode_command_uses_interactive_terminal_session(app):
 
     with (
         patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
-        patch("agent.cli_backends.opencode._run_opencode_subprocess", return_value=(0, '{"command":"echo ok"}', "", "opencode run")),
-        patch("agent.services.live_terminal_session_service.get_live_terminal_session_service", return_value=runtime_service),
+        patch(
+            "agent.cli_backends.opencode._run_opencode_subprocess",
+            return_value=(0, '{"command":"echo ok"}', "", "opencode run"),
+        ),
+        patch(
+            "agent.services.live_terminal_session_service.get_live_terminal_session_service",
+            return_value=runtime_service,
+        ),
     ):
         rc, out, err = run_opencode_command("say hi", session=session, workdir="/tmp/interactive")
 
@@ -804,14 +818,20 @@ def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
             "lmstudio": "http://192.168.1.25:1234/v1/chat/completions",
         }
         with (
-            patch("agent.cli_backends.sgpt.shutil.which", side_effect=lambda cmd: f"/mock/{cmd}" if cmd == "codex" else None),
-            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
-                "ok": True,
-                "status": "ok",
-                "models_url": "http://192.168.1.25:1234/v1/models",
-                "candidate_count": 4,
-                "candidates": [{"id": "qwen2.5-coder"}],
-            }),
+            patch(
+                "agent.cli_backends.sgpt.shutil.which",
+                side_effect=lambda cmd: f"/mock/{cmd}" if cmd == "codex" else None,
+            ),
+            patch(
+                "agent.llm_integration.probe_lmstudio_runtime",
+                return_value={
+                    "ok": True,
+                    "status": "ok",
+                    "models_url": "http://192.168.1.25:1234/v1/models",
+                    "candidate_count": 4,
+                    "candidates": [{"id": "qwen2.5-coder"}],
+                },
+            ),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
         ):
             mock_settings.codex_path = "codex"
@@ -835,7 +855,11 @@ def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     assert preflight["providers"]["codex"]["base_url"] == "http://192.168.1.25:1234/v1"
     assert preflight["providers"]["codex"]["base_url_source"] == "lmstudio_url"
     assert preflight["providers"]["codex"]["api_key_source"] == "local_dummy"
-    assert preflight["providers"]["codex"]["target_kind"] in {"local_openai", "remote_openai_compatible", "remote_ananta_hub"}
+    assert preflight["providers"]["codex"]["target_kind"] in {
+        "local_openai",
+        "remote_openai_compatible",
+        "remote_ananta_hub",
+    }
 
 
 def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
@@ -851,14 +875,17 @@ def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
         }
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=None),
-            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
-                "ok": True,
-                "status": "ok",
-                "base_url": "http://127.0.0.1:1234/v1",
-                "models_url": "http://127.0.0.1:1234/v1/models",
-                "candidate_count": 1,
-                "candidates": [{"id": "model-a"}],
-            }),
+            patch(
+                "agent.llm_integration.probe_lmstudio_runtime",
+                return_value={
+                    "ok": True,
+                    "status": "ok",
+                    "base_url": "http://127.0.0.1:1234/v1",
+                    "models_url": "http://127.0.0.1:1234/v1/models",
+                    "candidate_count": 1,
+                    "candidates": [{"id": "model-a"}],
+                },
+            ),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
         ):
             mock_settings.codex_path = "codex"
@@ -928,14 +955,17 @@ def test_get_cli_backend_preflight_reports_invalid_lmstudio_url(app):
         }
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=None),
-            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
-                "ok": False,
-                "status": "invalid_url",
-                "base_url": "not-a-valid-url",
-                "models_url": None,
-                "candidate_count": 0,
-                "candidates": [],
-            }),
+            patch(
+                "agent.llm_integration.probe_lmstudio_runtime",
+                return_value={
+                    "ok": False,
+                    "status": "invalid_url",
+                    "base_url": "not-a-valid-url",
+                    "models_url": None,
+                    "candidate_count": 0,
+                    "candidates": [],
+                },
+            ),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
         ):
             mock_settings.codex_path = "codex"
@@ -969,14 +999,17 @@ def test_get_cli_backend_preflight_reports_reachable_runtime_without_models(app)
         }
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=None),
-            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
-                "ok": True,
-                "status": "reachable_no_models",
-                "base_url": "http://127.0.0.1:1234/v1",
-                "models_url": "http://127.0.0.1:1234/v1/models",
-                "candidate_count": 0,
-                "candidates": [],
-            }),
+            patch(
+                "agent.llm_integration.probe_lmstudio_runtime",
+                return_value={
+                    "ok": True,
+                    "status": "reachable_no_models",
+                    "base_url": "http://127.0.0.1:1234/v1",
+                    "models_url": "http://127.0.0.1:1234/v1/models",
+                    "candidate_count": 0,
+                    "candidates": [],
+                },
+            ),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
         ):
             mock_settings.codex_path = "codex"
@@ -1005,24 +1038,30 @@ def test_get_cli_backend_preflight_includes_ollama_activity_and_gpu_usage(app):
         app.config["PROVIDER_URLS"] = {"ollama": "http://127.0.0.1:11434"}
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=None),
-            patch("agent.llm_integration.probe_ollama_runtime", return_value={
-                "ok": True,
-                "status": "ok",
-                "base_url": "http://127.0.0.1:11434",
-                "tags_url": "http://127.0.0.1:11434/api/tags",
-                "candidate_count": 1,
-                "models": [{"name": "glm-4.7"}],
-            }),
-            patch("agent.llm_integration.probe_ollama_activity", return_value={
-                "ok": True,
-                "status": "ok",
-                "base_url": "http://127.0.0.1:11434",
-                "ps_url": "http://127.0.0.1:11434/api/ps",
-                "active_count": 1,
-                "gpu_active": True,
-                "executor_summary": {"gpu": 1, "cpu": 0, "unknown": 0},
-                "active_models": [{"name": "glm-4.7", "executor": "gpu"}],
-            }),
+            patch(
+                "agent.llm_integration.probe_ollama_runtime",
+                return_value={
+                    "ok": True,
+                    "status": "ok",
+                    "base_url": "http://127.0.0.1:11434",
+                    "tags_url": "http://127.0.0.1:11434/api/tags",
+                    "candidate_count": 1,
+                    "models": [{"name": "glm-4.7"}],
+                },
+            ),
+            patch(
+                "agent.llm_integration.probe_ollama_activity",
+                return_value={
+                    "ok": True,
+                    "status": "ok",
+                    "base_url": "http://127.0.0.1:11434",
+                    "ps_url": "http://127.0.0.1:11434/api/ps",
+                    "active_count": 1,
+                    "gpu_active": True,
+                    "executor_summary": {"gpu": 1, "cpu": 0, "unknown": 0},
+                    "active_models": [{"name": "glm-4.7", "executor": "gpu"}],
+                },
+            ),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
         ):
             mock_settings.codex_path = "codex"

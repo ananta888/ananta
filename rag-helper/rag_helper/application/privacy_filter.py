@@ -1,11 +1,12 @@
 """Obsidian Privacy Filter (OBS-003)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rag_helper.application.vault_scanner import VaultFile
+    pass
 
 
 @dataclass
@@ -100,7 +101,7 @@ def list_excluded(vault_profile, vault_files: list) -> list[dict]:
 
     vault_files: list of VaultFile objects (from vault_scanner.scan())
     """
-    from rag_helper.extractors.obsidian import parse_frontmatter, extract_tags
+    from rag_helper.extractors.obsidian import extract_tags, parse_frontmatter
 
     excluded = []
     for vf in vault_files:
@@ -119,9 +120,11 @@ def list_excluded(vault_profile, vault_files: list) -> list[dict]:
             result = is_private(vf.rel_path, frontmatter, tags, vault_profile)
 
         if result.excluded:
-            excluded.append({
-                "rel_path": vf.rel_path,
-                "reason": result.reason,
-                "mechanism": result.matched_mechanism,
-            })
+            excluded.append(
+                {
+                    "rel_path": vf.rel_path,
+                    "reason": result.reason,
+                    "mechanism": result.matched_mechanism,
+                }
+            )
     return excluded

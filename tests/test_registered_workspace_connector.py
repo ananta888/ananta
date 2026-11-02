@@ -44,7 +44,8 @@ def _connector(
     )
     return RegisteredWorkspaceConnector(
         catalog=_Catalog(workspace),
-        limits=limits or WorkspaceInventoryLimits(
+        limits=limits
+        or WorkspaceInventoryLimits(
             max_files=10,
             max_total_bytes=1024,
             max_file_bytes=512,
@@ -171,6 +172,7 @@ class _MountChangingInspection(PosixWorkspaceFileInspection):
     def stat(self, path: Path, *, follow_symlinks: bool):
         value = super().stat(path, follow_symlinks=follow_symlinks)
         if path == self._target:
+
             class Changed:
                 st_dev = value.st_dev + 1
                 st_mode = value.st_mode

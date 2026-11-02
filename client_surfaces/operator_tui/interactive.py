@@ -1,146 +1,73 @@
 from __future__ import annotations
 
-import json
-import os
-import re
-import shutil
-import time
-from concurrent.futures import Future, ThreadPoolExecutor
-import urllib.error
-import urllib.request
-from urllib.parse import urlparse
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
-
 import asyncio
-import math
+import os
+import shutil
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
 from prompt_toolkit.application import Application
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output.color_depth import ColorDepth
 
+from client_surfaces.operator_tui import _interactive_chat as _ichat
+from client_surfaces.operator_tui import _interactive_command as _ic
+from client_surfaces.operator_tui import _interactive_keybindings as _ik
+from client_surfaces.operator_tui import _interactive_visual as _iv
+from client_surfaces.operator_tui import _interactive_window as _iw
+from client_surfaces.operator_tui._interactive_editor_delegates import (
+    AiSnakeConfigPanelMixin,
+    AuditTemplateEditorMixin,
+)
 from client_surfaces.operator_tui.adapters import (
     SectionAdapterRegistry,
     merge_panel_state,
     merge_section_result,
 )
+from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
+from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
+from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate
+from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
+from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
+from client_surfaces.operator_tui.ai_snake_training_store import (
+    read_active_profile,
+)
+from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
+from client_surfaces.operator_tui.app import load_active_section
+from client_surfaces.operator_tui.artifact_intent import ArtifactIntentDetector
+from client_surfaces.operator_tui.chat_mixin import ChatMixin
 from client_surfaces.operator_tui.dashboard_autoload import DashboardSectionAutoloader
 from client_surfaces.operator_tui.dashboard_live_lifecycle import (
     DashboardLiveSyncLifecycle,
 )
-from client_surfaces.operator_tui.ai_snake_context import (
-    artifact_ref_from_game,
-    build_context_envelope_ref,
-    compact_observation_summary,
-    default_ai_context,
-    load_codecompass_artifact,
-    relevance_refs_for_intent,
-    set_ai_context,
-    training_profile_envelope,
-)
-from client_surfaces.operator_tui.ai_snake_follow import (
-    apply_worker_follow_update,
-    make_follow_state,
-    step_follow_state,
-)
-from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
-from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
-from client_surfaces.operator_tui.ai_snake_lm_budget import AiSnakeLmBudget
-from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, build_prediction_trace, quick_predict
-from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
-from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, merge_patterns, mine_patterns_from_events
-from client_surfaces.operator_tui.ai_snake_training_recorder import AiSnakeTrainingRecorder
-from client_surfaces.operator_tui.ai_snake_training_store import (
-    append_behavior_event,
-    read_active_profile,
-    read_events,
-    read_patterns,
-    save_patterns,
-)
-from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
-from client_surfaces.operator_tui.audit_cleanup import run_audit_cleanup_action
-from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
-from client_surfaces.operator_tui.app import load_active_section
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.chat_long_message import (
-    configure_middle_view_for_message,
-    configure_middle_view_for_history_entry,
-    is_showing_chat_long_message,
-    latest_long_message_for_channel,
-    long_message_history_rows,
-    refresh_rendered_view,
-    toggle_render_mode,
-)
+from client_surfaces.operator_tui.header_snake_mixin import HeaderSnakeMixin
+from client_surfaces.operator_tui.keybindings_config import keybinding_conflicts
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.mouse import (
-    MouseEventType as NormalizedMouseEventType,
     MouseState,
     detect_mouse_support,
-    normalize_mouse_state,
 )
-from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
-from client_surfaces.operator_tui.keybindings_config import key_for_action, keybinding_conflicts
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_filter_options,
-    ai_snake_config_items,
-    ai_snake_config_options,
-    apply_ai_snake_config_value,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
-from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
-from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
-from client_surfaces.operator_tui.renderer import render_operator_shell
-from client_surfaces.operator_tui.sections import SECTIONS, get_section
-from client_surfaces.operator_tui.tui_snapshot import rendered_tui_snapshot_text, write_tui_snapshot
-
-from client_surfaces.operator_tui.chat_mixin import ChatMixin
-from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
-from client_surfaces.operator_tui.header_snake_mixin import HeaderSnakeMixin
 from client_surfaces.operator_tui.mouse_artifact_mixin import MouseArtifactMixin
+from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
+from client_surfaces.operator_tui.region_index import RegionTarget
+from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.sections import SECTIONS
 from client_surfaces.operator_tui.snake_heuristic_mixin import SnakeHeuristicMixin
 from client_surfaces.operator_tui.snake_ops_mixin import SnakeOpsMixin
+from client_surfaces.operator_tui.snake_tick_mixin import SnakeTickMixin
 from client_surfaces.operator_tui.tutorial_ai_mixin import TutorialAiMixin
-from client_surfaces.operator_tui.visual.adapters.ansi_adapter import AnsiOutputAdapter
-from client_surfaces.operator_tui.visual.adapters.kitty_adapter import KittyOutputAdapter
-from client_surfaces.operator_tui.visual.adapters.noop_adapter import NoopDiagnosticsAdapter
-from client_surfaces.operator_tui.visual.adapters.sixel_adapter import SixelOutputAdapter
 from client_surfaces.operator_tui.visual.capabilities.models import TerminalVisualCapabilities
-from client_surfaces.operator_tui.visual.renderers.ansi_renderer import AnsiBlocksRenderer
-from client_surfaces.operator_tui.visual.renderers.cpu_raster_renderer import CpuRasterRenderer
-from client_surfaces.operator_tui.visual.renderers.svg_raster_renderer import SvgRasterRenderer
 from client_surfaces.operator_tui.visual.runtime.config import VisualViewportConfig
-from client_surfaces.operator_tui.visual.runtime.registry import OutputAdapterRegistry, RendererRegistry, ViewRegistry
 from client_surfaces.operator_tui.visual.runtime.visual_runtime import VisualRuntime
-from client_surfaces.operator_tui.visual.viewport.layout_contract import ViewportRegion, derive_pixel_size
-from client_surfaces.operator_tui.visual.views.artifact_preview_view import ArtifactPreviewView
-from client_surfaces.operator_tui.visual.views.logo_animation_view import LogoAnimationView
-from client_surfaces.operator_tui.visual.views.markdown_mermaid_document_view import MarkdownMermaidDocumentView
-from client_surfaces.operator_tui.visual.views.renderer_diagnostics_view import RendererDiagnosticsView
-from client_surfaces.operator_tui.visual.views.snake_debug_view import SnakeDebugView
-from client_surfaces.operator_tui.visual.views.strategy_map_preview_view import StrategyMapPreviewView
-from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
 from client_surfaces.operator_tui.windowing.external_window_controller import ExternalWindowController
-from client_surfaces.operator_tui.windowing.backends.wslg_webview_backend import WslgWebviewBackend
-from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
-from client_surfaces.operator_tui.windowing.view_models.ai_snake_window_model import build_ai_snake_window_model
-from client_surfaces.operator_tui.windowing.view_models.center_window_model import build_center_window_model
-
-from client_surfaces.operator_tui import _interactive_keybindings as _ik
-from client_surfaces.operator_tui._interactive_editor_delegates import (
-    AiSnakeConfigPanelMixin,
-    AuditTemplateEditorMixin,
-)
-from client_surfaces.operator_tui import _interactive_command as _ic
-from client_surfaces.operator_tui import _interactive_visual as _iv
-from client_surfaces.operator_tui import _interactive_window as _iw
-from client_surfaces.operator_tui import _interactive_chat as _ichat
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine, SplashState
+    from agent.cli.splash import SplashMachine
     from client_surfaces.operator_tui.dashboard_surfaces import DashboardSurfaceController
 
 
@@ -202,8 +129,11 @@ class InteractiveOperatorTui(
         self._restore_oidc_token()
         if not self.state.open_tabs:
             from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_section
+
             self.state = open_or_activate_tab(
-                self.state, section_id=self.state.section_id, kind="section",
+                self.state,
+                section_id=self.state.section_id,
+                kind="section",
                 label=tab_label_for_section(self.state.section_id),
             )
         self._keybinding_conflicts = keybinding_conflicts()
@@ -258,6 +188,7 @@ class InteractiveOperatorTui(
         self._scores_cache: dict[str, Any] = {}
         try:
             from client_surfaces.operator_tui.snake_persistence import load_snake_scores
+
             self._scores_cache = load_snake_scores()
         except Exception:
             pass
@@ -265,6 +196,7 @@ class InteractiveOperatorTui(
         self._tutor_depth_mode: str = "overview"
         try:
             from client_surfaces.operator_tui.snake_persistence import get_tutor_mode
+
             self._tutor_depth_mode = get_tutor_mode()
         except Exception:
             pass
@@ -312,8 +244,7 @@ class InteractiveOperatorTui(
                 apply_result=self._apply_dashboard_result,
                 status_sink=self._set_dashboard_live_status,
             )
-            if self._dashboard_controller is not None
-            and self._dashboard_controller.flags.kanban
+            if self._dashboard_controller is not None and self._dashboard_controller.flags.kanban
             else None
         )
         self._dashboard_autoloader = DashboardSectionAutoloader(
@@ -322,9 +253,7 @@ class InteractiveOperatorTui(
             current_section=lambda: self.state.section_id,
             apply_result=self._apply_dashboard_result,
             on_snapshot_applied=(
-                self._dashboard_live_sync.snapshot_applied
-                if self._dashboard_live_sync is not None
-                else None
+                self._dashboard_live_sync.snapshot_applied if self._dashboard_live_sync is not None else None
             ),
         )
 
@@ -385,6 +314,7 @@ class InteractiveOperatorTui(
         while self._splash is not None:
             ctx = self._splash.context
             from agent.cli.splash import SplashState
+
             if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
                 break
             self._splash.tick()
@@ -422,8 +352,12 @@ class InteractiveOperatorTui(
         body_height: int,
     ) -> None:
         _ichat.sync_scroll_focus_and_mouse_regions(
-            self, width=width, height=height, content_width=content_width,
-            body_start=body_start, body_height=body_height,
+            self,
+            width=width,
+            height=height,
+            content_width=content_width,
+            body_start=body_start,
+            body_height=body_height,
         )
 
     def _scroll_active_panel(self, direction: str) -> None:
@@ -565,10 +499,7 @@ class InteractiveOperatorTui(
 
         async def _apply() -> None:
             result = await awaitable
-            if (
-                self.state.section_id != expected_section
-                or result.section_id != expected_section
-            ):
+            if self.state.section_id != expected_section or result.section_id != expected_section:
                 return
             self._apply_dashboard_result(result)
 
@@ -663,6 +594,7 @@ class InteractiveOperatorTui(
     def _flush_config_on_exit(self) -> None:
         try:
             from client_surfaces.operator_tui.config.user_config_manager import flush_user_config
+
             game = dict(self.state.header_logo_game or {})
             flush_user_config(game)
         except Exception:
@@ -764,6 +696,7 @@ class InteractiveOperatorTui(
         if not self.state.active_tab_id:
             return
         from client_surfaces.operator_tui.tab_manager import close_tab
+
         new_state = close_tab(self.state, self.state.active_tab_id)
         game = dict(new_state.header_logo_game or {})
         game["visual_viewport_enabled"] = False
@@ -775,25 +708,27 @@ class InteractiveOperatorTui(
         if not tabs:
             return
         from client_surfaces.operator_tui.tab_manager import activate_tab
+
         cur_idx = next((i for i, t in enumerate(tabs) if t.id == self.state.active_tab_id), 0)
         new_idx = (cur_idx + delta) % len(tabs)
         new_state, new_game = activate_tab(
-            self.state, tabs[new_idx].id,
+            self.state,
+            tabs[new_idx].id,
             game=dict(self.state.header_logo_game or {}),
         )
         if new_state.section_id != self.state.section_id:
             from client_surfaces.operator_tui.app import load_active_section
+
             new_state = load_active_section(new_state, self._registry)
         self._set_state(new_state.with_updates(header_logo_game=new_game))
 
     def _restore_oidc_token(self) -> None:
         """Lädt gecachten OIDC-Token beim Start, wenn noch nicht abgelaufen."""
-        from client_surfaces.operator_tui.network_profile import rendezvous_base_url
         from client_surfaces.operator_tui.hub_loader import set_share_oidc_token
+        from client_surfaces.operator_tui.network_profile import rendezvous_base_url
+
         env_token = str(
-            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN")
-            or os.environ.get("ANANTA_TUI_OIDC_TOKEN")
-            or ""
+            os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or os.environ.get("ANANTA_TUI_OIDC_TOKEN") or ""
         ).strip()
         game = dict(self.state.header_logo_game or {})
         if game.get("oidc_token"):
@@ -809,6 +744,7 @@ class InteractiveOperatorTui(
             return
 
         from client_surfaces.operator_tui.snake_persistence import load_oidc_token
+
         cached = load_oidc_token()
         if not cached:
             return
@@ -817,7 +753,7 @@ class InteractiveOperatorTui(
             return
         game["oidc_token"] = token
         set_share_oidc_token(token, rendezvous_base_url())
-        issuer = str(cached.get("issuer") or "")
+        str(cached.get("issuer") or "")
         username = str(cached.get("username") or "")
         game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
         self.state = self.state.with_updates(
@@ -833,6 +769,7 @@ class InteractiveOperatorTui(
                 live_sync.stop()
         if self._splash is not None:
             from agent.cli.splash import SplashState
+
             ctx = self._splash.context
             if ctx.state in (SplashState.FULLSCREEN, SplashState.TRANSITION):
                 self._splash.transition_to(SplashState.COMPACT_HEADER)
@@ -858,4 +795,6 @@ class InteractiveOperatorTui(
             self._tick_external_window()
         size = shutil.get_terminal_size((120, 32))
         self._sync_visual_viewport_state(width=size.columns, height=max(18, size.lines - 1))
-        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
+        return render_operator_shell(
+            self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash
+        )

@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 import stat
 import sys
-from urllib.parse import urlsplit
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 from client_surfaces.freecad.workbench.client import FreecadHubClient
 from client_surfaces.freecad.workbench.commands import (
@@ -80,8 +80,7 @@ def _runtime_modules() -> tuple[object, object]:
 def _fake_freecad_binary(tmp_path: Path) -> Path:
     script = tmp_path / "fake-freecadcmd"
     script.write_text(
-        "#!/usr/bin/env bash\n"
-        f"exec {os.environ.get('PYTHON_FOR_FREECAD_E2E', 'python3')} \"$1\"\n",
+        f'#!/usr/bin/env bash\nexec {os.environ.get("PYTHON_FOR_FREECAD_E2E", "python3")} "$1"\n',
         encoding="utf-8",
     )
     script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
@@ -155,4 +154,7 @@ def test_freecad_runtime_golden_path_end_to_end(app, client, tmp_path: Path) -> 
     assert install_report["status"] == "passed"
     assert install_report["ok"] is True
     assert "workbench=Gui::PythonWorkbench" in str(install_report.get("stdout_tail") or "")
-    assert "commands=AnantaCaptureContext,AnantaSubmitGoal,AnantaPreviewExportPlan,AnantaPreviewMacroPlan,AnantaExecuteMacro" in str(install_report.get("stdout_tail") or "")
+    assert (
+        "commands=AnantaCaptureContext,AnantaSubmitGoal,AnantaPreviewExportPlan,AnantaPreviewMacroPlan,AnantaExecuteMacro"
+        in str(install_report.get("stdout_tail") or "")
+    )

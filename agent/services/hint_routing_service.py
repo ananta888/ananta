@@ -128,7 +128,11 @@ class HintRoutingService:
         cloud_ok_for_hint = self._cloud_allowed(normalized_hint, hint_cfg, cloud_allowed)
         llm_scope = "local_only" if (local_only or not cloud_ok_for_hint) else "external_cloud_allowed"
 
-        if llm_scope == "local_only" and resolved_provider and resolved_provider in {"openai", "anthropic", "azure_openai"}:
+        if (
+            llm_scope == "local_only"
+            and resolved_provider
+            and resolved_provider in {"openai", "anthropic", "azure_openai"}
+        ):
             return HintRoutingDecision(
                 hint=normalized_hint,
                 available=False,
@@ -174,4 +178,3 @@ _SERVICE = HintRoutingService()
 
 def get_hint_routing_service() -> HintRoutingService:
     return _SERVICE
-

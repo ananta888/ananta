@@ -7,4 +7,3 @@ def test_clean_wiki_markup_removes_basic_markup():
     assert "Kategorie" not in cleaned
     assert "Alpha" in cleaned
     assert "Intro" in cleaned
-

@@ -50,8 +50,10 @@ class ParserLimits:
     max_csv_columns: int = 256
 
     def __post_init__(self) -> None:
-        for name, value in self.__dict__.items() if hasattr(self, "__dict__") else (
-            (field, getattr(self, field)) for field in self.__slots__
+        for name, value in (
+            self.__dict__.items()
+            if hasattr(self, "__dict__")
+            else ((field, getattr(self, field)) for field in self.__slots__)
         ):
             if int(value) < 0 or (name != "max_notebook_output_bytes" and int(value) == 0):
                 raise ValueError(f"invalid_parser_limit:{name}")

@@ -10,9 +10,7 @@ from sqlmodel import create_engine
 
 
 def test_semantic_media_audit_outbox_migration_is_restart_safe_and_reversible(monkeypatch) -> None:
-    migration = importlib.import_module(
-        "migrations.versions.d9e0f1a2b3c4_add_semantic_media_audit_outbox"
-    )
+    migration = importlib.import_module("migrations.versions.d9e0f1a2b3c4_add_semantic_media_audit_outbox")
     database = create_engine("sqlite://")
     with database.begin() as connection:
         connection.execute(sa.text("CREATE TABLE legacy_semantic_media (id VARCHAR PRIMARY KEY)"))
@@ -22,9 +20,7 @@ def test_semantic_media_audit_outbox_migration_is_restart_safe_and_reversible(mo
         migration.upgrade()
 
         inspector = inspect(connection)
-        assert {"legacy_semantic_media", "semantic_media_audit_outbox"} <= set(
-            inspector.get_table_names()
-        )
+        assert {"legacy_semantic_media", "semantic_media_audit_outbox"} <= set(inspector.get_table_names())
         assert {column["name"] for column in inspector.get_columns("semantic_media_audit_outbox")} == {
             "id",
             "event_id",

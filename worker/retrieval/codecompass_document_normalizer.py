@@ -29,7 +29,9 @@ def _deterministic_hash(payload: dict[str, Any]) -> str:
 
 def _text_fields(record: dict[str, Any]) -> dict[str, str]:
     return {
-        "symbol_text": _join_scalars(record.get("symbol") or record.get("symbols") or record.get("name") or record.get("title")),
+        "symbol_text": _join_scalars(
+            record.get("symbol") or record.get("symbols") or record.get("name") or record.get("title")
+        ),
         "path_text": _join_scalars(record.get("path") or record.get("file")),
         "summary_text": _join_scalars(record.get("summary")),
         "content_text": _join_scalars(record.get("content") or record.get("text")),
@@ -80,4 +82,3 @@ def normalize_codecompass_records(*, records: list[dict[str, Any]], manifest_has
         )
         normalized.append(doc)
     return normalized
-

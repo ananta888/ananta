@@ -6,6 +6,7 @@ Contains: append_message, sanitize_text, unread_total,
 make_message is defined in chat_models and re-exported here for
 convenience so callers can import from one place.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -56,6 +57,7 @@ def append_message(chat: dict[str, Any], msg: dict[str, Any]) -> None:
 def sanitize_text(text: str, *, max_len: int | None = 500) -> str:
     """Strip ANSI and control chars from user-supplied message text."""
     import re
+
     text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
     cleaned = text.strip()

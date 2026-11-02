@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from ananta_contracts.model_intelligence import ArtifactRef
 from agent.services.model_intelligence_security_policy import (
     ModelIntelligenceAccessPolicy,
     ModelIntelligenceAction,
@@ -18,6 +17,7 @@ from agent.services.model_intelligence_security_policy import (
     model_intelligence_threat_matrix,
     sanitize_model_intelligence_audit_event,
 )
+from ananta_contracts.model_intelligence import ArtifactRef
 
 
 def _artifact() -> ArtifactRef:
@@ -67,7 +67,9 @@ def test_rbac_allows_only_declared_same_tenant_actions() -> None:
     policy = ModelIntelligenceAccessPolicy()
 
     assert policy.decide(principal, resource, ModelIntelligenceAction.READ_ARTIFACT).allowed is True
-    assert policy.decide(principal, resource, ModelIntelligenceAction.DELETE_ARTIFACT).reason_code == "rbac_action_denied"
+    assert (
+        policy.decide(principal, resource, ModelIntelligenceAction.DELETE_ARTIFACT).reason_code == "rbac_action_denied"
+    )
 
 
 def test_audit_projection_removes_raw_content_bytes_secrets_and_paths() -> None:
@@ -135,9 +137,10 @@ def test_retention_transitions_are_tenant_bound_and_idempotent() -> None:
     assert planned.next_state is RetentionState.DELETE_PENDING
     assert repeated.idempotent is True
     assert repeated.reason_code == "delete_already_pending"
-    assert planned.audit_event()["artifact_ref_digest"] == "a" * 0 or len(
-        planned.audit_event()["artifact_ref_digest"]
-    ) == 64
+    assert (
+        planned.audit_event()["artifact_ref_digest"] == "a" * 0
+        or len(planned.audit_event()["artifact_ref_digest"]) == 64
+    )
 
 
 def test_threat_matrix_separates_parser_admission_from_policy_boundaries() -> None:

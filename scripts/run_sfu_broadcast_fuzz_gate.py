@@ -75,9 +75,7 @@ COVERAGE = (
 
 def _known_blockers() -> list[str]:
     descriptor = ContractVersionDescriptor("fuzz.contract.v1", "1", 1)
-    compatibility = ContractReaderCompatibility(
-        schema_versions={"fuzz.contract.v1": frozenset({"1"})}
-    )
+    compatibility = ContractReaderCompatibility(schema_versions={"fuzz.contract.v1": frozenset({"1"})})
     try:
         materialized = SfuBroadcastContractMaterializer().materialize(
             '{"scope":"first","scope":"second"}',
@@ -89,11 +87,7 @@ def _known_blockers() -> list[str]:
             return []
         # An inconclusive probe blocks without exposing parser detail or input data.
         return ["duplicate_json_key_probe_inconclusive"]
-    return (
-        ["duplicate_json_key_not_rejected"]
-        if materialized.document.get("scope") == "second"
-        else []
-    )
+    return ["duplicate_json_key_not_rejected"] if materialized.document.get("scope") == "second" else []
 
 
 def run_gate(*, profile_path: Path, output: Path, plan_only: bool) -> dict:

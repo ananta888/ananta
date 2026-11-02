@@ -1,6 +1,7 @@
 """Normal Hub tasks and pre-reserved Registry runs for delegated media inspection."""
 
 import hashlib
+import logging
 import re
 import time
 import uuid
@@ -146,7 +147,7 @@ class HubPersonaInspectionTasks:
                             result_digest=hashlib.sha256(b"persona_inspection_failed").hexdigest(),
                         )
                     except Exception:
-                        pass  # Uncertain/terminal Registry state never authorizes an asset return.
+                        logging.getLogger(__name__).debug("execute: ignored Exception", exc_info=True)
             raise
 
 

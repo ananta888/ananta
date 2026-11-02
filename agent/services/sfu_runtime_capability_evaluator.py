@@ -232,16 +232,24 @@ class SfuRuntimeCapabilityEvaluator:
             raise SfuRuntimeCapabilityError("sfu_runtime_observation_mode_invalid")
         for field in ("producer_fencing_token", "sequence", "measured_at_ms", "valid_until_ms"):
             value = document[field]
-            if isinstance(value, bool) or not isinstance(value, int) or value < (1 if field == "producer_fencing_token" else 0):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < (1 if field == "producer_fencing_token" else 0)
+            ):
                 raise SfuRuntimeCapabilityError("sfu_runtime_observation_number_invalid")
         for field in ("scope", "health", "capacity", "pressure", "labels"):
             if not isinstance(document[field], Mapping):
                 raise SfuRuntimeCapabilityError("sfu_runtime_observation_object_invalid")
         scope = document["scope"]
-        if set(scope) not in (
-            {"tenant_id", "cluster_id", "region", "observed_node_id", "node_binding_authority"},
-            {"tenant_id", "cluster_id", "region", "runtime_id", "observed_node_id", "node_binding_authority"},
-        ) or scope.get("node_binding_authority") != "non_authoritative_observation":
+        if (
+            set(scope)
+            not in (
+                {"tenant_id", "cluster_id", "region", "observed_node_id", "node_binding_authority"},
+                {"tenant_id", "cluster_id", "region", "runtime_id", "observed_node_id", "node_binding_authority"},
+            )
+            or scope.get("node_binding_authority") != "non_authoritative_observation"
+        ):
             raise SfuRuntimeCapabilityError("sfu_runtime_observation_scope_invalid")
         claims = document["capabilities"]
         if not isinstance(claims, list) or len(claims) > 32:

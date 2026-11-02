@@ -19,10 +19,18 @@ from agent.services.meet_companion_tool_contract import (
 from agent.services.meet_contract import MeetError
 from agent.services.source_control_access_policy import HubSourcePrincipal
 
-SCOPED_TOOLS = frozenset({"codecompass.retrieve", "codecompass.architecture_overview",
-                          "codecompass.architecture_expand", "codecompass.analytics_query", "codecompass.rlm_analyze",
-                          "codecompass.architecture_intelligence", "codecompass.layers_heads",
-                          "codecompass.layers_plan"})
+SCOPED_TOOLS = frozenset(
+    {
+        "codecompass.retrieve",
+        "codecompass.architecture_overview",
+        "codecompass.architecture_expand",
+        "codecompass.analytics_query",
+        "codecompass.rlm_analyze",
+        "codecompass.architecture_intelligence",
+        "codecompass.layers_heads",
+        "codecompass.layers_plan",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -46,34 +54,59 @@ class HubCompanionToolPolicy:
             raise MeetError("meet_companion_tool_denied", 403)
         descriptor = self.operations.get_for_target(transport="mcp.tool", target=tool)
         policy = self.policies.resolve_policy(self.app.config.get("AGENT_CONFIG", {}) or {})
-        decision = self.policies.decide(descriptor, policy, OperationAuthContext(
-            auth_source="agent_auth", is_admin=False, approval_granted=False))
+        decision = self.policies.decide(
+            descriptor, policy, OperationAuthContext(auth_source="agent_auth", is_admin=False, approval_granted=False)
+        )
         if self.observer is not None:
-            self.observer.record(decision, trace_id=None, surface="meet_companion_task_tool",
-                                 emit_audit_event=bool(policy.get("emit_audit_events", True)))
-        if (not decision.allowed or descriptor is None or descriptor.access_class != "read"
-                or descriptor.side_effecting):
+            self.observer.record(
+                decision,
+                trace_id=None,
+                surface="meet_companion_task_tool",
+                emit_audit_event=bool(policy.get("emit_audit_events", True)),
+            )
+        if not decision.allowed or descriptor is None or descriptor.access_class != "read" or descriptor.side_effecting:
             raise MeetError("meet_companion_tool_denied", 403)
         try:
             normalized = normalize_arguments(tool, arguments)
-            principal = HubSourcePrincipal(scope.machine_subject, scope.tenant_id,
-                                           scope.project_id, frozenset({"agent"}))
-            capability = verify_retrieval_capability(resolve_request_capability(
-                application=self.app, principal=principal, requested_scope={}))
+            principal = HubSourcePrincipal(
+                scope.machine_subject, scope.tenant_id, scope.project_id, frozenset({"agent"})
+            )
+            capability = verify_retrieval_capability(
+                resolve_request_capability(application=self.app, principal=principal, requested_scope={})
+            )
         except (TypeError, ValueError):
             raise MeetError("meet_companion_tool_scope_denied", 403) from None
         if not re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", capability["revision"]):
             raise MeetError("meet_companion_tool_revision_unverified", 403)
         # Resolver TTL timestamps may move between reads. Policy and all actual
         # source authority must stay equal; each read verifies its own expiry.
-        source_scope = {key: value for key, value in capability.items()
-                        if key not in {"issued_at_epoch", "expires_at_epoch", "capability_digest"}}
-        operation = {key: getattr(descriptor, key) for key in (
-            "operation_id", "transport", "target", "access_class", "risk_class", "lifecycle", "side_effecting")}
-        fingerprint = digest({"tool": tool, "operation": operation,
-                              "policy": policy, "scope": source_scope, "arguments": normalized})
-        return ToolPermit(normalized, capability, fingerprint, capability["revision"],
-                          digest({"adapter": "hub_mcp_registry", "version": 2}))
+        source_scope = {
+            key: value
+            for key, value in capability.items()
+            if key not in {"issued_at_epoch", "expires_at_epoch", "capability_digest"}
+        }
+        operation = {
+            key: getattr(descriptor, key)
+            for key in (
+                "operation_id",
+                "transport",
+                "target",
+                "access_class",
+                "risk_class",
+                "lifecycle",
+                "side_effecting",
+            )
+        }
+        fingerprint = digest(
+            {"tool": tool, "operation": operation, "policy": policy, "scope": source_scope, "arguments": normalized}
+        )
+        return ToolPermit(
+            normalized,
+            capability,
+            fingerprint,
+            capability["revision"],
+            digest({"adapter": "hub_mcp_registry", "version": 2}),
+        )
 
 
 class HubCompanionToolExecution:
@@ -92,8 +125,11 @@ class HubCompanionToolExecution:
             from agent.services.codecompass_task_capability import task_capability_scope
 
             with task_capability_scope(dict(permit.capability)):
-                return self.registry.call_tool(name=tool, arguments=dict(permit.arguments),
-                                               context={"codecompass_capability": dict(permit.capability)})
+                return self.registry.call_tool(
+                    name=tool,
+                    arguments=dict(permit.arguments),
+                    context={"codecompass_capability": dict(permit.capability)},
+                )
 
         try:
             result = run_bounded(self.app, work, timeout)

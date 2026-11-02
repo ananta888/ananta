@@ -11,6 +11,21 @@ keeps working transparently.
 
 from __future__ import annotations
 
+from client_surfaces.operator_tui._renderer_chat_ai import (
+    _chat_timeout_progress_text,
+    _participant_color,
+    _participant_label,
+    _plain_channel_selector,
+    _wrap_plain,
+)
+from client_surfaces.operator_tui._renderer_layout import _runtime_detail_lines
+from client_surfaces.operator_tui._renderer_snake_overlay import _ansi_color
+from client_surfaces.operator_tui._renderer_utils import (
+    _chat_channel_label,
+    _clip,
+    _inline_input_with_cursor,
+    _pane_title,
+)
 from client_surfaces.operator_tui.chat_long_message import (
     compact_chat_message_text,
     should_use_middle_view_for_message,
@@ -19,21 +34,6 @@ from client_surfaces.operator_tui.keybindings_config import display_for_action, 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.read_models import build_inspection_detail
 from client_surfaces.operator_tui.sections import get_section
-from client_surfaces.operator_tui._renderer_utils import (
-    _chat_channel_label,
-    _clip,
-    _inline_input_with_cursor,
-    _pane_title,
-)
-from client_surfaces.operator_tui._renderer_chat_ai import (
-    _chat_timeout_progress_text,
-    _participant_color,
-    _participant_label,
-    _plain_channel_selector,
-    _wrap_plain,
-)
-from client_surfaces.operator_tui._renderer_snake_overlay import _ansi_color
-from client_surfaces.operator_tui._renderer_layout import _runtime_detail_lines
 
 
 def _detail_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
@@ -51,7 +51,6 @@ def _detail_lines(state: OperatorState, width: int, *, height: int | None = None
         detail_lines.extend([""] * (detail_height - len(detail_lines)))
     chat_lines = _chat_detail_lines(state, width, max_height=chat_height, bottom_align=True)
     return [_clip(line, width) for line in [*detail_lines, *chat_lines]][: int(height)]
-
 
 
 def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
@@ -143,12 +142,15 @@ def _standard_detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :mail note add <text> | :mail link-current-to-goal <goal-id>")
             lines.append("    :mail artifact register-current [--scope metadata_only|excerpt|full_body]")
             lines.append("    :mail attachment list|download <filename>|register <filename>")
-            lines.append("    :mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]")
+            lines.append(
+                "    :mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]"
+            )
             lines.append("    :mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body]")
-            lines.append("    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]")
+            lines.append(
+                "    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]"
+            )
             lines.append("    :mail snake-explain")
     return [_clip(line, width) for line in lines]
-
 
 
 def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
@@ -190,7 +192,6 @@ def _context_shortcut_lines(state: OperatorState, width: int) -> list[str]:
     return [_clip(line, width) for line in lines]
 
 
-
 def _chat_detail_lines(
     state: OperatorState,
     width: int,
@@ -201,10 +202,13 @@ def _chat_detail_lines(
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     try:
         from client_surfaces.operator_tui.chat_state import get_chat_state, sanitize_text
+
         chat = get_chat_state(dict(game))
     except Exception:
         chat = {}
-        sanitize_text = lambda value: str(value)
+
+        def sanitize_text(value):
+            return str(value)
 
     active_ch_id = str(chat.get("active_channel") or "room:main")
     channels = chat.get("channels") if isinstance(chat.get("channels"), dict) else {}
@@ -228,7 +232,8 @@ def _chat_detail_lines(
     header_lines.append(f"  {selector}")
     # Session indicator
     try:
-        from client_surfaces.operator_tui.chat_state import get_sessions, get_active_session
+        from client_surfaces.operator_tui.chat_state import get_active_session, get_sessions
+
         _active_sess = get_active_session(chat)
         _all_sessions = get_sessions(chat)
         if _active_sess:
@@ -266,7 +271,9 @@ def _chat_detail_lines(
         elif sender_kind == "ai":
             prefix = _participant_label(game, sender, fallback="AI") + ": "
         else:
-            prefix = _participant_label(game, sender, fallback="Du" if active_ch_id == "ai:tutor" else sender[:8]) + ": "
+            prefix = (
+                _participant_label(game, sender, fallback="Du" if active_ch_id == "ai:tutor" else sender[:8]) + ": "
+            )
         for row in _wrap_plain(prefix + text, max(8, width - 2)):
             message_lines.append("  " + _ansi_color(row, line_col))
     if bool(chat.get("ai_typing")) and active_ch_id == "ai:tutor":
@@ -285,6 +292,7 @@ def _chat_detail_lines(
         if ch_type == "ai":
             try:
                 from client_surfaces.operator_tui.chat_state import get_active_session as _gas3
+
                 _ps = _gas3(chat)
                 if _ps:
                     _pname = str(_ps.get("name") or "AI")
@@ -294,7 +302,9 @@ def _chat_detail_lines(
         # History indicator: show ▲N if history available (↑/↓ to navigate)
         history = [str(h) for h in (chat.get("chat_input_history") or []) if str(h).strip()]
         hist_note = f" \x1b[2m▲{len(history)}\x1b[0m" if history else ""
-        visible = _inline_input_with_cursor(buf, cursor, max(1, width - len(prompt) - 3 - len(hist_note.replace("\x1b[2m","").replace("\x1b[0m",""))))
+        visible = _inline_input_with_cursor(
+            buf, cursor, max(1, width - len(prompt) - 3 - len(hist_note.replace("\x1b[2m", "").replace("\x1b[0m", "")))
+        )
         footer_lines.append(f"  {prompt}{hist_note} {visible}")
     else:
         footer_lines.append(
@@ -315,7 +325,6 @@ def _chat_detail_lines(
     return [_clip(line, width) for line in lines]
 
 
-
 def _snake_ai_chat_detail_lines(state: OperatorState, width: int, *, height: int) -> list[str]:
     chat_height = max(8, min(height, int(height * 0.58)))
     ai_height = max(0, height - chat_height)
@@ -324,7 +333,6 @@ def _snake_ai_chat_detail_lines(state: OperatorState, width: int, *, height: int
         ai_lines.extend([""] * (ai_height - len(ai_lines)))
     chat_lines = _chat_detail_lines(state, width, max_height=chat_height, bottom_align=True)
     return [_clip(line, width) for line in [*ai_lines, *chat_lines]][:height]
-
 
 
 def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
@@ -348,7 +356,9 @@ def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
     elif question:
         lines.append(_clip(f"  ask: ready {question}", width))
     lines.append("  " + "-" * max(8, width - 4))
-    lines.append(f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Heuristik:{'AN' if tutorial_enabled else 'AUS'}")
+    lines.append(
+        f"  {display_for_action('toggle_tutorial_ai', 'Ctrl+U')} Heuristik:{'AN' if tutorial_enabled else 'AUS'}"
+    )
     lines.append(f"  {display_for_action('chat_focus', 'Ctrl+E')} Chat-Fokus")
     lines.append(f"  {display_for_action('copy_ai_status', 'Ctrl+I')} Status kopieren")
     lines.append(f"  {display_for_action('toggle_mouse_follow', 'Ctrl+O')} MouseFollow")
@@ -364,6 +374,3 @@ def _snake_ai_detail_lines(state: OperatorState, width: int) -> list[str]:
             label = str(item.get("label") or item.get("event") or "event")
             lines.append(_clip(f"  {label}", width))
     return [_clip(line, width) for line in lines]
-
-
-

@@ -8,9 +8,8 @@ Create Date: 2026-02-16 22:00:00.000000
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8c1d2e3f4a5b"
@@ -44,4 +43,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Data backfill is intentionally not reverted.
     pass
-

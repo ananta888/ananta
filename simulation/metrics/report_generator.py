@@ -1,4 +1,5 @@
 """Report Generator (SIM-027)."""
+
 from __future__ import annotations
 
 import json
@@ -42,9 +43,9 @@ class ReportGenerator:
                 "indicators": failure.indicators,
             },
             "budget": {
-                "violation": {"kind": budget_violation.kind,
-                               "message": budget_violation.message}
-                              if budget_violation else None,
+                "violation": {"kind": budget_violation.kind, "message": budget_violation.message}
+                if budget_violation
+                else None,
                 "usage": budget_guard.usage.as_dict(),
                 "remaining": budget_guard.remaining(),
             },

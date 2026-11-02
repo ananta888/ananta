@@ -72,12 +72,14 @@ def merge_rank_candidates(
                 "final_score": contribution,
                 "channel_contributions": {channel: contribution},
                 "ranking_version": WORKER_RANKING_VERSION,
-                "score_explanation": {channel: {
-                    "raw_score": float(candidate.get("score") or 0.0),
-                    "normalized_score": float(candidate.get("normalized_score") or 0.0),
-                    "weight": weight,
-                    "contribution": contribution,
-                }},
+                "score_explanation": {
+                    channel: {
+                        "raw_score": float(candidate.get("score") or 0.0),
+                        "normalized_score": float(candidate.get("normalized_score") or 0.0),
+                        "weight": weight,
+                        "contribution": contribution,
+                    }
+                },
             }
             continue
         existing["final_score"] = float(existing.get("final_score") or 0.0) + contribution

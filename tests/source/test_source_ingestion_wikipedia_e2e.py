@@ -35,6 +35,9 @@ def test_wikipedia_fixture_dump_e2e_offline() -> None:
     assert first["source_reference"]["source_id"] == descriptor["source_id"]
     assert first["license_ref"] == "CC BY-SA 4.0"
     assert any(str(item.get("reason_code") or "") == "redirect" for item in report["issues"])
-    citation = format_citation(descriptor=descriptor, snapshot={"snapshot_id": "snap_abcdef012345", "content_hash": "a" * 64}, output_format="long")
+    citation = format_citation(
+        descriptor=descriptor,
+        snapshot={"snapshot_id": "snap_abcdef012345", "content_hash": "a" * 64},
+        output_format="long",
+    )
     assert "language=de" in citation["long"]
-

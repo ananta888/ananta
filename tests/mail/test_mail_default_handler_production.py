@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -72,9 +71,7 @@ class _Auth:
 
 class _Lifecycle:
     def connect(self, account: Any, auth: Any) -> MailProviderResult[MailProviderSession]:
-        return MailProviderResult.success(
-            MailProviderSession("session-1", account.account_id, "jmap", "A1")
-        )
+        return MailProviderResult.success(MailProviderSession("session-1", account.account_id, "jmap", "A1"))
 
     def disconnect(self, session: Any) -> MailProviderResult[None]:
         return MailProviderResult.success()
@@ -82,9 +79,7 @@ class _Lifecycle:
 
 class _Capabilities:
     def capabilities(self, session: Any) -> MailProviderResult[MailProviderCapabilities]:
-        return MailProviderResult.success(
-            MailProviderCapabilities("jmap", features=frozenset({"mail"}))
-        )
+        return MailProviderResult.success(MailProviderCapabilities("jmap", features=frozenset({"mail"})))
 
 
 class _Reader:
@@ -101,9 +96,7 @@ class _Reader:
         )
 
     def get_messages(self, session: Any, ids: Any, properties: Any = ()) -> Any:
-        return MailProviderResult.success(
-            (MailMessage(_message_ref(), MailMessageMetadata(subject="Hello")),)
-        )
+        return MailProviderResult.success((MailMessage(_message_ref(), MailMessageMetadata(subject="Hello")),))
 
 
 class _Sync:
@@ -137,9 +130,7 @@ class _Body:
 class _Mutator:
     def set_keywords(self, session: Any, changes: Any, *, if_in_state: Any = None) -> Any:
         return MailProviderResult.success(
-            MailMutationReport(
-                (MailMutationItem(_message_ref().mail_ref_id, True, "ok"),)
-            )
+            MailMutationReport((MailMutationItem(_message_ref().mail_ref_id, True, "ok"),))
         )
 
 
@@ -230,9 +221,7 @@ class _Intents:
                 allowed=True,
                 reason_code="ok",
                 policy_decision_ref="policy-1",
-                expires_at=(
-                    datetime.now(UTC) + timedelta(minutes=1)
-                ).isoformat(),
+                expires_at=(datetime.now(UTC) + timedelta(minutes=1)).isoformat(),
                 nonce="nonce-1",
             )
         )
@@ -252,11 +241,7 @@ def _task(operation: str) -> dict[str, Any]:
                     "workspace_scope": {"workspace_id": "repo", "tenant_id": ""},
                     "idempotency_key": f"mail-{operation}-1234",
                     "request_fingerprint": "fingerprint",
-                    "operation_refs": (
-                        {"intent_ref": "mail-intent:one"}
-                        if operation in {"body", "mutation"}
-                        else {}
-                    ),
+                    "operation_refs": ({"intent_ref": "mail-intent:one"} if operation in {"body", "mutation"} else {}),
                     "policy_refs": {},
                     "deadline_at": time.time() + 60,
                     "max_attempts": 1,

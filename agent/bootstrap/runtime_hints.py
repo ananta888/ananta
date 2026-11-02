@@ -26,4 +26,3 @@ def log_runtime_hints() -> None:
                         logging.warning(msg, overcommit)
         except Exception as e:
             logging.debug(f"Could not read vm.overcommit_memory: {e}")
-

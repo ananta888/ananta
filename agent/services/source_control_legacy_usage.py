@@ -21,10 +21,7 @@ class BoundedLegacySourceControlUsage:
         if not normalized:
             return
         with self._lock:
-            if (
-                normalized not in self._counts
-                and len(self._counts) >= self._max_labels
-            ):
+            if normalized not in self._counts and len(self._counts) >= self._max_labels:
                 normalized = "other"
             self._counts[normalized] = min(
                 self._counts.get(normalized, 0) + 1,

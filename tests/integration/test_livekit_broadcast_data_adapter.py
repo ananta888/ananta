@@ -56,9 +56,7 @@ def _command(destination_count: int = 15) -> EncryptedSfuDataCommandV1:
 
 def test_batches_exact_authorized_destination_set_without_empty_fallback() -> None:
     client = Client()
-    adapter = LivekitBroadcastDataAdapter(
-        client=client, capability=Capability(True), now_ms=lambda: 1_000
-    )
+    adapter = LivekitBroadcastDataAdapter(client=client, capability=Capability(True), now_ms=lambda: 1_000)
 
     result = adapter.send(_command())
 
@@ -72,22 +70,16 @@ def test_batches_exact_authorized_destination_set_without_empty_fallback() -> No
 
 def test_capability_and_expiry_fail_closed_without_runtime_call() -> None:
     client = Client()
-    unsupported = LivekitBroadcastDataAdapter(
-        client=client, capability=Capability(False), now_ms=lambda: 1_000
-    )
+    unsupported = LivekitBroadcastDataAdapter(client=client, capability=Capability(False), now_ms=lambda: 1_000)
     assert unsupported.send(_command()).reason_code is SfuDataReasonCodeV1.CAPABILITY_UNSUPPORTED
-    expired = LivekitBroadcastDataAdapter(
-        client=client, capability=Capability(True), now_ms=lambda: 2_000
-    )
+    expired = LivekitBroadcastDataAdapter(client=client, capability=Capability(True), now_ms=lambda: 2_000)
     assert expired.send(_command()).reason_code is SfuDataReasonCodeV1.EXPIRED
     assert client.calls == []
 
 
 def test_receipt_is_idempotent_and_conflicting_reuse_is_rejected() -> None:
     client = Client()
-    adapter = LivekitBroadcastDataAdapter(
-        client=client, capability=Capability(True), now_ms=lambda: 1_000
-    )
+    adapter = LivekitBroadcastDataAdapter(client=client, capability=Capability(True), now_ms=lambda: 1_000)
     command = _command(1)
     first = adapter.send(command)
     duplicate = adapter.send(command)

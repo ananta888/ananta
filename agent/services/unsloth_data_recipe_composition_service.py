@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -40,56 +40,34 @@ class RepositoryDatasetSnapshotAdapter:
         report = dict(getattr(dataset, "validation_report", None) or {})
         metadata = dict(getattr(dataset, "dataset_metadata", None) or {})
         partition_hashes = dict(metadata.get("partition_hashes") or {})
-        raw_storage_ref = str(
-            getattr(dataset, "train_storage_ref", "") or ""
-        ).strip()
+        raw_storage_ref = str(getattr(dataset, "train_storage_ref", "") or "").strip()
         if not raw_storage_ref:
             return None
         try:
             storage_ref = Path(raw_storage_ref).resolve(strict=True)
-            dataset_ref = storage_ref.relative_to(
-                self._dataset_root
-            ).as_posix()
+            dataset_ref = storage_ref.relative_to(self._dataset_root).as_posix()
         except (OSError, ValueError):
             return None
-        if (
-            not storage_ref.is_file()
-            or storage_ref.is_symlink()
-            or dataset_ref in {"", "."}
-        ):
+        if not storage_ref.is_file() or storage_ref.is_symlink() or dataset_ref in {"", "."}:
             return None
         validation_ok = report.get("ok") is True
         license_state = str(metadata.get("license_status") or "pending").strip().lower()
-        pii_count = int(
-            report.get("pii_finding_count")
-            or len(report.get("pii_findings") or ())
-            or 0
-        )
-        secret_count = int(
-            getattr(dataset, "secret_finding_count", 0)
-            or report.get("secret_finding_count")
-            or 0
-        )
+        pii_count = int(report.get("pii_finding_count") or len(report.get("pii_findings") or ()) or 0)
+        secret_count = int(getattr(dataset, "secret_finding_count", 0) or report.get("secret_finding_count") or 0)
         approved = (
-            str(getattr(dataset, "status", "") or "") == "validated"
-            and validation_ok
-            and license_state == "approved"
+            str(getattr(dataset, "status", "") or "") == "validated" and validation_ok and license_state == "approved"
         )
         return DatasetSnapshot(
             dataset_id=str(dataset.id),
             tenant_id=str(dataset.tenant_id),
             dataset_hash=str(dataset.content_sha256),
             dataset_ref=dataset_ref,
-            dataset_partition_sha256=str(
-                partition_hashes.get("train") or ""
-            ),
+            dataset_partition_sha256=str(partition_hashes.get("train") or ""),
             state="approved" if approved else str(dataset.status),
             secret_scan_state="passed" if validation_ok and secret_count == 0 else "failed",
             pii_state="clear" if validation_ok and pii_count == 0 else "review_required",
             license_state=license_state,
-            row_count=int(
-                getattr(dataset, "train_record_count", 0) or 0
-            ),
+            row_count=int(getattr(dataset, "train_record_count", 0) or 0),
         )
 
 

@@ -1,4 +1,5 @@
 """HDE-023: custom tool proposal -> validation -> approval -> active -> execute."""
+
 from __future__ import annotations
 
 from sqlmodel import SQLModel, create_engine
@@ -28,8 +29,19 @@ def _script_payload():
         "timeout_seconds": 10,
         "output_max_chars": 2000,
         "tests": [
-            {"name": "prints", "kind": "positive", "arguments": {}, "expect_status": "ok", "expect_output_contains": ["hello-e2e"]},
-            {"name": "rejects unknown arg", "kind": "negative", "arguments": {"extra": "x"}, "expect_status": "rejected"},
+            {
+                "name": "prints",
+                "kind": "positive",
+                "arguments": {},
+                "expect_status": "ok",
+                "expect_output_contains": ["hello-e2e"],
+            },
+            {
+                "name": "rejects unknown arg",
+                "kind": "negative",
+                "arguments": {"extra": "x"},
+                "expect_status": "rejected",
+            },
         ],
     }
 
@@ -88,4 +100,3 @@ def test_dynamic_script_tool_promotes_and_executes_with_digest(tmp_path, monkeyp
     )
     assert tampered["status"] == "rejected"
     assert tampered["error"] == "script_body_digest_mismatch"
-

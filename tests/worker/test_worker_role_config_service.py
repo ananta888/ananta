@@ -44,11 +44,9 @@ def test_normalize_and_validate_raises_on_error():
 
 
 def test_domain_ttl_overrides():
-    cfg = SVC.normalize({
-        "domain_overrides": {
-            "snake_tui": {"ttl_min_seconds": 2, "ttl_max_seconds": 10, "ttl_default_seconds": 5}
-        }
-    })
+    cfg = SVC.normalize(
+        {"domain_overrides": {"snake_tui": {"ttl_min_seconds": 2, "ttl_max_seconds": 10, "ttl_default_seconds": 5}}}
+    )
     ttl = cfg.ttl_for("snake_tui")
     assert ttl.ttl_min_seconds == 2.0
     assert ttl.ttl_max_seconds == 10.0
@@ -64,17 +62,17 @@ def test_ttl_default_for_unknown_domain():
 
 
 def test_ttl_validation_min_less_than_1():
-    cfg = SVC.normalize({
-        "domain_overrides": {"snake_tui": {"ttl_min_seconds": 0.5, "ttl_max_seconds": 10, "ttl_default_seconds": 2}}
-    })
+    cfg = SVC.normalize(
+        {"domain_overrides": {"snake_tui": {"ttl_min_seconds": 0.5, "ttl_max_seconds": 10, "ttl_default_seconds": 2}}}
+    )
     errors = SVC.validate(cfg)
     assert any("ttl_out_of_range" in e for e in errors)
 
 
 def test_ttl_validation_default_less_than_min():
-    cfg = SVC.normalize({
-        "domain_overrides": {"snake_tui": {"ttl_min_seconds": 5, "ttl_max_seconds": 30, "ttl_default_seconds": 3}}
-    })
+    cfg = SVC.normalize(
+        {"domain_overrides": {"snake_tui": {"ttl_min_seconds": 5, "ttl_max_seconds": 30, "ttl_default_seconds": 3}}}
+    )
     errors = SVC.validate(cfg)
     assert any("default<min" in e for e in errors)
 

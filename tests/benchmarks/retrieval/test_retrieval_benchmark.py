@@ -18,7 +18,9 @@ def test_retrieval_benchmark_outputs_machine_readable_metrics() -> None:
             "name": "greenfield_bootstrap",
             "query": "create project scaffold",
             "expected": {"scaffold.py"},
-            "channels": {"dense": [{"path": "scaffold.py", "content_hash": "1", "score": 0.9, "text": "create scaffold"}]},
+            "channels": {
+                "dense": [{"path": "scaffold.py", "content_hash": "1", "score": 0.9, "text": "create scaffold"}]
+            },
         },
         {
             "name": "refactor",
@@ -30,7 +32,9 @@ def test_retrieval_benchmark_outputs_machine_readable_metrics() -> None:
             "name": "bugfix",
             "query": "fix failing test",
             "expected": {"tests/test_app.py"},
-            "channels": {"dense": [{"path": "tests/test_app.py", "content_hash": "3", "score": 0.7, "text": "failing test"}]},
+            "channels": {
+                "dense": [{"path": "tests/test_app.py", "content_hash": "3", "score": 0.7, "text": "failing test"}]
+            },
         },
     ]
     scores: list[float] = []
@@ -53,4 +57,3 @@ def test_retrieval_benchmark_outputs_machine_readable_metrics() -> None:
     assert output["schema"] == "retrieval_benchmark_result.v1"
     assert output["scenario_count"] == 3
     assert output["recall_at_3"] >= 0.0
-

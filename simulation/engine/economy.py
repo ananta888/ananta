@@ -1,7 +1,8 @@
 """Economy/Resource system (SIM-012)."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from simulation.models.world_state import SimEvent, WorldState
@@ -29,16 +30,26 @@ class MarketSystem:
     def __init__(self) -> None:
         self._offers: dict[str, TradeOffer] = {}
 
-    def post_offer(self, state: WorldState, seller_id: str,
-                    give_resource: str, give_amount: float,
-                    want_resource: str, want_amount: float,
-                    offer_id: str | None = None) -> TradeOffer:
+    def post_offer(
+        self,
+        state: WorldState,
+        seller_id: str,
+        give_resource: str,
+        give_amount: float,
+        want_resource: str,
+        want_amount: float,
+        offer_id: str | None = None,
+    ) -> TradeOffer:
         import uuid
+
         oid = offer_id or f"offer-{uuid.uuid4().hex[:8]}"
         offer = TradeOffer(
-            offer_id=oid, seller_id=seller_id,
-            give_resource=give_resource, give_amount=give_amount,
-            want_resource=want_resource, want_amount=want_amount,
+            offer_id=oid,
+            seller_id=seller_id,
+            give_resource=give_resource,
+            give_amount=give_amount,
+            want_resource=want_resource,
+            want_amount=want_amount,
             tick_created=state.tick,
         )
         self._offers[oid] = offer
@@ -72,9 +83,10 @@ class MarketSystem:
         state.relationships.update(offer.seller_id, buyer_id, trust=0.05)
 
         ev = SimEvent(
-            tick=state.tick, kind="action_executed", actor_id=buyer_id,
-            description=f"trade: {buyer_id} bought {offer.give_amount}x{offer.give_resource}"
-                        f" from {offer.seller_id}",
+            tick=state.tick,
+            kind="action_executed",
+            actor_id=buyer_id,
+            description=f"trade: {buyer_id} bought {offer.give_amount}x{offer.give_resource} from {offer.seller_id}",
             data={"kind": "trade", "offer": offer.as_dict()},
         )
         state.apply_event(ev)

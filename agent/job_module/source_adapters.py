@@ -1,4 +1,5 @@
 """Job Discovery Source Adapters — v1 stubs, no real scraping."""
+
 from __future__ import annotations
 
 from agent.caseflow.discovery import DiscoveryResult, SearchProfile

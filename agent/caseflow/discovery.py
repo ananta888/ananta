@@ -1,11 +1,15 @@
 """CaseFlow Discovery — generic discovery adapter protocol and models."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from agent.caseflow.models import CaseFlowCase
 
 
 @runtime_checkable

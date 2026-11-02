@@ -54,11 +54,18 @@ class DialogExecutor:
                     environment = os.environ
                 child_options["env"] = environment | {
                     "ANANTA_MEET_TASK_SCRATCH_DIR": scratch.environment["TMPDIR"],
-                    "TMPDIR": scratch.environment["TMPDIR"]}
+                    "TMPDIR": scratch.environment["TMPDIR"],
+                }
                 process = subprocess.Popen(
-                    [sys.executable, "-m", (
-                        "worker.meet_media.companion_task_runtime" if assignment.get("companion_execution") is True
-                        else "worker.meet_media.dialog_runtime")],
+                    [
+                        sys.executable,
+                        "-m",
+                        (
+                            "worker.meet_media.companion_task_runtime"
+                            if assignment.get("companion_execution") is True
+                            else "worker.meet_media.dialog_runtime"
+                        ),
+                    ],
                     stdin=source,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,

@@ -33,9 +33,7 @@ class ContractMaterializationReason(str, Enum):
     INTEGER_RANGE_EXCEEDED = "contract_integer_range_exceeded"
     NONFINITE_NUMBER = "contract_nonfinite_number"
     SCHEMA_VERSION_UNSUPPORTED = "contract_schema_version_unsupported"
-    MATERIALIZATION_VERSION_UNSUPPORTED = (
-        "contract_materialization_version_unsupported"
-    )
+    MATERIALIZATION_VERSION_UNSUPPORTED = "contract_materialization_version_unsupported"
 
 
 class ContractMaterializationError(ValueError):
@@ -60,14 +58,17 @@ class ContractMaterializationLimits:
     maximum_total_string_bytes: int = 131_072
 
     def __post_init__(self) -> None:
-        if min(
-            self.maximum_payload_bytes,
-            self.maximum_depth,
-            self.maximum_nodes,
-            self.maximum_collection_entries,
-            self.maximum_string_bytes,
-            self.maximum_total_string_bytes,
-        ) < 1:
+        if (
+            min(
+                self.maximum_payload_bytes,
+                self.maximum_depth,
+                self.maximum_nodes,
+                self.maximum_collection_entries,
+                self.maximum_string_bytes,
+                self.maximum_total_string_bytes,
+            )
+            < 1
+        ):
             raise ValueError("all contract materialization limits must be positive")
 
 
@@ -149,10 +150,7 @@ class SfuBroadcastContractMaterializer:
                 ContractMaterializationReason.SCHEMA_VERSION_UNSUPPORTED,
                 "the reader does not support this contract schema version",
             )
-        if (
-            descriptor.materialization_version
-            not in compatibility.materialization_versions
-        ):
+        if descriptor.materialization_version not in compatibility.materialization_versions:
             raise ContractMaterializationError(
                 ContractMaterializationReason.MATERIALIZATION_VERSION_UNSUPPORTED,
                 "the reader does not support this materialization version",
@@ -357,9 +355,7 @@ class SfuBroadcastContractMaterializer:
 
     @classmethod
     def _freeze_mapping(cls, document: Mapping[str, Any]) -> Mapping[str, Any]:
-        return MappingProxyType(
-            {str(key): cls._freeze(value) for key, value in document.items()}
-        )
+        return MappingProxyType({str(key): cls._freeze(value) for key, value in document.items()})
 
     @classmethod
     def _freeze(cls, value: Any) -> Any:

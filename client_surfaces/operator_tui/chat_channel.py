@@ -3,12 +3,12 @@
 Contains: make_channel, default_channels, get_channel, get_active_channel,
           switch_channel, add_direct_channel.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from client_surfaces.operator_tui.chat_models import ChannelType, Visibility
-
 
 # ── Persistence policy ────────────────────────────────────────────────────────
 

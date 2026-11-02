@@ -2,6 +2,7 @@
 
 Covers APMCO-003 (task classification) and APMCO-004 (ranking).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,34 +19,37 @@ from agent.services.pre_model_context_config import (
     TASK_TEST,
     classify_task,
 )
-from agent.services.pre_model_context_ranking import CandidateScorer, RankingWeights, ScoredCandidate
-
+from agent.services.pre_model_context_ranking import CandidateScorer, RankingWeights
 
 # ── Task classification ───────────────────────────────────────────────────────
 
+
 class TestTaskClassification:
-    @pytest.mark.parametrize("text,expected", [
-        ("wo ist die Konfigurationsdatei?", TASK_NAVIGATION),
-        ("where is the config file?", TASK_NAVIGATION),
-        ("zeig mir die datei für die Routes", TASK_NAVIGATION),
-        ("find the file", TASK_NAVIGATION),
-        ("bugfix: crash in startup", TASK_BUGFIX),
-        ("es gibt einen Fehler beim Login", TASK_BUGFIX),
-        ("there's an exception in the auth module", TASK_BUGFIX),
-        ("security vulnerability in the payment module", TASK_SECURITY),
-        ("Sicherheitslücke im Auth-Modul", TASK_SECURITY),
-        ("SQL injection in the API", TASK_SECURITY),
-        ("implementiere die neue Funktion für Export", TASK_IMPLEMENTATION),
-        ("write a new function for data processing", TASK_IMPLEMENTATION),
-        ("schreibe einen Test für den Login-Flow", TASK_TEST),
-        ("add unittest coverage for this class", TASK_TEST),
-        ("erkläre die Architektur des Systems", TASK_ARCHITECTURE),
-        ("how does the routing work?", TASK_ARCHITECTURE),
-        ("config.yaml hat eine neue Option", TASK_CONFIG),
-        ("update the environment variable", TASK_CONFIG),
-        ("Wie geht es dir?", TASK_GENERIC_CHAT),
-        ("what is the weather today?", TASK_GENERIC_CHAT),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("wo ist die Konfigurationsdatei?", TASK_NAVIGATION),
+            ("where is the config file?", TASK_NAVIGATION),
+            ("zeig mir die datei für die Routes", TASK_NAVIGATION),
+            ("find the file", TASK_NAVIGATION),
+            ("bugfix: crash in startup", TASK_BUGFIX),
+            ("es gibt einen Fehler beim Login", TASK_BUGFIX),
+            ("there's an exception in the auth module", TASK_BUGFIX),
+            ("security vulnerability in the payment module", TASK_SECURITY),
+            ("Sicherheitslücke im Auth-Modul", TASK_SECURITY),
+            ("SQL injection in the API", TASK_SECURITY),
+            ("implementiere die neue Funktion für Export", TASK_IMPLEMENTATION),
+            ("write a new function for data processing", TASK_IMPLEMENTATION),
+            ("schreibe einen Test für den Login-Flow", TASK_TEST),
+            ("add unittest coverage for this class", TASK_TEST),
+            ("erkläre die Architektur des Systems", TASK_ARCHITECTURE),
+            ("how does the routing work?", TASK_ARCHITECTURE),
+            ("config.yaml hat eine neue Option", TASK_CONFIG),
+            ("update the environment variable", TASK_CONFIG),
+            ("Wie geht es dir?", TASK_GENERIC_CHAT),
+            ("what is the weather today?", TASK_GENERIC_CHAT),
+        ],
+    )
     def test_classify_task_german_and_english(self, text: str, expected: str):
         result = classify_task(text)
         assert result == expected, f"Expected {expected!r} for {text!r}, got {result!r}"
@@ -70,19 +74,23 @@ class TestTaskClassification:
         result = classify_task("main.py")
         assert result in (TASK_NAVIGATION, TASK_GENERIC_CHAT)
 
-    @pytest.mark.parametrize("text", [
-        "auth token validation fehler",
-        "passwort reset nicht funktionierend",
-        "CSRF Schutz fehlt",
-        "exploit möglich über XSS",
-        "vulnerability in payment service",
-    ])
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "auth token validation fehler",
+            "passwort reset nicht funktionierend",
+            "CSRF Schutz fehlt",
+            "exploit möglich über XSS",
+            "vulnerability in payment service",
+        ],
+    )
     def test_security_keywords_trigger_security_kind(self, text: str):
         result = classify_task(text)
         assert result == TASK_SECURITY
 
 
 # ── Candidate ranking ─────────────────────────────────────────────────────────
+
 
 class TestCandidateScorer:
     def _make_scorer(self, **kwargs) -> CandidateScorer:

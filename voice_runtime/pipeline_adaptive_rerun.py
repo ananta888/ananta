@@ -125,9 +125,7 @@ class AdaptiveRegionalRerunStage:
             try:
                 remaining_deadline = shared_deadline - time.monotonic()
                 if remaining_deadline <= 0:
-                    rerun_outcomes.append(
-                        {"region_id": region.region_id, "status": "timeout"}
-                    )
+                    rerun_outcomes.append({"region_id": region.region_id, "status": "timeout"})
                     break
                 sliced = decoded_audio.slice_ms(region.start_ms, region.end_ms)
                 candidate, raw_rerun = self._candidate_runner.execute(
@@ -146,25 +144,19 @@ class AdaptiveRegionalRerunStage:
                         {
                             "region_id": region.region_id,
                             "status": "failed",
-                            "reason_code": candidate.error.code
-                            if candidate.error
-                            else "backend_error",
+                            "reason_code": candidate.error.code if candidate.error else "backend_error",
                         }
                     )
                     continue
                 rerun = raw_rerun or result_from_candidate(candidate)
                 text = rerun.text.strip()
                 if not text:
-                    rerun_outcomes.append(
-                        {"region_id": region.region_id, "status": "empty"}
-                    )
+                    rerun_outcomes.append({"region_id": region.region_id, "status": "empty"})
                     continue
                 replacements[region.region_id] = (
                     regional_replacement(rerun, region.start_ms, region.end_ms, region.backend_id),
                 )
-                rerun_outcomes.append(
-                    {"region_id": region.region_id, "status": "applied"}
-                )
+                rerun_outcomes.append({"region_id": region.region_id, "status": "applied"})
             except Exception:
                 rerun_outcomes.append(
                     {

@@ -1,40 +1,12 @@
 from __future__ import annotations
 
-import json
-import os
 import re
-import sys
-import time
-from importlib import reload
-from argparse import Namespace
-from pathlib import Path
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
-from client_surfaces.operator_tui.app import build_initial_state, load_active_section
-from client_surfaces.operator_tui.actions import dispatch_action, parse_action
-from client_surfaces.operator_tui.ai_snake_config_view import (
-    ai_snake_config_items,
-    apply_ai_snake_config_value,
-    chat_model_option_label,
-    refresh_chat_backend_models,
-)
-from client_surfaces.operator_tui.browser import browser_fallback_url
-from client_surfaces.operator_tui.capabilities import graphics_decision
-from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
-from client_surfaces.operator_tui.performance import measure
-from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
-from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
-from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
-from client_surfaces.operator_tui.sections import SECTIONS, move_section, normalize_section_id
-from client_surfaces.operator_tui.smoke import run_fixture_smoke
-from client_surfaces.operator_tui.snake_persistence import load_tui_chat_settings, save_tui_chat_settings
-from client_surfaces.operator_tui.chat_state import sanitize_text
-from agent.cli.main import _run_tui
+from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.sections import SECTIONS
 
 
 def test_audit_navigation_expands_tree_under_audit() -> None:
@@ -67,7 +39,6 @@ def test_audit_navigation_expands_tree_under_audit() -> None:
     assert "Stats Snapshot" in joined
 
 
-
 def test_audit_navigation_includes_data_cleanup_group() -> None:
     from client_surfaces.operator_tui.audit_cleanup import build_audit_cleanup_entries
     from client_surfaces.operator_tui.renderer import _navigation_lines
@@ -93,11 +64,16 @@ def test_audit_navigation_includes_data_cleanup_group() -> None:
     assert "Alles loeschen" in joined
 
 
-
 def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
     payload = {
         "items": [
-            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+            {
+                "id": "audit.logs.recent",
+                "dataset_id": "audit.logs.recent",
+                "group": "Audit Logs",
+                "title": "Recent Logs",
+                "status": "ok",
+            },
         ],
         "datasets": {
             "audit.logs.recent": [{"id": "evt-1", "kind": "chat_message"}],
@@ -106,10 +82,14 @@ def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "audit":
-            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+            return SectionLoadResult(
+                section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
-    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS))
+    state = OperatorState(
+        endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS)
+    )
     tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
 
     tui._handle_enter_key()
@@ -121,7 +101,6 @@ def test_audit_navigation_item_enter_opens_read_only_viewer() -> None:
     assert bool(viewer.get("active"))
     assert "Audit Viewer" in output
     assert "chat_message" in output
-
 
 
 def test_audit_cleanup_item_opens_confirmation_view() -> None:
@@ -146,10 +125,14 @@ def test_audit_cleanup_item_opens_confirmation_view() -> None:
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "audit":
-            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+            return SectionLoadResult(
+                section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
-    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0)
+    state = OperatorState(
+        endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0
+    )
     tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
     tui._set_state(
         tui.state.with_updates(
@@ -169,7 +152,6 @@ def test_audit_cleanup_item_opens_confirmation_view() -> None:
     assert "Links/Rechts waehlt Button" in output
     assert "[ Loeschen ]" in output
     assert "[ Abbrechen ]" in output
-
 
 
 def test_audit_cleanup_confirmation_enter_executes_action(monkeypatch) -> None:
@@ -201,7 +183,6 @@ def test_audit_cleanup_confirmation_enter_executes_action(monkeypatch) -> None:
     assert viewer.get("mode") == "cleanup_result"
     assert "cleanup ausgefuehrt: audit_only" in tui.state.status_message
     assert "audit_db_rows=5" in tui.state.status_message
-
 
 
 def test_audit_cleanup_confirmation_enter_on_cancel_aborts(monkeypatch) -> None:
@@ -237,7 +218,6 @@ def test_audit_cleanup_confirmation_enter_on_cancel_aborts(monkeypatch) -> None:
     assert tui.state.status_message == "cleanup abgebrochen"
 
 
-
 def test_audit_cleanup_confirmation_left_right_switches_button_choice() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -263,7 +243,6 @@ def test_audit_cleanup_confirmation_left_right_switches_button_choice() -> None:
     assert viewer.get("confirm_choice") == "cancel"
 
 
-
 def test_audit_cleanup_confirm_result_enter_closes_viewer() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -287,7 +266,6 @@ def test_audit_cleanup_confirm_result_enter_closes_viewer() -> None:
     assert tui.state.status_message == "cleanup viewer geschlossen"
 
 
-
 def test_audit_cleanup_result_is_visible_in_middle_panel() -> None:
     state = OperatorState(
         endpoint="http://localhost:5000",
@@ -309,7 +287,6 @@ def test_audit_cleanup_result_is_visible_in_middle_panel() -> None:
 
     assert "Audit Cleanup Ergebnis" in output
     assert "cleanup ausgefuehrt: audit_only" in output
-
 
 
 def test_audit_cleanup_mouse_click_delete_executes(monkeypatch) -> None:
@@ -349,7 +326,6 @@ def test_audit_cleanup_mouse_click_delete_executes(monkeypatch) -> None:
     assert handled is True
     assert called == ["audit_only"]
     assert viewer.get("mode") == "cleanup_result"
-
 
 
 def test_audit_cleanup_mouse_click_cancel_aborts(monkeypatch) -> None:
@@ -392,23 +368,34 @@ def test_audit_cleanup_mouse_click_cancel_aborts(monkeypatch) -> None:
     assert tui.state.status_message == "cleanup abgebrochen"
 
 
-
 def test_audit_viewer_resets_when_leaving_audit_section() -> None:
     audit_payload = {
         "items": [
-            {"id": "audit.logs.recent", "dataset_id": "audit.logs.recent", "group": "Audit Logs", "title": "Recent Logs", "status": "ok"},
+            {
+                "id": "audit.logs.recent",
+                "dataset_id": "audit.logs.recent",
+                "group": "Audit Logs",
+                "title": "Recent Logs",
+                "status": "ok",
+            },
         ],
         "datasets": {"audit.logs.recent": [{"id": "evt-1"}]},
     }
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "audit":
-            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=audit_payload, message="loaded audit")
+            return SectionLoadResult(
+                section_id="audit", state=PanelState.HEALTHY, payload=audit_payload, message="loaded audit"
+            )
         if section_id == "goals":
-            return SectionLoadResult(section_id="goals", state=PanelState.EMPTY, payload={"items": []}, message="empty goals")
+            return SectionLoadResult(
+                section_id="goals", state=PanelState.EMPTY, payload={"items": []}, message="empty goals"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
-    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0)
+    state = OperatorState(
+        endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.CONTENT, selected_index=0
+    )
     tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
 
     tui._handle_enter_key()
@@ -422,7 +409,6 @@ def test_audit_viewer_resets_when_leaving_audit_section() -> None:
     output = render_operator_shell(tui.state, width=110, height=36)
     assert tui.state.section_id == "audit"
     assert "Audit Viewer" not in output
-
 
 
 def test_audit_chat_prompt_item_shows_final_prompt_in_viewer() -> None:
@@ -447,10 +433,14 @@ def test_audit_chat_prompt_item_shows_final_prompt_in_viewer() -> None:
 
     def _loader(section_id: str) -> SectionLoadResult:
         if section_id == "audit":
-            return SectionLoadResult(section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit")
+            return SectionLoadResult(
+                section_id="audit", state=PanelState.HEALTHY, payload=payload, message="loaded audit"
+            )
         return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
 
-    state = OperatorState(endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS))
+    state = OperatorState(
+        endpoint="http://localhost:5000", section_id="audit", focus=FocusPane.NAVIGATION, selected_index=len(SECTIONS)
+    )
     tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
 
     tui._handle_enter_key()
@@ -459,5 +449,3 @@ def test_audit_chat_prompt_item_shows_final_prompt_in_viewer() -> None:
     assert "Audit Viewer" in output
     assert "SYSTEM: context for ananta" in output
     assert "USER: hi" in output
-
-

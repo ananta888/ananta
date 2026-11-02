@@ -18,16 +18,9 @@ from scripts.performance.kanban_baseline_approval_policy import (
 
 HEAD_SHA = "a" * 40
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
-CANDIDATE_RELATIVE = Path(
-    "artifacts/test-gates/"
-    "kanban-model-dashboard-performance-baseline-candidate.v1.json"
-)
-PROFILE_RELATIVE = Path(
-    "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json"
-)
-POLICY_RELATIVE = Path(
-    "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json"
-)
+CANDIDATE_RELATIVE = Path("artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json")
+PROFILE_RELATIVE = Path("config/test-profiles/kanban-model-dashboard/formal-performance.v1.json")
+POLICY_RELATIVE = Path("config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json")
 
 
 def _write(path: Path, value: object) -> bytes:

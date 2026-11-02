@@ -7,6 +7,7 @@ For each of the 8 codecompass tools, asserts:
 - Appears in describe_for_prompt()
 - Prompt description and native schema produced from same registry
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,22 +16,51 @@ from agent.services.ananta_tool_registry_service import AnantaToolRegistryServic
 
 _CODECOMPASS_SPECS: dict[str, set[str]] = {
     "codecompass.plan_context": {
-        "query", "intent", "detail_level", "registry_version", "node_kind",
-        "field_path", "backend_contract", "symbols", "graph_neighbors",
-        "max_ranges", "include_neighbors", "task_kind",
+        "query",
+        "intent",
+        "detail_level",
+        "registry_version",
+        "node_kind",
+        "field_path",
+        "backend_contract",
+        "symbols",
+        "graph_neighbors",
+        "max_ranges",
+        "include_neighbors",
+        "task_kind",
     },
     "codecompass.resolve_context": {
-        "query", "task_kind", "mode", "working_files", "domain_hint",
-        "domain_scope", "max_tokens", "max_files", "include_original_files",
-        "include_jsonl_records", "include_graph", "llm_scope",
+        "query",
+        "task_kind",
+        "mode",
+        "working_files",
+        "domain_hint",
+        "domain_scope",
+        "max_tokens",
+        "max_files",
+        "include_original_files",
+        "include_jsonl_records",
+        "include_graph",
+        "llm_scope",
     },
     "codecompass.search": {
-        "query", "limit", "mode", "requested_signals", "task_kind",
-        "revision", "allowed_paths", "max_chars",
+        "query",
+        "limit",
+        "mode",
+        "requested_signals",
+        "task_kind",
+        "revision",
+        "allowed_paths",
+        "max_chars",
     },
     "codecompass.retrieve": {
-        "query", "mode", "requested_signals", "task_kind", "scope",
-        "budget", "continuation_handle",
+        "query",
+        "mode",
+        "requested_signals",
+        "task_kind",
+        "scope",
+        "budget",
+        "continuation_handle",
     },
     "codecompass.architecture_overview": {"query", "profile", "revision"},
     "codecompass.architecture_expand": {"handle", "node", "query", "revision"},
@@ -43,8 +73,12 @@ _CODECOMPASS_SPECS: dict[str, set[str]] = {
     "codecompass.search_symbols": {"query", "record_kinds", "path_globs", "domain_hint", "limit"},
     "codecompass.expand_graph": {"node", "seeds", "depth", "max_depth", "limit", "max_nodes", "profile"},
     "codecompass.get_file_context": {
-        "paths", "line_ranges", "max_bytes_per_file", "max_total_bytes",
-        "redaction_mode", "reason",
+        "paths",
+        "line_ranges",
+        "max_bytes_per_file",
+        "max_total_bytes",
+        "redaction_mode",
+        "reason",
     },
     "codecompass.get_domain_map": {"domain_hint", "include_files", "include_edges", "max_entries"},
     "codecompass.architecture_query": {"question", "seed", "field", "direction", "depth"},
@@ -92,9 +126,7 @@ class TestCodecompassToolSchemas:
         assert entry is not None
         actual = set(entry["function"]["parameters"]["properties"].keys())
         expected = _CODECOMPASS_SPECS[tool_name]
-        assert actual == expected, (
-            f"{tool_name} property mismatch\n  expected: {expected}\n  actual:   {actual}"
-        )
+        assert actual == expected, f"{tool_name} property mismatch\n  expected: {expected}\n  actual:   {actual}"
 
     def test_appears_in_prompt_description(self, tool_name, prompt_text):
         # The prompt format is: - `tool_name` (risk): description

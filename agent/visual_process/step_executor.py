@@ -8,6 +8,7 @@ Three execution modes:
 Dry-run: execution_plan() returns one StepExecutionPlan per step showing
   executable, execution_mode, execution_reason, and all runtime-truth fields.
 """
+
 from __future__ import annotations
 
 import time
@@ -21,7 +22,7 @@ from agent.visual_process.task_kind_registry import get_task_kind_info, is_dispa
 
 @dataclass
 class StepExecutionResult:
-    status: str                           # "success"|"failed"|"not_wired"|"skipped"
+    status: str  # "success"|"failed"|"not_wired"|"skipped"
     outputs: dict[str, Any] = field(default_factory=dict)
     diagnostics: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -49,7 +50,7 @@ class StepExecutionPlan:
     step_label: str
     kind: str
     executable: bool
-    execution_mode: str                   # "worker_dispatch"|"vp_adapter"|"not_executable"
+    execution_mode: str  # "worker_dispatch"|"vp_adapter"|"not_executable"
     execution_reason: str
     implementation_state: str
     implementation_status: str
@@ -131,23 +132,25 @@ class StepExecutor:
                     f"not_executable: implementation_state='{impl_state}' — "
                     "no VP adapter registered. Use as design-only or build an adapter."
                 )
-            plans.append(StepExecutionPlan(
-                step_id=step.id,
-                step_label=step.label,
-                kind=step.kind,
-                executable=executable,
-                execution_mode=mode,
-                execution_reason=reason,
-                implementation_state=impl_state,
-                implementation_status=impl_status,
-                backend_service=backend,
-                uses_llm=bool(info.get("uses_llm", False)),
-                uses_network=bool(info.get("uses_network", False)),
-                deterministic=bool(info.get("deterministic", False)),
-                side_effects=list(info.get("side_effects", [])),
-                risk_level=info.get("risk_level", "unknown"),
-                requires_approval=bool(info.get("requires_approval", False)),
-            ))
+            plans.append(
+                StepExecutionPlan(
+                    step_id=step.id,
+                    step_label=step.label,
+                    kind=step.kind,
+                    executable=executable,
+                    execution_mode=mode,
+                    execution_reason=reason,
+                    implementation_state=impl_state,
+                    implementation_status=impl_status,
+                    backend_service=backend,
+                    uses_llm=bool(info.get("uses_llm", False)),
+                    uses_network=bool(info.get("uses_network", False)),
+                    deterministic=bool(info.get("deterministic", False)),
+                    side_effects=list(info.get("side_effects", [])),
+                    risk_level=info.get("risk_level", "unknown"),
+                    requires_approval=bool(info.get("requires_approval", False)),
+                )
+            )
         return plans
 
     def execute(
@@ -208,6 +211,7 @@ def _register_builtin_adapters(executor: StepExecutor) -> None:
         WorkspaceDiffAdapter,
         WorkspaceSnapshotAdapter,
     )
+
     for cls in [
         QueryRewriteAdapter,
         RerankAdapter,

@@ -6,6 +6,7 @@ Contains: data constants and TutorialAiEngineMixin with AI/LLM methods. The
           _load_rag_context_from_dir, _name_lookup_from_details) live in
           ``tutorial_ai_retrieval`` and are re-exported here.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,7 +22,7 @@ from urllib.parse import urlparse
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 
 if TYPE_CHECKING:
-    from concurrent.futures import Future, ThreadPoolExecutor
+    pass
 
 from client_surfaces.operator_tui.tutorial_ai_retrieval import (  # noqa: F401 - re-exported
     _cosine_similarity,
@@ -68,7 +69,8 @@ class TutorialAiEngineMixin:
         include_external_context = (
             bool(cfg_override)
             if isinstance(cfg_override, bool)
-            else str(os.environ.get("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "0")).strip().lower() in {"1", "true", "yes", "on"}
+            else str(os.environ.get("ANANTA_TUI_VISUAL_AI_USE_CODECOMPASS", "0")).strip().lower()
+            in {"1", "true", "yes", "on"}
         )
         hints = self._load_codecompass_hints(now=now) if include_external_context else []
         rag_context = self._load_rag_helper_context(now=now) if include_external_context else []
@@ -156,7 +158,9 @@ class TutorialAiEngineMixin:
             contact_zone=contact_zone or "(none)",
         )
         effective_status = f"{status}\n{overlay}\n{artifact_overlay}"
-        worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=effective_status, hints=hints, rag_context=rag_context)
+        worker_tip = self._tutorial_ai_worker_propose_message(
+            now=now, status=effective_status, hints=hints, rag_context=rag_context
+        )
         if worker_tip:
             self._append_artifact_chat_ai_message(game=game, now=now, text=worker_tip)
             self.state = self.state.with_updates(header_logo_game=game)
@@ -240,9 +244,11 @@ class TutorialAiEngineMixin:
             "user_feed": str(user_feed or ""),
             "contact_zone": str(contact_zone or ""),
         }
+
         class _SafeTemplateDict(dict[str, str]):
             def __missing__(self, key: str) -> str:
                 return "{" + key + "}"
+
         try:
             rendered = str(template).format_map(_SafeTemplateDict(values))
         except Exception:
@@ -333,7 +339,9 @@ class TutorialAiEngineMixin:
         match = re.search(r"\[target=(header|nav|content|detail|follow)\]", single_line, flags=re.IGNORECASE)
         if match:
             target_hint = match.group(1).lower()
-            single_line = re.sub(r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE)
+            single_line = re.sub(
+                r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE
+            )
         self._tutorial_worker_target_hint = target_hint
         self._tutorial_last_source = "worker-propose"
         self._tutorial_last_target = target_hint or "follow"
@@ -434,7 +442,12 @@ class TutorialAiEngineMixin:
             "temperature": 0.15,
             "max_tokens": 72,
         }
-        training_enabled = str(os.environ.get("ANANTA_TUI_SNAKE_AI_TRAINING", "0")).strip().lower() in {"1", "true", "yes", "on"}
+        training_enabled = str(os.environ.get("ANANTA_TUI_SNAKE_AI_TRAINING", "0")).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         if not training_enabled:
             self._tutorial_llm_profile_key = profile_key
             self._tutorial_llm_profile_cache = dict(default_profile)
@@ -546,7 +559,9 @@ class TutorialAiEngineMixin:
         match = re.search(r"\[target=(header|nav|content|detail|follow)\]", single_line, flags=re.IGNORECASE)
         if match:
             target_hint = match.group(1).lower()
-            single_line = re.sub(r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE)
+            single_line = re.sub(
+                r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE
+            )
         elif single_line.startswith("{") and single_line.endswith("}"):
             try:
                 payload = json.loads(single_line)
@@ -566,11 +581,9 @@ class TutorialAiEngineMixin:
 
     def _get_llm_api_config(self) -> tuple[str, str, str]:
         game = self.state.header_logo_game if isinstance(getattr(self.state, "header_logo_game", None), dict) else {}
-        backend_hint = str(
-            os.environ.get("ANANTA_TUI_SNAKE_AI_BACKEND")
-            or game.get("chat_backend")
-            or ""
-        ).strip().lower()
+        backend_hint = (
+            str(os.environ.get("ANANTA_TUI_SNAKE_AI_BACKEND") or game.get("chat_backend") or "").strip().lower()
+        )
         # A direct OpenAI-compatible endpoint only when one is configured; without it the TUI's AI goes
         # through the Hub (see _tutorial_worker_backend) instead of a guessed LAN address.
         api_base = str(
@@ -596,9 +609,7 @@ class TutorialAiEngineMixin:
                 or "google/gemma-4-e4b"
             ).strip()
         api_token = str(
-            os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
-            or os.environ.get("OPENAI_API_KEY")
-            or ""
+            os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN") or os.environ.get("OPENAI_API_KEY") or ""
         ).strip()
         return api_base, model, api_token
 
@@ -606,7 +617,12 @@ class TutorialAiEngineMixin:
         checked_at = time.time()
         api_base, model, api_token = self._get_llm_api_config()
         if not api_base:
-            return {"reachable": False, "model": model, "last_check_at": checked_at, "error": "ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt"}
+            return {
+                "reachable": False,
+                "model": model,
+                "last_check_at": checked_at,
+                "error": "ANANTA_TUI_SNAKE_AI_API_BASE_URL nicht gesetzt",
+            }
         try:
             url = f"{api_base.rstrip('/')}/models"
             headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -644,6 +660,4 @@ class TutorialAiEngineMixin:
             future = None
         if future is None and (now - last_at) >= interval:
             game["llm_health_last_at"] = now
-            self._llm_health_future = self._get_snake_bg_executor().submit(
-                self._llm_health_check_sync
-            )
+            self._llm_health_future = self._get_snake_bg_executor().submit(self._llm_health_check_sync)

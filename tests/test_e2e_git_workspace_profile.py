@@ -10,7 +10,9 @@ def test_git_workspace_optional_disabled(tmp_path):
     app.config["AGENT_CONFIG"] = {"worker_runtime": {"workspace_root": str(tmp_path)}}
     svc = WorkerWorkspaceService()
     with app.app_context():
-        ctx = svc.resolve_workspace_context(task={"id": "t1", "goal_id": "g1", "effective_config": {"git_workspace": {"enabled": False}}})
+        ctx = svc.resolve_workspace_context(
+            task={"id": "t1", "goal_id": "g1", "effective_config": {"git_workspace": {"enabled": False}}}
+        )
     assert ctx.git_context is None
 
 

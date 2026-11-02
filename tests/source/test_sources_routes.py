@@ -18,6 +18,7 @@ class _Response:
 
 def test_sources_routes_list_get_citation_and_snapshots(client, admin_auth_header, monkeypatch, tmp_path) -> None:
     from agent.config import settings
+
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     sync = client.post("/sources/actions/sync-builtins", headers=admin_auth_header, json={})
     assert sync.status_code == 200
@@ -52,8 +53,12 @@ def test_sources_routes_list_get_citation_and_snapshots(client, admin_auth_heade
 
 def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path) -> None:
     from agent.config import settings
+
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: _Response("<html><body>Keycloak docs text " * 300 + "</body></html>"))
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_args, **_kwargs: _Response("<html><body>Keycloak docs text " * 300 + "</body></html>"),
+    )
     sync = client.post("/sources/actions/sync-builtins", headers=admin_auth_header, json={})
     assert sync.status_code == 200
 

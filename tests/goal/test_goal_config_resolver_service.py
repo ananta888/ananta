@@ -146,45 +146,49 @@ def test_redaction_does_not_mask_max_output_tokens():
 _RESOLVER = get_goal_config_resolver_service()
 
 
-@pytest.mark.parametrize("case", [
-    {
-        "id": "system_only",
-        "system": {"default_provider": "lmstudio", "default_model": "sys-model"},
-        "profile_id": None,
-        "goal": {},
-        "task": {},
-        "expect_cfg": {"default_provider": "lmstudio", "default_model": "sys-model"},
-        # system_default is the baseline — not recorded in field_sources
-        "expect_sources": {},
-    },
-    {
-        "id": "goal_overrides_system",
-        "system": {"default_provider": "lmstudio", "default_model": "sys-model"},
-        "profile_id": None,
-        "goal": {"default_model": "goal-model"},
-        "task": {},
-        "expect_cfg": {"default_provider": "lmstudio", "default_model": "goal-model"},
-        "expect_sources": {"default_model": "goal"},
-    },
-    {
-        "id": "task_overrides_goal",
-        "system": {"default_model": "sys-model"},
-        "profile_id": None,
-        "goal": {"default_model": "goal-model"},
-        "task": {"default_model": "task-model"},
-        "expect_cfg": {"default_model": "task-model"},
-        "expect_sources": {"default_model": "task"},
-    },
-    {
-        "id": "profile_overrides_system_but_goal_overrides_profile",
-        "system": {"default_model": "sys-model", "default_provider": "ollama"},
-        "profile_id": "ananta_ollama_local",
-        "goal": {"default_model": "goal-wins"},
-        "task": {},
-        "expect_cfg": {"default_model": "goal-wins"},
-        "expect_sources": {"default_model": "goal"},
-    },
-], ids=lambda c: c["id"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        {
+            "id": "system_only",
+            "system": {"default_provider": "lmstudio", "default_model": "sys-model"},
+            "profile_id": None,
+            "goal": {},
+            "task": {},
+            "expect_cfg": {"default_provider": "lmstudio", "default_model": "sys-model"},
+            # system_default is the baseline — not recorded in field_sources
+            "expect_sources": {},
+        },
+        {
+            "id": "goal_overrides_system",
+            "system": {"default_provider": "lmstudio", "default_model": "sys-model"},
+            "profile_id": None,
+            "goal": {"default_model": "goal-model"},
+            "task": {},
+            "expect_cfg": {"default_provider": "lmstudio", "default_model": "goal-model"},
+            "expect_sources": {"default_model": "goal"},
+        },
+        {
+            "id": "task_overrides_goal",
+            "system": {"default_model": "sys-model"},
+            "profile_id": None,
+            "goal": {"default_model": "goal-model"},
+            "task": {"default_model": "task-model"},
+            "expect_cfg": {"default_model": "task-model"},
+            "expect_sources": {"default_model": "task"},
+        },
+        {
+            "id": "profile_overrides_system_but_goal_overrides_profile",
+            "system": {"default_model": "sys-model", "default_provider": "ollama"},
+            "profile_id": "ananta_ollama_local",
+            "goal": {"default_model": "goal-wins"},
+            "task": {},
+            "expect_cfg": {"default_model": "goal-wins"},
+            "expect_sources": {"default_model": "goal"},
+        },
+    ],
+    ids=lambda c: c["id"],
+)
 def test_resolution_order_matrix(case):
     result = _RESOLVER.resolve(
         system_config=case["system"],
@@ -197,7 +201,9 @@ def test_resolution_order_matrix(case):
     for key, expected_val in case["expect_cfg"].items():
         assert cfg.get(key) == expected_val, f"[{case['id']}] cfg.{key}: got {cfg.get(key)!r}, want {expected_val!r}"
     for key, expected_src in case["expect_sources"].items():
-        assert sources.get(key) == expected_src, f"[{case['id']}] sources.{key}: got {sources.get(key)!r}, want {expected_src!r}"
+        assert sources.get(key) == expected_src, (
+            f"[{case['id']}] sources.{key}: got {sources.get(key)!r}, want {expected_src!r}"
+        )
 
 
 def test_nested_dict_merge_preserves_sibling_keys():

@@ -30,7 +30,5 @@ def _looks_binary(sample: bytes) -> bool:
         return False
     if b"\0" in sample:
         return True
-    disallowed_controls = sum(
-        byte < 32 and byte not in _TEXT_CONTROL_BYTES for byte in sample
-    )
+    disallowed_controls = sum(byte < 32 and byte not in _TEXT_CONTROL_BYTES for byte in sample)
     return disallowed_controls / len(sample) > 0.10

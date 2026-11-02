@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from client_surfaces.operator_tui.ai_snake_config_view import (
     ai_snake_config_items,
     apply_ai_snake_config_value,

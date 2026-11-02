@@ -25,13 +25,8 @@ def test_configure_cors_exposes_etag_to_allowed_frontend(monkeypatch):
         headers={"Origin": "http://localhost:4200"},
     )
 
-    assert response.headers["Access-Control-Allow-Origin"] == (
-        "http://localhost:4200"
-    )
+    assert response.headers["Access-Control-Allow-Origin"] == ("http://localhost:4200")
     exposed_headers = {
-        header.strip().lower()
-        for header in response.headers[
-            "Access-Control-Expose-Headers"
-        ].split(",")
+        header.strip().lower() for header in response.headers["Access-Control-Expose-Headers"].split(",")
     }
     assert "etag" in exposed_headers

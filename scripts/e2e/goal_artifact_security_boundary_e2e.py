@@ -1,4 +1,5 @@
 """T06.05: Negativer E2E-Flow für Security Boundary bei Goal-Artefakten."""
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,14 @@ if str(_REPO) not in sys.path:
 
 from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.config import settings
-from scripts.e2e.e2e_artifacts import build_report, compact_summary, make_flow_entry, new_run_id, write_report, write_text_artifact
+from scripts.e2e.e2e_artifacts import (
+    build_report,
+    compact_summary,
+    make_flow_entry,
+    new_run_id,
+    write_report,
+    write_text_artifact,
+)
 
 
 def run_flow(*, data_root: Path) -> dict[str, object]:
@@ -64,7 +72,9 @@ def run_flow(*, data_root: Path) -> dict[str, object]:
         },
     )
     graph = service.get_goal_graph(goal_id)
-    output = next(item for item in list(graph.get("output_artifacts") or []) if item.get("output_artifact_id") == "out-sec-1")
+    output = next(
+        item for item in list(graph.get("output_artifacts") or []) if item.get("output_artifact_id") == "out-sec-1"
+    )
     if "sources:wikipedia:snap_blocked" in json.dumps(output):
         raise RuntimeError("blocked_source_leaked_into_output")
 

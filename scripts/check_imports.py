@@ -53,23 +53,15 @@ FORBIDDEN_DIRECT = [("agent.routes", "agent.repositories")]
 EXCEPTIONS = [
     ("agent.common.audit", "agent.services.hub_event_service"),
     ("agent.common.error_handler", "agent.services.log_service"),
-    ("agent.common.sgpt", "agent.services.opencode_runtime_service"),
-    ("agent.common.sgpt", "agent.services.live_terminal_session_service"),
     ("agent.common.signals", "agent.services.scheduler_service"),
-    ("agent.services.agent_registry_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.agent_registry_service", "agent.services.orchestration_policy"),
     ("agent.services.app_runtime_service", "agent.routes.system"),
-    ("agent.services.automation_snapshot_service", "agent.routes.tasks.auto_planner"),
-    ("agent.services.autopilot_runtime_service", "agent.routes.tasks.autopilot"),
-    ("agent.services.planning_service", "agent.routes.tasks.dependency_policy"),
-    ("agent.services.task_claim_service", "agent.routes.tasks.orchestration_policy"),
-    ("agent.services.task_delegation_services", "agent.routes.tasks.orchestration_policy"),
-    ("agent.services.task_management_service", "agent.routes.tasks.dependency_policy"),
-    ("agent.services.task_management_service", "agent.routes.tasks.orchestration_policy"),
-    ("agent.services.task_orchestration_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.task_claim_service", "agent.services.orchestration_policy"),
+    ("agent.services.task_delegation_services", "agent.services.orchestration_policy"),
+    ("agent.services.task_management_service", "agent.services.orchestration_policy"),
+    ("agent.services.task_orchestration_service", "agent.services.orchestration_policy"),
     ("agent.services.task_query_service", "agent.routes.tasks.timeline_utils"),
-    ("agent.services.task_queue_service", "agent.routes.tasks.orchestration_policy.routing"),
-    ("agent.services.task_scoped_execution_service", "agent.routes.tasks.orchestration_policy"),
-    ("agent.services.trigger_runtime_service", "agent.routes.tasks.triggers"),
+    ("agent.services.task_queue_service", "agent.services.orchestration_policy.routing"),
 ]
 
 
@@ -104,8 +96,7 @@ def check_file_imports(file_path: Path) -> set[str]:
     violations: set[str] = set()
     for imported_module in _imported_modules(tree):
         if any(
-            module_name.startswith(module_prefix)
-            and imported_module.startswith(import_prefix)
+            module_name.startswith(module_prefix) and imported_module.startswith(import_prefix)
             for module_prefix, import_prefix in EXCEPTIONS
         ):
             continue
@@ -166,8 +157,7 @@ def main() -> int:
         return 1
 
     print(
-        "✅ No new architecture boundary violations "
-        f"({len(baseline)} legacy violations remain explicitly baselined)."
+        f"✅ No new architecture boundary violations ({len(baseline)} legacy violations remain explicitly baselined)."
     )
     return 0
 

@@ -7,8 +7,8 @@ import pytest
 
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
-from agent.services import _task_scoped_forwarding as forwarding
-from agent.services._task_scoped_forwarding_dependencies import KnowledgeIndexRetryPolicy
+from agent.services.task_scoped import forwarding as forwarding
+from agent.services.task_scoped.forwarding_dependencies import KnowledgeIndexRetryPolicy
 from agent.services.worker_forward_transport import (
     WorkerForwardAmbiguousTransportError,
     WorkerForwardDeadlineExceeded,
@@ -29,21 +29,13 @@ from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F
 def _pending_response() -> dict:
     return {
         "status": "error",
-        "message": (
-            KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-        ),
-        "http_status": (
-            KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS
-        ),
+        "message": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON),
+        "http_status": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_HTTP_STATUS),
         "details": {
-            "error_type": (
-                KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE
-            ),
+            "error_type": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_ERROR_TYPE),
             "retryable": True,
             "details": {
-                "reason_code": (
-                    KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON
-                ),
+                "reason_code": (KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON),
             },
         },
     }
@@ -114,8 +106,7 @@ def _configure_forwarding_boundary(
         ),
     )
     monkeypatch.setattr(
-        "agent.services.recovery_dispatch_gate_service."
-        "get_recovery_dispatch_gate_service",
+        "agent.services.recovery_dispatch_gate_service.get_recovery_dispatch_gate_service",
         lambda: RecoveryGate(),
     )
     forwarding_dependencies(
@@ -127,24 +118,16 @@ def _configure_forwarding_boundary(
 
     def prepare(**values):
         prepare_calls.append(dict(values))
-        values["task"]["worker_execution_context"][
-            "knowledge_index_job"
-        ]["assignment"] = {
+        values["task"]["worker_execution_context"]["knowledge_index_job"]["assignment"] = {
             "lease_expires_epoch_ms": lease_expires_epoch_ms,
         }
-        values["payload"].update(
-            _prepared_payload(
-                grant_expires_epoch_ms=grant_expires_epoch_ms
-            )
-        )
+        values["payload"].update(_prepared_payload(grant_expires_epoch_ms=grant_expires_epoch_ms))
 
     forwarding_dependencies(
         prepare_worker_dispatch=prepare,
     )
     return (
-        _governed_task(
-            lease_expires_epoch_ms=lease_expires_epoch_ms
-        ),
+        _governed_task(lease_expires_epoch_ms=lease_expires_epoch_ms),
         prepare_calls,
     )
 
@@ -219,12 +202,8 @@ def test_lost_first_response_exact_replay_reuses_prepared_request(
 
 def test_typed_pending_poll_is_bounded_and_reuses_exact_request() -> None:
     deadline = WorkerTransportDeadline.after_seconds(90)
-    task = _governed_task(
-        lease_expires_epoch_ms=9_999_999_999_999
-    )
-    payload = _prepared_payload(
-        grant_expires_epoch_ms=9_999_999_999_999
-    )
+    task = _governed_task(lease_expires_epoch_ms=9_999_999_999_999)
+    payload = _prepared_payload(grant_expires_epoch_ms=9_999_999_999_999)
     calls = []
     sleeps = []
     retry_policy = KnowledgeIndexRetryPolicy(
@@ -255,9 +234,7 @@ def test_typed_pending_poll_is_bounded_and_reuses_exact_request() -> None:
             retry_policy=retry_policy,
         )
 
-    assert raised.value.reason_code == (
-        "knowledge_index_worker_dispatch_result_pending_retry_exhausted"
-    )
+    assert raised.value.reason_code == ("knowledge_index_worker_dispatch_result_pending_retry_exhausted")
     assert raised.value.retryable is True
     assert len(calls) == 3
     assert len(sleeps) == 2
@@ -276,12 +253,8 @@ def test_exhausted_deadline_or_lease_prevents_exact_retry(
         10,
         monotonic_clock=lambda: monotonic_now[0],
     )
-    lease_expires = (
-        10_000 if expired_window == "lease" else 20_000
-    )
-    task = _governed_task(
-        lease_expires_epoch_ms=lease_expires
-    )
+    lease_expires = 10_000 if expired_window == "lease" else 20_000
+    task = _governed_task(lease_expires_epoch_ms=lease_expires)
     payload = _prepared_payload(grant_expires_epoch_ms=20_000)
     calls = []
 
@@ -291,11 +264,7 @@ def test_exhausted_deadline_or_lease_prevents_exact_retry(
             monotonic_now[0] = 11.0
         raise WorkerForwardAmbiguousTransportError()
 
-    expected_error = (
-        WorkerForwardDeadlineExceeded
-        if expired_window == "deadline"
-        else WorkerForwardingError
-    )
+    expected_error = WorkerForwardDeadlineExceeded if expired_window == "deadline" else WorkerForwardingError
     with pytest.raises(expected_error) as raised:
         forwarding._invoke_governed_knowledge_index_forwarder(
             enabled=True,
@@ -344,15 +313,11 @@ def test_untyped_or_absent_response_is_never_exact_retried(
 
     returned = forwarding._invoke_governed_knowledge_index_forwarder(
         enabled=True,
-        task=_governed_task(
-            lease_expires_epoch_ms=9_999_999_999_999
-        ),
+        task=_governed_task(lease_expires_epoch_ms=9_999_999_999_999),
         forwarder=forwarder,
         worker_url="http://worker:5001",
         endpoint="/tasks/knowledge-index-job-1/step/execute",
-        prepared_payload=_prepared_payload(
-            grant_expires_epoch_ms=9_999_999_999_999
-        ),
+        prepared_payload=_prepared_payload(grant_expires_epoch_ms=9_999_999_999_999),
         token="current-worker-token",
         transport_deadline=deadline,
     )
@@ -371,9 +336,7 @@ def test_propose_never_uses_execute_result_retry() -> None:
     with pytest.raises(WorkerForwardAmbiguousTransportError):
         forwarding._invoke_governed_knowledge_index_forwarder(
             enabled=False,
-            task=_governed_task(
-                lease_expires_epoch_ms=9_999_999_999_999
-            ),
+            task=_governed_task(lease_expires_epoch_ms=9_999_999_999_999),
             forwarder=forwarder,
             worker_url="http://worker:5001",
             endpoint="/tasks/knowledge-index-job-1/step/propose",

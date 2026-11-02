@@ -60,11 +60,7 @@ def _validate_category_todo_payload(
         meta.get("total_items"),
         len(items),
     )
-    status_counts = Counter(
-        str(item.get("status"))
-        for item in items
-        if item.get("status")
-    )
+    status_counts = Counter(str(item.get("status")) for item in items if item.get("status"))
     for status in ("completed", "partial", "open"):
         _expect_equal(
             problems,
@@ -72,16 +68,9 @@ def _validate_category_todo_payload(
             summary.get(status),
             status_counts.get(status, 0),
         )
-    unknown_statuses = sorted(
-        status
-        for status in status_counts
-        if status not in {"completed", "partial", "open"}
-    )
+    unknown_statuses = sorted(status for status in status_counts if status not in {"completed", "partial", "open"})
     if unknown_statuses:
-        problems.append(
-            "category item statuses are unsupported: "
-            + ", ".join(unknown_statuses)
-        )
+        problems.append("category item statuses are unsupported: " + ", ".join(unknown_statuses))
 
     item_ids = [str(item.get("id") or "") for item in items]
     missing_ids = sum(not item_id for item_id in item_ids)
@@ -95,30 +84,15 @@ def _validate_category_todo_payload(
         item_id = str(item.get("id") or "<missing>")
         dependencies = list(item.get("depends_on") or [])
         unknown_dependencies = sorted(
-            str(dependency)
-            for dependency in dependencies
-            if str(dependency) not in known_ids
+            str(dependency) for dependency in dependencies if str(dependency) not in known_ids
         )
         if unknown_dependencies:
-            problems.append(
-                f"{item_id}.depends_on references unknown ids: "
-                + ", ".join(unknown_dependencies)
-            )
+            problems.append(f"{item_id}.depends_on references unknown ids: " + ", ".join(unknown_dependencies))
 
-    recommended_order = [
-        str(item_id)
-        for item_id in list(meta.get("recommended_order") or [])
-    ]
-    unknown_recommendations = sorted(
-        item_id
-        for item_id in recommended_order
-        if item_id not in known_ids
-    )
+    recommended_order = [str(item_id) for item_id in list(meta.get("recommended_order") or [])]
+    unknown_recommendations = sorted(item_id for item_id in recommended_order if item_id not in known_ids)
     if unknown_recommendations:
-        problems.append(
-            "meta.recommended_order references unknown ids: "
-            + ", ".join(unknown_recommendations)
-        )
+        problems.append("meta.recommended_order references unknown ids: " + ", ".join(unknown_recommendations))
     if len(set(recommended_order)) != len(recommended_order):
         problems.append("meta.recommended_order contains duplicates")
     return problems
@@ -188,8 +162,9 @@ def _validate_nested_tracks(todo_payload: dict[str, Any]) -> list[str]:
         if not ready:
             problems.append(f"tasks.depends_on: dependency cycle among {sorted(pending)}")
             break
-        pending = {identifier: dependencies - ready for identifier, dependencies in pending.items()
-                   if identifier not in ready}
+        pending = {
+            identifier: dependencies - ready for identifier, dependencies in pending.items() if identifier not in ready
+        }
     return problems
 
 
@@ -209,9 +184,7 @@ def validate_todo_payload(todo_payload: dict[str, Any]) -> list[str]:
     milestones = list(todo_payload.get("milestones") or [])
     priority_scale = list(todo_payload.get("priority_scale") or [])
     risk_scale = list(todo_payload.get("risk_scale") or [])
-    status_scale = list(
-        todo_payload.get("status_scale") or ("todo", "in_progress", "partial", "blocked", "done")
-    )
+    status_scale = list(todo_payload.get("status_scale") or ("todo", "in_progress", "partial", "blocked", "done"))
     progress_summary = dict(todo_payload.get("progress_summary") or {})
     execution_stages = dict((todo_payload.get("execution_stage_summary") or {}).get("stages") or {})
 

@@ -20,15 +20,22 @@ from agent.services.artifact_integrity_verifier import (
     ArtifactIntegrityVerifierPort,
     get_artifact_integrity_verifier,
 )
-from agent.services.codecompass_domain_supplement_chunk_codec import (
+
+# Compatibility re-exports: names that were importable from this module
+# before its collaborators were extracted.
+from agent.services.codecompass_domain_supplement_chunk_codec import (  # noqa: E402,F401,I001
+    _MAX_COMPRESSED_CHUNK_BYTES,
+    _MAX_IDENTIFIER_CHARACTERS,
+    _canonical_json,
     decode_domain_supplement_chunk,
     domain_supplement_chunk_logical_line,
     domain_supplement_domain_logical_line,
     iter_domain_supplement_chunk_rows,
     parse_domain_supplement_records,
 )
-from agent.services.codecompass_domain_supplement_domain_cache import (
+from agent.services.codecompass_domain_supplement_domain_cache import (  # noqa: E402,F401
     CodeCompassDomainSupplementDomainCache,
+    _CachedDomain,
 )
 from agent.services.codecompass_domain_supplement_domain_stream import (
     DomainSupplementDomainRecords,
@@ -46,50 +53,27 @@ from agent.services.codecompass_domain_supplement_models import (
     CodeCompassDomainSupplementSummary,
     invoke_domain_supplement_checkpoint,
 )
-from agent.services.codecompass_domain_supplement_sqlite_schema import (
+from agent.services.codecompass_domain_supplement_sqlite_schema import (  # noqa: E402,F401
+    _EXPECTED_SCHEMA_SQL,
+    _SHA256,
+    _TABLES,
+    _normalized_sql,
     domain_supplement_metadata_count,
     parse_domain_supplement_summary,
     read_domain_supplement_metadata,
     validate_domain_supplement_metadata,
     validate_domain_supplement_schema,
 )
-from agent.services.codecompass_domain_supplement_sqlite_session import (
+from agent.services.codecompass_domain_supplement_sqlite_session import (  # noqa: E402,F401
+    _SQLITE_PROGRESS_OPCODES,
     open_domain_supplement_connection,
 )
-from ananta_contracts.codecompass_domain_supplement import (
+from ananta_contracts.codecompass_domain_supplement import (  # noqa: E402,F401
     DOMAIN_SUPPLEMENT_FILENAME,
     DOMAIN_SUPPLEMENT_LOGICAL_HASH_PREFIX,
     DOMAIN_SUPPLEMENT_MEDIA_TYPE,
     DOMAIN_SUPPLEMENT_PAYLOAD_KINDS,
     DOMAIN_SUPPLEMENT_SCHEMA,
-)
-from ananta_contracts.codecompass_graph_limits import (
-    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
-    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_DOMAINS,
-    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES,
-)
-
-# Compatibility re-exports: names that were importable from this module
-# before its collaborators were extracted.
-from agent.services.codecompass_domain_supplement_chunk_codec import (  # noqa: E402,F401,I001
-    _MAX_COMPRESSED_CHUNK_BYTES,
-    _MAX_IDENTIFIER_CHARACTERS,
-    _canonical_json,
-)
-from agent.services.codecompass_domain_supplement_domain_cache import (  # noqa: E402,F401
-    _CachedDomain,
-)
-from agent.services.codecompass_domain_supplement_sqlite_schema import (  # noqa: E402,F401
-    _EXPECTED_SCHEMA_SQL,
-    _SHA256,
-    _TABLES,
-    _normalized_sql,
-)
-from agent.services.codecompass_domain_supplement_sqlite_session import (  # noqa: E402,F401
-    _SQLITE_PROGRESS_OPCODES,
-    sqlite_checkpoint_progress as _sqlite_checkpoint_progress,
-)
-from ananta_contracts.codecompass_domain_supplement import (  # noqa: E402,F401
     DOMAIN_SUPPLEMENT_SQLITE_APPLICATION_ID,
     DOMAIN_SUPPLEMENT_SQLITE_USER_VERSION,
     codecompass_domain_supplement_canonical_json_bytes,
@@ -98,7 +82,10 @@ from ananta_contracts.codecompass_domain_supplement import (  # noqa: E402,F401
     codecompass_domain_supplement_logical_domain,
 )
 from ananta_contracts.codecompass_graph_limits import (  # noqa: E402,F401
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_CHUNK_BYTES,
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_DOMAINS,
+    MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES,
 )
 from ananta_contracts.codecompass_semantic_partitions import (  # noqa: E402,F401
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
@@ -335,11 +322,7 @@ class SqliteCodeCompassDomainSupplementReader:
         if path.name != DOMAIN_SUPPLEMENT_FILENAME:
             raise CodeCompassDomainSupplementError("domain_supplement_path_invalid")
         try:
-            options = (
-                {"checkpoint": checkpoint}
-                if checkpoint is not None
-                else {}
-            )
+            options = {"checkpoint": checkpoint} if checkpoint is not None else {}
             self._integrity.verify(
                 path=path,
                 expected_sha256=binding.artifact_sha256,

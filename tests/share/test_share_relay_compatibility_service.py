@@ -109,18 +109,21 @@ def test_retention_trim_since_and_clear_are_bounded_and_repeatable() -> None:
 def test_strict_publish_constructs_a_closed_opaque_item() -> None:
     service, _repository = _service()
     envelope = '{"ciphertext_b64":"opaque-ciphertext","payload_type":"pair.chat_message"}'
-    assert service.publish_secure_envelope(
-        tenant_id="tenant",
-        session_id="session",
-        epoch=3,
-        sender_id="alice",
-        audience_id="bob",
-        traffic_class="transcript",
-        item_id="m-secure",
-        item_id_field="id",
-        serialized_envelope=envelope,
-        queue_limit=10,
-    ) == 1
+    assert (
+        service.publish_secure_envelope(
+            tenant_id="tenant",
+            session_id="session",
+            epoch=3,
+            sender_id="alice",
+            audience_id="bob",
+            traffic_class="transcript",
+            item_id="m-secure",
+            item_id_field="id",
+            serialized_envelope=envelope,
+            queue_limit=10,
+        )
+        == 1
+    )
     page, _ = service.read(
         tenant_id="tenant",
         session_id="session",

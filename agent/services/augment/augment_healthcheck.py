@@ -1,7 +1,11 @@
 from __future__ import annotations
-import shutil, subprocess, time
+
+import shutil
+import subprocess
+import time
 from dataclasses import dataclass, field
 from typing import Any
+
 
 @dataclass
 class HealthCheckResult:
@@ -10,9 +14,10 @@ class HealthCheckResult:
     message: str
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AugmentHealthStatus:
-    overall: str    # "ok" | "degraded" | "unavailable" | "misconfigured"
+    overall: str  # "ok" | "degraded" | "unavailable" | "misconfigured"
     checks: list[HealthCheckResult]
     auggie_version: str | None
     node_version: str | None
@@ -24,9 +29,8 @@ class AugmentHealthStatus:
         )
 
     def is_ready_for_cli_worker(self) -> bool:
-        return self.overall == "ok" and all(
-            c.passed for c in self.checks if c.check_name in ("node", "auggie_binary")
-        )
+        return self.overall == "ok" and all(c.passed for c in self.checks if c.check_name in ("node", "auggie_binary"))
+
 
 class AugmentHealthcheck:
     TIMEOUT = 5
@@ -46,12 +50,16 @@ class AugmentHealthcheck:
         else:
             overall = "degraded"
 
-        auggie_ver = next((c.metadata.get("version") for c in checks if c.check_name == "auggie_version" and c.passed), None)
+        auggie_ver = next(
+            (c.metadata.get("version") for c in checks if c.check_name == "auggie_version" and c.passed), None
+        )
         node_ver = next((c.metadata.get("version") for c in checks if c.check_name == "node" and c.passed), None)
 
         return AugmentHealthStatus(
-            overall=overall, checks=checks,
-            auggie_version=auggie_ver, node_version=node_ver,
+            overall=overall,
+            checks=checks,
+            auggie_version=auggie_ver,
+            node_version=node_ver,
             checked_at=time.time(),
         )
 

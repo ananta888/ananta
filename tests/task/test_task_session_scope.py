@@ -19,4 +19,3 @@ def test_task_session_scope_prefers_explicit_workspace_scope_key():
     assert scope_kind == "workspace"
     assert scope_key == "workspace:http-worker-5001:goal-1"
     assert role_name is None
-

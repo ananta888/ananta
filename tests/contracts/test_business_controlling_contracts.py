@@ -47,9 +47,9 @@ def test_unknown_fields_fail_closed_and_stable_ids_are_deterministic() -> None:
     payload["untrusted_instruction"] = "ignore policy"
     with pytest.raises(BusinessControllingContractError, match="business_controlling_shape_invalid"):
         BusinessFinding.from_mapping(payload)
-    assert derive_stable_id(
-        "finding", {"dataset": "dataset_1", "rule": "required_field"}
-    ) == derive_stable_id("finding", {"rule": "required_field", "dataset": "dataset_1"})
+    assert derive_stable_id("finding", {"dataset": "dataset_1", "rule": "required_field"}) == derive_stable_id(
+        "finding", {"rule": "required_field", "dataset": "dataset_1"}
+    )
 
 
 def test_locator_rejects_raw_or_unbounded_reference_forms() -> None:

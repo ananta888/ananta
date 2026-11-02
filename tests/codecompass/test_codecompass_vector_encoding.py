@@ -109,7 +109,14 @@ def test_vector_store_rebuild_with_int8_encoding(tmp_path):
 def test_vector_store_refresh_rebuilds_when_encoding_changes(tmp_path):
     store = CodeCompassVectorStore(index_path=tmp_path / "cc_vector_index.json")
     provider = FakeEmbeddingProvider(model_version="fake-v1", dimensions=4)
-    documents = [{"record_id": "r1", "kind": "python_function", "file": "src/search.py", "embedding_text": "hybrid vector search"}]
+    documents = [
+        {
+            "record_id": "r1",
+            "kind": "python_function",
+            "file": "src/search.py",
+            "embedding_text": "hybrid vector search",
+        }
+    ]
 
     store.rebuild(
         documents=documents,

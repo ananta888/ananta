@@ -6,6 +6,7 @@ the context envelope, privacy-policy payloads, the worker gate, follow-state
 stepping, worker overrides, the runtime status, pattern matching and implicit
 target feedback.
 """
+
 from __future__ import annotations
 
 from typing import Any, cast
@@ -94,8 +95,9 @@ def ai_policy_payloads(game: dict[str, object], prediction: dict, envelope: dict
     return worker_payload, worker_policy, prompt_payload, prompt_policy
 
 
-def may_request_worker(game: dict[str, object], gate_decision: Any, cache_hit: bool, worker_policy: Any,
-                        worker_payload: Any) -> bool:
+def may_request_worker(
+    game: dict[str, object], gate_decision: Any, cache_hit: bool, worker_policy: Any, worker_payload: Any
+) -> bool:
     return bool(
         gate_decision.allow_worker_request
         and not cache_hit
@@ -219,8 +221,9 @@ def target_reached(target_ref: str, section: str, artifact_ref: Any) -> bool:
     return False
 
 
-def record_implicit_target_feedback(game: dict[str, object], prediction: dict, *, section: str,
-                                     artifact_ref: Any) -> None:
+def record_implicit_target_feedback(
+    game: dict[str, object], prediction: dict, *, section: str, artifact_ref: Any
+) -> None:
     """Reaching the predicted target counts as positive feedback, once per target and section."""
     target_ref = str(prediction.get("target_ref") or "")
     auto_feedback_key = f"{target_ref}|{section}"

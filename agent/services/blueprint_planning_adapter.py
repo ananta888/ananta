@@ -72,9 +72,7 @@ class BlueprintPlanningAdapter:
                     role_template_hints=role_template_hints,
                 )
                 artifact_refs = [
-                    f"blueprint_workflow_step:{step.id}"
-                    for step in workflow_steps
-                    if getattr(step, "id", None)
+                    f"blueprint_workflow_step:{step.id}" for step in workflow_steps if getattr(step, "id", None)
                 ]
             else:
                 subtasks = self._build_subtasks(
@@ -156,38 +154,36 @@ class BlueprintPlanningAdapter:
             role_name = str(getattr(step, "role_name", "") or "").strip()
             task_kind = str(getattr(step, "task_kind", "coding") or "coding").strip() or "coding"
             step_id = str(getattr(step, "step_id", "") or "").strip()
-            title = (
-                str(getattr(step, "title", "") or f"{blueprint_name} → {role_name} ({step_id})").strip()[:200]
-            )
-            description = (
-                str(getattr(step, "description", "") or "").strip()[:2000]
-            )
+            title = str(getattr(step, "title", "") or f"{blueprint_name} → {role_name} ({step_id})").strip()[:200]
+            description = str(getattr(step, "description", "") or "").strip()[:2000]
             depends_on = [str(d).strip() for d in list(getattr(step, "depends_on", []) or []) if str(d).strip()]
-            subtasks.append({
-                "title": title,
-                "description": description,
-                "priority": "Medium",
-                "depends_on": depends_on,
-                "artifact": f"blueprint_workflow_step:{getattr(step, 'id', '')}",
-                "blueprint_id": blueprint_id,
-                "blueprint_name": blueprint_name,
-                "blueprint_workflow_step_id": str(getattr(step, "id", "")).strip(),
-                "blueprint_workflow_step_id_label": step_id,
-                "blueprint_role_name": role_name,
-                "task_kind": task_kind,
-                "gate": bool(getattr(step, "gate", False)),
-                "checks": dict(getattr(step, "checks", {}) or {}),
-                "failure_policy": getattr(step, "failure_policy", None),
-                "required_capabilities": list(getattr(step, "required_capabilities", []) or []),
-                "produces": list(getattr(step, "produces", []) or []),
-                "consumes": list(getattr(step, "consumes", []) or []),
-                "blueprint_role_hints": [
-                    str(hint.get("role_name") or "").strip()
-                    for hint in role_template_hints
-                    if str(hint.get("role_name") or "").strip()
-                ],
-                "blueprint_role_template_hints": [dict(hint) for hint in role_template_hints],
-            })
+            subtasks.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "priority": "Medium",
+                    "depends_on": depends_on,
+                    "artifact": f"blueprint_workflow_step:{getattr(step, 'id', '')}",
+                    "blueprint_id": blueprint_id,
+                    "blueprint_name": blueprint_name,
+                    "blueprint_workflow_step_id": str(getattr(step, "id", "")).strip(),
+                    "blueprint_workflow_step_id_label": step_id,
+                    "blueprint_role_name": role_name,
+                    "task_kind": task_kind,
+                    "gate": bool(getattr(step, "gate", False)),
+                    "checks": dict(getattr(step, "checks", {}) or {}),
+                    "failure_policy": getattr(step, "failure_policy", None),
+                    "required_capabilities": list(getattr(step, "required_capabilities", []) or []),
+                    "produces": list(getattr(step, "produces", []) or []),
+                    "consumes": list(getattr(step, "consumes", []) or []),
+                    "blueprint_role_hints": [
+                        str(hint.get("role_name") or "").strip()
+                        for hint in role_template_hints
+                        if str(hint.get("role_name") or "").strip()
+                    ],
+                    "blueprint_role_template_hints": [dict(hint) for hint in role_template_hints],
+                }
+            )
             raw_hints = getattr(step, "pattern_hints", None)
             if isinstance(raw_hints, dict) and raw_hints:
                 subtasks[-1]["pattern_hints_normalized"] = dict(raw_hints)
@@ -226,9 +222,7 @@ class BlueprintPlanningAdapter:
         role_template_hints: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:  # noqa: ANN401
         task_artifacts = [
-            artifact
-            for artifact in artifacts
-            if str(getattr(artifact, "kind", "")).strip().lower() == "task"
+            artifact for artifact in artifacts if str(getattr(artifact, "kind", "")).strip().lower() == "task"
         ]
         subtasks: list[dict[str, Any]] = []
         for index, artifact in enumerate(task_artifacts, start=1):
@@ -242,18 +236,14 @@ class BlueprintPlanningAdapter:
                         getattr(artifact, "description", "")
                         or payload.get("description")
                         or getattr(artifact, "title", "")
-                    )
-                    .strip()[:2000]
+                    ).strip()[:2000]
                 ),
                 "priority": priority,
                 "depends_on": [
-                    str(item).strip()
-                    for item in list(payload.get("depends_on") or [])
-                    if str(item).strip()
+                    str(item).strip() for item in list(payload.get("depends_on") or []) if str(item).strip()
                 ],
                 "artifact": (
-                    str(payload.get("artifact") or "").strip()
-                    or f"blueprint_artifact:{getattr(artifact, 'id', '')}"
+                    str(payload.get("artifact") or "").strip() or f"blueprint_artifact:{getattr(artifact, 'id', '')}"
                 ),
                 "blueprint_id": blueprint_id,
                 "blueprint_name": blueprint_name,
@@ -296,7 +286,6 @@ class BlueprintPlanningAdapter:
                 resolved[template_id] = template_name
         return resolved
 
-
     # --- plan-pattern binding (PAT-005/PAT-006) --------------------------
     # Additive only. The adapter is still pure (no I/O writes, no plan
     # mutation). Bindings are loaded from a single source of truth file
@@ -306,14 +295,10 @@ class BlueprintPlanningAdapter:
     _BINDING_SCHEMA_PATH = "./schemas/patterns/plan_pattern_binding.v1.json"
 
     def _binding_path(self) -> str:
-        return os.environ.get(
-            "ANANTA_PLAN_PATTERN_BINDINGS_PATH", self._BINDINGS_PATH
-        )
+        return os.environ.get("ANANTA_PLAN_PATTERN_BINDINGS_PATH", self._BINDINGS_PATH)
 
     def _binding_schema_path(self) -> str:
-        return os.environ.get(
-            "ANANTA_PLAN_PATTERN_BINDING_SCHEMA_PATH", self._BINDING_SCHEMA_PATH
-        )
+        return os.environ.get("ANANTA_PLAN_PATTERN_BINDING_SCHEMA_PATH", self._BINDING_SCHEMA_PATH)
 
     def _load_binding_schema(self) -> dict[str, Any]:
         path = self._binding_schema_path()
@@ -343,9 +328,7 @@ class BlueprintPlanningAdapter:
             return []
         return [b for b in bindings if isinstance(b, dict)]
 
-    def resolve_pattern_binding(
-        self, plan_id: str, step_id: str | None = None
-    ) -> dict[str, Any] | None:
+    def resolve_pattern_binding(self, plan_id: str, step_id: str | None = None) -> dict[str, Any] | None:
         """Return the first enabled binding for a plan/step, validated.
 
         - Filters ``list_plan_pattern_bindings()`` to the given plan
@@ -362,22 +345,12 @@ class BlueprintPlanningAdapter:
         if not plan_id:
             return None
         step_id_normalized = str(step_id or "").strip() or None
-        candidates = [
-            b
-            for b in self.list_plan_pattern_bindings()
-            if str(b.get("plan_id") or "").strip() == plan_id
-        ]
+        candidates = [b for b in self.list_plan_pattern_bindings() if str(b.get("plan_id") or "").strip() == plan_id]
         if step_id_normalized is not None:
-            candidates = [
-                b
-                for b in candidates
-                if str(b.get("step_id") or "").strip() == step_id_normalized
-            ]
+            candidates = [b for b in candidates if str(b.get("step_id") or "").strip() == step_id_normalized]
         else:
             # plan-level bindings only
-            candidates = [
-                b for b in candidates if not str(b.get("step_id") or "").strip()
-            ]
+            candidates = [b for b in candidates if not str(b.get("step_id") or "").strip()]
         schema = self._load_binding_schema()
         validator = jsonschema.Draft7Validator(schema) if schema else None
         for binding in candidates:
@@ -437,6 +410,7 @@ def _stable_topo_order(steps: list[Any]) -> list[Any]:
             edges[dep_id].append(sid)
 
     from collections import deque
+
     ready: deque[str] = deque(sorted(sid for sid, d in in_degree.items() if d == 0))
     out: list[Any] = []
     while ready:
@@ -450,6 +424,7 @@ def _stable_topo_order(steps: list[Any]) -> list[Any]:
     if len(out) != len(by_id):
         # Defensive: cycle that escaped the normalizer. Surface it loudly.
         from agent.services.workflow_definition_service import WorkflowDefinitionError
+
         raise WorkflowDefinitionError(
             f"workflow DAG cycle detected at materialization time; reached {len(out)} of {len(by_id)} steps"
         )

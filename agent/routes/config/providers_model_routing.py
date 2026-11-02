@@ -4,6 +4,7 @@ The handlers are registered on the provider blueprint by
 :func:`register_model_routing_routes`, so rules and endpoint names are
 unchanged (``config_providers.<handler>``).
 """
+
 from __future__ import annotations
 
 import functools

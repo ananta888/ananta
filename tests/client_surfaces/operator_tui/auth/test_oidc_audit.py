@@ -6,6 +6,7 @@ Tests:
 - Thread safety
 - Token-like values do NOT appear in any audit event string representation
 """
+
 from __future__ import annotations
 
 import threading
@@ -13,16 +14,15 @@ import time
 import unittest
 
 from client_surfaces.operator_tui.auth.oidc_audit import (
-    OidcAuditEvent,
-    OidcAuditLog,
     EVENT_LOGIN_START,
-    EVENT_TOKEN_EXCHANGE_SUCCESS,
-    EVENT_TOKEN_EXCHANGE_FAILED,
     EVENT_LOGOUT,
+    EVENT_TOKEN_EXCHANGE_FAILED,
+    EVENT_TOKEN_EXCHANGE_SUCCESS,
     MODE_ANANTA_OWNED,
-    MODE_REAL_BROWSER,
     PROFILE_EPHEMERAL,
     PROFILE_NAMED,
+    OidcAuditEvent,
+    OidcAuditLog,
 )
 
 

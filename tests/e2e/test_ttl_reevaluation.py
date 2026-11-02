@@ -5,11 +5,10 @@ Lease mit test-TTL von 1s. Test beweist:
 - Gleiches context_hash → Lease verlängert
 - Anderes context_hash → Reevaluation, neue Heuristik oder Candidate
 """
+
 from __future__ import annotations
 
 import time
-
-import pytest
 
 from agent.repositories.heuristic_lease_repo import HeuristicLeaseRepository
 from agent.services.heuristic_runtime.decision_context import DecisionContext
@@ -18,8 +17,8 @@ from agent.services.heuristic_runtime.lease_reevaluation_service import (
     ReevalOutcome,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _lease_repo() -> HeuristicLeaseRepository:
     return HeuristicLeaseRepository()
@@ -39,6 +38,7 @@ def _ctx(active_goal_id: str, ai_status: str = "offline") -> DecisionContext:
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 def test_expired_lease_triggers_reevaluation():
     """After a lease's TTL expires, evaluate() must return a valid outcome."""

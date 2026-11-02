@@ -26,9 +26,7 @@ class SnakeDebugView:
     def render(self, context: ViewContext) -> RenderScene:
         snake_raw = context.state.get("snake") or []
         snake = [
-            (int(cell[0]), int(cell[1]))
-            for cell in snake_raw
-            if isinstance(cell, (list, tuple)) and len(cell) == 2
+            (int(cell[0]), int(cell[1])) for cell in snake_raw if isinstance(cell, (list, tuple)) and len(cell) == 2
         ]
         target_raw = context.state.get("target")
         target = (
@@ -52,4 +50,3 @@ class SnakeDebugView:
             nodes=nodes,
             metadata={"animated": False, "cache_hint": "state_versioned"},
         )
-

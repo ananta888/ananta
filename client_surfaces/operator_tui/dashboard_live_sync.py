@@ -45,11 +45,7 @@ class KanbanEventSequencePolicy:
                 reload_snapshot=True,
                 candidate_sequence=max(current_sequence, batch.latest_sequence),
                 requires_snapshot_watermark=True,
-                reason=(
-                    batch.gap_reason
-                    or batch.overflow_reason
-                    or "snapshot_required"
-                ),
+                reason=(batch.gap_reason or batch.overflow_reason or "snapshot_required"),
             )
 
         cursor = current_sequence
@@ -229,9 +225,7 @@ class KanbanLiveSync:
                         or not isinstance(watermark, int)
                         or watermark < decision.candidate_sequence
                     ):
-                        self._status_sink(
-                            "kanban_live_sync_snapshot_watermark_required"
-                        )
+                        self._status_sink("kanban_live_sync_snapshot_watermark_required")
                         return
                     self._sequence = watermark
                 else:

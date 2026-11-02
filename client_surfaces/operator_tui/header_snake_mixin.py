@@ -3,12 +3,11 @@
 Contains: _header_snake_enabled, _default_header_snake, _activate_header_snake,
           _deactivate_header_snake, _try_header_snake_direction
 """
+
 from __future__ import annotations
 
 import os
-import re
 import time
-from typing import TYPE_CHECKING, Any
 
 from client_surfaces.operator_tui.ai_snake_follow import make_follow_state
 from client_surfaces.operator_tui.models import OperatorMode, OperatorState
@@ -76,6 +75,7 @@ class HeaderSnakeMixin:
                 load_user_config,
                 project_config_path,
             )
+
             user_cfg = load_user_config()
             explicit_user_keys = set(_read_json(global_config_path())) | set(_read_json(project_config_path()))
             # user_cfg merges defaults→global→project; ignore bare defaults when legacy
@@ -89,6 +89,7 @@ class HeaderSnakeMixin:
             # sees the persisted TUI choices on first prompt.
             try:
                 from client_surfaces.operator_tui.ai_snake_config_view import _propagate_advanced_chat_to_env
+
                 _propagate_advanced_chat_to_env(persisted_cfg)
             except Exception:
                 pass
@@ -98,8 +99,18 @@ class HeaderSnakeMixin:
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         _snake_mode_on = os.environ.get("ANANTA_TUI_SNAKE_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
-        _share_only_nav_e2e = os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV", "0").strip().lower() in {"1", "true", "yes", "on"}
-        _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {"0", "false", "no", "off"}
+        _share_only_nav_e2e = os.environ.get("ANANTA_TUI_E2E_SHARE_ONLY_NAV", "0").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        _tutorial_on = os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
         game: dict[str, object] = {
             "active": _snake_mode_on,
             "alive": True,
@@ -141,8 +152,11 @@ class HeaderSnakeMixin:
             "ai_snake_mode": "off",
             "ai_snake_provider_preference": os.environ.get("ANANTA_TUI_AI_SNAKE_PROVIDER", "lmstudio"),
             "ai_snake_provider_model": os.environ.get("ANANTA_TUI_AI_SNAKE_MODEL", "ananta-smoke"),
-            "ai_snake_provider_cloud_allowed": os.environ.get("ANANTA_TUI_AI_SNAKE_CLOUD_ALLOWED", "0").strip().lower() in {"1", "true", "yes", "on"},
-            "ai_snake_provider_max_latency_ms": max(250, int(os.environ.get("ANANTA_TUI_AI_SNAKE_MAX_LATENCY_MS", "2000"))),
+            "ai_snake_provider_cloud_allowed": os.environ.get("ANANTA_TUI_AI_SNAKE_CLOUD_ALLOWED", "0").strip().lower()
+            in {"1", "true", "yes", "on"},
+            "ai_snake_provider_max_latency_ms": max(
+                250, int(os.environ.get("ANANTA_TUI_AI_SNAKE_MAX_LATENCY_MS", "2000"))
+            ),
             "ai_snake_prediction": {},
             "ai_snake_debug": {},
             "ai_snake_runtime_status": "idle",
@@ -151,14 +165,18 @@ class HeaderSnakeMixin:
             "chat_panel_open": True,
             # the Hub answers unless an operator configures a backend/endpoint (no guessed LAN runtime)
             "chat_backend": os.environ.get("ANANTA_TUI_CHAT_BACKEND", "ananta-worker"),
-            "chat_backend_model": os.environ.get("ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")),
+            "chat_backend_model": os.environ.get(
+                "ANANTA_TUI_CHAT_MODEL", os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "google/gemma-4-e4b")
+            ),
             "chat_backend_api_base": os.environ.get(
                 "ANANTA_TUI_CHAT_API_BASE_URL",
                 os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", ""),
             ),
             "chat_backends_available": [
                 item.strip()
-                for item in str(os.environ.get("ANANTA_TUI_CHAT_BACKENDS", "ananta-worker,opencode,lmstudio,hermes")).split(",")
+                for item in str(
+                    os.environ.get("ANANTA_TUI_CHAT_BACKENDS", "ananta-worker,opencode,lmstudio,hermes")
+                ).split(",")
                 if item.strip()
             ],
             "chat_backend_models": [],
@@ -213,6 +231,7 @@ class HeaderSnakeMixin:
         if bool(game.get("active")) and bool(game.get("ui_steering")) and bool(game.get("chat_panel_open", True)):
             try:
                 from client_surfaces.operator_tui.chat_state import get_chat_state, set_chat_state, switch_channel
+
                 chat = get_chat_state(game)
                 switch_channel(chat, "ai:tutor", preserve_input=True)
                 chat["chat_focus"] = True

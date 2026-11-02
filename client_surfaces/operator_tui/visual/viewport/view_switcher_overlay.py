@@ -30,9 +30,7 @@ class ViewSwitcherOverlay:
             items=[f"[{_marker(r.view_id)}{r.view_id}]" for r in ok_views],
             width=width,
         )
-        unavail_items = [
-            f"[~{r.view_id}: {r.short_reason()}]" for r in degraded_views
-        ] + [
+        unavail_items = [f"[~{r.view_id}: {r.short_reason()}]" for r in degraded_views] + [
             f"[!{r.view_id}: {r.short_reason()}]" for r in unavailable_views
         ]
         if unavail_items:

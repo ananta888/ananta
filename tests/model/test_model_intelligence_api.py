@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 
 from agent.services.model_analysis_job_service import (
@@ -71,9 +70,7 @@ def test_capabilities_require_auth_and_model_intelligence_rbac(
     admin_auth_header,
     user_auth_header,
 ) -> None:
-    assert client.get(
-        "/api/model-intelligence/capabilities"
-    ).status_code == 401
+    assert client.get("/api/model-intelligence/capabilities").status_code == 401
     denied = client.get(
         "/api/model-intelligence/capabilities",
         headers=user_auth_header,
@@ -218,9 +215,7 @@ def test_tenant_scope_is_applied_to_get(
     )
 
     assert hidden.status_code == 404
-    assert hidden.json["error"]["reason_code"] == (
-        "model_analysis_job_not_found"
-    )
+    assert hidden.json["error"]["reason_code"] == ("model_analysis_job_not_found")
 
 
 def test_artifact_report_and_bounded_graph_use_hub_stores(
@@ -333,8 +328,7 @@ def test_artifact_report_and_bounded_graph_use_hub_stores(
         headers=admin_auth_header,
     )
     graph = client.get(
-        "/api/model-intelligence/jobs/job-001/graph"
-        "?start_node_id=node-1&page_size=1&max_nodes=1",
+        "/api/model-intelligence/jobs/job-001/graph?start_node_id=node-1&page_size=1&max_nodes=1",
         headers=admin_auth_header,
     )
 

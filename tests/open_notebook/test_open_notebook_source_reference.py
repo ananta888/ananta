@@ -37,9 +37,7 @@ def test_url_source_reference_is_schema_valid():
 
 
 def test_file_source_reference_uses_file_url():
-    reference = build_source_reference(
-        _base_metadata(canonical_url=None, file_path="documents/queue-notes.pdf")
-    )
+    reference = build_source_reference(_base_metadata(canonical_url=None, file_path="documents/queue-notes.pdf"))
     assert validate_source_reference_payload(reference) == []
     assert reference["canonical_url"] == "file:///documents/queue-notes.pdf"
     assert reference["extensions"]["file_path"] == "documents/queue-notes.pdf"

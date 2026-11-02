@@ -38,9 +38,7 @@ def build_workflow_adapter_task_queue_service() -> WorkflowAdapterTaskQueueServi
         authorization_keys=get_workflow_authorization_key_ring(),
         authorization_grants=SQLAlchemyWorkflowAuthorizationGrantService(engine),
         events=configure_workflow_telemetry(SQLAlchemyEventStore(engine)),
-        lease_seconds=float(
-            os.environ.get("ANANTA_WORKFLOW_ADAPTER_LEASE_SECONDS") or 1800
-        ),
+        lease_seconds=float(os.environ.get("ANANTA_WORKFLOW_ADAPTER_LEASE_SECONDS") or 1800),
     )
 
 

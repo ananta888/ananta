@@ -1,4 +1,5 @@
 """DelegationArtifact: execution tree trace for delegated worker jobs. AWF-T033."""
+
 from __future__ import annotations
 
 import time
@@ -13,12 +14,13 @@ class DelegationArtifact:
     Failed child results must not disappear from parent summary.
     Parent WorkerResult references this artifact via artifact_refs.
     """
+
     parent_execution_id: str
     child_execution_ids: list[str]
     child_task_ids: list[str]
     delegated_capabilities: list[str]
     context_refs: list[str]
-    statuses: dict[str, str]      # child_execution_id → status string
+    statuses: dict[str, str]  # child_execution_id → status string
     artifact_refs: list[str]
     trace_refs: list[str]
     created_at: float = field(default_factory=time.time)
@@ -56,15 +58,9 @@ def build_delegation_artifact(
     context_refs: list[str] | None = None,
 ) -> DelegationArtifact:
     """Build a DelegationArtifact from parent + child execution records. AWF-T033."""
-    child_execution_ids = [
-        str(c.get("execution_id") or c.get("id") or f"child-{i}")
-        for i, c in enumerate(children)
-    ]
+    child_execution_ids = [str(c.get("execution_id") or c.get("id") or f"child-{i}") for i, c in enumerate(children)]
     child_task_ids = [str(c.get("task_id") or "") for c in children]
-    statuses = {
-        eid: str(children[i].get("status") or "unknown")
-        for i, eid in enumerate(child_execution_ids)
-    }
+    statuses = {eid: str(children[i].get("status") or "unknown") for i, eid in enumerate(child_execution_ids)}
     artifact_refs: list[str] = []
     trace_refs: list[str] = []
     for c in children:

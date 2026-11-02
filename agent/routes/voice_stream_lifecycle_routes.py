@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from typing import Any
 
@@ -114,7 +115,7 @@ def push_voice_stream_chunk(session_id: str, chunk_sequence: int):
                     deadline_seconds=max(0.001, session.deadline_at - time.time()),
                 )
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("push_voice_stream_chunk: ignored Exception", exc_info=True)
             raise
         event_raw = runtime.get("event")
         event_value: dict[str, Any] = event_raw if isinstance(event_raw, dict) else {}

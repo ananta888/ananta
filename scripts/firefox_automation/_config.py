@@ -14,6 +14,7 @@ DEFAULT_REPORT_DIR = Path("test-reports/live-click")
 DEFAULT_PHASES = ["setup", "goal", "execution", "benchmark", "review"]
 FILE_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9_./-])(?:[A-Za-z0-9_.-]+/){1,}[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,10}")
 
+
 def _read_repo_dotenv() -> Dict[str, str]:
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if not env_path.exists():
@@ -32,7 +33,9 @@ def _read_repo_dotenv() -> Dict[str, str]:
 
 
 _DOTENV = _read_repo_dotenv()
-LOGIN_USER = os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _DOTENV.get("INITIAL_ADMIN_USER") or "admin"
+LOGIN_USER = (
+    os.getenv("E2E_ADMIN_USER") or os.getenv("INITIAL_ADMIN_USER") or _DOTENV.get("INITIAL_ADMIN_USER") or "admin"
+)
 LOGIN_PASS = (
     os.getenv("E2E_ADMIN_PASSWORD")
     or os.getenv("INITIAL_ADMIN_PASSWORD")

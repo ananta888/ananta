@@ -10,12 +10,17 @@ class SfuBrowserCapabilityDB(SQLModel, table=True):
     __tablename__ = "sfu_browser_capabilities"
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "room_id", "browser_pseudonym",
+            "tenant_id",
+            "room_id",
+            "browser_pseudonym",
             name="uq_sfu_browser_capability_scope",
         ),
         sa.Index(
             "ix_sfu_browser_capability_active",
-            "tenant_id", "room_id", "status", "expires_at_ms",
+            "tenant_id",
+            "room_id",
+            "status",
+            "expires_at_ms",
         ),
         sa.CheckConstraint("admission_epoch > 0 AND membership_epoch > 0", name="ck_sfu_browser_capability_epochs"),
         sa.CheckConstraint("sequence > 0 AND version > 0", name="ck_sfu_browser_capability_sequence"),

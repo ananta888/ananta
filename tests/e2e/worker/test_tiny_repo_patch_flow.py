@@ -78,7 +78,9 @@ def test_tiny_repo_patch_flow_produces_plan_patch_test_verify_and_trace(tmp_path
         shell_policy={"allowlist": ["python3", "unittest"], "approval_required_commands": [], "denylist_tokens": []},
         hub_policy_decision="allow",
     )
-    verification = build_verification_artifact(task_id="AW-T28", test_results=[test_result], patch_artifact=patch_artifact)
+    verification = build_verification_artifact(
+        task_id="AW-T28", test_results=[test_result], patch_artifact=patch_artifact
+    )
     assert verification["status"] == "passed"
 
     trace_metadata = build_trace_metadata(

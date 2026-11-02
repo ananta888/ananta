@@ -100,10 +100,7 @@ class VectorIndexTaskVerifier:
         if not job_id:
             raise VectorIndexTaskAttestationError()
         try:
-            protected_header = {
-                field: payload[field]
-                for field in ("schema", "algorithm", "key_id")
-            }
+            protected_header = {field: payload[field] for field in ("schema", "algorithm", "key_id")}
             self._key_ring.verify(
                 namespace=VECTOR_INDEX_TASK_ATTESTATION_NAMESPACE,
                 payload=_unsigned(envelope),

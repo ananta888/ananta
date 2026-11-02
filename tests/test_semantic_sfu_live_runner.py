@@ -59,10 +59,7 @@ def test_sfu_boundary_capture_fails_gate_when_known_plaintext_is_present(tmp_pat
         browser,
         {
             **capture_measurements(path, "sfu"),
-            **{
-                key.replace("sfu_", "turn_", 1): value
-                for key, value in capture_measurements(path, "sfu").items()
-            },
+            **{key.replace("sfu_", "turn_", 1): value for key, value in capture_measurements(path, "sfu").items()},
             "turn_relay_verified": True,
             "turn_relay_engine_count": 2,
             "turn_relay_scenario_count": 2,
@@ -290,21 +287,18 @@ def test_live_failover_parser_requires_ephemeral_hub_boundary_capture() -> None:
     report = _live_failover_report()
     report["runner"]["hub_boundary_rtp_rtcp_packet_count"] = 1
 
-    assert recompute_live_failover_evidence(report) == [
-        "live_failover_runner_cleanup_or_isolation_invalid"
-    ]
+    assert recompute_live_failover_evidence(report) == ["live_failover_runner_cleanup_or_isolation_invalid"]
 
 
 def test_browser_failure_classifier_exposes_only_closed_public_reason_codes() -> None:
     assert _classify_browser_failure("Error: recovered receiver flow missing\n/path/stack") == (
         "live_failover_recovered_receiver_flow_missing"
     )
-    assert _classify_browser_failure(
-        "Error: productive Hub API rejected 409:lease_overlap\nBearer secret-value"
-    ) == "live_failover_hub_api_rejected_lease_overlap"
-    assert _classify_browser_failure("Error: token super-secret-value") == (
-        "live_failover_browser_process_failed"
+    assert (
+        _classify_browser_failure("Error: productive Hub API rejected 409:lease_overlap\nBearer secret-value")
+        == "live_failover_hub_api_rejected_lease_overlap"
     )
+    assert _classify_browser_failure("Error: token super-secret-value") == ("live_failover_browser_process_failed")
 
 
 def test_isolated_deployment_uses_matching_dynamic_rtc_ports_and_pinned_image(tmp_path: Path) -> None:

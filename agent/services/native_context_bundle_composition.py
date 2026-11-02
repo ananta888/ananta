@@ -24,8 +24,14 @@ class HubNativeContextBundleReader:
         self._engine = engine
 
     def read(
-        self, *, binding: WorkflowWorkerBinding, hub_task_id: str, command_id: str,
-        attempt_id: str, fencing_token: int, worker_id: str,
+        self,
+        *,
+        binding: WorkflowWorkerBinding,
+        hub_task_id: str,
+        command_id: str,
+        attempt_id: str,
+        fencing_token: int,
+        worker_id: str,
     ) -> NativeContextBundleProjection:
         if not has_app_context():
             raise ValueError("native_context_hub_app_required")
@@ -37,11 +43,16 @@ class HubNativeContextBundleReader:
             tasks=registry.task_repo,
             bundles=TaskContextBundleAccessService(registry.context_bundle_repo),
             policy=NativeContextPolicyService(
-                policies=SQLContextPolicyLifecycleRepository(self._engine), destinations=destinations,
+                policies=SQLContextPolicyLifecycleRepository(self._engine),
+                destinations=destinations,
                 blocks=NativeContextBlockProjector(ContextAccessPolicyService()),
             ),
         )
         return service.read(
-            binding=binding, hub_task_id=hub_task_id, command_id=command_id,
-            attempt_id=attempt_id, fencing_token=fencing_token, worker_id=worker_id,
+            binding=binding,
+            hub_task_id=hub_task_id,
+            command_id=command_id,
+            attempt_id=attempt_id,
+            fencing_token=fencing_token,
+            worker_id=worker_id,
         )

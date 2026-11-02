@@ -31,6 +31,7 @@ from flask import Blueprint
 
 bp = Blueprint("custom", __name__)
 
+
 @bp.route("/custom/ping")
 def ping():
     return {"status": "ok"}
@@ -83,9 +84,11 @@ Empfohlen ist die Nutzung des **Ananta SDKs** in `init_app(app)`:
 ```python
 from agent.sdk import get_sdk, EvolutionEngine
 
+
 class MyEvolutionProvider(EvolutionEngine):
     provider_name = "my_provider"
     # ... Implementierung ...
+
 
 def init_app(app):
     sdk = get_sdk(app)

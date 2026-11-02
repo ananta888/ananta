@@ -7,11 +7,10 @@
 - Notes/Secrets werden im geteilten View redacted
 - Nach Widerruf erhält User B keine weiteren Deltas
 """
+
 from __future__ import annotations
 
 import os
-import time
-import pytest
 
 
 def make_test_key() -> bytes:
@@ -22,7 +21,7 @@ def test_owner_emits_snapshot():
     """Owner sendet Snapshot, Receiver verarbeitet ihn."""
     key = make_test_key()
     from client_surfaces.operator_tui.share_view_policy import ViewSharePolicy
-    from client_surfaces.operator_tui.share_view_stream import ViewStreamSender, ViewStreamReceiver
+    from client_surfaces.operator_tui.share_view_stream import ViewStreamReceiver, ViewStreamSender
 
     policy = ViewSharePolicy(view_share_enabled=True, redact_secrets=True, redact_notes=True)
     frames = []
@@ -42,7 +41,7 @@ def test_owner_emits_snapshot():
 def test_notes_are_redacted_in_shared_view():
     key = make_test_key()
     from client_surfaces.operator_tui.share_view_policy import ViewSharePolicy
-    from client_surfaces.operator_tui.share_view_stream import ViewStreamSender, ViewStreamReceiver
+    from client_surfaces.operator_tui.share_view_stream import ViewStreamReceiver, ViewStreamSender
 
     policy = ViewSharePolicy(view_share_enabled=True, redact_notes=True, redact_secrets=True)
     frames = []
@@ -66,7 +65,7 @@ def test_notes_are_redacted_in_shared_view():
 def test_secrets_are_redacted_in_shared_view():
     key = make_test_key()
     from client_surfaces.operator_tui.share_view_policy import ViewSharePolicy
-    from client_surfaces.operator_tui.share_view_stream import ViewStreamSender, ViewStreamReceiver
+    from client_surfaces.operator_tui.share_view_stream import ViewStreamReceiver, ViewStreamSender
 
     policy = ViewSharePolicy(view_share_enabled=True, redact_notes=True, redact_secrets=True)
     frames = []
@@ -85,12 +84,14 @@ def test_secrets_are_redacted_in_shared_view():
 def test_after_revoke_no_more_frames_processed():
     """Nach Widerruf werden keine neuen Frames verarbeitet."""
     import agent.services.rendezvous_service as svc_mod
+
     svc_mod._sessions.clear()
     svc_mod._participants.clear()
     svc_mod._invite_codes.clear()
     svc_mod._service = None
 
     from agent.services.rendezvous_service import RendezvousService
+
     service = RendezvousService()
 
     session = service.create_session(
@@ -100,19 +101,24 @@ def test_after_revoke_no_more_frames_processed():
     )
     code = session["invite_code"]
     service.join_session(
-        invite_code=code, user_id="user-b", user_sub="sub-b",
-        device_id="dev-b", device_fingerprint="fp-b", oidc_issuer="",
+        invite_code=code,
+        user_id="user-b",
+        user_sub="sub-b",
+        device_id="dev-b",
+        device_fingerprint="fp-b",
+        oidc_issuer="",
     )
     # Session widerrufen
     revoke_result = service.revoke_session(session_id=session["id"], actor_user_id="user-a")
     assert revoke_result["ok"]
 
     # User B kann keine Presence-Daten mehr abrufen (Session revoked)
-    parts = service.get_participants(session_id=session["id"], requester_user_id="user-b")
+    service.get_participants(session_id=session["id"], requester_user_id="user-b")
     # Session ist noch im Store, aber revoked — User B erhält keine neuen Payloads
     # (In Produktion: Hub prüft revoked_at vor Auslieferung)
     # Im Test-Service ist die Session noch vorhanden aber markiert
     import agent.services.rendezvous_service as svc
+
     sess_data = svc._sessions.get(session["id"])
     assert sess_data and sess_data.get("revoked_at") is not None
 
@@ -125,12 +131,14 @@ def test_after_revoke_no_more_frames_processed():
 def test_view_disabled_by_default():
     """View-Share ist default deaktiviert."""
     from client_surfaces.operator_tui.share_view_policy import build_default_policy
+
     policy = build_default_policy()
     assert not policy.view_share_enabled
 
 
 def test_shared_viewer_state_stale_on_disconnect():
     from client_surfaces.operator_tui.shared_viewer import SharedViewer
+
     viewer = SharedViewer(session_id="sess-e2e-disc", owner_id="user-a")
     viewer.mark_disconnected()
     assert viewer.state.is_stale
@@ -140,6 +148,7 @@ def test_shared_viewer_state_stale_on_disconnect():
 
 def test_shared_viewer_read_only_blocks_mutations():
     from client_surfaces.operator_tui.shared_viewer import is_viewer_action_blocked
+
     assert is_viewer_action_blocked("goal_create")
     assert is_viewer_action_blocked("artifact_write")
     assert not is_viewer_action_blocked("scroll_down")

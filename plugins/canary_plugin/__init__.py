@@ -1,5 +1,7 @@
 from typing import Any
-from agent.sdk import EvolutionEngine, EvolutionCapability, EvolutionResult, EvolutionContext, get_sdk
+
+from agent.sdk import EvolutionCapability, EvolutionContext, EvolutionEngine, EvolutionResult, get_sdk
+
 
 class CanaryEvolutionProvider(EvolutionEngine):
     # ... (Rest bleibt gleich)
@@ -21,20 +23,25 @@ class CanaryEvolutionProvider(EvolutionEngine):
             provider_name=self.provider_name,
             status="completed",
             summary=f"Canary analysis for objective: {context.objective}",
-            proposals=[]
+            proposals=[],
         )
 
-    def validate(self, context: EvolutionContext, proposal: Any) -> Any: pass
-    def apply(self, context: EvolutionContext, proposal: Any) -> Any: pass
+    def validate(self, context: EvolutionContext, proposal: Any) -> Any:
+        pass
+
+    def apply(self, context: EvolutionContext, proposal: Any) -> Any:
+        pass
+
     def describe(self) -> Any:
         from agent.services.evolution.models import EvolutionProviderDescriptor
+
         return EvolutionProviderDescriptor(
-            provider_name=self.provider_name,
-            version=self.version,
-            capabilities=self.capabilities
+            provider_name=self.provider_name, version=self.version, capabilities=self.capabilities
         )
+
     def supports(self, capability: Any) -> bool:
         return capability in self.capabilities
+
 
 def init_app(app):
     sdk = get_sdk(app)

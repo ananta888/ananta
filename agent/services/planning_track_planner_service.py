@@ -54,11 +54,7 @@ def build_planner_context_envelope(
             denied_refs.append(source_ref)
             continue
         accepted_artifacts.append(dict(item))
-    artifact_source_refs = [
-        _normalize_source_ref(item)
-        for item in accepted_artifacts
-        if _normalize_source_ref(item)
-    ]
+    artifact_source_refs = [_normalize_source_ref(item) for item in accepted_artifacts if _normalize_source_ref(item)]
     context_summary = {
         "artifact_count": len(accepted_artifacts),
         "source_refs": artifact_source_refs[:20],
@@ -105,7 +101,11 @@ def parse_planner_output(raw_output: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {"status": "invalid", "reason_code": "invalid_json", "errors": ["JSON decode failed."]}
     if not isinstance(candidate, dict):
-        return {"status": "invalid", "reason_code": "invalid_shape", "errors": ["Planning output must be a JSON object."]}
+        return {
+            "status": "invalid",
+            "reason_code": "invalid_shape",
+            "errors": ["Planning output must be a JSON object."],
+        }
     payload, envelope = unwrap_planning_track_payload(candidate)
     errors = validate_planning_track_payload(payload)
     if errors:

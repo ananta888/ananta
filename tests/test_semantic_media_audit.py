@@ -134,10 +134,13 @@ def test_debug_http_api_digests_logical_scope_enforces_role_and_has_no_mutation(
     assert response.json["data"]["read_only"] is True
     assert response.json["data"]["items"][0]["event_type"] == "semantic_relay"
     assert "debug-auditor" not in repr(response.json)
-    assert client.post(
-        "/v1/semantic-media/debug/events?scope=semantic-media-session:session-debug",
-        headers={"Authorization": f"Bearer {auditor}"},
-    ).status_code == 405
+    assert (
+        client.post(
+            "/v1/semantic-media/debug/events?scope=semantic-media-session:session-debug",
+            headers={"Authorization": f"Bearer {auditor}"},
+        ).status_code
+        == 405
+    )
 
     viewer = issue_user_access_token(username="debug-auditor", role="viewer")
     denied = client.get(

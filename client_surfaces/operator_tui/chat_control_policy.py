@@ -5,12 +5,12 @@ from typing import Any
 
 from client_surfaces.operator_tui.chat_control_config import ChatControlConfig
 from client_surfaces.operator_tui.chat_control_parser import ParsedCommand
-from client_surfaces.operator_tui.tui_action_dispatcher import TuiActionRegistry, _FORBIDDEN_CATEGORIES, get_registry
+from client_surfaces.operator_tui.tui_action_dispatcher import _FORBIDDEN_CATEGORIES, TuiActionRegistry, get_registry
 
 
 @dataclass(frozen=True)
 class PolicyDecision:
-    verdict: str            # "allow" | "deny" | "require_confirmation"
+    verdict: str  # "allow" | "deny" | "require_confirmation"
     action_id: str
     normalized_args: dict[str, Any]
     reason: str
@@ -35,7 +35,9 @@ def evaluate(
 
     if not parsed.ok or not parsed.action_id:
         return PolicyDecision(
-            verdict="deny", action_id="", normalized_args={},
+            verdict="deny",
+            action_id="",
+            normalized_args={},
             reason=parsed.error or "unknown command",
             mode=config.mode,
         )
@@ -43,14 +45,18 @@ def evaluate(
     action = reg.get(parsed.action_id)
     if action is None:
         return PolicyDecision(
-            verdict="deny", action_id=parsed.action_id, normalized_args={},
+            verdict="deny",
+            action_id=parsed.action_id,
+            normalized_args={},
             reason=f"action {parsed.action_id!r} not registered (default deny)",
             mode=config.mode,
         )
 
     if action.category in _FORBIDDEN_CATEGORIES:
         return PolicyDecision(
-            verdict="deny", action_id=parsed.action_id, normalized_args={},
+            verdict="deny",
+            action_id=parsed.action_id,
+            normalized_args={},
             reason=f"category {action.category!r} is forbidden in all modes",
             mode=config.mode,
         )
@@ -60,12 +66,17 @@ def evaluate(
     if config.is_autonomous_e2e:
         if parsed.action_id in config.e2e_allowlist and action.risk == "safe":
             return PolicyDecision(
-                verdict="allow", action_id=parsed.action_id, normalized_args=normalized_args,
+                verdict="allow",
+                action_id=parsed.action_id,
+                normalized_args=normalized_args,
                 reason="autonomous_e2e: allowlisted safe action",
-                mode=config.mode, auto_confirmed=True,
+                mode=config.mode,
+                auto_confirmed=True,
             )
         return PolicyDecision(
-            verdict="deny", action_id=parsed.action_id, normalized_args={},
+            verdict="deny",
+            action_id=parsed.action_id,
+            normalized_args={},
             reason=f"autonomous_e2e: {parsed.action_id!r} not in allowlist or not safe",
             mode=config.mode,
         )
@@ -73,21 +84,32 @@ def evaluate(
     # interactive_safe
     if action.risk == "safe":
         return PolicyDecision(
-            verdict="allow", action_id=parsed.action_id, normalized_args=normalized_args,
-            reason="safe action allowed", mode=config.mode,
+            verdict="allow",
+            action_id=parsed.action_id,
+            normalized_args=normalized_args,
+            reason="safe action allowed",
+            mode=config.mode,
         )
     if action.risk == "medium":
         return PolicyDecision(
-            verdict="require_confirmation", action_id=parsed.action_id, normalized_args=normalized_args,
-            reason=f"{parsed.action_id!r} requires confirmation (risk: medium)", mode=config.mode,
+            verdict="require_confirmation",
+            action_id=parsed.action_id,
+            normalized_args=normalized_args,
+            reason=f"{parsed.action_id!r} requires confirmation (risk: medium)",
+            mode=config.mode,
         )
     return PolicyDecision(
-        verdict="deny", action_id=parsed.action_id, normalized_args={},
-        reason=f"{parsed.action_id!r} is high-risk and denied in interactive_safe mode", mode=config.mode,
+        verdict="deny",
+        action_id=parsed.action_id,
+        normalized_args={},
+        reason=f"{parsed.action_id!r} is high-risk and denied in interactive_safe mode",
+        mode=config.mode,
     )
 
 
-def handle_confirmation(text: str, *, channel_id: str, config: ChatControlConfig) -> tuple[str | None, ParsedCommand | None]:
+def handle_confirmation(
+    text: str, *, channel_id: str, config: ChatControlConfig
+) -> tuple[str | None, ParsedCommand | None]:
     t = text.strip().lower()
     if t in ("/yes", "/y"):
         pending = _pending_confirmations.pop(channel_id, None)

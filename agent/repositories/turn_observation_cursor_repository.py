@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 from sqlalchemy import delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select

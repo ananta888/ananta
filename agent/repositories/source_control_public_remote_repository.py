@@ -48,13 +48,8 @@ class SQLSourceControlPublicRemoteRepository:
         expires_at_epoch: float,
     ) -> None:
         now = float(self._clock())
-        if (
-            _DIGEST.fullmatch(handle_digest) is None
-            or expires_at_epoch <= now
-        ):
-            raise SourceControlPublicRemotePersistenceError(
-                "public_remote_validation_invalid"
-            )
+        if _DIGEST.fullmatch(handle_digest) is None or expires_at_epoch <= now:
+            raise SourceControlPublicRemotePersistenceError("public_remote_validation_invalid")
         selection = binding.selection
         row = SourceControlPublicRemoteValidationDB(
             handle_digest=handle_digest,
@@ -218,16 +213,9 @@ class SQLSourceControlPublicRemoteRepository:
                 SourceControlPublicRemoteDB.project_id == project_id,
             )
             if owner_id is not None:
-                statement = statement.where(
-                    SourceControlPublicRemoteDB.owner_id == owner_id
-                )
-            rows = session.exec(
-                statement.order_by(SourceControlPublicRemoteDB.remote_id)
-            ).all()
-            return tuple(
-                self._remote_record(row).registered_authorization()
-                for row in rows
-            )
+                statement = statement.where(SourceControlPublicRemoteDB.owner_id == owner_id)
+            rows = session.exec(statement.order_by(SourceControlPublicRemoteDB.remote_id)).all()
+            return tuple(self._remote_record(row).registered_authorization() for row in rows)
 
     def resolve_registered_remote(
         self,
@@ -244,9 +232,7 @@ class SQLSourceControlPublicRemoteRepository:
                 SourceControlPublicRemoteDB.project_id == project_id,
             )
             if owner_id is not None:
-                statement = statement.where(
-                    SourceControlPublicRemoteDB.owner_id == owner_id
-                )
+                statement = statement.where(SourceControlPublicRemoteDB.owner_id == owner_id)
             rows = session.exec(statement).all()
             if len(rows) != 1:
                 return None
@@ -283,10 +269,7 @@ class SQLSourceControlPublicRemoteRepository:
             connection_ref=authorization_ref,
             repository_identifier=repository,
         )
-        if (
-            record is None
-            or record.authorization_kind != "github_public"
-        ):
+        if record is None or record.authorization_kind != "github_public":
             return None
         return record
 
@@ -301,10 +284,7 @@ class SQLSourceControlPublicRemoteRepository:
             connection_ref=remote_id,
             repository_identifier=None,
         )
-        if (
-            record is None
-            or record.authorization_kind != "generic_git"
-        ):
+        if record is None or record.authorization_kind != "generic_git":
             return None
         return record
 
@@ -424,9 +404,7 @@ class SQLSourceControlPublicRemoteRepository:
             or _REASON.fullmatch(reason_code) is None
             or _DIGEST.fullmatch(binding_digest) is None
         ):
-            raise SourceControlPublicRemotePersistenceError(
-                "public_remote_audit_invalid"
-            )
+            raise SourceControlPublicRemotePersistenceError("public_remote_audit_invalid")
         return SourceControlPublicRemoteAuditDB(
             audit_id=uuid.uuid4().hex,
             tenant_id=scope.tenant_id,

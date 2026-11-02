@@ -4,6 +4,7 @@ Typisiertes Artifact-Schema und Service.  Baut auf den bestehenden ArtifactStore
 (artifact_store.py) auf — speichert dort die rohen Bytes; dieses Modul fügt
 Typen, Policy-Klassen, Lifecycle und explizite Zugriffskontrolle hinzu.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,8 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # ── Enums ────────────────────────────────────────────────────────────────────
+
 
 class ArtifactType(str, Enum):
     INPUT_SNAPSHOT = "input_snapshot"
@@ -30,9 +31,9 @@ class ArtifactType(str, Enum):
 
 
 class ArtifactPolicyClass(str, Enum):
-    PUBLIC = "public"           # alle Worker dürfen lesen (aber nur via explizite Freigabe)
-    INTERNAL = "internal"       # nur explizit freigegebene Worker
-    SENSITIVE = "sensitive"     # nur Hub + Owner
+    PUBLIC = "public"  # alle Worker dürfen lesen (aber nur via explizite Freigabe)
+    INTERNAL = "internal"  # nur explizit freigegebene Worker
+    SENSITIVE = "sensitive"  # nur Hub + Owner
     SECRET_REF = "secret_ref"  # niemals als Artefakt gespeichert, nur Referenz
 
 
@@ -45,6 +46,7 @@ class ArtifactLifecycle(str, Enum):
 
 # ── Core dataclass ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class TaskArtifact:
     artifact_id: str
@@ -53,9 +55,9 @@ class TaskArtifact:
     version: int
     policy_class: ArtifactPolicyClass
     created_at: float
-    created_by: str         # worker_id or "hub"
-    content_hash: str       # sha256 of content; "" for SECRET_REF
-    storage_ref: str        # path or object key; "" for SECRET_REF
+    created_by: str  # worker_id or "hub"
+    content_hash: str  # sha256 of content; "" for SECRET_REF
+    storage_ref: str  # path or object key; "" for SECRET_REF
     lifecycle: ArtifactLifecycle
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -135,6 +137,7 @@ class TaskArtifact:
 
 # ── Service ───────────────────────────────────────────────────────────────────
 
+
 class TaskArtifactService:
     """In-memory registry of TaskArtifacts for a set of runs.
 
@@ -178,9 +181,7 @@ class TaskArtifactService:
 
     # ── Access ────────────────────────────────────────────────────────────────
 
-    def get_for_worker(
-        self, *, worker_id: str, artifact_ids: list[str]
-    ) -> list[TaskArtifact]:
+    def get_for_worker(self, *, worker_id: str, artifact_ids: list[str]) -> list[TaskArtifact]:
         """Returns only the artifacts the worker has explicit access to.
 
         Filters the supplied *artifact_ids* list — artifacts not registered or not
@@ -190,10 +191,7 @@ class TaskArtifactService:
         for which this worker has an explicit grant) before calling can_be_read_by.
         """
         # Collect all artifact_ids this worker has been explicitly granted
-        worker_granted: list[str] = [
-            aid for aid, workers in self._grants.items()
-            if worker_id in workers
-        ]
+        worker_granted: list[str] = [aid for aid, workers in self._grants.items() if worker_id in workers]
         result: list[TaskArtifact] = []
         for aid in artifact_ids:
             artifact = self._artifacts.get(aid)
@@ -225,6 +223,7 @@ class TaskArtifactService:
             raise KeyError(f"artifact_id not found: {artifact_id!r}")
         artifact = self._artifacts[artifact_id]
         from dataclasses import replace
+
         archived = replace(artifact, lifecycle=ArtifactLifecycle.ARCHIVED)
         self._artifacts[artifact_id] = archived
         return archived

@@ -34,8 +34,14 @@ class ExecutionWindow:
     reason: str
 
     def to_mapping(self) -> dict[str, Any]:
-        return {"tokens": self.tokens, "backend": self.backend, "provider": self.provider, "model": self.model,
-                "local": self.local, "reason": self.reason}
+        return {
+            "tokens": self.tokens,
+            "backend": self.backend,
+            "provider": self.provider,
+            "model": self.model,
+            "local": self.local,
+            "reason": self.reason,
+        }
 
 
 def _scoped_config(task: Mapping[str, Any], agent_cfg: Mapping[str, Any]) -> dict[str, Any]:
@@ -59,8 +65,11 @@ def _as_mapping(task: Any) -> dict[str, Any]:
         return dict(task)
     if hasattr(task, "model_dump"):
         return dict(task.model_dump())
-    return {key: getattr(task, key) for key in ("id", "goal_id", "task_kind", "title", "description",
-                                                 "worker_execution_context") if hasattr(task, key)}
+    return {
+        key: getattr(task, key)
+        for key in ("id", "goal_id", "task_kind", "title", "description", "worker_execution_context")
+        if hasattr(task, key)
+    }
 
 
 def execution_window(task: Any, agent_cfg: Mapping[str, Any] | None = None) -> ExecutionWindow:
@@ -72,14 +81,15 @@ def execution_window(task: Any, agent_cfg: Mapping[str, Any] | None = None) -> E
         from agent.cli_backends.budget import prompt_token_limit
         from agent.cli_backends.routing import PROFILE_CLI_BACKENDS
         from agent.runtime_policy import normalize_task_kind
-        from agent.services._task_scoped_runtime import resolve_task_cli_backend, routing_dimensions
+        from agent.services.task_scoped.runtime import resolve_task_cli_backend, routing_dimensions
         from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
         data = _as_mapping(task)
         cfg = _scoped_config(data, agent_cfg or {})
         task_kind = normalize_task_kind(data.get("task_kind"), str(data.get("description") or data.get("title") or ""))
-        backend, _reason = resolve_task_cli_backend(task_kind=task_kind, agent_cfg=cfg,
-                                                    required_capabilities=derive_required_capabilities(data, task_kind))
+        backend, _reason = resolve_task_cli_backend(
+            task_kind=task_kind, agent_cfg=cfg, required_capabilities=derive_required_capabilities(data, task_kind)
+        )
         backend = str(backend or "").strip().lower()
         model = str(cfg.get("default_model") or "").strip() or None
         dims = routing_dimensions(backend_used=backend, model=model, agent_cfg=cfg)
@@ -91,17 +101,30 @@ def execution_window(task: Any, agent_cfg: Mapping[str, Any] | None = None) -> E
         return ExecutionWindow(local_window, "unknown", None, None, True, "prediction_failed")
 
     if backend == "claude_code" or backend in PROFILE_CLI_BACKENDS:
-        limit = prompt_token_limit(_CLI_LIMIT_NAMES.get(backend, "claude"), model=target_model) \
-            if backend == "claude_code" else (cloud_model_limit(target_model, _DEFAULT_CLOUD_WINDOW) or _DEFAULT_CLOUD_WINDOW)
+        limit = (
+            prompt_token_limit(_CLI_LIMIT_NAMES.get(backend, "claude"), model=target_model)
+            if backend == "claude_code"
+            else (cloud_model_limit(target_model, _DEFAULT_CLOUD_WINDOW) or _DEFAULT_CLOUD_WINDOW)
+        )
         cli_provider = "anthropic" if backend == "claude_code" else None  # the CLI's own account, not Ananta's
-        return ExecutionWindow(limit, backend, cli_provider, target_model if backend != "claude_code" else None,
-                               False, "subscription_cli")
+        return ExecutionWindow(
+            limit, backend, cli_provider, target_model if backend != "claude_code" else None, False, "subscription_cli"
+        )
     if target_kind in _LOCAL_TARGETS or (target_kind is None and is_local_provider(provider, cfg)):
-        return ExecutionWindow(effective_window_tokens(provider=provider, agent_cfg=cfg), backend, provider,
-                               target_model, True, "local_runtime")
+        return ExecutionWindow(
+            effective_window_tokens(provider=provider, agent_cfg=cfg),
+            backend,
+            provider,
+            target_model,
+            True,
+            "local_runtime",
+        )
     if target_kind in _CLOUD_TARGETS or (provider and not is_local_provider(provider, cfg)):
-        limit = cloud_model_limit(target_model, None) or cloud_model_limit(provider, _DEFAULT_CLOUD_WINDOW) \
+        limit = (
+            cloud_model_limit(target_model, None)
+            or cloud_model_limit(provider, _DEFAULT_CLOUD_WINDOW)
             or _DEFAULT_CLOUD_WINDOW
+        )
         if backend in _CLI_LIMIT_NAMES:
             limit = min(limit, prompt_token_limit(_CLI_LIMIT_NAMES[backend], model=target_model, local=False))
         return ExecutionWindow(limit, backend, provider, target_model, False, "cloud_model")
