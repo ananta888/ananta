@@ -1,0 +1,831 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-11-02",
+  "updated_at": "2026-11-02",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "proposal_unification_multi_agent_consensus",
+  "title": "Unified Proposal Layer, konkurrierende Multi-Agent-Proposals, Deliberation und Governance-konformer Konsens",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Vorhandene heterogene Proposal-Implementierungen ohne Rewrite gemeinsam abstrahieren und kontrolliert gegeneinander bewerten lassen.",
+  "goal": "Multi-Agenten koennen konkurrierende, versionierte Proposals einreichen, strukturiert kritisieren, Gegenvorschlaege machen und ueber einen durch Hub-Policies kontrollierten Entscheidungsprozess zu einer nachvollziehbaren Entscheidung oder ausdruecklichen Nichtentscheidung gelangen.",
+  "source_basis": [
+    "Code-Inspektion Ananta default branch am 2026-11-02; keine Runtime-Integrationstests in dieser Recherche ausgefuehrt",
+    "agent/services/worker_task_proposal_{contract,policy,ingress,decision}_service.py",
+    "agent/services/diff_proposal_service.py",
+    "agent/services/planning_proposal_service.py",
+    "agent/services/custom_tool_proposal_service.py",
+    "agent/services/heuristic_runtime/; agent/services/autopilot/; agent/services/task_recovery_proposal.py",
+    "worker/core/proposal_artifacts.py; worker/skills/skill_proposal.py; docs/contracts/tool-proposal-artifact.md"
+  ],
+  "architecture_decisions": [
+    "Hub ist sole authority fuer Routing, Policies, Approval und Mutationsgate; Worker geben ausschliesslich Vorschlaege/Reviews ab.",
+    "Strukturierte immutable ProposalEnvelope und domain adapter statt migrationsriskanter Vereinheitlichung aller Domain DTOs.",
+    "Voting ist advisory; nur bestehende Hub-Governance-Gates autorisieren Adoption und Execution.",
+    "Konsens kann auch no_consensus oder human_review bedeuten. Keine erzwungene Mehrheitsentscheidung.",
+    "Risk-based deliberation: einfache Aufgaben behalten schnellen Single-Agent-Pfad; bounded multi-agent deliberation ist opt-in.",
+    "Verschiedene Reviewer muessen evidenzorientiert urteilen, nicht nur Stimmen addieren."
+  ],
+  "non_goals": [
+    "Kein autonomes Umgehen von HITL und Default-Deny.",
+    "Kein pauschales Ersetzen der vorhandenen Proposal-Services, Task Queue oder Security Negotiation.",
+    "Kein Anspruch, dass demokratische Mehrheiten technische Korrektheit garantieren.",
+    "Kein always-on Multi-Agent-Overhead fuer triviale Aufgaben."
+  ],
+  "related_paths": [
+    "agent/services/worker_task_proposal_decision_service.py",
+    "agent/services/worker_task_proposal_policy_service.py",
+    "agent/services/worker_task_proposal_ingress_service.py",
+    "agent/services/planning_proposal_service.py",
+    "agent/services/diff_proposal_service.py",
+    "agent/services/custom_tool_proposal_service.py",
+    "agent/services/autopilot/proposal_strategies.py",
+    "agent/services/heuristic_runtime/proposal_validator.py",
+    "worker/core/proposal_artifacts.py",
+    "todos/todo.track.schema.json"
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "PCON-M0",
+      "title": "Bestandsaufnahme und Invarianten",
+      "task_ids": [
+        "PCON-001",
+        "PCON-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PCON-M1",
+      "title": "Gemeinsamer Vertrag und Adapter",
+      "task_ids": [
+        "PCON-003",
+        "PCON-004",
+        "PCON-005",
+        "PCON-006",
+        "PCON-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PCON-M2",
+      "title": "Multi-Agent-Deliberation und Gegenvorschläge",
+      "task_ids": [
+        "PCON-008",
+        "PCON-009",
+        "PCON-010",
+        "PCON-011",
+        "PCON-012",
+        "PCON-013"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PCON-M3",
+      "title": "Konsens und Entscheidungsautorität",
+      "task_ids": [
+        "PCON-014",
+        "PCON-015",
+        "PCON-016",
+        "PCON-017",
+        "PCON-018"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PCON-M4",
+      "title": "Produkt, Sichtbarkeit und Betrieb",
+      "task_ids": [
+        "PCON-019",
+        "PCON-020",
+        "PCON-021",
+        "PCON-022"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PCON-M5",
+      "title": "Qualität, Benchmark und Release",
+      "task_ids": [
+        "PCON-023",
+        "PCON-024",
+        "PCON-025",
+        "PCON-026"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PCON-001",
+      "milestone_id": "PCON-M0",
+      "title": "Proposal-Inventar und Runtime-Pfade kartieren",
+      "type": "audit",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Alle Proposal-Produzenten, Speicherorte, Lebenszyklen, API-Routen und Executor-Gates einschließlich Planner, Task, Diff, Tool, Skill, Heuristic, Recovery, Evolution, Autopilot und WebRTC tabellarisch erfassen.",
+        "Tatsächlich verdrahtete Runtime-Pfade von isolierten Klassen, Tests und TODO-only-Code unterscheiden.",
+        "Für jeden Adapter Source-of-Truth, Approval-Owner, Policy-Owner, Mutationsgrenze und rückwärtskompatiblen Migrationspfad dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Alle Proposal-Produzenten, Speicherorte, Lebenszyklen, API-Routen und Executor-Gates einschließlich Planner, Task, Diff, Tool, Skill, Heuristic, Recovery, Evolution, Autopilot und WebRTC tabellarisch erfassen.",
+        "Tatsächlich verdrahtete Runtime-Pfade von isolierten Klassen, Tests und TODO-only-Code unterscheiden.",
+        "Für jeden Adapter Source-of-Truth, Approval-Owner, Policy-Owner, Mutationsgrenze und rückwärtskompatiblen Migrationspfad dokumentieren."
+      ]
+    },
+    {
+      "id": "PCON-002",
+      "milestone_id": "PCON-M0",
+      "title": "Threat Model und nicht verhandelbare Sicherheitsinvarianten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-001"
+      ],
+      "implementation": [
+        "Agenten dürfen keine Approvals, Policy-Rollen, Auditbelege oder Stimmen fremder Identitäten erzeugen; Hub bleibt einzige Mutationsautorität.",
+        "Harte Schranken für Tenant/Projekt/Organisation, Capabilities, Budget, Lease, Replay, Revocation, Deadline und Policy-Änderungen festlegen.",
+        "Abbruch/Enthaltung/fehlender Konsens darf niemals als Freigabe interpretiert werden; Voting ersetzt keine Governance-Gates."
+      ],
+      "acceptance_criteria": [
+        "Agenten dürfen keine Approvals, Policy-Rollen, Auditbelege oder Stimmen fremder Identitäten erzeugen; Hub bleibt einzige Mutationsautorität.",
+        "Harte Schranken für Tenant/Projekt/Organisation, Capabilities, Budget, Lease, Replay, Revocation, Deadline und Policy-Änderungen festlegen.",
+        "Abbruch/Enthaltung/fehlender Konsens darf niemals als Freigabe interpretiert werden; Voting ersetzt keine Governance-Gates."
+      ]
+    },
+    {
+      "id": "PCON-003",
+      "milestone_id": "PCON-M1",
+      "title": "ProposalEnvelope v1 und Capability-verengende Typisierung",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-001",
+        "PCON-002"
+      ],
+      "implementation": [
+        "JSON Schema Draft 2020-12 für proposal_envelope.v1: immutable id, kind, schema_version, origin, proposer identity, scope, intention, payload_ref, content_digest, policy_hash, parent/counterproposal refs, evidence, risk, budget, timestamps, expiration, provenance.",
+        "Domain-Payload bleibt über discriminated unions bzw. Adapter typisiert; keine ausführbaren Tool-Calls durch generische Deserialisierung.",
+        "Kanonische Serialisierung mit Hashing und Limits für Größe, Tiefe und Referenzanzahl; schema- und fuzz-tests."
+      ],
+      "acceptance_criteria": [
+        "JSON Schema Draft 2020-12 für proposal_envelope.v1: immutable id, kind, schema_version, origin, proposer identity, scope, intention, payload_ref, content_digest, policy_hash, parent/counterproposal refs, evidence, risk, budget, timestamps, expiration, provenance.",
+        "Domain-Payload bleibt über discriminated unions bzw. Adapter typisiert; keine ausführbaren Tool-Calls durch generische Deserialisierung.",
+        "Kanonische Serialisierung mit Hashing und Limits für Größe, Tiefe und Referenzanzahl; schema- und fuzz-tests."
+      ]
+    },
+    {
+      "id": "PCON-004",
+      "milestone_id": "PCON-M1",
+      "title": "Gemeinsames Proposal-Lifecycle- und Event-Modell",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-003"
+      ],
+      "implementation": [
+        "Zustände draft/submitted/validated/under_review/needs_changes/accepted/rejected/superseded/expired/cancelled/adopted und getrennten execution_state definieren.",
+        "Alle Übergänge mit Preconditions, zulässigen Akteuren, reason_codes, optimistic concurrency, timestamp und append-only Audit spezifizieren.",
+        "Adopted/approved niemals als executed/verified ausgeben; terminale Zustände sind idempotent."
+      ],
+      "acceptance_criteria": [
+        "Zustände draft/submitted/validated/under_review/needs_changes/accepted/rejected/superseded/expired/cancelled/adopted und getrennten execution_state definieren.",
+        "Alle Übergänge mit Preconditions, zulässigen Akteuren, reason_codes, optimistic concurrency, timestamp und append-only Audit spezifizieren.",
+        "Adopted/approved niemals als executed/verified ausgeben; terminale Zustände sind idempotent."
+      ]
+    },
+    {
+      "id": "PCON-005",
+      "milestone_id": "PCON-M1",
+      "title": "Adapter-Interface und read-only Normalizer",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-003",
+        "PCON-004"
+      ],
+      "implementation": [
+        "ProposalAdapter Protocol mit identify, normalize, validate, evaluate_policy, preview, adopt_reference und authority_boundary definieren.",
+        "Adapter für planning, worker_task, diff, tool, skill, heuristic, recovery, evolution und autopilot zuerst read-only anbinden.",
+        "Für jede Domäne Golden Fixtures und Contract-Tests für round-trip, verlorene Felder, Statuskonflikte und unveränderte Altpfade."
+      ],
+      "acceptance_criteria": [
+        "ProposalAdapter Protocol mit identify, normalize, validate, evaluate_policy, preview, adopt_reference und authority_boundary definieren.",
+        "Adapter für planning, worker_task, diff, tool, skill, heuristic, recovery, evolution und autopilot zuerst read-only anbinden.",
+        "Für jede Domäne Golden Fixtures und Contract-Tests für round-trip, verlorene Felder, Statuskonflikte und unveränderte Altpfade."
+      ]
+    },
+    {
+      "id": "PCON-006",
+      "milestone_id": "PCON-M1",
+      "title": "Keine semantische Gleichsetzung von Security Negotiation",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-005"
+      ],
+      "implementation": [
+        "WebRTC-Security-Proposals als eigenständigen Protokolltyp abgrenzen: keine stillschweigende Aufnahme in Multi-Agent-Consensus.",
+        "Falls Integration nötig, nur Metadaten/Observability über eigenen Adapter ohne Veränderung des kryptografischen Handshakes.",
+        "Dokumentieren, welche anderen gleichnamigen DTOs kein Proposal im Governance-Sinn sind."
+      ],
+      "acceptance_criteria": [
+        "WebRTC-Security-Proposals als eigenständigen Protokolltyp abgrenzen: keine stillschweigende Aufnahme in Multi-Agent-Consensus.",
+        "Falls Integration nötig, nur Metadaten/Observability über eigenen Adapter ohne Veränderung des kryptografischen Handshakes.",
+        "Dokumentieren, welche anderen gleichnamigen DTOs kein Proposal im Governance-Sinn sind."
+      ]
+    },
+    {
+      "id": "PCON-007",
+      "milestone_id": "PCON-M1",
+      "title": "Persistenz, Provenienz und Revisionsbindung",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-004",
+        "PCON-005"
+      ],
+      "implementation": [
+        "Proposal-Registry mit append-only Versionen, referenzierten Originalartefakten, status events, lineage graph und Content-addressed evidence schaffen; keine zweite autoritative Kopie vorhandener Daten.",
+        "TOCTOU-Schutz durch erneute Validierung von Hash, Policy, Lease, Assignment und Source-Revision unmittelbar bei Adoption.",
+        "Restart-, Concurrency-, Idempotenz-, Backfill- und Tenant-Isolationstests mit DB-Migration und Rollback."
+      ],
+      "acceptance_criteria": [
+        "Proposal-Registry mit append-only Versionen, referenzierten Originalartefakten, status events, lineage graph und Content-addressed evidence schaffen; keine zweite autoritative Kopie vorhandener Daten.",
+        "TOCTOU-Schutz durch erneute Validierung von Hash, Policy, Lease, Assignment und Source-Revision unmittelbar bei Adoption.",
+        "Restart-, Concurrency-, Idempotenz-, Backfill- und Tenant-Isolationstests mit DB-Migration und Rollback."
+      ]
+    },
+    {
+      "id": "PCON-008",
+      "milestone_id": "PCON-M2",
+      "title": "DeliberationSession mit Scope und Kandidatenpool",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-005",
+        "PCON-007"
+      ],
+      "implementation": [
+        "Session enthält goal/task, immutable input snapshot, decision question, candidate set, agent roles, evaluator profiles, rounds, deadline, budgets und stop conditions.",
+        "Mehrere konkurrierende Proposals sowie deduplizierte near-duplicates und mutually exclusive Kandidaten unterstützen.",
+        "Getrennte Session-IDs, Versionswechsel und Abbruch bei Quelländerung; keine Worker-zu-Worker-Delegation."
+      ],
+      "acceptance_criteria": [
+        "Session enthält goal/task, immutable input snapshot, decision question, candidate set, agent roles, evaluator profiles, rounds, deadline, budgets und stop conditions.",
+        "Mehrere konkurrierende Proposals sowie deduplizierte near-duplicates und mutually exclusive Kandidaten unterstützen.",
+        "Getrennte Session-IDs, Versionswechsel und Abbruch bei Quelländerung; keine Worker-zu-Worker-Delegation."
+      ]
+    },
+    {
+      "id": "PCON-009",
+      "milestone_id": "PCON-M2",
+      "title": "Agentenrollen, unabhängige Kritiker und Kompetenzrouting",
+      "type": "orchestration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-008"
+      ],
+      "implementation": [
+        "Proposer, domain critic, security reviewer, cost evaluator, verifier und optional chair definieren; Hub wählt Instanzen anhand Skills/Capabilities und Unabhängigkeitsregeln.",
+        "Gleiche Modelle/Prompts, gemeinsame Kontextkontamination oder gleiche Agenteninstanz dürfen nicht als unabhängige Evidenz gezählt werden.",
+        "Fallback bei fehlenden Spezialisten sowie deklarierte Interessenkonflikte und Selbstprüfung implementieren."
+      ],
+      "acceptance_criteria": [
+        "Proposer, domain critic, security reviewer, cost evaluator, verifier und optional chair definieren; Hub wählt Instanzen anhand Skills/Capabilities und Unabhängigkeitsregeln.",
+        "Gleiche Modelle/Prompts, gemeinsame Kontextkontamination oder gleiche Agenteninstanz dürfen nicht als unabhängige Evidenz gezählt werden.",
+        "Fallback bei fehlenden Spezialisten sowie deklarierte Interessenkonflikte und Selbstprüfung implementieren."
+      ]
+    },
+    {
+      "id": "PCON-010",
+      "milestone_id": "PCON-M2",
+      "title": "Strukturiertes Review und überprüfbare Belege",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-008",
+        "PCON-009"
+      ],
+      "implementation": [
+        "ReviewArtifact mit proposal_version, verdict, claim-level findings, evidence refs, severity, confidence calibration, assumptions, counterexamples, suggested edits und abstain_reason definieren.",
+        "Schema-Validierung, Evidence-Grounding, Kritik-Kategorien (Korrektheit, Sicherheit, Aufwand, Wartbarkeit, Tests, Zielerfüllung) und deterministische Hard-Fail-Regeln.",
+        "LLM-Scores sind nicht automatisch Tatsachen; nicht belegte Claims sichtbar als unverified klassifizieren."
+      ],
+      "acceptance_criteria": [
+        "ReviewArtifact mit proposal_version, verdict, claim-level findings, evidence refs, severity, confidence calibration, assumptions, counterexamples, suggested edits und abstain_reason definieren.",
+        "Schema-Validierung, Evidence-Grounding, Kritik-Kategorien (Korrektheit, Sicherheit, Aufwand, Wartbarkeit, Tests, Zielerfüllung) und deterministische Hard-Fail-Regeln.",
+        "LLM-Scores sind nicht automatisch Tatsachen; nicht belegte Claims sichtbar als unverified klassifizieren."
+      ]
+    },
+    {
+      "id": "PCON-011",
+      "milestone_id": "PCON-M2",
+      "title": "Counterproposal- und Revision-DAG",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-008",
+        "PCON-010"
+      ],
+      "implementation": [
+        "Counterproposal als neues immutable Artefakt mit parent refs, semantic diff, rationale, evidence, author und scope; mehrere Eltern für Merge nur bei kompatiblen Kandidaten.",
+        "Revisions-, Merge-, Supersede- und Stale-Regeln inklusive Zyklenerkennung und maximaler Tiefe.",
+        "Gegenvorschläge dürfen ursprüngliche Approval-Hashes nicht erben; Änderungen an risk/capabilities verlangen erneute Prüfungen."
+      ],
+      "acceptance_criteria": [
+        "Counterproposal als neues immutable Artefakt mit parent refs, semantic diff, rationale, evidence, author und scope; mehrere Eltern für Merge nur bei kompatiblen Kandidaten.",
+        "Revisions-, Merge-, Supersede- und Stale-Regeln inklusive Zyklenerkennung und maximaler Tiefe.",
+        "Gegenvorschläge dürfen ursprüngliche Approval-Hashes nicht erben; Änderungen an risk/capabilities verlangen erneute Prüfungen."
+      ]
+    },
+    {
+      "id": "PCON-012",
+      "milestone_id": "PCON-M2",
+      "title": "Debattenprotokoll mit bounded rounds und Stagnationserkennung",
+      "type": "orchestration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-010",
+        "PCON-011"
+      ],
+      "implementation": [
+        "Round 0 unabhängig erzeugte Kandidaten; Round 1 Blind-Review; danach begrenztes Rebuttal, Counterproposal und Re-Review; optionale anonymisierte Reviews.",
+        "Stop bei Deadline, maximalen Runden, Token/Kosten/Walltime, inhaltlicher Stagnation, Duplikaten oder konvergenter Bewertung.",
+        "Kein infinite debate, keine unbeschränkten retries; Recovery checkpoint/resume deterministisch und idempotent."
+      ],
+      "acceptance_criteria": [
+        "Round 0 unabhängig erzeugte Kandidaten; Round 1 Blind-Review; danach begrenztes Rebuttal, Counterproposal und Re-Review; optionale anonymisierte Reviews.",
+        "Stop bei Deadline, maximalen Runden, Token/Kosten/Walltime, inhaltlicher Stagnation, Duplikaten oder konvergenter Bewertung.",
+        "Kein infinite debate, keine unbeschränkten retries; Recovery checkpoint/resume deterministisch und idempotent."
+      ]
+    },
+    {
+      "id": "PCON-013",
+      "milestone_id": "PCON-M2",
+      "title": "Koordinierter Parallelbetrieb und Ressourcenbudget",
+      "type": "orchestration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-008",
+        "PCON-012"
+      ],
+      "implementation": [
+        "Parallele Worker nur über Hub-Assignments und vorhandene Queue/Lease/Capability-Verträge; cancellable fan-out und bounded fan-in.",
+        "Token, Kosten, Zeit, Energie/Compute, Kontextfenster und Bewertungsbudget je Session und Reviewer separat erfassen.",
+        "Bei Ausfall, Langsamkeit oder Provider-Rate-Limits strukturierter Partial-Quorum-Status statt impliziter Zustimmung."
+      ],
+      "acceptance_criteria": [
+        "Parallele Worker nur über Hub-Assignments und vorhandene Queue/Lease/Capability-Verträge; cancellable fan-out und bounded fan-in.",
+        "Token, Kosten, Zeit, Energie/Compute, Kontextfenster und Bewertungsbudget je Session und Reviewer separat erfassen.",
+        "Bei Ausfall, Langsamkeit oder Provider-Rate-Limits strukturierter Partial-Quorum-Status statt impliziter Zustimmung."
+      ]
+    },
+    {
+      "id": "PCON-014",
+      "milestone_id": "PCON-M3",
+      "title": "Pluggable ConsensusPolicy v1 mit Regeln statt Mehrheitszwang",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-010",
+        "PCON-012"
+      ],
+      "implementation": [
+        "Strategien unanimous, qualified_majority, weighted_advisory, score_aggregation, rank/Condorcet und chair_tiebreak als konfigurierbare Verfahren nur dort erlauben, wo passend.",
+        "Quorum, Mindestzahl unabhängiger Reviewer, Veto-Fachrollen, Enthaltungen, Abbruch, Gleichstand, Minderheitenvotum und Nichtentscheidung explizit definieren.",
+        "Security-/Policy-Gates bleiben deterministisch und können von Stimmen niemals überstimmt werden; Defaults fail-closed."
+      ],
+      "acceptance_criteria": [
+        "Strategien unanimous, qualified_majority, weighted_advisory, score_aggregation, rank/Condorcet und chair_tiebreak als konfigurierbare Verfahren nur dort erlauben, wo passend.",
+        "Quorum, Mindestzahl unabhängiger Reviewer, Veto-Fachrollen, Enthaltungen, Abbruch, Gleichstand, Minderheitenvotum und Nichtentscheidung explizit definieren.",
+        "Security-/Policy-Gates bleiben deterministisch und können von Stimmen niemals überstimmt werden; Defaults fail-closed."
+      ]
+    },
+    {
+      "id": "PCON-015",
+      "milestone_id": "PCON-M3",
+      "title": "Mehrkriterielle Bewertung und Pareto-Front",
+      "type": "algorithm",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-010",
+        "PCON-014"
+      ],
+      "implementation": [
+        "Gewichte für Correctness, risk, cost, latency, maintainability, reversibility, testability und evidence_quality je Taskklasse konfigurieren und nachvollziehbar normalisieren.",
+        "Hard constraints vor Soft Scores anwenden; Pareto-dominierte Alternativen optional markieren statt nur Durchschnittsscore zu verwenden.",
+        "Score-Sensitivität, widersprüchliche Reviews und Ranking-Instabilität sichtbar machen."
+      ],
+      "acceptance_criteria": [
+        "Gewichte für Correctness, risk, cost, latency, maintainability, reversibility, testability und evidence_quality je Taskklasse konfigurieren und nachvollziehbar normalisieren.",
+        "Hard constraints vor Soft Scores anwenden; Pareto-dominierte Alternativen optional markieren statt nur Durchschnittsscore zu verwenden.",
+        "Score-Sensitivität, widersprüchliche Reviews und Ranking-Instabilität sichtbar machen."
+      ]
+    },
+    {
+      "id": "PCON-016",
+      "milestone_id": "PCON-M3",
+      "title": "Sybil-, Collusion-, Bias- und Vote-Manipulation-Schutz",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-009",
+        "PCON-014"
+      ],
+      "implementation": [
+        "Verified agent identity + unique role binding; keine Stimmenvervielfältigung durch Subagenten, gleichen Provider-Account, Retry oder Pseudonyme.",
+        "Prompt-Injection in Proposal/Review-Evidence, Reviewer-Collusion, Self-preference, strategic voting, abstention gaming und falsche Confidence in adversarial tests abdecken.",
+        "Gewichtungen dürfen nur über Hub-Policy erfolgen; Anbieter-/Modell-Diversität als Messgröße, nicht als Garantie der Unabhängigkeit."
+      ],
+      "acceptance_criteria": [
+        "Verified agent identity + unique role binding; keine Stimmenvervielfältigung durch Subagenten, gleichen Provider-Account, Retry oder Pseudonyme.",
+        "Prompt-Injection in Proposal/Review-Evidence, Reviewer-Collusion, Self-preference, strategic voting, abstention gaming und falsche Confidence in adversarial tests abdecken.",
+        "Gewichtungen dürfen nur über Hub-Policy erfolgen; Anbieter-/Modell-Diversität als Messgröße, nicht als Garantie der Unabhängigkeit."
+      ]
+    },
+    {
+      "id": "PCON-017",
+      "milestone_id": "PCON-M3",
+      "title": "DecisionRecord und menschliche Eskalation",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-014",
+        "PCON-015",
+        "PCON-016"
+      ],
+      "implementation": [
+        "Finales Hub-owned DecisionRecord mit selected proposal revision/digest, competing alternatives, dissent, quorum, policy checks, evidence, reviewer IDs, abstentions und deterministic reason_codes.",
+        "Outcomes accept, reject, request_changes, no_consensus, defer, require_human_review; bei hochriskanten Aktionen separate menschliche Freigabe.",
+        "Human override dokumentiert und gültige Approvals nie von Agenten synthetisiert; Status unveränderlich nach Abschluss."
+      ],
+      "acceptance_criteria": [
+        "Finales Hub-owned DecisionRecord mit selected proposal revision/digest, competing alternatives, dissent, quorum, policy checks, evidence, reviewer IDs, abstentions und deterministic reason_codes.",
+        "Outcomes accept, reject, request_changes, no_consensus, defer, require_human_review; bei hochriskanten Aktionen separate menschliche Freigabe.",
+        "Human override dokumentiert und gültige Approvals nie von Agenten synthetisiert; Status unveränderlich nach Abschluss."
+      ]
+    },
+    {
+      "id": "PCON-018",
+      "milestone_id": "PCON-M3",
+      "title": "Adoption-Gateway für bestehende Domänen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-005",
+        "PCON-007",
+        "PCON-017"
+      ],
+      "implementation": [
+        "Hub DecisionRecord wird domänenspezifisch durch bestehende Diff-, Task-, Tool-, Plan-, Recovery-/Skill-Gates angewandt, nicht durch neuen generischen Executor.",
+        "Bei Adoption im selben Scope Hash/Revision/Policy/Lease/Approval erneut prüfen, Idempotency Key und Commit-Barrier nutzen.",
+        "Rollback/Compensation nur wo tatsächlich unterstützt; ohne sicheren Adopt-Pfad advisory-only bleiben."
+      ],
+      "acceptance_criteria": [
+        "Hub DecisionRecord wird domänenspezifisch durch bestehende Diff-, Task-, Tool-, Plan-, Recovery-/Skill-Gates angewandt, nicht durch neuen generischen Executor.",
+        "Bei Adoption im selben Scope Hash/Revision/Policy/Lease/Approval erneut prüfen, Idempotency Key und Commit-Barrier nutzen.",
+        "Rollback/Compensation nur wo tatsächlich unterstützt; ohne sicheren Adopt-Pfad advisory-only bleiben."
+      ]
+    },
+    {
+      "id": "PCON-019",
+      "milestone_id": "PCON-M4",
+      "title": "REST/Events/MCP und operator review APIs",
+      "type": "api",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-008",
+        "PCON-017"
+      ],
+      "implementation": [
+        "Create/list/get session, submit/review/counterproposal, finalize/abort und history Endpoints; Pagination, RBAC, tenant filters, typed errors und ETags.",
+        "SSE/Eventfeed für Round/Status/Reviewer-Updates; MCP-Tools nur mit delegierten Capabilities und serverseitigem Gate.",
+        "API-Contract-Tests mit AuthZ, Stale-Version und Replay; keine ungeprüften write APIs für Worker."
+      ],
+      "acceptance_criteria": [
+        "Create/list/get session, submit/review/counterproposal, finalize/abort und history Endpoints; Pagination, RBAC, tenant filters, typed errors und ETags.",
+        "SSE/Eventfeed für Round/Status/Reviewer-Updates; MCP-Tools nur mit delegierten Capabilities und serverseitigem Gate.",
+        "API-Contract-Tests mit AuthZ, Stale-Version und Replay; keine ungeprüften write APIs für Worker."
+      ]
+    },
+    {
+      "id": "PCON-020",
+      "milestone_id": "PCON-M4",
+      "title": "Angular/TUI UI für Kandidatenvergleich und Dissens",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-019"
+      ],
+      "implementation": [
+        "Vergleichsansicht Kandidaten, Diffs, Evidence, Kritiken, Scores, Minoritätsmeinungen, Alternativen und Entscheidungsspur.",
+        "Operator kann Änderungen anfordern, überstimmen oder human approval initiieren, jedoch keine Policy-Gates umgehen.",
+        "Accessibility, große Debatten, Status nach Reload, sichere Markdown-Darstellung und Read-only Shadow Mode prüfen."
+      ],
+      "acceptance_criteria": [
+        "Vergleichsansicht Kandidaten, Diffs, Evidence, Kritiken, Scores, Minoritätsmeinungen, Alternativen und Entscheidungsspur.",
+        "Operator kann Änderungen anfordern, überstimmen oder human approval initiieren, jedoch keine Policy-Gates umgehen.",
+        "Accessibility, große Debatten, Status nach Reload, sichere Markdown-Darstellung und Read-only Shadow Mode prüfen."
+      ]
+    },
+    {
+      "id": "PCON-021",
+      "milestone_id": "PCON-M4",
+      "title": "Telemetry, Auditing, Datenschutz und Retention",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-007",
+        "PCON-017"
+      ],
+      "implementation": [
+        "Events und Metriken: proposal_count, review_conflict, consensus_rate, no_consensus, veto, decision_latency, agent_cost, duplicate_rate, adoption_verification, policy_blocked.",
+        "Korrelation über trace_id/task_id/session_id/proposal_id bei minimierter Datenhaltung; redaction vertraulicher Inhalte und retention policy.",
+        "Auditexport für Reproduktion mit unveränderten Digests und ohne Offenlegung vertraulicher Prompts/Secrets."
+      ],
+      "acceptance_criteria": [
+        "Events und Metriken: proposal_count, review_conflict, consensus_rate, no_consensus, veto, decision_latency, agent_cost, duplicate_rate, adoption_verification, policy_blocked.",
+        "Korrelation über trace_id/task_id/session_id/proposal_id bei minimierter Datenhaltung; redaction vertraulicher Inhalte und retention policy.",
+        "Auditexport für Reproduktion mit unveränderten Digests und ohne Offenlegung vertraulicher Prompts/Secrets."
+      ]
+    },
+    {
+      "id": "PCON-022",
+      "milestone_id": "PCON-M4",
+      "title": "Konfiguration, Feature Flags und Migrationsstrategie",
+      "type": "operations",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-005",
+        "PCON-018"
+      ],
+      "implementation": [
+        "Flags off/shadow/advisory/enforced je Proposal-Kind, Task-Risk und Organisation, Default off oder advisory.",
+        "Schrittweise Aktivierung ohne Veränderung existierender Approval/Executor-Verträge; DB-Migration vor Adapter-Routing, Rollback für alle Stufen.",
+        "Verifizierter Not-Aus schaltet deliberation ab, nicht aber die vorhandenen Security-Gates."
+      ],
+      "acceptance_criteria": [
+        "Flags off/shadow/advisory/enforced je Proposal-Kind, Task-Risk und Organisation, Default off oder advisory.",
+        "Schrittweise Aktivierung ohne Veränderung existierender Approval/Executor-Verträge; DB-Migration vor Adapter-Routing, Rollback für alle Stufen.",
+        "Verifizierter Not-Aus schaltet deliberation ab, nicht aber die vorhandenen Security-Gates."
+      ]
+    },
+    {
+      "id": "PCON-023",
+      "milestone_id": "PCON-M5",
+      "title": "Deterministische Unit-/Property-/Concurrency-Tests",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-018",
+        "PCON-022"
+      ],
+      "implementation": [
+        "Property-based Tests: keine unauthorized adoption, kein Status-Rücksprung, keine Cross-Tenant-Leaks, keine Hash-Mismatch-Freigabe, terminiert unter Limits.",
+        "Race-Tests zu parallelen Counterproposals, Abstimmungen, Timeouts, Leases, Stale Revisions, Retry und Crash/Resume.",
+        "Golden Backwards-Compatibility Suite über vorhandene Proposal-Arten; Tests laufen ohne echtes LLM."
+      ],
+      "acceptance_criteria": [
+        "Property-based Tests: keine unauthorized adoption, kein Status-Rücksprung, keine Cross-Tenant-Leaks, keine Hash-Mismatch-Freigabe, terminiert unter Limits.",
+        "Race-Tests zu parallelen Counterproposals, Abstimmungen, Timeouts, Leases, Stale Revisions, Retry und Crash/Resume.",
+        "Golden Backwards-Compatibility Suite über vorhandene Proposal-Arten; Tests laufen ohne echtes LLM."
+      ]
+    },
+    {
+      "id": "PCON-024",
+      "milestone_id": "PCON-M5",
+      "title": "E2E-Fälle mit konkurrierenden Lösungen und Dissens",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-013",
+        "PCON-018",
+        "PCON-023"
+      ],
+      "implementation": [
+        "Mindestens fünf realistische Fälle: konkurrierende Codefixes, Security-Veto, risk-vs-cost tradeoff, fehlendes Quorum, divergierende Quellen sowie Änderungswunsch mit neuer Revision.",
+        "Verifizierer prüft Ergebnis unabhängig von Konsens; Unterschriften/Approval-Gates/Review-Fristen bleiben korrekt.",
+        "Jede Session liefert reproduzierbaren DecisionRecord, einschließlich dokumentierter Nichtentscheidung."
+      ],
+      "acceptance_criteria": [
+        "Mindestens fünf realistische Fälle: konkurrierende Codefixes, Security-Veto, risk-vs-cost tradeoff, fehlendes Quorum, divergierende Quellen sowie Änderungswunsch mit neuer Revision.",
+        "Verifizierer prüft Ergebnis unabhängig von Konsens; Unterschriften/Approval-Gates/Review-Fristen bleiben korrekt.",
+        "Jede Session liefert reproduzierbaren DecisionRecord, einschließlich dokumentierter Nichtentscheidung."
+      ]
+    },
+    {
+      "id": "PCON-025",
+      "milestone_id": "PCON-M5",
+      "title": "A/B-Benchmark Single-Agent vs Deliberation",
+      "type": "benchmark",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-021",
+        "PCON-024"
+      ],
+      "implementation": [
+        "Baselines single-agent, existing multi-agent without deliberation und new advisory/enforced mit identischem Budget und Aufgabenpool.",
+        "Vergleiche Task-Erfolg, Regressionen, Security-Fails, False Approvals, menschliche Nacharbeit, Tokenkosten, Latenz, Reviewer-Korrelation und Stabilität.",
+        "Konfidenzintervalle, Vergleich nach Risiko und explizite Schwellen für Aktivierung; Deliberation nur bei messbarem Netto-Nutzen."
+      ],
+      "acceptance_criteria": [
+        "Baselines single-agent, existing multi-agent without deliberation und new advisory/enforced mit identischem Budget und Aufgabenpool.",
+        "Vergleiche Task-Erfolg, Regressionen, Security-Fails, False Approvals, menschliche Nacharbeit, Tokenkosten, Latenz, Reviewer-Korrelation und Stabilität.",
+        "Konfidenzintervalle, Vergleich nach Risiko und explizite Schwellen für Aktivierung; Deliberation nur bei messbarem Netto-Nutzen."
+      ]
+    },
+    {
+      "id": "PCON-026",
+      "milestone_id": "PCON-M5",
+      "title": "Dokumentation, Runbooks, Rollout und Abnahme",
+      "type": "docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PCON-020",
+        "PCON-022",
+        "PCON-024",
+        "PCON-025"
+      ],
+      "implementation": [
+        "ADR, Datenmodell, Zustandsgrafik, API-Verträge, Threat Model, Operator-Playbook und Beispiele für Default-Deny/HITL erstellen.",
+        "Rollout in shadow → advisory → canary enforced mit automatischem Rollback bei Security/Quality Regression.",
+        "Release-Gate: Migrationen, kontraktstabile Adapter, reproduzierbare Tests, überprüfte Logs und explizit genehmigte Aktivierung."
+      ],
+      "acceptance_criteria": [
+        "ADR, Datenmodell, Zustandsgrafik, API-Verträge, Threat Model, Operator-Playbook und Beispiele für Default-Deny/HITL erstellen.",
+        "Rollout in shadow → advisory → canary enforced mit automatischem Rollback bei Security/Quality Regression.",
+        "Release-Gate: Migrationen, kontraktstabile Adapter, reproduzierbare Tests, überprüfte Logs und explizit genehmigte Aktivierung."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PCON-001",
+    "PCON-002",
+    "PCON-003",
+    "PCON-004",
+    "PCON-005",
+    "PCON-007",
+    "PCON-008",
+    "PCON-010",
+    "PCON-012",
+    "PCON-014",
+    "PCON-016",
+    "PCON-017",
+    "PCON-018",
+    "PCON-023",
+    "PCON-024",
+    "PCON-026"
+  ],
+  "tasks_status_summary": {
+    "total": 26,
+    "by_status": {
+      "todo": 26,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 8,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 5,
+      "high": 16,
+      "critical": 5
+    },
+    "critical_path": {
+      "total": 16,
+      "done": 0,
+      "remaining": 16
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "success_criteria": [
+    "Alle relevanten Proposal-Produzenten sind inventarisiert; keine Domain-Gates werden umgangen.",
+    "Alle Proposal-Arten koennen mindestens read-only normalisiert und verglichen werden.",
+    "Gegenvorschlag und kompetitive Bewertung durch mehrere Agenten funktionieren ueber Hub-Sessions.",
+    "Veto, no_consensus, human escalation, stale revision und policy rejection sind nachvollziehbar und fail-closed.",
+    "Mindestens 5 reproduzierbare E2E-Szenarien sowie Backwards-Compatibility- und Security-Regressionssuite gruen.",
+    "Gegenueber Baselines ist Nutzen/Kosten/Risiko quantifiziert; Enforcement nur nach dokumentierter Freigabe."
+  ],
+  "deliverables": [
+    "schemas/proposals/proposal_envelope.v1.json, review_artifact.v1.json, consensus_policy.v1.json, decision_record.v1.json",
+    "Domain adapters and registry with contract tests",
+    "Hub-owned DeliberationSession / ProposalConsensusService",
+    "REST/MCP + Angular/TUI review surfaces",
+    "Observability, audit, migration, ADR and benchmark suite"
+  ],
+  "summary_notes": [
+    "Die Task-Beschreibungen sind Akzeptanzvorgaben, keine Behauptung bereits umgesetzter Features.",
+    "P0-Aufgaben enthalten Governance- und Mutationsgrenzen als Release-Blocker.",
+    "Bei Bedarf einzelne große Tasks in Subtasks unter gleichem PCON-Prefix zerlegen."
+  ]
+}
