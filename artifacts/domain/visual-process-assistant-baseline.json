@@ -1950,8 +1950,8 @@
     {
       "evidence": [
         {
-          "line_end": 93,
-          "line_start": 93,
+          "line_end": 98,
+          "line_start": 98,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "RerankAdapter.execute",
           "verification_status": "verified"
@@ -1964,8 +1964,8 @@
           "verification_status": "verified"
         },
         {
-          "line_end": 199,
-          "line_start": 199,
+          "line_end": 197,
+          "line_start": 197,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "_KIND_FIELDS.rerank",
           "verification_status": "verified"
@@ -1984,15 +1984,15 @@
     {
       "evidence": [
         {
-          "line_end": 112,
-          "line_start": 112,
+          "line_end": 118,
+          "line_start": 118,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "EmbedApiAdapter",
           "verification_status": "verified"
         },
         {
-          "line_end": 393,
-          "line_start": 393,
+          "line_end": 391,
+          "line_start": 391,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "_KIND_FIELDS.embed_api",
           "verification_status": "verified"
@@ -2034,8 +2034,8 @@
     {
       "evidence": [
         {
-          "line_end": 31,
-          "line_start": 31,
+          "line_end": 30,
+          "line_start": 30,
           "path": "agent/visual_process/validator.py",
           "symbol": "ValidationIssue",
           "verification_status": "verified"
@@ -2108,8 +2108,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 53,
-          "line_start": 53,
+          "line_end": 79,
+          "line_start": 79,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.analysis",
           "verification_status": "verified"
@@ -2146,22 +2146,22 @@
       ],
       "evidence": [
         {
-          "line_end": 120,
-          "line_start": 120,
+          "line_end": 164,
+          "line_start": 164,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.approval",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2204,8 +2204,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 61,
-          "line_start": 61,
+          "line_end": 87,
+          "line_start": 87,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.bugfix",
           "verification_status": "verified"
@@ -2232,8 +2232,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 70,
-          "line_start": 70,
+          "line_end": 96,
+          "line_start": 96,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.ci",
           "verification_status": "verified"
@@ -2260,8 +2260,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 74,
-          "line_start": 74,
+          "line_end": 100,
+          "line_start": 100,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.cluster",
           "verification_status": "verified"
@@ -2288,8 +2288,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 54,
-          "line_start": 54,
+          "line_end": 80,
+          "line_start": 80,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.code_review",
           "verification_status": "verified"
@@ -2327,22 +2327,22 @@
       ],
       "evidence": [
         {
-          "line_end": 291,
-          "line_start": 291,
+          "line_end": 475,
+          "line_start": 475,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.codecompass_fts_search",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2396,22 +2396,22 @@
       ],
       "evidence": [
         {
-          "line_end": 300,
-          "line_start": 300,
+          "line_end": 492,
+          "line_start": 492,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.codecompass_graph_expand",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2465,22 +2465,22 @@
       ],
       "evidence": [
         {
-          "line_end": 273,
-          "line_start": 273,
+          "line_end": 441,
+          "line_start": 441,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.codecompass_index_build",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2534,22 +2534,22 @@
       ],
       "evidence": [
         {
-          "line_end": 282,
-          "line_start": 282,
+          "line_end": 458,
+          "line_start": 458,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.codecompass_vector_search",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2592,8 +2592,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 52,
-          "line_start": 52,
+          "line_end": 78,
+          "line_start": 78,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.coding",
           "verification_status": "verified"
@@ -2630,22 +2630,22 @@
       ],
       "evidence": [
         {
-          "line_end": 148,
-          "line_start": 148,
+          "line_end": 216,
+          "line_start": 216,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.command_execute",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2688,8 +2688,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 56,
-          "line_start": 56,
+          "line_end": 82,
+          "line_start": 82,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.deploy",
           "verification_status": "verified"
@@ -2726,22 +2726,22 @@
       ],
       "evidence": [
         {
-          "line_end": 462,
-          "line_start": 462,
+          "line_end": 768,
+          "line_start": 768,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.domain_cluster",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2801,22 +2801,22 @@
       ],
       "evidence": [
         {
-          "line_end": 311,
-          "line_start": 311,
+          "line_end": 510,
+          "line_start": 510,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.embed_api",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2870,22 +2870,22 @@
       ],
       "evidence": [
         {
-          "line_end": 323,
-          "line_start": 323,
+          "line_end": 530,
+          "line_start": 530,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.embed_chunk",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -2945,22 +2945,22 @@
       ],
       "evidence": [
         {
-          "line_end": 415,
-          "line_start": 415,
+          "line_end": 682,
+          "line_start": 682,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.evolution_analyze",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3020,22 +3020,22 @@
       ],
       "evidence": [
         {
-          "line_end": 433,
-          "line_start": 433,
+          "line_end": 716,
+          "line_start": 716,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.evolution_apply",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3089,22 +3089,22 @@
       ],
       "evidence": [
         {
-          "line_end": 424,
-          "line_start": 424,
+          "line_end": 699,
+          "line_start": 699,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.evolution_validate",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3163,22 +3163,22 @@
       ],
       "evidence": [
         {
-          "line_end": 451,
-          "line_start": 451,
+          "line_end": 750,
+          "line_start": 750,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.evolve_project",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3237,22 +3237,22 @@
       ],
       "evidence": [
         {
-          "line_end": 442,
-          "line_start": 442,
+          "line_end": 733,
+          "line_start": 733,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.evolve_prompt",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3305,22 +3305,22 @@
       ],
       "evidence": [
         {
-          "line_end": 233,
-          "line_start": 233,
+          "line_end": 371,
+          "line_start": 371,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.file_check",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3373,22 +3373,22 @@
       ],
       "evidence": [
         {
-          "line_end": 104,
-          "line_start": 104,
+          "line_end": 130,
+          "line_start": 130,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.fork",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3431,8 +3431,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 67,
-          "line_start": 67,
+          "line_end": 93,
+          "line_start": 93,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.git_diff",
           "verification_status": "verified"
@@ -3469,22 +3469,22 @@
       ],
       "evidence": [
         {
-          "line_end": 224,
-          "line_start": 224,
+          "line_end": 354,
+          "line_start": 354,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.git_op",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3527,8 +3527,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 66,
-          "line_start": 66,
+          "line_end": 92,
+          "line_start": 92,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.git_status",
           "verification_status": "verified"
@@ -3555,8 +3555,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 59,
-          "line_start": 59,
+          "line_end": 85,
+          "line_start": 85,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.goal_plan",
           "verification_status": "verified"
@@ -3583,8 +3583,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 60,
-          "line_start": 60,
+          "line_end": 86,
+          "line_start": 86,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.goal_propose",
           "verification_status": "verified"
@@ -3611,8 +3611,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 65,
-          "line_start": 65,
+          "line_end": 91,
+          "line_start": 91,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.grep_search",
           "verification_status": "verified"
@@ -3639,8 +3639,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 69,
-          "line_start": 69,
+          "line_end": 95,
+          "line_start": 95,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.infra",
           "verification_status": "verified"
@@ -3676,22 +3676,22 @@
       ],
       "evidence": [
         {
-          "line_end": 112,
-          "line_start": 112,
+          "line_end": 147,
+          "line_start": 147,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.join",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3734,8 +3734,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 71,
-          "line_start": 71,
+          "line_end": 97,
+          "line_start": 97,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.list_files",
           "verification_status": "verified"
@@ -3762,8 +3762,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 55,
-          "line_start": 55,
+          "line_end": 81,
+          "line_start": 81,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.llm_generate",
           "verification_status": "verified"
@@ -3828,22 +3828,22 @@
       ],
       "evidence": [
         {
-          "line_end": 387,
-          "line_start": 387,
+          "line_end": 639,
+          "line_start": 639,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.ml_intern_build_lora_dataset",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -3943,22 +3943,22 @@
       ],
       "evidence": [
         {
-          "line_end": 400,
-          "line_start": 400,
+          "line_end": 660,
+          "line_start": 660,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.ml_intern_train_lora",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4001,8 +4001,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 68,
-          "line_start": 68,
+          "line_end": 94,
+          "line_start": 94,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.parallel",
           "verification_status": "verified"
@@ -4039,22 +4039,22 @@
       ],
       "evidence": [
         {
-          "line_end": 130,
-          "line_start": 130,
+          "line_end": 182,
+          "line_start": 182,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.patch_apply",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4113,22 +4113,22 @@
       ],
       "evidence": [
         {
-          "line_end": 139,
-          "line_start": 139,
+          "line_end": 199,
+          "line_start": 199,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.patch_propose",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4186,22 +4186,22 @@
       ],
       "evidence": [
         {
-          "line_end": 168,
-          "line_start": 168,
+          "line_end": 251,
+          "line_start": 251,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.plan_only",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4255,22 +4255,22 @@
       ],
       "evidence": [
         {
-          "line_end": 376,
-          "line_start": 376,
+          "line_end": 621,
+          "line_start": 621,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.query_rewrite",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4325,22 +4325,22 @@
       ],
       "evidence": [
         {
-          "line_end": 358,
-          "line_start": 358,
+          "line_end": 587,
+          "line_start": 587,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.rag_retrieve",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4383,8 +4383,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 64,
-          "line_start": 64,
+          "line_end": 90,
+          "line_start": 90,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.read_file",
           "verification_status": "verified"
@@ -4411,8 +4411,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 58,
-          "line_start": 58,
+          "line_end": 84,
+          "line_start": 84,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.refactor",
           "verification_status": "verified"
@@ -4450,22 +4450,22 @@
       ],
       "evidence": [
         {
-          "line_end": 242,
-          "line_start": 242,
+          "line_end": 388,
+          "line_start": 388,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.regex_check",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4523,22 +4523,22 @@
       ],
       "evidence": [
         {
-          "line_end": 367,
-          "line_start": 367,
+          "line_end": 604,
+          "line_start": 604,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.rerank",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4581,8 +4581,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 57,
-          "line_start": 57,
+          "line_end": 83,
+          "line_start": 83,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.research",
           "verification_status": "verified"
@@ -4624,22 +4624,22 @@
       ],
       "evidence": [
         {
-          "line_end": 195,
-          "line_start": 195,
+          "line_end": 302,
+          "line_start": 302,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.research_limited",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4697,22 +4697,22 @@
       ],
       "evidence": [
         {
-          "line_end": 177,
-          "line_start": 177,
+          "line_end": 268,
+          "line_start": 268,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.review",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4765,22 +4765,22 @@
       ],
       "evidence": [
         {
-          "line_end": 206,
-          "line_start": 206,
+          "line_end": 320,
+          "line_start": 320,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.run_tests",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4833,22 +4833,22 @@
       ],
       "evidence": [
         {
-          "line_end": 215,
-          "line_start": 215,
+          "line_end": 337,
+          "line_start": 337,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.script",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4901,22 +4901,22 @@
       ],
       "evidence": [
         {
-          "line_end": 157,
-          "line_start": 157,
+          "line_end": 233,
+          "line_start": 233,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.shell_execute",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -4959,8 +4959,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 75,
-          "line_start": 75,
+          "line_end": 101,
+          "line_start": 101,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.shell_execution",
           "verification_status": "verified"
@@ -4999,22 +4999,22 @@
       ],
       "evidence": [
         {
-          "line_end": 334,
-          "line_start": 334,
+          "line_end": 548,
+          "line_start": 548,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.sign_rotation",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -5072,22 +5072,22 @@
       ],
       "evidence": [
         {
-          "line_end": 186,
-          "line_start": 186,
+          "line_end": 285,
+          "line_start": 285,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.summarize",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -5130,8 +5130,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 62,
-          "line_start": 62,
+          "line_end": 88,
+          "line_start": 88,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.testing",
           "verification_status": "verified"
@@ -5158,8 +5158,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 73,
-          "line_start": 73,
+          "line_end": 99,
+          "line_start": 99,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.turboquant_encode",
           "verification_status": "verified"
@@ -5199,22 +5199,22 @@
       ],
       "evidence": [
         {
-          "line_end": 343,
-          "line_start": 343,
+          "line_end": 565,
+          "line_start": 565,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.turboquant_mse",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -5257,8 +5257,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 72,
-          "line_start": 72,
+          "line_end": 98,
+          "line_start": 98,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.vector_encode",
           "verification_status": "verified"
@@ -5305,22 +5305,22 @@
       ],
       "evidence": [
         {
-          "line_end": 262,
-          "line_start": 262,
+          "line_end": 423,
+          "line_start": 423,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.workspace_diff",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -5375,22 +5375,22 @@
       ],
       "evidence": [
         {
-          "line_end": 253,
-          "line_start": 253,
+          "line_end": 406,
+          "line_start": 406,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "_KIND_INFO.workspace_snapshot",
           "verification_status": "verified"
         },
         {
-          "line_end": 109,
-          "line_start": 109,
+          "line_end": 110,
+          "line_start": 110,
           "path": "agent/visual_process/step_executor.py",
           "symbol": "StepExecutor.execution_mode",
           "verification_status": "verified"
         },
         {
-          "line_end": 807,
-          "line_start": 807,
+          "line_end": 805,
+          "line_start": 805,
           "path": "agent/visual_process/node_definitions.py",
           "symbol": "compose_node_definition",
           "verification_status": "verified"
@@ -5433,8 +5433,8 @@
       "consumed_field_paths": [],
       "evidence": [
         {
-          "line_end": 63,
-          "line_start": 63,
+          "line_end": 89,
+          "line_start": 89,
           "path": "agent/visual_process/task_kind_registry.py",
           "symbol": "LEGACY_MAP.write_tests",
           "verification_status": "verified"
