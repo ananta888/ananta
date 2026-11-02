@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, NotRequired, TypedDict
+
 from rag_helper.domain.java_records import RelationRecord  # noqa: F401  (re-export, tests)
 
 CSharpMethodRecord = TypedDict(

@@ -320,6 +320,7 @@ max-complexity = 30
 "agent/routes/snakes.py" = ["F401"]
 # operator_tui interactive: import surface is a mock.patch getattr seam.
 "client_surfaces/operator_tui/interactive.py" = ["F401"]
+"client_surfaces/operator_tui/mouse_artifact_mixin.py" = ["F401"]
 
 [tool.mypy]
 python_version = "3.10"
