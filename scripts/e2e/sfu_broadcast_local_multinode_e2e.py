@@ -36,7 +36,7 @@ from scripts.e2e.sfu_broadcast_local_turn_relay_e2e import (  # noqa: E402
     wait_for_running_container,
 )
 
-COMPOSE_FILE = ROOT / "docker-compose.sfu-broadcast.yml"
+COMPOSE_FILE = ROOT / "docker/compose/docker-compose.sfu-broadcast.yml"
 MEDIA_SPIKE = ROOT / "scripts/spikes/semantic_sfu_three_peer.mjs"
 LIVEKIT_IMAGE = "livekit/livekit-server@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
 REDIS_IMAGE = "redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"

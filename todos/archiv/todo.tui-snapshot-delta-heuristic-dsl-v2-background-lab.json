@@ -907,7 +907,7 @@
       ],
       "target_files": [
         "agent/services/heuristic_runtime/background_heuristic_lab.py",
-        "config.json",
+        "config/config.json",
         "docs/architecture/tui-snake-background-heuristics.md"
       ],
       "acceptance_criteria": [

@@ -218,7 +218,7 @@
         "Every top-level command supports --help.",
         "Every command group supports --help and lists all direct subcommands.",
         "Every leaf command supports --help and documents purpose, options, defaults, examples and exit codes.",
-        "Help output must not require config.json.",
+        "Help output must not require config/config.json.",
         "Help output must not require a running hub.",
         "Help output must not require Docker.",
         "Help output must not require network access.",
@@ -626,7 +626,7 @@
           "status": "done",
           "status_note": "test_main_help_no_hub_required() prueft Socket-Block; alle --help ohne Hub.",
           "acceptance_criteria": [
-            "`--help` funktioniert ohne config.json.",
+            "`--help` funktioniert ohne config/config.json.",
             "`--help` funktioniert ohne laufenden Hub.",
             "`--help` funktioniert ohne laufenden Worker.",
             "`--help` funktioniert ohne Docker.",

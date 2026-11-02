@@ -105,7 +105,7 @@ def test_invalid_execution_pins_never_install_voice_authority(request, monkeypat
 
 def test_hub_overlay_does_not_enable_retention_images_video_or_public_ports():
     root = Path(__file__).resolve().parents[2]
-    config = yaml.safe_load((root / "docker-compose.persona-voices-hub.yml").read_text())
+    config = yaml.safe_load((root / "docker/compose/docker-compose.persona-voices-hub.yml").read_text())
     hub = config["services"]["ai-agent-hub"]
     assert hub["environment"]["ANANTA_PERSONA_VOICES_ENABLED"] == "${ANANTA_PERSONA_VOICES_ENABLED:-0}"
     assert (

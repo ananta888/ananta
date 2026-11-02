@@ -26,7 +26,7 @@
   "scope": {
     "in_scope": [
       "Animiertes Logo links oben im kompakten TUI-Header nur im normalen Modus",
-      "SVG/PNG-basierte Frame-Erzeugung aus ananta.svg",
+      "SVG/PNG-basierte Frame-Erzeugung aus assets/ananta.svg",
       "Renderer-Kaskade: Kitty Graphics, Sixel, ANSI TrueColor Halfblocks, optional ASCII-Fallback",
       "Terminal-Faehigkeitserkennung und manuelle Overrides per Env/CLI",
       "Tests fuer Renderer-Auswahl, Fallbacks, Dimensionen, Caching und Header-Layout",
@@ -224,7 +224,7 @@
         "scripts/render_terminal_logo.py"
       ],
       "acceptance_criteria": [
-        "Dokumentiert ist, dass der bisherige Pfad ananta.svg zu PNG zu ANSI/ASCII nutzt.",
+        "Dokumentiert ist, dass der bisherige Pfad assets/ananta.svg zu PNG zu ANSI/ASCII nutzt.",
         "Dokumentiert ist, welche Parameter aktuell fuer das 8-Zeilen-Logo verwendet werden (_SMALL_LOGO_COLS, COMPACT_HEADER_LINES).",
         "Es gibt eine klare Entscheidung, welche bestehende Funktion in den ANSI-Renderer ueberfuehrt wird.",
         "Bestehende Tests fuer load_logo und render_compact_header bleiben gruen."
@@ -262,7 +262,7 @@
         "agent/cli/logo_assets.py"
       ],
       "acceptance_criteria": [
-        "ananta.svg kann deterministisch in RGBA-Frames fuer Header-Groessen gerastert werden.",
+        "assets/ananta.svg kann deterministisch in RGBA-Frames fuer Header-Groessen gerastert werden.",
         "Die Pipeline nutzt vorhandene Renderer-Moeglichkeiten: cairosvg, rsvg-convert oder inkscape, mit sauberem Fehler-Fallback.",
         "Frame-Groessen sind getrennt nach Pixelgroesse und Terminal-Zellgroesse konfigurierbar.",
         "Bei fehlendem SVG-Renderer startet die TUI weiter mit Fallback-Logo."

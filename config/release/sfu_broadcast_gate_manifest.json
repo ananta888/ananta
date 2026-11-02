@@ -457,7 +457,7 @@
         "memory_bytes_max": 2147483648,
         "cleanup": {
           "strategy": "owned_compose_project",
-          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "commands": [["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
           "deadline_seconds": 120
         },
         "retention_days": 30,
@@ -481,7 +481,7 @@
         "memory_bytes_max": 2147483648,
         "cleanup": {
           "strategy": "owned_compose_project",
-          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "commands": [["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
           "deadline_seconds": 120
         },
         "retention_days": 30,
@@ -507,7 +507,7 @@
           "strategy": "owned_compose_project",
           "commands": [
             ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
-            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+            ["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
           ],
           "deadline_seconds": 120
         },
@@ -534,7 +534,7 @@
         "memory_bytes_max": 4294967296,
         "cleanup": {
           "strategy": "owned_compose_project",
-          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "commands": [["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
           "deadline_seconds": 120
         },
         "retention_days": 30,
@@ -560,7 +560,7 @@
         "memory_bytes_max": 4294967296,
         "cleanup": {
           "strategy": "owned_compose_project",
-          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "commands": [["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
           "deadline_seconds": 180
         },
         "retention_days": 30,
@@ -586,7 +586,7 @@
         "memory_bytes_max": 4294967296,
         "cleanup": {
           "strategy": "owned_compose_project",
-          "commands": [["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
+          "commands": [["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]],
           "deadline_seconds": 120
         },
         "retention_days": 30,
@@ -613,7 +613,7 @@
           "strategy": "owned_compose_project",
           "commands": [
             ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
-            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+            ["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
           ],
           "deadline_seconds": 180
         },
@@ -643,7 +643,7 @@
           "strategy": "owned_compose_project",
           "commands": [
             ["npm", "--prefix", "frontend-angular", "run", "e2e:stack:down"],
-            ["docker", "compose", "-f", "docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
+            ["docker", "compose", "-f", "docker/compose/docker-compose.semantic-media.yml", "down", "--remove-orphans", "--volumes"]
           ],
           "deadline_seconds": 180
         },

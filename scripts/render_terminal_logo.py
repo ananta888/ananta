@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Render ananta.svg → ANSI TrueColor half-block terminal art or ASCII fallback.
+Render assets/ananta.svg → ANSI TrueColor half-block terminal art or ASCII fallback.
 
 Usage:
   python scripts/render_terminal_logo.py
@@ -391,8 +391,8 @@ def render_ascii_color(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Render ananta.svg to ANSI terminal art.")
-    parser.add_argument("--svg", default="ananta.svg", help="Path to source SVG (default: ananta.svg)")
+    parser = argparse.ArgumentParser(description="Render assets/ananta.svg to ANSI terminal art.")
+    parser.add_argument("--svg", default="assets/ananta.svg", help="Path to source SVG (default: assets/ananta.svg)")
     parser.add_argument("--output-dir", default=None, help="Output directory (default: temp dir)")
     parser.add_argument("--width", type=int, nargs="+", default=[90], help="Output widths (default: 90)")
 

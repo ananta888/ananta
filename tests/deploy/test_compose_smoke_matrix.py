@@ -4,9 +4,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_docker_layout_keeps_active_and_legacy_sources_separate():
-    root_compose_files = {path.name for path in ROOT.glob("docker-compose*.yml")}
+    root_compose_files = {path.name for path in (ROOT / "docker" / "compose").glob("docker-compose*.yml")}
     legacy_compose_files = {path.name for path in (ROOT / "docker" / "old_way").glob("docker-compose*.yml")}
-    # the root holds only the active feature overlays; the legacy stack lives in docker/old_way
+    # docker/compose holds only the active feature overlays; the legacy stack lives in docker/old_way
     assert root_compose_files
     assert not root_compose_files & legacy_compose_files
     assert not (ROOT / "Dockerfile.quickstart-no-ollama").exists()

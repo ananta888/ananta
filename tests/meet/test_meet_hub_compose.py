@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-OVERLAY = ROOT / "docker-compose.meet-media-hub.yml"
+OVERLAY = ROOT / "docker/compose/docker-compose.meet-media-hub.yml"
 FLAGS = (
     "ANANTA_MEET_ROOM_ALLOCATION_ENABLED",
     "ANANTA_MEET_ORGANIZATION_PRINCIPALS_ENABLED",

@@ -16,7 +16,7 @@ def test_runtime_limit_profile_stays_unsupported_without_host_evidence():
 
 
 def test_all_sfu_runtime_containers_have_hard_process_limits():
-    compose = yaml.safe_load((ROOT / "docker-compose.sfu-broadcast.yml").read_text())
+    compose = yaml.safe_load((ROOT / "docker/compose/docker-compose.sfu-broadcast.yml").read_text())
     names = (
         "sfu-broadcast-livekit-native-a",
         "sfu-broadcast-livekit-native-b",

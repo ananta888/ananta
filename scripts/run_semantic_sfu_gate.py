@@ -44,7 +44,7 @@ SFU_SOURCE_PATHS = (
     "agent/services/semantic_sfu_admission_service.py",
     "agent/services/semantic_sfu_group_key_service.py",
     "agent/services/webrtc_group_key_authorization_service.py",
-    "docker-compose.semantic-media.yml",
+    "docker/compose/docker-compose.semantic-media.yml",
     "config/livekit.semantic-media.yaml",
     "docs/decisions/ADR-semantic-media-sfu.md",
     "docs/operations/semantic-media-sfu.md",
@@ -217,7 +217,7 @@ def recompute_evidence(
 
 def static_reasons(root: Path = ROOT) -> list[str]:
     reasons: list[str] = []
-    compose = (root / "docker-compose.semantic-media.yml").read_text(encoding="utf-8")
+    compose = (root / "docker/compose/docker-compose.semantic-media.yml").read_text(encoding="utf-8")
     livekit_config = (root / "config/livekit.semantic-media.yaml").read_text(encoding="utf-8")
     package = json.loads((root / "frontend-angular/package.json").read_text(encoding="utf-8"))
     env_example = (root / ".env.example").read_text(encoding="utf-8")
@@ -370,7 +370,7 @@ def main() -> int:
     reasons = recompute_evidence(spike, load, failover, group) + static_reasons()
     tests = [] if args.skip_tests else run_tests()
     if any(row["exit_code"] != 0 for row in tests):
-        reasons.append("focused_tests_failed")
+        reasons.append("sfu_gate_focused_tests_failed")
     reasons = sorted(set(reasons))
     source_digest, config_digest = evidence_binding(spike, load, failover, group)
     report = {

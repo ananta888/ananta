@@ -28,7 +28,7 @@ def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(os.path.join(scripts_dir, "..", "ananta.svg"))
+    svg_path = os.path.abspath(os.path.join(scripts_dir, "..", "assets/ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 

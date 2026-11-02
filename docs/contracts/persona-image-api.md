@@ -71,7 +71,7 @@ Provision a dedicated private `worker-key` (32–256 bytes, mode 0600) and writa
 `worker-state` beneath an absolute `PERSONA_IMAGE_STATE_DIR`. Do not reuse the
 Meet publication key. The intended project name is `ananta-persona-images`.
 
-The separate `docker-compose.persona-images-hub.yml` overlay connects the Hub.
+The separate `docker/compose/docker-compose.persona-images-hub.yml` overlay connects the Hub.
 Set `ANANTA_PERSONA_IMAGES_ENABLED=1` only with the exact repository revision,
 execution-profile digest and environment digest in the named
 `ANANTA_PERSONA_IMAGE_*` variables. These bindings are required, not generated

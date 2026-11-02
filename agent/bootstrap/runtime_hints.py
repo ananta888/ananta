@@ -16,7 +16,7 @@ def log_runtime_hints() -> None:
                     msg = (
                         "Host kernel setting vm.overcommit_memory=%s detected. "
                         "Redis can become unstable under memory pressure. "
-                        "Run setup_host_services.ps1 on Windows host."
+                        "Run deploy/setup/setup_host_services.ps1 on Windows host."
                     )
                     # In containers this is usually controlled by the host/WSL runtime and
                     # cannot be changed from inside the app process.

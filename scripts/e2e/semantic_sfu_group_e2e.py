@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE = ROOT / "docker-compose.semantic-media.yml"
+COMPOSE = ROOT / "docker/compose/docker-compose.semantic-media.yml"
 SPIKE = ROOT / "scripts/spikes/semantic_sfu_three_peer.mjs"
 EXPECTED_IMAGE_ID = "2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
 

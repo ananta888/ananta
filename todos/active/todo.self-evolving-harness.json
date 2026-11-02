@@ -654,7 +654,7 @@
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 65,
-      "details": "Den vorhandenen plugins/evolver_adapter- und evolver_bridge-Pfad aus dem Pilotstatus in den Unified Evolution Orchestrator integrieren. Gene/Capsule/GEP-spezifische Semantik bleibt Provider-Metadaten; Ananta entscheidet über Zulässigkeit, Evaluation und Promotion. Analyze/proposal-only bleibt Default. Apply wird erst nach eigener MutationGate-, Sandbox-, Review- und Rollback-Zulassung ermöglicht.",
+      "details": "Den vorhandenen plugins/evolver_adapter- und evolver-bridge-Pfad aus dem Pilotstatus in den Unified Evolution Orchestrator integrieren. Gene/Capsule/GEP-spezifische Semantik bleibt Provider-Metadaten; Ananta entscheidet über Zulässigkeit, Evaluation und Promotion. Analyze/proposal-only bleibt Default. Apply wird erst nach eigener MutationGate-, Sandbox-, Review- und Rollback-Zulassung ermöglicht.",
       "acceptance_criteria": [
         "EvoMap kann Harness-/Prompt-/Repair-Proposals erzeugen ohne direkten Workspace-Schreibzugriff",
         "Proposal wird vor jeder Materialisierung gegen mutierbare Surface, Scope und MutationGate validiert",
@@ -1029,7 +1029,7 @@
     },
     "evomap_evolver": [
       "plugins/evolver_adapter/",
-      "services/evolver_bridge/",
+      "services/evolver-bridge/",
       "docs/evolver-adapter.md",
       "docker/old_way/Dockerfile.evolver-bridge"
     ],

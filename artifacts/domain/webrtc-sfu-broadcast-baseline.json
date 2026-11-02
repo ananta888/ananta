@@ -10,7 +10,7 @@
       "sha256": "666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b"
     },
     {
-      "path": "docker-compose.semantic-media.yml",
+      "path": "docker/compose/docker-compose.semantic-media.yml",
       "sha256": "5189915ad7529b857c645169d1b9ef7ee3aee316e1e3c8f7b1c7586c6c308a1e"
     },
     {
@@ -60,7 +60,7 @@
       "evidence": "The active semantic-media Compose file contains a pinned, isolated LiveKit service.",
       "finding": "compose_livekit_sfu",
       "layer": "active_compose",
-      "path": "docker-compose.semantic-media.yml",
+      "path": "docker/compose/docker-compose.semantic-media.yml",
       "status": "present",
       "symbol": "semantic-media-sfu:"
     },
@@ -69,7 +69,7 @@
       "evidence": "A bounded coturn gate exists, but it is not an external multi-region TURN fleet.",
       "finding": "compose_turn_gate",
       "layer": "active_compose",
-      "path": "docker-compose.semantic-media.yml",
+      "path": "docker/compose/docker-compose.semantic-media.yml",
       "status": "partial",
       "symbol": "semantic-media-turn-gate:"
     },

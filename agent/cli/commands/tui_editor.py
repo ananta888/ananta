@@ -18,7 +18,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  ananta tui --open README.md\n"
             "  ananta tui --open app.py --with nvim\n"
-            "  ananta tui --open config.json --readonly\n"
+            "  ananta tui --open config/config.json --readonly\n"
             "  ananta tui --tool lazygit\n"
         ),
     )

@@ -14,7 +14,7 @@
       "keycloak.ananta.de",
       "webrtc.ananta.de"
     ],
-    "better_model": "Bekannte Default-Profile im Repository, aber überschreibbar über ENV, config.json und TUI-Setup. Die TUI zeigt sichtbar, ob öffentliche Ananta-Infrastruktur genutzt wird."
+    "better_model": "Bekannte Default-Profile im Repository, aber überschreibbar über ENV, config/config.json und TUI-Setup. Die TUI zeigt sichtbar, ob öffentliche Ananta-Infrastruktur genutzt wird."
   },
   "target_architecture": {
     "keycloak_endpoint": "https://keycloak.ananta.de/realms/ananta",

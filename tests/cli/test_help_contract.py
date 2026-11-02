@@ -5,7 +5,7 @@ Rules enforced here (matching global_cli_contract.help_contract):
 - Every domain group's --help output is non-empty.
 - Every domain group's --help output contains its subcommands.
 - Leaf subcommands return exit 0 for `[group] [sub] --help`.
-- Help works without a running hub, without config.json, without network.
+- Help works without a running hub, without config/config.json, without network.
 """
 
 from __future__ import annotations

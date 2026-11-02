@@ -33,14 +33,14 @@ BUILD_SOURCE_DIRECTORIES = (
     "worker",
     "frontend-angular/src",
     "docker/compose-next",
-    "services/evolver_bridge",
+    "services/evolver-bridge",
 )
 BUILD_SOURCE_FILES = (
     ".dockerignore",
     ".env.example",
     "pyproject.toml",
     "requirements.lock",
-    "docker-compose.semantic-media.yml",
+    "docker/compose/docker-compose.semantic-media.yml",
     "frontend-angular/Dockerfile",
     "frontend-angular/angular.json",
     "frontend-angular/package.json",

@@ -334,7 +334,7 @@
       ],
       "code_anchors": [
         "agent/routes/tasks/",
-        "api-spec.md",
+        "docs/api-spec.md",
         "docs/backend.md"
       ],
       "acceptance_criteria": [

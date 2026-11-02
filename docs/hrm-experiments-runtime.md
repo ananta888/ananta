@@ -33,7 +33,7 @@ slot-lease, service-scope, or tenant/project checks.
 
 Apply database revision `d4f6a8c0e2b5` for the HRM projections and revision
 `e5a7b9d1f3c6` for durable mutation-idempotency receipts before enabling the
-surface. Deploy `docker-compose.hrm-experiments.yml`; the networkless runner
+surface. Deploy `docker/compose/docker-compose.hrm-experiments.yml`; the networkless runner
 communicates with its Worker only through the mounted Unix socket. The Worker
 refreshes its short-lived capability at the Hub. Missing or stale capability
 makes preflight and execution authorization fail closed.

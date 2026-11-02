@@ -16,9 +16,9 @@ def render(tmp_path, *, guarded, policy=True, options=None):
         env["MEET_EGRESS_POLICY_FILE"] = str(tmp_path / "synthetic-policy.json")
     env.update(options or {})
     args = ["docker", "compose", "--env-file", "/dev/null", "-p", "meet-egress-render-only"]
-    args += ["-f", str(ROOT / "docker-compose.meet-media.yml")]
+    args += ["-f", str(ROOT / "docker/compose/docker-compose.meet-media.yml")]
     if guarded:
-        args += ["-f", str(ROOT / "docker-compose.meet-egress.yml")]
+        args += ["-f", str(ROOT / "docker/compose/docker-compose.meet-egress.yml")]
     return subprocess.run(
         args + ["config", "--format", "json"], env=env, cwd=tmp_path, capture_output=True, text=True, timeout=10
     )

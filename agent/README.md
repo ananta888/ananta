@@ -25,5 +25,5 @@ python -m agent.ai_agent
 
 ## Dokumentation
 - Backend-Details: `docs/backend.md`
-- API-Spec: `api-spec.md`
-- Architekturmodell fuer Blueprints/Teams: `architektur/README.md`
+- API-Spec: `docs/api-spec.md`
+- Architekturmodell fuer Blueprints/Teams: `docs/architecture/uml-README.md`

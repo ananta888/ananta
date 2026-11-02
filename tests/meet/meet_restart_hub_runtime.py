@@ -46,7 +46,7 @@ def main():
     path = Path("/test/hub-config.json")
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
         raise ValueError("test_hub_config_invalid")
-    config = validate_config(json.loads(path.read_bytes()))
+    config = validate_config.json.loads(path.read_bytes()))
     logging.disable(logging.CRITICAL)
     from werkzeug.serving import WSGIRequestHandler, make_server
 

@@ -11,10 +11,10 @@ Use a random API key and a secret of at least 32 bytes. Keep both out of Git.
 ```bash
 ANANTA_SEMANTIC_MEDIA_SFU_API_KEY=... \
 ANANTA_SEMANTIC_MEDIA_SFU_API_SECRET=... \
-docker compose -f docker-compose.semantic-media.yml \
+docker compose -f docker/compose/docker-compose.semantic-media.yml \
   --profile semantic-media-sfu up -d
 scripts/semantic-media-sfu-healthcheck.sh
-docker compose -f docker-compose.semantic-media.yml \
+docker compose -f docker/compose/docker-compose.semantic-media.yml \
   --profile semantic-media-sfu down
 ```
 

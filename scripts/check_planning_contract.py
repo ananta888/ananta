@@ -5,7 +5,7 @@ root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root not in sys.path:
     sys.path.insert(0, root)
 
-from src.hub.planning import PlanningService
+from hub.planning import PlanningService
 
 
 def main():

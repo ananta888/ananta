@@ -7,7 +7,7 @@ Manages the on-disk directory structure for a simulation run.
     events/               ← events_XXXXXX.jsonl
     report.json
     replay_trace.json
-    config.json
+    config/config.json
 """
 
 from __future__ import annotations

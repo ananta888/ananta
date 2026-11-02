@@ -17,7 +17,7 @@ TOOL_VERSION = "1.0.0"
 CLASSIFICATIONS = frozenset({"present", "partial", "missing"})
 CONFIG_PATHS = (
     "config/livekit.semantic-media.yaml",
-    "docker-compose.semantic-media.yml",
+    "docker/compose/docker-compose.semantic-media.yml",
     "frontend-angular/package.json",
 )
 
@@ -80,7 +80,7 @@ PROBES = (
         "sfu",
         "active_compose",
         "present",
-        "docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
         "semantic-media-sfu:",
         "The active semantic-media Compose file contains a pinned, isolated LiveKit service.",
     ),
@@ -89,7 +89,7 @@ PROBES = (
         "turn",
         "active_compose",
         "partial",
-        "docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
         "semantic-media-turn-gate:",
         "A bounded coturn gate exists, but it is not an external multi-region TURN fleet.",
     ),

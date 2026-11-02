@@ -9,7 +9,7 @@ Related current code and docs:
 ```text
 config/planning_prompts.default.json
 worker/core/template_propose_handler.py
-PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md
+docs/PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md
 docs/goal-input-schemas.md
 docs/golden-path-cli.md
 docs/architecture/planning-template-inventory.md
@@ -191,4 +191,4 @@ Add or maintain tests for:
 - propose -> execute -> propose continuation
 - context request when template/example data is missing
 - no direct file access outside approved task scope
-- compatibility with existing `PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md` flow
+- compatibility with existing `docs/PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md` flow

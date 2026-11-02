@@ -44,8 +44,8 @@ for compose_file in docker/compose-next/*; do
   fi
 done
 
-if [[ -d "architektur/rendered" ]]; then
-  find "architektur/rendered" -maxdepth 1 -type f -name "*.png" -exec cp {} "$OUT_DIR/architecture/" \;
+if [[ -d "docs/architecture/rendered" ]]; then
+  find "docs/architecture/rendered" -maxdepth 1 -type f -name "*.png" -exec cp {} "$OUT_DIR/architecture/" \;
 fi
 
 (

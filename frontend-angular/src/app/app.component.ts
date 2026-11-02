@@ -47,7 +47,7 @@ import { PairRemoteSnakeOverlayComponent } from './components/pair-remote-snake-
               aria-controls="primary-navigation"
               aria-label="Menue oeffnen">☰</button>
           }
-          <img src="/assets/ananta.svg" alt="Ananta" class="app-logo" />
+          <img src="/assets/assets/ananta.svg" alt="Ananta" class="app-logo" />
           <a
             routerLink="/pair-dev"
             class="public-pair-link"

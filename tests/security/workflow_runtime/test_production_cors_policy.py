@@ -99,7 +99,8 @@ def test_real_application_import_fails_closed_for_strict_wildcard_cors(
 def test_real_application_import_fails_closed_for_broken_settings_source(
     tmp_path,
 ) -> None:
-    (tmp_path / "config.json").write_text("{broken-json", encoding="utf-8")
+    (tmp_path / "config/config.json").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config/config.json").write_text("{broken-json", encoding="utf-8")
     environment = _subprocess_environment(
         ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH="1",
         CORS_ORIGINS="https://console.example.test",
@@ -117,5 +118,5 @@ def test_real_application_import_fails_closed_for_broken_settings_source(
     )
 
     assert completed.returncode != 0
-    assert "config.json" in completed.stderr
+    assert "config/config.json" in completed.stderr
     assert "model_construct" not in completed.stderr

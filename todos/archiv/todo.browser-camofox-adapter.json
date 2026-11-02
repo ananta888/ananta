@@ -70,7 +70,7 @@
       "type": "implementation",
       "priority": "high",
       "files": [
-        "config.json",
+        "config/config.json",
         "agent/research_backend.py"
       ],
       "proposed_config": {

@@ -316,7 +316,7 @@ def static_hardening_checks() -> dict[str, bool]:
     reconciliation_compose = (ROOT / "docker/compose-next/compose.speech-reconciliation.yml").read_text(
         encoding="utf-8"
     )
-    sfu_compose = (ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8")
+    sfu_compose = (ROOT / "docker/compose/docker-compose.semantic-media.yml").read_text(encoding="utf-8")
     training_document = yaml.safe_load(training_compose)
     reconciliation_document = yaml.safe_load(reconciliation_compose)
     semantic_document = yaml.safe_load(sfu_compose)
@@ -388,8 +388,8 @@ def static_hardening_checks() -> dict[str, bool]:
         ),
         "frontend_dependency_pin_missing": bool(re.fullmatch(r"\d+\.\d+\.\d+", str(livekit.get("version", "")))),
         "hub_dependency_pin_missing": (
-            (ROOT / "services/evolver_bridge/package-lock.json").is_file()
-            and "cd services/evolver_bridge && npm ci --no-audit --no-fund" in hub_worker
+            (ROOT / "services/evolver-bridge/package-lock.json").is_file()
+            and "cd services/evolver-bridge && npm ci --no-audit --no-fund" in hub_worker
         ),
         "worker_task_policy_boundary_missing": not any(
             marker in worker_sources for marker in ("agent.services", "task_queue_service", "semantic_compute_policy")

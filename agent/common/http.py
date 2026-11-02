@@ -307,7 +307,7 @@ class HttpClient:
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
                     msg += (
                         " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. "
-                        "Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                        "Nutzen Sie 'deploy/setup/setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
                     )
                 logging.error(msg)
             return None
@@ -470,7 +470,7 @@ class HttpClient:
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
                     msg += (
                         " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. "
-                        "Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                        "Nutzen Sie 'deploy/setup/setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
                     )
                 logging.error(msg)
             return None

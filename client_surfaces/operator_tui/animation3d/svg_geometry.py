@@ -140,15 +140,15 @@ def build_geometry_from_svg(
         vertices=tuple(verts),
         edges=tuple(edges),
         part_ids=("logo_a", "logo_snake"),
-        label="ananta_svg",
+        label="assets/ananta.svg",
     )
 
 
 def _find_svg(start_dir: str | None = None) -> str | None:
-    """Walk up the directory tree looking for ananta.svg."""
+    """Walk up the directory tree looking for assets/ananta.svg."""
     here = start_dir or os.path.dirname(os.path.abspath(__file__))
     for _ in range(8):
-        candidate = os.path.join(here, "ananta.svg")
+        candidate = os.path.join(here, "assets/ananta.svg")
         if os.path.isfile(candidate):
             return candidate
         parent = os.path.dirname(here)

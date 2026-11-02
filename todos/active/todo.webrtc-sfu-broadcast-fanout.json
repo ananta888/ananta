@@ -51,7 +51,7 @@
   "technical_constraints": {
     "repository_facts": [
       "frontend-angular/package.json pinnt livekit-client 2.20.1.",
-      "docker-compose.semantic-media.yml pinnt ein LiveKit-Server-Image per Digest.",
+      "docker/compose/docker-compose.semantic-media.yml pinnt ein LiveKit-Server-Image per Digest.",
       "config/livekit.semantic-media.yaml setzt die administrative Obergrenze auf 250; der Hub bleibt die Admission-Autoritaet fuer kleinere evidenzgebundene Caps.",
       "Mehrere Hub- und Angular-Komponenten begrenzen Receiver derzeit auf 7 beziehungsweise Gruppenmitglieder auf 8.",
       "Die produktive LiveKit-E2EE-Strecke verwendet BaseKeyProvider im LivekitSfuRoomAdapter; media-e2ee-transform.service.ts und sfu-media-frame-crypto.service.ts sind derzeit nicht als produktive Consumerstrecke belegt."
@@ -2800,12 +2800,12 @@
       ],
       "affected_files": [
         "agent/adapters/livekit_control_api_client.py",
-        "sfu-runtime-agent/pyproject.toml",
-        "sfu-runtime-agent/src/ananta_sfu_runtime/control_server.py",
-        "sfu-runtime-agent/src/ananta_sfu_runtime/key_providers.py",
-        "sfu-runtime-agent/src/ananta_sfu_runtime/enrollment_client.py",
+        "services/sfu-runtime-agent/pyproject.toml",
+        "services/sfu-runtime-agent/src/ananta_sfu_runtime/control_server.py",
+        "services/sfu-runtime-agent/src/ananta_sfu_runtime/key_providers.py",
+        "services/sfu-runtime-agent/src/ananta_sfu_runtime/enrollment_client.py",
         "docker/sfu-runtime-agent.Dockerfile",
-        "docker-compose.sfu-broadcast.yml",
+        "docker/compose/docker-compose.sfu-broadcast.yml",
         "tests/integration/test_sfu_runtime_control_boundary.py"
       ],
       "acceptance_criteria": [
@@ -2834,10 +2834,10 @@
       "affected_files": [
         "agent/adapters/livekit_sfu_observation_adapter.py",
         "agent/bootstrap/semantic_media_services.py",
-        "sfu-runtime-agent/src/ananta_sfu_runtime/livekit_probe.py",
-        "sfu-runtime-agent/src/ananta_sfu_runtime/observation_exporter.py",
+        "services/sfu-runtime-agent/src/ananta_sfu_runtime/livekit_probe.py",
+        "services/sfu-runtime-agent/src/ananta_sfu_runtime/observation_exporter.py",
         "docker/sfu-runtime-agent.Dockerfile",
-        "docker-compose.sfu-broadcast.yml",
+        "docker/compose/docker-compose.sfu-broadcast.yml",
         "config/sfu_runtime_observation.default.json",
         "tests/integration/test_sfu_runtime_observation_exporter.py"
       ],
@@ -2940,8 +2940,8 @@
         "SFB-OPS-011"
       ],
       "affected_files": [
-        "docker-compose.semantic-media.yml",
-        "docker-compose.sfu-broadcast.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.sfu-broadcast.yml",
         "config/livekit.semantic-media.yaml",
         "config/redis/sfu-broadcast.conf",
         "config/sfu_broadcast_cluster_directory.json",
@@ -3109,7 +3109,7 @@
         "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
       ],
       "affected_files": [
-        "docker-compose.sfu-broadcast.yml",
+        "docker/compose/docker-compose.sfu-broadcast.yml",
         "config/sfu/sfu-broadcast-runtime-limits.json",
         "scripts/sfu-broadcast-runtime-healthcheck.sh",
         "tests/integration/test_sfu_broadcast_runtime_limits.py"
@@ -3282,7 +3282,7 @@
         "todo.ai-snake-semantic-media-speech-program.json:ASMP-QA-010"
       ],
       "affected_files": [
-        "docker-compose.sfu-broadcast-turn.yml",
+        "docker/compose/docker-compose.sfu-broadcast-turn.yml",
         "config/coturn/sfu-broadcast-turn.conf",
         "scripts/sfu-broadcast-turn-healthcheck.sh",
         "docs/operations/sfu-broadcast-turn-deployment.md"
@@ -3383,12 +3383,12 @@
         "SFB-TURN-012"
       ],
       "affected_files": [
-        "turn-observer-agent/pyproject.toml",
-        "turn-observer-agent/src/ananta_turn_observer/coturn_collector.py",
-        "turn-observer-agent/src/ananta_turn_observer/observation_exporter.py",
-        "turn-observer-agent/src/ananta_turn_observer/enrollment_client.py",
+        "services/turn-observer-agent/pyproject.toml",
+        "services/turn-observer-agent/src/ananta_turn_observer/coturn_collector.py",
+        "services/turn-observer-agent/src/ananta_turn_observer/observation_exporter.py",
+        "services/turn-observer-agent/src/ananta_turn_observer/enrollment_client.py",
         "docker/turn-observer-agent.Dockerfile",
-        "docker-compose.sfu-broadcast-turn.yml",
+        "docker/compose/docker-compose.sfu-broadcast-turn.yml",
         "config/coturn/sfu-broadcast-turn.conf",
         "config/turn_observation_export.default.json",
         "tests/integration/test_coturn_observation_exporter.py"
@@ -3457,7 +3457,7 @@
       ],
       "affected_files": [
         "config/livekit.semantic-media.yaml",
-        "docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
         "agent/routes/network_profiles.py",
         "agent/services/semantic_sfu_admission_service.py",
         "frontend-angular/src/app/services/network-profile.service.ts",

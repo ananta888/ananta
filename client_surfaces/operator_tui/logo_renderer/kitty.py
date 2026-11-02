@@ -7,7 +7,7 @@ from client_surfaces.operator_tui.logo_renderer.base import LogoFrame, LogoRende
 from client_surfaces.operator_tui.logo_renderer.detect import detect_kitty_support
 from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame, frame_from_svg
 
-_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
+_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets/ananta.svg"))
 
 
 class KittyRenderer:

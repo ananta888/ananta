@@ -18,7 +18,7 @@
     "livekit_image": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3",
     "turn_image": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888",
     "browser_lock": "frontend-angular/package-lock.json",
-    "compose": "docker-compose.semantic-media.yml",
+    "compose": "docker/compose/docker-compose.semantic-media.yml",
     "livekit_config": "config/livekit.semantic-media.yaml"
   },
   "parent_harnesses": [

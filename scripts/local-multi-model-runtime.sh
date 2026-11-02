@@ -169,7 +169,7 @@ preflight() {
     require_file "$COLIBRI_GATEWAY"
     require_executable "$NEEDLE_PYTHON"
     require_file "$LFM_MODEL"
-    require_file "$KAT_DIR/config.json"
+    require_file "$KAT_DIR/config/config.json"
     require_file "$KAT_DIR/heat.bin"
     require_file "$NEEDLE_WEIGHTS"
     require_file "$NEEDLE_SIDECAR"

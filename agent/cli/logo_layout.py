@@ -42,7 +42,7 @@ def _load_small_logo() -> list[str]:
 
 
 def _render_small_logo() -> list[str]:
-    """Render ananta.svg at _SMALL_LOGO_COLS with full SVG colors (truecolor)."""
+    """Render assets/ananta.svg at _SMALL_LOGO_COLS with full SVG colors (truecolor)."""
     script_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
     script_dir = os.path.abspath(script_dir)
     if script_dir not in sys.path:
@@ -58,7 +58,7 @@ def _render_small_logo() -> list[str]:
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg"))
+    svg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "assets/ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 

@@ -7,7 +7,7 @@ aggregate observations for its enrolled pool instance.
 
 ## Fail-closed defaults
 
-`docker-compose.sfu-broadcast-turn.yml` creates no container unless the
+`docker/compose/docker-compose.sfu-broadcast-turn.yml` creates no container unless the
 `sfu_broadcast_turn` profile is explicitly enabled.  It additionally requires
 an immutable Coturn image reference, an immutable signed observer image,
 real TLS/observer secrets, public addressing, registered IDs and writable

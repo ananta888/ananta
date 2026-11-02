@@ -34,7 +34,11 @@ def _fetcher(payloads: dict[str, bytes]):
 
 def test_default_snapshot_is_pinned_to_an_immutable_revision() -> None:
     assert len(SMOLLM2_135M_INSTRUCT.revision) == 40
-    assert {item.name for item in SMOLLM2_135M_INSTRUCT.files} >= {"config.json", "model.safetensors", "tokenizer.json"}
+    assert {item.name for item in SMOLLM2_135M_INSTRUCT.files} >= {
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json",
+    }
     assert all(len(item.sha256) == 64 and item.size_bytes > 0 for item in SMOLLM2_135M_INSTRUCT.files)
 
 

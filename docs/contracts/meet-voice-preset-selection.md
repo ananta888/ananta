@@ -175,7 +175,7 @@ image/video profile API shapes must remain compatible.
 
 Voice-only bootstrap is now opt-in via `ANANTA_PERSONA_VOICES_ENABLED=1`; all
 operator execution bindings are validated before installing its services.
-`docker-compose.persona-voices-hub.yml` supplies only the independent private
+`docker/compose/docker-compose.persona-voices-hub.yml` supplies only the independent private
 worker/key wiring, with both inspection and retirement disabled by default.
 No policy is automatically installed and no key is created by bootstrap.
 

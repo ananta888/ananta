@@ -21,11 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
 def run_checks(cwd: Path, env: Mapping[str, str]) -> list[dict[str, str]]:
     checks: list[dict[str, str]] = []
 
-    config_path = cwd / "config.json"
+    config_path = cwd / "config/config.json"
     if config_path.exists():
         checks.append(
             {
-                "id": "config-json",
+                "id": "config/config.json",
                 "status": "ok",
                 "summary": f"Found {config_path.name}.",
                 "next_step": "",
@@ -34,9 +34,9 @@ def run_checks(cwd: Path, env: Mapping[str, str]) -> list[dict[str, str]]:
     else:
         checks.append(
             {
-                "id": "config-json",
+                "id": "config/config.json",
                 "status": "fail",
-                "summary": "Missing config.json.",
+                "summary": "Missing config/config.json.",
                 "next_step": (
                     "Run `ananta init --yes --runtime-mode local-dev --llm-backend ollama "
                     "--model ananta-default --apply-config`."

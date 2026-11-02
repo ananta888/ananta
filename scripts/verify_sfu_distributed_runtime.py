@@ -94,7 +94,7 @@ def evaluate(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--directory", type=Path, default=Path("config/sfu_broadcast_cluster_directory.json"))
-    parser.add_argument("--compose", type=Path, default=Path("docker-compose.sfu-broadcast.yml"))
+    parser.add_argument("--compose", type=Path, default=Path("docker/compose/docker-compose.sfu-broadcast.yml"))
     parser.add_argument("--redis-config", type=Path, default=Path("config/redis/sfu-broadcast.conf"))
     parser.add_argument("--evidence-id", action="append", default=[])
     parser.add_argument("--evidence-manifest", type=Path)

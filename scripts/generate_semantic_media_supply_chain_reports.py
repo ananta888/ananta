@@ -52,7 +52,7 @@ SOURCE_BINDINGS = (
     "frontend-angular/Dockerfile",
     "scripts/build_semantic_media_containers.py",
     "scripts/generate_semantic_media_supply_chain_reports.py",
-    "docker-compose.semantic-media.yml",
+    "docker/compose/docker-compose.semantic-media.yml",
     "docker/compose-next/Dockerfile.quickstart-no-ollama",
     "docker/compose-next/Dockerfile.speech-reconciliation-worker",
     "docker/compose-next/Dockerfile.speech-training-worker",
@@ -61,7 +61,7 @@ SOURCE_BINDINGS = (
     "docker/compose-next/requirements.runtime-http.txt",
     "docker/compose-next/requirements.speech-reconciliation.txt",
     "docker/compose-next/requirements.voice-cpu.txt",
-    "services/evolver_bridge/package-lock.json",
+    "services/evolver-bridge/package-lock.json",
 )
 _SAFE = re.compile(r"^[^\x00-\x1f\\]{1,256}$")
 

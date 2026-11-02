@@ -13,8 +13,8 @@ RUN groupadd --system --gid 65532 runtime-agent \
     && useradd --system --uid 65532 --gid 65532 --home-dir /nonexistent --shell /usr/sbin/nologin runtime-agent
 
 WORKDIR /opt/ananta-sfu-runtime
-COPY sfu-runtime-agent/pyproject.toml ./pyproject.toml
-COPY sfu-runtime-agent/src ./src
+COPY services/sfu-runtime-agent/pyproject.toml ./pyproject.toml
+COPY services/sfu-runtime-agent/src ./src
 RUN python -m pip install --no-compile .
 
 USER 65532:65532

@@ -1704,7 +1704,7 @@
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-API-002", "ESORG-ORG-001", "ESORG-ORG-004", "ESORG-SEC-005"],
-          "paths": ["agent/routes/organization_blueprints.py", "agent/services/organization_definition_application_service.py", "agent/services/organization_compile_application_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_blueprints.py", "agent/services/organization_definition_application_service.py", "agent/services/organization_compile_application_service.py", "docs/api-spec.md"],
           "acceptance_criteria": [
             "Additive Endpunkte unterstützen gescoptes list/get/create/patch/archive für Definitionen sowie validate und compile/dry-run; sie enthalten weder Bundle-Apply noch Runtime-Lifecycle-Businesslogik.",
             "Auch Listen, Reads und Dry-runs werden nach Tenant, Projekt und Organization Membership serverseitig gefiltert; Mutationen benötigen Admin-Grant und If-Match.",
@@ -1722,7 +1722,7 @@
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-API-003", "ESORG-ORG-001B", "ESORG-API-009", "ESORG-SEC-005"],
-          "paths": ["agent/routes/organization_instances.py", "agent/services/organization_blueprint_instantiation_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_instances.py", "agent/services/organization_blueprint_instantiation_service.py", "docs/api-spec.md"],
           "acceptance_criteria": [
             "Dry-run und Apply sind getrennte Operationen; Apply verlangt Plan-Digest, erwartete Definition-Revision, effektive Limitprofil-Revision samt Hash, Idempotency-Key und Organization-Admin-Grant.",
             "Eine Custom-Admission-Ausnahme ist an Principal, Organization/Project Scope, Composition Digest, Policy-Revision und Ablauf gebunden und wird serverseitig unmittelbar vor Apply revalidiert.",
@@ -1740,7 +1740,7 @@
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-API-003", "ESORG-ORG-004", "ESORG-SEC-005"],
-          "paths": ["agent/routes/organization_topology.py", "agent/services/organization_projection_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_topology.py", "agent/services/organization_projection_service.py", "docs/api-spec.md"],
           "acceptance_criteria": [
             "Revisionsgebundener Topology-Endpunkt liefert namespaced Nodes/Edges mit Depth-, Cursor-, Subgraph- und Filterparametern sowie effektiven Limits für Hierarchie und Graph.",
             "Definitionstopologie, namespaced read-only Runtime-Overlay und Diagnostics werden getrennt geliefert und an dieselbe Definition-Revision gebunden.",
@@ -1757,7 +1757,7 @@
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-API-010", "ESORG-ORG-003", "ESORG-API-009", "ESORG-SEC-002", "ESORG-SEC-003", "ESORG-SEC-007"],
-          "paths": ["agent/routes/organization_topology_patches.py", "agent/services/organization_topology_change_planner.py", "agent/services/organization_topology_apply_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_topology_patches.py", "agent/services/organization_topology_change_planner.py", "agent/services/organization_topology_apply_service.py", "docs/api-spec.md"],
           "acceptance_criteria": [
             "Typisierte add/remove/reparent/connect/assign-Patches liefern vor Apply einen schreibfreien Plan mit Capability-, Lifecycle-, SoD-, Budget-, Limit- und Lineage-Diagnosen sowie effektiver Limitprofil-Revision und deren Hash.",
             "Apply verlangt If-Match, Patch-Digest, gebundene Limitprofil-Revision/-Hash, Idempotency-Key, Organization-Admin-Grant und Audit und schreibt über genau eine Organization Unit of Work.",
@@ -1774,7 +1774,7 @@
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-API-003", "ESORG-JSON-007", "ESORG-SEC-005"],
-          "paths": ["agent/routes/organization_bundles.py", "agent/services/organization_bundle_service.py", "api-spec.md"],
+          "paths": ["agent/routes/organization_bundles.py", "agent/services/organization_bundle_service.py", "docs/api-spec.md"],
           "acceptance_criteria": [
             "Export, import-preview und import-apply sind additive, getrennte Endpunkte und verwenden dieselben Tenant-, Membership-, ETag- und Idempotenzregeln wie andere Organization-APIs.",
             "Export redigiert Assignments, Secrets, lokale Agent-URLs und umgebungsspezifische IDs standardmäßig.",

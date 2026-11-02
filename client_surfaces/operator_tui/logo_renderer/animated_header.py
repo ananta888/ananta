@@ -21,7 +21,7 @@ from client_surfaces.operator_tui.logo_renderer.raylib_renderer import RaylibPro
 from client_surfaces.operator_tui.logo_renderer.renderer_3d import SceneConfig
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 
-_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
+_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets/ananta.svg"))
 _CACHE = LogoFrameCache()
 _SIXEL_RENDERER = SixelRenderer()
 _KITTY_RENDERER = KittyRenderer()

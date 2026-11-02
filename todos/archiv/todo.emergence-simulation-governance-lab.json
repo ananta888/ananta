@@ -451,7 +451,7 @@
       "risk": "medium",
       "type": "implementation",
       "paths": [
-        "artifacts/simulations/<run_id>/config.json",
+        "artifacts/simulations/<run_id>/config/config.json",
         "artifacts/simulations/<run_id>/events.jsonl",
         "artifacts/simulations/<run_id>/metrics.json",
         "artifacts/simulations/<run_id>/final_state.json",

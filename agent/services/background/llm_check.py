@@ -37,7 +37,7 @@ def _handle_llm_probe_result(provider: str, url: str, latency: float, is_ok: boo
         return True
     if last_state_ok is not False:
         logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
-        logging.warning("Tipp: Fuehren Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
+        logging.warning("Tipp: Fuehren Sie 'deploy/setup/setup_host_services.ps1' auf Ihrem Windows-Host aus.")
     return False
 
 

@@ -4,14 +4,14 @@
   "domain_id": "freecad",
   "source_type": "examples",
   "repo": "ananta888/ananta",
-  "path": "reference_sources/freecad",
+  "path": "sources/reference-freecad",
   "ref": "main",
   "allowed_paths": [
-    "reference_sources/freecad/",
+    "sources/reference-freecad/",
     "docs/integrations/freecad/"
   ],
   "include_globs": [
-    "reference_sources/freecad/**/*.json",
+    "sources/reference-freecad/**/*.json",
     "docs/integrations/freecad/**/*.md"
   ],
   "exclude_globs": [

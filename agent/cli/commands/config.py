@@ -48,7 +48,7 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     show_p.add_argument("--json", action="store_true", help="Output as JSON.")
     show_p.add_argument("--base-url", default=None, help=f"Hub base URL (default: {_DEFAULT_BASE_URL}).")
 
-    sub.add_parser("validate", help="Validate local config.json against schema.")
+    sub.add_parser("validate", help="Validate local config/config.json against schema.")
 
     export_p = sub.add_parser("export", help="Export normalized config as JSON.")
     export_p.add_argument("--base-url", default=None)
@@ -187,18 +187,18 @@ def _print_config_summary(data: dict) -> None:
 def _cmd_validate() -> int:
     from pathlib import Path
 
-    cfg_path = Path("config.json")
+    cfg_path = Path("config/config.json")
     if not cfg_path.exists():
-        print("FAIL: config.json not found in current directory.", file=sys.stderr)
-        print("      Run `ananta init` or create config.json first.", file=sys.stderr)
+        print("FAIL: config/config.json not found in current directory.", file=sys.stderr)
+        print("      Run `ananta init` or create config/config.json first.", file=sys.stderr)
         return 3
     try:
         with cfg_path.open() as f:
             data = json.load(f)
-        print(f"OK: config.json is valid JSON ({len(data)} top-level keys).")
+        print(f"OK: config/config.json is valid JSON ({len(data)} top-level keys).")
         return 0
     except json.JSONDecodeError as exc:
-        print(f"FAIL: config.json is not valid JSON: {exc}", file=sys.stderr)
+        print(f"FAIL: config/config.json is not valid JSON: {exc}", file=sys.stderr)
         return 3
 
 

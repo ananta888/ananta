@@ -50,7 +50,7 @@ def test_quickstart_dockerfile_uses_role_entrypoint_and_exposes_fullstack_ports(
 
     assert 'ENTRYPOINT ["/app/scripts/quickstart-single-image-entrypoint.sh"]' in dockerfile
     assert "EXPOSE 5000 5001 4200 8080" in dockerfile
-    assert "services/evolver_bridge" in dockerfile
+    assert "services/evolver-bridge" in dockerfile
     assert "opencode-ai@" in dockerfile
     assert "ollama/ollama" not in dockerfile
     assert "ARG ANANTA_RUNTIME_UID=1000" in dockerfile
@@ -89,7 +89,7 @@ def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() ->
     assert "command+=(--disable-host-check)" in entrypoint
     assert "single-container" in entrypoint
     assert "agent-only" in entrypoint
-    assert "evolver_bridge" in entrypoint
+    assert "evolver-bridge" in entrypoint
     assert "deerflow_runner" in entrypoint
     assert "ml_intern_runner" in entrypoint
     assert "DEFAULT_PROVIDER=openai requires OPENAI_API_KEY" in entrypoint

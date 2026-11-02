@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_structure_is_present_but_capabilities_stay_false_without_evidence():
     result = evaluate(
         directory_path=ROOT / "config/sfu_broadcast_cluster_directory.json",
-        compose_path=ROOT / "docker-compose.sfu-broadcast.yml",
+        compose_path=ROOT / "docker/compose/docker-compose.sfu-broadcast.yml",
         redis_config_path=ROOT / "config/redis/sfu-broadcast.conf",
     )
     assert all(result["structural_checks"].values())

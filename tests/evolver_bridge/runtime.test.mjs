@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
-import { validateRuntime } from "../../services/evolver_bridge/runtime.js";
+import { validateRuntime } from "../../services/evolver-bridge/runtime.js";
 
 const sha256 = (text) => crypto.createHash("sha256").update(text).digest("hex");
 

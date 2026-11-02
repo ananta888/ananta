@@ -90,7 +90,7 @@ def test_invalid_configuration_never_installs_generator(generation_task, tmp_pat
 
 def test_shipped_cpu_generator_is_separate_small_readonly_and_not_a_publisher():
     root = Path(__file__).resolve().parents[2]
-    config = yaml.safe_load((root / "docker-compose.persona-workers.yml").read_text())
+    config = yaml.safe_load((root / "docker/compose/docker-compose.persona-workers.yml").read_text())
     worker = config["services"]["persona-generation-worker"]
     assert set(config["services"]) == {
         "persona-generation-worker",
@@ -104,7 +104,7 @@ def test_shipped_cpu_generator_is_separate_small_readonly_and_not_a_publisher():
     assert len(worker["volumes"]) == 2 and worker["volumes"][0].endswith(":ro")
     assert worker["networks"] == ["persona-generation"] and config["networks"]["persona-generation"]["internal"]
     assert set(worker["environment"]) == {"PERSONA_GENERATION_WORKER_KEY_FILE", "PERSONA_GENERATION_HUB_LEASE_URL"}
-    overlay = yaml.safe_load((root / "docker-compose.persona-generation-hub.yml").read_text())
+    overlay = yaml.safe_load((root / "docker/compose/docker-compose.persona-generation-hub.yml").read_text())
     hub = overlay["services"]["ai-agent-hub"]
     assert hub["environment"]["ANANTA_PERSONA_GENERATION_ENABLED"] == "${ANANTA_PERSONA_GENERATION_ENABLED:-0}"
     assert not {"ports", "devices", "gpus", "privileged"} & set(hub)

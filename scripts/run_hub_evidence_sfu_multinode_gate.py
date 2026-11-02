@@ -56,7 +56,7 @@ SOURCE_PATHS = (
     "config/livekit.sfu-broadcast-native.yaml",
     "config/redis/sfu-broadcast.conf",
     "config/sfu_broadcast_cluster_directory.json",
-    "docker-compose.sfu-broadcast.yml",
+    "docker/compose/docker-compose.sfu-broadcast.yml",
     "frontend-angular/package-lock.json",
     "frontend-angular/package.json",
     "scripts/e2e/sfu_broadcast_local_multinode_e2e.py",

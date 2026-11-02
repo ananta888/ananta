@@ -344,7 +344,7 @@
       "description": "Ziegler-Auditor-Modul in zentrale Ananta-Konfiguration aufnehmen.",
       "files": [
         "agent/services/finance_auditor/config.py",
-        "config.example.yaml"
+        "config/config.example.yaml"
       ],
       "acceptance_criteria": [
         "Feature ist unter finance_auditor.ziegler.enabled aktivierbar.",

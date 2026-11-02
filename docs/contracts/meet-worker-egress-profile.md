@@ -78,8 +78,8 @@ defines filter restoration, test parsing and bounded lock waits.
 
 ## Deployment contract
 
-The opt-in overlay is `docker-compose.meet-egress.yml`, applied **after**
-`docker-compose.meet-media.yml`. It does not activate itself or change any
+The opt-in overlay is `docker/compose/docker-compose.meet-egress.yml`, applied **after**
+`docker/compose/docker-compose.meet-media.yml`. It does not activate itself or change any
 existing running service. Set `MEET_EGRESS_POLICY_FILE` to an absolute path to
 a regular, non-symlink policy file before rendering or creating the profile.
 The file is mounted read-only into the guard only; a missing host file must

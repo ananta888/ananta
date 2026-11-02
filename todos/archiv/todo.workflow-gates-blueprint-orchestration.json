@@ -441,7 +441,7 @@
         "Settings-Test pr\u00fcft Default gated.",
         "Settings-Test pr\u00fcft Override auf strict_gated.",
         "Settings-Test pr\u00fcft, dass off nicht versehentlich in Standard-Testumgebung aktiv ist.",
-        "Config-Test pr\u00fcft Priorit\u00e4t zwischen .env und config.json gem\u00e4\u00df bestehender Konfigurationslogik."
+        "Config-Test pr\u00fcft Priorit\u00e4t zwischen .env und config/config.json gem\u00e4\u00df bestehender Konfigurationslogik."
       ]
     },
     {
@@ -665,7 +665,7 @@
       "progress_percent": 100,
       "commit": "240fb709",
       "target_files": [
-        "config.json",
+        "config/config.json",
         "agent/config.py",
         "src/hub/planning.py",
         "docs/architecture/workflow-gates.md"

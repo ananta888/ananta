@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {collectGepArtifacts} from '../../services/evolver_bridge/gep_artifacts.js';
-import {prepareWorkspace} from '../../services/evolver_bridge/workspace.js';
-import {validateRuntime} from '../../services/evolver_bridge/runtime.js';
+import {collectGepArtifacts} from '../../services/evolver-bridge/gep_artifacts.js';
+import {prepareWorkspace} from '../../services/evolver-bridge/workspace.js';
+import {validateRuntime} from '../../services/evolver-bridge/runtime.js';
 
 function fixture(run) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'gep-test-'));
@@ -95,7 +95,7 @@ test('pinned runtime writes a prompt the collector can preserve',{
  skip:!fs.existsSync('/opt/evolver-src/index.js') && process.env.ANANTA_REQUIRE_PINNED_EVOLVER !== '1',
  timeout:15000,
 },()=>{
- const contract=JSON.parse(fs.readFileSync(new URL('../../services/evolver_bridge/runtime-contract.json',import.meta.url),'utf8'));
+ const contract=JSON.parse(fs.readFileSync(new URL('../../services/evolver-bridge/runtime-contract.json',import.meta.url),'utf8'));
  validateRuntime('/opt/evolver-src',contract);
  const workspace=prepareWorkspace({objective:'offline synthetic compatibility check'});
  try {

@@ -151,9 +151,9 @@
         "agent/cli/assets/ansi_halfblock_90.txt",
         "agent/cli/assets/mono_fallback_90.txt"
       ],
-      "summary": "Compact header uses SVG-derived runtime rendering/trim path: logo_layout._load_small_logo() renders ananta.svg to an 8-line compact logo when dependencies are present and falls back safely; logo_assets.load_logo(max_lines=8) remains available for asset trimming. Covered by splash logo/layout tests.",
+      "summary": "Compact header uses SVG-derived runtime rendering/trim path: logo_layout._load_small_logo() renders assets/ananta.svg to an 8-line compact logo when dependencies are present and falls back safely; logo_assets.load_logo(max_lines=8) remains available for asset trimming. Covered by splash logo/layout tests.",
       "acceptance_criteria": [
-        "Compact header uses exactly 8 display lines derived from ananta.svg via existing assets + max_lines=8 trimming.",
+        "Compact header uses exactly 8 display lines derived from assets/ananta.svg via existing assets + max_lines=8 trimming.",
         "A no-ANSI fallback exists via mono_fallback_90.txt.",
         "Manual visual review confirms the compact logo still resembles the Ananta symbol enough for a header."
       ],

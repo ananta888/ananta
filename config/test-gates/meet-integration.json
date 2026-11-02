@@ -20,7 +20,7 @@
     "tests/test_project_lifecycle_service.py",
     "tests/contracts/test_public_rendezvous_compose.py",
     "public-rendezvous/caddy/Caddyfile",
-    "docker-compose.meet.yml"
+    "docker/compose/docker-compose.meet.yml"
   ],
   "pytest_args": [
     "tests/meet/test_meet_integration.py",

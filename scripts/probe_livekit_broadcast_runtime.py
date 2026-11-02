@@ -28,7 +28,7 @@ from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "artifacts/domain/livekit-broadcast-runtime-capabilities.json"
-COMPOSE_RELATIVE = Path("docker-compose.semantic-media.yml")
+COMPOSE_RELATIVE = Path("docker/compose/docker-compose.semantic-media.yml")
 CONFIG_RELATIVE = Path("config/livekit.semantic-media.yaml")
 PACKAGE_RELATIVE = Path("frontend-angular/package.json")
 LOCK_RELATIVE = Path("frontend-angular/package-lock.json")

@@ -114,8 +114,8 @@ not promote evidence or a model.
 
 Set `ANANTA_JEFF_MODEL_DIR`, `ANANTA_JEFF_KEY_FILE` and
 `ANANTA_JEFF_HUB_PUBLIC_KEY_FILE` outside the repository. Files must be readable
-by container UID 10001. `docker-compose.jeff.yml` is opt-in profile `jeff`;
-`docker-compose.jeff-cuda.yml` adds opt-in `jeff-cuda`. `JEFF_REQUIRE_ASSIGNMENT=0`
+by container UID 10001. `docker/compose/docker-compose.jeff.yml` is opt-in profile `jeff`;
+`docker/compose/docker-compose.jeff-cuda.yml` adds opt-in `jeff-cuda`. `JEFF_REQUIRE_ASSIGNMENT=0`
 is an explicit synthetic inference-smoke policy only; its results cannot satisfy
 production gates. Normal deployment defaults to mandatory signed assignments.
 

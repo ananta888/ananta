@@ -677,7 +677,7 @@ class TestPathClassifier:
         assert _classify_path("docs/architecture.md") == "doc"
         assert _classify_path("AGENTS.md") == "doc"
         assert _classify_path("README.md") == "doc"
-        assert _classify_path("PROJEKT_ZIELBILD.md") == "doc"
+        assert _classify_path("docs/PROJEKT_ZIELBILD.md") == "doc"
         assert _classify_path("CHANGELOG.md") == "doc"
         assert _classify_path("LICENSE.txt") == "doc"
 

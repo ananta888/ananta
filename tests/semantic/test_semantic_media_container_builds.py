@@ -37,7 +37,7 @@ def test_container_build_inventory_covers_every_supply_chain_component() -> None
 
 
 def test_turn_gate_retains_only_the_capability_required_by_upstream_binary() -> None:
-    document = yaml.safe_load((ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8"))
+    document = yaml.safe_load((ROOT / "docker/compose/docker-compose.semantic-media.yml").read_text(encoding="utf-8"))
     turn = document["services"]["semantic-media-turn-gate"]
     sfu = document["services"]["semantic-media-sfu"]
 
@@ -52,7 +52,7 @@ def test_turn_gate_retains_only_the_capability_required_by_upstream_binary() -> 
         "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:49160-49200:49160-49200/udp",
     ]
     assert all(str(port).startswith("${ANANTA_SEMANTIC_MEDIA_SFU_BIND_IP:-127.0.0.1}:") for port in sfu["ports"])
-    compose_text = (ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8")
+    compose_text = (ROOT / "docker/compose/docker-compose.semantic-media.yml").read_text(encoding="utf-8")
     assert "devkey" not in compose_text
     assert "replace-with-at-least-32-random-characters" not in compose_text
     assert "ananta-turn-gate-fixture-32-bytes" not in compose_text

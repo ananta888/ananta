@@ -11,8 +11,8 @@ RUN groupadd --gid 65532 observer \
     && useradd --uid 65532 --gid 65532 --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin observer
 
 WORKDIR /opt/ananta-turn-observer
-COPY turn-observer-agent/pyproject.toml ./pyproject.toml
-COPY turn-observer-agent/src ./src
+COPY services/turn-observer-agent/pyproject.toml ./pyproject.toml
+COPY services/turn-observer-agent/src ./src
 RUN python -m pip install --no-deps . \
     && python -m pip install "cryptography==44.0.3"
 

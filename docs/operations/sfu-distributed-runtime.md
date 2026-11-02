@@ -10,7 +10,7 @@ In `livekit_native`, LiveKit owns concrete room-to-node placement. Hub records a
 
 The committed directory has two targets per mode but sets admission false. The Redis TLS directory intentionally contains no certificates or ACL secrets. The committed LiveKit native config contains a non-working password placeholder. Missing or stale flag ACK, parent readiness, capacity, route control, runtime health, image/config digest, source evidence or run evidence blocks new admission.
 
-`docker-compose.semantic-media.yml` remains a single-node compatibility profile and is not eligible for the distributed gate.
+`docker/compose/docker-compose.semantic-media.yml` remains a single-node compatibility profile and is not eligible for the distributed gate.
 
 ## Profiles
 

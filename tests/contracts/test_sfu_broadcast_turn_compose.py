@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_turn_compose_is_profile_gated_and_hardened():
-    document = yaml.safe_load((ROOT / "docker-compose.sfu-broadcast-turn.yml").read_text())
+    document = yaml.safe_load((ROOT / "docker/compose/docker-compose.sfu-broadcast-turn.yml").read_text())
 
     assert set(document["services"]) == {
         "turn-a",

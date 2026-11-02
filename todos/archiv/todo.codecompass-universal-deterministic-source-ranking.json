@@ -75,7 +75,7 @@
             "RepositoryMapEngine, FTS, Hybrid-Merge, Graph-Ranking, Symbolkontext, Restricted-Reranker und Context-Packer auf Score-Manipulationen untersuchen.",
             "Jeden Wert als harte Sicherheitsgrenze, universelle Heuristik, task-type Default, deployment Override oder repository-spezifischen Sonderfall klassifizieren.",
             "Aktuelle Defaults, Konfigurationsschluessel, Aufrufer und Trace-Sichtbarkeit dokumentieren.",
-            "Explizit erfassen, welche Gewichte im Code, in config.json, Config Graph, Umgebungsvariablen oder Profilen gesetzt werden koennen."
+            "Explizit erfassen, welche Gewichte im Code, in config/config.json, Config Graph, Umgebungsvariablen oder Profilen gesetzt werden koennen."
           ],
           "acceptance_criteria": [
             "Es existiert eine vollstaendige maschinenlesbare Inventarliste aller Ranking-Eingriffe.",

@@ -1286,14 +1286,14 @@ jobs:
         with:
           node-version: "24.18.0"
       - run: npm install -g @mermaid-js/mermaid-cli@11.12.0
-      - run: mkdir -p architektur/rendered
+      - run: mkdir -p docs/architecture/rendered
       - run: |
-          for f in architektur/uml/*.mmd; do
-            out="architektur/rendered/$(basename "${f%.mmd}.png")"
-            mmdc -p architektur/puppeteer-config.json -i "$f" -o "$out" -b transparent
+          for f in docs/architecture/uml/*.mmd; do
+            out="docs/architecture/rendered/$(basename "${f%.mmd}.png")"
+            mmdc -p docs/architecture/puppeteer-config.json -i "$f" -o "$out" -b transparent
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-architecture-diagrams
-          path: architektur/rendered/*.png
+          path: docs/architecture/rendered/*.png
           retention-days: 7

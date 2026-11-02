@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TARGET_READMES = [
     "README.md",
-    "architektur/README.md",
+    "docs/architecture/uml-README.md",
     "src/README.md",
     "agent/README.md",
     "frontend-angular/README.md",

@@ -6,7 +6,7 @@ RUN apt-get update \
 
 WORKDIR /opt/evolver-bridge
 
-COPY services/evolver_bridge/ /opt/evolver-bridge/
+COPY services/evolver-bridge/ /opt/evolver-bridge/
 
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 

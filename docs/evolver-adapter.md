@@ -144,7 +144,7 @@ analyze-only, controlled review and future apply staging.
 
 The dedicated bridge image fetches the immutable v1.94.0 commit
 [`b34ccbcd9a07dc252b080b80e0c587734554f004`](https://github.com/EvoMap/evolver/tree/b34ccbcd9a07dc252b080b80e0c587734554f004)
-instead of cloning `main`. `services/evolver_bridge/runtime-contract.json` binds
+instead of cloning `main`. `services/evolver-bridge/runtime-contract.json` binds
 version, declared SPDX license, exact LICENSE bytes, dependency lock and protocol.
 Both bridge and upstream dependencies use `npm ci --ignore-scripts`; the image
 runs as the non-root `node` user. Standard CA certificates are installed for
@@ -175,7 +175,7 @@ Runtime-identity smoke, fully offline and headless:
 
 ```sh
 ANANTA_EVOLVER_PINNED_IMAGE=<locally-built-image> python -m pytest \
-  tests/evolver_bridge/test_runtime_container.py --timeout=45
+  tests/evolver-bridge/test_runtime_container.py --timeout=45
 ```
 
 The smoke checks real non-root/read-only runtime identity and adapter metadata.

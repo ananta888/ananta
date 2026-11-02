@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE = ROOT / "docker-compose.meet-media.yml"
+COMPOSE = ROOT / "docker/compose/docker-compose.meet-media.yml"
 
 
 def test_template_selects_one_explicit_device_and_readonly_worker_without_more_mounts():

@@ -58,7 +58,7 @@ Also required:
 
 Missing/invalid enabled configuration fails closed, without image credentials,
 provider fallback or Hub decoding. Syntax validation of configuration values
-does not constitute production evidence. `docker-compose.persona-videos-hub.yml`
+does not constitute production evidence. `docker/compose/docker-compose.persona-videos-hub.yml`
 mounts only the video key and attaches the named external private video network;
 it publishes no port and leaves the feature disabled by default. Pair it with
 the worker compose from [persona-video-http.md](persona-video-http.md).

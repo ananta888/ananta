@@ -193,10 +193,10 @@ run_frontend() {
   exec "${command[@]}"
 }
 
-run_evolver_bridge() {
+run_evolver-bridge() {
   export PORT="${PORT:-8080}"
   log "Starting evolver bridge on port ${PORT}"
-  exec node /app/services/evolver_bridge/server.js
+  exec node /app/services/evolver-bridge/server.js
 }
 
 deerflow_preflight() {
@@ -308,11 +308,11 @@ main() {
         hub) run_hub ;;
         worker) run_worker ;;
         frontend) run_frontend ;;
-        evolver_bridge) run_evolver_bridge ;;
+        evolver-bridge) run_evolver-bridge ;;
         deerflow_runner) run_deerflow_runner ;;
         ml_intern_runner) run_ml_intern_runner ;;
         *)
-          error_exit "Unknown ANANTA_QUICKSTART_ROLE='${role}'. Allowed: hub, worker, frontend, evolver_bridge, deerflow_runner, ml_intern_runner."
+          error_exit "Unknown ANANTA_QUICKSTART_ROLE='${role}'. Allowed: hub, worker, frontend, evolver-bridge, deerflow_runner, ml_intern_runner."
           ;;
       esac
       ;;

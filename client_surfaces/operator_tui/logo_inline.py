@@ -7,7 +7,7 @@ import tempfile
 from functools import lru_cache
 from typing import Any
 
-_SVG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg"))
+_SVG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "assets/ananta.svg"))
 _SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
 
 _RST = "\x1b[0m"

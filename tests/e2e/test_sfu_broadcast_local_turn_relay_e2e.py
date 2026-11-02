@@ -115,7 +115,7 @@ def test_accepts_multiple_simulcast_encodings_but_one_publication_and_peer_conne
 
 
 def test_local_turn_compose_exposes_only_loopback_relay_ports() -> None:
-    document = yaml.safe_load((ROOT / "docker-compose.semantic-media.yml").read_text(encoding="utf-8"))
+    document = yaml.safe_load((ROOT / "docker/compose/docker-compose.semantic-media.yml").read_text(encoding="utf-8"))
     service = document["services"]["semantic-media-turn-gate"]
 
     # The container must discover and advertise its bridge address. Forcing

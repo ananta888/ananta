@@ -7,7 +7,7 @@
 
   "architecture": {
     "integration_point": "StructuredExtractor / JavaLikeExtractor in rag-helper/rag_helper/extractors/ — ObsidianExtractor implementiert JavaLikeExtractor (zwei Pässe: pre_scan_types baut globale Link-Map, parse verarbeitet Note vollständig). Canvas-Dateien erhalten eigene CanvasExtractor-Klasse. Beide werden über neue Parameter in build_extractors() (document_extractor.py) registriert.",
-    "vault_config": "Multi-Vault mit benannten Profilen in config.json (obsidian_vaults: {name: ObsidianVaultProfile}). Ein Vault = eine RAG-Quelle mit eigenem Output-Verzeichnis unter data_dir/knowledge_indices/obsidian_{vault_name}/.",
+    "vault_config": "Multi-Vault mit benannten Profilen in config/config.json (obsidian_vaults: {name: ObsidianVaultProfile}). Ein Vault = eine RAG-Quelle mit eigenem Output-Verzeichnis unter data_dir/knowledge_indices/obsidian_{vault_name}/.",
     "privacy": "Drei Mechanismen, alle konfigurierbar und kombiniert (OR-Logik als Default): (1) Pfad-Präfix-Liste, (2) Frontmatter-Feld (z.B. private: true), (3) Tag-Blacklist (z.B. #no-index). Alle drei aktiv wenn 'Alle drei unterstützen' gewählt.",
     "special_features": "Canvas-Dateien (.canvas, Obsidian JSON) als eigenständige Graph-Nodes/Edges. Dataview-Blöcke werden erkannt und als Metadatum erfasst (kein Ausführen). Aliases aus Frontmatter für Link-Auflösung und Suche.",
     "md_currently": "WICHTIG: .md ist in build_extractors() (document_extractor.py:117) bereits via text_extractor_cls registriert. ObsidianExtractor muss als eigener Parameter hinzugefügt werden und hat Vorrang vor text_extractor für .md-Dateien.",
@@ -89,7 +89,7 @@
           ],
           "acceptance_criteria": [
             "Settings erhält Feld obsidian_vaults: dict[str, ObsidianVaultProfile] = {}",
-            "Konfiguration per config.json möglich: {\"obsidian_vaults\": {\"main\": {\"path\": \"/home/user/vault\"}, \"work\": {\"path\": \"/home/user/work\", \"enabled\": false}}}",
+            "Konfiguration per config/config.json möglich: {\"obsidian_vaults\": {\"main\": {\"path\": \"/home/user/vault\"}, \"work\": {\"path\": \"/home/user/work\", \"enabled\": false}}}",
             "Konfiguration per Env-Var möglich: ANANTA_OBSIDIAN_VAULTS als JSON-String",
             "Leeres Dict (kein Vault konfiguriert) ist valider Startzustand — kein Fehler beim Start"
           ],

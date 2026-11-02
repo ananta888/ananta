@@ -9,7 +9,7 @@
     "source_commit_message": "Add ANSI color terminal logos for enhanced display output in temporary directory",
     "problem": ".tmp/terminal-logo/render_terminal_logo.py was committed to the repository. It is useful as a generator prototype, but .tmp must not be the final location for production code or assets.",
     "important_user_feedback": [
-      "The terminal logo must be derived from ananta.svg, not hand-drawn ASCII.",
+      "The terminal logo must be derived from assets/ananta.svg, not hand-drawn ASCII.",
       "The logo may be large.",
       "The result should be colorful terminal/TUI art.",
       "Previous hand-made ASCII drafts were rejected and must not be restored."
@@ -17,7 +17,7 @@
   },
   "code_review_basis": [
     {
-      "finding": "A Python generator exists at .tmp/terminal-logo/render_terminal_logo.py. It renders ananta.svg-derived PNG into ANSI TrueColor half-block art and monochrome fallback.",
+      "finding": "A Python generator exists at .tmp/terminal-logo/render_terminal_logo.py. It renders assets/ananta.svg-derived PNG into ANSI TrueColor half-block art and monochrome fallback.",
       "evidence": ".tmp/terminal-logo/render_terminal_logo.py"
     },
     {
@@ -90,12 +90,12 @@
       "type": "refactor",
       "files": [
         "scripts/render_terminal_logo.py",
-        "ananta.svg"
+        "assets/ananta.svg"
       ],
       "summary": "Keep the useful SVG-to-ANSI generation path, but move it out of .tmp and make it reusable.",
       "depends_on": ["CLI-LOGO-001"],
       "acceptance_criteria": [
-        "Generator reads ananta.svg by default but accepts --svg and --output-dir.",
+        "Generator reads assets/ananta.svg by default but accepts --svg and --output-dir.",
         "Generator supports --width 90/120 or arbitrary width.",
         "Generator supports --ansi and --mono outputs.",
         "Generator writes generated artifacts only to an ignored output directory unless explicitly requested.",
@@ -136,10 +136,10 @@
         "agent/cli/assets/ananta_mono_90.txt",
         "scripts/render_terminal_logo.py"
       ],
-      "summary": "The banner must remain derived from ananta.svg and must not regress into hand-drawn ASCII.",
+      "summary": "The banner must remain derived from assets/ananta.svg and must not regress into hand-drawn ASCII.",
       "depends_on": ["CLI-LOGO-004"],
       "acceptance_criteria": [
-        "Generator documentation states the assets are derived from ananta.svg.",
+        "Generator documentation states the assets are derived from assets/ananta.svg.",
         "No emoji-based or manually invented snake logo is reintroduced.",
         "ANSI assets use block/half-block characters such as ▀, ▄, █ and ANSI TrueColor.",
         "Mono fallback uses block/half-block or density characters and remains recognizable.",

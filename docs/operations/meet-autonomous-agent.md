@@ -25,9 +25,9 @@ Kein grüner lokaler Test aktiviert diese Grenzen automatisch.
 
 ## Konfiguration und unbeaufsichtigter Start
 
-Der Hub verwendet `docker-compose.meet-media-hub.yml` zusätzlich zu seiner
+Der Hub verwendet `docker/compose/docker-compose.meet-media-hub.yml` zusätzlich zu seiner
 normalen Compose-Konfiguration; Worker/Ollama laufen im getrennten Projekt aus
-`docker-compose.meet-media.yml`. Die bestehenden Netze werden ergänzt, nicht
+`docker/compose/docker-compose.meet-media.yml`. Die bestehenden Netze werden ergänzt, nicht
 ersetzt. Private Hub-Schlüssel werden niemals in den Worker oder Meet gemountet.
 Worker-Rückrufadressen bleiben die explizit konfigurierten privaten Hub-Ports.
 

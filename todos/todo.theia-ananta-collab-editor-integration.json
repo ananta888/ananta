@@ -270,7 +270,7 @@
       "milestone_id": "AEC-M2",
       "depends_on": ["AEC-009"],
       "acceptance_criteria": [
-        "Alle Endpunkte sind vollstaendig headless testbar und in api-spec.md dokumentiert.",
+        "Alle Endpunkte sind vollstaendig headless testbar und in docs/api-spec.md dokumentiert.",
         "Fehlerfaelle (ungueltige Session, verbotener Scope, Payload-Limit) liefern definierte Statuscodes und Audit-Eintraege.",
         "Bestehende collaboration-Endpunkte bleiben unveraendert kompatibel (keine Breaking Changes)."
       ],
@@ -1000,7 +1000,7 @@
     {
       "id": "AEC-051",
       "title": "Dokumentation: Architektur, API-Spec und Plugin-READMEs",
-      "description": "docs/architecture/theia-ananta-collab-editor.md finalisieren, api-spec.md um Editor-Endpunkte ergaenzen, Plugin-READMEs (Frontend/Backend) und Betriebsdoku (Start, Konfiguration, Monitoring) erstellen.",
+      "description": "docs/architecture/theia-ananta-collab-editor.md finalisieren, docs/api-spec.md um Editor-Endpunkte ergaenzen, Plugin-READMEs (Frontend/Backend) und Betriebsdoku (Start, Konfiguration, Monitoring) erstellen.",
       "type": "docs",
       "status": "todo",
       "priority": "P1",

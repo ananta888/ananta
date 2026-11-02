@@ -48,7 +48,7 @@ SOURCE_PATHS = (
     "agent/services/hub_evidence_registry_service.py",
     "ananta_contracts/hub_evidence.py",
     "config/livekit.semantic-media.yaml",
-    "docker-compose.semantic-media.yml",
+    "docker/compose/docker-compose.semantic-media.yml",
     "frontend-angular/package-lock.json",
     "frontend-angular/package.json",
     "scripts/e2e/sfu_broadcast_local_turn_relay_e2e.py",

@@ -116,7 +116,7 @@ def test_invalid_execution_configuration_never_installs_video_authority(request,
 
 def test_video_hub_overlay_is_separate_private_and_disabled_by_default():
     root = Path(__file__).resolve().parents[2]
-    config = yaml.safe_load((root / "docker-compose.persona-videos-hub.yml").read_text())
+    config = yaml.safe_load((root / "docker/compose/docker-compose.persona-videos-hub.yml").read_text())
     hub = config["services"]["ai-agent-hub"]
     assert hub["environment"]["ANANTA_PERSONA_VIDEOS_ENABLED"] == "${ANANTA_PERSONA_VIDEOS_ENABLED:-0}"
     assert (

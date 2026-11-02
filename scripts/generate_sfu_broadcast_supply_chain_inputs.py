@@ -44,9 +44,9 @@ DEFAULT_LOCKFILES = (
     ROOT / "frontend-angular/package-lock.json",
 )
 DEFAULT_INFRASTRUCTURE_FILES = (
-    ROOT / "docker-compose.semantic-media.yml",
-    ROOT / "docker-compose.sfu-broadcast.yml",
-    ROOT / "docker-compose.sfu-broadcast-turn.yml",
+    ROOT / "docker/compose/docker-compose.semantic-media.yml",
+    ROOT / "docker/compose/docker-compose.sfu-broadcast.yml",
+    ROOT / "docker/compose/docker-compose.sfu-broadcast-turn.yml",
 )
 COMPONENT_IMAGE_IDS = {
     "hub": "hub",

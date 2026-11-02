@@ -8,7 +8,7 @@ def load_fallback_frame(
     color: bool,
     max_lines: int | None = None,
 ) -> str:
-    """Load a static 2D frame derived from ananta.svg.
+    """Load a static 2D frame derived from assets/ananta.svg.
 
     Used as a comparison reference and as fallback when the 3D geometry
     model does not apply (non-TTY, too small, disabled).

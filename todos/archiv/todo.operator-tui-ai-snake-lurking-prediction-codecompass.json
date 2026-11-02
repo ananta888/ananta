@@ -515,7 +515,7 @@
           "description": "Die AI-Snake kann bevorzugt LM Studio lokal nutzen, aber der Provider wird über bestehende Ananta-Worker/Provider-Policy geroutet.",
           "repo": "tui",
           "files": [
-            "config.example.yaml",
+            "config/config.example.yaml",
             "agent/services/native_worker_runtime_service.py",
             "worker/core/provider_registry.py"
           ],

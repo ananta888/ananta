@@ -1,9 +1,9 @@
 name: Harness and Evolution Contracts
 on:
   push:
-    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver_bridge/**', 'tests/harness/**', 'tests/evolver_bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
+    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver-bridge/**', 'tests/harness/**', 'tests/evolver-bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
   pull_request:
-    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver_bridge/**', 'tests/harness/**', 'tests/evolver_bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
+    paths: ['agent/services/harness*', 'agent/services/evolution*', 'agent/services/evolution/**', 'agent/repositories/harness*', 'agent/repositories/evolution*', 'agent/db_models/harness*', 'agent/db_models/evolution*', 'agent/routes/harness.py', 'agent/routes/evolution.py', 'agent/bootstrap/harness_evolution.py', 'ananta_contracts/**', 'plugins/evolver_adapter/**', 'services/evolver-bridge/**', 'tests/harness/**', 'tests/evolver-bridge/**', 'tests/test_evolver_adapter.py', 'migrations/versions/**', '.github/workflows/harness-evolution-contracts.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,4 +37,4 @@ jobs:
           --mount type=bind,source="$GITHUB_WORKSPACE",target=/workspace,readonly
           --workdir /workspace --entrypoint node
           ananta-evolver-contracts:local
-          --test tests/evolver_bridge/gep_artifacts.test.mjs tests/evolver_bridge/workspace.test.mjs tests/evolver_bridge/runtime.test.mjs
+          --test tests/evolver-bridge/gep_artifacts.test.mjs tests/evolver-bridge/workspace.test.mjs tests/evolver-bridge/runtime.test.mjs

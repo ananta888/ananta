@@ -129,7 +129,9 @@ def test_image_healthcheck_and_compose_quota_keep_existing_container_boundaries(
         'CMD ["python", "-m", "worker.meet_media.health"]' in dockerfile
     )
     assert "COPY worker/meet_media /app/worker/meet_media" in dockerfile
-    service = yaml.safe_load((root / "docker-compose.meet-media.yml").read_text())["services"]["meet-media-worker"]
+    service = yaml.safe_load((root / "docker/compose/docker-compose.meet-media.yml").read_text())["services"][
+        "meet-media-worker"
+    ]
     assert service["cpus"] == "${MEET_MEDIA_CPUS:-4.0}"
     assert service["mem_limit"] == "4g" and service["pids_limit"] == 256
     assert service["cap_drop"] == ["ALL"] and "no-new-privileges:true" in service["security_opt"]

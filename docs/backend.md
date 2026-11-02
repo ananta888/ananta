@@ -296,7 +296,7 @@ Zentrale Tabellen/Modelle liegen in `agent/db_models.py` (Users, Teams, Tasks, T
 - Prompt-Bundles im `ContextBundleService` nutzen ebenfalls die zentrale Redaction, um Leckagen in Richtung LLM-Provider zu minimieren.
 
 ## Verwandte Dokus
-- API-Spezifikation: `api-spec.md`
+- API-Spezifikation: `docs/api-spec.md`
 - Lokales LoRA-/QLoRA-Training: `operations/lora-training.md`
 - Agent-Setup: `agent/README.md`
 - Lokale LLM-/CLI-Strategie: `docs/local-llm-cli-strategy.md`

@@ -38,7 +38,7 @@ ANANTA_MEET_ROOM_ALLOCATION_ENABLED=1
 ANANTA_MEET_ROOM_ALLOCATION_SCOPES=[["EXACT-TENANT","EXACT-PROJECT"]]
 ```
 
-The `docker-compose.meet.yml` overlay carries these values and defaults to off
+The `docker/compose/docker-compose.meet.yml` overlay carries these values and defaults to off
 with an empty allowlist. The automated caller uses the existing authorized Hub
 user API, without a click/approval step in the allocation flow:
 
@@ -180,7 +180,7 @@ and caps response bytes and read/connect time. Its `available` status checks
 the required auth/E2EE configuration, not actual media interoperability.
 
 Configuration must be passed into the Hub container explicitly by the operator's
-deployment override. The additive `docker-compose.meet.yml` overlay provides
+deployment override. The additive `docker/compose/docker-compose.meet.yml` overlay provides
 these two variables for the existing `ai-agent-hub` service and defaults to off;
 append it with `-f` to the selected deployment's existing Compose file list.
 It does not configure workers, restart Meet or modify proxy networks.

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 
 # Assuming these imports are correctly structured in the workspace
-from src.core.worker_client_adapter import WorkerClientAdapter
+from examples.minimal-hub.core.worker_client_adapter import WorkerClientAdapter
 
 
 class TestWorkerClientAdapter(unittest.TestCase):

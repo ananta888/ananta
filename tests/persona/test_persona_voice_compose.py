@@ -7,7 +7,7 @@ import yaml
 
 def test_voice_descriptor_worker_has_private_bounded_cpu_only_template():
     root = Path(__file__).resolve().parents[2]
-    compose = yaml.safe_load((root / "docker-compose.persona-workers.yml").read_text())
+    compose = yaml.safe_load((root / "docker/compose/docker-compose.persona-workers.yml").read_text())
     worker = compose["services"]["persona-voice-worker"]
     assert set(compose["services"]) == {
         "persona-generation-worker",

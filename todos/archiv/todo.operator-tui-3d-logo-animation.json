@@ -10,7 +10,7 @@
       "Operator TUI currently uses prompt_toolkit full-screen TextArea rendering via client_surfaces/operator_tui/interactive.py.",
       "Rendering is currently string-based through client_surfaces/operator_tui/renderer.py and render_operator_shell().",
       "A previous TODO exists for fullscreen logo splash -> compact 8-line status header.",
-      "scripts/render_terminal_logo.py can already generate ANSI halfblock, mono, plain ASCII, ASCII-color and edge-aware ASCII logo assets from ananta.svg.",
+      "scripts/render_terminal_logo.py can already generate ANSI halfblock, mono, plain ASCII, ASCII-color and edge-aware ASCII logo assets from assets/ananta.svg.",
       "pyproject.toml already depends on prompt_toolkit and Pillow, but not on Textual/asciimatics/chafa."
     ],
     "library_assessment": [
@@ -278,13 +278,13 @@
         "scripts/render_terminal_logo.py",
         "tests/test_operator_tui_3d_svg_reference.py"
       ],
-      "summary": "Keep the 3D approximation visually connected to the real ananta.svg logo.",
+      "summary": "Keep the 3D approximation visually connected to the real assets/ananta.svg logo.",
       "depends_on": [
         "TUI-3D-005",
         "TUI-3D-006"
       ],
       "acceptance_criteria": [
-        "Docs or metadata define how the pseudo-3D model relates to ananta.svg parts.",
+        "Docs or metadata define how the pseudo-3D model relates to assets/ananta.svg parts.",
         "Optional reference overlay mode can render a static SVG-derived ASCII frame for comparison.",
         "No freehand rejected ASCII draft is used as geometry source.",
         "Tests verify fallback static frame can be loaded without ANSI when NO_COLOR is set.",

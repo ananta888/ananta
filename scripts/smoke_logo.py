@@ -50,7 +50,7 @@ def show_2d(width: int = 0) -> str:
     """
     Print the SVG-derived ANSI halfblock logo and return the raw string.
     Uses the pre-rendered asset in agent/cli/assets/ansi_halfblock_*.txt
-    which was generated from ananta.svg by render_terminal_logo.py.
+    which was generated from assets/ananta.svg by render_terminal_logo.py.
     """
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from agent.cli.logo_assets import load_logo
@@ -93,7 +93,7 @@ def _render_frames(
     )
 
     backend = BuiltinBackend()
-    source = "svg" if backend._a_model.label == "ananta_svg" else "hardcoded-A"
+    source = "svg" if backend._a_model.label == "assets/ananta.svg" else "hardcoded-A"
     print(
         f"[smoke_logo] 3D geometry source: {source}  "
         f"verts={len(backend._a_model.vertices)}  "
@@ -162,7 +162,7 @@ _SNAKE_CHARS = "~sSoOcC"
 
 
 def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
-    """Render ananta.svg as colored (or plain) ASCII art; returns lines."""
+    """Render assets/ananta.svg as colored (or plain) ASCII art; returns lines."""
     import sys as _sys
     import tempfile as _tmp
 
@@ -180,7 +180,7 @@ def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
     except ImportError:
         return []
 
-    svg_path = os.path.abspath(os.path.join(script_dir, "..", "ananta.svg"))
+    svg_path = os.path.abspath(os.path.join(script_dir, "..", "assets/ananta.svg"))
     if not os.path.isfile(svg_path):
         return []
 
@@ -341,7 +341,7 @@ def _frame_from_logo(
 def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
     """
     Animation: SVG logo reveals → snake wraps around it → shrinks to corner.
-    Uses the real ananta.svg rendered as colored ASCII at 70 columns.
+    Uses the real assets/ananta.svg rendered as colored ASCII at 70 columns.
     Falls back gracefully if rendering libraries are unavailable.
     """
     # ── render logo at three sizes ────────────────────────────────────────────

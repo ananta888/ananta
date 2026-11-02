@@ -93,9 +93,9 @@ entsprechen (Standard 1000:1000).
 ```bash
 .venv/bin/python scripts/setup_meet_media.py /home/krusty/ananta/data/meet-media --machine-keys
 export MEET_MEDIA_STATE_DIR=/home/krusty/ananta/data/meet-media
-docker compose -p ananta-meet-media -f docker-compose.meet-media.yml build
-docker compose -p ananta-meet-media -f docker-compose.meet-media.yml up -d
-docker compose -p ananta-meet-media -f docker-compose.meet-media.yml exec meet-ollama ollama pull qwen2.5:1.5b
+docker compose -p ananta-meet-media -f docker/compose/docker-compose.meet-media.yml build
+docker compose -p ananta-meet-media -f docker/compose/docker-compose.meet-media.yml up -d
+docker compose -p ananta-meet-media -f docker/compose/docker-compose.meet-media.yml exec meet-ollama ollama pull qwen2.5:1.5b
 ```
 
 Dieses normale Profil setzt NVIDIA Container Toolkit voraus. Auf diesem PC
@@ -104,7 +104,7 @@ Treiber-Overlay ohne Docker-Daemon-Änderung oder privilegierten Container:
 
 ```bash
 .venv/bin/python scripts/meet_media_host_gpu.py /home/krusty/ananta/data/meet-media/host-gpu.yml
-docker compose -p ananta-meet-media -f docker-compose.meet-media.yml \
+docker compose -p ananta-meet-media -f docker/compose/docker-compose.meet-media.yml \
   -f /home/krusty/ananta/data/meet-media/host-gpu.yml up -d
 ```
 
@@ -132,7 +132,7 @@ den inneren `chroot`; AppArmor bleibt aktiv. Herkunft des Profils:
 
 ## Hub und Meet explizit verbinden
 
-`docker-compose.meet-media-hub.yml` ergänzt die bestehende Hub-Compose-Datei,
+`docker/compose/docker-compose.meet-media-hub.yml` ergänzt die bestehende Hub-Compose-Datei,
 nicht den separaten Worker-Stack. Bestehende Netzwerke bleiben beim Merge
 erhalten. Der Operator setzt:
 

@@ -232,7 +232,7 @@ class UnslothTrainingBackend(PeftTrlTrainingBackend):
             if not config_path.is_file() or config_path.is_symlink() or config_path.stat().st_size > 1024 * 1024:
                 raise TrainingBackendError(
                     "model_config_invalid",
-                    "local text model must contain a bounded regular config.json",
+                    "local text model must contain a bounded regular config/config.json",
                 )
             raw = json.loads(config_path.read_text(encoding="utf-8"))
         except TrainingBackendError:

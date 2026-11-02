@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
-import { prepareWorkspace, workspaceDigest } from "../../services/evolver_bridge/workspace.js";
+import { prepareWorkspace, workspaceDigest } from "../../services/evolver-bridge/workspace.js";
 
 function snapshot(files = { "src/example.py": "print('synthetic snapshot')\n" }) {
   const binding = { origin_revision: "1".repeat(40), tenant_id: "synthetic-tenant", project_id: "synthetic-project", files };

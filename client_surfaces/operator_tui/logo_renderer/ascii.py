@@ -5,7 +5,7 @@ import os
 from client_surfaces.operator_tui.logo_renderer.base import LogoFrame, LogoRendererProbe
 from client_surfaces.operator_tui.logo_renderer.frame import frame_from_svg
 
-_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
+_DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets/ananta.svg"))
 _ASCII_CHARS = " .:-=+*#%@"
 
 

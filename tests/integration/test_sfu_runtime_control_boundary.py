@@ -20,7 +20,7 @@ from agent.adapters.livekit_control_api_client import (
 from agent.services.sfu_broadcast_route_port import RuntimeControlModeV1
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "sfu-runtime-agent/src"))
+sys.path.insert(0, str(ROOT / "services/sfu-runtime-agent/src"))
 
 from ananta_sfu_runtime.control_server import (  # noqa: E402
     FixedWindowRateLimiter,
@@ -164,12 +164,12 @@ def test_unsupported_mode_keeps_control_disabled():
 
 
 def test_mode_profiles_are_exclusive_and_stock_profile_has_no_agent_build():
-    compose = (ROOT / "docker-compose.sfu-broadcast.yml").read_text(encoding="utf-8")
+    compose = (ROOT / "docker/compose/docker-compose.sfu-broadcast.yml").read_text(encoding="utf-8")
     stock = compose.split("  sfu-broadcast-livekit:", 1)[1].split("  sfu-runtime-agent:", 1)[0]
     extension = compose.split("  sfu-runtime-agent:", 1)[1].split("networks:", 1)[0]
     assert 'profiles: ["livekit_control_api"]' in stock
     assert "build:" not in stock
-    assert "sfu-runtime-agent" not in stock
+    assert "services/sfu-runtime-agent" not in stock
     assert 'profiles: ["authenticated_runtime_extension"]' in extension
     assert "build:" in extension
     assert "ANANTA_SFU_KEY_PROVIDER: tpm2" in extension

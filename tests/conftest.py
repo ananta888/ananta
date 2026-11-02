@@ -5,7 +5,6 @@ import sys
 import types
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -33,12 +32,6 @@ install_password_hash_cache()
 # create_app compiles ~1,450 URL builders; identical rules of later app instances reuse them, see
 # tests/werkzeug_rule_cache.py.
 install_werkzeug_rule_cache()
-
-# Stub out missing legacy module so test_worker_client_adapter.py can be collected.
-# worker_engine is not part of the current codebase; stubs prevent ImportError
-# while keeping the test file importable and runnable.
-if "worker_engine" not in sys.modules:
-    sys.modules["worker_engine"] = MagicMock()
 
 # Test environment defaults
 _TEST_DATABASE_URL = isolated_database_url(os.environ.get("ANANTA_TEST_DATABASE_MODE", "memory"))
@@ -1319,4 +1312,3 @@ def admin_token(client):
 
 # Pre-existing broken test files - skip collection
 collect_ignore_glob = ["e2e/fixtures/*/tests/*.py"]
-collect_ignore = ["test_worker_client_adapter.py"]

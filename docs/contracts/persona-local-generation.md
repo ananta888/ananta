@@ -53,7 +53,7 @@ modified. MAP-18 stays open until this native path is verified.
 
 The optional Hub flag is `ANANTA_PERSONA_GENERATION_ENABLED=1`; configure the
 generator URL/key and immutable repository/profile/environment bindings in
-`docker-compose.persona-generation-hub.yml`. This does not enable image/video
+`docker/compose/docker-compose.persona-generation-hub.yml`. This does not enable image/video
 inspection or publication policy implicitly. Enable the desired existing
 inspection Worker separately. The generation container profile is non-root,
 read-only, internal-network-only, 256 MiB / 1 CPU / 32 PIDs, with no GPU,

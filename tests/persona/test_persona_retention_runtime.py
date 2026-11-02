@@ -126,7 +126,7 @@ def test_hub_overlay_exposes_retention_without_enabling_it_by_default():
 
     import yaml
 
-    path = Path(__file__).resolve().parents[2] / "docker-compose.persona-images-hub.yml"
+    path = Path(__file__).resolve().parents[2] / "docker/compose/docker-compose.persona-images-hub.yml"
     config = yaml.safe_load(path.read_text())
     environment = config["services"]["ai-agent-hub"]["environment"]
     assert environment["ANANTA_PERSONA_RETENTION_ENABLED"] == "${ANANTA_PERSONA_RETENTION_ENABLED:-0}"

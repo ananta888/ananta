@@ -804,8 +804,8 @@ class Settings(
                 logging.getLogger("agent.config").warning("hvac not installed, skipping VaultSettingsSource")
 
         # Optionale JSON-Quellen nur hinzufügen, wenn vorhanden
-        if Path("config.json").exists():
-            sources.append(JsonConfigSettingsSource(settings_cls, json_file="config.json"))
+        if Path("config/config.json").exists():
+            sources.append(JsonConfigSettingsSource(settings_cls, json_file="config/config.json"))
         if Path("env.json").exists():
             sources.append(JsonConfigSettingsSource(settings_cls, json_file="env.json"))
         if Path("defaults.json").exists():

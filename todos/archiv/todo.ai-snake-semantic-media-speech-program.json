@@ -1257,7 +1257,7 @@
       "affected_files": [
         "agent/repositories/semantic_relay_shared_store.py",
         "agent/services/semantic_relay_service.py",
-        "docker-compose*.yml",
+        "docker/compose/docker-compose*.yml",
         "tests/integration/test_semantic_relay_multi_hub.py"
       ],
       "acceptance_criteria": [
@@ -1466,7 +1466,7 @@
         "ASMP-SFU-004"
       ],
       "affected_files": [
-        "docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
         "config/ananta_network_profiles.default.json",
         ".env.example",
         "scripts/semantic-media-sfu-healthcheck.sh",
@@ -4161,7 +4161,7 @@
         ".github/workflows",
         ".env.example",
         "pyproject.toml",
-        "docker-compose.semantic-media.yml",
+        "docker/compose/docker-compose.semantic-media.yml",
         "docker",
         "config",
         "agent/bootstrap/semantic_media_services.py",

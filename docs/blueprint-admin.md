@@ -105,7 +105,7 @@ Damit lassen sich Seed-Drift, Admin-Aenderungen und Child-Diffs direkt im Audit 
 
 - Public model (Standardnutzer): `docs/blueprint-product-model.md`
 - Standard blueprint catalog (Standardnutzer): `docs/standard-blueprints.md`
-- API: `api-spec.md`
+- API: `docs/api-spec.md`
 - Bundle-Import/Export: `docs/blueprint-bundle-import-export.md`
 - Rollout/Migration (Admin): `docs/blueprint-migration-rollout.md`
 - Advanced Studio Roadmap (Admin): `docs/blueprint-studio-roadmap.md`

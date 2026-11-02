@@ -42,12 +42,13 @@ def test_doctor_reports_actionable_steps_when_setup_is_missing(tmp_path) -> None
 
     assert rc == 1
     text = "\n".join(lines)
-    assert "Missing config.json" in text
+    assert "Missing config/config.json" in text
     assert "Run `ananta init" in text
 
 
 def test_doctor_json_mode_emits_structured_checks(tmp_path) -> None:
-    (tmp_path / "config.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "config/config.json").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config/config.json").write_text("{}\n", encoding="utf-8")
     lines: list[str] = []
 
     rc = doctor.main(["--json"], cwd=tmp_path, env={"ANANTA_BASE_URL": "http://localhost:5000"}, output_fn=lines.append)

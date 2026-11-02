@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       ANANTA_QUICKSTART_MODE: role
-      ANANTA_QUICKSTART_ROLE: evolver_bridge
+      ANANTA_QUICKSTART_ROLE: evolver-bridge
       PORT: ${EVOLVER_PORT:-8080}
       EVOLVER_TIMEOUT_MS: ${EVOLVER_TIMEOUT_MS:-120000}
     ports:

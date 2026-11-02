@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "sfu-runtime-agent/src"))
+sys.path.insert(0, str(ROOT / "services/sfu-runtime-agent/src"))
 
 from ananta_sfu_runtime.command_guard import (  # noqa: E402
     RuntimeCommandGuard,

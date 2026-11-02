@@ -46,11 +46,11 @@ def evaluate_repository(root: Path) -> list[dict[str, object]]:
             ("HrmCapabilityHeartbeat", "advertise_capability"),
         ),
         "runner_networkless": (
-            "docker-compose.hrm-experiments.yml",
+            "docker/compose/docker-compose.hrm-experiments.yml",
             ("network_mode: none", "read_only: true", "cap_drop:", "no-new-privileges:true"),
         ),
         "runner_bounded": (
-            "docker-compose.hrm-experiments.yml",
+            "docker/compose/docker-compose.hrm-experiments.yml",
             ("pids_limit:", "mem_limit:", "cpus:", "tmpfs:"),
         ),
         "persistent_idempotency": (

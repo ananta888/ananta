@@ -5,10 +5,10 @@ root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root not in sys.path:
     sys.path.insert(0, root)
 
-from src.hub.models import Worker
-from src.hub.policy import check_execution_allowed
-from src.hub.security import has_capability
-from src.hub.storage import Storage
+from hub.models import Worker
+from hub.policy import check_execution_allowed
+from hub.security import has_capability
+from hub.storage import Storage
 
 
 def main():

@@ -10,7 +10,7 @@ implementation. No `SRC_*` or `RUN_*` identifier is asserted.
 - Audit tool: `scripts/audit_webrtc_sfu_broadcast_baseline.py` version `1.0.0`
 - Source commit: `3116c45a3b46e98c45b7e6f9127bbbc6199f5fa0`
 - `config/livekit.semantic-media.yaml`: `666239e38bb11cac71cbb211bfdb8301525b5335d917cc1c36b062aad29a682b`
-- `docker-compose.semantic-media.yml`: `5189915ad7529b857c645169d1b9ef7ee3aee316e1e3c8f7b1c7586c6c308a1e`
+- `docker/compose/docker-compose.semantic-media.yml`: `5189915ad7529b857c645169d1b9ef7ee3aee316e1e3c8f7b1c7586c6c308a1e`
 - `frontend-angular/package.json`: `4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1`
 
 The tool sorts findings and JSON keys, emits no timestamp or random value, and
@@ -45,10 +45,10 @@ The repository path for that claim is
 | Publisher audience | present | `frontend-angular/src/app/services/livekit-sfu-room.adapter.ts` | Default-deny `setTrackSubscriptionPermissions` projects Hub-authorized receiver IDs. |
 | Room/group cap | present | `agent/services/sfu_broadcast_participant_limits.py` | Hard limit is 8 participants. |
 | Publication audience cap | present | `frontend-angular/src/app/services/sfu-broadcast-limits.ts` | Hard limit is 7 receivers. |
-| LiveKit container | present | `docker-compose.semantic-media.yml` | Pinned, isolated, profile-gated server exists. |
-| TURN | partial | `docker-compose.semantic-media.yml`, `config/livekit.semantic-media.yaml` | Embedded TURN and a test gate exist; no regional pool is established. |
+| LiveKit container | present | `docker/compose/docker-compose.semantic-media.yml` | Pinned, isolated, profile-gated server exists. |
+| TURN | partial | `docker/compose/docker-compose.semantic-media.yml`, `config/livekit.semantic-media.yaml` | Embedded TURN and a test gate exist; no regional pool is established. |
 | Server SDK / node agent | missing | `requirements.txt`, `pyproject.toml` | No Hub-side LiveKit server SDK or authenticated node agent is declared. |
-| Fleet control | missing | `docker-compose.semantic-media.yml` | The active Compose topology has no Redis-backed broadcast fleet. |
+| Fleet control | missing | `docker/compose/docker-compose.semantic-media.yml` | The active Compose topology has no Redis-backed broadcast fleet. |
 | Three-peer evidence | partial | `tests/e2e/test_semantic_sfu_spike.py` | One publisher plus two receivers is covered, not broadcast capacity. |
 | Failover evidence | partial | `tests/chaos/test_semantic_sfu_failover.py` | Parent fallback coverage exists, not a selected broadcast runtime boundary. |
 | Observability | partial | `docs/privacy/semantic-media-observability.md` | Content-safe rules exist; fleet/node metrics remain follow-up work. |

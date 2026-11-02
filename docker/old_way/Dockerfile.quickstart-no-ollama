@@ -68,8 +68,8 @@ COPY frontend-angular/package*.json frontend-angular/
 RUN cd frontend-angular && npm ci --no-audit --no-fund
 
 # Evolver-Bridge-Abhaengigkeiten ebenfalls im selben Image vorinstallieren.
-COPY services/evolver_bridge/package*.json services/evolver_bridge/
-RUN cd services/evolver_bridge && npm install --no-audit --no-fund
+COPY services/evolver-bridge/package*.json services/evolver-bridge/
+RUN cd services/evolver-bridge && npm install --no-audit --no-fund
 
 # Den Rest des Codes kopieren
 COPY . .

@@ -32,7 +32,7 @@ class RestartHubContainer:
         self.state = self.directory / "state"
         self.state.mkdir(mode=0o700)
         self.control_key = secrets.token_bytes(32)
-        self.config_file = self.directory / "config.json"
+        self.config_file = self.directory / "config/config.json"
         self.address = self.origin = None
         self.port = 8099
 

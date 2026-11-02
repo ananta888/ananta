@@ -57,7 +57,10 @@ def _ananta_record_factory(*args, **kwargs):
 
 
 def setup_logging(
-    level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None, config_path: str = "log_config.yaml"
+    level: str = "INFO",
+    json_format: bool = False,
+    log_file: Optional[str] = None,
+    config_path: str = "config/log_config.yaml",
 ):
     """Konfiguriert das Logging-System."""
 

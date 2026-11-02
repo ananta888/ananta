@@ -582,7 +582,7 @@
     {
       "id": "CLN-020",
       "title": "Uneinheitliche Version-Pins vereinheitlichen (cryptography, Pillow)",
-      "description": "cryptography ist root unpinned aber ==43.0.3 in sfu-runtime-agent/pyproject und ==44.0.3 in turn-observer-agent/pyproject. Pillow unpinned root vs ==11.3.0 in docker/meet-media. Pins vereinheitlichen oder gezielt begruendet trennen.",
+      "description": "cryptography ist root unpinned aber ==43.0.3 in services/sfu-runtime-agent/pyproject und ==44.0.3 in services/turn-observer-agent/pyproject. Pillow unpinned root vs ==11.3.0 in docker/meet-media. Pins vereinheitlichen oder gezielt begruendet trennen.",
       "type": "deps",
       "status": "todo",
       "priority": "P2",
@@ -1430,8 +1430,8 @@
     },
     {
       "id": "CLN-064",
-      "title": "Copilot-Citationen aus config.json bereinigen",
-      "description": "config.json (9.4KB, wird von hub_benchmark/hybrid_repository_scan/caseflow gelesen) enthaelt 13 ':contentReference[oaicite]...' Copilot-Citationen - ein AI-Draft der als Live-Config committed wurde. Citations entfernen und aus dokumentierter Quelle regenerieren.",
+      "title": "Copilot-Citationen aus config/config.json bereinigen",
+      "description": "config/config.json (9.4KB, wird von hub_benchmark/hybrid_repository_scan/caseflow gelesen) enthaelt 13 ':contentReference[oaicite]...' Copilot-Citationen - ein AI-Draft der als Live-Config committed wurde. Citations entfernen und aus dokumentierter Quelle regenerieren.",
       "type": "hygiene",
       "status": "done",
       "priority": "P2",
@@ -1439,11 +1439,11 @@
       "milestone_id": "CLN-M9",
       "depends_on": [],
       "acceptance_criteria": [
-        "config.json enthält keine AI-Citationen/Artefakte mehr.",
+        "config/config.json enthält keine AI-Citationen/Artefakte mehr.",
         "Wert ist saubere, konsumierbare Config (von 3 Modulen gelesen).",
         "Ggf. Quelle/Doku fuer die Config dokumentiert."
       ],
-      "implementation_notes": "13 Copilot-Citations aus config.json entfernt, JSON valid.",
+      "implementation_notes": "13 Copilot-Citations aus config/config.json entfernt, JSON valid.",
       "progress_percent": 100
     },
     {
@@ -1508,7 +1508,7 @@
     {
       "id": "CLN-068",
       "title": "Compose-Wildwuchs konsolidieren (persona-*, jeff-cuda, Snapshots)",
-      "description": "8 nahezu identische docker-compose.persona-{generation,images,videos,voices}{,-hub}.yml (Template-Duplikat) -> 2 Overlays + Parameter. docker-compose.jeff-cuda.yml (424B, maschinenspezifisch) -> Override/Profile. ci-artifacts/compose/*.yml (Snapshots, drift-anfaellig) loeschen/generieren.",
+      "description": "8 nahezu identische docker-compose.persona-{generation,images,videos,voices}{,-hub}.yml (Template-Duplikat) -> 2 Overlays + Parameter. docker/compose/docker-compose.jeff-cuda.yml (424B, maschinenspezifisch) -> Override/Profile. ci-artifacts/compose/*.yml (Snapshots, drift-anfaellig) loeschen/generieren.",
       "type": "hygiene",
       "status": "done",
       "priority": "P2",
@@ -1522,7 +1522,7 @@
         "jeff-cuda ist Profile/Override (nicht Root-File); jeff ggf. zu decision-inference dokumentiert/umbenannt.",
         "ci-artifacts/compose-Snapshots entfernt oder generiert (kein Drift)."
       ],
-      "implementation_notes": "4 persona-Worker-Compose-Dateien zu docker-compose.persona-workers.yml konsolidiert (x-persona-worker-Anchor mit Shared-Security-Baseline; per-kind tmpfs/mem/cpus/env bleiben explizit). Hub-Overlays bleiben 4 Dateien (unabhaengige Kind-Aktivierung ist Semantik, Merge wuerde sie brechen). jeff-cuda.yml ist bereits Profile-Override. ci-artifacts/compose-Snapshots in M2 entfernt. 710 persona-Tests gruen.",
+      "implementation_notes": "4 persona-Worker-Compose-Dateien zu docker/compose/docker-compose.persona-workers.yml konsolidiert (x-persona-worker-Anchor mit Shared-Security-Baseline; per-kind tmpfs/mem/cpus/env bleiben explizit). Hub-Overlays bleiben 4 Dateien (unabhaengige Kind-Aktivierung ist Semantik, Merge wuerde sie brechen). jeff-cuda.yml ist bereits Profile-Override. ci-artifacts/compose-Snapshots in M2 entfernt. 710 persona-Tests gruen.",
       "progress_percent": 100
     },
     {

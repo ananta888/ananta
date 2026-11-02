@@ -108,7 +108,7 @@
         </div>
         <div class="card">
 <h3>Roh-Konfiguration (Hub)</h3>
-<p class="muted font-sm">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
+<p class="muted font-sm">Vorsicht: Direkte Bearbeitung der config/config.json des Hubs.</p>
 <textarea [(ngModel)]="state.configRaw" rows="10" class="font-mono w-full" [class.input-error]="state.configRawError"></textarea>
 @if (state.configRawError) {
   <span class="error-text">{{ state.configRawError }}</span>

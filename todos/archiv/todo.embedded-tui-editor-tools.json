@@ -562,7 +562,7 @@
       "acceptance_criteria": [
         "ananta tui --open README.md resolves and launches default editor.",
         "ananta tui --open app.py --with nvim works only if nvim is allowed.",
-        "ananta tui --open config.json --readonly launches read-only editor mode where supported.",
+        "ananta tui --open config/config.json --readonly launches read-only editor mode where supported.",
         "ananta tui --tool lazygit launches configured lazygit profile.",
         "CLI rejects unknown tool id with a clear error.",
         "CLI documentation shows examples for Vim, Neovim and lazygit."
@@ -680,7 +680,7 @@
     "manual_smoke_tests": [
       "ananta tui --open README.md",
       "ananta tui --open app.py --with nvim",
-      "ananta tui --open config.json --readonly",
+      "ananta tui --open config/config.json --readonly",
       "ananta tui --tool lazygit",
       "ananta tmux edit README.md",
       "Switch from embedded editor back to Ananta dashboard"

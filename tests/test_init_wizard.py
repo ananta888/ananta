@@ -22,7 +22,7 @@ def _args(**overrides) -> Namespace:
         "manual_json": "",
         "profile_path": "ananta.runtime-profile.json",
         "apply_config": False,
-        "config_path": "config.json",
+        "config_path": "config/config.json",
         "deployment_target": "none",
         "deployment_path": "ananta.deployment-profile.json",
         "backup_existing_deployment": True,
@@ -73,7 +73,7 @@ def test_run_init_openai_compatible_applies_config_patch(tmp_path: Path) -> None
         model="qwen2.5-coder:7b",
         profile_path="profile.json",
         apply_config=True,
-        config_path="config.json",
+        config_path="config/config.json",
         force=True,
     )
 
@@ -84,7 +84,7 @@ def test_run_init_openai_compatible_applies_config_patch(tmp_path: Path) -> None
         now_fn=_fixed_now,
     )
 
-    config_payload = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    config_payload = json.loads((tmp_path / "config/config.json").read_text(encoding="utf-8"))
     assert config_payload["runtime_profile"] == "compose-safe"
     assert config_payload["governance_mode"] == "balanced"
     assert config_payload["platform_mode"] == "trusted-internal"

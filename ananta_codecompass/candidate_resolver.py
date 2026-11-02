@@ -171,7 +171,7 @@ def _is_doc_path(path_lower: str) -> bool:
     if any(m in path_lower for m in _REPO_DOC_PATH_PARTS_LOWER):
         return True
     # Single-segment `.md` files at the repo root (AGENTS.md, README.md,
-    # PROJEKT_ZIELBILD.md, ...) are docs, not source.
+    # docs/PROJEKT_ZIELBILD.md, ...) are docs, not source.
     basename = path_lower.rsplit("/", 1)[-1]
     if any(basename.endswith(ext) for ext in _MD_FILE_EXTENSIONS):
         return True

@@ -582,13 +582,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="ananta.runtime-profile.json",
         help="Path for the generated runtime profile file.",
     )
-    parser.add_argument("--apply-config", action="store_true", help="Apply generated config patch to config.json.")
+    parser.add_argument(
+        "--apply-config", action="store_true", help="Apply generated config patch to config/config.json."
+    )
     parser.add_argument(
         "--workflow-automation",
         action="store_true",
         help="Enable optional workflow automation adapter profile (dry-run first).",
     )
-    parser.add_argument("--config-path", default="config.json", help="Config path used with --apply-config.")
+    parser.add_argument("--config-path", default="config/config.json", help="Config path used with --apply-config.")
     parser.add_argument(
         "--deployment-target",
         default="none",
