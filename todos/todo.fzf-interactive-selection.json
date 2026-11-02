@@ -1,0 +1,256 @@
+{
+  "schema": "ananta.todo.v1",
+  "title": "Unified Interactive Selection Layer with optional fzf",
+  "status": "planned",
+  "priority": "high",
+  "created_at": "2026-11-02",
+  "repository": "ananta888/ananta",
+  "track": "fzf-interactive-selection",
+  "summary": "Wiederverwendbare sichere Selection API für CLI, Textual TUI, Neovim, tmux und Angular; fzf ist optionales UI-Backend, CodeCompass bleibt Retrieval-Autorität.",
+  "source_audit": {
+    "inspected": [
+      "docs/cli/commands.md",
+      "agent/services/editor_tui_surface_state.py",
+      "docs/codecompass-tools.md",
+      "docs/security/terminal-sessions.md"
+    ],
+    "observed": [
+      "Goal-/Task-Inspect haben bereits interaktive Picker",
+      "Neovim-Matrix nennt fzf_or_picker_for_quick_actions als optional",
+      "Textual-first TUI und shared backend contracts vorhanden",
+      "CodeCompass stellt hybride Suchtools bereit",
+      "Terminal-Sessions erzwingen deny-by-default und Workspace-Validierung"
+    ],
+    "caveat": "Gezielte Code- und Dokumentensichtung; vollständige Implementierungsabdeckung ist Aufgabe FZF-001."
+  },
+  "architecture": {
+    "principle": "selection != retrieval != authorization != execution",
+    "backends": [
+      "fzf optional CLI",
+      "builtin CLI fallback",
+      "Textual",
+      "Neovim",
+      "Angular"
+    ],
+    "non_goals": [
+      "fzf als semantische Suchmaschine",
+      "Ersetzung von CodeCompass",
+      "Erweiterung von Agentenrechten"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "FZF-001",
+      "title": "Inventar und Architekturvertrag",
+      "priority": "P0",
+      "status": "todo",
+      "steps": [
+        "Bestehende Goal-/Task-Picker, Textual-TUI, Neovim-Quick-Actions, Angular-CodeHug-Suche, tmux-Tools und CodeCompass-Retrieval anhand tatsächlicher Implementierung kartieren.",
+        "Gemeinsame Selection-API als reine Präsentations-/Interaktionsschicht definieren; bestehende Retrieval-, Policy- und Routing-Logik bleibt autoritativ.",
+        "Kanonisches versioniertes SelectionItem/SelectionRequest/SelectionResult-Schema mit id,label,kind,subtitle,preview_ref,scope,rank,evidence und capability entwerfen."
+      ],
+      "acceptance_criteria": [
+        "ADR mit konkreten Wiederverwendungsstellen und Nicht-Zielen",
+        "Keine doppelte Such-/Berechtigungslogik",
+        "Schema-Beispiele und Migrationsmatrix"
+      ]
+    },
+    {
+      "id": "FZF-002",
+      "title": "Provider-Interface und deterministischer Core",
+      "priority": "P0",
+      "status": "todo",
+      "steps": [
+        "Provider für goals,tasks,artifacts,agents,sessions,workspaces,files,symbols,logs,git-branches und approvals nach tatsächlicher Verfügbarkeit registrieren.",
+        "Serverseitige Scope-Filterung vor Kandidatenausgabe, stabile IDs, Cursor/Pagination, Limits und Zeitbudget implementieren.",
+        "Deterministische Subsequence-/Fuzzy-Rangfolge mit Exact/Prefix/Path-Boni; keine Vermischung mit semantischer Relevanz ohne explizite Gewichtung."
+      ],
+      "acceptance_criteria": [
+        "Einheitliche read-only API mit klaren Fehlercodes",
+        "Stabile Sortierung bei Gleichstand",
+        "Keine LLM-Abhängigkeit für Navigation"
+      ]
+    },
+    {
+      "id": "FZF-003",
+      "title": "Optionaler fzf-Adapter",
+      "priority": "P0",
+      "status": "todo",
+      "steps": [
+        "fzf-Version/TTY/Terminalfähigkeiten erkennen und optionalen Prozess über argv ohne shell=True starten.",
+        "Kandidaten sicher als NUL-getrennte Records oder über kontrolliertes Format übertragen; Anzeige-Text strikt von IDs trennen.",
+        "Single-/Multi-Select, ESC/Abbruch, kein Treffer, Resize, Timeout, SIGINT und fehlende Binary behandeln.",
+        "Fallback auf bestehenden Pfeiltasten-Picker oder nichtinteraktive JSON-Ausgabe; keine Pflichtinstallation."
+      ],
+      "acceptance_criteria": [
+        "Kein Command-Injection-Pfad über Kandidaten",
+        "Fehlendes fzf blockiert CLI nicht",
+        "Exitcodes und stdout/stderr dokumentiert"
+      ]
+    },
+    {
+      "id": "FZF-004",
+      "title": "CLI Goal-/Task-Picker migrieren",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "ananta goal inspect und ananta task inspect auf Selection API umstellen ohne bestehende Argumente zu brechen.",
+        "Optionen --picker auto|fzf|builtin|none, --json, --query und --limit mit dokumentierten Defaults.",
+        "Nichtinteraktive Pipelines dürfen nie auf TTY-Eingabe warten."
+      ],
+      "acceptance_criteria": [
+        "Backward compatibility durch CLI-Tests",
+        "Auswahl über stabile IDs statt sichtbarer Labels"
+      ]
+    },
+    {
+      "id": "FZF-005",
+      "title": "Textual-TUI integrieren",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "Globalen Quick-Open-Picker für Tasks, Goals, Artefakte, Agenten und Sessions auf bestehendem Textual-Stack bereitstellen.",
+        "Asynchrone Suche mit Debounce, Cancel, Preview und Tastaturnavigation; kein externer fzf-Prozess innerhalb der TUI nötig.",
+        "TUI-Aktionen nur nach serverseitiger Autorisierung und expliziter Bestätigung."
+      ],
+      "acceptance_criteria": [
+        "Keine blockierende UI bei großen Ergebnissen",
+        "Identische Selektion wie CLI bei identischem Scope"
+      ]
+    },
+    {
+      "id": "FZF-006",
+      "title": "Neovim und tmux",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "Vorhandenes fzf_or_picker_for_quick_actions im Neovim-Contract prüfen und über gemeinsame API anbinden.",
+        "Optional fzf-lua/telescope/fzf oder eingebauten Picker erkennen, ohne Plugin-Zwang.",
+        "tmux-Session-/Tool-Picker mit vorhandenen Terminal-Session-Policies verbinden."
+      ],
+      "acceptance_criteria": [
+        "Neovim ohne optionale Plugins funktionsfähig",
+        "Kein unautorisierter Hub-/Worker-Zugriff"
+      ]
+    },
+    {
+      "id": "FZF-007",
+      "title": "CodeCompass-Hybrid-Ergebnisse",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "Bestehende codecompass.search/search_symbols/retrieve-Ergebnisse als auswählbare Evidence-Items projizieren.",
+        "BM25/Vektor/Graph-Rank und Quellenbelege beibehalten; fzf nur als lokales Nachfilter- und Auswahlwerkzeug einsetzen.",
+        "Preview auf begrenzte Dateiausschnitte, Symbolkontext und Graph-Nachbarschaft; token-/zeichenbudgetierte Anzeige."
+      ],
+      "acceptance_criteria": [
+        "Retrieval-Ranking nicht stillschweigend überschrieben",
+        "Scope und Evidence-Provenance erhalten"
+      ]
+    },
+    {
+      "id": "FZF-008",
+      "title": "Live-Preview und sichere Aktionen",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "Preview-Provider für Logs, Git-Diffs, Dateien, Task-/Agentenstatus, Traces und Artefakte implementieren.",
+        "Preview-Daten auf Länge, Laufzeit und Berechtigungen begrenzen; keine Secrets oder ungeprüfte ANSI-Steuersequenzen ausgeben.",
+        "Selection und Execution trennen; Mutationen nur über bestehende geprüfte Actions mit Confirm/Audit."
+      ],
+      "acceptance_criteria": [
+        "Preview ist read-only",
+        "Keine Secrets in Vorschau oder Audit",
+        "Keine ungeprüften Shell-Kommandos"
+      ]
+    },
+    {
+      "id": "FZF-009",
+      "title": "Angular UI und Cross-Surface-Parität",
+      "priority": "P2",
+      "status": "todo",
+      "steps": [
+        "Bestehenden CodeHug search.service.ts und relevante Picker prüfen; gemeinsame Selection-Contracts adaptieren statt UI zu ersetzen.",
+        "Keyboard-first Command Palette mit Filter, Preview, Accessibility/ARIA und serverseitiger Pagination.",
+        "Ergebnis-ID und Berechtigungsentscheidung auf CLI/TUI/Web konsistent halten."
+      ],
+      "acceptance_criteria": [
+        "Keine zweite Ranking-Engine im Frontend",
+        "Screenreader- und Keyboard-Tests"
+      ]
+    },
+    {
+      "id": "FZF-010",
+      "title": "Agenten- und Workspace-Navigation",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "Agent↔Task↔Session↔Workspace-Zuordnung aus vorhandenen Ananta-Datenquellen anzeigen; externe dockweave-Integration nur optional und separat.",
+        "Aktive Agenten und ihre zuletzt autorisierten Arbeitsverzeichnisse filtern; keine Erschließung fremder Mounts.",
+        "Read-only Drilldown auf Laufzeit, Logs, Traces und ausgewählte Artefakte."
+      ],
+      "acceptance_criteria": [
+        "Kein Workspace-Leak über Auswahlkandidaten",
+        "Stale/offline Agenten gekennzeichnet"
+      ]
+    },
+    {
+      "id": "FZF-011",
+      "title": "Sicherheit und Governance",
+      "priority": "P0",
+      "status": "todo",
+      "steps": [
+        "Vorhandene WorkspacePathValidator-, RBAC-, Terminal-Session- und Capability-Gates vor jeder Suche/Preview/Aktion anwenden.",
+        "Symlink-/Traversal-/Race-Szenarien, untrusted labels, Escape-Sequenzen, Prompt-Injection-Text und sensitive Logs testen.",
+        "Keine Ausführung aus LLM-Ausgaben, keine shell=True-Interpolation, keine impliziten Hub-Rechte; auditierbare Aktionen."
+      ],
+      "acceptance_criteria": [
+        "Deny-by-default bleibt unverändert",
+        "Negativtests für unautorisierte Kandidaten und Vorschauen"
+      ]
+    },
+    {
+      "id": "FZF-012",
+      "title": "Benchmarks und Ressourcenbudgets",
+      "priority": "P1",
+      "status": "todo",
+      "steps": [
+        "10k/100k/1M Kandidaten mit Streaming, Limit, Latenz und Speicher messen; Baseline gegen bestehende Picker.",
+        "p50/p95 Eingabelatenz, First-Result-Time, CPU/RAM, Abbruchverhalten und Retrieval-Overhead messen.",
+        "Keine pauschalen Leistungsversprechen; reproduzierbare Fixtures und Regression-Gates."
+      ],
+      "acceptance_criteria": [
+        "Messbare Budgets in CI dokumentiert",
+        "Kein ungebremstes Vollmaterialisieren großer Listen"
+      ]
+    },
+    {
+      "id": "FZF-013",
+      "title": "Tests, Dokumentation und Rollout",
+      "priority": "P0",
+      "status": "todo",
+      "steps": [
+        "Unit-, Contract-, CLI-PTY-, Integration-, E2E- und Sicherheits-Tests für Linux/macOS/Windows-Fallback vorsehen.",
+        "Feature-Flag selection_v1 und fzf-Adapter default-off; stufenweiser Rollout mit Telemetrie ohne sensitive Suchbegriffe.",
+        "CLI-/TUI-/Neovim-/Web-Dokumentation, Installationshinweise, Troubleshooting und Rollback."
+      ],
+      "acceptance_criteria": [
+        "Alle bestehenden Picker-Tests bestehen",
+        "Feature-Flag-Rollback ohne Datenmigration"
+      ]
+    }
+  ],
+  "dependencies": [
+    "bestehende CLI Picker",
+    "Textual TUI",
+    "CodeCompass contracts",
+    "WorkspacePathValidator",
+    "Terminal RBAC"
+  ],
+  "definition_of_done": [
+    "Keine Duplikation von Retrieval- oder Policy-Entscheidungen",
+    "Sicherer optionaler fzf-Fallback",
+    "Reproduzierbare Benchmarks und Security-Tests",
+    "Dokumentierte Migration und Rollback"
+  ]
+}
