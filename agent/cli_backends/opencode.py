@@ -360,6 +360,12 @@ def resolve_opencode_runtime_config(
             "models": {str(target_model): model_entry},
             "options": {"baseURL": base_url},
         }
+        if local_target:
+            resolved_key = str(local_target.get("api_key") or "").strip() or None
+            if not resolved_key and local_target.get("api_key_profile"):
+                resolved_key = _resolve_profile_api_key(local_target.get("api_key_profile"))
+            if resolved_key:
+                provider_entry["options"]["apiKey"] = resolved_key
         provider_config = {
             "$schema": "https://opencode.ai/config.json",
             "provider": {str(target_provider): provider_entry},

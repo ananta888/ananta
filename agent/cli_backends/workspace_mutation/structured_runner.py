@@ -30,6 +30,7 @@ from agent.cli_backends.helpers import (
     _get_runtime_provider_urls,
     _normalize_openai_base_url,
     _resolve_openai_compatible_base_url,
+    _resolve_profile_api_key,
 )
 from agent.cli_backends.semaphore import _acquire_backend_permit
 from agent.config import settings
@@ -169,6 +170,38 @@ def _resolve_base_url() -> str | None:
     return _resolve_openai_compatible_base_url()
 
 
+def _resolve_api_key(base_url: str | None) -> str:
+    """Bearer token for the resolved endpoint.
+
+    A registered local backend entry owns its credentials (``api_key`` or
+    ``api_key_profile``); the shared OpenAI settings cover the default
+    endpoint. Endpoints without credentials keep the local no-auth placeholder.
+    """
+    normalized = _normalize_openai_base_url(base_url)
+    if not normalized:
+        return _BEARER_PLACEHOLDER
+    from agent.local_llm_backends import get_local_openai_backends
+
+    for entry in get_local_openai_backends(
+        agent_cfg=_get_agent_config(),
+        provider_urls=_get_runtime_provider_urls(),
+        default_provider=_get_runtime_default_provider(),
+    ):
+        if _normalize_openai_base_url(entry.get("base_url")) != normalized:
+            continue
+        key = str(entry.get("api_key") or "").strip()
+        if not key and entry.get("api_key_profile"):
+            key = (_resolve_profile_api_key(entry.get("api_key_profile")) or "").strip()
+        if key:
+            return key
+        return _BEARER_PLACEHOLDER
+    if _normalize_openai_base_url(getattr(settings, "openai_url", None)) == normalized:
+        key = str(getattr(settings, "openai_api_key", "") or "").strip()
+        if key:
+            return key
+    return _BEARER_PLACEHOLDER
+
+
 def _resolve_model(model: str | None) -> str | None:
     agent_cfg = _get_agent_config()
     candidates = [
@@ -231,7 +264,7 @@ def run_structured_mutation_llm(
             data=body,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {_BEARER_PLACEHOLDER}",
+                "Authorization": f"Bearer {_resolve_api_key(base_url)}",
             },
             method="POST",
         )
