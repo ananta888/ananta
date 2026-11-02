@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "_note": "Hybrid routing: Xiaomi MiMo (cloud) first, local llama.cpp-vision-decision (bonsai) as fallback. Secrets live only in the runtime environment (MIMO_API_KEY).",
+  "security_policy": {
+    "block_cloud_with_secrets": true,
+    "allowed_cloud_providers": [
+      "mimo"
+    ]
+  },
+  "routing_rules": [
+    {
+      "rule_id": "default-mimo-cloud-first",
+      "model_role": "any",
+      "profile_id": "mimo_v26_pro_cloud",
+      "enabled": true,
+      "reason": "Primary coding/planning LLM on the Xiaomi MiMo token-plan endpoint."
+    },
+    {
+      "rule_id": "cheap-passes-use-flash",
+      "task_kind": "analysis",
+      "profile_id": "mimo_v26_flash_cloud",
+      "enabled": true,
+      "reason": "Cheap analysis passes use the flash variant when policy allows cloud."
+    },
+    {
+      "rule_id": "decision-work-prefers-local",
+      "task_kind": "tool_selection",
+      "profile_id": "bonsai2_27b_decision_local",
+      "enabled": true,
+      "reason": "Decision-class work stays on the local vision-decision runtime (wie bisher)."
+    }
+  ],
+  "fallback_chain": [
+    "mimo_v26_pro_cloud",
+    "mimo_v26_flash_cloud",
+    "bonsai2_27b_decision_local"
+  ],
+  "fallback_groups": {
+    "mimo_first": {
+      "ordered_profiles": [
+        "mimo_v26_pro_cloud",
+        "mimo_v26_flash_cloud",
+        "bonsai2_27b_decision_local"
+      ],
+      "max_total_retries": 2,
+      "stop_on_policy_block": true,
+      "stop_on_success": true
+    }
+  }
+}

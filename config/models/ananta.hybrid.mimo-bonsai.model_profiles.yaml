@@ -1,0 +1,89 @@
+version: "1.0"
+_note: "Hybrid routing: Xiaomi MiMo (cloud) primary -> local llama.cpp-vision-decision (bonsai) fallback. Secrets are never embedded here — the key comes from MIMO_API_KEY in the runtime environment."
+profiles:
+  - profile_id: mimo_v26_pro_cloud
+    provider_id: mimo
+    model: mimo-v2.6-pro
+    model_role: any
+    api_key_env: MIMO_API_KEY
+    base_url: https://token-plan-ams.xiaomimimo.com/v1
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    supports_streaming: true
+    context_tokens: 128000
+    max_context_for_profile: 128000
+    max_output_tokens: 32768
+    timeout_seconds: 120
+    temperature: 0.0
+    cost_class: low
+    quality_class: high
+    estimated_latency_class: cloud
+    json_reliability_class: reliable
+    tool_calling_mode: native
+    preferred_for: [tool_selection, native_tools, coding, planning, long_context]
+    retry_budget: 1
+    fallback_group: mimo_first
+    fallback_rank: 10
+    notes: "Xiaomi MiMo token-plan (token-plan-ams.xiaomimimo.com). Primary LLM for opencode and ananta-worker."
+
+  - profile_id: mimo_v26_flash_cloud
+    provider_id: mimo
+    model: mimo-v2.6-flash
+    model_role: any
+    api_key_env: MIMO_API_KEY
+    base_url: https://token-plan-ams.xiaomimimo.com/v1
+    local: false
+    cloud: true
+    cloud_allowed: true
+    block_secret_context: true
+    supports_json: true
+    supports_tools: true
+    supports_streaming: true
+    context_tokens: 128000
+    max_context_for_profile: 128000
+    max_output_tokens: 32768
+    timeout_seconds: 60
+    temperature: 0.0
+    cost_class: very_low
+    quality_class: medium
+    estimated_latency_class: cloud
+    json_reliability_class: reliable
+    tool_calling_mode: native
+    preferred_for: [prompt_json, small_context, cheap_passes]
+    retry_budget: 1
+    fallback_group: mimo_first
+    fallback_rank: 20
+    notes: "Xiaomi MiMo flash variant for cheap/fast passes."
+
+  - profile_id: bonsai2_27b_decision_local
+    provider_id: llamacpp
+    model: Ternary-Bonsai-2-27B-PQ2_0
+    model_role: any
+    api_key_env: null
+    base_url: http://llamacpp:18150/v1
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_json: true
+    supports_tools: true
+    supports_streaming: true
+    context_tokens: 65536
+    max_context_for_profile: 65536
+    max_output_tokens: 8192
+    timeout_seconds: 120
+    temperature: 0.0
+    cost_class: free
+    quality_class: medium
+    estimated_latency_class: local
+    json_reliability_class: usable
+    tool_calling_mode: native
+    preferred_for: [fallback, decision, offline]
+    retry_budget: 1
+    fallback_group: mimo_first
+    fallback_rank: 30
+    notes: "Local llama.cpp-vision-decision (bonsai2-27b) — the 'wie bisher' fallback; ANANTA_PARALLEL_DECISION_URL serves the same runtime."
