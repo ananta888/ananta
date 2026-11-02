@@ -1,0 +1,812 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ananta-next-concept-modeling-research-integration",
+  "title": "NCM Next-Concept Modeling: Reproduktion, optionaler Worker und hierarchische Konzeptplanung",
+  "type": "research-feature",
+  "status": "todo",
+  "priority": "high",
+  "created": "2026-10-31",
+  "updated": "2026-10-31",
+  "project": "ananta888/ananta",
+  "review_basis": {
+    "reviewed_commit_range": "GitHub main am 2026-10-31 (AGENTS.md, todos/todo.schema.json, docs/architecture/planning-track-contract.md, Integration Registry und Modellkatalog per Suche; ausgewählte Pfade eingesehen). Upstream HazyResearch/ncm README und Stanford-Paper 2610.14162.",
+    "review_goal": "Experimentellen NCM-Ansatz reproduzieren, Nutzen gegen Baselines messen und optionale Hub-Worker-Integration ohne doppelte Orchestrierung planen."
+  },
+  "summary": "NCM nutzt multiscale residual VQ-VAE und einen Transformer, der diskrete Code-Ebenen coarse-to-fine erzeugt. Innerhalb einer Ebene parallel; die Ebenen selbst sequenziell. Papier-Speedups 10-31× gelten gegenüber bestimmten Diffusion-Baselines und nicht gegenüber modernen Spitzen-LLMs. Planungs- und Coding-Nutzung ist offen und experimentell.",
+  "sources": [
+    {
+      "url": "https://arxiv.org/abs/2610.14162",
+      "kind": "paper"
+    },
+    {
+      "url": "https://github.com/HazyResearch/ncm",
+      "kind": "upstream_code"
+    },
+    {
+      "url": "https://huggingface.co/hazyresearch/ncm-checkpoints",
+      "kind": "weights"
+    },
+    {
+      "url": "https://hazyresearch.stanford.edu/blog/2026-10-12-ncm",
+      "kind": "research_blog"
+    },
+    {
+      "url": "https://github.com/ananta888/ananta/blob/main/AGENTS.md",
+      "kind": "architecture_contract"
+    },
+    {
+      "url": "https://github.com/ananta888/ananta/blob/main/docs/architecture/planning-track-contract.md",
+      "kind": "planning_contract"
+    }
+  ],
+  "guardrails": [
+    "Hub owns orchestration, queues, delegation, policy and approvals; Worker only executes.",
+    "No Worker-to-Worker task delegation and no independent planning queue.",
+    "Feature flag disabled by default; no weight bundles or downloads without explicit opt-in.",
+    "All code changes additive; preserve existing provider registry, planning contracts, approvals and fallback.",
+    "Latent NCM codes must not be advertised as interpretable concepts or structured plans by default.",
+    "Untrusted .pt assets isolated; verify provenance; do not deserialize unknown pickle payloads.",
+    "Comparisons matched hardware/quality and contain absolute measurements; speedups not generalized.",
+    "No autonomous self-training, production model hot-swap or execution without gates."
+  ],
+  "hardware_target": {
+    "gpu": "RTX 5060 Ti 16 GB",
+    "host": "Framework 16 / optional Linux GPU worker",
+    "constraint": "Measured feasibility, not guaranteed"
+  },
+  "categories": [
+    {
+      "name": "research",
+      "label": "P0: Paper, Code, Evaluation und Go/No-Go",
+      "items": [
+        {
+          "id": "NCM-01-01",
+          "status": "open",
+          "priority": "P0",
+          "task": "Research-Matrix erstellen: Paper, v1, Implementierung, Hugging-Face-Checkpoints, Konfigurationen, Behauptungen und Unsicherheiten versioniert erfassen.",
+          "acceptance": [
+            "Paper-/Commit-/Checkpoint-SHAs, Lizenz und Quellen mit Datum; Originalbefunde strikt von Hypothesen getrennt."
+          ],
+          "depends_on": [],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-01-02",
+          "status": "open",
+          "priority": "P0",
+          "task": "NCM-Mechanik anhand Quellcode nachvollziehen: multiscale residual VQ-VAE, separate Codebooks, nested dropout, Rekonstruktionsziel, eingefrorener Tokenizer, Level-Transformer und corrupted conditioning.",
+          "acceptance": [
+            "Architekturdiagramm, Tensorformen, Ebenen/Kodesequenzen, Trainings- und Inferenzpfade verifiziert; keine falsche Token-Parallelitätsbehauptung."
+          ],
+          "depends_on": [],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-01-03",
+          "status": "open",
+          "priority": "P0",
+          "task": "Vollständige Ananta-Bestandsaufnahme: Hub, Worker, Registry, Modellkatalog, Runner, Planning Tracks, RAG/CodeCompass, Benchmark-, Test- und Loggingdienste kartieren.",
+          "acceptance": [
+            "Konkrete Wiederverwendungspfade und Owner dokumentiert; Dopplungen/konkurrierende Pipelines ausgeschlossen."
+          ],
+          "depends_on": [],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-01-04",
+          "status": "open",
+          "priority": "P0",
+          "task": "Lizenz-/Supply-Chain-Entscheidung für MIT-NCM-Code und alle separat lizenzierten Modelle/Daten; Attribution, Redistributions und AGPLv3-Verträglichkeit prüfen.",
+          "acceptance": [
+            "SBOM, Lizenzmatrix, SHA-Pins, klare Bundle-/Download-Policy und Go/No-Go-ADR."
+          ],
+          "depends_on": [],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-01-05",
+          "status": "open",
+          "priority": "P0",
+          "task": "Anwendungsfall- und Priorisierungsmatrix: native NCM-Inferenz, Konzeptplaner, Multi-Agent-Planung, Retrieval, Selbstentwicklung, Codec, Trainingsforschung.",
+          "acceptance": [
+            "Messbare Hypothesen, verfügbare Datensätze, Risikobudget und Abbruchregeln pro Pfad."
+          ],
+          "depends_on": [],
+          "risk": "medium"
+        }
+      ]
+    },
+    {
+      "name": "reproduction",
+      "label": "P0: Reproduzierbarkeit und Hardware",
+      "items": [
+        {
+          "id": "NCM-02-01",
+          "status": "open",
+          "priority": "P0",
+          "task": "Isoliertes Experiment-Setup mit gepinntem Upstream-Commit, Python/CUDA/PyTorch, lockfile, Cache und reproduzierbaren Docker-GPU-Profilen erstellen.",
+          "acceptance": [
+            "GPU und CPU-Smoke-Tests, Checkpoint-/Checksum-Prüfung, Offline- und Cold-Start-Verhalten dokumentiert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-02-02",
+          "status": "open",
+          "priority": "P0",
+          "task": "Original-Checkpoints für TinyStories, LM1B, OpenWebText, XSum, WMT14 und Sudoku inventarisieren; die minimal notwendigen einzeln abrufen.",
+          "acceptance": [
+            "Manifest mit Größe, VRAM-Schätzung, Architektur-Settings, Lizenz und Downloadstatus; kein automatischer Massen-Download."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-02-03",
+          "status": "open",
+          "priority": "P0",
+          "task": "Inference auf RTX 5060 Ti 16GB und Framework 16 vermessen: CUDA-Kompatibilität, Aktivierungs-/KV-Speicher, PyTorch-Kernel, BF16/FP16 und Host-RAM.",
+          "acceptance": [
+            "Messkurven für peak VRAM, RAM, Ladezeit, Warm-/Cold-Latency, NFE und Throughput; klare OOM-Fallbacks."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-02-04",
+          "status": "open",
+          "priority": "P0",
+          "task": "Offizielle Evaluation auf repräsentativem Teilset exakt reproduzieren inklusive Seeds, Splits, Hardware, Ausgabe und Abweichungsprotokoll.",
+          "acceptance": [
+            "Eval-Artefakte reproduzierbar; Abweichungen gegen Paper mit Ursachen und Konfidenz notiert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-02-05",
+          "status": "open",
+          "priority": "P0",
+          "task": "Faire matched-quality Baselines: AR, DLM und NCM auf identischer Hardware und realistischen Batch-/Längen-/Qualitätspunkten vergleichen.",
+          "acceptance": [
+            "Wall-clock, tokens/s bzw. samples/s, time-to-first-result, GPU-seconds, Qualität und Energie; Paper-10–31× nicht unzulässig übertragen."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-02-06",
+          "status": "open",
+          "priority": "P0",
+          "task": "Ebenenweise Fehler/Informationsverluste untersuchen: frühe grobe Codes, Rekonstruktion, Fehlerfortpflanzung, Entropie, semantischer Drift.",
+          "acceptance": [
+            "Pro-Ebene Fidelity, Konsistenz, Faithfulness und Failure-Cases visualisiert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        }
+      ]
+    },
+    {
+      "name": "adapter",
+      "label": "P1: Optionaler NCM-Inferenzadapter",
+      "items": [
+        {
+          "id": "NCM-03-01",
+          "status": "open",
+          "priority": "P1",
+          "task": "Separaten NCM Worker Capability Contract definieren (task, checkpoint, max_levels, sampling, seed, output, provenance).",
+          "acceptance": [
+            "Versioniertes Schema, vollständige Verifikation und klarer Unterschied zu AR-Chat/Tool-Calling."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-02",
+          "status": "open",
+          "priority": "P1",
+          "task": "NCM-Sidecar als eigenständigen unprivilegierten Worker im Docker-Modell implementieren, ohne Hub-Import oder eigene Taskqueue.",
+          "acceptance": [
+            "Headless start/stop, readiness, health, resource limits, structured errors, cancellation, audit."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-03",
+          "status": "open",
+          "priority": "P1",
+          "task": "Bestehende Integration-Registry und Modellkatalog um experimentelle NCM-Capabilities erweitern statt neuen Provider-Stack.",
+          "acceptance": [
+            "Feature Flag standardmäßig OFF, capability discovery, tatsächliche Taskfähigkeit statt Chat-API-Vortäuschung."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-04",
+          "status": "open",
+          "priority": "P1",
+          "task": "Asynchrone Job-Schnittstelle mit Lease, Idempotenz, Timeouts, Cancel und Retry an Hub-Delegation anbinden.",
+          "acceptance": [
+            "Keine Worker-to-Worker-Orchestrierung; keine Doppelarbeit bei Retries; Hub bleibt Autorität."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-05",
+          "status": "open",
+          "priority": "P1",
+          "task": "Checkpoint-Resolver mit Manifest, checksums, vertrauenswürdiger Herkunft, erlaubten Pfaden, Cache und Offline-Modus implementieren.",
+          "acceptance": [
+            "Kein Arbitrary URL/Pickle-Untrusted-Load; Gewichte nur vertrauenswürdig und isoliert laden."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-06",
+          "status": "open",
+          "priority": "P1",
+          "task": "NCM-Levelstreaming und Zwischenstands-Provenance erfassen, aber keine ungeprüften teilweisen Ebenen als finales Ergebnis ausgeben.",
+          "acceptance": [
+            "Stufenweise Debugdaten, Output-Freigabe erst nach vollständiger Rekonstruktion/Validation."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-07",
+          "status": "open",
+          "priority": "P1",
+          "task": "Typisierte Ausgaben für Summary, Translation, LM-Generierung und Sudoku vorsehen; JSON- und Tool-Calls als ungeprüfte Forschung kennzeichnen.",
+          "acceptance": [
+            "Deterministische Validierung, Schemafehler und Fallbacks; keine pauschale Coding-/Agent-Fähigkeit."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-03-08",
+          "status": "open",
+          "priority": "P1",
+          "task": "Testdoubles/Contracttests für Loader, Modellfehler, Zeitüberschreitung, Unload, OOM, concurrency, retries und Rollback.",
+          "acceptance": [
+            "Grüne CI ohne GPU/Weights; GPU-E2E opt-in; keine Regression ohne Flag."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        }
+      ]
+    },
+    {
+      "name": "planning",
+      "label": "P1: NCM-Hybrid-Konzeptplaner",
+      "items": [
+        {
+          "id": "NCM-04-01",
+          "status": "open",
+          "priority": "P1",
+          "task": "Unterscheiden: ursprüngliche NCM-Codes sind gelernte diskrete Repräsentationen, nicht automatisch menschenlesbare semantische Pläne.",
+          "acceptance": [
+            "ADR zu begrifflicher Reichweite; keine Behauptung eines nativen Planungs-Graph-Outputs."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-02",
+          "status": "open",
+          "priority": "P1",
+          "task": "Research-Prototyp: NCM generiert/rankt grobe Kandidaten, bestehendes LLM rekonstruiert/entwirft strukturierte Pläne aus explizit trainierter/ausgewerteter Schnittstelle.",
+          "acceptance": [
+            "Mit echter Daten-/Modellfähigkeit belegte Ergebnisse; keine erzwungene Konvertierung latenter Codes zu JSON."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-03",
+          "status": "open",
+          "priority": "P1",
+          "task": "Alternativpfad als Kontrollgruppe: vorhandenes LLM baut parallel hierarchische Konzept-DAGs ohne NCM-Modell.",
+          "acceptance": [
+            "Vergleich isoliert Nutzen von coarse-to-fine vs Mehrkosten des NCM."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-04",
+          "status": "open",
+          "priority": "P1",
+          "task": "Typisierte Planning-IR mit Zielen, Konzepten, Abhängigkeiten, Unsicherheit, Quellen, Eigentümer, Constraints und Validierungszustand designen.",
+          "acceptance": [
+            "DAG, Version, source refs, stable ids, schema und Audit; semantische Widersprüche kenntlich."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-05",
+          "status": "open",
+          "priority": "P1",
+          "task": "Planungsentwürfe durch vorhandene Category-Todo- und Planning-Track-Pipeline führen: keine selbsttätige Promotion/Adoption.",
+          "acceptance": [
+            "Schema-, Lineage-, Governance-, Approval-, Cross-Track- und Quality-Gates bleiben unverändert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-06",
+          "status": "open",
+          "priority": "P1",
+          "task": "Multi-Agent-Branching in Hub kontrollieren: Kandidaten parallel durch Workers beurteilen, deduplizieren, gegeneinander prüfen und deterministisch konsolidieren.",
+          "acceptance": [
+            "Bounded fan-out, budgets, kein Peer-Dispatch, vergleichbare Eingaben und klare Merge-Konflikte."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-07",
+          "status": "open",
+          "priority": "P1",
+          "task": "Validierungs-/Repair-Loop mit Gegenbeispielen, constraint checks, unabhängiger Critic- und Rollback-Strategie.",
+          "acceptance": [
+            "Keine stillen Planänderungen; max attempts; Audit pro Ebene."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-04-08",
+          "status": "open",
+          "priority": "P1",
+          "task": "Spezifische Evaluationsaufgaben: technische Designplanung, Sprint-DAG, Coding-Patch-Plan, komplexe Abhängigkeiten und langes Reasoning.",
+          "acceptance": [
+            "Success@k, Correctness, plan-edit-distance, Revisionsaufwand, Kosten, Latenz vs AR-Baseline."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        }
+      ]
+    },
+    {
+      "name": "memory",
+      "label": "P2: RAG, GraphRAG, CodeCompass und Persistenz",
+      "items": [
+        {
+          "id": "NCM-05-01",
+          "status": "open",
+          "priority": "P2",
+          "task": "Konzept-Zwischenrepräsentation als optionale Zusatzinformation für CodeCompass/GraphRAG explorieren, nicht als Ground Truth.",
+          "acceptance": [
+            "Keine ungesicherten Ontologie-Kanten; Provenance, confidence, Löschung und Schema-Migration definiert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-05-02",
+          "status": "open",
+          "priority": "P2",
+          "task": "Hybrid Retrieval (BM25, Vektor, Graph) mit hierarchischer Konzeptvorstrukturierung experimentell testen.",
+          "acceptance": [
+            "Recall@k, nDCG, MRR, Halluzinationsquote und Retrieval-Kosten; Ablation gegen Baseline."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-05-03",
+          "status": "open",
+          "priority": "P2",
+          "task": "Konzept-Cache mit canonical input/version/checkpoint/seed/context/policy hash und Ablaufregeln prüfen.",
+          "acceptance": [
+            "Keine Cross-Tenant-Leaks; invalidation bei Änderungen, keine Wiederverwendung veralteter Fakten."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-05-04",
+          "status": "open",
+          "priority": "P2",
+          "task": "Code-Dependency-Graph für parallel vorgeschlagene Architekturkonzepte nutzen; zyklische/inkonsistente Teilpläne blockieren.",
+          "acceptance": [
+            "Sichtbare Fehler-/Konfliktanalyse; persistente Referenzen auf Code-Versionen."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-05-05",
+          "status": "open",
+          "priority": "P2",
+          "task": "Self-Development-Lernschleife nur mit explizit evaluiertem Konzeptfeedback koppeln, ohne autonome Gewichtsänderung im produktiven Worker.",
+          "acceptance": [
+            "Train/eval separation, approval und Vergleich mit bestehender Self-Development-Route."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        }
+      ]
+    },
+    {
+      "name": "training",
+      "label": "P2: Training, Skalierung, Forschung",
+      "items": [
+        {
+          "id": "NCM-06-01",
+          "status": "open",
+          "priority": "P2",
+          "task": "Tokenizer-Training isoliert nachvollziehen: level-wise codebooks, nested dropout, Reconstruction Loss, Codebook Usage und collapse detection.",
+          "acceptance": [
+            "Trainingskurven, Ablations, Decoder-Fidelity und Seeds gespeichert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-02",
+          "status": "open",
+          "priority": "P2",
+          "task": "Generator-Training reproduzieren: frozen tokenizer, cumulative reconstruction, corrupted conditioning, level-masking und Sampling.",
+          "acceptance": [
+            "Versuchsprotokoll mit Trainingsbudget, quality/latency tradeoff und Failure-Cases."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-03",
+          "status": "open",
+          "priority": "P2",
+          "task": "Variable Ebenentiefe und frühzeitiges Stoppen erforschen; Stopp nur bei validierter ausreichender Qualität.",
+          "acceptance": [
+            "Adaptive depth experimentell, Quality-vs-Cost-Kurve und worst-case-Tests."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-04",
+          "status": "open",
+          "priority": "P2",
+          "task": "Test-time scaling: parallele Kandidaten, MBR-Reranking und verifier-guided selection auf gleicher Budgetbasis testen.",
+          "acceptance": [
+            "Best-of-k gegen Kontrollmethoden; Kosten, Qualität, Diversität, keine Benchmark-Leakage."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-05",
+          "status": "open",
+          "priority": "P2",
+          "task": "Optional joint tokenizer-generator training, distillation, LoRA und Konzept-Regularisierung als getrennte Forschungs-Experimente evaluieren.",
+          "acceptance": [
+            "Keine Behauptung vorhandener Kompatibilität; ausfallsicherer Training-Restore."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-06",
+          "status": "open",
+          "priority": "P2",
+          "task": "Scaling und lokale Quantisierung (BF16/FP16/INT8/4bit) mit Qualitäts-/Speed-Checks und CUDA-Operatorunterstützung prüfen.",
+          "acceptance": [
+            "Nicht unterstützte Ops klar benannt, Unterschiede gegenüber FP-Baseline quantifiziert."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        },
+        {
+          "id": "NCM-06-07",
+          "status": "open",
+          "priority": "P2",
+          "task": "NCM gegenüber hierarchischer AR-Planung, diffusion, diffusion+AR und anderen Konzept-/latent-token-Architekturen abgrenzen.",
+          "acceptance": [
+            "Ablationsstudie; kein Fortschritt nur anhand theoretischer Parallelität."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "high"
+        }
+      ]
+    },
+    {
+      "name": "security",
+      "label": "P1: Sicherheit, Datenschutz, Observability",
+      "items": [
+        {
+          "id": "NCM-07-01",
+          "status": "open",
+          "priority": "P1",
+          "task": "Threat Model für Modell-Assets, deserialisierte .pt-Dateien, prompt injection, source poisoning, tensor bombs, dataset leakage und resource exhaustion erstellen.",
+          "acceptance": [
+            "Least-Privilege-Container, kein Hub-Secretzugriff, Netzwerk-Allowlist und negative Tests."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-07-02",
+          "status": "open",
+          "priority": "P1",
+          "task": "Metriken und Telemetrie in bestehende Observability integrieren: latencies by level, NFE, tokens, VRAM, GPU seconds, cost, failures, fallbacks.",
+          "acceptance": [
+            "Korrelation Task/Worker/Run, datensparsame Logs, keine Rohprompts per Default."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-07-03",
+          "status": "open",
+          "priority": "P1",
+          "task": "Explizite Nutzer-/Operatorfreigaben und Mandanten-/Scope-Grenzen für Checkpoint-Downloads und Datenverarbeitung absichern.",
+          "acceptance": [
+            "Approval-/Policy-Bindings unverändert, Egress kontrolliert, Rechteverweigerungen fail-closed."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-07-04",
+          "status": "open",
+          "priority": "P1",
+          "task": "Adversariale Qualitätstests: Halluzination, semantische Widersprüche, lange Eingaben, multilingual, schwierige Constraints und manipulative Quellen.",
+          "acceptance": [
+            "Regression-Suite, Verifier, Fallbacks und messbare Abbruchschwellen."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "label": "P2: UX, Dokumentation und Rollout",
+      "items": [
+        {
+          "id": "NCM-08-01",
+          "status": "open",
+          "priority": "P2",
+          "task": "NCM-Experiment im Operator-TUI/Model-Dashboard mit Hardwarebedarf, Modellart, Aufgabenlimits und Flag abbilden.",
+          "acceptance": [
+            "Keine irreführenden Chat/Tool-Calling-Claims; sichtbare wissenschaftliche Unsicherheit."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-08-02",
+          "status": "open",
+          "priority": "P2",
+          "task": "Ebenenvisualisierung als optionales Debug-Panel; Plan-/Konzeptgraph getrennt von latenten Codes anzeigen.",
+          "acceptance": [
+            "Pro-Ebene Ausgaben mit Trace-ID; keine vermeintliche Interpretierbarkeit ohne Validierung."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-08-03",
+          "status": "open",
+          "priority": "P2",
+          "task": "Dokumentation mit Setup, Checkpoints, reproduzierbaren Benchmarks, Lizenz, Grenzen, Rollback und Troubleshooting erstellen.",
+          "acceptance": [
+            "Einsteiger-Smoketest + Hardwareprofile; offline nachvollziehbar."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        },
+        {
+          "id": "NCM-08-04",
+          "status": "open",
+          "priority": "P2",
+          "task": "Staged Rollout: offline experiment -> isolated opt-in -> benchmark gate -> optional productive route -> revert.",
+          "acceptance": [
+            "Go/No-Go anhand vorab definierter quality, cost, latency und security thresholds."
+          ],
+          "depends_on": [
+            "NCM-01-01",
+            "NCM-01-03"
+          ],
+          "risk": "medium"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 47,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 47
+    },
+    "notes": [
+      "Research/backlog only, no production implementation or benchmark performance claimed.",
+      "Each task includes acceptance criteria; review actual paths again when implementing.",
+      "Potential integration is conditioned on demonstrable model task suitability."
+    ],
+    "recommended_order": [
+      "NCM-01-01",
+      "NCM-01-02",
+      "NCM-01-03",
+      "NCM-01-04",
+      "NCM-01-05",
+      "NCM-02-01",
+      "NCM-02-02",
+      "NCM-02-03",
+      "NCM-02-04",
+      "NCM-02-05",
+      "NCM-02-06",
+      "NCM-03-01",
+      "NCM-03-02",
+      "NCM-03-03",
+      "NCM-03-04",
+      "NCM-03-05",
+      "NCM-03-06",
+      "NCM-03-07",
+      "NCM-03-08",
+      "NCM-04-01",
+      "NCM-04-02",
+      "NCM-04-03",
+      "NCM-04-04",
+      "NCM-04-05",
+      "NCM-04-06",
+      "NCM-04-07",
+      "NCM-04-08",
+      "NCM-05-01",
+      "NCM-05-02",
+      "NCM-05-03",
+      "NCM-05-04",
+      "NCM-05-05",
+      "NCM-06-01",
+      "NCM-06-02",
+      "NCM-06-03",
+      "NCM-06-04",
+      "NCM-06-05",
+      "NCM-06-06",
+      "NCM-06-07",
+      "NCM-07-01",
+      "NCM-07-02",
+      "NCM-07-03",
+      "NCM-07-04",
+      "NCM-08-01",
+      "NCM-08-02",
+      "NCM-08-03",
+      "NCM-08-04"
+    ]
+  }
+}
