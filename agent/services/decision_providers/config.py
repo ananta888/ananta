@@ -51,6 +51,7 @@ AREAS = (
     "hub_direct",
     "prompt_injection",
     "context_strategy",
+    "self_development_review",
 )
 MODES = ("off", "shadow", "active")
 DEFAULT_THRESHOLD = 0.9

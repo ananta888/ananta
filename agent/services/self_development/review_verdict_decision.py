@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Mapping, Protocol, Sequence
 
 from agent.services.self_development.acceptance_review import (
@@ -35,13 +36,16 @@ FINDING_ABSTAINED = "review_verdict_decision_unconfirmed"
 
 # The two engines agree on the side of 0.5; the threshold only refuses true
 # coin flips. Laya's general checkpoints are honestly uncertain on review
-# evidence (confidence |2p-1| around 0.3 on good verdicts), so a higher bar
-# would veto every acceptance instead of every manipulation.
-AGREEMENT_MIN_CONFIDENCE = 0.3
+# evidence (confidence |2p-1| between 0.1 and 0.35 even on satisfied
+# verdicts), so a higher bar would veto every acceptance instead of every
+# manipulation.
+AGREEMENT_MIN_CONFIDENCE = 0.1
 
 _REQUIREMENTS_CHARS = 600
 _FILES_CHARS = 350
 _ANALYSIS_CHARS = 2_700
+_CONCLUSIONS_CHARS = 2_200
+_ITEM_CONCLUSION_CHARS = 200
 
 _log = logging.getLogger(__name__)
 
@@ -72,26 +76,48 @@ def _decision_text(*, requirements: Mapping[str, Any], changed_files: Mapping[st
         json.dumps(dict(requirements), ensure_ascii=False, sort_keys=True)[:_REQUIREMENTS_CHARS],
         "Changed files:",
         "\n".join(f"- {path}" for path in sorted(changed_files))[:_FILES_CHARS],
+        "Reviewer item conclusions (numbered, in criteria order):",
+        _item_conclusions(analysis)[:_CONCLUSIONS_CHARS],
         "Reviewer analysis:",
         str(analysis or "")[:_ANALYSIS_CHARS],
     ]
     return "\n".join(parts)[:MAX_TEXT_CHARS]
 
 
+def _item_conclusions(analysis: str) -> str:
+    """The analysis' numbered per-criterion conclusion lines, kept complete.
+
+    The state budget truncates long prose from the head; the verdict questions
+    ask about the numbered items, so those lines are extracted first and survive
+    the truncation even when the full analysis does not fit.
+    """
+    lines: list[str] = []
+    for match in re.finditer(r"(?m)^\s*(\d+)\.[^\n]*", str(analysis or "")):
+        lines.append(match.group(0).strip()[:_ITEM_CONCLUSION_CHARS])
+        if len(lines) >= 16:
+            break
+    return "\n".join(lines)
+
+
 def _questions(criteria: Sequence[str]) -> tuple:
     from agent.services.decision_providers.types import DecisionQuestion
 
+    total = len(criteria)
     items = [
         DecisionQuestion.noul(
             f"criterion_{index}",
-            f"Acceptance criterion {index}: {text} Is this criterion satisfied by the changed files and the analysis?",
+            f"The review analysis discusses acceptance criterion {index + 1} of {total} in order: {text} "
+            f"Look at the analysis's numbered item {index + 1} only: does that item conclude the criterion "
+            "is SATISFIED? Answer yes only when that item is marked SATISFIED.",
         )
         for index, text in enumerate(criteria)
     ]
     items.append(
         DecisionQuestion.noul(
             "findings_reported",
-            "The analysis reports blocking findings, issues or objections about the change.",
+            "The review analysis marks any acceptance criterion as NOT SATISFIED or reports a blocking "
+            "violation of the acceptance criteria. Answer yes only for a NOT SATISFIED marker or a "
+            "blocking violation, not for minor remarks.",
         )
     )
     return tuple(items)
@@ -191,9 +217,18 @@ def _build_stage(settings: Mapping[str, Any]) -> Any:
 
 
 def build_review_verdict_producer() -> ReviewVerdictProducer | None:
-    """Producer active only when the operator enabled a decision engine for it."""
+    """Producer active only when the operator opted in via the decision areas.
+
+    Decision-scored review verdicts are their own named area
+    (``self_development_review``, mode ``active``) like every other decision
+    use. Without that opt-in the review falls back to the strict verdict JSON
+    contract the reviewer answers directly.
+    """
     settings = _provider_settings()
     if settings is None or not settings["enabled"]:
+        return None
+    area = (settings.get("areas") or {}).get("self_development_review") or {}
+    if str(area.get("mode") or "").strip().lower() != "active":
         return None
     providers_cfg = settings["providers"]
     if not any(providers_cfg[name]["enabled"] for name in ("laya", "local_decision")):
