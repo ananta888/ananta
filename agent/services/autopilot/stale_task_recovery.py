@@ -182,13 +182,20 @@ class StaleTaskRecovery:
         timeout and the governed forward deadline.
         """
         cfg = _effective_agent_cfg_for_task(loop=self.loop, task=task)
+        forward_deadline = self._resolve_propose_forward_deadline(cfg)
         budget = max(
             self._resolve_model_propose_timeout(task, cfg),
-            self._resolve_propose_forward_deadline(cfg),
+            forward_deadline,
         )
         return max(
             PROPOSING_STALE_SECONDS,
             min(budget + PROPOSING_STALE_MARGIN_SECONDS, PROPOSING_STALE_MAX_SECONDS),
+            # The governed forward deadline keeps its own bound (up to 3600s) and
+            # must win over the model-budget cap: resetting a task while the Hub
+            # still waits for its in-flight forward requeues a healthy propose
+            # mid-flight (observed as no_output_after_1800s races in self-
+            # development dispatches).
+            forward_deadline + PROPOSING_STALE_MARGIN_SECONDS,
         )
 
     @staticmethod

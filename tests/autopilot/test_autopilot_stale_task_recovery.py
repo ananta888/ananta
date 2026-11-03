@@ -34,7 +34,7 @@ def test_the_proposing_threshold_tracks_the_propose_timeout(fixed_timeout):
     assert recovery._proposing_stale_seconds(task) == 600 + rec.PROPOSING_STALE_MARGIN_SECONDS
 
 
-def test_the_proposing_threshold_is_floored_and_capped(fixed_timeout):
+def test_the_proposing_threshold_is_floored_and_capped(fixed_timeout, monkeypatch):
     # The floor is the Hub's governed propose forward deadline (240s default)
     # plus the margin, never shorter, so an in-flight forward is not pre-empted.
     assert (
@@ -43,12 +43,40 @@ def test_the_proposing_threshold_is_floored_and_capped(fixed_timeout):
         )
         == 240 + rec.PROPOSING_STALE_MARGIN_SECONDS
     )
+    # The model-budget part stays capped: with a small governed forward an
+    # absurd model timeout must not stall the sweep for days.
+    monkeypatch.setattr(
+        rec.StaleTaskRecovery,
+        "_resolve_propose_forward_deadline",
+        staticmethod(lambda cfg: 240),
+    )
     assert (
         _recovery({"task_propose_timeout_seconds": 100000})._proposing_stale_seconds(
             SimpleNamespace(task_kind="x", goal_id="")
         )
         == rec.PROPOSING_STALE_MAX_SECONDS
     )
+
+
+def test_the_sweep_never_preempts_a_long_governed_forward(fixed_timeout):
+    """A governed forward longer than the model cap must not be swept mid-flight.
+
+    Live deployments raise ``propose_timeout`` (here 2400s) above the historical
+    1800s sweep cap; resetting at 1800s requeued healthy proposes while the Hub
+    still waited on their forward (observed as ``no_output_after_1800s`` resets
+    of self-development proposes with active mutation loops).
+    """
+    recovery = _recovery(
+        {
+            "task_propose_timeout_seconds": 120,
+            "autopilot_security_level": "balanced",
+            "autopilot_security_policies": {"balanced": {"propose_timeout": 2400}},
+        }
+    )
+    task = SimpleNamespace(task_kind="development", goal_id="")
+    threshold = recovery._proposing_stale_seconds(task)
+    assert threshold == 2400 + rec.PROPOSING_STALE_MARGIN_SECONDS
+    assert threshold > rec.PROPOSING_STALE_MAX_SECONDS
 
 
 def test_the_proposing_threshold_tracks_the_governed_forward_deadline(fixed_timeout):
