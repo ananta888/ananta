@@ -272,6 +272,7 @@ class QueueAcceptanceReviewer:
             status="todo",
             title="Independent acceptance review: " + (todo_id or request.task_id),
             description="Independent acceptance review; the Hub assignment binds the snapshot.",
+            priority="high",
             created_by="self-development-hub",
             source="system",
             team_id=self.team_id,
