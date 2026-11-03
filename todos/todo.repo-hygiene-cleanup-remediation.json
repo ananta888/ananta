@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-03T14:46:39+0100",
+  "updated": "2026-11-03T14:52:50+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -1375,7 +1375,7 @@
       "title": "service_registry.py typisieren und unter Budget bringen",
       "description": "service_registry.py (370 LOC, 1.5x ueber Budget 250) traegt alle 54 Service-Felder als Any - keine Typpruefung auf der zentralen Registry (ISP/DIP). Felder mit konkreten Service-Klassen/Protocols typisieren; Budget einhalten (Kombi mit CLN-026).",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone_id": "CLN-M8",
@@ -1387,8 +1387,8 @@
         "check_hotspot_guardrails: service_registry.py unter Budget (370-><=250) oder begruendete Ausnahme.",
         "Typfehler werden von mypy gefangen."
       ],
-      "implementation_notes": "Zentrale Registry ohne Typen ist DIP/ISP-Mangel; Typisierung schuetzt Substituierbarkeit.",
-      "progress_percent": 0
+      "implementation_notes": "service_registry.py in 3 Module zerlegt: service_registry_types.py (235 LOC, getippte Sub-Registry-Dataclasses + CoreServiceRegistry + Override-Projektion, ohne Flask), service_registry_runtime.py (220 LOC, Flask-Komposition/Fabrik/Accessoren), service_registry.py als Kompatibilitaets-Facade (46 LOC <= 250 Budget, check_hotspot_guardrails gruen). Felder waren via CLN-026 bereits konkret typisiert; mypy laeuft als CI-Gate. 196 create-app/domain/recovery + 357 self-dev + 1180 worker gruen.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-062",
@@ -1696,8 +1696,8 @@
     "CLN-074"
   ],
   "tasks_status_summary": {
-    "todo": 35,
-    "done": 29,
+    "todo": 34,
+    "done": 30,
     "partial": 11
   },
   "progress_summary": {
