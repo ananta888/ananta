@@ -14,9 +14,14 @@ from urllib.request import Request, urlopen
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["form", "import", "submit", "start", "stop", "status", "retry"])
+    parser.add_argument(
+        "action", choices=["form", "import", "submit", "start", "stop", "status", "retry", "dedup", "diagnose"]
+    )
     parser.add_argument("file", nargs="?", type=Path)
     parser.add_argument("--details", action="store_true", help="Include every imported task record")
+    parser.add_argument(
+        "--reset-attempts", action="store_true", help="retry: clear exhausted attempt budgets (policy attempt_reset)"
+    )
     parser.add_argument("--url", default=os.environ.get("ANANTA_BASE_URL", "http://127.0.0.1:5000"))
     local_token = Path.home() / "ananta-data/workflow-runtime-dev/hub/hub-service-token"
     parser.add_argument(
@@ -30,10 +35,13 @@ def main():
     if args.action == "submit" and not args.file:
         parser.error("submit requires a JSON file")
     action = "import" if args.action == "submit" else args.action
+    action = "diagnostics" if args.action == "diagnose" else action
     payload = {"document": json.loads(args.file.read_text())} if args.action == "submit" else {}
+    if args.action == "retry" and args.reset_attempts:
+        payload = {"reset_attempts": True}
     request = Request(
         args.url.rstrip("/") + "/api/self-development/" + action,
-        data=None if action in {"form", "status"} else json.dumps(payload).encode(),
+        data=None if action in {"form", "status", "diagnostics"} else json.dumps(payload).encode(),
         headers={"Authorization": "Bearer " + args.token_file.read_text().strip(), "Content-Type": "application/json"},
     )
     try:

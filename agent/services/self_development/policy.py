@@ -38,6 +38,12 @@ class DevelopmentPolicy:
         max_attempts = self.value.get("max_attempts", 2)
         if not unlimited(max_attempts) and not (isinstance(max_attempts, int) and 1 <= max_attempts <= 5):
             raise ValueError("development_attempt_budget_invalid")
+        if "max_concurrency" in self.value and not (
+            isinstance(self.value["max_concurrency"], int) and 1 <= self.value["max_concurrency"] <= 8
+        ):
+            raise ValueError("development_concurrency_invalid")
+        if "attempt_reset" in self.value and not isinstance(self.value["attempt_reset"], bool):
+            raise ValueError("development_attempt_reset_invalid")
         if "skip_unpublished_dependencies" in self.value and not isinstance(
             self.value["skip_unpublished_dependencies"], bool
         ):
@@ -106,6 +112,11 @@ class DevelopmentPolicy:
 
     def planning_enabled(self):
         return bool((self.value.get("planning") or {}).get("enabled"))
+
+    def max_concurrency(self) -> int:
+        """Parallel dispatch slots for the autopilot loop (policy-bounded)."""
+        value = self.value.get("max_concurrency", 1)
+        return value if isinstance(value, int) and 1 <= value <= 8 else 1
 
     def assert_current(self):
         if canonical_evidence_digest(json.loads(self.path.read_text())) != self.digest:

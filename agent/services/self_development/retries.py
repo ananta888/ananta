@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 
@@ -29,6 +30,41 @@ def publication_recovery_available(item, policy) -> bool:
     )
 
 
+def _review_feedback(item, attempt_number: int) -> dict:
+    """Bounded memory of why the last attempt was rejected.
+
+    The retry clears the review artifacts, so the verdict is captured first and
+    travels with the item into the next contract and dispatch: a re-attempt must
+    address the rejection instead of repeating it.
+    """
+    feedback: dict = {
+        "attempt": attempt_number,
+        "reason": str(item.get("reason") or "")[:240],
+    }
+    evidence = item.get("acceptance_review_evidence")
+    if isinstance(evidence, dict):
+        for key in ("reason", "answers", "decided_by", "disagreed", "deferred", "verdict"):
+            value = evidence.get(key)
+            if value:
+                feedback[key if key != "reason" else "verdict_reason"] = value
+    return feedback
+
+
+def describe_for_retry(item) -> str:
+    """The dispatch description: base task text plus the previous review verdict."""
+    base = str(item.get("description") or "")
+    feedback = item.get("review_feedback")
+    if not isinstance(feedback, dict):
+        return base
+    block = (
+        "\n\nPrevious review feedback (attempt {attempt}; the re-run must address it, not repeat it):\n{body}".format(
+            attempt=feedback.get("attempt"),
+            body=json.dumps(feedback, ensure_ascii=True, sort_keys=True)[:1200],
+        )
+    )
+    return (base + block)[:4000]
+
+
 def prepare_retry(item, policy, state, queue):
     attempts = item.setdefault("attempts", [])
     if (
@@ -42,6 +78,7 @@ def prepare_retry(item, policy, state, queue):
         return False
     policy.assert_current()
     attempts.append({k: item.get(k) for k in ("task_id", "reason", "outcome", "revision")})
+    item["review_feedback"] = _review_feedback(item, len(attempts))
     item.update(task_id=str(uuid.uuid4()), status="ready", reason="retry_pending")
     _cancel_superseded_review(item)
     for key in (
@@ -64,7 +101,7 @@ def prepare_retry(item, policy, state, queue):
         task_id=item["task_id"],
         status="todo",
         title=item["title"],
-        description=item["description"],
+        description=describe_for_retry(item),
         created_by="self-development-hub",
         source="system",
         team_id=policy.value["team_id"],

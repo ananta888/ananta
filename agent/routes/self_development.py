@@ -60,7 +60,7 @@ def start():
         autonomous_loop.start(
             team_id=team,
             goal="",
-            max_concurrency=1,
+            max_concurrency=service.policy.max_concurrency(),
             interval_seconds=5,
             security_level="balanced",
             budget_label="hub-verified-self-development",
@@ -79,16 +79,29 @@ def stop():
 @self_development_bp.post("/retry")
 @admin_required
 def retry():
-    return _respond(lambda: _service().retry())
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict) or set(payload) - {"reset_attempts"}:
+        return api_response(status="error", message="invalid_retry_request", code=422)
+    return _respond(lambda: _service().retry(reset_attempts=bool(payload.get("reset_attempts"))))
+
+
+@self_development_bp.post("/dedup")
+@admin_required
+def dedup():
+    return _respond(lambda: _service().deduplicate())
 
 
 @self_development_bp.get("/diagnostics")
 @admin_required
 def diagnostics():
     def read():
-        _service()
+        service = _service()
+        from agent.services.self_development.diagnostics import build_development_diagnostics
         from agent.services.self_development.runtime import development_thread_diagnostics
 
-        return development_thread_diagnostics()
+        return {
+            **build_development_diagnostics(coordinator=service),
+            "threads": development_thread_diagnostics(),
+        }
 
     return _respond(read)

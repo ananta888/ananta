@@ -281,7 +281,7 @@ def ensure_autopilot(app):
         autonomous_loop.start(
             team_id=coordinator.policy.value["team_id"],
             goal="",
-            max_concurrency=1,
+            max_concurrency=coordinator.policy.max_concurrency(),
             interval_seconds=5,
             security_level="balanced",
             budget_label="hub-verified-self-development",

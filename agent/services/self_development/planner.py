@@ -110,6 +110,15 @@ def render_planning_prompt(item: dict, envelope: PlanningEnvelope, error: str | 
             + error
             + "\nReturn a corrected JSON object that satisfies every constraint.\n"
         )
+    feedback = item.get("review_feedback") if isinstance(item, dict) else None
+    review_note = ""
+    if isinstance(feedback, dict) and feedback:
+        review_note = (
+            "\nPrevious review verdict for this exact task (the new plan must address the "
+            "rejection instead of repeating it):\n"
+            + json.dumps(feedback, ensure_ascii=True, sort_keys=True)[:1200]
+            + "\n"
+        )
     return (
         "You plan one bounded source change for an autonomous coding run.\n"
         "Return ONLY a JSON object, no prose, with exactly these keys:\n"
@@ -129,6 +138,7 @@ def render_planning_prompt(item: dict, envelope: PlanningEnvelope, error: str | 
         "Choose the test profile whose area best matches the changed files:\n"
         f"{profiles}\n"
         f"{correction}"
+        f"{review_note}"
         f"\nTODO id: {item.get('todo_id')}\n"
         f"TODO title: {item.get('title')}\n"
         f"TODO description: {item.get('description')}\n"
