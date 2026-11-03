@@ -257,6 +257,20 @@ def run_ananta_worker_workspace_mutation(
     last_out, last_err = "", ""
 
     for iteration in range(1, session.limits.max_iterations + 1):
+        # Orphaned executions: the Hub may have given up on this dispatch
+        # (forward deadline, strategy exhaustion) or the task may already be
+        # terminal while this loop keeps consuming the shared model backend.
+        if default_context.worker_mutation_execution_withdrawn(session.task_id):
+            return session.finish_with_summary(
+                "mutation_withdrawn",
+                {
+                    "kind": "loop_aborted",
+                    "reason": "task_no_longer_active",
+                    "task_id": str(session.task_id or ""),
+                    "iteration": iteration,
+                },
+                last_err,
+            )
         from agent.cli_backends.workspace_mutation.tool_routing import resolve_turn_nudge
 
         nudge = resolve_turn_nudge(session, nudge_after=nudge_after)

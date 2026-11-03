@@ -410,3 +410,67 @@ def test_the_loop_binds_a_declared_test_command_to_the_allowlist(tmp_path):
     assert "Run the exact allowlisted command: python -m pytest -q -o addopts= tests/research_training." in seen
     assert "test_growth_corpus.py tests/" not in seen
     assert rc == 0
+
+
+# --- orphaned-execution withdrawal -------------------------------------------
+
+
+def test_withdrawn_task_aborts_the_loop_before_the_first_llm_call(tmp_path, monkeypatch):
+    """A terminal task must stop the loop before it consumes the model backend.
+
+    Orphaned executions (forward deadline, strategy exhaustion) kept running
+    after their task failed and starved the healthy proposes behind them.
+    """
+    from agent.cli_backends.context import default_context
+
+    workspace = _setup_workspace(tmp_path)
+    llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "unreachable"})])
+    monkeypatch.setattr(default_context, "worker_mutation_execution_withdrawn", lambda _task_id: True)
+
+    rc, out, _err = run_ananta_worker_workspace_mutation(
+        "Fix the add function",
+        str(workspace),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_config("controlled_workspace"),
+        task_id="t-orphan",
+    )
+
+    assert llm.prompts == []
+    summary = json.loads(out)
+    assert summary["kind"] == "loop_aborted"
+    assert summary["reason"] == "task_no_longer_active"
+    assert summary["task_id"] == "t-orphan"
+    assert rc != 0
+
+
+def test_active_task_runs_the_first_iteration_normally(tmp_path, monkeypatch):
+    """The withdrawal seam is consulted with the session's task binding."""
+    from agent.cli_backends.context import default_context
+
+    workspace = _setup_workspace(tmp_path)
+    llm = ScriptedLLM([json.dumps({"kind": "final_answer", "answer": "done"})])
+    seen: list[str | None] = []
+
+    def withdrawn(task_id):
+        seen.append(task_id)
+        return False
+
+    monkeypatch.setattr(default_context, "worker_mutation_execution_withdrawn", withdrawn)
+
+    rc, _out, _err = run_ananta_worker_workspace_mutation(
+        "Fix the add function",
+        str(workspace),
+        options=[],
+        timeout=10,
+        model=None,
+        llm_runner=llm,
+        config=_config("controlled_workspace"),
+        task_id="t-live",
+    )
+
+    assert seen == ["t-live"]
+    assert len(llm.prompts) == 1
+    assert rc == 0

@@ -104,6 +104,14 @@ class CliBackendContext:
             ).ensure_tool_context
         )
     )
+    worker_mutation_execution_withdrawn = _ServiceProperty(
+        lambda: (
+            __import__(
+                "agent.services.worker_mutation_cancellation",
+                fromlist=["is_mutation_execution_withdrawn"],
+            ).is_mutation_execution_withdrawn
+        )
+    )
     worker_workspace_align_declared_test_command = _ServiceProperty(
         lambda: (
             __import__(
