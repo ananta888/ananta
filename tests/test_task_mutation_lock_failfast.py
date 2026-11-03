@@ -41,7 +41,7 @@ class _FakeConnection:
     def execute(self, statement, params=None):
         sql = str(statement)
         self.executed.append(sql)
-        if "pg_advisory_try_lock" in sql:
+        if "pg_try_advisory_lock" in sql:
             return _FakeResult(self._grants.pop(0) if self._grants else True)
         return _FakeResult(None)
 
@@ -124,8 +124,8 @@ def test_advisory_acquire_uses_try_lock_and_respects_grants():
     port = TaskMutationLockPort(engine_provider=lambda: _FakePostgresEngine(connection), acquire_timeout_seconds=0.05)
     with port.mutation_locks({"T"}) as acquired:
         assert acquired is True
-    assert any("pg_advisory_try_lock" in sql for sql in connection.executed)
-    assert all("pg_advisory_lock(" not in sql.replace("pg_advisory_try_lock(", "") for sql in connection.executed)
+    assert any("pg_try_advisory_lock" in sql for sql in connection.executed)
+    assert all("pg_advisory_lock(" not in sql for sql in connection.executed)
     assert any("pg_advisory_unlock" in sql for sql in connection.executed)
     assert connection.closed is True
 

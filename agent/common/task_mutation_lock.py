@@ -82,11 +82,11 @@ class TaskMutationLockPort:
             lock.release()
 
     def _acquire_advisory(self, connection: Any, lock_id: int) -> bool:
-        """pg_advisory_try_lock in a bounded loop; never blocks the thread."""
+        """pg_try_advisory_lock in a bounded loop; never blocks the thread."""
         deadline = time.monotonic() + max(self._acquire_timeout_seconds, 0.0)
         while True:
             row = connection.execute(
-                text("SELECT pg_advisory_try_lock(:lock_id)"),
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
                 {"lock_id": lock_id},
             )
             if bool(row.scalar()):
@@ -112,7 +112,7 @@ class TaskMutationLockPort:
     ) -> Iterator[bool]:
         """Acquire sorted advisory locks through one thread-shared connection.
 
-        Acquisition uses ``pg_advisory_try_lock`` in a bounded loop: a lock
+        Acquisition uses ``pg_try_advisory_lock`` in a bounded loop: a lock
         held by a stuck thread surfaces as ``False`` after the acquire
         timeout instead of parking this thread forever.
         """
