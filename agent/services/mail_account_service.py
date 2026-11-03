@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, TypeVar
 
 from agent.services.mail_account_mapper import MailAccountMapper
-from agent.services.mail_contract_service import MAIL_ACCOUNT_STORE_SCHEMA, MailAccountV2
+from ananta_contracts.mail_contract_service import MAIL_ACCOUNT_STORE_SCHEMA, MailAccountV2
 from agent.services.mail_migration_journal import MailFileLock
 
 R = TypeVar("R")

@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-from agent.services.restricted_inference_contract import CONTRACT_VERSION
+from ananta_contracts.restricted_inference_contract import CONTRACT_VERSION
 from worker.runtime.restricted_inference_app import INFERENCE_ENDPOINT, _runtime_from_environment, create_app
 
 TEST_TOKEN = "restricted-inference-test-token"

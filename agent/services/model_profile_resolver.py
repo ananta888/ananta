@@ -44,43 +44,9 @@ _DEFAULT_SECRET_PATTERNS: list[str] = [
 ]
 
 
-@dataclass
-class RoutingContext:
-    """All facts known at resolution time."""
-
-    model_role: str = "any"
-    blueprint_id: str | None = None
-    template_id: str | None = None
-    team_id: str | None = None
-    task_kind: str | None = None
-    risk_class: str | None = None
-    context_text: str = ""
-    approximate_context_tokens: int | None = None
-    contains_secrets: bool | None = None
-    data_class: str = "internal"
-    request_profile_id: str | None = None
-    user_profile_id: str | None = None
-    env_profile_id: str | None = None
-    requires_tools: bool = False
-    requires_json: bool = False
-    requires_streaming: bool = False
-    step_kind: str | None = None
-    fallback_group_id: str | None = None
-    fallback_profile_ids: tuple[str, ...] = ()
-    fallback_candidate_max_context_tokens: dict[str, int] = field(default_factory=dict)
-    fallback_candidate_cloud_allowed: dict[str, bool] = field(default_factory=dict)
-    fallback_candidate_retry_budgets: dict[str, int] = field(default_factory=dict)
-    fallback_candidate_triggers: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    fallback_candidate_max_costs: dict[str, float] = field(default_factory=dict)
-    fallback_candidate_requires_tools: dict[str, bool] = field(default_factory=dict)
-    fallback_candidate_requires_json: dict[str, bool] = field(default_factory=dict)
-    fallback_max_total_retries: int | None = None
-    fallback_stop_on_policy_block: bool = True
-    allow_cloud: bool = False
-    max_estimated_cost_per_step: float | None = None
-    previous_error_type: str | None = None
-    repeated_failure_count: int = 0
-    metadata: dict[str, Any] = field(default_factory=dict)
+# RoutingContext moved to the contracts layer (CLN-054); re-exported here so
+# existing import sites keep working.
+from ananta_contracts.model_routing_contract import RoutingContext  # noqa: E402
 
 
 @dataclass
@@ -247,7 +213,7 @@ class RoutingRules:
         raw_recovery = data.get("context_recovery")
         if isinstance(raw_recovery, dict):
             try:
-                from agent.services.model_routing_contract import (
+                from ananta_contracts.model_routing_contract import (
                     ModelRoutingConfig,
                 )
 

@@ -480,7 +480,7 @@ class HubProfileRoutedWorkerTextGeneration:
         raw_model_routing = values.get("model_routing")
         if raw_model_routing is not None:
             try:
-                from agent.services.model_routing_contract import (
+                from ananta_contracts.model_routing_contract import (
                     ModelRoutingConfig,
                     build_model_routing_context,
                 )

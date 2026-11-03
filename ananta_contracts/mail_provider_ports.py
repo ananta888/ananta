@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable, Generic, Mapping, Protocol, Sequence, TypeVar
 
-from agent.services.mail_contract_service import MailAccountV2, MailMessageMetadata, MailMessageRefV2
+from ananta_contracts.mail_contract_service import MailAccountV2, MailMessageMetadata, MailMessageRefV2
 
 T = TypeVar("T")
 _ACCESS_ISSUER = object()

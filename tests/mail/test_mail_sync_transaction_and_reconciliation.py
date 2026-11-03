@@ -10,9 +10,9 @@ from agent.services.jmap_contract_service import (
     JmapSessionDocument,
 )
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
-from agent.services.mail_contract_service import MailMessageRefV2, stable_mail_ref_id
+from ananta_contracts.mail_contract_service import MailMessageRefV2, stable_mail_ref_id
 from agent.services.mail_mutation_policy import MailMutationPolicy
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailKeywordChange,
     MailProviderResult,
     MailProviderSession,

@@ -11,7 +11,7 @@ from agent.services.model_intelligence_snapshot_admission import (
     AnalysisSnapshotAdmissionPolicy,
     ModelAnalysisSnapshotAdmission,
 )
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
 )
 from agent.services.restricted_inference_model_manifest import (

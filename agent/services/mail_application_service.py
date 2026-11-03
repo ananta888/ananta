@@ -12,14 +12,14 @@ from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from agent.services.mail_account_service import MailAccountService
 from agent.services.mail_artifact_service import MailArtifactService
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailAccountV2,
     MailMessageMetadata,
     MailMessageRefV2,
     stable_mail_ref_id,
 )
 from agent.services.mail_metadata_store_service import MailMetadataStore
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailContentAccessVerifier,

@@ -14,9 +14,9 @@ from agent.services.jmap_http_transport import (
     JmapHttpResponse,
     JmapHttpTransport,
 )
-from agent.services.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_feature_policy import JmapRuntimeLimits, MailFeaturePolicy
-from agent.services.mail_provider_ports import MailAuthMaterial, MailProviderSession
+from ananta_contracts.mail_provider_ports import MailAuthMaterial, MailProviderSession
 
 
 class _QueueAdapter:

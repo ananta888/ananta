@@ -6,12 +6,12 @@ from typing import Any
 
 import pytest
 
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailAccountV2,
     MailMessageMetadata,
     MailMessageRefV2,
 )
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailAuthMaterial,
     MailBody,
     MailContentAccessDecision,

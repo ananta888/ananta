@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agent.services.model_routing_contract import ModelRoutingConfig
+from ananta_contracts.model_routing_contract import ModelRoutingConfig
 from agent.services.workflow_adapter_control_facade import (
     WORKFLOW_ADAPTER_COMMAND_SCHEMA,
     WorkflowAdapterControlFacade,

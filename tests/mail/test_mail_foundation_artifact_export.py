@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 import pytest
 
 from agent.services.mail_artifact_service import MailArtifactService, mail_artifact_ref
-from agent.services.mail_contract_service import MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
+from ananta_contracts.mail_contract_service import MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
 from agent.services.mail_export_service import MailExportService
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailContentAccessVerifier,

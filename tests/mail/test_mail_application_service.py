@@ -10,7 +10,7 @@ from agent.services.mail_application_service import (
     MailApplicationService,
     NullLegacyMailBridge,
 )
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
     stable_mail_ref_id,

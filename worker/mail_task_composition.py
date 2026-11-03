@@ -28,7 +28,7 @@ from agent.services.mail_mutation_policy import (
     MailMutationPolicy,
     VerifiedIntentMutationAuthorizer,
 )
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 from agent.services.mail_provider_router import MailProviderRouter
 from agent.services.mail_runtime_policy import (
     get_mail_health_registry,

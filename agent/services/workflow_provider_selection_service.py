@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     MODEL_ROUTING_METADATA_KEY,
     ModelRoutingConfig,
     ModelRoutingContractError,

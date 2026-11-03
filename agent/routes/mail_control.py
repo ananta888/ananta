@@ -18,7 +18,7 @@ from agent.services.mail_application_service import (
 from agent.services.mail_operation_intent_service import (
     get_mail_operation_intent_service,
 )
-from agent.services.mail_provider_ports import MailContentAccessRequest
+from ananta_contracts.mail_provider_ports import MailContentAccessRequest
 from agent.services.mail_runtime_policy import (
     get_mail_health_registry,
     get_mail_runtime_policy,

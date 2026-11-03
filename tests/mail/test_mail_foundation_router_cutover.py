@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from agent.services.mail_account_service import MailAccountService
-from agent.services.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_legacy_mapper import MailDedupeSummary
 from agent.services.mail_protocol_cutover_service import MailProtocolCutoverCommand, MailProtocolCutoverService
-from agent.services.mail_provider_ports import MailProviderBinding, MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderBinding, MailProviderResult
 from agent.services.mail_provider_router import MailProviderRouter
 
 

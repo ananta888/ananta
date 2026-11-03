@@ -7,8 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from agent.services.mail_contract_service import MailMessageMetadata, MailMessageRefV2
-from agent.services.mail_provider_ports import VerifiedMailContentAccess
+from ananta_contracts.mail_contract_service import MailMessageMetadata, MailMessageRefV2
+from ananta_contracts.mail_provider_ports import VerifiedMailContentAccess
 
 
 class MailExportService:

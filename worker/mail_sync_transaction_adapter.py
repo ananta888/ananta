@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
 )
@@ -25,7 +25,7 @@ from agent.services.mail_metadata_store_service import (
     MailLocatorAlias,
     locator_alias_for_ref,
 )
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailProviderResult,
     MailSyncCursor,
     MailSyncDelta,

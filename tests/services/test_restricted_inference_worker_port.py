@@ -16,7 +16,7 @@ from agent.services.path_ai_mode_policy_service import (
     PathAiModePolicyService,
     PathAiModeRule,
 )
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,

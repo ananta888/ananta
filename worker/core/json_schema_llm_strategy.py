@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingContractError,
     build_model_routing_context,
     model_routing_policy_failure_metadata,

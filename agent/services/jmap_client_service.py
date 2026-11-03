@@ -25,7 +25,7 @@ from agent.services.jmap_request_scheduler import (
     JmapCancellationSignal,
     JmapRequestScheduler,
 )
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 
 _MUTATING_SUFFIXES = ("/set", "/copy", "/import")
 

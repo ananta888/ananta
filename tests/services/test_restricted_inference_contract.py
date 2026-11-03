@@ -7,7 +7,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceContractError,
     RestrictedInferenceOperation,
@@ -155,7 +155,7 @@ def test_hub_contract_import_does_not_import_optional_ml_libraries() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     script = """
 import sys
-import agent.services.restricted_inference_contract
+import ananta_contracts.restricted_inference_contract
 import agent.services.restricted_inference_port
 for name in ('torch', 'transformers', 'sentence_transformers', 'onnxruntime'):
     assert name not in sys.modules, name

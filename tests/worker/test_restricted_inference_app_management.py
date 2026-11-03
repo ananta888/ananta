@@ -5,7 +5,7 @@ import json
 import time
 from pathlib import Path
 
-from agent.services.restricted_inference_contract import RestrictedInferenceOperation
+from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
 from agent.services.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
     FORMAT_SAFETENSORS,

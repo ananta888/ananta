@@ -13,7 +13,7 @@ from email.parser import BytesParser
 from typing import Any, Callable
 
 from agent.services.jmap_endpoint_policy import JmapEndpointPolicy
-from agent.services.mail_contract_service import subject_hash
+from ananta_contracts.mail_contract_service import subject_hash
 
 _HOST = re.compile(r"^[A-Za-z0-9.-]{1,253}$")
 _SIZE = re.compile(rb"RFC822\\.SIZE\\s+(\\d+)", re.IGNORECASE)

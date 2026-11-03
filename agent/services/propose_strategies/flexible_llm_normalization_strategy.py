@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingContractError,
     build_model_routing_context,
     model_routing_policy_failure_metadata,

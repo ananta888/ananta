@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-03T14:52:50+0100",
+  "updated": "2026-11-03T15:04:35+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -1234,7 +1234,7 @@
       "title": "Hub-Worker geteilte Contracts nach ananta_contracts/ verschieben (DIP)",
       "description": "110 Worker->agent.services-Imports (z.B. worker/mail_task_composition.py 15x, worker/core/*_llm_strategy je 7-8) und 60 agent/services->worker.* (propose_strategy_registry, task_delegation_services). Geteilte Ports/Contracts (*_ports, *_contract) nach ananta_contracts/ (verifiziert sauber) verschieben; Injection im Composition Root.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "milestone_id": "CLN-M8",
@@ -1246,8 +1246,8 @@
         "agent.services haengen nicht an worker.*-Implementierungen; Strategies werden injiziert.",
         "check_worker_boundaries (CLN-055) ist gruen."
       ],
-      "implementation_notes": "DIP/ISP: Worker brauchen schmale Contracts, nicht volle Services. Ports/*_contract existieren teilweise bereits - konsolidieren. Hoechster Architekturwert neben CLN-048.",
-      "progress_percent": 0
+      "implementation_notes": "Erster Slice: 4 geteilte Vertragsmodule nach ananta_contracts/ verschoben (model_routing_contract, restricted_inference_contract, mail_contract_service, mail_provider_ports - alle services-frei verifiziert), RoutingContext als Contract-Typ invertiert (Resolver re-exportiert), 99 Dateien rewired. Boundary-Gate gruen (205->202 sites, keine neuen), Security-Allowlist gestutzt. Offen: die ~110 worker->agent.services Imports auf konkrete Services (llm_response_normalizer, model_invocation_service, mail_*-Services, ...) ueber Ports/Injection entkoppeln; baseline wegtuen wenn alle Rule-A/B-Files klar sind.",
+      "progress_percent": 40
     },
     {
       "id": "CLN-055",
@@ -1696,9 +1696,9 @@
     "CLN-074"
   ],
   "tasks_status_summary": {
-    "todo": 34,
+    "todo": 33,
     "done": 30,
-    "partial": 11
+    "partial": 12
   },
   "progress_summary": {
     "state": "in_progress",

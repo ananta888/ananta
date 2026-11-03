@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from agent.services.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_contract_service import MailAccountV2
 
 
 class MailAccountMapper:

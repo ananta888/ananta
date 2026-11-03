@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 if TYPE_CHECKING:
-    from agent.services.mail_provider_ports import MailProviderResult
+    from ananta_contracts.mail_provider_ports import MailProviderResult
 
 
 @dataclass(frozen=True, slots=True)

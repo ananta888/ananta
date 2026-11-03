@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,

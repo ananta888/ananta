@@ -13,7 +13,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
 
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailProviderResult,

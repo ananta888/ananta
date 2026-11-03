@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingConfig,
     ModelRoutingContractError,
 )

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
 )
-from agent.services.mail_provider_ports import MailMessage, MailSyncCursor, MailSyncDelta
+from ananta_contracts.mail_provider_ports import MailMessage, MailSyncCursor, MailSyncDelta
 from agent.services.mail_sync_state_store import JmapSyncCheckpoint, MailSyncStateStoreError
 from agent.services.mail_sync_transaction_service import MailSyncTransactionRequest
 from worker.mail_sync_transaction_adapter import (

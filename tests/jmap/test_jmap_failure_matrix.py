@@ -22,14 +22,14 @@ from agent.services.jmap_http_transport import (
 )
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
 from agent.services.jmap_provider_factory import JmapProviderDependencies, JmapProviderFactory
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailAccountV2,
     MailMessageRefV2,
     stable_mail_ref_id,
 )
 from agent.services.mail_feature_policy import JmapRuntimeLimits, MailFeaturePolicy
 from agent.services.mail_mutation_policy import MailMutationPolicy
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailAuthMaterial,
     MailDeleteRequest,
     MailKeywordChange,

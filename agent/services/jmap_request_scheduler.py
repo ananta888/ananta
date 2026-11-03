@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Generic, Protocol, TypeVar
 
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 
 T = TypeVar("T")
 

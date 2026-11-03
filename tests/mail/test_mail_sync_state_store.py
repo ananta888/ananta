@@ -5,12 +5,12 @@ import time
 import portalocker
 import pytest
 
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
     stable_mail_ref_id,
 )
-from agent.services.mail_provider_ports import MailMessage, MailProviderResult, MailSyncCursor, MailSyncDelta
+from ananta_contracts.mail_provider_ports import MailMessage, MailProviderResult, MailSyncCursor, MailSyncDelta
 from agent.services.mail_sync_state_store import (
     JmapSyncCheckpoint,
     MailSyncStateStoreError,

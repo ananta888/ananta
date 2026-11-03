@@ -15,7 +15,7 @@ from agent.services.model_inference_adapters import (
     RerankResult,
     RiskScoreResult,
 )
-from agent.services.restricted_inference_contract import RestrictedInferenceOperation
+from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
 
 _REASON_CODE_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,127}$")
 _RISK_CATEGORIES = frozenset({"low", "medium", "high", "critical"})

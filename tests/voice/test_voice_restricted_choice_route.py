@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any, Mapping
 from unittest.mock import Mock
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceRequest,
 )

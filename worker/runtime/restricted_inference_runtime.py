@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceContractError,
     RestrictedInferenceError,
     RestrictedInferenceRequest,

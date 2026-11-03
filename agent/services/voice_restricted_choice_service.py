@@ -27,7 +27,7 @@ from agent.services.restricted_inference_config_service import (
     TASK_CHOICE_SCORE,
     RestrictedInferenceConfigService,
 )
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
     RestrictedInferenceStatus,

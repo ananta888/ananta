@@ -6,12 +6,12 @@ from typing import Sequence
 
 from agent.services.imap_connector_service import ImapConnectorService, ImapSession
 from agent.services.mail_account_mapper import MailAccountMapper
-from agent.services.mail_contract_service import (
+from ananta_contracts.mail_contract_service import (
     MailAccountV2,
     MailMessageRefV2,
 )
 from agent.services.mail_legacy_mapper import MailLegacyMapper
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailAttachment,
     MailAuthMaterial,
     MailBody,

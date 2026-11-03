@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit, urlunsplit
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceContractError,
     RestrictedInferenceRequest,
     RestrictedInferenceResponse,

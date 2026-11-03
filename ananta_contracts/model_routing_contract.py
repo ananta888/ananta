@@ -9,12 +9,54 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from dataclasses import dataclass, field
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
-if TYPE_CHECKING:
-    from agent.services.model_profile_resolver import RoutingContext
+
+@dataclass
+class RoutingContext:
+    """All facts known at resolution time.
+
+    Lives in the contracts layer so both the resolver implementation and the
+    transport contracts depend on this shared type (DIP).
+    """
+
+    model_role: str = "any"
+    blueprint_id: str | None = None
+    template_id: str | None = None
+    team_id: str | None = None
+    task_kind: str | None = None
+    risk_class: str | None = None
+    context_text: str = ""
+    approximate_context_tokens: int | None = None
+    contains_secrets: bool | None = None
+    data_class: str = "internal"
+    request_profile_id: str | None = None
+    user_profile_id: str | None = None
+    env_profile_id: str | None = None
+    requires_tools: bool = False
+    requires_json: bool = False
+    requires_streaming: bool = False
+    step_kind: str | None = None
+    fallback_group_id: str | None = None
+    fallback_profile_ids: tuple[str, ...] = ()
+    fallback_candidate_max_context_tokens: dict[str, int] = field(default_factory=dict)
+    fallback_candidate_cloud_allowed: dict[str, bool] = field(default_factory=dict)
+    fallback_candidate_retry_budgets: dict[str, int] = field(default_factory=dict)
+    fallback_candidate_triggers: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    fallback_candidate_max_costs: dict[str, float] = field(default_factory=dict)
+    fallback_candidate_requires_tools: dict[str, bool] = field(default_factory=dict)
+    fallback_candidate_requires_json: dict[str, bool] = field(default_factory=dict)
+    fallback_max_total_retries: int | None = None
+    fallback_stop_on_policy_block: bool = True
+    allow_cloud: bool = False
+    max_estimated_cost_per_step: float | None = None
+    previous_error_type: str | None = None
+    repeated_failure_count: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
 
 MODEL_ROUTING_METADATA_KEY = "model_routing"
 ContextRecoveryStrategy = Literal[
@@ -290,10 +332,6 @@ def build_model_routing_context(
         if has_model_routing_declaration(task):
             raise ModelRoutingContractError("model_routing_invalid")
         return None
-
-    # Lazy import keeps this transport contract independent from resolver
-    # construction and prevents a service-layer import cycle.
-    from agent.services.model_profile_resolver import RoutingContext
 
     execution_context = _as_mapping(_value(task, "worker_execution_context"))
     workflow_step = _value(execution_context, "workflow_step")

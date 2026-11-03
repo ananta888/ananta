@@ -17,7 +17,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingConfig as ModelRoutingConfig,
 )
 

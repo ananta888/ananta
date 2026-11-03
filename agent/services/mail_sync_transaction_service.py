@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol
 
-from agent.services.mail_provider_ports import MailProviderResult, MailSyncDelta
+from ananta_contracts.mail_provider_ports import MailProviderResult, MailSyncDelta
 from agent.services.mail_sync_state_store import (
     JmapSyncCheckpoint,
     MailSyncStateStoreError,

@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingConfig,
     ModelRoutingContractError,
 )

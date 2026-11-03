@@ -10,7 +10,7 @@ from agent.services.jmap_mutation_reconciliation import (
 )
 from agent.services.mail_domain_mapper import MailboxLocatorResolver
 from agent.services.mail_mutation_policy import MailMutationPolicy
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailDeleteRequest,
     MailKeywordChange,
     MailMoveRequest,

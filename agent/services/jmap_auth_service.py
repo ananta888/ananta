@@ -4,8 +4,8 @@ import base64
 from dataclasses import dataclass
 from typing import Mapping, Protocol
 
-from agent.services.mail_contract_service import MailAccountV2
-from agent.services.mail_provider_ports import MailAuthMaterial, MailProviderResult
+from ananta_contracts.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_provider_ports import MailAuthMaterial, MailProviderResult
 
 
 @dataclass(frozen=True, slots=True, repr=False)

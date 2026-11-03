@@ -18,7 +18,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any, Mapping, cast
 
-from agent.services.restricted_inference_contract import RestrictedInferenceOperation
+from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
 
 MANIFEST_SCHEMA_VERSION = "restricted_model_manifest.v1"
 

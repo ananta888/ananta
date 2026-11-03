@@ -16,7 +16,7 @@ from typing import Any, Mapping, Protocol
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceContractError,
     RestrictedInferenceRequest,

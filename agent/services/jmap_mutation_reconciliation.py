@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from agent.services.jmap_client_service import JmapClient
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailMutationItem,
     MailMutationReport,
     MailProviderResult,

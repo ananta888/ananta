@@ -13,7 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 
 
 class MailRolloutPhase(str, Enum):

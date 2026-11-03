@@ -21,7 +21,7 @@ from agent.services.goal_config_runtime_service import (  # noqa: F401  (test mo
     get_goal_config_runtime_service,
 )
 from agent.services.instruction_layer_service import get_instruction_layer_service
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     extract_model_routing_from_task,
     has_model_routing_declaration,
 )

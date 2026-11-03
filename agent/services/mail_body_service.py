@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 from typing import Any, Mapping, Protocol
 
 from agent.services.jmap_client_service import JmapClient
-from agent.services.mail_contract_service import MailMessageRefV2
+from ananta_contracts.mail_contract_service import MailMessageRefV2
 from agent.services.mail_html_sanitizer import MailHtmlSanitizer
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailAttachment,
     MailBody,
     MailContentAccessRequest,

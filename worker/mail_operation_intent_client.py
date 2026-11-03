@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
 from agent.services.mail_mutation_policy import MailMutationAuthorization
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
     MailProviderResult,

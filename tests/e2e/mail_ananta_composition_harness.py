@@ -13,7 +13,7 @@ from typing import Any, Mapping, Sequence
 
 from agent.services.jmap_http_transport import JmapHttpRequest, JmapHttpResponse
 from agent.services.mail_account_service import MailAccountService
-from agent.services.mail_contract_service import MailAccountV2, MailMessageRefV2
+from ananta_contracts.mail_contract_service import MailAccountV2, MailMessageRefV2
 from agent.services.mail_migration_service import (
     MailMigrationCommand,
     MailMigrationService,

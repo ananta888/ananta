@@ -5,7 +5,7 @@ from typing import Any, Mapping, cast
 from agent.services.path_ai_mode_policy_service import PathAiModePolicyService
 from agent.services.pre_model_context_config import MODE_PREFER_CONTEXT
 from agent.services.pre_model_context_orchestrator import PreModelContextOrchestrator
-from agent.services.restricted_inference_contract import CONTRACT_VERSION, RestrictedInferenceRequest
+from ananta_contracts.restricted_inference_contract import CONTRACT_VERSION, RestrictedInferenceRequest
 from agent.services.restricted_inference_port import ContractRestrictedInferencePort
 from agent.services.restricted_model_inference_service import RestrictedModelInferenceService
 

@@ -14,7 +14,7 @@ from agent.services.jmap_request_scheduler import (
     JmapCancellationToken,
     JmapRequestScheduler,
 )
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 
 
 def _wait_for(predicate, timeout: float = 1.0) -> None:

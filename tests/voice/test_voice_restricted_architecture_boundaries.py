@@ -84,7 +84,7 @@ def test_importing_hub_wire_boundaries_does_not_load_ml_libraries() -> None:
     script = """
 import sys
 import agent.services.voice_provider
-import agent.services.restricted_inference_contract
+import ananta_contracts.restricted_inference_contract
 import agent.services.restricted_inference_port
 import agent.services.generative_judge_worker_port
 import agent.services.voice_generative_judge_service

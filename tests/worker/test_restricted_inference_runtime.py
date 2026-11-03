@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
     RestrictedInferenceResponse,

@@ -11,7 +11,7 @@ from agent.services.mail_migration_service import (
 from agent.services.mail_operation_intent_service import (
     MailOperationIntentService,
 )
-from agent.services.mail_provider_ports import MailContentAccessRequest
+from ananta_contracts.mail_provider_ports import MailContentAccessRequest
 from agent.services.mail_task_service import (
     InMemoryMailAccountLeaseStore,
     MailTaskService,

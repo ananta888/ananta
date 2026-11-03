@@ -16,7 +16,7 @@ from agent.services.model_inference_adapters.sentence_transformers_adapter impor
     SentenceTransformerBiEncoderAdapter,
     SentenceTransformerCrossEncoderAdapter,
 )
-from agent.services.restricted_inference_contract import (
+from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
     RestrictedInferenceResponse,

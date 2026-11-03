@@ -18,9 +18,9 @@ from agent.services.jmap_contract_service import JmapContractError, JmapSessionD
 from agent.services.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyError
 from agent.services.jmap_http_transport import JmapHttpTransport, JmapTransportError
 from agent.services.jmap_request_scheduler import JmapRequestScheduler
-from agent.services.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_feature_policy import MailFeaturePolicy
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailAuthMaterial,
     MailProviderCapabilities,
     MailProviderResult,

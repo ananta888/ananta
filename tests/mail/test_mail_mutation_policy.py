@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from agent.services.mail_mutation_policy import MailMutationPolicy
-from agent.services.mail_provider_ports import MailProviderResult
+from ananta_contracts.mail_provider_ports import MailProviderResult
 
 
 class _Authorizer:

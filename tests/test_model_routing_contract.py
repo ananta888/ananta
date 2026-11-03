@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from agent.services.model_profile_loader import ALLOWED_MODEL_ROLES
-from agent.services.model_routing_contract import (
+from ananta_contracts.model_routing_contract import (
     ModelRoutingConfig,
     ModelRoutingContractError,
     build_model_routing_context,

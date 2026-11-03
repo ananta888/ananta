@@ -15,7 +15,7 @@ from typing import Any, Mapping, Protocol, Sequence
 import portalocker
 
 from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
-from agent.services.mail_contract_service import MailAccountV2
+from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_task_service import MailWorkspaceScope
 
 

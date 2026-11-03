@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.services.mail_contract_service import MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
+from ananta_contracts.mail_contract_service import MailMessageMetadata, MailMessageRefV2, stable_mail_ref_id
 from agent.services.mail_legacy_mapper import LegacyMailRecord, MailLegacyMapper
 from agent.services.mail_metadata_store_service import MailMetadataStore
 from agent.services.mail_migration_journal import MailFileLock, MailMultiFileTransaction

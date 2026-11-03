@@ -9,7 +9,7 @@ from typing import Any, Mapping, Sequence
 import portalocker
 
 from agent.services.mail_metadata_store_service import MailMetadataStore
-from agent.services.mail_provider_ports import (
+from ananta_contracts.mail_provider_ports import (
     MailMailbox,
     MailProviderResult,
     MailSyncDelta,
