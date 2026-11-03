@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
     FORMAT_SAFETENSORS,
     MANIFEST_SCHEMA_VERSION,

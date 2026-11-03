@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from agent.services.strategy_prompt_composer import StrategyPromptComposer
+from ananta_contracts.strategy_prompt_composer import StrategyPromptComposer
 
 
 def _context(base_prompt: str):

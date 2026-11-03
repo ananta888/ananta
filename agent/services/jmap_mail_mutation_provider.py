@@ -9,7 +9,7 @@ from agent.services.jmap_mutation_reconciliation import (
     JmapMutationReconciliationTarget,
 )
 from agent.services.mail_domain_mapper import MailboxLocatorResolver
-from agent.services.mail_mutation_policy import MailMutationPolicy
+from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import (
     MailDeleteRequest,
     MailKeywordChange,

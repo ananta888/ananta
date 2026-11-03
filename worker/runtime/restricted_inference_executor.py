@@ -25,7 +25,7 @@ from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
 )
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_ONNX,
     ENGINE_SENTENCE_TRANSFORMERS,
     ROLE_EXTERNAL_DATA,

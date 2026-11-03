@@ -10,14 +10,14 @@ from agent.services.jmap_contract_service import (
     JmapMethodResponse,
     JmapSessionDocument,
 )
-from agent.services.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import JmapHttpResponse
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
 from agent.services.jmap_mail_read_provider import JmapMailReadProvider
 from agent.services.jmap_sync_service import JmapSyncService
 from agent.services.mail_body_service import MailBodyService
 from ananta_contracts.mail_contract_service import MailMessageRefV2, stable_mail_ref_id
-from agent.services.mail_mutation_policy import MailMutationPolicy
+from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import (
     MailAttachment,
     MailContentAccessDecision,

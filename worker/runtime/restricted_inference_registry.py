@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Iterator, Protocol
 
-from agent.services.restricted_inference_model_manifest import VerifiedModelSnapshot
+from ananta_contracts.restricted_inference_model_manifest import VerifiedModelSnapshot
 from worker.runtime.restricted_inference_resources import (
     ResourceLeaseManager,
     RestrictedInferenceResourceError,

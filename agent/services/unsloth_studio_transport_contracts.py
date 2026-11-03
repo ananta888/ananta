@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from agent.services.jmap_endpoint_policy import ValidatedJmapEndpoint
+from ananta_contracts.jmap_endpoint_policy import ValidatedJmapEndpoint
 
 MAX_CONNECT_TIMEOUT_SECONDS = 2.0
 MAX_TOTAL_TIMEOUT_SECONDS = 10.0

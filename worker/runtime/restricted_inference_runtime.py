@@ -18,7 +18,7 @@ from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceStatus,
     validate_response_for_request,
 )
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ModelManifestValidationError,
     VerifiedModelSnapshot,
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.services.mail_secret_resolver import (
+from ananta_contracts.mail_secret_resolver import (
     EnvFileMailSecretResolver,
     MailSecretResolutionError,
     StoreMailSecretResolver,

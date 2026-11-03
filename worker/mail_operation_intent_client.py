@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
-from agent.services.mail_mutation_policy import MailMutationAuthorization
+from ananta_contracts.mail_mutation_policy import MailMutationAuthorization
 from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,

@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-03T15:16:09+0100",
+  "updated": "2026-11-03T19:28:15+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -1246,8 +1246,8 @@
         "agent.services haengen nicht an worker.*-Implementierungen; Strategies werden injiziert.",
         "check_worker_boundaries (CLN-055) ist gruen."
       ],
-      "implementation_notes": "Erster Slice: 4 geteilte Vertragsmodule nach ananta_contracts/ verschoben (model_routing_contract, restricted_inference_contract, mail_contract_service, mail_provider_ports - alle services-frei verifiziert), RoutingContext als Contract-Typ invertiert (Resolver re-exportiert), 99 Dateien rewired. Boundary-Gate gruen (205->202 sites, keine neuen), Security-Allowlist gestutzt. Offen: die ~110 worker->agent.services Imports auf konkrete Services (llm_response_normalizer, model_invocation_service, mail_*-Services, ...) ueber Ports/Injection entkoppeln; baseline wegtuen wenn alle Rule-A/B-Files klar sind.",
-      "progress_percent": 40
+      "implementation_notes": "Wave 1: 4 geteilte Vertragsmodule + strategy_prompt_composer services-frei nach ananta_contracts/ verschoben, RoutingContext invertiert, ~200 Stellen gerewired. Baseline 205->189 Sites, 89->83 Files (10 Eintraege getilgt, Gates gruen). knowledge_hygiene/Tools bewusst ZURUECKVERLEGT: beide haben harte agent.-/worker.-Abhaengigkeiten (28 Imports) und gehoeren nicht ins Contracts-Charter - ihre Rule-A-Imports brauchen Port-Extraktion + Injection wie die uebrigen ~110 konkret-service-Abhaengigkeiten (llm_response_normalizer braucht zudem eine Inversion: worker.core.propose-Typen nach ananta_contracts).",
+      "progress_percent": 55
     },
     {
       "id": "CLN-055",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.services.jmap_endpoint_policy import (
+from ananta_contracts.jmap_endpoint_policy import (
     JmapEndpointPolicy,
     JmapEndpointPolicyConfig,
     JmapEndpointPolicyError,

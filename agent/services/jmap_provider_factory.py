@@ -11,7 +11,7 @@ from agent.services.jmap_discovery_service import (
     JmapLifecycleService,
     JmapSessionRegistry,
 )
-from agent.services.jmap_endpoint_policy import JmapEndpointPolicy
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy
 from agent.services.jmap_http_transport import JmapHttpTransport
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
 from agent.services.jmap_mail_read_provider import JmapMailReadProvider
@@ -20,7 +20,7 @@ from agent.services.mail_body_service import MailBodyService
 from ananta_contracts.mail_contract_service import MailAccountV2, MailMessageRefV2
 from agent.services.mail_domain_mapper import MailboxLocatorResolver, MailDomainMapper
 from agent.services.mail_feature_policy import MailFeaturePolicy, MailRuntimeAvailabilityPolicy
-from agent.services.mail_mutation_policy import MailMutationPolicy
+from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import (
     MailAttachment,
     MailAuthMaterial,

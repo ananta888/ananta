@@ -22,7 +22,7 @@ from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceResponse,
     RestrictedInferenceStatus,
 )
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
     FORMAT_SAFETENSORS,
     ROLE_CONFIG,

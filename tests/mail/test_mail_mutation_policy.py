@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent.services.mail_mutation_policy import MailMutationPolicy
+from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import MailProviderResult
 
 

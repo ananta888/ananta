@@ -10,7 +10,7 @@ import pytest
 
 from agent.services.model_inference_adapters import AdapterStatus
 from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
     FORMAT_SAFETENSORS,
     ROLE_WEIGHTS,

@@ -56,10 +56,8 @@ worker/core/json_schema_llm_strategy.py  # rule A
 worker/core/tool_calling_llm_strategy.py  # rule A
 worker/core/worker_strategy.py  # rule A
 worker/hrm_experiments/runner.py  # rule A
-worker/imap_runtime_client.py  # rule A
 worker/knowledge_hygiene/handlers.py  # rule A
 worker/local_runtime_capability_handler.py  # rule A
-worker/mail_operation_intent_client.py  # rule A
 worker/mail_provider_task_execution.py  # rule A
 worker/mail_sync_transaction_adapter.py  # rule A
 worker/mail_task_composition.py  # rule A
@@ -83,11 +81,7 @@ worker/runtime/native_graph/execution_adapter.py  # rule A
 worker/runtime/native_graph/pi_node.py  # rule A
 worker/runtime/native_graph/pi_process.py  # rule A
 worker/runtime/native_graph/ports.py  # rule A
-worker/runtime/restricted_inference_admission.py  # rule A
-worker/runtime/restricted_inference_app.py  # rule A
 worker/runtime/restricted_inference_executor.py  # rule A
-worker/runtime/restricted_inference_registry.py  # rule A
-worker/runtime/restricted_inference_runtime.py  # rule A
 worker/runtime/workflow_adapter_runtime_composition.py  # rule A
 worker/runtime/workflow_adapter_worker_profile.py  # rule A
 worker/training/unsloth_mcp_control.py  # rule A

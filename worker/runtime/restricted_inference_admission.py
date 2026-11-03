@@ -13,7 +13,7 @@ import re
 import stat
 from pathlib import Path
 
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ModelManifestValidationError,
     ModelSnapshotValidator,
     RestrictedModelManifest,

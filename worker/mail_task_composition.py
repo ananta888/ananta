@@ -12,7 +12,7 @@ from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
 from agent.services.imap_connector_service import ImapConnectorService
 from agent.services.imap_provider_adapter import ImapProviderAdapter
 from agent.services.jmap_auth_service import JmapAuthService
-from agent.services.jmap_endpoint_policy import (
+from ananta_contracts.jmap_endpoint_policy import (
     JmapEndpointPolicy,
     JmapEndpointPolicyConfig,
 )
@@ -23,7 +23,7 @@ from agent.services.jmap_provider_factory import (
 )
 from agent.services.mail_account_service import MailAccountService
 from agent.services.mail_feature_policy import MailFeaturePolicy
-from agent.services.mail_mutation_policy import (
+from ananta_contracts.mail_mutation_policy import (
     MailMutationAuthorization,
     MailMutationPolicy,
     VerifiedIntentMutationAuthorizer,
@@ -37,7 +37,7 @@ from agent.services.mail_runtime_policy import (
 from agent.services.mail_runtime_state_adapters import (
     PersistentMailboxLocatorStore,
 )
-from agent.services.mail_secret_resolver import (
+from ananta_contracts.mail_secret_resolver import (
     EnvFileMailSecretResolver,
     MailAccountAuthResolver,
 )

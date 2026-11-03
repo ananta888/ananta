@@ -8,7 +8,7 @@ from agent.services.model_intelligence_snapshot_admission import (
     AdmittedAnalysisSnapshot,
     AnalysisSnapshotManifest,
 )
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     VerifiedModelSnapshot,
 )
 from worker.model_intelligence.lora_delta_analyzer import (

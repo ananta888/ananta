@@ -9,7 +9,7 @@ import pytest
 from agent.services.model_inference_adapters import AdapterStatus, ClassificationResult
 from agent.services.restricted_inference_cache import RestrictedInferenceCache
 from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation, RestrictedInferenceRequest
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
     FORMAT_SAFETENSORS,
     ROLE_WEIGHTS,

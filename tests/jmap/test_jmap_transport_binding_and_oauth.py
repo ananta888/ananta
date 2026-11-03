@@ -17,7 +17,7 @@ from agent.services.jmap_discovery_service import (
     JmapLifecycleService,
     JmapSessionRegistry,
 )
-from agent.services.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import (
     JmapHttpResponse,
     JmapHttpTransport,

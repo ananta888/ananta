@@ -21,7 +21,7 @@ from collections.abc import (
 from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
-from agent.services.jmap_endpoint_policy import (
+from ananta_contracts.jmap_endpoint_policy import (
     JmapEndpointPolicy,
     JmapEndpointPolicyConfig,
     JmapEndpointPolicyError,

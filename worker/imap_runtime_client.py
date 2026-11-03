@@ -12,7 +12,7 @@ from email.header import decode_header, make_header
 from email.parser import BytesParser
 from typing import Any, Callable
 
-from agent.services.jmap_endpoint_policy import JmapEndpointPolicy
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy
 from ananta_contracts.mail_contract_service import subject_hash
 
 _HOST = re.compile(r"^[A-Za-z0-9.-]{1,253}$")

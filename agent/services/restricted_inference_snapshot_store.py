@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from agent.services.restricted_inference_model_manifest import (
+from ananta_contracts.restricted_inference_model_manifest import (
     SOURCE_HUGGINGFACE_SNAPSHOT,
     ModelManifestValidationError,
     ModelSnapshotValidator,

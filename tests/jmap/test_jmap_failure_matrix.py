@@ -14,7 +14,7 @@ from agent.services.jmap_contract_service import (
     JmapMethodCall,
     JmapSessionDocument,
 )
-from agent.services.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import (
     JmapHttpResponse,
     JmapHttpTransport,
@@ -28,7 +28,7 @@ from ananta_contracts.mail_contract_service import (
     stable_mail_ref_id,
 )
 from agent.services.mail_feature_policy import JmapRuntimeLimits, MailFeaturePolicy
-from agent.services.mail_mutation_policy import MailMutationPolicy
+from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import (
     MailAuthMaterial,
     MailDeleteRequest,

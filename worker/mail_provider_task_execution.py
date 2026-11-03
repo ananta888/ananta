@@ -23,7 +23,7 @@ from ananta_contracts.mail_provider_ports import (
     MailProviderResult,
     MailSyncCursor,
 )
-from agent.services.mail_secret_resolver import MailAccountAuthResolver
+from ananta_contracts.mail_secret_resolver import MailAccountAuthResolver
 from worker.mail_operation_intent_client import (
     HubMailContentAccessPolicy,
     MailOperationIntentClient,

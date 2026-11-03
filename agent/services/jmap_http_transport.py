@@ -11,7 +11,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
-from agent.services.jmap_endpoint_policy import (
+from ananta_contracts.jmap_endpoint_policy import (
     JmapEndpointPolicy,
     JmapEndpointPolicyError,
     ValidatedJmapEndpoint,
