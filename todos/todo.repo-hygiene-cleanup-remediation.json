@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-03T15:04:35+0100",
+  "updated": "2026-11-03T15:16:09+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -1355,7 +1355,7 @@
       "title": "current_app Service-Locator durch Injection ersetzen (heisseste zuerst)",
       "description": "2408 current_app-family-Usages in agent/services/ (108 Dateien), 20 Dateien cachen in current_app.extensions. Domain haengt am Framework-Container -> untestbar ohne App-Context. Konstruktor-Injection + di.py-style late binding als Bridge; heisseste Services zuerst.",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
@@ -1367,8 +1367,8 @@
         "Services sind ohne App-Context testbar.",
         "Pattern in AGENTS.md dokumentiert (kombiniert mit CLN-035)."
       ],
-      "implementation_notes": "DIP; grosser Aufwand, inkrementell heisseste zuerst. Repo hat die richtige Idee zweimal (di.py, CliBackendContext) - auf EINS konvergieren.",
-      "progress_percent": 0
+      "implementation_notes": "Heissester Service erledigt: memory_runtime.py (12 current_app-Usages) auf MemoryRuntimeDependencies injiziert (extensions/role/request_state, lazy Flask-Defaults); HubMemoryRuntime-Body ist flask-frei und ohne App-Context testbar. Pattern in AGENTS.md dokumentiert. Offen: die restlichen ~107 services-Dateien (voice_provider, semantic_compute_execution_service, task_recovery_approval_saga, ...) nachziehen; 23 Dateien mit current_app.extensions-Caching.",
+      "progress_percent": 15
     },
     {
       "id": "CLN-061",
@@ -1696,9 +1696,9 @@
     "CLN-074"
   ],
   "tasks_status_summary": {
-    "todo": 33,
+    "todo": 32,
     "done": 30,
-    "partial": 12
+    "partial": 13
   },
   "progress_summary": {
     "state": "in_progress",

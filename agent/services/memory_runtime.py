@@ -3,10 +3,12 @@
 import logging
 import time
 import uuid
+from collections.abc import MutableMapping
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Callable
 
-from flask import current_app, g, has_app_context, has_request_context
 from sqlmodel import Session
 
 from agent.adapters.ephemeral_scratchpad_store import InMemoryScratchpadStore
@@ -31,10 +33,59 @@ from ananta_contracts.memory_access import (
 )
 
 
+@dataclass(frozen=True)
+class MemoryRuntimeDependencies:
+    """Framework access seam (DIP): production defaults read Flask lazily.
+
+    The runtime is exercisable without an app or request context: tests
+    inject plain callables while production wiring resolves the framework
+    containers at call time.
+    """
+
+    extensions: Callable[[], MutableMapping[str, Any]]
+    role: Callable[[], str | None]
+    request_state: Callable[[], dict | None]
+
+
+def _default_extensions() -> MutableMapping[str, Any]:
+    from flask import current_app, has_app_context
+
+    return current_app.extensions if has_app_context() else {}
+
+
+def _default_role() -> str | None:
+    from flask import current_app, has_app_context
+
+    if not has_app_context():
+        return None
+    # ROLE is the production bootstrap key; AGENT_ROLE supports older explicit compositions.
+    return current_app.config["ROLE"] if "ROLE" in current_app.config else current_app.config.get("AGENT_ROLE")
+
+
+def _default_request_state() -> dict | None:
+    from flask import g, has_request_context
+
+    if not has_request_context():
+        return None
+    return {
+        "service_identity": dict(getattr(g, "service_identity", {}) or {}),
+        "user": dict(getattr(g, "user", {}) or {}),
+        "is_admin": bool(getattr(g, "is_admin", False)),
+    }
+
+
+PRODUCTION_MEMORY_RUNTIME_DEPENDENCIES = MemoryRuntimeDependencies(
+    extensions=_default_extensions,
+    role=_default_role,
+    request_state=_default_request_state,
+)
+
+
 class HubMemoryRuntime:
-    def __init__(self, engine, *, clock=time.time):
+    def __init__(self, engine, *, clock=time.time, dependencies: MemoryRuntimeDependencies | None = None):
         self.engine = engine
         self.clock = clock
+        self._deps = dependencies or PRODUCTION_MEMORY_RUNTIME_DEPENDENCIES
         self.policies = SQLMemoryRunPolicyRepository(engine, clock=clock, hub_read_authority=self._allow_read)
         self.snapshots = MemorySnapshotService(repository=SQLMemorySnapshotRepository(engine, clock=clock))
         catalog = Path(__file__).resolve().parents[2] / "config/security/memory-channels.v1.json"
@@ -76,7 +127,8 @@ class HubMemoryRuntime:
                 self.scratchpad.discard_run(namespace)
 
     def _allow_read(self, policy, task):
-        if not has_request_context():
+        extensions = self._deps.extensions()
+        if self._deps.request_state() is None:
             return False
         from agent.auth import get_authenticated_source_control_principal
         from agent.services.organization_membership_service import OrganizationMembershipService
@@ -85,12 +137,12 @@ class HubMemoryRuntime:
         principal = get_authenticated_source_control_principal()
         if principal.subject_id != policy.actor.subject:
             return False
-        access = current_app.extensions.get("task_read_access_service") or get_task_read_access_service()
+        access = extensions.get("task_read_access_service") or get_task_read_access_service()
         access.require(
             task=task,
             principal=principal,
-            project_access=current_app.extensions.get("project_access_authority"),
-            organization_membership=current_app.extensions.get("organization_membership_service")
+            project_access=extensions.get("project_access_authority"),
+            organization_membership=extensions.get("organization_membership_service")
             or OrganizationMembershipService(),
         )
         if any(grant.scope == MemoryScope.goal for grant in policy.capabilities):
@@ -100,8 +152,7 @@ class HubMemoryRuntime:
                 return False
         return True
 
-    @staticmethod
-    def _allow_goal(goal, namespace):
+    def _allow_goal(self, goal, namespace):
         if goal is None or (goal.tenant_id, goal.project_id, goal.id) != (
             namespace.tenant_id,
             namespace.workspace_id,
@@ -110,14 +161,14 @@ class HubMemoryRuntime:
             return False
         from agent.services.goal_service import get_goal_service
 
-        return get_goal_service().can_access_goal(
-            goal, dict(getattr(g, "user", {}) or {}), bool(getattr(g, "is_admin", False))
-        )
+        state = self._deps.request_state() or {}
+        return get_goal_service().can_access_goal(goal, dict(state.get("user") or {}), bool(state.get("is_admin")))
 
     @contextmanager
     def worker_result(self, task_id, worker_job_id):
         """Authorize result admission before the actual dispatch lease is terminalized."""
-        if not has_request_context():
+        service_identity = self._deps.request_state()
+        if service_identity is None:
             raise MemoryAccessError("memory_run_context_required")
         with Session(self.engine) as session:
             task = session.get(TaskDB, task_id)
@@ -125,7 +176,7 @@ class HubMemoryRuntime:
             lease = session.get(WorkerSlotLeaseDB, job.slot_lease_id) if job and job.slot_lease_id else None
             if not task or not job or not lease or not task.tenant_id or not task.project_id or not lease.worker_id:
                 raise MemoryAccessError("memory_dispatch_binding_required")
-        authenticated_worker = dict(getattr(g, "service_identity", {}) or {}).get("worker_id")
+        authenticated_worker = (service_identity.get("service_identity") or {}).get("worker_id")
         if authenticated_worker != lease.worker_id:
             from agent.auth import get_authenticated_source_control_principal
             from agent.services.project_access_authority import ProjectCapability
@@ -137,7 +188,7 @@ class HubMemoryRuntime:
                 raise MemoryAccessError("memory_worker_actor_mismatch")
             if principal.project_id and principal.project_id != task.project_id:
                 raise MemoryAccessError("memory_worker_actor_mismatch")
-            authority = current_app.extensions.get("project_access_authority")
+            authority = self._deps.extensions().get("project_access_authority")
             if authority is None:
                 raise MemoryAccessError("memory_policy_unavailable")
             from agent.services.project_access_authority import ProjectAccessError
@@ -185,7 +236,8 @@ class HubMemoryRuntime:
     @contextmanager
     def request_read(self, task_id):
         """Only authenticated Hub request authority, reusing current Task/project ACLs."""
-        if not has_request_context():
+        extensions = self._deps.extensions()
+        if self._deps.request_state() is None:
             raise MemoryAccessError("memory_run_context_required")
         from agent.auth import get_authenticated_source_control_principal
         from agent.services.organization_membership_service import OrganizationMembershipService
@@ -198,12 +250,12 @@ class HubMemoryRuntime:
                 raise MemoryAccessError("memory_namespace_unclassified")
             payload = task.model_dump()
             goal = session.get(GoalDB, task.goal_id) if task.goal_id else None
-        access = current_app.extensions.get("task_read_access_service") or get_task_read_access_service()
+        access = extensions.get("task_read_access_service") or get_task_read_access_service()
         access.require(
             task=payload,
             principal=principal,
-            project_access=current_app.extensions.get("project_access_authority"),
-            organization_membership=current_app.extensions.get("organization_membership_service")
+            project_access=extensions.get("project_access_authority"),
+            organization_membership=extensions.get("organization_membership_service")
             or OrganizationMembershipService(),
         )
         actor = MemoryActor(task.tenant_id, principal.subject_id)
@@ -235,7 +287,7 @@ class HubMemoryRuntime:
 
 def discard_terminal_task_scratchpad(task):
     """Hub post-commit adapter; no runtime allocation for tasks without scratchpads."""
-    if not has_app_context() or "hub_memory_runtime" not in current_app.extensions:
+    if PRODUCTION_MEMORY_RUNTIME_DEPENDENCIES.extensions().get("hub_memory_runtime") is None:
         return 0
     try:
         return get_memory_runtime().discard_task_scratchpad(task)
@@ -247,13 +299,13 @@ def discard_terminal_task_scratchpad(task):
 
 
 def get_memory_runtime():
-    if not has_app_context():
+    extensions = PRODUCTION_MEMORY_RUNTIME_DEPENDENCIES.extensions()
+    if not extensions:
         raise MemoryAccessError("memory_hub_context_required")
-    # ROLE is the production bootstrap key; AGENT_ROLE supports older explicit compositions.
-    role = current_app.config["ROLE"] if "ROLE" in current_app.config else current_app.config.get("AGENT_ROLE")
+    role = PRODUCTION_MEMORY_RUNTIME_DEPENDENCIES.role()
     if str(role or "").strip().lower() != "hub":
         raise MemoryAccessError("memory_hub_context_required")
-    runtime = current_app.extensions.get("hub_memory_runtime")
+    runtime = extensions.get("hub_memory_runtime")
     if runtime is None:
         from agent.database import engine
 
@@ -261,7 +313,7 @@ def get_memory_runtime():
             runtime = HubMemoryRuntime(engine)
         except Exception as exc:
             raise MemoryAccessError("memory_policy_unavailable") from exc
-        current_app.extensions["hub_memory_runtime"] = runtime
+        extensions["hub_memory_runtime"] = runtime
     return runtime
 
 

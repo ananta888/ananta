@@ -169,6 +169,15 @@ Neue LLM-CLI-Backends gehören in `agent/cli_backends/`. Production-Code
 importiert aus dem neuen Namespace — direkte `from agent.common.sgpt_X`
 Imports in Production-Code werden vom Detektor gemeldet.
 
+**Service-Konstruktion (DIP, CLN-060):** Domain-Services lokalisieren
+Framework-Zustand nicht über `current_app`/`g`. Konstruktor-Injection mit
+lazien Flask-Defaults (frozen-Dependencies-Dataclasses, z.B.
+`MemoryRuntimeDependencies`, `WorkerWorkspaceService`-Provider) hält die
+Domain ohne App-/Request-Context testbar; die Produktions-Defaults sind die
+einzige Flask-Bindung. Geteilte Hub/Worker-Typen gehören nach
+`ananta_contracts.*` (services-frei verifiziert) — Worker importieren dort
+und nicht aus `agent.services`.
+
 The standalone Meet media Worker image deliberately excludes the Hub `agent`
 package. Its execution ports and preserved SRP/DIP debt are documented in
 `docs/architecture/meet-hub-worker-boundaries.md`. For changes to
