@@ -101,6 +101,16 @@ def get_config():
     return api_response(data=cfg)
 
 
+@settings_bp.route("/config/effective", methods=["GET"])
+@check_auth
+@operation_gate("api.config.get")
+def get_effective_config():
+    """Merged configuration with per-key layer attribution (secrets redacted)."""
+    from agent.services.config_effective_view import build_effective_config_view
+
+    return api_response(data=build_effective_config_view())
+
+
 def _context_window_summary(cfg: dict) -> dict:
     try:
         from agent.context_profile import describe_context_window

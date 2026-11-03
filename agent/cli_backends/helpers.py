@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -41,6 +43,13 @@ def _get_runtime_default_provider(*, backend_settings: Any | None = None) -> str
 
 
 def _resolve_profile_api_key(profile_name: str | None) -> str | None:
+    """Resolve a named API-key profile to its secret.
+
+    Profile entries are a literal secret string, or a dict with one of
+    ``api_key`` (literal), ``env`` (environment variable name) or ``file``
+    (path to a secret file). ``env``/``file`` keep the secret out of the
+    editable configuration entirely.
+    """
     profile_name = str(profile_name or "").strip()
     if not profile_name:
         return None
@@ -52,6 +61,15 @@ def _resolve_profile_api_key(profile_name: str | None) -> str | None:
     if isinstance(selected, str):
         return selected.strip() or None
     if isinstance(selected, dict):
+        env_name = str(selected.get("env") or "").strip()
+        if env_name:
+            return os.environ.get(env_name) or None
+        file_path = str(selected.get("file") or "").strip()
+        if file_path:
+            try:
+                return Path(file_path).read_text(encoding="utf-8").strip() or None
+            except OSError:
+                return None
         return str(selected.get("api_key") or "").strip() or None
     return None
 
