@@ -23,7 +23,7 @@ from agent.services.self_development.budget import (
 )
 from agent.services.self_development.catalog import catalog, import_document
 from agent.services.self_development.publisher import Publisher
-from agent.services.self_development.state import Journal
+from agent.services.self_development.state import Journal, JournalTransaction
 from agent.services.self_development.workspace import (
     export_checkout,
     git,
@@ -252,66 +252,72 @@ class DevelopmentCoordinator:
     def retry(self, *, reset_attempts: bool = False):
         from agent.services.self_development.retries import prepare_retry
 
-        with self.journal.locked():
-            state = self.journal.read()
-            self._check_session(state)
-            if reset_attempts and self.policy.value.get("attempt_reset") is not True:
-                raise ValueError("development_attempt_reset_denied")
-            count = 0
-            for item in state["items"].values():
-                if item["status"] not in {"failed", "publication_failed"}:
-                    continue
-                if reset_attempts:
-                    item["attempts"] = []
-                if self._publication_retryable(item):
-                    # The change is sealed and reviewed; only the publication (push)
-                    # failed. Re-run exactly that step instead of burning a full
-                    # execution attempt on already verified work.
-                    try:
-                        self.publisher.publish(
-                            item, lambda: self._verify(state, item), lambda: self.journal.write(state)
-                        )
-                        self._release_dependencies(state)
-                        count += 1
-                    except Exception as exc:
-                        item["reason"] = str(exc)[:240]
-                        self.journal.write(state)
-                    continue
-                if prepare_retry(item, self.policy, state, self.queue):
+        txn = JournalTransaction(self.journal)
+        state = txn.begin()
+        self._check_session(state)
+        if reset_attempts and self.policy.value.get("attempt_reset") is not True:
+            raise ValueError("development_attempt_reset_denied")
+        count = 0
+        for item in state["items"].values():
+            if item["status"] not in {"failed", "publication_failed"}:
+                continue
+            if reset_attempts:
+                item["attempts"] = []
+            if self._publication_retryable(item):
+                # The change is sealed and reviewed; only the publication (push)
+                # failed. Re-run exactly that step instead of burning a full
+                # execution attempt on already verified work.
+                try:
+                    self.publisher.publish(item, lambda: self._verify(txn.state, item), lambda: txn.write())
+                    self._release_dependencies(txn)
                     count += 1
-            self.journal.write(state)
+                except Exception as exc:
+                    item["reason"] = str(exc)[:240]
+                    txn.write()
+                continue
+            if prepare_retry(item, self.policy, txn.state, self.queue):
+                count += 1
+        txn.write()
         return {"retried": count, **self.status()}
 
     def deduplicate(self):
         """Fold content-identical backlog items into one canonical item per work."""
         from agent.services.self_development.deduplication import group_duplicates
 
-        with self.journal.locked():
-            state = self.journal.read()
-            groups = group_duplicates(list(state["items"].values()))
-            cancelled = 0
-            report: list[dict] = []
-            for group in groups:
-                canonical = group["canonical"]
-                canonical_todo = str(canonical.get("todo_id") or "")
-                dropped = []
-                for dup in group["duplicates"]:
-                    dup_todo = str(dup.get("todo_id") or "")
-                    for other in state["items"].values():
-                        if other is dup or other is canonical or str(other.get("status") or "") == "cancelled":
-                            continue
-                        deps = other.get("dependencies")
-                        if isinstance(deps, list) and dup_todo in deps:
-                            other["dependencies"] = [canonical_todo if d == dup_todo else d for d in deps]
-                            self._redirect_task_dependency(other, dup, canonical)
-                    dup["status"] = "cancelled"
-                    dup["reason"] = "deduplicated:" + canonical_todo
-                    dup["dedup_of"] = canonical_todo
-                    self._cancel_item_tasks(dup, reason="self_development_deduplicated")
-                    dropped.append(dup_todo)
-                    cancelled += 1
-                report.append({"canonical": canonical_todo, "duplicates": dropped})
-            self.journal.write(state)
+        txn = JournalTransaction(self.journal)
+        state = txn.begin()
+        groups = group_duplicates(list(state["items"].values()))
+        cancelled = 0
+        report: list[dict] = []
+        cleanup: list[dict] = []
+        redirects: list[tuple[dict, dict, dict]] = []
+        for group in groups:
+            canonical = group["canonical"]
+            canonical_todo = str(canonical.get("todo_id") or "")
+            dropped = []
+            for dup in group["duplicates"]:
+                dup_todo = str(dup.get("todo_id") or "")
+                for other in state["items"].values():
+                    if other is dup or other is canonical or str(other.get("status") or "") == "cancelled":
+                        continue
+                    deps = other.get("dependencies")
+                    if isinstance(deps, list) and dup_todo in deps:
+                        other["dependencies"] = [canonical_todo if d == dup_todo else d for d in deps]
+                        redirects.append((other, dup, canonical))
+                dup["status"] = "cancelled"
+                dup["reason"] = "deduplicated:" + canonical_todo
+                dup["dedup_of"] = canonical_todo
+                cleanup.append(dup)
+                dropped.append(dup_todo)
+                cancelled += 1
+            report.append({"canonical": canonical_todo, "duplicates": dropped})
+        txn.write()
+        # Hub-task side effects run unlocked: the journal is already consistent
+        # and the task mutation locks must never nest inside the journal lock.
+        for dup in cleanup:
+            self._cancel_item_tasks(dup, reason="self_development_deduplicated")
+        for other, dup, canonical in redirects:
+            self._redirect_task_dependency(other, dup, canonical)
         return {"cancelled": cancelled, "groups": report, **self.status()}
 
     def _cancel_item_tasks(self, item, *, reason: str):
@@ -376,55 +382,74 @@ class DevelopmentCoordinator:
         )
 
     def dispatch(self, task, worker, execute):
-        from agent.ports.task_dispatch import TaskDispatchResult
+        """Run one admitted development attempt in bounded journal-lock phases.
 
-        with self.journal.locked():
-            state = self.journal.read()
-            review_item = next((i for i in state["items"].values() if i.get("review_task_id") == task.id), None)
-            if review_item is not None:
-                return self._dispatch_review(state, review_item, task, worker, execute)
-            item = next((i for i in state["items"].values() if i["task_id"] == task.id), None)
-            if item is None:
-                update_local_task_status(task.id, "cancelled", event_type="self_development_stale_attempt_rejected")
-                return TaskDispatchResult(task.id, failed=True, failure_type="stale_development_attempt")
-            try:
-                self._check_session(state)
-                if item["status"] != "ready":
-                    raise ValueError("development_task_not_ready")
-                if not item.get("contract"):
-                    self._admit_planned_contract(state, item)
-                state["session"]["dispatched"] += 1
-                item["status"] = "running"
-                self.journal.write(state)
-                result = self._execute(state, item, task, worker, execute)
-                if item["status"] == "pending_review":
-                    result.completed, result.failed = False, True
-                    result.failure_type = "development_awaiting_acceptance_review"
-                elif item["status"] != "published":
-                    result.completed, result.failed = False, True
-                    result.failure_type = "development_not_published"
-                return result
-            except Exception as exc:
-                was_running = item["status"] == "running"
-                item["status"] = "publication_failed" if item.get("outcome", {}).get("verified") else "failed"
-                item["reason"] = str(exc)[:240]
-                self.journal.write(state)
-                update_local_task_status(task.id, "failed", last_output=item["reason"])
-                if was_running:
-                    from agent.services.self_development.retries import prepare_retry
-
-                    prepare_retry(item, self.policy, state, self.queue)
-                    self.journal.write(state)
-                return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="self_development_failed")
-
-    def _dispatch_review(self, state, item, task, worker, execute):
-        """Execute the separately queued independent review, then publish on pass.
-
-        Runs inside the review Task's own dispatch, so the development dispatch has
-        already been released; the queue behind this dispatch is never awaited here.
+        Only the journal transitions hold the project lock; the planner LLM
+        call, the worker execution and the publication push run unlocked so
+        admin operations (import/retry/dedup/stop) stay responsive while work
+        is in flight. The optimistic per-item merge in ``JournalTransaction``
+        keeps concurrent changes authoritative.
         """
         from agent.ports.task_dispatch import TaskDispatchResult
 
+        txn = JournalTransaction(self.journal)
+        state = txn.begin()
+        review_item = next((i for i in state["items"].values() if i.get("review_task_id") == task.id), None)
+        if review_item is not None:
+            return self._dispatch_review(txn, review_item, task, worker, execute)
+        item = next((i for i in state["items"].values() if i["task_id"] == task.id), None)
+        if item is None:
+            update_local_task_status(task.id, "cancelled", event_type="self_development_stale_attempt_rejected")
+            return TaskDispatchResult(task.id, failed=True, failure_type="stale_development_attempt")
+        item_key = str(item.get("key") or "")
+        try:
+            self._check_session(state)
+            if item["status"] != "ready":
+                raise ValueError("development_task_not_ready")
+            if not item.get("contract"):
+                self._admit_planned_contract(txn, item)
+            state["session"]["dispatched"] += 1
+            item["status"] = "running"
+            if not txn.write(owned_key=item_key):
+                return TaskDispatchResult(
+                    task.id, dispatched=True, failed=True, failure_type="self_development_attempt_superseded"
+                )
+            result = self._execute(txn, item, task, worker, execute)
+            if item["status"] == "pending_review":
+                result.completed, result.failed = False, True
+                result.failure_type = "development_awaiting_acceptance_review"
+            elif item["status"] != "published":
+                result.completed, result.failed = False, True
+                result.failure_type = "development_not_published"
+            if not txn.write(owned_key=item_key):
+                result.completed, result.failed = False, True
+                result.failure_type = "self_development_attempt_superseded"
+            return result
+        except Exception as exc:
+            was_running = item["status"] == "running"
+            item["status"] = "publication_failed" if item.get("outcome", {}).get("verified") else "failed"
+            item["reason"] = str(exc)[:240]
+            if was_running:
+                from agent.services.self_development.retries import prepare_retry
+
+                try:
+                    prepare_retry(item, self.policy, txn.state, self.queue)
+                except Exception:
+                    logging.getLogger(__name__).exception("self_development_retry_prepare_failed")
+            txn.write(owned_key=item_key)
+            update_local_task_status(task.id, "failed", last_output=item["reason"])
+            return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="self_development_failed")
+
+    def _dispatch_review(self, txn, item, task, worker, execute):
+        """Execute the separately queued independent review, then publish on pass.
+
+        Runs inside the review Task's own dispatch with the same bounded
+        journal-lock phases as the development dispatch.
+        """
+        from agent.ports.task_dispatch import TaskDispatchResult
+
+        state = txn.state
+        item_key = str(item.get("key") or "")
         try:
             self._check_session(state)
             if item["status"] != "pending_review":
@@ -456,7 +481,7 @@ class DevelopmentCoordinator:
             task.worker_execution_context = context
             task.description = begin["brief"]
             item["review_assignment"] = dict(begin["projection"])
-            self.journal.write(state)
+            txn.write(owned_key=item_key)
             execute()
             self._check_live(state)
             from agent.services.self_development.final_answer_artifact import review_answer_retry_pending
@@ -491,13 +516,17 @@ class DevelopmentCoordinator:
             item["acceptance_review"] = asdict(receipt)
             item["acceptance_review_evidence"] = self._review_evidence(None)
             item["status"] = "review_passed"
-            self._finalize_publication(state, item)
+            self._finalize_publication(txn, item)
+            if not txn.write(owned_key=item_key):
+                return TaskDispatchResult(
+                    task.id, dispatched=True, failed=True, failure_type="self_development_attempt_superseded"
+                )
             return TaskDispatchResult(task.id, dispatched=True, completed=True)
         except Exception as exc:
             item["status"] = "failed"
             item["reason"] = "acceptance_review_failed:" + str(exc)[:220]
             item["acceptance_review_evidence"] = self._review_evidence(exc)
-            self.journal.write(state)
+            txn.write(owned_key=item_key)
             update_local_task_status(task.id, "failed", last_output=item["reason"])
             return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="acceptance_review_failed")
 
@@ -558,7 +587,7 @@ class DevelopmentCoordinator:
             raise ValueError("planning_source_context_unavailable")
         return PlanningEnvelope.from_policy(self.policy, (matches or allowed)[:400], source_context=research)
 
-    def _admit_planned_contract(self, state, item):
+    def _admit_planned_contract(self, txn, item):
         from agent.services.self_development.contracts import task_contract
 
         if self.planner is None:
@@ -585,12 +614,14 @@ class DevelopmentCoordinator:
             item["source_execution"] = execution
             item["planned"] = True
             item["reason"] = "planned_contract_admitted"
-            self.journal.write(state)
+            txn.write(owned_key=str(item.get("key") or ""))
             return
         raise ValueError("planned_admission_failed:" + (error or "unknown"))
 
-    def _execute(self, state, item, task, worker, execute):
+    def _execute(self, txn, item, task, worker, execute):
         policy = self.policy
+        state = txn.state
+        item_key = str(item.get("key") or "")
         profile = policy.authorize_contract(item["contract"])
         item["revision"] = git(policy.checkout, "rev-parse", "HEAD")
         item["worker_url"] = str(worker.url)
@@ -690,7 +721,7 @@ class DevelopmentCoordinator:
             task.worker_execution_context = context
             task.description = description
             item["assignment"] = dict(projection)
-            self.journal.write(state)
+            txn.write(owned_key=item_key)
             dispatch_result = execute()
             if not dispatch_result.completed and not self._recover_lost_dispatch(
                 task.id, str(worker.url), profile, workspace
@@ -765,25 +796,31 @@ class DevelopmentCoordinator:
 
         outcome = self.gate.execute(request, run)
         item["outcome"] = asdict(outcome)
-        self.journal.write(state)
+        txn.write(owned_key=item_key)
         if not outcome.passed or not outcome.verified:
             raise ValueError("development_evidence_gate_failed:" + outcome.reason_code)
         if item["status"] == "pending_review":
             # Development evidence is sealed and Registry-bound; publication waits for
             # the separately dispatched independent review to pass.
             return dispatch_result
-        self._finalize_publication(state, item)
+        self._finalize_publication(txn, item)
         return dispatch_result
 
-    def _finalize_publication(self, state, item):
+    def _finalize_publication(self, txn, item):
         from agent.services.self_development.completion import seal_completion
 
         seal_completion(self.policy, item)
-        self.journal.write(state)
-        self.publisher.publish(item, lambda: self._verify(state, item), lambda: self.journal.write(state))
-        self._release_dependencies(state)
+        item_key = str(item.get("key") or "")
+        txn.write(owned_key=item_key)
+        self.publisher.publish(
+            item,
+            lambda: self._verify(txn.state, item),
+            lambda: txn.write(owned_key=item_key),
+        )
+        self._release_dependencies(txn)
 
-    def _release_dependencies(self, state):
+    def _release_dependencies(self, txn):
+        state = txn.state
         for item in state["items"].values():
             if item.get("reason") not in {"dependencies_not_published", "dependency_not_published"}:
                 continue
@@ -798,7 +835,7 @@ class DevelopmentCoordinator:
                 item["status"], item["reason"] = "ready", None
                 update_local_task_status(item["task_id"], "todo")
         self._sweep_dependencies(state)
-        self.journal.write(state)
+        txn.write()
 
     def _sweep_dependencies(self, state):
         """Mark tasks whose prerequisite can never publish as ``skipped``.

@@ -125,9 +125,14 @@ def _cancel_superseded_review(item):
         return
     from agent.services.task_runtime_service import update_local_task_status
 
-    update_local_task_status(
-        review_task_id,
-        "cancelled",
-        event_type="self_development_review_superseded",
-        event_details={"superseded_by_attempt": item["task_id"]},
-    )
+    try:
+        update_local_task_status(
+            review_task_id,
+            "cancelled",
+            event_type="self_development_review_superseded",
+            event_details={"superseded_by_attempt": item["task_id"]},
+        )
+    except Exception:
+        # Best-effort cleanup: a busy task mutation lock must never abort the
+        # retry; the superseded review Task is rejected at its next dispatch.
+        return
