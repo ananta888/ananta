@@ -120,10 +120,15 @@ class TaskQueueService:
                 continue
             candidate_map[task.id] = task
         self._log_skipped_candidates(skipped)
+        self._last_skipped = dict(skipped)
         queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
         return [
             {**item, "task": candidate_map.get(item["task_id"])} for item in queue if item["task_id"] in candidate_map
         ]
+
+    def last_skipped_candidates(self) -> Dict[str, str]:
+        """Why the last queue build dropped candidates (diagnostics)."""
+        return dict(getattr(self, "_last_skipped", {}) or {})
 
     @staticmethod
     def _log_skipped_candidates(skipped: dict[str, str]) -> None:

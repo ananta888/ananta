@@ -154,6 +154,11 @@ def build_review_brief(
     return brief
 
 
+def _normalize_command(command: Any) -> str:
+    """Whitespace-insensitive comparison form for declared verification commands."""
+    return " ".join(str(command or "").split())
+
+
 def parse_review_verdict(answer: str, *, criteria_count: int) -> AcceptanceReviewResult:
     """Strict bounded parse of the reviewer verdict; anything else fails closed."""
     text = str(answer or "")[:_MAX_ANSWER_CHARS]
@@ -222,6 +227,7 @@ class QueueAcceptanceReviewer:
         self.team_id = team_id
         self.policy_digest = policy_digest
         self.verdict_producer = verdict_producer
+        self.last_verdict_evidence: dict = {}
         # The default selector must carry the reviewer team; injected callables keep
         # their single-argument (author url) contract.
         self.choose_worker = choose_worker or (
@@ -389,7 +395,7 @@ class QueueAcceptanceReviewer:
             or getattr(current, "status", "") != "completed"
             or getattr(current, "last_exit_code", 1) != 0
             or str(getattr(current, "assigned_agent_url", "") or "").rstrip("/") != reviewer
-            or str(proposal.get("command") or "").strip() != verification_command.strip()
+            or _normalize_command(proposal.get("command")) != _normalize_command(verification_command)
         ):
             raise ReviewWorkflowError("worker_review_verification_failed")
         artifact_path = workspace.rstrip("/") + "/.ananta/last-final-answer.json"
@@ -404,12 +410,14 @@ class QueueAcceptanceReviewer:
         criteria = requirements.get("acceptance_criteria")
         criteria_count = len(criteria) if isinstance(criteria, list) else 0
         if self.verdict_producer is not None:
+            self.last_verdict_evidence = {"verdict_source": "decision_area", "criteria_count": criteria_count}
             result = self.verdict_producer.produce(
                 requirements=requirements,
                 changed_files={path: digest for path, digest in request.changed_files},
                 analysis=str(artifact.get("answer") or ""),
             )
         else:
+            self.last_verdict_evidence = {"verdict_source": "strict_json", "criteria_count": criteria_count}
             result = parse_review_verdict(str(artifact.get("answer") or ""), criteria_count=criteria_count)
         completed = self.registry.record_result(
             tenant_id=self.tenant_id,
