@@ -154,6 +154,7 @@ def test_env_override_is_additive(monkeypatch):
 def test_model_resolution_skips_the_auto_alias(monkeypatch):
     from agent.cli_backends.workspace_mutation import structured_runner as mod
 
+    monkeypatch.setattr(mod.settings, "default_model", "auto")
     monkeypatch.setattr(mod, "_get_agent_config", lambda: {"default_model": "auto"})
     assert mod._resolve_model(None) is None
     monkeypatch.setattr(mod, "_get_agent_config", lambda: {"default_model": "ananta-code-27b"})
