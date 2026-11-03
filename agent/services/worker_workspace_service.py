@@ -12,12 +12,37 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from flask import current_app, has_app_context, has_request_context
-from flask import g as flask_g
-
 from agent.config import settings
+from agent.services import worker_workspace_fs as _fs
+from agent.services import worker_workspace_policy as _policy
 from agent.services.output_dir_lock_service import get_output_dir_lock_service
 from agent.services.worker_workspace_artifact_sync import WorkspaceArtifactSync
+
+
+def _default_agent_config() -> dict:
+    """Flask-touching default; the domain receives configuration via injection."""
+    from flask import current_app, has_app_context
+
+    if not has_app_context():
+        return {}
+    return dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+
+
+def _default_agent_name() -> str | None:
+    from flask import current_app, has_app_context
+
+    if not has_app_context():
+        return None
+    return current_app.config.get("AGENT_NAME")
+
+
+def _default_request_context_sink(key: str, value: Any) -> None:
+    """Publish workspace facts to the request context when one exists."""
+    from flask import g as flask_g
+    from flask import has_request_context
+
+    if has_request_context():
+        setattr(flask_g, key, value)
 
 
 def _safe_segment(value: str | None, *, fallback: str) -> str:
@@ -64,25 +89,35 @@ class WorkerWorkspaceService:
         "rag_helper/research-context.json",
     }
 
-    def __init__(self, *, ingestion_provider: Callable[[], Any] | None = None) -> None:
-        """``ingestion_provider`` replaces the artifact ingestion service used by artifact sync."""
+    def __init__(
+        self,
+        *,
+        ingestion_provider: Callable[[], Any] | None = None,
+        agent_config_provider: Callable[[], dict] | None = None,
+        agent_name_provider: Callable[[], str | None] | None = None,
+        request_context_sink: Callable[[str, Any], None] | None = None,
+    ) -> None:
+        """``ingestion_provider`` replaces the artifact ingestion service used by artifact sync.
+
+        The other providers keep the framework out of the domain (DIP): tests
+        inject plain callables, production defaults resolve Flask lazily.
+        """
         self._ingestion_provider = ingestion_provider
+        self._agent_config_provider = agent_config_provider or _default_agent_config
+        self._agent_name_provider = agent_name_provider or _default_agent_name
+        self._request_context_sink = request_context_sink or _default_request_context_sink
 
     @staticmethod
     def _write_json(path: Path, payload: object) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        _fs.write_json(path, payload)
 
     @staticmethod
     def _repo_root() -> Path:
-        return Path(__file__).resolve().parents[2]
+        return _fs.repo_root()
 
     @staticmethod
     def _is_within(child: Path, parent: Path) -> bool:
-        try:
-            return os.path.commonpath([str(child), str(parent)]) == str(parent)
-        except Exception:
-            return False
+        return _fs.is_within(child, parent)
 
     def _resolve_workspace_dir(
         self,
@@ -99,8 +134,7 @@ class WorkerWorkspaceService:
                 output_dir=str(output_dir),
                 workspace_root=workspace_root_path,
             )
-            cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-            policy = dict(cfg.get("output_dir_policy") or {})
+            policy = _policy.resolve_output_dir_policy(self._agent_config_provider())
             unsafe_shared = bool(policy.get("unsafe_shared", False))
             if not unsafe_shared and not self._is_within(requested, workspace_root_path):
                 if self._is_absolute_project_workspace_path(requested):
@@ -128,100 +162,41 @@ class WorkerWorkspaceService:
 
     @staticmethod
     def _normalize_requested_output_dir(*, output_dir: str, workspace_root: Path) -> Path:
-        raw = str(output_dir or "").strip()
-        candidate = Path(raw).expanduser()
-        if candidate.is_absolute():
-            return Path(os.path.abspath(str(candidate)))
-        rel_parts = list(candidate.parts)
-        if "project-workspaces" in rel_parts:
-            anchor_index = rel_parts.index("project-workspaces")
-            rel_parts = [segment for segment in rel_parts[anchor_index + 1 :] if segment]
-            if rel_parts:
-                candidate = Path(*rel_parts)
-            else:
-                candidate = Path(".")
-        return Path(os.path.abspath(str(workspace_root / candidate)))
+        return _fs.normalize_requested_output_dir(output_dir=output_dir, workspace_root=workspace_root)
 
     @staticmethod
     def _try_remap_project_workspace_path(*, requested: Path, workspace_root: Path) -> Path | None:
-        """Map host-mirrored project workspace paths into the container workspace root.
-
-        Example: /home/user/repo/project-workspaces/foo -> /project-workspaces/foo
-        """
-        parts = list(requested.parts)
-        try:
-            anchor_index = parts.index("project-workspaces")
-        except ValueError:
-            return None
-        rel_parts = [segment for segment in parts[anchor_index + 1 :] if segment]
-        remapped = (workspace_root / Path(*rel_parts)).resolve() if rel_parts else workspace_root
-        try:
-            if os.path.commonpath([str(remapped), str(workspace_root)]) != str(workspace_root):
-                return None
-        except Exception:
-            return None
-        return remapped
+        return _fs.try_remap_project_workspace_path(requested=requested, workspace_root=workspace_root)
 
     @staticmethod
     def _is_absolute_project_workspace_path(path: Path) -> bool:
-        normalized = Path(os.path.abspath(str(path)))
-        parts = list(normalized.parts)
-        return len(parts) >= 2 and parts[1] == "project-workspaces"
+        return _fs.is_absolute_project_workspace_path(path)
 
     @classmethod
     def _is_tracked_relative_path(cls, rel: str) -> bool:
-        parts = [part for part in Path(str(rel or "")).parts if part]
-        return not any(part in cls._IGNORED_WORKSPACE_SEGMENTS for part in parts)
+        return _fs.is_tracked_relative_path(rel, ignored_segments=cls._IGNORED_WORKSPACE_SEGMENTS)
 
     @classmethod
     def _iter_workspace_files(cls, root: Path, *, tracked_only: bool = True):
-        if not root.exists():
-            return
-        for current_root, dirnames, filenames in os.walk(root):
-            if tracked_only:
-                dirnames[:] = [name for name in dirnames if name not in cls._IGNORED_WORKSPACE_SEGMENTS]
-            current_root_path = Path(current_root)
-            for name in filenames:
-                path = current_root_path / name
-                rel = str(path.relative_to(root)).replace("\\", "/")
-                if tracked_only and not cls._is_tracked_relative_path(rel):
-                    continue
-                yield path, rel
+        return _fs.iter_workspace_files(
+            root, tracked_only=tracked_only, ignored_segments=cls._IGNORED_WORKSPACE_SEGMENTS
+        )
 
     @staticmethod
     def _snapshot_tree(root: Path, *, tracked_only: bool) -> dict[str, tuple[int, int]]:
-        snapshot: dict[str, tuple[int, int]] = {}
-        if not root.exists():
-            return snapshot
-        for path, rel in WorkerWorkspaceService._iter_workspace_files(root, tracked_only=tracked_only):
-            try:
-                stat = path.stat()
-            except OSError:
-                continue
-            snapshot[rel] = (int(stat.st_mtime_ns), int(stat.st_size))
-        return snapshot
+        return _fs.snapshot_tree(
+            root,
+            tracked_only=tracked_only,
+            ignored_segments=WorkerWorkspaceService._IGNORED_WORKSPACE_SEGMENTS,
+        )
 
     @staticmethod
     def _interactive_terminal_baseline_dir(workspace_dir: Path) -> Path:
-        return workspace_dir / ".ananta" / "interactive-baseline"
+        return _fs.interactive_terminal_baseline_dir(workspace_dir)
 
     @staticmethod
     def _read_text_lines_for_diff(path: Path) -> tuple[list[str] | None, str | None]:
-        if not path.exists():
-            return [], None
-        try:
-            payload = path.read_bytes()
-        except OSError as exc:
-            return None, f"unreadable file: {exc}"
-        if len(payload) > WorkerWorkspaceService._DIFF_MAX_FILE_BYTES:
-            return None, f"skipped large file ({len(payload)} bytes)"
-        if b"\x00" in payload:
-            return None, "binary file"
-        try:
-            text = payload.decode("utf-8")
-        except UnicodeDecodeError:
-            text = payload.decode("utf-8", errors="replace")
-        return text.splitlines(keepends=True), None
+        return _fs.read_text_lines_for_diff(path, max_bytes=WorkerWorkspaceService._DIFF_MAX_FILE_BYTES)
 
     def resolve_workspace_dir_for_read(
         self,
@@ -241,15 +216,13 @@ class WorkerWorkspaceService:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         workspace_cfg = dict(execution_context.get("workspace") or {})
 
-        agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
-        runtime_cfg = agent_cfg.get("worker_runtime")
-        runtime_cfg = runtime_cfg if isinstance(runtime_cfg, dict) else {}
-        workspace_root = str(runtime_cfg.get("workspace_root") or "").strip()
-        if not workspace_root:
-            workspace_root = str(Path(settings.data_dir) / "worker-runtime")
+        agent_cfg = self._agent_config_provider()
+        workspace_root = _policy.resolve_workspace_root(
+            agent_cfg, default_root=_policy.default_data_workspace_root(settings.data_dir)
+        )
 
         resolved_agent_name = _safe_segment(
-            agent_name or (current_app.config.get("AGENT_NAME") if has_app_context() else settings.agent_name),
+            agent_name or self._agent_name_provider() or settings.agent_name,
             fallback="worker",
         )
         task_id = _safe_segment(workspace_cfg.get("task_id") or task.get("id"), fallback="task")
@@ -261,15 +234,8 @@ class WorkerWorkspaceService:
         scope_key = _safe_segment(explicit_scope_key_str, fallback=f"{task_id}-{worker_job_id}")
         explicit_scope_key = bool(explicit_scope_key_str)
         effective_runtime_cfg = dict(((task or {}).get("effective_config") or {}).get("worker_runtime") or {})
-        workspace_reuse_mode = (
-            str(
-                workspace_cfg.get("workspace_reuse_mode")
-                or runtime_cfg.get("workspace_reuse_mode")
-                or effective_runtime_cfg.get("workspace_reuse_mode")
-                or ""
-            )
-            .strip()
-            .lower()
+        workspace_reuse_mode = _policy.resolve_workspace_reuse_mode(
+            workspace_cfg=workspace_cfg, agent_cfg=agent_cfg, effective_runtime_cfg=effective_runtime_cfg
         )
         if workspace_reuse_mode == "goal_worker":
             goal_id_raw = _safe_segment((task or {}).get("goal_id"), fallback="")
@@ -410,8 +376,7 @@ class WorkerWorkspaceService:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         rag_helper_dir.mkdir(parents=True, exist_ok=True)
 
-        if has_request_context():
-            flask_g.workspace_dir = str(workspace_dir.resolve())
+        self._request_context_sink("workspace_dir", str(workspace_dir.resolve()))
 
         artifact_sync = {
             "enabled": bool(artifact_sync_cfg.get("enabled", True)),
@@ -424,8 +389,8 @@ class WorkerWorkspaceService:
         }
 
         git_context = self._init_git_context(task=task, workspace_dir=workspace_dir)
-        if has_request_context() and git_context is not None:
-            flask_g.git_context = git_context
+        if git_context is not None:
+            self._request_context_sink("git_context", git_context)
 
         materialization_manifest = self._materialize_predecessor_artifacts(task=task, workspace_dir=workspace_dir)
 
@@ -491,7 +456,7 @@ class WorkerWorkspaceService:
             runtime_sync_mode = (
                 str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
             )
-            agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+            agent_cfg = self._agent_config_provider()
             sync_mode = (
                 str(
                     (execution_context.get("workspace") or {}).get("sync_mode")
@@ -533,7 +498,7 @@ class WorkerWorkspaceService:
             return WorkspaceContextPolicy()
 
     def acquire_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> tuple[bool, str | None]:
-        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        cfg = self._agent_config_provider()
         enabled = bool(((cfg.get("workspace") or {}).get("output_dir_locking_enabled", True)))
         if not enabled:
             return True, None

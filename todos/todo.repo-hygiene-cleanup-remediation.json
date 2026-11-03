@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-03T14:37:42+0100",
+  "updated": "2026-11-03T14:46:39+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -1315,7 +1315,7 @@
       "title": "WorkerWorkspaceService (42 Methoden) zerlegen",
       "description": "WorkerWorkspaceService (925 LOC, 42 Methoden) mixt FS-I/O (shutil, difflib, snapshots), Locking (output_dir_lock_service), Flask-Request-Kontext (flask.g, has_request_context), Artifact-Sync, Diff-Generierung, Recovery-Claims. In Ports zerlegen (WorkspaceFs, WorkspacePolicy, ArtifactSync); Flask aus Domain-Kontext entfernen.",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "milestone_id": "CLN-M8",
@@ -1327,8 +1327,8 @@
         "Kein Flask-Request-Kontext in Domain-Logik (DIP).",
         "Testlauf gruen; Verhalten unveraendert."
       ],
-      "implementation_notes": "Composition ueber Ports statt God-Klasse. Teil der Top-3-God-Services.",
-      "progress_percent": 0
+      "implementation_notes": "Zerlegt: worker_workspace_fs.py (reiner FS-Port: Pfade, Snapshots, Diffs, Iteration), worker_workspace_policy.py (Config->Workspace-Root/-Reuse-Mode/output_dir_policy), bestehendes WorkspaceArtifactSync als Transport-Port. Flask raus aus der Domain: agent_config_provider/agent_name_provider/request_context_sink injizierbar (Default = lazy Flask-Binding), Service-API unveraendert. 58 Workspace-Tests + 1330 worker/recovery + 357 self-dev gruen.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-059",
@@ -1696,8 +1696,8 @@
     "CLN-074"
   ],
   "tasks_status_summary": {
-    "todo": 36,
-    "done": 28,
+    "todo": 35,
+    "done": 29,
     "partial": 11
   },
   "progress_summary": {
