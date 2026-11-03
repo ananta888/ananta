@@ -1,9 +1,8 @@
 """
 HCCA-013 — Benchmark harness for context compression.
 
-These are performance quality gates. Tests that depend on SmartCompressor
-(not yet implemented) are marked xfail; TokenEstimator-only benchmarks
-will pass immediately.
+These are performance quality gates for TokenEstimator and the
+SmartCompressor implementation (HCCA-007).
 """
 
 from __future__ import annotations
@@ -109,15 +108,10 @@ class TestTokenEstimatorBenchmarks:
 
 
 # ---------------------------------------------------------------------------
-# SmartCompressor benchmarks — xfail until implemented
+# SmartCompressor benchmarks (HCCA-007)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    not _SMART_COMPRESSOR_OK,
-    reason="SmartCompressor not yet implemented",
-    strict=False,
-)
 class TestSmartCompressorBenchmarks:
     def setup_method(self):
         self.compressor = SmartCompressor()

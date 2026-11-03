@@ -2,7 +2,7 @@
   "$schema": "./todo.track.schema.json",
   "version": 1,
   "created": "2026-11-01",
-  "updated": "2026-11-01",
+  "updated": "2026-11-03T14:37:42+0100",
   "project": "ananta",
   "owner": "Ananta",
   "track": "repo-hygiene-cleanup-remediation",
@@ -961,7 +961,7 @@
       "title": "Tote und deaktivierte Tests bereinigen",
       "description": "2 tote Legacy-Auth-Module (test_user_management.py, test_user_management_v2.py, module-level skip, importieren nicht-existente User-Model). 1 unconditionierter skip (test_goals_planning_recovery.py:635 'pre-existing: autopilot tick engine dispatches 0 tasks' = deaktiverter Regressionstest). SmartCompressor-xfailes (Feature existiert nicht). Entscheiden: loeschen ODER fixen ODER Feature implementieren.",
       "type": "testing",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "milestone_id": "CLN-M6",
@@ -971,8 +971,8 @@
         "Deaktivierter autopilot-Regressionstest ist entweder gefixt (Ticket) oder begruendet entfernt - nicht still geskippt.",
         "SmartCompressor-Schicksal entschieden (implementieren ODER Spec-Tests entfernen)."
       ],
-      "implementation_notes": "2 tote Auth-Module geloescht (Legacy-Placeholder-Skips). Verbleibende module-level Skips als legitim verifiziert (env-gated: CAMOFOX_TEST_URL, collaboration_postgres_test_url) + 1 availability-xfail (SmartCompressor, bedingt). Autopilot-'pre-existing'-Skip existiert nicht mehr. 3 PRAEXISTENTE FAILURE-CLUSTER (alle auf HEAD reproduziert, nicht durch Cleanup verursacht) als fix-required dokumentiert: (1) test_result_memory_service::test_unclassified_legacy_goal_detail — 404 durch Session-/Singleton-Sichtbarkeit (Test nutzt Modul-Singleton goal_repo, Routes _repos(); Pitfall-11-Muster), (2) tests/scratch/test_di_repro_stab_open_1::test_optional_fields_passes_after_awf — stale Repro (policy-Normalisierung), (3) test_opencode_command_chain_guardrails — 5 Guardrail-Asserts. Diese brauchen echte Fixes, kein xfail-Verstecken.",
-      "progress_percent": 70
+      "implementation_notes": "Erledigt: (1) tote Legacy-Auth-Module waren bereits entfernt (pyc-Reste geloescht); (2) der deaktivierte E2E-Regressionstest ist gefixt statt geskippt - Ursachen waren ein fehlender Team-Seed (FK teams.id) und ein Fake-Forwarder ohne transport_deadline-Kwarg (deadline-awareer Adapter-Vertrag), nicht 'dispatches 0 tasks'; (3) SmartCompressor existiert (HCCA-007) und seine 24 Tests laufen gruen - die xfail-Skelettierung und 'does not exist yet'-Docstrings sind entfernt.",
+      "progress_percent": 100
     },
     {
       "id": "CLN-041",
@@ -1696,38 +1696,9 @@
     "CLN-074"
   ],
   "tasks_status_summary": {
-    "total": 75,
-    "by_status": {
-      "todo": 36,
-      "in_progress": 0,
-      "partial": 12,
-      "blocked": 0,
-      "done": 27
-    },
-    "progress_percent_done": 36.0,
-    "by_priority": {
-      "P0": 5,
-      "P1": 37,
-      "P2": 32,
-      "P3": 1
-    },
-    "by_risk": {
-      "high": 17,
-      "medium": 28,
-      "low": 30
-    },
-    "critical_path": {
-      "total": 18,
-      "done": 7,
-      "remaining": 11
-    },
-    "milestones": {
-      "total": 10,
-      "todo": 5,
-      "in_progress": 1,
-      "blocked": 0,
-      "done": 4
-    }
+    "todo": 36,
+    "done": 28,
+    "partial": 11
   },
   "progress_summary": {
     "state": "in_progress",

@@ -764,14 +764,12 @@ class TestGoalsAPIPlanningRecovery:
         assert task_costs["goal-cost-1"] == 1.8
         assert task_costs["goal-cost-2"] == 1.2
 
-    @pytest.mark.skip(
-        reason="pre-existing: autopilot tick engine dispatches 0 tasks from in-memory SQLite in test environment"
-    )
     def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
         self, client, app, admin_auth_header, monkeypatch
     ):
         _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
+        team_repo.save(TeamDB(id="team-goal-e2e", name="Goal e2e", is_active=True))
 
         create_res = client.post(
             "/goals",
@@ -804,7 +802,7 @@ class TestGoalsAPIPlanningRecovery:
                 )
             )
 
-        def _fake_forward(worker_url, endpoint, data, token=None):
+        def _fake_forward(worker_url, endpoint, data, token=None, transport_deadline=None):
             if endpoint.endswith("/step/propose"):
                 return {"status": "success", "data": {"reason": "execute goal task", "command": "echo ok"}}
             if endpoint.endswith("/step/execute"):

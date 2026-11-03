@@ -1,8 +1,6 @@
 """
-HCCA-007 — Tests for SmartCompressor.
-
-SmartCompressor does not exist yet; tests are marked xfail so the
-suite is collectable and will auto-promote once the class is implemented.
+HCCA-007 — Tests for SmartCompressor (implemented in
+agent/services/context_compression/smart_compressor.py).
 """
 
 from __future__ import annotations
