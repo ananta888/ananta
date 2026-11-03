@@ -4,6 +4,7 @@ import json
 import time
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlparse
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, ConfigDB
@@ -12,6 +13,22 @@ from agent.services.knowledge_index_task_ingress_policy import (
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import update_local_task_status
+
+
+def _is_foreign_loopback_worker_url(url: str, own_url: str | None) -> bool:
+    """A loopback worker record can only ever be this process itself.
+
+    ``localhost``/``127.0.0.1``/``::1`` resolve to the caller's own network
+    namespace, so a registry row pointing there either IS this process (its
+    own URL) or is an unreachable phantom (test registrations, leaked fixture
+    identities). Dispatching to a phantom silently forwards work back into the
+    hub itself; those records must never enter the candidate pool.
+    """
+    host = (urlparse(url or "").hostname or "").lower()
+    is_loopback = host == "localhost" or host == "::1" or host.startswith("127.")
+    if not is_loopback:
+        return False
+    return (url or "").rstrip("/") != (own_url or "").rstrip("/")
 
 
 class AutopilotSupportService:
@@ -74,6 +91,10 @@ class AutopilotSupportService:
             int(worker_policy.get("worker_restart_grace_seconds", 120) or 120),
         )
         all_workers = [a for a in repos.agent_repo.get_all() if (a.role or "").lower() == "worker"]
+        own_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
+        all_workers = [
+            w for w in all_workers if not _is_foreign_loopback_worker_url(getattr(w, "url", "") or "", own_worker_url)
+        ]
         workers_online_count = len([w for w in all_workers if w.status == "online"])
         workers = [
             w

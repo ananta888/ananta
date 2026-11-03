@@ -45,3 +45,51 @@ def test_available_workers_marks_restart_grace(monkeypatch):
     )
     restart = next(w for w in selected if w.url == "http://w-restart:5000")
     assert getattr(restart, "_restart_grace", False) is True
+
+
+def _worker(url: str, now: float):
+    return SimpleNamespace(url=url, role="worker", status="online", registration_validated=True, last_seen=now)
+
+
+def test_available_workers_drops_foreign_loopback_phantoms(monkeypatch):
+    now = time.time()
+    workers = [
+        _worker("http://w-real:5000", now),
+        _worker("http://localhost:5000", now),
+        _worker("http://127.0.0.1:5000", now),
+        _worker("http://[::1]:5000", now),
+    ]
+    import agent.services.autopilot_support_service as mod
+
+    monkeypatch.setattr(mod, "get_repository_registry", lambda app=None: _Registry(workers))
+    monkeypatch.setattr(mod.settings, "agent_url", "http://ai-agent-hub:5000", raising=False)
+    service = AutopilotSupportService()
+    selected, online_count = service.available_workers(
+        team_id=None,
+        is_worker_circuit_open=lambda _url: False,
+        app_config={},
+        app=None,
+    )
+    urls = [w.url for w in selected]
+    assert urls == ["http://w-real:5000"]
+    assert online_count == 1
+
+
+def test_available_workers_keeps_own_loopback_url(monkeypatch):
+    now = time.time()
+    workers = [_worker("http://localhost:5000", now), _worker("http://w-real:5000", now)]
+    import agent.services.autopilot_support_service as mod
+
+    monkeypatch.setattr(mod, "get_repository_registry", lambda app=None: _Registry(workers))
+    monkeypatch.setattr(mod.settings, "agent_url", "http://localhost:5000", raising=False)
+    service = AutopilotSupportService()
+    selected, online_count = service.available_workers(
+        team_id=None,
+        is_worker_circuit_open=lambda _url: False,
+        app_config={},
+        app=None,
+    )
+    urls = [w.url for w in selected]
+    assert "http://localhost:5000" in urls
+    assert "http://w-real:5000" in urls
+    assert online_count == 2
