@@ -129,7 +129,7 @@
       "id": "HSM-002",
       "title": "Hindsight-Version, Betrieb und Modellbedarf prüfen",
       "milestone": "HSM-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -139,7 +139,25 @@
         "Upstream-Commit oder Release, Lizenzdateien, API-Verträge und benötigte Datenbank-Erweiterungen nachvollziehbar festhalten.",
         "LLM-, Embedding- und Reranking-Aufgaben getrennt erfassen; lokale Providerfähigkeit und Ressourcenbedarf praktisch prüfen, nicht aus OpenAI-Kompatibilität ableiten.",
         "Zusätzliche Token-, Speicher- und Laufzeitkosten für retain, recall, reflect und Hintergrundkonsolidierung erfassen."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/INSTALL_TEST_BETRIEB.md",
+          "agent/services/team_definition_version_service.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(agent): add hindsight version, operation and model requirement checks",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_32aec463702f39f95173048e981c4fa0",
+        "source_ids": [
+          "SRC_f0dfc0b576ac96895ff097a62b22b671"
+        ],
+        "result_digest": "0623dc9c20ecbfbba674ba487ab3fb2d95445c8f6f6485a5f3d91e4cb62c3b0b",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "HSM-003",
