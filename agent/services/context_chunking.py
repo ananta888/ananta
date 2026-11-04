@@ -1,105 +1,64 @@
-"""Splitting material that does not fit the window into budgeted chunks (LCTX-007/008).
+"""Bounded text chunking for prompt context splitting (CMP-001).
 
-- ``split_ordered``: one long text (document, log, transcript) into chunks in order,
-  cut at paragraph, then line, then word boundaries, never above the budget;
-- ``pack_parts``: independent parts (files, documents) packed into chunks; a part
-  too large for one chunk is split itself. Nothing is dropped.
-
-Token counts use the same estimate as the window check (``agent.context_window``).
+``chunk_text`` splits ``text`` into pieces of at most ``max_chars`` characters
+without dropping, reordering or duplicating any character outside the declared
+overlap. Breaks prefer whitespace when a break fits inside ``max_chars``; otherwise
+the cut is hard.
 """
-
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
 
-from agent.context_window import CHARS_PER_TOKEN, estimate_tokens
+def chunk_text(text: str, max_chars: int, overlap: int = 0) -> list[str]:
+    """Split ``text`` into chunks of at most ``max_chars`` characters.
 
+    Args:
+        text: The input string to split. An empty string yields ``[]``.
+        max_chars: Maximum number of characters per chunk (must be >= 1).
+        overlap: Number of trailing characters of each chunk that are repeated
+            at the start of the next chunk (must satisfy 0 <= overlap < max_chars).
 
-@dataclass(frozen=True)
-class Chunk:
-    index: int
-    text: str
-    sources: tuple[str, ...] = field(default_factory=tuple)  # part ids a packed chunk contains
+    Returns:
+        A list of strings, each with ``len(chunk) <= max_chars``. With
+        ``overlap == 0`` the chunks reassemble the input exactly.
 
-    @property
-    def tokens(self) -> int:
-        return estimate_tokens(self.text)
+    Raises:
+        ValueError: If ``max_chars < 1``, ``overlap < 0`` or ``overlap >= max_chars``.
+    """
+    if max_chars < 1:
+        raise ValueError(f"max_chars must be >= 1, got {max_chars}")
+    if overlap < 0:
+        raise ValueError(f"overlap must be >= 0, got {overlap}")
+    if overlap >= max_chars:
+        raise ValueError(
+            f"overlap ({overlap}) must be < max_chars ({max_chars})"
+        )
 
+    if not text:
+        return []
 
-def _pieces(text: str, budget_chars: int) -> list[str]:
-    """Units no larger than the budget: paragraphs, else lines, else words, else hard slices."""
-    units: list[str] = []
-    for paragraph in text.split("\n\n"):
-        if len(paragraph) <= budget_chars:
-            units.append(paragraph)
-            continue
-        for line in paragraph.split("\n"):
-            if len(line) <= budget_chars:
-                units.append(line)
-                continue
-            words, current = line.split(" "), ""
-            for word in words:
-                while len(word) > budget_chars:  # a single overlong token
-                    if current:
-                        units.append(current)
-                        current = ""
-                    units.append(word[:budget_chars])
-                    word = word[budget_chars:]
-                candidate = f"{current} {word}" if current else word
-                if len(candidate) > budget_chars:
-                    units.append(current)
-                    current = word
-                else:
-                    current = candidate
-            if current:
-                units.append(current)
-    return units
-
-
-def split_ordered(text: str, chunk_tokens: int) -> list[Chunk]:
-    """``text`` in order, as chunks of at most ``chunk_tokens`` (estimated)."""
-    budget_chars = max(CHARS_PER_TOKEN * 16, int(chunk_tokens) * CHARS_PER_TOKEN)
     chunks: list[str] = []
-    current = ""
-    for unit in _pieces(str(text or ""), budget_chars):
-        joined = f"{current}\n\n{unit}" if current else unit
-        if len(joined) > budget_chars and current:
-            chunks.append(current)
-            current = unit
-        else:
-            current = joined
-    if current.strip():
-        chunks.append(current)
-    return [Chunk(index, value) for index, value in enumerate(chunks)]
+    start = 0
+    n = len(text)
 
+    while start < n:
+        end = min(start + max_chars, n)
+        segment = text[start:end]
 
-def pack_parts(parts: Iterable[tuple[str, str]], chunk_tokens: int) -> list[Chunk]:
-    """Independent ``(part_id, text)`` parts packed into chunks of at most ``chunk_tokens``.
+        # Prefer breaking at the last whitespace position within the segment.
+        if end < n:  # not the final chunk; look for a break point
+            # Search backwards from the end of the segment for whitespace.
+            # The break must leave at least (overlap + 1) characters in the
+            # current chunk so that the next chunk can start with overlap chars
+            # plus at least one new character.
+            min_end = start + overlap + 1 if overlap > 0 else start + 1
+            cut = -1
+            for i in range(len(segment) - 1, max(min_end - start - 1, -1), -1):
+                if segment[i] in " \t\r\n":
+                    cut = i + 1  # position after the whitespace char
+                    break
+            if cut != -1:
+                end = start + cut
+        chunks.append(text[start:end])
+        start = end - overlap if overlap > 0 else end
 
-    A part too large for one chunk is split itself."""
-    budget_chars = max(CHARS_PER_TOKEN * 16, int(chunk_tokens) * CHARS_PER_TOKEN)
-    chunks: list[tuple[str, list[str]]] = []
-    current_text, current_ids = "", []
-    for part_id, text in parts:
-        block = f"### {part_id}\n{text}"
-        if len(block) > budget_chars:  # split the part itself, each piece labelled with its origin
-            if current_text:
-                chunks.append((current_text, current_ids))
-                current_text, current_ids = "", []
-            for piece in split_ordered(text, chunk_tokens - estimate_tokens(f"### {part_id} (x/y)\n")):
-                chunks.append((f"### {part_id} ({piece.index + 1})\n{piece.text}", [part_id]))
-            continue
-        joined = f"{current_text}\n\n{block}" if current_text else block
-        if len(joined) > budget_chars:
-            chunks.append((current_text, current_ids))
-            current_text, current_ids = block, [part_id]
-        else:
-            current_text, current_ids = joined, current_ids + [part_id]
-    if current_text:
-        chunks.append((current_text, current_ids))
-    return [Chunk(index, text, tuple(dict.fromkeys(ids))) for index, (text, ids) in enumerate(chunks)]
-
-
-def total_chars(chunks: Sequence[Chunk]) -> int:
-    return sum(len(chunk.text) for chunk in chunks)
+    return chunks
