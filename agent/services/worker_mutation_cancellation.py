@@ -10,6 +10,10 @@ and aborts once its task no longer wants the result.
 Deliberately conservative:
 
 - Without a task binding there is nothing to consult; ad-hoc runs continue.
+- A missing row does not authorize killing the execution: sessions may bind
+  synthetic ids (tests, sandboxed labels) that never enter this database, and
+  a vanished task cannot accept the persist anyway. Only a readable row in a
+  terminal state is positive evidence that the execution was withdrawn.
 - A failed lookup (transient DB error) continues the loop rather than killing
   a healthy execution on infrastructure noise.
 - Only terminal task states withdraw execution; the check stays a plain read
@@ -49,6 +53,6 @@ def is_mutation_execution_withdrawn(task_id: str | None) -> bool:
         )
         return False
     if task is None:
-        return True
+        return False
     status = str(getattr(task, "status", "") or "").strip().lower()
     return status in _WITHDRAWN_STATUSES

@@ -27,9 +27,11 @@ def test_without_task_binding_execution_continues(monkeypatch):
     assert mod.is_mutation_execution_withdrawn("   ") is False
 
 
-def test_missing_task_withdraws_execution(monkeypatch):
+def test_missing_task_is_not_positive_withdrawal_evidence(monkeypatch):
+    """Synthetic session labels (tests, sandboxes) have no row; only a readable
+    terminal row is positive evidence, so an absent row keeps the loop alive."""
     monkeypatch.setattr(mod, "get_repository_registry", lambda *a, **k: _Registry(None))
-    assert mod.is_mutation_execution_withdrawn("t-gone") is True
+    assert mod.is_mutation_execution_withdrawn("t-gone") is False
 
 
 def test_terminal_statuses_withdraw_execution(monkeypatch):
