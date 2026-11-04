@@ -21,8 +21,12 @@ T = TypeVar("T")
 # The worker must always answer before the hub's propose transport deadline
 # (autopilot_security_policies.<level>.propose_timeout) expires, so a finished
 # run is never lost to a handshake race: keep this wall strictly below it
-# (2100 < 2400 at the governed levels).
-WALL_TIMEOUT_SECONDS = 2100
+# (3300 < 3600 at the governed levels, same 300s gap as the previous
+# 2100 < 2400 pair). Measured convergence of the local mutation loop is
+# ~40-48 min (43+ iterations on ananta-code-27b), so the old 2100s wall cut
+# healthy loops just before convergence; 3300s leaves that loop room while
+# keeping the handshake ordering intact.
+WALL_TIMEOUT_SECONDS = 3300
 
 
 class WallTimeout(RuntimeError):
