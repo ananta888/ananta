@@ -940,6 +940,11 @@ class DevelopmentCoordinator:
     def _verify(self, state, item):
         self._check_live(state)
         self._check_review_available()
+        from agent.services.self_development.source_integrity import (
+            assert_removed_symbols_unreferenced,
+        )
+
+        assert_removed_symbols_unreferenced(self.policy, item)
         if (self.policy.value.get("quality_gates") or {}).get("require_acceptance_review"):
             from agent.services.self_development.acceptance_review import (
                 AcceptanceReviewError,
