@@ -41,6 +41,11 @@ log = logging.getLogger(__name__)
 
 MUTATION_SCHEMA_NAME = "ananta_worker_mutation"
 STRUCTURED_OUTPUT_TEMPERATURE = 0.2
+# Full-file ``workspace_write.content`` answers run into thousands of tokens.
+# Without an explicit budget the server default applied (observed as
+# ``--n-predict 1536`` cutting answers mid-string: grammar-valid prefix,
+# json.loads failure, invalid_output strikes).
+STRUCTURED_OUTPUT_MAX_TOKENS = 16384
 _BEARER_PLACEHOLDER = "sk-no-key-needed"
 _TRANSPORT_ATTEMPTS = 3
 _TRANSPORT_RETRY_DELAY_SECONDS = 2.0
@@ -248,6 +253,7 @@ def run_structured_mutation_llm(
         "model": resolved_model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": STRUCTURED_OUTPUT_TEMPERATURE,
+        "max_tokens": STRUCTURED_OUTPUT_MAX_TOKENS,
         "response_format": {
             "type": "json_schema",
             "json_schema": {

@@ -65,7 +65,7 @@ def test_runner_posts_json_schema_and_returns_a_parseable_answer(monkeypatch):
     payload = captured["payload"]
     assert payload["model"] == "ananta-code-27b"
     assert payload["temperature"] == mod.STRUCTURED_OUTPUT_TEMPERATURE
-    assert "max_tokens" not in payload
+    assert payload["max_tokens"] == mod.STRUCTURED_OUTPUT_MAX_TOKENS
     response_format = payload["response_format"]
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["name"] == mod.MUTATION_SCHEMA_NAME
