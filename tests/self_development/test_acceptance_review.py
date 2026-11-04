@@ -309,3 +309,50 @@ def test_coordinator_revalidation_rejects_mutated_persisted_review_snapshot(runt
     # When publication replays the stored receipt against altered state.
     with pytest.raises(AcceptanceReviewError, match="snapshot_mismatch"):
         service._verify(state, item)
+
+
+def test_coordinator_publishes_a_todo_without_acceptance_criteria(runtime) -> None:
+    """Zero criteria used to doom every acceptance review by construction.
+
+    ``parse_review_verdict`` rejects ``criteria_count < 1`` with
+    ``worker_review_verdict_criteria_mismatch``; legacy items and todos that
+    never defined acceptance_criteria all failed there after a full
+    propose/verify/review cycle, freezing publication at the same count.
+    """
+    service, _, published = runtime
+    _enable_independent_review(service)
+    document = form()
+    document["tasks"][0].pop("acceptance_criteria", None)
+    assert not document["tasks"][0].get("acceptance_criteria")
+    service.import_tasks(document)
+    service.start()
+
+    result = execute(service)
+
+    assert result.completed
+    item = service.status()["items"][0]
+    assert published == [item["task_id"]]
+    requirements = json.loads(item["acceptance_review_request"]["requirements_json"])
+    assert len(requirements["acceptance_criteria"]) == 2
+    state = service.journal.read()
+    service._verify(state, state["items"][item["key"]])
+
+
+def test_reimport_backfills_acceptance_criteria_on_legacy_items(runtime) -> None:
+    """A re-import refreshes missing catalog content without touching state."""
+    service, _, _ = runtime
+    document = form()
+    document["tasks"][0]["acceptance_criteria"] = ["Defined by the operator"]
+    service.import_tasks(document)
+    state = service.journal.read()
+    item = next(iter(state["items"].values()))
+    item.pop("acceptance_criteria", None)  # legacy journal shape
+    service.journal.write(state)
+
+    service.import_tasks(document)
+
+    healed = next(iter(service.journal.read()["items"].values()))
+    assert healed["acceptance_criteria"] == ["Defined by the operator"]
+    assert healed["status"] == item["status"]
+    assert healed.get("contract") == item.get("contract")
+    assert healed["task_id"] == item["task_id"]

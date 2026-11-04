@@ -325,7 +325,7 @@ def _record_invalid_output(
     # limit hit is unexplainable (observed as silent invalids per run).
     log.warning(
         "mutation_invalid_output task=%s iteration=%s rc=%s count=%s/%s sample=%.400s",
-        session.task_id or "<none>",
+        getattr(session, "task_id", None) or "<none>",
         iteration,
         rc,
         session.invalid_count,

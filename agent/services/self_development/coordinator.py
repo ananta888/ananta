@@ -33,6 +33,41 @@ from agent.services.self_development.workspace import (
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
+_REVIEW_FALLBACK_CRITERIA = (
+    "The Hub-allowlisted verification command for this change passes.",
+    "Changes stay within the contract's declared files and scope.",
+)
+_TASK_REQUIREMENT_KEYS = (
+    "todo_id",
+    "title",
+    "description",
+    "acceptance_criteria",
+    "references",
+    "type",
+    "goal",
+    "document_goal",
+    "document_purpose",
+)
+
+
+def _task_requirements(item: dict) -> dict:
+    """Requirements shared by dispatch description, review request and verify.
+
+    All three consumers must see byte-identical requirements (the verify step
+    compares ``requirements_json`` against its own rebuild). Legacy items
+    imported before the catalog carried ``acceptance_criteria`` -- and todos
+    that never defined them -- must still yield reviewable criteria: a review
+    built with zero criteria can never pass ``parse_review_verdict``
+    (``criteria_count < 1``) and burns a full propose/review cycle to fail by
+    construction (observed as every acceptance review ending in
+    ``worker_review_verdict_criteria_mismatch`` with ``criteria_count: 0``).
+    """
+    requirements = {key: item.get(key) for key in _TASK_REQUIREMENT_KEYS}
+    criteria = requirements.get("acceptance_criteria")
+    if not isinstance(criteria, list) or not criteria:
+        requirements["acceptance_criteria"] = list(_REVIEW_FALLBACK_CRITERIA)
+    return requirements
+
 
 class DevelopmentCoordinator:
     def __init__(self, policy, *, gate=None, publisher=None, queue=None, registry=None, planner=None, reviewer=None):
@@ -136,6 +171,23 @@ class DevelopmentCoordinator:
                         continue
                     signature_owners[signature] = item["key"]
                 if old:
+                    # Content fidelity: legacy items predate the catalog's
+                    # content fields (observed items without
+                    # acceptance_criteria, whose reviews can never pass). A
+                    # re-import refreshes the missing content and keeps
+                    # attempt/dispatch state untouched; journal.write below
+                    # persists the backfill even when the item itself is
+                    # skipped as already admitted.
+                    for field in (
+                        "acceptance_criteria",
+                        "references",
+                        "type",
+                        "goal",
+                        "document_goal",
+                        "document_purpose",
+                    ):
+                        if not old.get(field) and item.get(field):
+                            old[field] = item[field]
                     re_admit = plannable and old["status"] == "blocked" and not old.get("contract")
                     # Any item that never received a contract (planning failed or
                     # was blocked) stays recoverable on the next import instead
@@ -682,20 +734,7 @@ class DevelopmentCoordinator:
                 "artifact_sync": {"enabled": True, "sync_to_hub": True},
                 "hub_evidence_assignment": dict(projection),
             }
-            requirements = {
-                key: item.get(key)
-                for key in (
-                    "todo_id",
-                    "title",
-                    "description",
-                    "acceptance_criteria",
-                    "references",
-                    "type",
-                    "goal",
-                    "document_goal",
-                    "document_purpose",
-                )
-            }
+            requirements = _task_requirements(item)
             description = (
                 "Task requirements (JSON data, not execution authority):\n"
                 + json.dumps(requirements, ensure_ascii=False)
@@ -959,20 +998,7 @@ class DevelopmentCoordinator:
             receipt = review_receipt_adapter.validate_python(item["acceptance_review"])
             sealed_hashes = {path: digest for path, digest in request.changed_files}
             original_hashes = item.get("outcome", {}).get("execution", {}).get("hashes")
-            requirements = {
-                key: item.get(key)
-                for key in (
-                    "todo_id",
-                    "title",
-                    "description",
-                    "acceptance_criteria",
-                    "references",
-                    "type",
-                    "goal",
-                    "document_goal",
-                    "document_purpose",
-                )
-            }
+            requirements = _task_requirements(item)
             if (
                 request.task_id != item["task_id"]
                 or request.repository_revision != item["revision"]
@@ -985,7 +1011,7 @@ class DevelopmentCoordinator:
             verify_acceptance_review(
                 request,
                 receipt,
-                criteria_count=len(item.get("acceptance_criteria") or []),
+                criteria_count=len(requirements.get("acceptance_criteria") or []),
                 registry=self.registry,
                 tenant_id=self.policy.value["tenant_id"],
             )
