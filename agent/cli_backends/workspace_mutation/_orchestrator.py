@@ -321,6 +321,17 @@ def _record_invalid_output(
 ) -> tuple[int, str, str] | None:
     """Count a non-JSON answer; ends the loop once ``max_invalid_outputs`` is reached."""
     session.invalid_count += 1
+    # The raw answer is the only diagnostic for a protocol slip; without it a
+    # limit hit is unexplainable (observed as silent invalids per run).
+    log.warning(
+        "mutation_invalid_output task=%s iteration=%s rc=%s count=%s/%s sample=%.400s",
+        session.task_id or "<none>",
+        iteration,
+        rc,
+        session.invalid_count,
+        session.limits.max_invalid,
+        (out or err or "<empty>").replace("\n", " "),
+    )
     session.report_iterations.append({"iteration": iteration, "kind": "invalid_output"})
     if session.invalid_count >= session.limits.max_invalid:
         return session.finish_with_summary(
