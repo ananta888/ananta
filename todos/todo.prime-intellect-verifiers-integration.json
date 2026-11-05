@@ -200,13 +200,12 @@
       "milestone_id": "PRIME-M2",
       "acceptance_criteria": [
         "Prime-RL als optionales Trainingsbackend hinter `worker/training/backends/base.py` und `backend_registry.py` registrieren; `ananta_contracts/training_backend.py` als Vertragsdefinition nutzen.",
-        "NVIDIA-GPU mit CUDA 12.x als harte Voraussetzung prüfen; ohne GPU maschinenlesbare Ablehnung statt unendlichem Warten liefern.",
-        "Keine impliziten gemeinsamen Zustände mit anderen Workern; Prime-RL läuft in eigenem Container und wird vom Hub auftragsbezogen aktiviert."
+        "NVIDIA-GPU mit CUDA 12.x als harte Voraussetzung prüfen; ohne GPU maschinenlesbare Ablehnung statt unendlichem Warten liefern."
       ]
     },
     {
       "id": "PRIME-T08",
-      "title": "Prime-RL-Pilot mit Ressourcenlimits und Rollback",
+      "title": "Prime-RL-Pilot mit lokalem Modell und Budget begrenzen",
       "type": "verification",
       "status": "todo",
       "priority": "P3",
@@ -217,8 +216,8 @@
       ],
       "milestone_id": "PRIME-M2",
       "acceptance_criteria": [
-        "Headless-Pilot mit simulierter fehlender GPU liefert begrenzte maschinenlesbare Ablehnung (Timeout < 5 s).",
-        "Ressourcenlimits (Token, Laufzeit, Parallelität) technisch durchsetzen; Rollback und Abschalten dokumentieren."
+        "Kleiner RL-Pilot mit festem Token-/Zeit-Budget und lokalem Modell ausführen; Ergebnisse gegen Verifiers-Evaluation abgleichen.",
+        "Keine produktiven Gewichte ohne explizite Freigabe überschreiben; Rollback-Pfad dokumentieren."
       ]
     }
   ]
