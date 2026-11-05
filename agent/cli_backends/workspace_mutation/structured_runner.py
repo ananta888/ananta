@@ -44,8 +44,12 @@ STRUCTURED_OUTPUT_TEMPERATURE = 0.2
 # Full-file ``workspace_write.content`` answers run into thousands of tokens.
 # Without an explicit budget the server default applied (observed as
 # ``--n-predict 1536`` cutting answers mid-string: grammar-valid prefix,
-# json.loads failure, invalid_output strikes).
-STRUCTURED_OUTPUT_MAX_TOKENS = 16384
+# json.loads failure, invalid_output strikes). The budget mirrors the policy
+# write band of 1000-2000 Python lines: 32768 tokens x 4 bytes ~= 131072 bytes
+# == max_write_file_bytes, so an accepted write always completes in one
+# generation and anything larger is rejected by the tool with split feedback
+# instead of truncating into an invalid JSON corpse.
+STRUCTURED_OUTPUT_MAX_TOKENS = 32768
 _BEARER_PLACEHOLDER = "sk-no-key-needed"
 _TRANSPORT_ATTEMPTS = 3
 _TRANSPORT_RETRY_DELAY_SECONDS = 2.0

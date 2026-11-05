@@ -29,9 +29,9 @@ from agent.services.tools._evidence import (
 )
 from agent.services.tools.repo_tools import WorkspacePathError, resolve_workspace_path
 
-_DEFAULT_MAX_WRITE_BYTES = 262144
-_DEFAULT_MAX_REPLACE_EXISTING_BYTES = 65536
-_DEFAULT_MAX_REPLACE_RANGE_LINES = 120
+_DEFAULT_MAX_WRITE_BYTES = 131072  # ~2000 lines of Python (~64 bytes/line)
+_DEFAULT_MAX_REPLACE_EXISTING_BYTES = 131072  # same 1000-2000 line band as full writes
+_DEFAULT_MAX_REPLACE_RANGE_LINES = 2000  # upper end of the approved write band
 
 
 def _sha256_text(text: str) -> str:
