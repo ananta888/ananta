@@ -2,6 +2,10 @@
 
 ``WorkflowRuntimeGateEvidenceVerifier`` validates one artifact and
 ``WorkflowRuntimeReleaseAdmission`` adapts it to the runtime-selection port.
+
+Buzz-Bridge conformance is an optional adapter gate.  It must never change
+the base Native-Core or Agent/Live release-gate verdict: a red, missing or
+disabled Buzz gate leaves admission unchanged (fail-closed for the bridge only).
 """
 
 from __future__ import annotations
@@ -18,6 +22,20 @@ from agent.services.workflow_runtime.reference_workflows import (
     load_reference_workflows,
 )
 from agent.services.workflow_runtime.release_gate_config import WORKFLOW_RELEASE_RESULT_SCHEMA
+
+BUZZ_BRIDGE_CONFORMANCE_SCHEMA = "ananta.buzz_bridge_conformance.v1"
+BUZZ_BRIDGE_ADAPTER_GATE_ENABLED = "enabled"
+BUZZ_BRIDGE_ADAPTER_GATE_PASSED = "passed"
+BUZZ_BRIDGE_GATE_STATUSES = frozenset({"red", "missing", "disabled"})
+BUZZ_BRIDGE_UNVERIFIED_EXTERNAL_EVIDENCE = "unverified_external_runtime_evidence"
+BUZZ_BRIDGE_REQUIRED_SCENARIOS = (
+    "echo_loops",
+    "replays",
+    "out_of_order_events",
+    "reconnect",
+    "mapping_upgrades",
+    "partial_buzz_outages",
+)
 
 
 class WorkflowRuntimeGateEvidenceVerifier:
@@ -94,7 +112,47 @@ class WorkflowRuntimeGateEvidenceVerifier:
             or any(not isinstance(item, Mapping) or item.get("status") != "passed" for item in commands)
         ):
             return False, "release_gate_verification_incomplete"
+        buzz_bridge_conformance = artifact.get("buzz_bridge_conformance")
+        if buzz_bridge_conformance is not None and not self._verify_buzz_bridge_conformance(buzz_bridge_conformance):
+            return False, "release_gate_buzz_bridge_conformance_failed"
         return True, "release_gate_verified"
+
+    @staticmethod
+    def _verify_buzz_bridge_conformance(conformance: Mapping[str, Any]) -> bool:
+        if conformance.get("schema") != BUZZ_BRIDGE_CONFORMANCE_SCHEMA:
+            return False
+        adapter_gate = conformance.get("adapter_gate")
+        if not isinstance(adapter_gate, Mapping):
+            return False
+        gate_status = str(adapter_gate.get("status", "missing"))
+        # A red, missing or disabled Buzz gate must never change the base verdict.
+        if gate_status in BUZZ_BRIDGE_GATE_STATUSES:
+            return True
+        if adapter_gate.get("enabled") is not True or adapter_gate.get("passed") is not True:
+            return False
+        buzz_version = str(conformance.get("buzz_version", ""))
+        compatible_buzz_versions = conformance.get("compatible_buzz_versions")
+        if not buzz_version or not isinstance(compatible_buzz_versions, (list, tuple)):
+            return False
+        if buzz_version not in {str(v) for v in compatible_buzz_versions}:
+            return False
+        events_per_scenario = conformance.get("events_per_scenario")
+        if not isinstance(events_per_scenario, Mapping):
+            return False
+        for scenario_id in BUZZ_BRIDGE_REQUIRED_SCENARIOS:
+            value = events_per_scenario.get(scenario_id)
+            # Exactly one logical internal event per scenario (idempotency).
+            if not isinstance(value, int) or value != 1:
+                return False
+        external_runtime_evidence = conformance.get("external_runtime_evidence")
+        if not isinstance(external_runtime_evidence, Mapping):
+            return True
+        for evidence_id, status in external_runtime_evidence.items():
+            # Missing external runtime evidence stays explicitly unverified,
+            # never failed.
+            if str(status) != BUZZ_BRIDGE_UNVERIFIED_EXTERNAL_EVIDENCE:
+                return False
+        return True
 
 
 class WorkflowRuntimeReleaseAdmission:

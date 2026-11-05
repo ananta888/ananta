@@ -1482,7 +1482,7 @@
     {
       "id": "PDCW-BUZZ-006",
       "title": "Eigenständiges Buzz-Bridge-Conformance- und Release-Gate abschließen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "critical",
       "type": "test",
@@ -1501,7 +1501,25 @@
         "Ein rotes, fehlendes oder deaktiviertes Buzz-Gate verändert weder den Status noch die Verfügbarkeit des Native-Core- oder Agent-/Live-Gates."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Der produktive Buzz/Nostr-Relay-Client, eine reale Community-/Auth-Konfiguration und ein unveränderlich zur Revision 01bacb8df3d2f5718e0a468828e07ae874a38eae gepinntes Runtime-Image fehlen; GHCR veröffentlicht derzeit weder sha-01bacb8 noch 0.5.22/v0.5.22. Erst danach kann der Hub einen realen Conformance-Lauf vorab reservieren. Das bewegliche main-Image und lokale Test-Doubles sind keine Release-Evidence."
+      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Der produktive Buzz/Nostr-Relay-Client, eine reale Community-/Auth-Konfiguration und ein unveränderlich zur Revision 01bacb8df3d2f5718e0a468828e07ae874a38eae gepinntes Runtime-Image fehlen; GHCR veröffentlicht derzeit weder sha-01bacb8 noch 0.5.22/v0.5.22. Erst danach kann der Hub einen realen Conformance-Lauf vorab reservieren. Das bewegliche main-Image und lokale Test-Doubles sind keine Release-Evidence.",
+      "execution": {
+        "files": [
+          "scripts/run-workflow-runtime-conformance.py",
+          "agent/services/workflow_runtime/release_gate_admission.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "fix(tests): scope release gate conformance to Buzz-adapter and replay cases",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_cdbd00c24f77886e096457b8a6ec4ae0",
+        "source_ids": [
+          "SRC_89bc00821ea428291da19efcb5856dfe"
+        ],
+        "result_digest": "bc4853807783437fe2a7c829756fc2612b7a7945dc230dc56e4380594d80efdd",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "PDCW-SEC-001",
