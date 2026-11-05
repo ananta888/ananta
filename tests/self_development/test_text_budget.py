@@ -1,4 +1,4 @@
-"""Unit tests for agent/services/text_budget (CMP-2502)."""
+"""Unit tests for agent/services/text_budget (CMP-901)."""
 from __future__ import annotations
 
 import pytest
