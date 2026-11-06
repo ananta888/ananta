@@ -79,6 +79,23 @@ def _requires_lane_runner(task_kind: Any) -> bool:
     return str(task_kind or "").strip().lower() == "verification"
 
 
+def _lane_runner_workdir(task: Any) -> str:
+    """Workspace of the carried snapshot the lane runner must test in.
+
+    The fallback previously passed ``workdir=None``, which left opencode in its
+    default cwd where the declared ``tests`` root does not exist (observed: the
+    runner can never satisfy the minimum program). Failure to resolve the
+    workspace fails the propose bounded instead of silently testing elsewhere.
+    """
+    from agent.services.worker_workspace_service import get_worker_workspace_service
+
+    workspace = get_worker_workspace_service().resolve_workspace_context(task=task)
+    workdir = str(getattr(workspace, "workspace_dir", "") or "")
+    if not workdir:
+        raise ValueError("lane_workspace_unavailable")
+    return workdir
+
+
 def run_propose_orchestrator_path(
     *,
     tid: str,
@@ -332,7 +349,7 @@ def run_propose_orchestrator_path(
                     "fallback_backend": cli_backend,
                 },
                 session=None,
-                workdir=None,
+                workdir=_lane_runner_workdir(task) if lane_runner_required else None,
             )
             raw_res, _output_source = coalesce_cli_output(cli_out, cli_err)
             parsed = json.loads(str(raw_res or "{}"))

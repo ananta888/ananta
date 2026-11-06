@@ -245,3 +245,37 @@ def test_verification_kind_forces_the_lane_runner_fallback():
     assert _requires_lane_runner(" Verification ") is True
     assert _requires_lane_runner("coding") is False
     assert _requires_lane_runner(None) is False
+
+
+def test_lane_runner_workdir_is_the_carried_snapshot(monkeypatch):
+    """The fallback must test in the carried workspace, never in opencode's cwd.
+
+    With workdir=None the runner cannot see the declared ``tests`` root (its cwd
+    has none), so the minimum program can only fail with a directory error.
+    """
+    from types import SimpleNamespace
+
+    import agent.services.task_scoped.propose_orch as propose_orch
+
+    monkeypatch.setattr(
+        "agent.services.worker_workspace_service.get_worker_workspace_service",
+        lambda: SimpleNamespace(
+            resolve_workspace_context=lambda **kw: SimpleNamespace(workspace_dir="/project-workspaces/self-dev-x")
+        ),
+    )
+    assert propose_orch._lane_runner_workdir({"id": "t"}) == "/project-workspaces/self-dev-x"
+
+
+def test_lane_runner_workdir_fails_bounded_when_unresolvable(monkeypatch):
+    from types import SimpleNamespace
+
+    import agent.services.task_scoped.propose_orch as propose_orch
+
+    monkeypatch.setattr(
+        "agent.services.worker_workspace_service.get_worker_workspace_service",
+        lambda: SimpleNamespace(resolve_workspace_context=lambda **kw: SimpleNamespace(workspace_dir="")),
+    )
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="lane_workspace_unavailable"):
+        propose_orch._lane_runner_workdir({"id": "t"})
