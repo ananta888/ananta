@@ -353,9 +353,19 @@ def _write_test_report_for_proposal(run: ProposeRun) -> None:
     keeps the honest bounded failure either way. Never raises: proposal
     persistence must not depend on artifact writing.
     """
-    if run.rc != 0 or _lane_run_kind(run) != "verification":
-        return
     log = __import__("logging").getLogger(__name__)
+    if _lane_run_kind(run) != "verification":
+        return
+    if run.rc != 0:
+        # The lane runner's failure is the only reason a verification propose can
+        # end without an artifact; never let it vanish silently again.
+        log.warning(
+            "test_report_runner_nonzero task=%s rc=%s err=%.300s",
+            run.tid,
+            run.rc,
+            str(getattr(run, "cli_err", "") or getattr(run, "raw_res", "") or ""),
+        )
+        return
     try:
         from agent.services.self_development.test_fix_loop import report_write_targets, write_test_report
 
