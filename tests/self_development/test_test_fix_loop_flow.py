@@ -206,6 +206,10 @@ def test_missing_report_mints_a_fresh_lane_task_twice_then_fails(runtime, monkey
     assert ingested[-1]["task_id"] == item()["test_task_id"]
     assert ingested[-1]["priority"] == "high"
     assert ingested[-1]["extra_fields"]["task_kind"] == "verification"
+    # The replacement vehicle carries the tested snapshot (runner-visible tests).
+    minted_ws = service.policy.workspaces / ("self-dev-" + item()["test_task_id"])
+    assert (minted_ws / "tests" / "self_development" / "test_example.py").is_file()
+    assert (minted_ws / ".ananta" / "carried-baseline.json").is_file()
     assert any(args[1] == "failed" and args[0] == lane["task_id"] for args, _kw in status_calls)
 
     # Strike 2: dispatched on the NEW id.

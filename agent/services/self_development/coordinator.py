@@ -762,7 +762,21 @@ class DevelopmentCoordinator:
                 # its stale proposal and assignment pin, and the dispatcher skips a new
                 # propose for it (observed: collect one second after selection, no worker
                 # propose at all).
+                from agent.services.self_development.workspace import carry_workspace
+
                 new_test_task_id = str(uuid.uuid4())
+                # The replacement vehicle needs the same carried snapshot as the
+                # original round: without it the runner resolves its per-agent
+                # directory (no changes, no tests) and can only fail again.
+                source_task = str(item.get("task_id") or "")
+                source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
+                admission = self.policy.root / ("source-" + source_task + ".json")
+                if source_workspace.is_dir() and admission.is_file():
+                    carry_workspace(
+                        source_workspace,
+                        self.policy.workspaces / ("self-dev-" + new_test_task_id),
+                        json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
+                    )
                 item["test_task_id"] = new_test_task_id
                 item["status"] = "test_running"
                 item["reason"] = f"test_lane_round_{item.get('test_lane_round') or 1}"
