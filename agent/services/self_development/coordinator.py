@@ -701,6 +701,10 @@ class DevelopmentCoordinator:
         self.queue.ingest_task(
             task_id=test_task_id,
             status="todo",
+            # The lane gates publication of finished work and runs a bounded full
+            # suite; queue sorting is priority-first, so it must not wait behind the
+            # coding cohort (observed: position ~104 behind a same-age ingest wave).
+            priority="high",
             title=f"Test lane {round_no}: {item.get('todo_id')}",
             description=build_runner_description(
                 loop_cfg,

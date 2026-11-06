@@ -59,6 +59,7 @@ def test_execute_queues_the_adaptive_lane_instead_of_publishing(runtime):
     assert published == []
     lane = ingested[-1]
     assert lane["extra_fields"]["task_kind"] == "verification"
+    assert lane["priority"] == "high"
     assert lane["extra_fields"]["required_capabilities"] == ["testing"]
     assert lane["status"] == "todo"
     assert lane["event_details"]["test_lane_round"] == 1
