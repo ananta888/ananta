@@ -1,0 +1,2012 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.caveman-adaptive-context-and-efficiency",
+  "title": "Caveman-informed Context & Agent Efficiency: sichere reversible Kompression, Recovery, Query-Relevanz, Kostenwahrheit",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "caveman-adaptive-context-and-efficiency",
+  "status": "todo",
+  "created_at": "2026-11-06",
+  "updated_at": "2026-11-06",
+  "purpose": "Caveman (Engine/Skill/Proxy/Blocks) quellenbezogen mit Ananta vergleichen, sinnvolle Implementierungen übernehmen oder besser in Anantas bestehende kontext- und evidenzgesteuerte Hub-Worker-Architektur einpassen, ohne Blindintegration, Features zu duplizieren oder Korrektheit für Tokenersparnis zu opfern.",
+  "goal": "Ein wahlweise Ananta-native oder externes Caveman-Backend unterstützendes, standardmäßig konservatives Context-Optimization-System: messbar weniger Provider-Eingabetokens/Task-Kosten bei mindestens gleicher Task-Korrektheit, vollständigem Erhalt kritischer Fehler- und Sicherheitsbelege, zuverlässiger autorisierter Recovery und revisionsfester Provenance.",
+  "snapshot": {
+    "date": "2026-11-06",
+    "ananta_main_sha": "9e6e169a7742a24fcea741a9a23eeec2874475b9",
+    "caveman_main_sha": "ca3a524022a9f31fb7ae46b66decf622080c2cfa",
+    "caveman_repo": "https://github.com/JuliusBrussee/caveman",
+    "caveman_license_claim": "Apache-2.0 ab v3.0.0; ältere Releases mit anderen Lizenzbedingungen, immer bei vendoring prüfen",
+    "blocks_repo": "https://github.com/caveman-ai/blocks",
+    "note": "Quellcode-Lesestand und geplante Prüfungen; keine Behauptung, dass neue Aufgaben bereits umgesetzt oder Benchmarks gelaufen sind."
+  },
+  "relevant_existing_tracks": [
+    "todos/archiv/todo.headroom-context-compression-adapter.json",
+    "todos/active/todo.long-context-strategy.json",
+    "todos/active/todo.agent-work-efficiency-semantic-redundancy.json",
+    "todos/active/todo.self-evolving-harness.json",
+    "docs/architecture/context-compression-adapter.md",
+    "docs/architecture/context-compression-security.md",
+    "docs/release/context-compression-rollout.md",
+    "docs/long-context-strategy.md"
+  ],
+  "existing_capabilities_verified_by_code": [
+    {
+      "component": "ContextCompressionAdapter + SmartCompressor + QualityGuard + PolicyEngine",
+      "paths": [
+        "agent/services/context_compression/adapter.py",
+        "agent/services/context_compression/smart_compressor.py",
+        "agent/services/context_compression/quality_guard.py",
+        "agent/services/context_compression/policy_engine.py"
+      ],
+      "assessment": "Vorhandene Kompressionspipeline mit JSON/Log/RAG/generic, aber bislang eher heuristisch; Qualitäts- und Recovery-Lücken vor Produktivschaltung prüfen"
+    },
+    {
+      "component": "CCRStore/CCRRetrievalTool",
+      "paths": [
+        "agent/services/context_compression/ccr_store.py",
+        "agent/services/context_compression/ccr_retrieval_tool.py"
+      ],
+      "assessment": "Content-adressierter lokaler Store/TTL bereits vorhanden; striktes fail-open, Store-Sicherheit, Recovery-Autorisierung und Redaction-Datenfluss gezielt prüfen"
+    },
+    {
+      "component": "ToolOutputCompactionService",
+      "paths": [
+        "agent/services/tool_output_compaction_service.py"
+      ],
+      "assessment": "Regelbasierte first/last Kompaktierung inkl. Signalsuche; kann unabhängig ungünstig kürzen, zentrale Quality-Regeln angleichen"
+    },
+    {
+      "component": "Settings/Model/Context Tracking",
+      "paths": [
+        "agent/config_context_compression_settings.py",
+        "agent/services/context_compression/settings_config.py",
+        "agent/services/context_compression/tracking.py",
+        "agent/services/model_routing_observability_service.py"
+      ],
+      "assessment": "Einstellungen und Tracking vorhanden, Kontextkompression default off; token estimate in HCCA char/4"
+    },
+    {
+      "component": "CodeCompass/Tree-sitter",
+      "paths": [
+        "agent/repository_map_tree_sitter.py",
+        "agent/services/codecompass_agentic_retrieval_service.py"
+      ],
+      "assessment": "AST-/Graph-/Hybrid-Retrieval als Quelle für queryrelevante, referenzierte Kontextstücke statt parallelem Index"
+    }
+  ],
+  "initial_risk_hypotheses": [
+    {
+      "id": "H1",
+      "finding": "adapter.store(request.content) nach SecretRedactor(working_content); redacted-Flag allein redigiert Stored bytes nicht",
+      "validation_task": "CAVE-009",
+      "severity": "critical",
+      "confidence": "direct code observation; impact requires runtime verification"
+    },
+    {
+      "id": "H2",
+      "finding": "CCRStore.store exception wird geloggt, aber komprimierter Output kann mit leerem ccr_ref weitergegeben werden",
+      "validation_task": "CAVE-008",
+      "severity": "critical",
+      "confidence": "direct code observation; impact requires runtime verification"
+    },
+    {
+      "id": "H3",
+      "finding": "QualityGuard prüft Presence kritischer Pattern, nicht Vollständigkeit aller Error Lines; ein verlorenes Signal kann in einem 0.7 Score verbleiben",
+      "validation_task": "CAVE-010",
+      "severity": "critical",
+      "confidence": "direct code observation; test behavior still to verify"
+    },
+    {
+      "id": "H4",
+      "finding": "SmartCompressor JSON prune entfernt null/empty und dedupliziert Arrays; generic Strategy head/tail; mögliche Semantikänderung",
+      "validation_task": "CAVE-017",
+      "severity": "high",
+      "confidence": "direct code observation; whether caller prevents depends on integration"
+    },
+    {
+      "id": "H5",
+      "finding": "ToolOutputCompactionService kürzt Ergebnis auf max_output_chars auch nach preserve-lines-Auswahl; mögliche abgeschnittene Critical Signals",
+      "validation_task": "CAVE-020",
+      "severity": "high",
+      "confidence": "direct code observation; impact requires tests"
+    }
+  ],
+  "architecture_decisions": {
+    "control_plane": "Hub entscheidet allein über Policy, Task, Delegation und Evidence; Worker nur Ausführung in erlaubtem Scope.",
+    "integration_strategy": "Ananta-owned Adapter/Ports vor Backendwahl; Prefer native reuse, optional pinned Caveman Engine/MCP/subprocess, nur gezielter Port falls Messung besser, niemals zwingender Proxy.",
+    "source_of_truth": "Existing ContextManager, CodeCompass, ToolOutputCompaction, CCR, LCTX, AWER, SEH, OTel; keine doppelten Engines, Stores oder Control Planes.",
+    "compression_safety": "S4/lossy nur bei erlaubter Quelle und dauerhafter, autorisierter Recovery; protected inputs passthrough/blocked; unknown risk => blocked or policy-safe passthrough.",
+    "evidence_policy": "Hub-issued SRC_*/RUN_* unveränderlich, lokale Trace- und Tokenwerte keine Produktivfreigabe-Evidence.",
+    "privacy": "Local-first, no cloud/telemetry by default; explizites Egress-/Consent-Gate für alle Upstream-Caveman-Cloud- oder Providertransfers.",
+    "rollout": "Default off -> shadow -> canary -> per-surface measured production; jederzeit rollback ohne breaking migration."
+  },
+  "delivery_options": [
+    {
+      "option": "A",
+      "name": "Ananta native",
+      "recommended_for": "Policy/QualityGuard/CCR/Hub/CodeCompass/RAG/Worker",
+      "decision_rule": "Reuse existing Python and framework contracts; default"
+    },
+    {
+      "option": "B",
+      "name": "Pinned Caveman Go Engine über lokales subprocess/stdio/MCP",
+      "recommended_for": "Ausgereifte konkrete Compressor-Varianten sofern Sicherheit, Binary/SBOM, Performance und Contract-Tests positiv",
+      "decision_rule": "Optional plugin; keine Auto-Installation; verifizierte Fallbacks"
+    },
+    {
+      "option": "C",
+      "name": "Apache-2.0-konformer gezielter Port oder Fork",
+      "recommended_for": "JSON/testreport/AST/TOON wenn nativ bessere Wartbarkeit oder sicherer, und Attribution geklärt",
+      "decision_rule": "Tests + Licensing Evidence vor Aufnahme"
+    },
+    {
+      "option": "D",
+      "name": "Caveman Skill/Proxy/Middleware/Blocks/Cloud",
+      "recommended_for": "Nur experimentell opt-in unter gesondertem Egress- und Kosten-Gate",
+      "decision_rule": "Nie Kernabhängigkeit; bei schlechter Qualität/Kosten automatisch deaktivierbar"
+    }
+  ],
+  "excluded_or_deferred": [
+    "Keine Übernahme der sprachlichen Caveman-Persona als verpflichtende Agenten-Antwortweise.",
+    "Keine Default-Aktivierung von Caveman Cloud/Auto, Telemetrie, Prompt-Upload oder Warm-Cache.",
+    "Keine vollständige neue Memory-, Retrieval-, Benchmark- oder Harness-Infrastruktur parallel zu Ananta.",
+    "Keine automatische Reduktion von Tests, Evidenz und Security-Checks nur aufgrund von Token-/Ähnlichkeitsstatistiken.",
+    "Keine Garantie beliebiger 65% oder 33.2% Ersparnis; diese Zahlen betreffen fremde Benchmarks/Szenarien."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Bestandsaufnahme, Entscheidungen, Architektur und Lizenz",
+      "task_ids": [
+        "CAVE-001",
+        "CAVE-002",
+        "CAVE-003",
+        "CAVE-004",
+        "CAVE-005",
+        "CAVE-006",
+        "CAVE-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "P0: Sicherheits- und Korrektheitslücken schließen",
+      "task_ids": [
+        "CAVE-008",
+        "CAVE-009",
+        "CAVE-010",
+        "CAVE-011",
+        "CAVE-012",
+        "CAVE-013",
+        "CAVE-014",
+        "CAVE-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Strukturierte und query-bewusste Kontextkompression",
+      "task_ids": [
+        "CAVE-016",
+        "CAVE-017",
+        "CAVE-018",
+        "CAVE-019",
+        "CAVE-020",
+        "CAVE-021",
+        "CAVE-022",
+        "CAVE-023",
+        "CAVE-024",
+        "CAVE-025"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Agent-, Tool-, CodeCompass- und MCP-Integration",
+      "task_ids": [
+        "CAVE-026",
+        "CAVE-027",
+        "CAVE-028",
+        "CAVE-029",
+        "CAVE-030",
+        "CAVE-031"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Messen, Kostenwahrheit und adaptive Steuerung",
+      "task_ids": [
+        "CAVE-032",
+        "CAVE-033",
+        "CAVE-034",
+        "CAVE-035",
+        "CAVE-036",
+        "CAVE-037"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Optionale Caveman-Fähigkeiten mit kontrollierter Übernahme",
+      "task_ids": [
+        "CAVE-038",
+        "CAVE-039",
+        "CAVE-040",
+        "CAVE-041",
+        "CAVE-042"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "E2E, Fuzz, Qualität, Datenschutz und Benchmarks",
+      "task_ids": [
+        "CAVE-043",
+        "CAVE-044",
+        "CAVE-045",
+        "CAVE-046",
+        "CAVE-047",
+        "CAVE-048",
+        "CAVE-049"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M8",
+      "title": "Stufenweise Auslieferung, UI und Betrieb",
+      "task_ids": [
+        "CAVE-050",
+        "CAVE-051",
+        "CAVE-052",
+        "CAVE-053",
+        "CAVE-054"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-001",
+      "title": "Ananta-Inventar mit Laufzeitpfaden und bestehenden Todo-Tracks abgleichen",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Bestehende Kontextpfade tatsächlich verfolgen: HCCA/Headroom (archiviert), LCTX (done), AWER, SEH, CodeCompass, Worker/context_resolver, ContextManager, HybridOrchestrator, ToolOutputCompaction, ModelRouting, Tracking und vorhandene Test-Harnesses. Status nicht allein aus TODO-Dokumenten ableiten; konkrete Aufrufstellen, wirksame Defaults, Feature-Flags und aktivierte Provider ermitteln.",
+      "implementation_targets": [
+        "agent/hybrid_orchestrator.py",
+        "agent/services/context_compression/",
+        "agent/services/tool_output_compaction_service.py",
+        "worker/core/context_resolver.py",
+        "todos/archiv/todo.headroom-context-compression-adapter.json",
+        "todos/active/todo.agent-work-efficiency-semantic-redundancy.json",
+        "todos/active/todo.self-evolving-harness.json"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Versionierte Matrix mit vorhanden/aktiv/unbenutzt/lückenhaft, Modulpfad, Test und Owner.",
+        "Für jedes Vorhaben aus dieser Todo dokumentiert, ob Erweiterung, Wiederverwendung oder begründeter Neubau nötig ist.",
+        "Kein neuer Kontrollpfad und kein zweiter Logging-/CCR-/Benchmark-Store entstehen ohne begründete ADR."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-002",
+      "title": "Caveman-Revisions- und Feature-Matrix nachprüfbar festhalten",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001"
+      ],
+      "details": "Referenz-SHA ca3a524022a9f31fb7ae46b66decf622080c2cfa vom 2026-11-06 als Ausgangspunkt; Engine/Proxy/Middleware/Skills/cavemem/browse/blocks nicht als ein Feature behandeln. Fähigkeiten mit Lizenz, Plattformen, Sicherheitsklasse, Ananta-Eignung, Tests, Cloud-Abhängigkeit, Wartungsaufwand und Reife erfassen.",
+      "implementation_targets": [
+        "docs/architecture/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa",
+        "https://github.com/caveman-ai/blocks"
+      ],
+      "acceptance_criteria": [
+        "Versionierte Tabelle mit Pfad und festem Caveman-Commit statt unbestimmtem main.",
+        "Claims (65%, 33.2%, 54% usw.) als Upstream-Aussagen mit Messkontext, nicht als Ananta-Ergebnis markiert.",
+        "Caveman Cloud / Auto und separate Blocks-Software explizit von lokalem Apache-2.0-Code getrennt."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-003",
+      "title": "Build-vs-Integrate-vs-Fork Entscheidung pro Komponente und Betriebsprofil",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001",
+        "CAVE-002"
+      ],
+      "details": "Bewerte vier Varianten: A Ananta-native Python-Implementierung, B gepinnte Caveman-Go-Engine als subprocess/stdio, C gezielter Apache-2.0-Port/Fork, D nur opt-in Skill/Proxy/Middleware. Kriterien: Semantik/Qualität, Performance auf 32k/128k, OS/Arch, CGO/tree-sitter, supply chain, reproducibility, offline, AGPL/Apache, Datenresidenz, Testbarkeit, Wartung, Lizenznotice. Kein globaler Big-Bang-Entscheid.",
+      "implementation_targets": [
+        "docs/architecture/context-compression-adapter.md",
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Für jede vorgeschlagene Fähigkeit Entscheidung mit begründeter ADR und Exit-/Fallback-Pfad dokumentiert.",
+        "Proof-of-concept mit identischen Fixtures für mindestens native und Upstream-Engine-Variante, sofern technisch sinnvoll.",
+        "Sämtliche Implementierungen laufen über denselben Ananta-owned Contract; keine erzwungene Caveman-Abhängigkeit."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-004",
+      "title": "Lizenz, Herkunft, NOTICE und Drittkomponenten prüfen",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-002"
+      ],
+      "details": "Caveman ab v3.0.0 Apache-2.0; ältere Tags/Releases teils BSL/MIT. Lizenz von caveman-ai/blocks separat prüfen. Für jedes kopierte Snippet oder Binary Copyright, SPDX, NOTICE, commit-SHA und transitive tree-sitter/Zig/Font-Lizenzen dokumentieren. AGPL-3.0 von Ananta inkl. Distributions-/Quellcodepflichten berücksichtigen.",
+      "implementation_targets": [
+        "LICENSE",
+        "NOTICE",
+        "docs/security/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/LICENSING.md"
+      ],
+      "acceptance_criteria": [
+        "SBOM/NOTICE-Lizenznachweise für nur tatsächlich verwendete Komponenten vorhanden.",
+        "Keine Einbindung von Caveman-Cloud-Quellcode oder Marken ohne entsprechende Rechte.",
+        "CI-Lizenz- und Abhängigkeitsprüfung schlägt auf unbekannten/restriktiven Lizenzen an."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-005",
+      "title": "Versionierte CompressionStrategy-Ports und Capability-Registry etablieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-003"
+      ],
+      "details": "Ananta besitzt die Verträge Detect/Compress/Simulate/Retrieve/Stats; Strategie-Fähigkeiten (structured_json, test_report, ast_outline, log, html, terminal, axtree, toon, tool_schema, repetition) über Capability-Registry mit Sicherheitsklasse und unterstützten Content-Typen. SOLID: SRP für Kompressoren, DIP für Engines, OCP für neue Varianten; vorhandenen ContextCompressionAdapter erweitern statt duplizieren.",
+      "implementation_targets": [
+        "agent/services/context_compression/",
+        "ananta_contracts/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Einheitliche, semantisch versionierte Request/Result-Schemas mit policy_scope, lossiness, recoverability, provenance, estimator_basis und reason_code.",
+        "Unbekannter Typ/Provider/Version => policy-sicherer passthrough; bestehende Aufrufer bleiben funktionsfähig.",
+        "Mindestens zwei Strategien sind über Contract-Tests austauschbar, ohne Hub/Worker-Logik umzubauen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-006",
+      "title": "Feature-/Konfigurationskontrakte und Prioritäten festlegen",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001",
+        "CAVE-005"
+      ],
+      "details": "Settings-Mapping und Default-Wirkung auf Hub und Worker nachprüfen; `CONTEXT_COMPRESSION_*` konsistent, konservativer Standard `off` bzw. `passthrough_with_metrics`, granularer Content-/Provider-/Task-Opt-in. Nicht mit bereits vorhandenen LCTX- und SEH-Schaltern konkurrieren.",
+      "implementation_targets": [
+        "agent/config_context_compression_settings.py",
+        "agent/services/context_compression/settings_config.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Konfigurationsmatrix inkl. off, shadow, conservative, aggressive und externem Adapter mit echten E2E-Checks.",
+        "Ohne neue Konfiguration ändert sich das Verhalten bestehender Instanzen nicht.",
+        "Config-Validierung lehnt gefährliche Kombinationen (lossy ohne Recovery, sensitive cloud, untrusted binary) ab."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M1",
+      "id": "CAVE-007",
+      "title": "Beobachtete Funktionslücken vor Umsetzung mit Source-Proofs verifizieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001"
+      ],
+      "details": "Besondere Prüfungen: Diff nicht in wirksamer NEVER_COMPRESS-Liste, Originalspeicherung trotz SecretRedactor, CCR optional, QualityGuard nur Musterpräsenz, Char/4-Schätzung, generic head/tail, Nutzer-/Tool-/Provider-Pfad; andere vorhandene Guards können diese bereits absichern. Für jeden Befund tatsächlichen Ausführungspfad und Tests prüfen; Fehlermeldungen ohne Fundstellen vermeiden.",
+      "implementation_targets": [
+        "agent/services/context_compression/adapter.py",
+        "agent/services/context_compression/quality_guard.py",
+        "agent/services/context_compression/policy_engine.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Reproduzierbare Minimaltests belegen oder widerlegen jeden konkreten Verdacht vor Codeänderung.",
+        "Befunde enthalten Datei+Funktion+Schweregrad und unterscheiden bestätigte Lücke von Hypothese.",
+        "Überflüssige neue Aufgaben werden gegen bereits gelöste Track-Implementierungen geschlossen statt doppelt realisiert."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-008",
+      "title": "CCR-Store-Gating: keine verlustbehaftete Ausgabe ohne Recovery-Nachweis",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-007",
+        "CAVE-005"
+      ],
+      "details": "Aktueller Adapter kann `decision=compressed` auch nach Ausnahme beim `_ccr_store.store` oder `ccr_store=None` liefern. Wenn Transformation irreversibel ist, nur ausliefern, wenn authorized recovery handle bereits dauerhaft verifiziert ist; ansonsten policy-safe passthrough oder blocked; keine rohe sensible Eingabe als Fallback leaken.",
+      "implementation_targets": [
+        "agent/services/context_compression/adapter.py",
+        "agent/services/context_compression/ccr_store.py",
+        "tests/context/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/technical/context-recovery.md"
+      ],
+      "acceptance_criteria": [
+        "Tests erzwingen Fehler bei None/disk full/IOError/TTL-Expiry/Store-Close und bestätigen unveränderte, policy-konforme Ausgabe ohne dangling refs.",
+        "Commit/Store erfolgreich und handle abrufbar, bevor die komprimierte Antwort sichtbar wird.",
+        "Mehrfachversuche/Abbruch hinterlassen keine falsch erfolgreichen Handles."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-009",
+      "title": "Secrets-/PII-Schutzzone vor und bei CCR-Speicherung schließen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-007",
+        "CAVE-008"
+      ],
+      "details": "Adapter redigiert `working_content`, legt aktuell bei Erfolg aber `request.content` ab; `redacted=True` ist bloß Metadatum. Prüfe mit Tests diesen Pfad. Blockiere Geheimnisse vor Storage/LLM, respektiere ContextAccessPolicy, never_cloud/approval und sensiblere personenbezogene Daten. Definiere separat autorisierte Roh-Original-Recovery vs redigierte Views; verschlüsselte Speicherung nur nach Security Review.",
+      "implementation_targets": [
+        "agent/services/context_compression/adapter.py",
+        "agent/services/context_compression/secret_redactor.py",
+        "agent/services/context_compression/ccr_store.py",
+        "docs/architecture/context-compression-security.md"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Canary-Secrets/PEM/Bearer/Auth-Headers kommen weder in CCR-Dateien/Index/Traces noch an unzulässige Provider.",
+        "Redacted-Metadatum darf niemals über tatsächliche Redaction hinweg täuschen; Tests vergleichen Bytes.",
+        "Unknown/high-entropy/encoded credential test cases und Tenant-Policy verhindern ungewollte Speicherung oder Weiterleitung."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-010",
+      "title": "QualityGuard: kritische Semantik als harte Invarianten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-007",
+        "CAVE-005"
+      ],
+      "details": "Aktuell genügen ggf. vorhandene ERROR-Schlüsselwörter bei verlorenen Fehlerzeilen und Score>=0.7. Erhalte alle relevanten Fehlereinträge nach eindeutiger ID/Zeile, Counts, Assertion-Pfade, Exit-Codes, Warnungen, Negationen, Grenzwerte, Quellen/Line-Ranges, Reihenfolgenabhängigkeiten. Nicht bloß einzelne Regex-Treffer/Prozent-Score.",
+      "implementation_targets": [
+        "agent/services/context_compression/quality_guard.py",
+        "tests/context/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Jede entfernte kritische Assertion/Fehlermeldung/negierte Aussage führt unabhängig vom Gesamtscore zu hard reject.",
+        "Tests mit zwei ERROR-Zeilen (nur eine bleibt), Zahlenänderung, Sicherheitswarnung und falsch positivem JSON bestehen.",
+        "Original bleibt zugänglich; semantische Prüfungen pro Content-Typ versioniert und auditiert."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-011",
+      "title": "Policy-Sicherheitsklassen S0-S4 und denylist absichern",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-005",
+        "CAVE-010"
+      ],
+      "details": "Jede Strategie deklariert Lossiness/Recovery-Risiko. Aktive Patches, Diffs, Security-Audits, Credentials, Approvals, User-Originalnachricht, Tests mit Fehlern und konfigurierte geschützte Signale konservativ behandeln. Existing task_intent und sensitivity_label strikt mit Hub-Policies verschneiden. Konfigurierbare Allow-Lists dürfen harte Sicherheitsgrenzen nicht aufheben.",
+      "implementation_targets": [
+        "agent/services/context_compression/policy_engine.py",
+        "docs/architecture/context-compression-security.md"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Diff/Patch/Security-Task wird ohne explizite sicher geprüfte Ausnahme nicht lossy transformiert, selbst wenn mislabelled.",
+        "Policy-Konflikte fail-closed und enthalten maschinenlesbare Diagnose ohne Secret-Inhalt.",
+        "Unit-/Property-Tests prüfen Default, Overrides, Fallthrough und Klassifikation bei unbekanntem Content."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-012",
+      "title": "CCR-Tenant-/Run-/Task-Isolation und abrufbare Teilobjekte",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-008",
+        "CAVE-009",
+        "CAVE-011"
+      ],
+      "details": "Content-Hashes sind Identifier, keine Autorisierung. Retrieval bindet ref an Hub-issued SRC_*/RUN_*, Tenant, Projekt, Lease, erlaubten Inhaltstyp, Sensitivity, ACL/TTL und Source-Policy. Optional typed ccr://-Pointer mit validierten JSON-Pfaden/Offsets; genau autorisierte Teilmenge abrufen. Bestehende CCR Store und RetrievalTool erweitern, keinen globalen MCP-Hintereingang.",
+      "implementation_targets": [
+        "agent/services/context_compression/ccr_retrieval_tool.py",
+        "agent/services/context_compression/ccr_store.py",
+        "agent/services/mcp_registry_service.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/ccr/"
+      ],
+      "acceptance_criteria": [
+        "Cross-tenant, guessable-handle, revoked lease, stale run und traversierende JSON pointer liefern denied/not_found ohne Leck.",
+        "Teilabruf liefert den exakt ausgewählten Originalteil inklusive Provenance, ohne unzulässige benachbarte Werte.",
+        "Evidenz-IDs stammen ausschließlich aus dem Hub Evidence Registry, niemals aus Worker- oder Kompressorkomponenten."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-013",
+      "title": "Atomarer, begrenzter CCR-Store und Lebensdauer-Garantien",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-012"
+      ],
+      "details": "Prüfe dateibasierten JSON-Index auf concurrent writers, Crash-Konsistenz, atomic writes, symlink/traversal, Datei-/Rechteprüfung, TTL und Kapazität. Entscheide gemessen zwischen gehärtetem Filesystem-Store und SQLite aus Caveman; vorhandene Daten migrierbar, keine Ersetzung ohne Kompatibilitätsplan.",
+      "implementation_targets": [
+        "agent/services/context_compression/ccr_store.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/ccr/store_sqlite.go"
+      ],
+      "acceptance_criteria": [
+        "Mehrprozess- und Crash-Fixtures beweisen keine unvollständigen Indexe/fehlenden Referenzen.",
+        "Store full, capacity, eviction, permission, symlink, DB/WAL-Replacement haben definierte sichere Fehlerzustände.",
+        "Retention und GDPR-relevante Löschung gelten für Originale, Index, Backups und Auditreferenzen konsistent."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-014",
+      "title": "Externe Binaries, Scripts und Provider als eigene Trust Boundaries",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-003",
+        "CAVE-004"
+      ],
+      "details": "Caveman CLI/Go-Engine, Plugins, Blocks, Browser CDP und Middleware sind untrusted/dependency-adjacent. Kein automatischer Installer, keine interaktive Setup-Pflicht, kein shell=True oder blinder AGENTS.md-Patch. Pinned digest/signature/SBOM, subprocess limits, egress control, read-only mounts, resource caps, no secrets in argv.",
+      "implementation_targets": [
+        "docs/security/",
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Headless/offline Starter arbeitet ohne Zusatz-Binary; fehlendes Binary => deterministischer Fallback.",
+        "Compromised binary/script, malformed protocol, timeouts, forks und environment injection durch negative Tests abgedeckt.",
+        "Keine Credential-/PII-/Repo-Egress bei lokalen Opt-in-Features ohne explizite Policy/Einwilligung."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M2",
+      "id": "CAVE-015",
+      "title": "Prompt-Injection und Evidenzverwechslung in kompaktierten Artefakten verhindern",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-010",
+        "CAVE-012"
+      ],
+      "details": "Komprimierte Tool-/RAG-/Web-Ausgaben bleiben untrusted data. Original-Source-/Line-Mapping darf nicht als LLM-Autorität gelten; abgeschnittene Zitate nicht zu neuen Behauptungen verleiten; Approval und Policies dürfen nie aus Tool Output oder CCR-Daten abgeleitet werden.",
+      "implementation_targets": [
+        "agent/services/context_compression/",
+        "agent/services/retrieval_policy_filter_service.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Test-Fixtures mit bösartigen eingebetteten Anweisungen, kollidierenden Source-Handles und gefälschten RUN_/SRC_-Strings bestehen.",
+        "Antwort-Evidence ist vom Hub geprüft und referenziert die nicht komprimierte Quelle.",
+        "Keine Kompressor-Ausgabe darf selbst Approval-, Routing- oder Execution-Policy überschreiben."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-016",
+      "title": "Deterministische Detection und Compressor-Registry mit Unsicherheitswerten",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-005",
+        "CAVE-011"
+      ],
+      "details": "Cavemans Detect/Compress-Muster als Ananta-Strategy aufnehmen: JSON, structured test output, logs, stdout, html, tabular, search, code, diff, tool-schema. Content sniffing gegen declared type prüfen; ambiguities, invalid parse und mixed content werden passthrough.",
+      "implementation_targets": [
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/detect.go"
+      ],
+      "acceptance_criteria": [
+        "Erkennung ist deterministisch, idempotent und unterstützt Content-Type-Kollisionstests.",
+        "Payloads mit unbekanntem Binary/Encoding und fehlgeschlagenem Parser bleiben unverändert.",
+        "Auswahl loggt detector_version, strategy_version, reason_code ohne Nutzdaten."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-017",
+      "title": "Strukturierte JSON-Array-Kompression statt blindem Kürzen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-010",
+        "CAVE-012"
+      ],
+      "details": "Port/Integration des Caveman JSON-Ansatzes: Felder und Struktur erhalten, representative first/last, Fehler, status, Outlier/MAD, CUSUM/change points, query-relevante Elemente, Intervalle plus __elided__ und gezählte Auslassungen. Kein Entfernen semantisch entscheidender null/empty/Falsy Werte, IDs oder Beweis-Einträge. Bei signierter/Schema-gebundener JSON-Antwort nur lossless, sonst nicht transformieren.",
+      "implementation_targets": [
+        "agent/services/context_compression/smart_compressor.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors/json.go"
+      ],
+      "acceptance_criteria": [
+        "Getestete JSON-Invarianten für Counts, Error-Items, Query-Hits, Statistik und Gesamtstruktur.",
+        "JSON bleibt parsebar; Intent-/Schema-Verträglichkeit wird vor Modellübergabe validiert.",
+        "Relevante Unterobjekte sind via autorisierte CCR-Pointer vollständig abrufbar."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-018",
+      "title": "TOON/Tabular vs JSON best-of nach realen Tokenzählern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-017"
+      ],
+      "details": "Caveman TOON-Strategie optional prüfen: gegen JSON minified und semantische Elision mit identischen Provider-Tokenizern antreten. TOON nur verwenden, wenn Daten eindeutig tabellarisch, Round-trip/Mapping und Modelllesbarkeit validiert sind. Nicht als Default für verschachtelte Toolargumente oder schema-strikte Responses.",
+      "implementation_targets": [
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors/json_strategy.go"
+      ],
+      "acceptance_criteria": [
+        "Best-of wählt echten kleinsten gültigen Kandidaten; kein verlustreiches Format ohne Recovery.",
+        "Property-based Roundtrip für einfache/nested/quoted/newline/Unicode/empty/duplicate-key Inputs.",
+        "A/B-Qualität zeigt keine signifikanten Regressionen bei Dateninterpretation, sonst bleibt JSON Default."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-019",
+      "title": "Testreport-Kompressor für JUnit, pytest und Jest",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-010"
+      ],
+      "details": "Caveman Testreport-Modell übernehmen: alle Failed/Error-Signale mit Test-ID, Nachricht, Trace, Counts, Skips, xfail/xpass/rerun und Laufzeit; Erfolgsliste aggregieren. Für Test-Failure-Intent nur evidenzsichere Summaries oder unverändert, wenn Diagnose gefährdet. Fail-open bei 0 Tests/parse failure.",
+      "implementation_targets": [
+        "agent/services/tool_output_compaction_service.py",
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors/testreport.go"
+      ],
+      "acceptance_criteria": [
+        "Aggregierte Erfolgszahlen stimmen exakt mit Ausgangsdaten; jede Fehlermeldung inklusive Kontext vorhanden oder gezielt recoverable.",
+        "pytest/Jest/JUnit malformed/partial reports und mehrdeutige SKIP/FAIL gelten als nicht komprimierbar.",
+        "Benchmark mit Ananta-eigenen realistischen CI-Ausgaben zeigt korrekte Fehlerdiagnosen gegenüber Baseline."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-020",
+      "title": "Log-, Terminal- und Diff-Kompression mit Ereignisgrenzen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-010"
+      ],
+      "details": "Ananta generic first/last aufrüsten: Error/Warn/Stacktrace + Vor-/Nachlauf, command exit, time ordering, repeated-line counts, event groups, failed command chain, noisy progress/ANSI escape. Diffs, Patch-Hunks, Testausfälle und sicherheitsrelevante Traces im Standard nicht irreversibel komprimieren.",
+      "implementation_targets": [
+        "agent/services/tool_output_compaction_service.py",
+        "agent/services/context_compression/smart_compressor.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors"
+      ],
+      "acceptance_criteria": [
+        "Mehrere räumlich getrennte Fehler bleiben diagnostizierbar, inklusive Exit-Code und wichtiger Zeitrelation.",
+        "ANSI/binary/truncated/megabyte log fuzzing liefert niemals erfundene oder vertauschte Befunde.",
+        "Code-/Diff-Originale und Positionsreferenzen bleiben überprüfbar, oder Transformation wird verweigert."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-021",
+      "title": "Tree-sitter AST-Outline für Codekontext auf CodeCompass-Basis",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-012"
+      ],
+      "details": "Vorhandenes agent/repository_map_tree_sitter.py und CodeCompass-Symbolgraph wiederverwenden; nur Imports, Signaturen, Klassendefinitionen, semantische Beziehungen und Abhängigkeiten als kompakte Leseansicht. Keinesfalls Quellcode/Patches ersetzen, die ein Agent für Edit/Review/Test wirklich benötigt. Parserfehler, dynamische Sprachen, Makros, Generics und Regex-Fallback beachten.",
+      "implementation_targets": [
+        "agent/repository_map_tree_sitter.py",
+        "agent/services/codecompass_agentic_retrieval_service.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors/code_cgo.go"
+      ],
+      "acceptance_criteria": [
+        "Outline reproduzierbar mit stabilen line ranges, symbol IDs und full-body recovery.",
+        "Python, TS/JS, Go, Java, Rust und Unsupported-Languages in Fixtures getestet; Ast-Parse-Fehler => passthrough.",
+        "Editierwerkzeuge erhalten unveränderte Originaldateien und Patch-/Diff-Ausgaben."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-022",
+      "title": "RAG- und CodeCompass-Snippet-Kuration query-/budget-bewusst",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-017",
+        "CAVE-021"
+      ],
+      "details": "BM25/Hybrid/Search-Ranking vor rein positionalem top-N. Mehrere Treffer derselben Quelle deduplizieren, Diversität/Antwortdeckung, trusted provenance, Kosten je Token, Source/Line-Range und Überraschungs-/Ausreißer-Hits erhalten. Security- und negative Belege priorisieren; kein nachträgliches Überschreiben von Hub Source Gate.",
+      "implementation_targets": [
+        "agent/services/codecompass_agentic_retrieval_service.py",
+        "agent/services/context_compression/smart_compressor.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Retrieval recall@budget, evidence precision, negative-case recall und answer correctness gegen bestehende Hybrid-Retrieval-Baseline gemessen.",
+        "Source IDs, Provenance, line ranges und CodeCompass-Graph-Verweise bleiben stabil.",
+        "Fallback kann gesamte autorisierte Quelle bei Zweifeln nachladen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-023",
+      "title": "Structured Tool-Schema Kompression ohne Vertragsbruch",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-010"
+      ],
+      "details": "Caveman tool-schema und annotations Kompression nur für an das Modell übergebene *beschreibende* Toolkataloge; validierungsrelevante JSON Schema constraints, required, enum, defaults, examples, discriminator, RBAC-Hinweise unangetastet, URI/$ref korrekt. Auf tatsächlichen Toolargumenten kein Rewrite.",
+      "implementation_targets": [
+        "agent/services/mcp_registry_service.py",
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/compressors"
+      ],
+      "acceptance_criteria": [
+        "Referenz-Validator akzeptiert dieselbe Menge gültiger/ungültiger Toolargumente vor und nach Transformation.",
+        "LLM Tool-Selection/Tool-Call Erfolgsquote und Invalid-Args-Rate sind nicht schlechter als Baseline.",
+        "Unsupported unions/ref-cycles/constraints => passthrough."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-024",
+      "title": "HTML- und Accessibility-Snapshot-Kompression für Browser-Agenten",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-012"
+      ],
+      "details": "Ananta-Browser-/Playwright-Resultate mit DOM/A11y-Tree-Relevanz und CDP-Referenz vergleichen. Wichtig: Interaktionsknoten, Labels, Role, State, Elemente-IDs und Tab-Reihenfolge/Navigation erhalten; nur noise reduzieren. Caveman Browse darf nicht ungeprüft Browser-Berechtigungen erweitern.",
+      "implementation_targets": [
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa/browse"
+      ],
+      "acceptance_criteria": [
+        "UI-Aufgabe mit kompaktem Snapshot löst dieselben Aktionen wie unveränderte Baseline.",
+        "Formulare/kleine Seiten mit schlechter Kompression bleiben passthrough.",
+        "Keine unautorisierten Browser-/CDP-Aktionen; action IDs lassen sich eindeutig zu unveränderten Elementen zurückführen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M3",
+      "id": "CAVE-025",
+      "title": "Deterministische Kontext-Wiederholung, Repetition und idempotente Kompression",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-022"
+      ],
+      "details": "Wiederholte statische Tool-Outputs, gleiche repo map segments, semantisch identische Warnungen, sticky goals in ContextManager identifizieren, ohne Version/Zeitrahmen/Delta zu verschlucken. Kompression muss idempotent sein und braucht content/version-aware Keys.",
+      "implementation_targets": [
+        "agent/context_manager.py",
+        "agent/services/context_compression/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "compress(compress(x)) verursacht keine weitere unkontrollierte Kürzung.",
+        "Änderungen an Code-Revision, Toolversion, Session oder Berechtigungen invalidieren Deduplikation.",
+        "Nicht identische WARN/FAIL-Fälle und zeitabhängige Ereignisse bleiben getrennt und überprüfbar."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-026",
+      "title": "Worker-Handoff per unveränderlichem ContextEnvelope",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-005",
+        "CAVE-012",
+        "CAVE-016"
+      ],
+      "details": "Kompression beim Hub-/Worker-Context-Aufbau an existierende Budget-/Artifact-/Evidence-Contracts anbinden. Worker führt nur vom Hub bewilligte Strategien aus; jede Verdichtung mit task/run/lease/budget, source IDs und Rückgewinnungshinweisen. Keine Worker-zu-Worker-Delegation.",
+      "implementation_targets": [
+        "worker/core/context_resolver.py",
+        "agent/hybrid_orchestrator.py",
+        "agent/context_manager.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Hub bleibt alleiniger Owner für Freigaben, Routing und Orchestrierung; Worker nur delegated execution.",
+        "E2E vom Goal bis zu Toolresponse belegt identische Policy vor/nach Feature-Flag.",
+        "Unzulässiger CCR-Nachladeversuch durch fremden Worker wird zuverlässig verweigert."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-027",
+      "title": "MCP-Kompressions- und Recovery-Tools aus bestehenden Ports veröffentlichen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-012",
+        "CAVE-026"
+      ],
+      "details": "Ananta MCP Registry um detect/simulate/retrieve-subtree/stats erweitern, ausschließlich auf Hub-Scoping und vorhandenen CCR Contract gestützt. Keine globalen Raw-File-Browser, keine direkte Agent-Minting API für RUN_*/SRC_*. Simulation verändert keine Originale und speichert keine Daten.",
+      "implementation_targets": [
+        "agent/services/mcp_registry_service.py",
+        "agent/services/mcp_tool_handlers.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "ACL-Tests für alle MCP Tools inkl. Worker-, Tenant- und Source-Scopes.",
+        "MCP-Antworten sind schema-validiert, bounded und lösen keine unautorisierte Nebenwirkung aus.",
+        "Simulate und Detect liefern reine, reproduzierbare Ergebnisse ohne Secrets in Logs."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-028",
+      "title": "OpenCode/Codex/Claude-CLI Provider-Integrationen nur über Adapter",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-003",
+        "CAVE-014",
+        "CAVE-026"
+      ],
+      "details": "Bestehendes agent/cli_backends/ nutzen, keinen zweiten Proxy als Pflicht. Caveman-kompatibler lokaler Proxy/Middleware nur optional für BYOK oder Modell-Provider-SDKs, nicht für CLI-Login-Flows ungeprüft. Bei Streams keine SSE-/Tool-Call-/usage-Verstümmelung; Keycloak/Hub-Scopes bleiben gültig.",
+      "implementation_targets": [
+        "agent/cli_backends/",
+        "agent/services/model_routing_composition.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/technical/proxy-and-providers.md"
+      ],
+      "acceptance_criteria": [
+        "CLI E2E mit mindestens OpenCode und Codex: vollständige Toolcalls, Stream-Events und Usage ohne Drift.",
+        "Ausfall/Timeout/Provider-SDK-Inkompatibilität => native Ananta-Routing ohne Umweg.",
+        "Credential-Handling berührt weder persistierte Kontextdaten noch CLI-Token."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-029",
+      "title": "Prompt-/Context-Assembly sicher mit Stable-Prefix-Budgeting verbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-006",
+        "CAVE-026"
+      ],
+      "details": "System-/Developer-Instruktionen, immutable Goals, Policies, Quellenkataloge, Task-Context, volatile Toolresultate getrennt priorisieren. Statische Signaturen nicht jedes Mal neu senden; truncation accounting aus LCTX erhalten. Kontextreserve für Antwort/Toolcalls/Recovery explizit und providerabhängig budgetieren.",
+      "implementation_targets": [
+        "agent/context_window.py",
+        "agent/llm_prompt_messages.py",
+        "agent/services/context_budget_policy_service.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Keine stillen Token-Overflows bei 32k-Standard und optionalen 64k/128k-Profilen.",
+        "Stabile vs volatile Segmente werden nachprüfbar getrennt, aber nicht unzulässig umsortiert.",
+        "Jede Auswahl/Verdrängung ist mit ContextWindow-Trace und Provenance auswertbar."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-030",
+      "title": "CodeCompass-/RAG-Recovery als interaktives gezieltes Nachladen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-022",
+        "CAVE-027"
+      ],
+      "details": "Agent erhält bei einer knappen Trefferliste autorisierte Möglichkeit, vollständige Funktion, JSON-Unterbaum oder angrenzende Belege per CCR oder originärem CodeCompass-Retrieval nachzufordern. Retrieval-Loop budgetiert und stoppt ohne Endlosschleifen; relevante Befunde dürfen nicht lossy werden, wenn Nachladen unmöglich ist.",
+      "implementation_targets": [
+        "agent/services/codecompass_agentic_retrieval_service.py",
+        "agent/services/context_compression/ccr_retrieval_tool.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Agent kann mit einem deterministischen Toolcall originalgetreuen Ausschnitt inklusive Line-Range lesen.",
+        "Budget-Limit, max_retrieve_calls, TTL, revoked access und unavailable source führen zu verständlichem Policy-Fallback.",
+        "Hybrid-RAG-Ranking/GraphRAG wird nicht durch lokale Re-Kompression inhaltlich entwertet."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M4",
+      "id": "CAVE-031",
+      "title": "Ananta-native Tool-Ausgabe vor Prompt-Einlass reduzieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-019",
+        "CAVE-020",
+        "CAVE-026"
+      ],
+      "details": "ToolOutputCompactionService und SmartCompressor zu einer geordneten Pipeline verbinden statt doppelt zu kürzen. Input-Typ, task intent, tool exit code, policy, verifizierbare CCR ref und original trace durchreichen. Kein neuer unkontrollierter Volltext/Secret-Store.",
+      "implementation_targets": [
+        "agent/services/tool_output_compaction_service.py",
+        "agent/services/context_compression/adapter.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Genau eine tatsächlich wirksame Kompressionsentscheidung pro Output; keine doppelte Head/Tail-Trunkierung.",
+        "Tool-Fehler, Security-Blocks und Shell-Failures bleiben vollständig erkennbar.",
+        "Ausgeschaltet => byte-identisches Baseline-Verhalten und identische Tool-Exit-Semantik."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-032",
+      "title": "Provider-konforme Tokenzählung und Kostenbasis unterscheiden",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001",
+        "CAVE-006"
+      ],
+      "details": "Ananta verwendet teils chars/4, Caveman bietet o200k_base und provider-reported usage. Pro Modell kompatiblen Tokenizer, cache_read/cache_write, input/output/reasoning, billing tier, Batch, Credit/Subscription und Hardwarekosten korrekt getrennt messen. Keine fiktive monetäre Einsparung aus Charakterzahl.",
+      "implementation_targets": [
+        "agent/services/context_compression/token_estimator.py",
+        "agent/services/cost_aggregation_service.py",
+        "agent/services/model_cost_estimator.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/technical/accounting-and-evidence.md"
+      ],
+      "acceptance_criteria": [
+        "Felder `inferred`, `provider_reported`, `benchmark_counterfactual`, `observed`, `verified`, `unpriced` auf Graphen/API eindeutig ausgewiesen.",
+        "Bei nicht bekannten Preisen keine €-Ersparnis behauptet; per-request Abos als eigenständiges Kostenmodell.",
+        "Aggregationen vermeiden Doppelzählung von Cache und paralleler Wallclock."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-033",
+      "title": "Shadow- und A/B-Harness für vollständige Agentenaufgaben",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-032",
+        "CAVE-025"
+      ],
+      "details": "Nicht nur Datei-Tokenzählung. Vergleich gleicher Input-Revision, Job-Seed, Modell, temperature, cache, tools, task, wiederholte Runs mit und ohne Kompression. Erfolgskriterien: korrektes Artefakt, Test-Failure-Recovery, Security, Kosten je abgeschlossenem Task, p50/p95 Dauer, Toolloops, Retrieval-Nachladung.",
+      "implementation_targets": [
+        "tests/context/",
+        "agent/services/harness_benchmark.py",
+        "agent/services/context_compression/ab_router.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Unabhängiges reproduzierbares A/B-Runner-Protokoll mit Budget, randomisierten Versuchsarmen und gepinnten Konfigurationen.",
+        "Auswertung enthält Konfidenzintervall/Varianz und kann Qualitätseinbußen erkennen.",
+        "Kein kleiner synthetischer Fixture-Test wird als nachgewiesene Produktiv-Einsparung ausgewiesen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-034",
+      "title": "Qualitätsverlust, Recovery-Aufwand und marginale Evidenz als Kosten abbilden",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-033"
+      ],
+      "details": "Berücksichtige Recovery-Tool-Calls, zusätzliche Modellrunden, Halluzinationen, Reparaturaufwand, Cache-Verdrängung und verlorene Evidenz. AWER-Track für semantische Doppelarbeit wiederverwenden; doppelte erfolgreiche Tests nicht allein durch Ähnlichkeit skippen.",
+      "implementation_targets": [
+        "todos/active/todo.agent-work-efficiency-semantic-redundancy.json",
+        "agent/services/harness_benchmark.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Nettoeffekt pro vollständig gelöstem Task und pro tatsächlichem Provider-Bill ausgewiesen.",
+        "Benchmark identifiziert Fälle, in denen komprimierter Lauf mehr kostet oder schlechter abschneidet.",
+        "Geen evidence/critical checks skipped solely for token savings; AWER-Schnittstelle bleibt autoritativ."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-035",
+      "title": "Adaptive Kompressionsstrategiewahl als konservativer Router",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-016",
+        "CAVE-033",
+        "CAVE-034"
+      ],
+      "details": "Deterministische Auswahl abhängig von Content-Klasse, Task, Modell, Budget, geschätzter Qualität und gemessener Wirkung. Optional Policy/Decision-Provider hinter Hub-Gates; LLM darf Kompression vorschlagen, nicht selbst Genehmigungen erstellen. Keine Optimierung auf synthetische oder Test-Holdout-Daten.",
+      "implementation_targets": [
+        "agent/services/context_compression/ab_router.py",
+        "agent/services/model_routing_composition.py",
+        "agent/services/decision_providers/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Bei fehlender Kalibrierung wählt der Router sicher passthrough.",
+        "Router-Entscheidungen sind reproduzierbar, vollständig erklärbar und Feature-Flag-gebunden.",
+        "Security-, correctness- und consent-Gates dominieren jeden positiven Token-Score."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-036",
+      "title": "Benchmark-getriebene Evolution nur via vorhandenem Self-Evolving Harness",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-035"
+      ],
+      "details": "SEH mit Kandidaten für Compressor-Strategie, thresholds, context packet size, relevance weighting, caching und model effort versorgen. DSPy/GEPA/EvoMap nicht kopieren. Safe mutation surface, holdouts, Pareto correctness/cost/latency/recovery, promotion/rollback über Hub.",
+      "implementation_targets": [
+        "todos/active/todo.self-evolving-harness.json",
+        "agent/services/dspy_optimization_service.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Keine neue Evolution Engine oder zweiter Promotion Controller.",
+        "Unbewertete Konfigurationsänderungen bleiben im Shadow-Test; harte Safety-Gates nicht mutierbar.",
+        "Experimentlineage, Benchmark und Rückkehr zur Baseline jederzeit möglich."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M5",
+      "id": "CAVE-037",
+      "title": "Verifizierte Observability-Dashboards statt pauschaler Spar-Prozente",
+      "type": "measurement",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-032",
+        "CAVE-033"
+      ],
+      "details": "Ananta vorhandene TraceBundle/OTel/Prometheus-KPIs um chosen strategy, recovered bytes, tokens in/out, critical-preservation, retries, cache hit/miss, failed_over, quality gate, cost-basis, dollars/€ bei erlaubten Preisen erweitern; kein Inhalt in Telemetrie. Reporting pro Task, Provider, Projekt, Modell und Adapter.",
+      "implementation_targets": [
+        "agent/services/context_compression/tracking.py",
+        "docs/llm-observability.md"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Dashboard unterscheidet Schätzung, Provider-Usage und kausal verglichenes A/B.",
+        "Statistiken zeigen negative Savings und fehlerhafte Kompression sichtbar statt sie zu verstecken.",
+        "Metrics enthalten keine Prompttexte, Filepaths, API Keys oder PII."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M6",
+      "id": "CAVE-038",
+      "title": "Caveman-Skill für knappe Agent-Antworten nur optional und evaluiert",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-002",
+        "CAVE-033"
+      ],
+      "details": "Lizenzierten `/caveman`-Skill oder kurze Standardantwort-Regel als opt-in Stilprofil testen, niemals als Pflicht für Benutzer-, Reviewer-, Sicherheits- oder Programmausgaben. Keine Annahme, dass 65% Output-Reduktion netto Kosten senkt; baseline 'answer concisely' messen.",
+      "implementation_targets": [
+        "agent/cli_backends/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa/skills",
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/HONEST-NUMBERS.md"
+      ],
+      "acceptance_criteria": [
+        "Wählbares Skill-Profil für passende CLI-Agenten ohne Änderung strukturierter Tool-Schemas.",
+        "Sprachqualität, technische Vollständigkeit, Negationen und Safety-Texte bestehen Fidelity-Evals.",
+        "Wird bei neutralem/negativem Nettoeffekt deaktiviert; keine unbelegte Marketingzahl."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M6",
+      "id": "CAVE-039",
+      "title": "Caveman Blocks vs Ananta native vetted recipes",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-004",
+        "CAVE-014",
+        "CAVE-034"
+      ],
+      "details": "caveman-ai/blocks separat prüfen: Test summary, json peek, first error, wait-for usw. Sie vermeiden wiederholte Agent-Skripte. Bevorzugt geprüfte Ananta-native, versionierte Recipes/Tools mit festen Permission Manifesten; externe pre-release Python-Blöcke nur im Sandbox-Test. AWER-Überschneidungen beachten.",
+      "implementation_targets": [
+        "agent/services/mcp_registry_service.py",
+        "todos/active/todo.agent-work-efficiency-semantic-redundancy.json"
+      ],
+      "upstream_references": [
+        "https://github.com/caveman-ai/blocks"
+      ],
+      "acceptance_criteria": [
+        "Keine Ausführung von neu generierten oder importierten Scripts ohne vorhandene Tool-/Sandbox-Policy.",
+        "Wiederholungsrate, Kosten pro sinnvoller Aktion und Sicherheitsrisiken anhand realer Agent-Runs gemessen.",
+        "Ein Block darf niemals Shell-Guardrails oder Freigabe erzwingen/umgehen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M6",
+      "id": "CAVE-040",
+      "title": "Provider-native Prompt-Caching nur an sicheren Stable Prefixes",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-029",
+        "CAVE-032"
+      ],
+      "details": "Caveman Cache Planner als Referenz: Provider-spezifische Hinweise, stable/volatile boundaries, rate plans und cache usage. Prüfe Ananta bereits verwendete cache controls. Nie generische Header zu unbekannten Providers, stale prompt policy oder vertrauliche Caches quer über Tenants.",
+      "implementation_targets": [
+        "agent/services/model_routing_composition.py",
+        "agent/llm_prompt_messages.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/technical/cache-planner.md"
+      ],
+      "acceptance_criteria": [
+        "Nur nach Provider-Capability-Matrix aktiv, bei unknown/malformed/provider drift unverändert.",
+        "Provider usage belegt tatsächliche Cache Hits; bloßer Hint gilt nicht als Saving.",
+        "Cache-Policy-Version, Tenant-Bindung und Content-Hashes werden in Invalidierung berücksichtigt."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M6",
+      "id": "CAVE-041",
+      "title": "Auto Model/Effort Routing gegen vorhandenes Ananta Routing testen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-035",
+        "CAVE-032"
+      ],
+      "details": "Caveman Cloud Auto nicht als Kernabhängigkeit übernehmen. Offline-native Schwierigkeitsschätzung und vorhandene ModelRouting Contracts, Kosten/Gates/Worker-Profile vergleichen; lokale Modelle (Ollama/LM Studio) und EU-Datenschutz priorisieren. Auto Cloud sendet Kontext extern und verlangt separate explizite Opt-in-Permission.",
+      "implementation_targets": [
+        "agent/services/model_routing_contract.py",
+        "agent/services/model_invocation_routing_policy.py"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/AUTO-BENCHMARK.md"
+      ],
+      "acceptance_criteria": [
+        "Cloud Auto ist standardmäßig aus; keine Code-/Prompt-/History-Daten ohne ausdrückliches Egress-Gate.",
+        "Kosten, Qualität, Tool-Use und mediane/p95 Laufzeit gegen Ananta-Route gemessen.",
+        "Failover verändert keine Auth/Tool/Permission-Projektion oder Modellfähigkeit stillschweigend."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M6",
+      "id": "CAVE-042",
+      "title": "Cavemem/Pixel/Browse/Warm-cache nur nach separatem Nutzenbeleg",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-002",
+        "CAVE-033"
+      ],
+      "details": "Cavemem durable memory gegen vorhandene Ananta-/Dendritic-/CodeCompass-Memory vergleichen; Pixel-Texteinbettung als Bild erfordert multimodale Token- und Qualitätsprüfung, nicht blind übernehmen. Browse bereits M3-024. Warm-cache zusätzliche API-Kosten, Privacy und Risiken prüfen. Alle als individuelle opt-in experiments.",
+      "implementation_targets": [
+        "docs/architecture/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/tree/ca3a524022a9f31fb7ae46b66decf622080c2cfa/engine/pixel"
+      ],
+      "acceptance_criteria": [
+        "Pro Fähigkeit Testbericht: unique capability, Überschneidung, Qualitäts- und Kostenabwägung, Security.",
+        "Nicht positiv evaluierte Features sind explizit als rejected/deferred dokumentiert.",
+        "Warm-cache erzeugt keine unbewilligten Provider-Calls im Leerlauf."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-043",
+      "title": "Unit/Property/Fuzz: Verlust, Reentrancy, Parser und feindliche Inputs",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-010",
+        "CAVE-017",
+        "CAVE-019"
+      ],
+      "details": "Differential- und Property-Tests pro Strategie (JSON/JUnit/pytest/Jest/AST/log/html/axtree/TOON), invalid UTF-8, binary, huge payload, cyclic references, duplicate keys, parser bombs, unicode, long streams, adversarial claims. Invarianten aus M2 gelten immer.",
+      "implementation_targets": [
+        "tests/context/",
+        "tests/security/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Headless Tests scheitern bei verlorenem Critical Signal, falsch bezeichnetem redaction und unautorisiertem Retrieve.",
+        "Idempotenz, Größenlimit, reversible Handle-Funktion, race/crash und no-unbounded-memory verifiziert.",
+        "Jede Fehlerklasse hat ein Fixture und abgesichertes Policy-Fallback."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-044",
+      "title": "Reale Workload-Korpora aus Ananta-Fällen, datensparsam",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-001",
+        "CAVE-033"
+      ],
+      "details": "Reproduzierbare erlaubte Fixtures aus Ananta-Coding, Bugfix, CodeCompass GraphRAG, Auth/Keycloak, Security Review, n8n JSON, Logs, CI und Browser. Synthetic nur klar gekennzeichnet. Keine echten Secrets oder Kundendaten; PII scrubben; Evaluation auch negative/hard-cases.",
+      "implementation_targets": [
+        "tests/fixtures/",
+        "tests/benchmarks/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Korpus versieht jedes Szenario mit expected answer, invariants, Source-SHA, anonymization, allowed models und licensing.",
+        "Vergleich 32k und optional 128k, kleine 16GB GPU/Lokalserver, Cloud-BYOK mit berechtigtem Opt-in.",
+        "Korpus lässt sich offline und im gepinnten Backend-Image vollständig headless ausführen."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-045",
+      "title": "Kosten-, Qualität- und Retrieval-Fidelity-Gates quantitativ definieren",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-032",
+        "CAVE-044"
+      ],
+      "details": "Keine willkürliche globale Sparquote. Hard gates: 100% Erhalt explizit verpflichtender Felder und sicherheitskritischer Failures, null ACL/Egress-Regressionen, korrekte Evidence, Schema/Tool-Call Kompatibilität. Soft gates: median/p95 completion, cost per solved task, token delta, recovery overhead, signal recall, task solved rate; Unsicherheitsintervalle.",
+      "implementation_targets": [
+        "agent/services/harness_benchmark.py",
+        "tests/context/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Benchmark veröffentlicht Fail-/Pass-Raten, qualitative Error Classes und CI-Hard-Stops.",
+        "Negative Savings/mehr Retrievals führen zu per-content Auto-Disable statt Zwangsoptimierung.",
+        "No regression gegen matched baseline inklusive kritischer Security-/Recovery-Szenarien."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-046",
+      "title": "Proxy-/CLI-/SDK-Protokoll- und Streaming-Kompatibilität belegen",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-028",
+        "CAVE-043"
+      ],
+      "details": "Wenn Caveman Proxy oder eigenes Middleware eingesetzt wird: OpenAI Chat/Responses, Anthropic Messages, Gemini und lokale OpenAI-kompatible Endpunkte nur je verifizierter Unterstützung. Streaming SSE, function/tool calls, error events, usage, response_id und Retry-Semantik durch lokale Tests sichern. Keine Proxypflicht.",
+      "implementation_targets": [
+        "tests/cli_backends/",
+        "tests/context/"
+      ],
+      "upstream_references": [
+        "https://github.com/JuliusBrussee/caveman/blob/ca3a524022a9f31fb7ae46b66decf622080c2cfa/docs/technical/proxy-and-providers.md"
+      ],
+      "acceptance_criteria": [
+        "First token streaming, status/header/event order/usage/error wire-baseline byte-/semantik-kompatibel.",
+        "Nicht unterstützte Provider/Endpoints bleiben direkt, ohne Fallback auf falschen Provider.",
+        "Offline stubs verifizieren Security und Auth ohne echte API Keys."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-047",
+      "title": "Multi-Tenant-, ACL-, OS-, Runtime- und Crash-E2E-Szenarien",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-013",
+        "CAVE-014",
+        "CAVE-026",
+        "CAVE-027"
+      ],
+      "details": "Hub-Worker-Multiprozess, docker, Windows+Linux soweit CI verfügbar, path/reparse/symlink attacks, CCR TTL/race, restart, all-provider offline, no-secret telemetry, safe migration. Für Plattform ohne Runner technische Ausnahme explizit als unverified, nicht fake-pass.",
+      "implementation_targets": [
+        "tests/security/",
+        "tests/context/",
+        "docker/compose-next/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Cross-tenant retrieve/guessable handle/run mismatch bleiben denied; kein secret file in Testartefakten.",
+        "Container-/Worker-Neustart und ausgelöste Disk-Full/Permission-Faults verlieren keine bestätigte Recovery.",
+        "CI evidence unterscheidet ausgeführt, übersprungen und nicht verfügbar."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-048",
+      "title": "Performanceprofile und Regressionsbudgets für lokale Modelle",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-044",
+        "CAVE-045"
+      ],
+      "details": "Benchmark auf kleinen lokalen Modellfenstern (32k Standard; 64k/128k wo unterstützt) inklusive Prefill, quantisierter GPU-Bandbreite, TTFT, Streaming latency, CPU-RSS, async concurrency, overhead compress/restore. Qualität wichtiger als rohe Datenrate; Caveman 33%-Bench nicht übernehmen.",
+      "implementation_targets": [
+        "tests/benchmarks/",
+        "agent/services/benchmark_runner_service.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Reproduzierbare tabellarische Run-Parameter und Peak-Memory; beim Nichtvorhandensein der GPU explizit skip statt Erfindung.",
+        "Kein unbounded CPU/RAM bei maximalen Tool-Outputs, Definition von Ressourcenlimits.",
+        "Benchmark trennt Arbeitsaufgabe, Tool-Outputs, Input-/Outputtokens, reasoning und cache."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M7",
+      "id": "CAVE-049",
+      "title": "Repo-Policy, License/SBOM, Import-/Static-Gates und Volltest",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-043",
+        "CAVE-045",
+        "CAVE-047"
+      ],
+      "details": "Lint, typing, schemas, AGENTS.md SOLID/SRP, Singleton-Freeze, worker/hub boundary, output-boundary, provenance/license und pinned versions prüfen. Regression gezielt und `make test-full` im vorgesehenen Docker-Image, sofern verfügbar; Ergebnisse inklusive nicht durchgeführter Tests ehrlich dokumentieren.",
+      "implementation_targets": [
+        "todos/todo.track.schema.json",
+        "AGENTS.md"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "JSON validiert `todos/todo.track.schema.json`; IDs/depends/milestones konsistent.",
+        "Alle verpflichtenden Repository-Gates grün; keine Security-Permissions aufgeweicht.",
+        "Kein Freigabefluss blockiert CI durch einen interaktiven Prompt."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M8",
+      "id": "CAVE-050",
+      "title": "Phase 0/1: Default-off und metrische Shadow-Einführung",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-008",
+        "CAVE-009",
+        "CAVE-010",
+        "CAVE-045",
+        "CAVE-049"
+      ],
+      "details": "Zuerst in repräsentativen internen Pipelines nur detect/simulate/metriken, nicht mutieren; mit 5%-opt-in komprimieren erst nach P0. Rollout-Policy an docs/release/context-compression-rollout.md anpassen und vorhandenes ABRouter verwenden.",
+      "implementation_targets": [
+        "docs/release/context-compression-rollout.md",
+        "agent/services/context_compression/ab_router.py"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Default-off/passthrough auf bestehenden Installationen ohne Daten-/Verhaltensänderung.",
+        "Shadow-Berichte unterscheiden hypothetische Einsparung von echten Token-Usage-Werten.",
+        "Feature-Flag-Rollback in derselben Task-Session und keine DB-Schema-Abhängigkeit."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M8",
+      "id": "CAVE-051",
+      "title": "Phase 2: Conservative Rollout je Content-Klasse und Modell",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-050",
+        "CAVE-033",
+        "CAVE-035"
+      ],
+      "details": "Nach harten Tests kleine, konfigurierbare Kohorten mit strukturiertem JSON + Testreport, Logs danach; RAG/Code zuletzt und gesondert. Content-/Modell-/Provider-spezifische Stop-Bedingungen; Ausweitung nur bei bestätigten Quality- und Cost-Gates.",
+      "implementation_targets": [
+        "agent/services/context_compression/",
+        "docs/release/context-compression-rollout.md"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Rollback automatisch bei Safety-Fehler, erhöhten Fehlversuchen oder schlechter A/B-Korrektheit.",
+        "Auditierbare Kohortenauswahl und getrennte Schwellen nach Task, Provider, Format und Sensitivität.",
+        "Grad der Aktivierung nie aus Marketing-Claims abgeleitet."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M8",
+      "id": "CAVE-052",
+      "title": "Operator UI/API: nachvollziehbare Auswahl und Diagnosen",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-037",
+        "CAVE-050"
+      ],
+      "details": "Bestehende Ananta UI/Tracking Viewer um pro Task: Kompressor gewählt, warum, bytes/tokens saved, recovery count, hard gate, estimator basis, Kosten/Qualität, Version, Off/Shadow/Canary ergänzen. Hub ist Owner für Änderungen; Secrets und Originaltexte nie pauschal ausgeben.",
+      "implementation_targets": [
+        "frontend-angular/",
+        "agent/routes/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Dashboard zeigt verifizierte Original- und Ergebnis-IDs nur mit Berechtigung und erlaubt Policy-konformen Einzel-Rollback.",
+        "Keine Anzeige nicht freigegebener Inhalte; Rollen/RBAC und tenant segregation getestet.",
+        "Fehlerzustand unterscheidet safe passthrough, blocked und failed."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M8",
+      "id": "CAVE-053",
+      "title": "Betrieb, Migration, Versionpinning, Exit-Plan und Wartung",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-004",
+        "CAVE-051"
+      ],
+      "details": "Dokumentiere Caveman-Dependency-Upgrades vs eigene Implementation, pinned SHA, SBOM, CVE Monitor, Wartungskapazität, changelog, data deletion/retention, Monitoring und offline deploy. Ein vollständiger Disable-Pfad ohne zusätzliche Env-Var oder externen Prozess bleibt nötig.",
+      "implementation_targets": [
+        "docs/setup/",
+        "docs/release/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Reproducible install und rollback auf bekannt funktionierende Version in Docker sowie CLI-local.",
+        "Caveman/Blocks können deinstalliert/gesperrt werden, ohne native Ananta-Agenten zu brechen.",
+        "Runbook enthält Security-Notification-/Version-Update-/Performance-Regression-Prozedur."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    },
+    {
+      "milestone_id": "M8",
+      "id": "CAVE-054",
+      "title": "Abschluss: Ownership, Drift-Audit und verifizierte Freigabe",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "CAVE-051",
+        "CAVE-052",
+        "CAVE-053"
+      ],
+      "details": "Mache Abschlussreview gegen Original-Ananta-Code, Caveman-Pin, HCCA-Archiv und LCTX/AWER/SEH. Keine bloße Checklist-Abnahme: source-grounded PR/Commits, Hub Evidence Registry für SRC_*/RUN_*, Security Gates, Performance- und Fidelity-Reports; Entscheidung dokumentieren, welche Komponenten bewusst NICHT übernommen wurden.",
+      "implementation_targets": [
+        "docs/release/",
+        "docs/architecture/"
+      ],
+      "upstream_references": [],
+      "acceptance_criteria": [
+        "Release-Entscheidung mit verifizierten und nicht verifizierten Claims sowie offenen Risiken.",
+        "Alle Aufgaben haben reproduzierbare Evidence, Owner, dokumentierte Rückbaupfade oder begründete Deferral.",
+        "Produktive Freigabe nie durch erfundene/selbstzugewiesene RUN_*/SRC_*-IDs und nie durch synthetische Test-Evidence."
+      ],
+      "deliverables": [
+        "Quellcode/Vertrag oder ADR nach Aufgabenart",
+        "Headless, reproduzierbare Tests und nachverfolgbare Evidence"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CAVE-001",
+    "CAVE-003",
+    "CAVE-005",
+    "CAVE-007",
+    "CAVE-008",
+    "CAVE-009",
+    "CAVE-010",
+    "CAVE-011",
+    "CAVE-012",
+    "CAVE-013",
+    "CAVE-016",
+    "CAVE-017",
+    "CAVE-019",
+    "CAVE-026",
+    "CAVE-032",
+    "CAVE-033",
+    "CAVE-043",
+    "CAVE-045",
+    "CAVE-047",
+    "CAVE-049",
+    "CAVE-050",
+    "CAVE-051"
+  ],
+  "tasks_status_summary": {
+    "total": 54,
+    "by_status": {
+      "todo": 54,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 27,
+      "P2": 8,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 20,
+      "high": 24,
+      "critical": 7
+    },
+    "critical_path": {
+      "total": 22,
+      "done": 0,
+      "remaining": 22
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 54,
+    "by_type": {
+      "analysis": 7,
+      "security": 8,
+      "implementation": 10,
+      "integration": 6,
+      "measurement": 6,
+      "evaluation": 5,
+      "verification": 7,
+      "rollout": 5
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 54,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_order": [
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5",
+    "M6",
+    "M7",
+    "M8"
+  ],
+  "summary_notes": [
+    "Integration nicht blind: Caveman ist ein Referenzimplementierungs-Pool, Ananta hat viele gleiche Funktionen bereits.",
+    "P0 Security-Fixes zuerst; vorläufig kein harter Beweis für tatsächlichen Security-Exploit ohne reproduzierbare Testpfade.",
+    "Release-Evidenz aus Quelle, Bench und Provider Usage, nicht aus willkürlichen Prozentzahlen oder synthetischen Daten.",
+    "Bestehende HCCA/LCTX/SEH/AWER-Artefakte bleiben zuständig für ihre Bereiche; diese Todo beschreibt Ergänzungen und Übernahmeentscheidungen.",
+    "Falls Caveman aktualisiert wird, Upstream-Kommit und Lizenzlage erneut fixieren, Tests und Diff prüfen.",
+    "Jedes Feature bleibt im fully headless, least-privilege, local-first Betrieb benutzbar oder sauber disabled."
+  ]
+}
