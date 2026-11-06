@@ -57,6 +57,63 @@ class DevelopmentPolicy:
             or any(not isinstance(flag, bool) for flag in quality.values())
         ):
             raise ValueError("development_quality_policy_invalid")
+        self._validate_test_fix_loop()
+
+    def _validate_test_fix_loop(self) -> None:
+        """Operator pre-authorization for the adaptive test-fix round loop (additive)."""
+        block = self.value.get("test_fix_loop")
+        if block is None:
+            return
+        allowed = {
+            "enabled",
+            "max_rounds",
+            "runner",
+            "minimum_profile",
+            "minimum_args",
+            "parallel_test_runner",
+            "round_timeout_seconds",
+        }
+        if not isinstance(block, dict) or set(block) - allowed:
+            raise ValueError("development_test_fix_loop_invalid")
+        if not isinstance(block.get("enabled", False), bool):
+            raise ValueError("development_test_fix_loop_invalid")
+        rounds = block.get("max_rounds", 3)
+        if not isinstance(rounds, int) or not 1 <= rounds <= 10:
+            raise ValueError("development_test_fix_loop_invalid")
+        if str(block.get("runner", "opencode")) != "opencode":
+            raise ValueError("development_test_fix_loop_invalid")
+        profile = block.get("minimum_profile", "all-tests")
+        if not isinstance(profile, str) or profile not in (self.value.get("test_profiles") or {}):
+            raise ValueError("development_test_fix_loop_invalid")
+        args = block.get("minimum_args", [])
+        if not isinstance(args, list) or len(args) > 8:
+            raise ValueError("development_test_fix_loop_invalid")
+        for arg in args:
+            if not isinstance(arg, str) or len(arg) > 80 or not re.fullmatch(r"[A-Za-z0-9_\-='\"/. :]{1,80}", arg):
+                raise ValueError("development_test_fix_loop_invalid")
+        parallel = block.get("parallel_test_runner", False)
+        if not isinstance(parallel, bool):
+            raise ValueError("development_test_fix_loop_invalid")
+        if parallel:
+            # Schema reserved for the pipelined overlap stage; shipping the flag
+            # silently sequential would lie about the behavior it selects.
+            raise ValueError("development_test_fix_loop_parallel_unsupported")
+        timeout = block.get("round_timeout_seconds", 1800)
+        if not isinstance(timeout, int) or not 60 <= timeout <= 3600:
+            raise ValueError("development_test_fix_loop_invalid")
+
+    def test_fix_loop(self) -> dict:
+        """Effective test-fix loop configuration; absent block means disabled."""
+        block = self.value.get("test_fix_loop") or {}
+        return {
+            "enabled": block.get("enabled") is True,
+            "max_rounds": max(1, min(int(block.get("max_rounds") or 3), 10)),
+            "runner": str(block.get("runner") or "opencode"),
+            "minimum_profile": str(block.get("minimum_profile") or "all-tests"),
+            "minimum_args": [str(arg) for arg in (block.get("minimum_args") or [])],
+            "parallel_test_runner": block.get("parallel_test_runner") is True,
+            "round_timeout_seconds": max(60, min(int(block.get("round_timeout_seconds") or 1800), 3600)),
+        }
 
     def _validate_profiles(self):
         documented_roots = set(self.value.get("allowed_roots") or [])

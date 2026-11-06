@@ -117,6 +117,46 @@ def export_revision(checkout: Path, destination: Path, revision: str) -> dict:
     return baseline
 
 
+def carry_workspace(source: Path, destination: Path, baseline: dict) -> dict:
+    """Seed a new round's workspace from the previous round's workspace, keeping changes.
+
+    ``baseline`` is the *admitted* hash map of the original revision (loaded from the
+    source round's admission manifest): carried modifications must keep showing as
+    changes against it, so the seal for the next round still hashes the real diff.
+    Copies the whole current tree except Git metadata and the per-attempt ``.ananta``
+    scaffolding — each round rebuilds its own prompt/profile/report artifacts, while
+    ``.ananta/interactive-baseline`` is kept as the read-only diff reference.
+    """
+    source = Path(source)
+    destination = Path(destination)
+    if destination.exists():
+        raise ValueError("workspace_already_exists")
+    if not source.is_dir():
+        raise ValueError("carry_source_missing")
+    destination.mkdir(parents=True, mode=0o700)
+    keep_baseline = Path(".ananta") / "interactive-baseline"
+    copied = 0
+    for path in sorted(source.rglob("*")):
+        rel = path.relative_to(source)
+        if ".git" in rel.parts:
+            continue
+        if rel.parts and rel.parts[0] == ".ananta":
+            if not (rel == keep_baseline or keep_baseline in rel.parents):
+                continue
+        if path.is_symlink():
+            raise ValueError("carry_symlink_denied")
+        if not path.is_file():
+            continue
+        target = destination / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+        target.chmod(0o755 if os.access(path, os.X_OK) else 0o644)
+        copied += 1
+    if not copied:
+        raise ValueError("carry_source_empty")
+    return dict(baseline)
+
+
 def write_scope_manifest(workspace: Path, files: list[str]) -> None:
     """Declare the closed writable scope so the worker mutation policy allows edits.
 
