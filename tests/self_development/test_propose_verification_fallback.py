@@ -229,3 +229,19 @@ def test_review_brief_declares_the_verification_command_with_the_marker():
     )
     recovered = mod._verification_command_from_task_description(SimpleNamespace(description=brief))
     assert recovered == MARKER_COMMAND, f"review brief must declare the command verbatim, got {recovered!r}"
+
+
+def test_verification_kind_forces_the_lane_runner_fallback():
+    """LLM strategies echo the declared command; the opencode runner must still run.
+
+    The adaptive test lane brief contains ``Run exactly:``; without this guard the
+    tool-calling strategy returns an executable bash call from a direct LLM turn
+    and the orchestrator never reaches its CLI fallback (observed: one 63s llamacpp
+    call, no opencode invocation, no report contract).
+    """
+    from agent.services.task_scoped.propose_orch import _requires_lane_runner
+
+    assert _requires_lane_runner("verification") is True
+    assert _requires_lane_runner(" Verification ") is True
+    assert _requires_lane_runner("coding") is False
+    assert _requires_lane_runner(None) is False

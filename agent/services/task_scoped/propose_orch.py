@@ -21,10 +21,6 @@ from agent.services.goal_config_runtime_service import (  # noqa: F401  (test mo
     get_goal_config_runtime_service,
 )
 from agent.services.instruction_layer_service import get_instruction_layer_service
-from ananta_contracts.model_routing_contract import (
-    extract_model_routing_from_task,
-    has_model_routing_declaration,
-)
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
 from agent.services.product_event_service import record_product_event
 from agent.services.propose_policy_service import get_propose_policy_service
@@ -34,6 +30,10 @@ from agent.services.worker_routing_policy_utils import derive_required_capabilit
 from ananta_contracts.model_recovery import (
     is_recoverable_model_error_type,
     sanitize_terminal_model_recovery_signal,
+)
+from ananta_contracts.model_routing_contract import (
+    extract_model_routing_from_task,
+    has_model_routing_declaration,
 )
 
 if TYPE_CHECKING:
@@ -64,6 +64,19 @@ def _write_review_answer_artifact(*, task: str, task_record: Any, answer: Any) -
         import logging
 
         logging.getLogger(__name__).warning("review_answer_artifact_write_skipped", exc_info=True)
+
+
+def _requires_lane_runner(task_kind: Any) -> bool:
+    """The adaptive test lane must always reach the CLI fallback runner.
+
+    LLM-only strategies happily echo the brief's declared ``Run exactly:`` command
+    as an executable bash tool call (observed: a direct 63s llamacpp call producing
+    the minimum suite as a tool call), which skips the opencode runner and with it
+    the report contract entirely. For ``verification`` tasks the orchestrator's CLI
+    fallback -- resolved through the task-kind backend map to opencode -- is the
+    only path that runs the adaptive agent the lane is built around.
+    """
+    return str(task_kind or "").strip().lower() == "verification"
 
 
 def run_propose_orchestrator_path(
@@ -294,7 +307,8 @@ def run_propose_orchestrator_path(
     defer_to_hub_recovery = bool(
         not result.is_executable and terminal_model_signal is not None and configured_recovery and not policy_terminal
     )
-    if not result.is_executable and not defer_to_hub_recovery and not policy_terminal:
+    lane_runner_required = _requires_lane_runner(task_kind)
+    if (not result.is_executable or lane_runner_required) and not defer_to_hub_recovery and not policy_terminal:
         fallback_backend, fallback_reason = resolve_cli_backend(
             task_kind,
             requested_backend="auto",
