@@ -100,7 +100,7 @@ def execute(service, *, passed=True, extra=False, stop=False):
 
         workspace = Path(context["workspace"]["output_dir"])
         assert not (workspace / ".git").exists()
-        (workspace / "tests/self_development").mkdir(parents=True)
+        (workspace / "tests/self_development").mkdir(parents=True, exist_ok=True)
         (workspace / "tests/self_development/test_example.py").write_text("def test_ok():\n    assert True\n")
         if extra:
             (workspace / "README.md").write_text("not authorized")

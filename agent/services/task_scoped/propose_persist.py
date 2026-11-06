@@ -329,6 +329,26 @@ def _write_final_answer_for_proposal(run: ProposeRun) -> None:
         logging.getLogger(__name__).warning("final_answer_artifact_write_skipped", exc_info=True)
 
 
+def _write_test_report_for_proposal(run: ProposeRun) -> None:
+    """Persist the adaptive test lane's JSON report for the coordinator's collect.
+
+    Only ``verification`` tasks carry the report contract; any other answer (or an
+    unparseable one) leaves the artifact unwritten, and ``_dispatch_test_lane``
+    keeps the honest bounded failure. Never raises: proposal persistence must not
+    depend on artifact writing.
+    """
+    if run.rc != 0 or str(getattr(run, "task_kind", "") or "").strip().lower() != "verification":
+        return
+    try:
+        from agent.services.self_development.test_fix_loop import write_test_report
+
+        write_test_report(Path(run.workspace_dir), task_id=run.tid, answer=str(run.raw_res or ""))
+    except Exception:  # pragma: no cover - artifact writing must not break the proposal path
+        import logging
+
+        logging.getLogger(__name__).warning("test_report_artifact_write_skipped", exc_info=True)
+
+
 def persist_command_proposal(run: ProposeRun, routing: dict) -> Any:
     reason, command, tool_calls = _parse_structured_proposal(run)
     command_source = "structured_proposal"
@@ -349,6 +369,7 @@ def persist_command_proposal(run: ProposeRun, routing: dict) -> Any:
     )
     _write_analysis_report_for_proposal(run)
     _write_final_answer_for_proposal(run)
+    _write_test_report_for_proposal(run)
     trace = _proposal_trace(run)
     pipeline_payload = {**run.pipeline, "trace_id": trace["trace_id"]}
     repair_meta = run.repair_meta

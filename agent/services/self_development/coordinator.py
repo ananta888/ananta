@@ -449,6 +449,12 @@ class DevelopmentCoordinator:
         review_item = next((i for i in state["items"].values() if i.get("review_task_id") == task.id), None)
         if review_item is not None:
             return self._dispatch_review(txn, review_item, task, worker, execute)
+        test_item = next((i for i in state["items"].values() if i.get("test_task_id") == task.id), None)
+        if test_item is not None:
+            # The runner's work happened in its propose step (opencode backend); this
+            # dispatch only collects the report contract and drives the next round, so
+            # neither worker binding nor the execute phase applies here.
+            return self._dispatch_test_lane(txn, test_item, task)
         item = next((i for i in state["items"].values() if i["task_id"] == task.id), None)
         if item is None:
             update_local_task_status(task.id, "cancelled", event_type="self_development_stale_attempt_rejected")
@@ -470,6 +476,10 @@ class DevelopmentCoordinator:
             if item["status"] == "pending_review":
                 result.completed, result.failed = False, True
                 result.failure_type = "development_awaiting_acceptance_review"
+            elif item["status"] == "test_running":
+                # The adaptive test lane was queued; the item resumes when it reports.
+                result.completed, result.failed = False, True
+                result.failure_type = "development_awaiting_test_lane"
             elif item["status"] != "published":
                 result.completed, result.failed = False, True
                 result.failure_type = "development_not_published"
@@ -582,6 +592,258 @@ class DevelopmentCoordinator:
             update_local_task_status(task.id, "failed", last_output=item["reason"])
             return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="acceptance_review_failed")
 
+    def _stage_acceptance_review(
+        self,
+        *,
+        item,
+        state,
+        profile,
+        author_task_id,
+        author_worker_url,
+        projection,
+        analysis_digest,
+    ) -> dict:
+        """Stage the independent acceptance review from item state alone.
+
+        Shared by the execution flow (inside ``run()``) and the green test lane: both
+        stage the identical request/queue/sync behavior and produce the identical
+        gate-facing outcome dict. Item-only inputs keep the test lane free of the
+        original dispatch closure.
+        """
+        policy = self.policy
+        requirements = _task_requirements(item)
+        if (policy.value.get("quality_gates") or {}).get("require_acceptance_review"):
+            from agent.services.self_development.acceptance_review import (
+                AcceptanceReviewRequest,
+                require_acceptance_review,
+            )
+
+            review_request = AcceptanceReviewRequest(
+                task_id=author_task_id,
+                repository_revision=item["revision"],
+                author_worker_url=str(author_worker_url),
+                requirements_json=json.dumps(requirements, sort_keys=True, ensure_ascii=True),
+                changed_files=tuple(sorted(item["hashes"].items())),
+            )
+            criteria = requirements.get("acceptance_criteria")
+            criteria_count = len(criteria) if isinstance(criteria, list) else 0
+            enqueue = getattr(self.reviewer, "enqueue_review", None)
+            if callable(enqueue):
+                # Phased workflow: the review becomes its own queue Task with a
+                # pre-reserved Registry run. Publication is deferred until that
+                # Task's independently dispatched review passes.
+                reservation = enqueue(review_request, todo_id=str(item.get("todo_id") or ""))
+                item.update(
+                    acceptance_review_request=asdict(review_request),
+                    review_reservation=reservation,
+                    review_task_id=reservation["review_task_id"],
+                    review_verification_command=profile["command"],
+                    status="pending_review",
+                    reason="independent_acceptance_review_pending",
+                )
+                return {
+                    "passed": True,
+                    "hashes": item["hashes"],
+                    "worker_url": str(author_worker_url),
+                    "assignment_digest": canonical_evidence_digest(dict(projection)),
+                    "worker_analysis_digest": analysis_digest,
+                    "acceptance_review": "queued",
+                }
+            receipt = require_acceptance_review(
+                review_request,
+                criteria_count=criteria_count,
+                reviewer=self.reviewer,
+                registry=self.registry,
+                tenant_id=policy.value["tenant_id"],
+            )
+            item["acceptance_review"] = asdict(receipt)
+            item["acceptance_review_request"] = asdict(review_request)
+            self._check_live(state)
+        return {
+            "passed": True,
+            "hashes": item["hashes"],
+            "worker_url": str(author_worker_url),
+            "assignment_digest": canonical_evidence_digest(dict(projection)),
+            "worker_analysis_digest": analysis_digest,
+            "acceptance_review_digest": canonical_evidence_digest(item.get("acceptance_review")),
+        }
+
+    def _begin_test_round(self, txn, item, loop_cfg) -> None:
+        """Queue the adaptive test lane on a carried snapshot of the sealed workspace.
+
+        The snapshot is taken here, before the runner task is dispatched: the runner's
+        propose step (opencode, task_kind ``verification``) then reads a workspace that
+        already exists, so the read-only rule holds by construction.
+        """
+        from agent.services.self_development.test_fix_loop import build_runner_description, minimum_command
+        from agent.services.self_development.workspace import carry_workspace
+
+        item_key = str(item.get("key") or "")
+        minimum_cmd = minimum_command(loop_cfg, self.policy.value.get("test_profiles") or {})
+        round_no = int(item.get("test_lane_round") or 0) + 1
+        test_task_id = str(uuid.uuid4())
+        source_task = str(item["task_id"])
+        source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
+        admission = self.policy.root / ("source-" + source_task + ".json")
+        if not source_workspace.is_dir() or not admission.is_file():
+            raise ValueError("test_lane_source_unavailable")
+        carry_workspace(
+            source_workspace,
+            self.policy.workspaces / ("self-dev-" + test_task_id),
+            json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
+        )
+        item.update(
+            test_task_id=test_task_id,
+            test_lane_round=round_no,
+            status="test_running",
+            reason=f"test_lane_round_{round_no}",
+        )
+        self.queue.ingest_task(
+            task_id=test_task_id,
+            status="todo",
+            title=f"Test lane {round_no}: {item.get('todo_id')}",
+            description=build_runner_description(
+                loop_cfg,
+                todo_id=str(item.get("todo_id") or ""),
+                title=str(item.get("title") or ""),
+                minimum_cmd=minimum_cmd,
+            ),
+            created_by="self-development-hub",
+            source="system",
+            team_id=self.policy.value["team_id"],
+            tags=["self-development", str(item.get("todo_id") or "")],
+            event_details={"test_lane_round": round_no, "test_for": source_task},
+            extra_fields={"task_kind": "verification", "required_capabilities": ["testing"]},
+        )
+        txn.write(owned_key=item_key)
+
+    def _dispatch_test_lane(self, txn, item, task):
+        """Collect the runner's report and drive pass / fix / exhausted.
+
+        The runner already did its work in the propose step (opencode backend), so no
+        execute phase runs here: the task-fenced report artifact is the whole contract.
+        """
+        from agent.ports.task_dispatch import TaskDispatchResult
+        from agent.services.self_development.test_fix_loop import next_round_action, read_test_report
+
+        state = txn.state
+        item_key = str(item.get("key") or "")
+        try:
+            self._check_session(state)
+            if item.get("status") != "test_running":
+                raise ValueError("stale_test_lane_attempt")
+            workspace = self.policy.workspaces / ("self-dev-" + task.id)
+            report = read_test_report(workspace, task_id=task.id)
+            if report is None:
+                # Mirror of the review-answer retry: one honest bounded re-queue, then
+                # a precise failure instead of an infinite silent lane.
+                retries = int(item.get("test_report_retries") or 0) + 1
+                item["test_report_retries"] = retries
+                txn.write(owned_key=item_key)
+                if retries > 2:
+                    item["status"] = "failed"
+                    item["reason"] = "test_report_missing"
+                    txn.write(owned_key=item_key)
+                    update_local_task_status(task.id, "failed", last_output="test_report_missing")
+                    return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="test_report_missing")
+                update_local_task_status(
+                    task.id,
+                    "todo",
+                    event_type="test_report_retry",
+                    event_actor="system",
+                    event_details={"reason_code": "test_report_required"},
+                    force=True,
+                )
+                return TaskDispatchResult(
+                    task.id, dispatched=True, failed=True, failure_type="test_report_pending_retry"
+                )
+            item["test_report"] = report
+            item["test_fix_rounds"] = int(item.get("test_fix_rounds") or 0) + 1
+            txn.write(owned_key=item_key)
+            action = next_round_action(item, report, self.policy.test_fix_loop())
+            if action == "pass":
+                return self._continue_after_green_tests(txn, item, task)
+            if action == "exhausted":
+                item["status"] = "failed"
+                item["reason"] = "test_fix_rounds_exhausted"
+                txn.write(owned_key=item_key)
+                update_local_task_status(task.id, "failed", last_output="test_fix_rounds_exhausted")
+                return TaskDispatchResult(
+                    task.id, dispatched=True, failed=True, failure_type="test_fix_rounds_exhausted"
+                )
+            return self._begin_fix_round(txn, item, task, report)
+        except Exception as exc:
+            item["status"] = "failed"
+            item["reason"] = "test_lane_failed:" + str(exc)[:200]
+            txn.write(owned_key=item_key)
+            update_local_task_status(task.id, "failed", last_output=item["reason"])
+            return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="test_lane_failed")
+
+    def _begin_fix_round(self, txn, item, task, report):
+        """Carry the tested workspace into an ananta-worker fix round with the failures as brief."""
+        from agent.ports.task_dispatch import TaskDispatchResult
+        from agent.services.self_development.test_fix_loop import failure_feedback, fix_description
+        from agent.services.self_development.workspace import carry_workspace
+
+        item_key = str(item.get("key") or "")
+        new_task_id = str(uuid.uuid4())
+        source_task = str(item["task_id"])
+        source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
+        admission = self.policy.root / ("source-" + source_task + ".json")
+        if not source_workspace.is_dir() or not admission.is_file():
+            raise ValueError("fix_round_source_unavailable")
+        carry_workspace(
+            source_workspace,
+            self.policy.workspaces / ("self-dev-" + new_task_id),
+            json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
+        )
+        item["test_fix_feedback"] = failure_feedback(item, report)
+        item.pop("test_task_id", None)
+        item.pop("test_report", None)
+        item.update(
+            task_id=new_task_id,
+            status="ready",
+            reason=f"test_fix_round_{item['test_fix_rounds']}",
+        )
+        self.queue.ingest_task(
+            task_id=new_task_id,
+            status="todo",
+            title=str(item.get("title") or ""),
+            description=fix_description(item, report),
+            created_by="self-development-hub",
+            source="system",
+            team_id=self.policy.value["team_id"],
+            tags=["self-development", str(item.get("todo_id") or "")],
+            event_details={"test_fix_round": item["test_fix_rounds"], "repairs_task": source_task},
+            extra_fields={
+                "task_kind": "coding",
+                "required_capabilities": ["coding", "testing", "workflow.adapter.native", "codecompass"],
+            },
+        )
+        txn.write(owned_key=item_key)
+        return TaskDispatchResult(task.id, dispatched=True, completed=True)
+
+    def _continue_after_green_tests(self, txn, item, task):
+        """Resume the original publication path after a green test lane."""
+        from agent.ports.task_dispatch import TaskDispatchResult
+
+        item_key = str(item.get("key") or "")
+        item["test_fix_passed"] = True
+        item.pop("test_task_id", None)
+        self._stage_acceptance_review(
+            item=item,
+            state=txn.state,
+            profile=self.policy.authorize_contract(item["contract"]),
+            author_task_id=str(item.get("task_id") or ""),
+            author_worker_url=str(item.get("worker_url") or ""),
+            projection=item.get("assignment") or {},
+            analysis_digest=None,
+        )
+        if item.get("status") != "pending_review":
+            self._finalize_publication(txn, item)
+        txn.write(owned_key=item_key)
+        return TaskDispatchResult(task.id, dispatched=True, completed=True)
+
     def _review_evidence(self, exc) -> dict:
         """Bounded verdict trace for the item: why the review passed or failed."""
         import time
@@ -678,7 +940,16 @@ class DevelopmentCoordinator:
         item["revision"] = git(policy.checkout, "rev-parse", "HEAD")
         item["worker_url"] = str(worker.url)
         workspace = policy.workspaces / ("self-dev-" + task.id)
-        baseline = export_checkout(policy.checkout, workspace)
+        if workspace.is_dir():
+            # A carried round (test lane or fix) pre-seeded this workspace at ingest;
+            # its baseline is the *admitted* hash map recorded at carry time, so the
+            # round's changes still seal as a diff against the original revision.
+            carried = workspace / ".ananta" / "carried-baseline.json"
+            baseline = json.loads(carried.read_text(encoding="utf-8")) if carried.is_file() else None
+            if not isinstance(baseline, dict) or not baseline:
+                raise ValueError("workspace_preseeded_without_baseline")
+        else:
+            baseline = export_checkout(policy.checkout, workspace)
         write_scope_manifest(workspace, item["contract"]["files"])
         from agent.services.self_development.source_context import build_source_context
 
@@ -777,61 +1048,28 @@ class DevelopmentCoordinator:
             item["hashes"] = seal_changes(
                 workspace, baseline, item["contract"]["files"], policy.root / "sealed" / task.id
             )
-            if (policy.value.get("quality_gates") or {}).get("require_acceptance_review"):
-                from agent.services.self_development.acceptance_review import (
-                    AcceptanceReviewRequest,
-                    require_acceptance_review,
-                )
-
-                review_request = AcceptanceReviewRequest(
-                    task_id=task.id,
-                    repository_revision=item["revision"],
-                    author_worker_url=str(worker.url),
-                    requirements_json=json.dumps(requirements, sort_keys=True, ensure_ascii=True),
-                    changed_files=tuple(sorted(item["hashes"].items())),
-                )
-                criteria = requirements.get("acceptance_criteria")
-                criteria_count = len(criteria) if isinstance(criteria, list) else 0
-                enqueue = getattr(self.reviewer, "enqueue_review", None)
-                if callable(enqueue):
-                    # Phased workflow: the review becomes its own queue Task with a
-                    # pre-reserved Registry run. Publication is deferred until that
-                    # Task's independently dispatched review passes.
-                    reservation = enqueue(review_request, todo_id=str(item.get("todo_id") or ""))
-                    item.update(
-                        acceptance_review_request=asdict(review_request),
-                        review_reservation=reservation,
-                        review_task_id=reservation["review_task_id"],
-                        review_verification_command=profile["command"],
-                        status="pending_review",
-                        reason="independent_acceptance_review_pending",
-                    )
-                    return {
-                        "passed": True,
-                        "hashes": item["hashes"],
-                        "worker_url": str(worker.url),
-                        "assignment_digest": canonical_evidence_digest(dict(projection)),
-                        "worker_analysis_digest": analysis_digest,
-                        "acceptance_review": "queued",
-                    }
-                receipt = require_acceptance_review(
-                    review_request,
-                    criteria_count=criteria_count,
-                    reviewer=self.reviewer,
-                    registry=self.registry,
-                    tenant_id=policy.value["tenant_id"],
-                )
-                item["acceptance_review"] = asdict(receipt)
-                item["acceptance_review_request"] = asdict(review_request)
-                self._check_live(state)
-            return {
-                "passed": True,
-                "hashes": item["hashes"],
-                "worker_url": str(worker.url),
-                "assignment_digest": canonical_evidence_digest(dict(projection)),
-                "worker_analysis_digest": analysis_digest,
-                "acceptance_review_digest": canonical_evidence_digest(item.get("acceptance_review")),
-            }
+            loop_cfg = policy.test_fix_loop()
+            if loop_cfg["enabled"] and not item.get("test_fix_passed"):
+                # Adaptive test lane first: publication resumes only after a green
+                # report (see _dispatch_test_lane); acceptance review is staged there.
+                self._begin_test_round(txn, item, loop_cfg)
+                return {
+                    "passed": True,
+                    "hashes": item["hashes"],
+                    "worker_url": str(worker.url),
+                    "assignment_digest": canonical_evidence_digest(dict(projection)),
+                    "worker_analysis_digest": analysis_digest,
+                    "test_lane": "queued",
+                }
+            return self._stage_acceptance_review(
+                item=item,
+                state=state,
+                profile=profile,
+                author_task_id=task.id,
+                author_worker_url=str(worker.url),
+                projection=projection,
+                analysis_digest=analysis_digest,
+            )
 
         outcome = self.gate.execute(request, run)
         item["outcome"] = asdict(outcome)
@@ -841,6 +1079,10 @@ class DevelopmentCoordinator:
         if item["status"] == "pending_review":
             # Development evidence is sealed and Registry-bound; publication waits for
             # the separately dispatched independent review to pass.
+            return dispatch_result
+        if item["status"] == "test_running":
+            # The adaptive test lane was queued inside run(); publication resumes in
+            # _dispatch_test_lane once the lane reports green.
             return dispatch_result
         self._finalize_publication(txn, item)
         return dispatch_result

@@ -230,6 +230,7 @@ def test_carry_keeps_changes_and_drops_per_attempt_scaffolding(tmp_path):
     result = carry_workspace(source, destination, baseline)
 
     assert result == baseline
+    assert json.loads((destination / ".ananta" / "carried-baseline.json").read_text()) == baseline
     assert (destination / "README.md").read_text() == "changed by the worker\n"
     assert (destination / "tests" / "app.py").exists()
     assert (destination / ".ananta" / "interactive-baseline" / "app.py").read_text() == "BASELINE\n"

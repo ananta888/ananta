@@ -154,6 +154,9 @@ def carry_workspace(source: Path, destination: Path, baseline: dict) -> dict:
         copied += 1
     if not copied:
         raise ValueError("carry_source_empty")
+    marker = destination / ".ananta" / "carried-baseline.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps(baseline, sort_keys=True), encoding="utf-8")
     return dict(baseline)
 
 
