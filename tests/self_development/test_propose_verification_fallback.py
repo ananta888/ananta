@@ -279,3 +279,21 @@ def test_lane_runner_workdir_fails_bounded_when_unresolvable(monkeypatch):
 
     with _pytest.raises(ValueError, match="lane_workspace_unavailable"):
         propose_orch._lane_runner_workdir({"id": "t"})
+
+
+def test_lane_runner_workdir_prefers_the_carried_snapshot_over_the_agent_dir(tmp_path, monkeypatch):
+    """The per-agent composed dir lacks the carried changes and tests."""
+    from types import SimpleNamespace
+
+    import agent.services.task_scoped.propose_orch as propose_orch
+
+    root = tmp_path / "wsroot"
+    composed = root / "ananta-worker-1" / "t-1-local"
+    composed.mkdir(parents=True)
+    carried = root / "self-dev-t-1"
+    (carried / "tests").mkdir(parents=True)
+    monkeypatch.setattr(
+        "agent.services.worker_workspace_service.get_worker_workspace_service",
+        lambda: SimpleNamespace(resolve_workspace_context=lambda **kw: SimpleNamespace(workspace_dir=str(composed))),
+    )
+    assert propose_orch._lane_runner_workdir({"id": "t-1"}) == str(carried)

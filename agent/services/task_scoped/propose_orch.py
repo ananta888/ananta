@@ -87,13 +87,24 @@ def _lane_runner_workdir(task: Any) -> str:
     runner can never satisfy the minimum program). Failure to resolve the
     workspace fails the propose bounded instead of silently testing elsewhere.
     """
+    from pathlib import Path
+
     from agent.services.worker_workspace_service import get_worker_workspace_service
 
     workspace = get_worker_workspace_service().resolve_workspace_context(task=task)
-    workdir = str(getattr(workspace, "workspace_dir", "") or "")
-    if not workdir:
+    raw_dir = str(getattr(workspace, "workspace_dir", "") or "")
+    composed = Path(raw_dir)
+    task_id = str((task or {}).get("id") or "")
+    # The coordinator's carried snapshot lives at <root>/self-dev-<id> (same root the
+    # per-agent composition uses, one level up from <root>/<agent>/<scope>) and holds
+    # the changes plus tests; the composed per-agent dir does not.
+    if task_id and len(composed.parts) >= 3:
+        carried = composed.parents[1] / f"self-dev-{task_id}"
+        if carried.is_dir():
+            return str(carried)
+    if not raw_dir:
         raise ValueError("lane_workspace_unavailable")
-    return workdir
+    return str(composed)
 
 
 def run_propose_orchestrator_path(
