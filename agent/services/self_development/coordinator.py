@@ -452,10 +452,9 @@ class DevelopmentCoordinator:
             return self._dispatch_review(txn, review_item, task, worker, execute)
         test_item = next((i for i in state["items"].values() if i.get("test_task_id") == task.id), None)
         if test_item is not None:
-            # The runner's work happened in its propose step (opencode backend); this
-            # dispatch only collects the report contract and drives the next round, so
-            # neither worker binding nor the execute phase applies here.
-            return self._dispatch_test_lane(txn, test_item, task)
+            # The lane runs the raw inner dispatch (which contains the propose and
+            # with it the opencode runner) and then collects the report contract.
+            return self._dispatch_test_lane(txn, test_item, task, execute)
         item = next((i for i in state["items"].values() if i["task_id"] == task.id), None)
         if item is None:
             update_local_task_status(task.id, "cancelled", event_type="self_development_stale_attempt_rejected")
@@ -725,11 +724,15 @@ class DevelopmentCoordinator:
             minimum_cmd=minimum_command(loop_cfg, self.policy.value.get("test_profiles") or {}),
         )
 
-    def _dispatch_test_lane(self, txn, item, task):
-        """Collect the runner's report and drive pass / fix / exhausted.
+    def _dispatch_test_lane(self, txn, item, task, execute):
+        """Run the lane's propose via the raw inner flow, then collect the report.
 
-        The runner already did its work in the propose step (opencode backend), so no
-        execute phase runs here: the task-fenced report artifact is the whole contract.
+        For development tasks the coordinator wraps the inner dispatch (handoff ->
+        proposal strategies -> worker propose -> step) inside ``_execute``/``run``;
+        the lane has no contract phase, so it must invoke the execute callback
+        itself -- that is where the forced opencode fallback runs the runner and the
+        report artifact is written. The task-fenced report, not the step's exit
+        code, is the contract afterwards.
         """
         from agent.ports.task_dispatch import TaskDispatchResult
         from agent.services.self_development.test_fix_loop import next_round_action, read_test_report
@@ -740,6 +743,8 @@ class DevelopmentCoordinator:
             self._check_session(state)
             if item.get("status") != "test_running":
                 raise ValueError("stale_test_lane_attempt")
+            execute()
+            self._check_live(state)
             workspace = self.policy.workspaces / ("self-dev-" + task.id)
             report = read_test_report(workspace, task_id=task.id)
             if report is None:

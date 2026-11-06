@@ -9,8 +9,6 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-import pytest
-
 from agent.services.self_development.contracts import form
 from agent.services.self_development.policy import DevelopmentPolicy
 from agent.services.self_development.test_fix_loop import write_test_report
@@ -75,7 +73,7 @@ def test_execute_queues_the_adaptive_lane_instead_of_publishing(runtime):
     assert not (workspace / ".ananta" / "mutation-report.json").exists()
 
 
-def test_green_lane_publishes_without_running_an_execute_phase(runtime):
+def test_green_lane_runs_the_inner_propose_then_publishes(runtime):
     service, ingested, published = runtime
     service.import_tasks(form())
     service.start()
@@ -83,13 +81,17 @@ def test_green_lane_publishes_without_running_an_execute_phase(runtime):
     execute(service)
     lane, task, workspace = _lane_task(service, ingested)
     _answer_report(workspace, lane["task_id"], passed=True)
+    inner_calls = []
 
+    # The lane must invoke the inner dispatch: that is where the propose (and with
+    # it the forced opencode runner that writes the report) actually runs.
     result = service.dispatch(
         task,
         SimpleNamespace(url="http://any-worker:5000"),
-        lambda: pytest.fail("the lane collect must not run an execute phase"),
+        lambda: inner_calls.append("executed"),
     )
 
+    assert inner_calls == ["executed"]
     assert result.completed is True
     item = service.status()["items"][0]
     assert item["test_fix_rounds"] == 1
