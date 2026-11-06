@@ -297,3 +297,58 @@ def test_lane_runner_workdir_prefers_the_carried_snapshot_over_the_agent_dir(tmp
         lambda: SimpleNamespace(resolve_workspace_context=lambda **kw: SimpleNamespace(workspace_dir=str(composed))),
     )
     assert propose_orch._lane_runner_workdir({"id": "t-1"}) == str(carried)
+
+
+def _lane_run(*, task_kind_record="verification", inferred_kind="generic", rc=0, answer=None):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        rc=rc,
+        task={"task_kind": task_kind_record},
+        task_kind=inferred_kind,
+        raw_res=answer
+        if answer is not None
+        else '{"passed": true, "ran": ["python -m pytest -q tests"], "failures": []}',
+        tid="t-lane-1",
+        workspace_dir="/does/not/matter/local",
+    )
+
+
+def test_lane_report_write_uses_the_task_record_kind_not_the_prompt_inference(tmp_path, monkeypatch):
+    """The persisted kind is inferred from the prompt and never says verification.
+
+    The artifact must still be written (task record wins) into BOTH candidate
+    directories so the collector finds it.
+    """
+    import agent.services.task_scoped.propose_persist as persist
+    from agent.services.self_development.test_fix_loop import read_test_report
+
+    composed = tmp_path / "ananta-worker-2" / "x-local"
+    composed.mkdir(parents=True)
+    run = _lane_run()
+    run.workspace_dir = str(composed)
+
+    persist._write_test_report_for_proposal(run)
+
+    carried = tmp_path / "self-dev-t-lane-1"
+    assert read_test_report(carried, task_id="t-lane-1")["passed"] is True
+    assert read_test_report(composed, task_id="t-lane-1")["passed"] is True
+
+
+def test_lane_report_write_skips_non_lane_and_bad_answers(tmp_path):
+    import agent.services.task_scoped.propose_persist as persist
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    coding = _lane_run(task_kind_record="coding")
+    coding.workspace_dir = str(workspace)
+    persist._write_test_report_for_proposal(coding)
+    failed = _lane_run(rc=1)
+    failed.workspace_dir = str(workspace)
+    persist._write_test_report_for_proposal(failed)
+    prose = _lane_run(answer="Tests passed, all green.")
+    prose.workspace_dir = str(workspace)
+    persist._write_test_report_for_proposal(prose)
+
+    assert list(workspace.glob("*/test-report.json")) == []
+    assert list((workspace / ".ananta").glob("test-report.json")) == [] if (workspace / ".ananta").exists() else True

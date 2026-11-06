@@ -252,3 +252,16 @@ def test_carry_fails_closed(tmp_path):
     (linked / "link.py").symlink_to(linked / "README.md")
     with pytest.raises(ValueError, match="carry_symlink_denied"):
         carry_workspace(linked, tmp_path / "dest3", {})
+
+
+def test_report_write_targets_cover_collector_and_runner_dirs(tmp_path):
+    from agent.services.self_development.test_fix_loop import report_write_targets
+
+    primary = tmp_path / "ananta-worker-2" / "t-1-local"
+    targets = report_write_targets(primary, "t-1")
+    assert targets[0] == primary
+    assert tmp_path / "self-dev-t-1" in targets
+
+    already = tmp_path / "self-dev-t-2"
+    assert report_write_targets(already, "t-2") == [already]
+    assert report_write_targets(primary, "") == [primary]

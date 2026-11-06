@@ -158,6 +158,32 @@ def looks_like_test_report(text: str) -> bool:
     return parse_test_report(text) is not None
 
 
+def report_write_targets(workspace_dir, task_id: str) -> list[Path]:
+    """All directories a lane report must land in.
+
+    The collector reads ``<workspaces>/self-dev-<id>`` (the coordinator's carried
+    snapshot) while propose-side persistence knows the worker-composed workspace.
+    Writing both when they differ keeps the task-fenced artifact findable from
+    either side; duplicates are removed.
+    """
+    primary = Path(workspace_dir)
+    targets = [primary]
+    tid = str(task_id or "")
+    # A primary that already IS a carried lane dir needs no second target.
+    if tid and not primary.name.startswith("self-dev-") and len(primary.parts) >= 3:
+        carried = primary.parents[1] / f"self-dev-{tid}"
+        if carried != primary:
+            targets.append(carried)
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for target in targets:
+        key = str(target)
+        if key not in seen:
+            seen.add(key)
+            unique.append(target)
+    return unique
+
+
 def write_test_report(workspace: Path, *, task_id: str, answer: str) -> bool:
     """Persist a parsed report into the task workspace; ``False`` keeps the honest failure."""
     report = parse_test_report(answer)

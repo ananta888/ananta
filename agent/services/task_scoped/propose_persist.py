@@ -329,24 +329,44 @@ def _write_final_answer_for_proposal(run: ProposeRun) -> None:
         logging.getLogger(__name__).warning("final_answer_artifact_write_skipped", exc_info=True)
 
 
+def _lane_run_kind(run: ProposeRun) -> str:
+    """Authoritative lane kind from the queue task record.
+
+    ``ProposeRun.task_kind`` is inferred from the prompt text
+    (``normalize_task_kind(None, base_prompt)``) and never yields
+    ``verification`` for lane briefs; the task record carries what ingest set.
+    """
+    task = getattr(run, "task", None)
+    if isinstance(task, dict):
+        value = task.get("task_kind")
+    else:
+        value = getattr(task, "task_kind", None)
+    return str(value or getattr(run, "task_kind", "") or "").strip().lower()
+
+
 def _write_test_report_for_proposal(run: ProposeRun) -> None:
     """Persist the adaptive test lane's JSON report for the coordinator's collect.
 
-    Only ``verification`` tasks carry the report contract; any other answer (or an
-    unparseable one) leaves the artifact unwritten, and ``_dispatch_test_lane``
-    keeps the honest bounded failure. Never raises: proposal persistence must not
-    depend on artifact writing.
+    Writes every directory the collector may read (worker-composed workspace and
+    the coordinator's carried ``self-dev-<id>``). A rejected answer is logged with
+    a bounded sample instead of vanishing silently, and ``_dispatch_test_lane``
+    keeps the honest bounded failure either way. Never raises: proposal
+    persistence must not depend on artifact writing.
     """
-    if run.rc != 0 or str(getattr(run, "task_kind", "") or "").strip().lower() != "verification":
+    if run.rc != 0 or _lane_run_kind(run) != "verification":
         return
+    log = __import__("logging").getLogger(__name__)
     try:
-        from agent.services.self_development.test_fix_loop import write_test_report
+        from agent.services.self_development.test_fix_loop import report_write_targets, write_test_report
 
-        write_test_report(Path(run.workspace_dir), task_id=run.tid, answer=str(run.raw_res or ""))
+        answer = str(getattr(run, "raw_res", "") or "")
+        written = False
+        for target in report_write_targets(getattr(run, "workspace_dir", ""), run.tid):
+            written = write_test_report(target, task_id=run.tid, answer=answer) or written
+        if not written:
+            log.warning("test_report_answer_rejected task=%s sample=%.300s", run.tid, answer)
     except Exception:  # pragma: no cover - artifact writing must not break the proposal path
-        import logging
-
-        logging.getLogger(__name__).warning("test_report_artifact_write_skipped", exc_info=True)
+        log.warning("test_report_artifact_write_skipped", exc_info=True)
 
 
 def persist_command_proposal(run: ProposeRun, routing: dict) -> Any:
