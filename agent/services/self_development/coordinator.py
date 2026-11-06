@@ -429,6 +429,7 @@ class DevelopmentCoordinator:
         return any(
             i["task_id"] == task_id
             or i.get("review_task_id") == task_id
+            or i.get("test_task_id") == task_id
             or any(a["task_id"] == task_id for a in i.get("attempts", []))
             for i in self.journal.read()["items"].values()
         )

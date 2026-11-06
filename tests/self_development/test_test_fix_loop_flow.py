@@ -60,6 +60,9 @@ def test_execute_queues_the_adaptive_lane_instead_of_publishing(runtime):
     lane = ingested[-1]
     assert lane["extra_fields"]["task_kind"] == "verification"
     assert lane["priority"] == "high"
+    # Without manages() the dispatcher would run the raw execute phase instead of
+    # the lane collect (observed: pytest ran with cd /workspace and exited 4).
+    assert service.manages(lane["task_id"]) is True
     assert lane["extra_fields"]["required_capabilities"] == ["testing"]
     assert lane["status"] == "todo"
     assert lane["event_details"]["test_lane_round"] == 1
