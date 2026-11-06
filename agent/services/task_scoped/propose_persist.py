@@ -329,19 +329,27 @@ def _write_final_answer_for_proposal(run: ProposeRun) -> None:
         logging.getLogger(__name__).warning("final_answer_artifact_write_skipped", exc_info=True)
 
 
-def _lane_run_kind(run: ProposeRun) -> str:
-    """Authoritative lane kind from the queue task record.
+def _is_lane_run(run: ProposeRun) -> bool:
+    """Whether this propose belongs to an adaptive test lane.
 
-    ``ProposeRun.task_kind`` is inferred from the prompt text
-    (``normalize_task_kind(None, base_prompt)``) and never yields
-    ``verification`` for lane briefs; the task record carries what ingest set.
+    Three independent markers, because each alone has proven lossy in the
+    pipeline: the queue record's ``task_kind`` (the route's task dict may not
+    carry it), the lane title both ingest paths set, and the prompt-inferred
+    kind (``normalize_task_kind`` on the brief can yield ``testing``).
+    Development tasks match none of them and must stay silent.
     """
     task = getattr(run, "task", None)
     if isinstance(task, dict):
-        value = task.get("task_kind")
+        kind = task.get("task_kind")
+        title = str(task.get("title") or "")
     else:
-        value = getattr(task, "task_kind", None)
-    return str(value or getattr(run, "task_kind", "") or "").strip().lower()
+        kind = getattr(task, "task_kind", None)
+        title = str(getattr(task, "title", "") or "")
+    if str(kind or "").strip().lower() == "verification":
+        return True
+    if title.startswith("Test lane"):
+        return True
+    return str(getattr(run, "task_kind", "") or "").strip().lower() in {"verification", "testing"}
 
 
 def _write_test_report_for_proposal(run: ProposeRun) -> None:
@@ -354,7 +362,7 @@ def _write_test_report_for_proposal(run: ProposeRun) -> None:
     persistence must not depend on artifact writing.
     """
     log = __import__("logging").getLogger(__name__)
-    if _lane_run_kind(run) != "verification":
+    if not _is_lane_run(run):
         return
     if run.rc != 0:
         # The lane runner's failure is the only reason a verification propose can

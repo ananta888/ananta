@@ -299,12 +299,15 @@ def test_lane_runner_workdir_prefers_the_carried_snapshot_over_the_agent_dir(tmp
     assert propose_orch._lane_runner_workdir({"id": "t-1"}) == str(carried)
 
 
-def _lane_run(*, task_kind_record="verification", inferred_kind="generic", rc=0, answer=None):
+def _lane_run(*, task_kind_record="verification", inferred_kind="generic", rc=0, answer=None, title=None):
     from types import SimpleNamespace
 
+    task = {"task_kind": task_kind_record}
+    if title is not None:
+        task["title"] = title
     return SimpleNamespace(
         rc=rc,
-        task={"task_kind": task_kind_record},
+        task=task,
         task_kind=inferred_kind,
         raw_res=answer
         if answer is not None
@@ -352,3 +355,35 @@ def test_lane_report_write_skips_non_lane_and_bad_answers(tmp_path):
 
     assert list(workspace.glob("*/test-report.json")) == []
     assert list((workspace / ".ananta").glob("test-report.json")) == [] if (workspace / ".ananta").exists() else True
+
+
+def test_lane_gate_falls_back_to_title_and_inferred_testing_kind(tmp_path):
+    """Each marker alone has proven lossy; any one must still open the gate."""
+    import agent.services.task_scoped.propose_persist as persist
+    from agent.services.self_development.test_fix_loop import read_test_report
+
+    def composed(name):
+        # Production shape: <root>/<agent>/<scope> (four parts) so parents[1] is the root.
+        path = tmp_path / "ananta-worker-2" / name
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    # Route task dict without task_kind, but the lane title from either ingest shape.
+    run = _lane_run(task_kind_record=None, title="Test lane (retry 1): CMP-9")
+    run.workspace_dir = str(composed("t-lane-1-title"))
+    persist._write_test_report_for_proposal(run)
+    assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1") is not None
+
+    # Prompt-inferred kind only.
+    (tmp_path / "self-dev-t-lane-1" / ".ananta" / "test-report.json").unlink()
+    run = _lane_run(task_kind_record=None, inferred_kind="testing")
+    run.workspace_dir = str(composed("t-lane-1-inferred"))
+    persist._write_test_report_for_proposal(run)
+    assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1") is not None
+
+    # A development task with a non-lane title must stay silent (no artifact).
+    (tmp_path / "self-dev-t-lane-1" / ".ananta" / "test-report.json").unlink()
+    run = _lane_run(task_kind_record="coding", inferred_kind="coding", title="Fix the add function")
+    run.workspace_dir = str(composed("t-lane-1-dev"))
+    persist._write_test_report_for_proposal(run)
+    assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1") is None
