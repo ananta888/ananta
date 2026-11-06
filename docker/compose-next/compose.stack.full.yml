@@ -35,7 +35,7 @@ services:
       # below makes opencode that loop's brain. ANANTA_WORKER_ALPHA_TASK_KIND_CODE
       # = opencode switches the kind back to the native opencode path (loop
       # bypassed) as the comparison flag.
-      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"coding":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","analysis":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","doc":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","ops":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","research":"deerflow"}'
+      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"coding":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","analysis":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","doc":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","ops":"${ANANTA_WORKER_ALPHA_TASK_KIND_CODE:-ananta-worker}","research":"deerflow","verification":"opencode"}'
       SGPT_EXECUTION_BACKEND: ${ANANTA_WORKER_ALPHA_CLI_BACKEND:-ananta-worker}
       # Schema-constrained mutation answers (code default off; on for this stack).
       ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT: ${ANANTA_WORKER_STRUCTURED_OUTPUT:-1}
@@ -74,6 +74,9 @@ services:
       ANANTA_WORKSPACE_MUTATION_STRUCTURED_OUTPUT: ${ANANTA_WORKER_STRUCTURED_OUTPUT:-1}
       ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-beta:5000
+      # Test-Fix-Lane: runner tasks (task_kind=verification) go to opencode;
+      # every other kind keeps the ananta-worker default above/below.
+      ANANTA_SGPT_ROUTING_TASK_KIND_BACKEND: '{"verification":"opencode"}'
       # Worker agent processes inside this container (ports 5000..+N-1, own
       # name/URL/DATA_DIR per process). Default 1 keeps the one-process layout.
       ANANTA_AGENT_COUNT: ${ANANTA_WORKER_BETA_AGENT_COUNT:-1}
