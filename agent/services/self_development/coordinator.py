@@ -676,11 +676,9 @@ class DevelopmentCoordinator:
         propose step (opencode, task_kind ``verification``) then reads a workspace that
         already exists, so the read-only rule holds by construction.
         """
-        from agent.services.self_development.test_fix_loop import build_runner_description, minimum_command
         from agent.services.self_development.workspace import carry_workspace
 
         item_key = str(item.get("key") or "")
-        minimum_cmd = minimum_command(loop_cfg, self.policy.value.get("test_profiles") or {})
         round_no = int(item.get("test_lane_round") or 0) + 1
         test_task_id = str(uuid.uuid4())
         source_task = str(item["task_id"])
@@ -707,12 +705,7 @@ class DevelopmentCoordinator:
             # coding cohort (observed: position ~104 behind a same-age ingest wave).
             priority="high",
             title=f"Test lane {round_no}: {item.get('todo_id')}",
-            description=build_runner_description(
-                loop_cfg,
-                todo_id=str(item.get("todo_id") or ""),
-                title=str(item.get("title") or ""),
-                minimum_cmd=minimum_cmd,
-            ),
+            description=self._test_lane_description(item, loop_cfg),
             created_by="self-development-hub",
             source="system",
             team_id=self.policy.value["team_id"],
@@ -721,6 +714,16 @@ class DevelopmentCoordinator:
             extra_fields={"task_kind": "verification", "required_capabilities": ["testing"]},
         )
         txn.write(owned_key=item_key)
+
+    def _test_lane_description(self, item, loop_cfg) -> str:
+        from agent.services.self_development.test_fix_loop import build_runner_description, minimum_command
+
+        return build_runner_description(
+            loop_cfg,
+            todo_id=str(item.get("todo_id") or ""),
+            title=str(item.get("title") or ""),
+            minimum_cmd=minimum_command(loop_cfg, self.policy.value.get("test_profiles") or {}),
+        )
 
     def _dispatch_test_lane(self, txn, item, task):
         """Collect the runner's report and drive pass / fix / exhausted.
@@ -740,23 +743,49 @@ class DevelopmentCoordinator:
             workspace = self.policy.workspaces / ("self-dev-" + task.id)
             report = read_test_report(workspace, task_id=task.id)
             if report is None:
-                # Mirror of the review-answer retry: one honest bounded re-queue, then
-                # a precise failure instead of an infinite silent lane.
+                # Mirror of the review-answer retry: bounded strikes, then a precise
+                # failure instead of an infinite silent lane.
                 retries = int(item.get("test_report_retries") or 0) + 1
                 item["test_report_retries"] = retries
-                txn.write(owned_key=item_key)
                 if retries > 2:
                     item["status"] = "failed"
                     item["reason"] = "test_report_missing"
                     txn.write(owned_key=item_key)
                     update_local_task_status(task.id, "failed", last_output="test_report_missing")
                     return TaskDispatchResult(task.id, dispatched=True, failed=True, failure_type="test_report_missing")
+                # A fresh lane task id, like prepare_retry: requeueing the SAME id keeps
+                # its stale proposal and assignment pin, and the dispatcher skips a new
+                # propose for it (observed: collect one second after selection, no worker
+                # propose at all).
+                new_test_task_id = str(uuid.uuid4())
+                item["test_task_id"] = new_test_task_id
+                item["status"] = "test_running"
+                item["reason"] = f"test_lane_round_{item.get('test_lane_round') or 1}"
+                self.queue.ingest_task(
+                    task_id=new_test_task_id,
+                    status="todo",
+                    priority="high",
+                    title=f"Test lane (retry {retries}): {item.get('todo_id')}",
+                    description=self._test_lane_description(item, self.policy.test_fix_loop()),
+                    created_by="self-development-hub",
+                    source="system",
+                    team_id=self.policy.value["team_id"],
+                    tags=["self-development", str(item.get("todo_id") or "")],
+                    event_details={
+                        "test_lane_round": item.get("test_lane_round") or 1,
+                        "test_report_retries": retries,
+                        "test_for": item.get("task_id"),
+                    },
+                    extra_fields={"task_kind": "verification", "required_capabilities": ["testing"]},
+                )
+                txn.write(owned_key=item_key)
                 update_local_task_status(
                     task.id,
-                    "todo",
+                    "failed",
                     event_type="test_report_retry",
                     event_actor="system",
-                    event_details={"reason_code": "test_report_required"},
+                    event_details={"reason_code": "test_report_required", "retried_as": new_test_task_id},
+                    last_output="test_report_required",
                     force=True,
                 )
                 return TaskDispatchResult(

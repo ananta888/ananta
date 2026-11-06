@@ -178,7 +178,7 @@ def test_round_budget_exhausts_with_a_precise_reason(runtime):
     assert published == []
 
 
-def test_missing_report_requeues_twice_then_fails_precisely(runtime, monkeypatch):
+def test_missing_report_mints_a_fresh_lane_task_twice_then_fails(runtime, monkeypatch):
     service, ingested, published = runtime
     service.import_tasks(form())
     service.start()
@@ -190,22 +190,34 @@ def test_missing_report_requeues_twice_then_fails_precisely(runtime, monkeypatch
         "agent.services.self_development.coordinator.update_local_task_status",
         lambda *args, **kwargs: status_calls.append((args, kwargs)),
     )
-    worker = SimpleNamespace(url="http://any-worker:5000")
 
-    first = service.dispatch(task, worker, lambda: None)
+    def item():
+        return service.status()["items"][0]
+
+    # Strike 1: a fresh lane task id is minted (the stale pin/proposal of the old one
+    # would let the dispatcher skip a new propose entirely).
+    first = service.dispatch(task, SimpleNamespace(url="http://any-worker:5000"), lambda: None)
     assert first.failure_type == "test_report_pending_retry"
-    assert service.status()["items"][0]["test_report_retries"] == 1
-    assert service.status()["items"][0]["status"] == "test_running"
-    assert status_calls and status_calls[-1][0][1] == "todo"
+    assert item()["status"] == "test_running"
+    assert item()["test_report_retries"] == 1
+    assert item()["test_task_id"] != lane["task_id"]
+    assert ingested[-1]["task_id"] == item()["test_task_id"]
+    assert ingested[-1]["priority"] == "high"
+    assert ingested[-1]["extra_fields"]["task_kind"] == "verification"
+    assert any(args[1] == "failed" and args[0] == lane["task_id"] for args, _kw in status_calls)
 
-    second = service.dispatch(task, worker, lambda: None)
+    # Strike 2: dispatched on the NEW id.
+    second_task = SimpleNamespace(id=item()["test_task_id"], status="todo")
+    second = service.dispatch(second_task, SimpleNamespace(url="http://any-worker:5000"), lambda: None)
     assert second.failure_type == "test_report_pending_retry"
+    assert item()["test_report_retries"] == 2
 
-    third = service.dispatch(task, worker, lambda: None)
+    # Strike 3: bounded, precise failure.
+    third_task = SimpleNamespace(id=item()["test_task_id"], status="todo")
+    third = service.dispatch(third_task, SimpleNamespace(url="http://any-worker:5000"), lambda: None)
     assert third.failure_type == "test_report_missing"
-    item = service.status()["items"][0]
-    assert item["status"] == "failed"
-    assert item["reason"] == "test_report_missing"
+    assert item()["status"] == "failed"
+    assert item()["reason"] == "test_report_missing"
     assert published == []
 
 
