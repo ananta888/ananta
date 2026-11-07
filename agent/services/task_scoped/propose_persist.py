@@ -351,8 +351,9 @@ def _is_lane_run(run: ProposeRun) -> bool:
         return True
     if str(getattr(run, "task_kind", "") or "").strip().lower() in {"verification", "testing"}:
         return True
-    # Guaranteed marker: the brief IS the propose prompt (persist sees base_prompt).
-    return "Adaptive test lane" in str(getattr(run, "base_prompt", "") or "")
+    # Guaranteed marker: the brief IS the propose prompt; carriers differ per path.
+    brief = str(getattr(run, "base_prompt", "") or "") + " " + str(getattr(run, "prompt_for_cli", "") or "")
+    return "Adaptive test lane" in brief
 
 
 def _write_test_report_for_proposal(run: ProposeRun) -> None:
@@ -365,6 +366,20 @@ def _write_test_report_for_proposal(run: ProposeRun) -> None:
     persistence must not depend on artifact writing.
     """
     log = __import__("logging").getLogger(__name__)
+    # One bounded gate line per propose: the only way to see WHY an artifact was
+    # skipped or written (several hours of blindness at this seam).
+    task = getattr(run, "task", None)
+    record_kind = task.get("task_kind") if isinstance(task, dict) else getattr(task, "task_kind", None)
+    brief_head = str(getattr(run, "base_prompt", "") or getattr(run, "prompt_for_cli", "") or "")[:140]
+    log.info(
+        "test_report_gate task=%s rc=%s lane=%s record=%s inferred=%s prompt=%s",
+        getattr(run, "tid", "?"),
+        run.rc,
+        _is_lane_run(run),
+        str(record_kind or "-"),
+        str(getattr(run, "task_kind", "") or "-"),
+        brief_head,
+    )
     if not _is_lane_run(run):
         return
     if run.rc != 0:
