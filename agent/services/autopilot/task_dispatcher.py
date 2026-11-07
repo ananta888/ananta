@@ -330,6 +330,12 @@ def _handle_propose_failure(ctx: DispatchContext, exc: Exception) -> TaskDispatc
     return result
 
 
+def _is_lane_record_task(task: Any) -> bool:
+    """Queue-record kind of the adaptive test lane (opencode runner + report gate)."""
+    kind = task.get("task_kind") if isinstance(task, dict) else getattr(task, "task_kind", None)
+    return str(kind or "").strip().lower() == "verification"
+
+
 def _evaluate_and_execute_proposal(
     ctx: DispatchContext,
     *,
@@ -368,6 +374,20 @@ def _evaluate_and_execute_proposal(
     if isinstance(model_meta, dict):
         proposal_snapshot["model_selection"] = dict(model_meta)
     raw_preview = proposal_snapshot.get("raw_preview")
+
+    if _is_lane_record_task(task):
+        # Adaptive test lane: the runner already executed the minimum program
+        # during its propose. A second step (the declared command in the step
+        # executor's cwd) only fails with a usage error and kills the task before
+        # the collect can read the report artifact.
+        append_trace_event(
+            task.id,
+            "autopilot_lane_step_deferred",
+            delegated_to=target_worker.url,
+            reason="test_lane_report_is_the_verification",
+        )
+        result.dispatched = True
+        return result
 
     if not command and not tool_calls:
         latest_status = current_task_status(task.id, app=app_ctx)

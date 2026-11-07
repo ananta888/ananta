@@ -413,3 +413,27 @@ def test_lane_gate_accepts_the_brief_marker_from_the_prompt(tmp_path):
     persist._write_test_report_for_proposal(run)
 
     assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1")["passed"] is True
+
+
+def test_declared_lane_command_follows_the_marker_span():
+    from agent.services.task_scoped.propose_orch import _declared_lane_command
+
+    brief = (
+        "Adaptive test lane for TODO CMP-1: x\n"
+        "Run exactly: python -m pytest -q -o addopts= -n 4 tests\n"
+        "Danach: nichts Wichtiges."
+    )
+    assert _declared_lane_command(brief) == "python -m pytest -q -o addopts= -n 4 tests"
+    assert _declared_lane_command("ohne Marker") == ""
+
+
+def test_lane_record_predicate_matches_only_the_verification_kind():
+    from types import SimpleNamespace
+
+    from agent.services.autopilot.task_dispatcher import _is_lane_record_task
+
+    assert _is_lane_record_task(SimpleNamespace(task_kind="verification")) is True
+    assert _is_lane_record_task({"task_kind": "verification"}) is True
+    assert _is_lane_record_task(SimpleNamespace(task_kind="coding")) is False
+    assert _is_lane_record_task(SimpleNamespace(task_kind="gate_review")) is False
+    assert _is_lane_record_task(SimpleNamespace()) is False

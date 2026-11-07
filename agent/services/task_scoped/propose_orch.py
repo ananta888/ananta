@@ -119,6 +119,17 @@ def _authoritative_task_kind(task: Any, fallback: str) -> str:
     return str(record or "").strip().lower() or str(fallback or "").strip().lower()
 
 
+def _declared_lane_command(base_prompt: Any) -> str:
+    """The brief's ``Run exactly:`` line: the record command for a report answer."""
+    from agent.services._worker_workspace_context_writer import _declared_test_command_span
+
+    text = str(base_prompt or "")
+    span = _declared_test_command_span(text, "Run exactly:")
+    if span is None:
+        return ""
+    return " ".join(text[span[0] : span[1]].split())
+
+
 def run_propose_orchestrator_path(
     *,
     tid: str,
@@ -388,6 +399,16 @@ def run_propose_orchestrator_path(
                 result_dict["tool_calls"] = fallback_tool_calls
                 result_dict["reason"] = fallback_reason
                 result_dict["backend"] = backend_used
+                result_dict["status"] = "executable"
+            elif lane_runner_required and rc == 0:
+                # The runner answered with the report contract instead of a step:
+                # adopt it as this task's proposal of record (persist resolves the
+                # declared command; the artifact is what the collector reads).
+                result_dict["reason"] = "test_lane_runner_report"
+                result_dict["backend"] = backend_used
+                declared = _declared_lane_command(base_prompt)
+                if declared:
+                    result_dict["command"] = declared
                 result_dict["status"] = "executable"
         except Exception:
             logging.getLogger(__name__).debug("run_propose_orchestrator_path: ignored Exception", exc_info=True)
