@@ -349,7 +349,10 @@ def _is_lane_run(run: ProposeRun) -> bool:
         return True
     if title.startswith("Test lane"):
         return True
-    return str(getattr(run, "task_kind", "") or "").strip().lower() in {"verification", "testing"}
+    if str(getattr(run, "task_kind", "") or "").strip().lower() in {"verification", "testing"}:
+        return True
+    # Guaranteed marker: the brief IS the propose prompt (persist sees base_prompt).
+    return "Adaptive test lane" in str(getattr(run, "base_prompt", "") or "")
 
 
 def _write_test_report_for_proposal(run: ProposeRun) -> None:

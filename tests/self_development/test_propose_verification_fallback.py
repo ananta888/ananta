@@ -387,3 +387,29 @@ def test_lane_gate_falls_back_to_title_and_inferred_testing_kind(tmp_path):
     run.workspace_dir = str(composed("t-lane-1-dev"))
     persist._write_test_report_for_proposal(run)
     assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1") is None
+
+
+def test_authoritative_task_kind_prefers_the_queue_record():
+    """normalize_task_kind classifies the lane brief as coding; the record wins."""
+    from agent.services.task_scoped.propose_orch import _authoritative_task_kind
+
+    assert _authoritative_task_kind({"task_kind": "verification"}, "coding") == "verification"
+    assert _authoritative_task_kind({"task_kind": "coding"}, "coding") == "coding"
+    assert _authoritative_task_kind({}, "research") == "research"
+    assert _authoritative_task_kind(None, "doc") == "doc"
+
+
+def test_lane_gate_accepts_the_brief_marker_from_the_prompt(tmp_path):
+    """The brief is the one marker the propose run is guaranteed to carry."""
+    import agent.services.task_scoped.propose_persist as persist
+    from agent.services.self_development.test_fix_loop import read_test_report
+
+    workspace = tmp_path / "ananta-worker-2" / "brief"
+    workspace.mkdir(parents=True)
+    run = _lane_run(task_kind_record=None, inferred_kind="coding")
+    run.base_prompt = "Adaptive test lane for TODO CMP-1: ...\nRun exactly: python -m pytest -q tests"
+    run.workspace_dir = str(workspace)
+
+    persist._write_test_report_for_proposal(run)
+
+    assert read_test_report(tmp_path / "self-dev-t-lane-1", task_id="t-lane-1")["passed"] is True

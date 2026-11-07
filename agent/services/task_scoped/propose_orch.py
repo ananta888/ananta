@@ -107,6 +107,18 @@ def _lane_runner_workdir(task: Any) -> str:
     return str(composed)
 
 
+def _authoritative_task_kind(task: Any, fallback: str) -> str:
+    """Queue-record kind first; prompt inference only when the record is mute.
+
+    ``normalize_task_kind(None, brief)`` classifies the adaptive test lane brief
+    as ``coding``, which silently disabled the forced verification fallback (the
+    runner never ran and the LLM strategy answered with the declared command
+    instead). The record kind set at ingest is the routing truth.
+    """
+    record = task.get("task_kind") if isinstance(task, dict) else getattr(task, "task_kind", None)
+    return str(record or "").strip().lower() or str(fallback or "").strip().lower()
+
+
 def run_propose_orchestrator_path(
     *,
     tid: str,
@@ -133,6 +145,7 @@ def run_propose_orchestrator_path(
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
     from worker.core.propose_orchestrator import ProposeContext, ProposeStrategyOrchestrator
 
+    task_kind = _authoritative_task_kind(task, task_kind)
     propose_policy_override = task.get("propose_policy_override", {})
     task_override = {}
     if getattr(request_data, "strategy_mode", None):
