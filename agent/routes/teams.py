@@ -31,6 +31,7 @@ from agent.models import (
     TeamTypeCreateRequest,
     TeamTypeRoleLinkCreateRequest,
     TeamTypeRoleLinkPatchRequest,
+    TeamMemberUpdateRequest,
     TeamUpdateRequest,
 )
 from agent.routes.blueprint_routes import _instantiate_blueprint
@@ -352,6 +353,7 @@ def update_team(team_id):
                 role_id=m_data.role_id,
                 blueprint_role_id=m_data.blueprint_role_id,
                 custom_template_id=m_data.custom_template_id,
+                display_name=(m_data.display_name or "").strip()[:80] or None,
             )
             _repos().team_member_repo.save(member)
 
@@ -377,6 +379,22 @@ def update_team(team_id):
     payload["definition_metadata"] = definition_metadata
     payload["user_lifecycle_state"] = _user_lifecycle_state_from_metadata(definition_metadata)
     return api_response(data=payload)
+
+
+@teams_bp.route("/teams/<team_id>/members/<member_id>", methods=["PATCH"])
+@check_auth
+@admin_required
+@validate_request(TeamMemberUpdateRequest)
+def update_team_member(team_id, member_id):
+    data: TeamMemberUpdateRequest = g.validated_data
+    member = _repos().team_member_repo.get_by_id(member_id)
+    if not member or member.team_id != team_id:
+        return _team_error("not_found", 404)
+    if data.display_name is not None:
+        member.display_name = data.display_name.strip()[:80] or None
+    _repos().team_member_repo.save(member)
+    log_audit("team_member_updated", {"team_id": team_id, "member_id": member_id})
+    return api_response(data=member.model_dump())
 
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])

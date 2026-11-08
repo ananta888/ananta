@@ -31,6 +31,11 @@ class TeamMemberAssignment(SQLModel):
     role_id: Optional[str] = None
     blueprint_role_id: Optional[str] = None
     custom_template_id: Optional[str] = None
+    display_name: Optional[str] = Field(default=None, max_length=80)
+
+
+class TeamMemberUpdateRequest(SQLModel):
+    display_name: Optional[str] = Field(default=None, max_length=80)
 
 
 class TeamCreateRequest(SQLModel):

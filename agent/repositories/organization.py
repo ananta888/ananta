@@ -84,6 +84,10 @@ class TeamMemberRepository:
         with Session(engine) as session:
             return session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team_id)).all()
 
+    def get_by_id(self, member_id: str):
+        with Session(engine) as session:
+            return session.get(TeamMemberDB, member_id)
+
     def save(self, member: TeamMemberDB):
         with Session(engine) as session:
             session.add(member)
