@@ -50,6 +50,7 @@ class TeamMemberDB(SQLModel, table=True):
     role_id: str = Field(foreign_key="roles.id")
     blueprint_role_id: Optional[str] = Field(default=None, foreign_key="blueprint_roles.id")
     custom_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
+    display_name: Optional[str] = Field(default=None, max_length=80)
 
 
 class TeamBlueprintDB(SQLModel, table=True):
