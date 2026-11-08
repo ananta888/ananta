@@ -75,8 +75,12 @@ def test_replace_range_patch_variant_is_hash_bound(tmp_path):
 
 
 def test_replace_existing_large_file_is_blocked(tmp_path):
+    # The payload must sit ABOVE the mutation write band: replace_existing is
+    # capped at _DEFAULT_MAX_REPLACE_EXISTING_BYTES (131072 == the approved
+    # 1000-2000 Python line band, 32768 tokens x 4 bytes), so anything at or
+    # below the band is accepted by design and only larger files are rejected.
     target = tmp_path / "big.py"
-    original = "x" * 70_000
+    original = "x" * 200_000
     target.write_text(original, encoding="utf-8")
     result = repo_write_file(
         workspace_dir=str(tmp_path),
