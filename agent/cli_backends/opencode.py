@@ -611,7 +611,7 @@ def _run_opencode_subprocess(
             # and cannot answer the protocol through native tools instead of them.
             mcp_context = (
                 contextlib.nullcontext(None)
-                if str(tool_mode or "").strip().lower() == "protocol"
+                if str(tool_mode or "").strip().lower() in {"protocol", "no_mcp"}
                 else opencode_codecompass_mcp(
                     workspace_dir=str(Path(workdir or os.getcwd()).resolve()),
                     task_id=task_id,

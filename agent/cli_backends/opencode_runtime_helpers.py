@@ -156,7 +156,11 @@ def build_opencode_loop_brain_agent_config() -> dict[str, object]:
 
 def normalize_opencode_tool_mode(value: str | None) -> str:
     mode = str(value or "").strip().lower()
-    return mode if mode in {"toolless", "readonly", "full", "protocol"} else "full"
+    # no_mcp: full native tools without the in-process CodeCompass MCP offer --
+    # the adaptive test lane needs bash but not the MCP handshake that stalls
+    # the child (observed: children alive but never finishing, permit cycles
+    # timing out).
+    return mode if mode in {"toolless", "readonly", "full", "protocol", "no_mcp"} else "full"
 
 
 def normalize_opencode_execution_mode(value: str | None) -> str:
