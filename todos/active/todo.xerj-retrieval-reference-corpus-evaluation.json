@@ -1,0 +1,1704 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.xerj-retrieval-reference-corpus-evaluation",
+  "title": "XERJ × Ananta/CodeCompass: sichere Hybrid-Retrieval-Evaluation, Corpus Hub und Reference Coding",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "xerj-retrieval-reference-corpus-evaluation",
+  "status": "todo",
+  "created_at": "2026-11-03",
+  "updated_at": "2026-11-03",
+  "purpose": "XERJ als optionale lokale Rust-Suchengine und Quelle für quellverifizierte Code-Referenzen unabhängig evaluieren. Qualitäts-, Sicherheits- und Agentennutzen vor Integration messen, statt bestehenden Hybrid-Retrieval-Stack zu ersetzen oder nur Marketingclaims zu übernehmen.",
+  "goal": "Eine dokumentierte, widerrufbare, lizenzkonforme und auditierbare Entscheidungsgrundlage inklusive optionalem read-only-Provider/approved_reference-corpus, ohne zusätzliche Control Plane, neue doppelte Fusion oder Scope-Eskalation.",
+  "scope": {
+    "in": [
+      "Quellcodebasierte Ist-Analyse",
+      "Lokaler XERJ-Provider mit Capability-/Policy-Bindings",
+      "Optionale XERJ Corpus-Packs/Reference-Coding und überprüfbare Quellen",
+      "Security/Privacy/Licensing/Prompt-Injection",
+      "Faire Retrieval- und Agent-E2E-A/B-Benchmarks",
+      "Observability, Rollout-Gates, Rollback und Community-Option"
+    ],
+    "out": [
+      "Sofortiger Ersatz von CodeCompass/GraphRAG/SIRA/Qdrant",
+      "Automatisches Publizieren privater Quellen im Corpus Hub",
+      "Freigabe ungeprüfter Remote-Reranker/Embeddings",
+      "Neuer unabhängiger Agent-Orchestrator, Graph Store, Memory Store oder ein zweites Evidence System",
+      "Automatisches Kopieren fremder Codefragmente ohne Lizenz-/Security-Prüfung"
+    ]
+  },
+  "source_review": {
+    "date": "2026-11-03",
+    "kind": "read-only repository architecture review",
+    "note": "Dokumentierte Fähigkeiten und einzelne Laufzeitmodule geprüft; kein XERJ-vs-Ananta Performance-Benchmark ausgeführt. Nie Marketingzahlen als bereits reproduziert behandeln.",
+    "links": [
+      "https://github.com/ananta888/ananta/blob/main/agent/services/codecompass_agentic_retrieval_service.py",
+      "https://github.com/ananta888/ananta/blob/main/agent/services/codecompass_agentic_retrieval_planner.py",
+      "https://github.com/ananta888/ananta/blob/main/worker/retrieval/retrieval_service.py",
+      "https://github.com/ananta888/ananta/blob/main/docs/architecture/codecompass-sira-retrieval.md",
+      "https://github.com/ananta888/ananta/blob/main/docs/benchmarks/codecompass-sira-retrieval.md",
+      "https://github.com/xerj-org/xerj/blob/main/docs/WHY_XERJ.md",
+      "https://github.com/xerj-org/xerj/blob/main/docs/SECURITY_MODEL.md",
+      "https://github.com/xerj-org/xerj/blob/main/docs/RERANK.md",
+      "https://github.com/xerj-org/xerj/blob/main/docs/CORPUS_PACKS.md",
+      "https://github.com/xerj-org/xerj/blob/main/docs/CORPUS_HUB_V2_IMPLEMENTATION.md"
+    ]
+  },
+  "existing_reuse": {
+    "canonical_entry": "agent/services/codecompass_agentic_retrieval_service.py – autoritative agent-facing facade",
+    "planner": "agent/services/codecompass_agentic_retrieval_planner.py – Signal-Planung, nicht Provider-eigene Authorization",
+    "hybrid_fusion": "worker/retrieval/retrieval_service.py und worker/retrieval/ranking.py – ein bestehender Merge/Dedup/Budget-Pfad",
+    "ranking": "agent/services/codecompass_hybrid_source_ranking_service.py; ananta_codecompass/ranking – universelles Source-Ranking",
+    "sira": "worker/retrieval/sira/hybrid_adapter.py – ergänzende lexikalische Expansion",
+    "sources": "agent/services/retrieval_source_contract.py; agent/services/retrieval_profile_service.py – source constraints",
+    "qdrant": "docs/architecture/agent-codecompass-hybrid-retrieval.md – interner VectorStore port, nicht öffentlicher Provider",
+    "benchmarks": "docs/benchmarks/codecompass-worker-retrieval.md; scripts/evaluate_sira_retrieval.py; docs/benchmarks/codecompass-sira-retrieval.md",
+    "governance": "todos/active/todo.agent-work-efficiency-semantic-redundancy.json; todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json; todos/active/todo.qdrant-vector-store-integration.json"
+  },
+  "related_todos": [
+    "todos/active/todo.agent-work-efficiency-semantic-redundancy.json",
+    "todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+    "todos/active/todo.qdrant-vector-store-integration.json",
+    "todos/active/todo.self-development-dual-path-exploration-codecompass.json"
+  ],
+  "architecture_decisions": [
+    {
+      "id": "AD-01",
+      "rule": "CodeCompass canonical retrieval bleibt Autorität für Scope, Search-Plan, Graph, Dedup, Ranking, Budget und Grounded Context."
+    },
+    {
+      "id": "AD-02",
+      "rule": "XERJ ist standardmäßig deaktiviert; externe Quelle separat approved_reference und niemals source_of_truth lokaler Repos."
+    },
+    {
+      "id": "AD-03",
+      "rule": "Entweder separate XERJ BM25-/Vector-Signale oder bereits fusionierter XERJ-Hybridkanal, niemals beides zugleich unbereinigt gewichten."
+    },
+    {
+      "id": "AD-04",
+      "rule": "Hub autorisiert und plant; Worker führt isoliert aus. Kein Upstream-CLI oder Corpus-Hub-Rezept darf Agentenrechte ausweiten."
+    },
+    {
+      "id": "AD-05",
+      "rule": "XERJ Corpus-Hub v2/planned Features dürfen nicht als produktiv vorausgesetzt werden. Feature-Detection, pinned versions, sicherer Offline-Fallback."
+    },
+    {
+      "id": "AD-06",
+      "rule": "Private Daten, Prompt, Query und Dokumentinhalte bleiben lokal; Remote-Embeddings, Reranking, WAL tap und Hub Downloads benötigen je Quelle explizite Policy und Egress-Prüfung."
+    },
+    {
+      "id": "AD-07",
+      "rule": "References sind Input/Beispiel und zunächst untrusted data. Codeübernahme erfordert Lizenz, Eignung, Tests und Human Review bei Securitykritischem."
+    },
+    {
+      "id": "AD-08",
+      "rule": "Benchmarks müssen echte Agent-Task-Qualität und Nachteile erfassen; kein alleiniger Erfolg durch nDCG- oder Token-Reduktion."
+    }
+  ],
+  "trust_boundaries": {
+    "user_task": "Unveränderte Ananta Hub-/Agent-Policy und tenantgebundene capability",
+    "workspace": "Local repository code, dirty revisions, confidential docs: first-party-only",
+    "xerj_node": "Least-privilege read-only queries; isolated local bind, scoped indices, audited lifecycle",
+    "upstream_references": "Approved public/pinned sources only; signed pack integrity != trustworthy executable instructions",
+    "external_processing": "Denied by default; separate opt-in and visible egress audit per endpoint, task and data class",
+    "model_context": "Distinguish first-party evidence vs external inspiration; no untrusted instruction execution"
+  },
+  "mandatory_security_gates": [
+    "Secrets/PII/ACL: no exposure via ingestion, citation, cached context, reranking or logs",
+    "Fail-closed tenant/path/revision/index scope; no fallback to global index",
+    "Prompt-injection and source-poisoning adversarial test suite",
+    "Signed/pinned packs, immutable provenance, upstream integrity and license checks",
+    "Network/Egress deny-by-default; no --insecure production bind; no unauthorized remote ML",
+    "Critical/High security findings block pilot; no unreviewed code adoption"
+  ],
+  "experiment_design": {
+    "comparison_arms": [
+      "Ananta baseline exact/FTS",
+      "Ananta vector",
+      "Ananta full hybrid",
+      "Ananta hybrid+SIRA",
+      "XERJ BM25-only",
+      "XERJ lexical-hash vector (clearly non-neural)",
+      "XERJ neural vector",
+      "XERJ hybrid RRF",
+      "Ananta with XERJ optional retrieval channel",
+      "Ananta with XERJ approved reference corpus"
+    ],
+    "metrics": [
+      "Recall@5/10/50",
+      "MRR",
+      "nDCG@10",
+      "Precision@K",
+      "citation validity",
+      "evidence coverage",
+      "protected class regressions",
+      "task success and tests",
+      "security findings",
+      "p50/p95/p99 latency",
+      "peak RSS/VRAM/disk",
+      "token cost and tool-call counts",
+      "index + update costs",
+      "sensitive-egress count"
+    ],
+    "rigor": [
+      "blind holdout labels",
+      "fixed/pinned corpus and query datasets",
+      "same neural embedder/model when possible",
+      "stratification by task/language/repository",
+      "cold/warm/cached separated",
+      "repeat randomized paired runs with 95pct paired CIs",
+      "explicit failures and unknown readings",
+      "no leaking evaluation answer or curated gold references into prompts"
+    ],
+    "release_rule": "Only after pre-registered quality and security gates, defensible measured benefit for a defined workload, ops budget, and owner approval; otherwise remain off/reference-only or reject."
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Architektur, Ist-Zustand und Entscheidungsrahmen",
+      "task_ids": [
+        "XERJ-001",
+        "XERJ-002",
+        "XERJ-003",
+        "XERJ-004",
+        "XERJ-005",
+        "XERJ-006"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Verifizierte Ist-Matrix, XERJ-Feature-Matrix, Architecture Decision und Benchmarkhypothesen"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Security, Source Authority und Verträge",
+      "task_ids": [
+        "XERJ-007",
+        "XERJ-008",
+        "XERJ-009",
+        "XERJ-010",
+        "XERJ-011",
+        "XERJ-012",
+        "XERJ-013"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Vertrag/Security-Deny-Tests und Privacy/Egress-Gate dokumentiert"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Lokaler Retrieval-Provider und Lifecycle",
+      "task_ids": [
+        "XERJ-014",
+        "XERJ-015",
+        "XERJ-016",
+        "XERJ-017",
+        "XERJ-018",
+        "XERJ-019",
+        "XERJ-020"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Isolierter optionaler Provider mit Tests, Rollback, keinem zweiten Ranking"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Corpus Hub und Reference Coding",
+      "task_ids": [
+        "XERJ-021",
+        "XERJ-022",
+        "XERJ-023",
+        "XERJ-024",
+        "XERJ-025",
+        "XERJ-026",
+        "XERJ-027"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Gepinnte, geprüfte und widerrufbare externe Referenzquellen"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Agenten- und Kontextintegration",
+      "task_ids": [
+        "XERJ-028",
+        "XERJ-029",
+        "XERJ-030",
+        "XERJ-031",
+        "XERJ-032"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Agent-/Tool-Integration mit unabhängigen Scopes und referenzklaren Evidence-Bundles"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Fairer Benchmark und messbarer Agentennutzen",
+      "task_ids": [
+        "XERJ-033",
+        "XERJ-034",
+        "XERJ-035",
+        "XERJ-036",
+        "XERJ-037",
+        "XERJ-038",
+        "XERJ-039",
+        "XERJ-040"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Machine-readable reproduzierbarer A/B-Bericht inkl. negativer Resultate"
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "Observability, Betrieb und Security Audit",
+      "task_ids": [
+        "XERJ-041",
+        "XERJ-042",
+        "XERJ-043",
+        "XERJ-044",
+        "XERJ-045"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Operatives Runbook, Audit, Observability und Security-Review"
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "Rollout, Governance und Abschluss",
+      "task_ids": [
+        "XERJ-046",
+        "XERJ-047",
+        "XERJ-048",
+        "XERJ-049",
+        "XERJ-050",
+        "XERJ-051",
+        "XERJ-052"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Release ADR, Scorecard, optionaler Rollout und Rückbaupfad"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "XERJ-001",
+    "XERJ-002",
+    "XERJ-003",
+    "XERJ-004",
+    "XERJ-005",
+    "XERJ-006",
+    "XERJ-007",
+    "XERJ-008",
+    "XERJ-009",
+    "XERJ-010",
+    "XERJ-011",
+    "XERJ-012",
+    "XERJ-013",
+    "XERJ-014",
+    "XERJ-016",
+    "XERJ-017",
+    "XERJ-019",
+    "XERJ-021",
+    "XERJ-022",
+    "XERJ-023",
+    "XERJ-024",
+    "XERJ-026",
+    "XERJ-028",
+    "XERJ-029",
+    "XERJ-033",
+    "XERJ-034",
+    "XERJ-035",
+    "XERJ-036",
+    "XERJ-037",
+    "XERJ-040",
+    "XERJ-043",
+    "XERJ-046",
+    "XERJ-048",
+    "XERJ-049",
+    "XERJ-050"
+  ],
+  "tasks": [
+    {
+      "id": "XERJ-001",
+      "title": "Ist-Aufnahme: tatsächliche CodeCompass-Retrieval-Pfade",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Entrypoints von agent/services/codecompass_agentic_retrieval_service.py, planner, worker/retrieval/retrieval_service.py, retrieval_source_contract, RetrievalProfile, Qdrant, SIRA, Wiki, MCP/n8n und UniversalSourceRanker bis zu den konkreten Backends nachvollziehen. Produktiv verdrahtet, experimentell, nur dokumentiert und to-do jeweils trennen.",
+      "acceptance_criteria": [
+        "Für jeden betroffenen Pfad gibt es Datei/Funktion/Entrypoint, Status und einen ausführbaren Smoke-Test.",
+        "Abweichungen zwischen Dokumentation und Laufzeit sind als Gaps dokumentiert; kein zweiter Orchestrator wird vorgeschlagen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-002",
+      "title": "XERJ-Feature- und API-Matrix anhand gepinnter Version",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "README, WHY_XERJ, SECURITY_MODEL, RERANK, CORPUS_PACKS, llms.txt, CLI/MCP/ES-API, Corpus Hub und veröffentlichte Benchmarks mit genauem Upstream-Tag oder Commit erfassen. Fertige Funktionen von Plänen (insbesondere Hub v2/pre-indexed) und Marketingzahlen trennen.",
+      "acceptance_criteria": [
+        "Feature-Matrix nennt Version, nachprüfbare CLI/API-Operation, Limitation, Testfall und Vertrauensgrad.",
+        "Nicht implementierte oder nicht getestete Features sind explizit als unsupported/unknown markiert."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-003",
+      "title": "Duplikat-/Reuse-Matrix zu bestehenden Tracks",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-001"
+      ],
+      "details": "Bestehende Tracks für CodeCompass, Qdrant, SIRA, Agent Work Efficiency, Universal Ranking, Kontextkuration und Self-Development analysieren. Diese Todo definiert ausschließlich neue XERJ-Adapter, Benchmark-Gates und externe Referenzcorpora.",
+      "acceptance_criteria": [
+        "Jede vorgeschlagene Funktion ist Reuse, Erweiterung oder tatsächlicher Gap zugeordnet.",
+        "Keine parallele Fusion-, Graph-, Memory-, Trace- oder Token-Budget-Infrastruktur."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-004",
+      "title": "Hypothesen, Vergleichsgruppen und Abbruchkriterien vorregistrieren",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-001",
+        "XERJ-002",
+        "XERJ-003"
+      ],
+      "details": "Hypothesen: XERJ als Rust-Engine kann bei bestimmten Korpora Latenz/Betrieb verbessern; Corpus Hub könnte Coding-Agenten bessere externe Beispiele liefern; mögliche Gegenhypothesen: schlechtere Präzision, Kosten, Indexduplikate, Sicherheitsrisiko. Effektgrößen und Mindestabdeckung vor Messung festlegen.",
+      "acceptance_criteria": [
+        "Versuchsplan definiert primäre/sekundäre Metriken, Mindeststichproben, Fehlertoleranzen und Stop-Kriterien vor Ergebnisinspektion.",
+        "Kein pauschaler Ersatzentscheid aufgrund fremder Hersteller-Benchmarks."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-005",
+      "title": "Rechte, Lizenzen und externe Datenflusskarte",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-002"
+      ],
+      "details": "XERJ Apache-2.0 und konsumierte Repos/Packs jeweils separat prüfen; Attribution, BSD-3-Clause-Vermerke, SPDX, Notice, Share-alike/Sonderklauseln, Export und Retention erfassen. Für öffentliche und private Ananta-Repositories eine Datenflusskarte mit Konsent und Sicherheitsgrenzen anlegen.",
+      "acceptance_criteria": [
+        "Testkorpus enthält zulässige und unzulässige Lizenz-/Quellkombinationen; unklar führt zu Quarantäne.",
+        "Weder öffentliches Hosting noch KI-Retrieval gelten automatisch als Freigabe zur Weiterverbreitung von Code/Daten."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-006",
+      "title": "Architektur-ADR: Additive Provider-Integration statt neuer Retrieval-Stack",
+      "type": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-001",
+        "XERJ-002",
+        "XERJ-003",
+        "XERJ-005"
+      ],
+      "details": "ADR mit Alternativen: reiner XERJ-Referenzcode-Sidecar, XERJ als lexical/vector Channel, kompletter XERJ-Hybrid-Provider, kein Einsatz. Doppelte BM25/Vektor-Fusion und doppelte Dedup verhindern; CodeCompass-Canonical-Path, Hub-Control-Plane und Qdrant-/SIRA-Fallback behalten.",
+      "acceptance_criteria": [
+        "ADR benennt exakt einen autoritativen Ranking-/Curation-Pfad je Modus, nicht mehrere still verkettete Fusionen.",
+        "RFC dokumentiert verworfene Alternativen, Kompatibilität und die Trennung internem/external reference retrieval."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-007",
+      "title": "Versionierter XERJ-Provider-Vertrag und Capability Discovery",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-006"
+      ],
+      "details": "Typed Request/Response für Query, source namespace, workspace/revision/path, allowed content classes, top_k, timeout, budget, index digest, provenance, trust, source type und capability flags definieren. Erweiterung der bestehenden CodeCompass-Ports ohne öffentliche XERJ-Credentials oder Client-Authority.",
+      "acceptance_criteria": [
+        "Schema validiert Versionierung, unbekannte Features, Pflicht-Provenance und kompatible Error/Degraded-States.",
+        "Contract-Tests weisen zurück, dass Client-Parameter eine serverseitige Capability erweitern."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-008",
+      "title": "Externe Referenzinhalte strikt vom Workspace trennen",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-005",
+        "XERJ-007"
+      ],
+      "details": "Source namespaces unterscheiden first-party source_of_truth, approved external reference und untrusted corpus; Quellklassen nicht per String-Prefix verwechseln. Cross-project Ergebnisse dürfen keine Repository-Identität, Revision, Berechtigungen oder Agent-Erinnerungen überschreiben.",
+      "acceptance_criteria": [
+        "Ein externer Treffer kann niemals als lokale Implementierung oder interne Evidence ausgegeben werden.",
+        "Ausschluss-, Scope-, Mandanten- und Referenz-Herkunftstests decken Namens- und Pfadkollisionen ab."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-009",
+      "title": "Network- und Egress-Policy einschließlich JEV/Reranking",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-005",
+        "XERJ-007"
+      ],
+      "details": "Local-only Default; Host/Port/Protokoll-Allowlist, DNS-Rebinding-/Redirect-Prüfung, TLS und Proxy-Policy. XERJ docs/RERANK: Remote-Judge erhält Query und Treffertext; Embedding proxy und WAL tap können ebenfalls Daten senden. Jede externe Verarbeitung braucht explizites Opt-in pro Scope und Audit.",
+      "acceptance_criteria": [
+        "Ohne explizites Opt-in verlassen weder Query, Dateipfade, Code noch Dokumentinhalte die lokale Vertrauenszone.",
+        "Negativtests für unzulässige Endpoints, Rerank-Block, WAL tap, Proxy-Embeddings, Redirects und SSRF."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-010",
+      "title": "Authentifizierung, Least Privilege und Isolation des XERJ-Nodes",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-007",
+        "XERJ-009"
+      ],
+      "details": "Standardmäßig keine --insecure-Produktionskonfiguration, keine offenen Listener, nur begrenzte Index-Rechte. XERJ Security Model auf unscoped API keys, reservierte memory namespaces und nicht erzwungene FLS/DLS prüfen; Index pro Workspace/Tenant, wenn erforderlich. Worker-Container ohne unnötige Dateisystem-Rechte.",
+      "acceptance_criteria": [
+        "Cross-tenant/index und privilege-escalation Tests scheitern geschlossen; unscoped Keys erhalten keine sensitive Daten.",
+        "Deployment verweigert unsicheren Bind/Auth/TLS-Zustand außerhalb eines expliziten isolierten Dev-Modus."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-011",
+      "title": "Secrets-, PII- und Path-Leakage-Schutz vor Ingest und Ausgabe",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-008",
+        "XERJ-009"
+      ],
+      "details": "Vor Indexierung und Query/Response Secrets, private Schlüssel, env, Token, Kundendaten, personenbezogene CVs, absolute Pfade und vertrauliche Logs erkennen bzw. ausschließen. Reversible lokale Redaction nur für autorisierte View; Zeit- und Zugriffsscope. Fail-closed bei unbekannter Klassifizierung.",
+      "acceptance_criteria": [
+        "Golden-Tests zeigen keine Secret-/PII-Leaks via Treffer, snippet, citation, audit oder externes Telemetrieevent.",
+        "Quarantäne und sicherer Datenlöschpfad sind dokumentiert; keine Behauptung, Regex-Redaction sei vollständig."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-012",
+      "title": "Untrusted Content und Prompt-Injection-Grenzen",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-008"
+      ],
+      "details": "Quellcode, README, Kommentare, Manifeste und Hub-Pack-Metadaten gelten als Daten, niemals als Agent-Systeminstruktionen. Tool-Ergebnisse mit Trust-Label, taint/provenance und citation-only; keine automatische Installation, Toolausführung, Netzwerkzugriff oder Git-Mutation aus einem Treffer.",
+      "acceptance_criteria": [
+        "Adversarial-Fixtures (versteckte Instruktionen, Unicode, YAML, Markdown, Repo-README) können keine Agent-Berechtigungen ausweiten.",
+        "Kontext-Sanitizing bewahrt relevante Belegstellen, ohne Befehle der Referenzquelle auszuführen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-013",
+      "title": "Trust-/Integrity-Bindings und sichere Revisionsverweise",
+      "type": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-008",
+        "XERJ-011"
+      ],
+      "details": "Jedes Corpus-Ergebnis an Quelle, Lizenz, Git URL, exakten Commit SHA, Indexmanifest, Content-Hash, Quellpfad/Zeilen und Ingest-Zeit binden. Signatur verifiziert nur Herausgeberidentität, nicht Codequalität; TOCTOU, force-push und fehlende Quellen werden explizit markiert.",
+      "acceptance_criteria": [
+        "Citation-Resolver überprüft Digest/Revision; stale/mismatch wird nicht als aktuelle Evidenz ausgegeben.",
+        "Manipulierter SHA, Hash, Manifest, Signatur, Alias oder Quellpfad erzeugt einen typisierten Fehler."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-014",
+      "title": "Minimaler XERJ-Client-Adapter für read-only Suchoperationen",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-007",
+        "XERJ-009",
+        "XERJ-010"
+      ],
+      "details": "Versionierten lokalen HTTP/ES-kompatiblen Client in Worker hinter bestehendem Port implementieren; Timeout, Retry-Backoff, Limits, Cancellable Requests, Connection Pool und Capability Negotiation. Keine direkten XERJ-Aufrufe aus UI oder Agent-Prompts.",
+      "acceptance_criteria": [
+        "Contract- und Integrationstests mit Testdouble und gepinntem echten XERJ-Node bestehen.",
+        "Resultate enthalten keine Credentials, keine Index-Namen für unberechtigte Clients und keine stillen Fallback-Weitungen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-015",
+      "title": "XERJ-Mapping und Code-/Doc-Indexierung",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-013",
+        "XERJ-014"
+      ],
+      "details": "Deterministischer Chunking-/Symbol-/AST-Plan für Python, TS/JS, Java, Rust, Markdown, Konfig und Logs; Felder path, language, span, symbol, content_hash, repository_revision, tenant und source_class. Alternative XERJ autoindex gegen vorhandenes CodeCompass Indexmodell testen, keine unkontrollierte zweite Wahrheit.",
+      "acceptance_criteria": [
+        "Indexing-Fixtures liefern identische deterministische Record-IDs und zitierbare file:line ranges über Rebuilds.",
+        "Scope-, Unicode-, CRLF-, generated-/vendored-, binary-, PDF- und Größenbegrenzungsfälle sind abgedeckt."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-016",
+      "title": "Inkrementelles Ingest, Löschung und Invalidierung",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-013",
+        "XERJ-015"
+      ],
+      "details": "Manifest/revision-basierte Upsert/Delete-Operationen, branch switch, dirty worktree, Symlink-Guards, atomaren Index-Swap sowie Stale-Index-Verweigerung integrieren. Unknown revision != current; keine unberechtigte Ausgabe nach ACL-/Lizenzwechsel.",
+      "acceptance_criteria": [
+        "Changed/deleted/renamed files, git reset, ACL downgrade und corpus revoke invalidieren Ergebnisse nachweisbar.",
+        "Crash-/Restart-Tests zeigen keine gemischten oder halb aktualisierten Stände; Wiederanlauf ist idempotent."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-017",
+      "title": "Retrieval-Fusion ohne Doppelzählung",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-006",
+        "XERJ-014",
+        "XERJ-015"
+      ],
+      "details": "XERJ-Full-hybrid (BM25+kNN via RRF) als einzelnes bereits fusioniertes Signal behandeln oder separat lexical/vector Exporte nutzen; nie XERJ-RRF erneut als unabhängiges BM25- und Vektor-Signal gewichten. Bestehende merge_rank_candidates, source ranking, Dedup, SIRA und Evidence Budget bleiben zuständig.",
+      "acceptance_criteria": [
+        "Golden-Tests beweisen identisches Ergebnis bei wiederholtem identischem externem Treffer ohne Score-Dopplung.",
+        "Ablation dokumentiert lexical-only, vector-only, XERJ-hybrid-as-one, full CodeCompass-hybrid, SIRA-on/off."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-018",
+      "title": "GraphRAG, Symbole und SIRA bleiben maßgeblich",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-017"
+      ],
+      "details": "Vorhandene exact KnowledgeIndex, graph expansion, Qdrant VectorStore und SiraHybridAdapter weiterhin nach Planner-Signal nutzen. Externe Referenzimplementierungen nicht als Graph-Knoten im first-party Repo behandeln; nur explizite, provenancegebundene cross-repo edges als optionale Evidence.",
+      "acceptance_criteria": [
+        "Architektur-, Callgraph- und Symboltests behalten first-party Trefferpräferenz und Berechtigungen.",
+        "Kein XERJ-Memory-/Graph-Backend wird still als Ersatz für CodeCompass, GraphRAG oder SIRA aktiviert."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-019",
+      "title": "Resilience, Circuit Breaker und kontrollierter Fallback",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-014",
+        "XERJ-017"
+      ],
+      "details": "Provider disabled/unavailable/stale/unauthorized/rate-limited/timeout unterscheiden. Circuit Breaker, single-flight, bounded concurrency, dedizierte Search-Queue, Cancellation und read-only Fallback zu bestehendem CodeCompass nur innerhalb identischen Scopes.",
+      "acceptance_criteria": [
+        "Failure-Injection für 401/403/404/429/5xx, Timeouts, invalid JSON, corrupted index, OOM und Teilresultate.",
+        "Auf keinen Fall stilles Suchen in globalem oder tenantfremdem Corpus; degradierter Status im kanonischen Evidence-Envelope."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-020",
+      "title": "Lokaler Rust-Sidecar: Packaging, Ressourcen und Supply Chain",
+      "type": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-010",
+        "XERJ-014"
+      ],
+      "details": "Pinnen von XERJ Commit/Release, Hash/Signatur, SBOM, Lizenznotice, CVE- und Transitive-Dependency-Audit. Native Binary oder separater Container in Worker-Sandbox; Ressourcenlimits, Downloadkontrolle, IPv4/IPv6 Bind, Repro-Build, Windows/Ubuntu/macOS Capability-Matrix.",
+      "acceptance_criteria": [
+        "CI kann den gepinnten Stand nachweisbar installieren und offline auf isoliertem Host starten.",
+        "Keine curl|sh- oder ungeprüften dynamischen Updater im Produktionspfad; uninstall/rollback hinterlässt keine Secrets."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-021",
+      "title": "Corpus Hub Capability- und Reifestufenprüfung",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-002",
+        "XERJ-005",
+        "XERJ-013"
+      ],
+      "details": "XERJ corpus build/add/index, signed packs, `xerj code`, Referenzrepo-Klone, lokales Caching und geplante Hub-v2-Query-Route getrennt testen. Keine Abhängigkeit von nur geplanten pre-indexed Pack-Features; upstream Versionsgrenzen verbindlich dokumentieren.",
+      "acceptance_criteria": [
+        "Funktionierende Befehle haben echten End-to-End-Nachweis; geplante Features tragen ein explicit blocked/experimental-Label.",
+        "Ein ausschließlich lokaler Pfad funktioniert unabhängig von Hub-v2 und externem API-Zugriff."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-022",
+      "title": "Reference Source Registry und Allowlist",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-008",
+        "XERJ-013",
+        "XERJ-021"
+      ],
+      "details": "SourceRegistry mit approved Git remotes/commits, maintainer, License/Notice, code language, use-case tags, trust tier, publication date, revocation state, expiration, source digest. Kein blindes Klonen aus natürlicher Sprachsuche; source selection durch Hub-Policy.",
+      "acceptance_criteria": [
+        "Nicht allowlistete, veraltete oder widerrufene Quellen werden nicht für Agent-Reference-Coding verwendet.",
+        "Search-Results liefern nachvollziehbare Source-ID, License-SPDX, digest und lokale Provenance."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-023",
+      "title": "Sichere Corpus-Pack-Verifikation",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-011",
+        "XERJ-013",
+        "XERJ-021",
+        "XERJ-022"
+      ],
+      "details": "Manifest/SHA256SUMS/ed25519 Signatur, vertrauenswürdige Public Keys, Pinning, Lizenz-/Provenance-Daten, Größenlimits und Zip-Slip/Symlink-/Decompression-Bomb-Schutz vor Ingest prüfen. Pack-Signatur ersetzt keine Inhaltsprüfung; unsigned packs nur mit gesonderter lokalen Freigabe.",
+      "acceptance_criteria": [
+        "Tampered, unsigned, expired, oversized, path-traversal und unsupported pack-version werden geblockt.",
+        "Alle Ingest-Vorgänge sind reproduzierbar, auditierbar und bei Fehler atomar ohne partielle Aktivierung."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-024",
+      "title": "Reference Coding: Problemtyp -> bewährte Implementierung",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-017",
+        "XERJ-022",
+        "XERJ-023"
+      ],
+      "details": "Task-Intent für bugfix, auth, dataflow, CI, agent orchestration und framework-spezifische Probleme extrahieren; in freigegebenen Referenzcorpora nach vergleichbaren Architekturentscheidungen, Tests und Edge Cases suchen. Treffer als Beispiel/Alternative kennzeichnen, nicht automatisch übernehmen.",
+      "acceptance_criteria": [
+        "Testfälle liefern relevante Referenzsnippets mit file:line, SHA, Lizenz und welche Annahmen übertragbar sind.",
+        "Ein Retrieval-Treffer kann keine direkte Codeübernahme ohne Verifikation, Lizenzprüfung und Sicherheitsgate auslösen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-025",
+      "title": "Ähnlichkeit, Übertragbarkeit und Gegenbeispiele bewerten",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-024"
+      ],
+      "details": "Übertragbarkeit anhand Runtime, Version, Stack, Interface, Safety Property, Trust Boundary, Semantik und Testbedingungen modellieren. Counterexamples, negative evidence, gebrochene APIs und veraltete Patterns höher gewichten als reine Embedding-Ähnlichkeit.",
+      "acceptance_criteria": [
+        "A/B-Fixtures mit ähnlich aussehenden aber semantisch inkompatiblen Lösungen dürfen nicht als direkt wiederverwendbar gelten.",
+        "Ranking liefert reason codes, provenance, incompatibility warnings und nicht bloß einen Confidence-Wert."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-026",
+      "title": "Lizenzkompatibler Snippet-/Patch-Workflow mit Attribution",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-005",
+        "XERJ-024",
+        "XERJ-025"
+      ],
+      "details": "Bei Codeübernahme Lizenz und Attribution pro Datei/Segment, Notice-Mitnahme, Review-Checkpoint, Lizenzkonfliktprüfung sowie Cross-repo Provenance/Author dokumentieren. Keine automatische Veränderung des eigenen Lizenzbestands durch Kopieren ohne Entscheidung.",
+      "acceptance_criteria": [
+        "Positive BSD/Apache/MIT- und negative incompatible/unknown-license Tests erzwingen korrekte Freigaben.",
+        "AI-generierte Patches erhalten Herkunfts- und Test-Evidence; Attribution ist im PR nachvollziehbar."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-027",
+      "title": "Corpus Freshness, Widerruf und öffentliche/private Trennung",
+      "type": "M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-016",
+        "XERJ-022",
+        "XERJ-023"
+      ],
+      "details": "Updatepolitik je Corpus: pinned/weekly/daily, TTL, stale indicators, deprecations, upstream deletion, repo privat/public Änderung, license change und GDPR delete. Öffentliche Hub-Daten dürfen keine privaten Code-Subsets aus Ananta erhalten.",
+      "acceptance_criteria": [
+        "Entfernte Inhalte sind aus Suchindex, lokalen Caches, Context Bundles und zukünftiger Agent Memory abgedeckt zu invalidieren.",
+        "Bei nicht erreichbarem Upstream bleibt pinned corpus als veraltet markiert; keine vermeintlich aktuelle Quelle."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-028",
+      "title": "Planner erweitert Source-Type statt autorisierende Suchsignale",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-007",
+        "XERJ-008",
+        "XERJ-017",
+        "XERJ-024"
+      ],
+      "details": "CodeCompassAgenticRetrievalPlanner und retrieval_profile_service um externe approved_reference_source als Source-Typ/Option erweitern, ohne exact/vector/graph als Berechtigungen umzudeuten. Explicit opt-in auf Hub-Seite; sources im Search-Plan mit task_kind, trust, budget und Scope schneiden.",
+      "acceptance_criteria": [
+        "Normaler default auto/hybrid/exact/vector/graph Pfad bleibt unverändert, solange Featureflag aus ist.",
+        "Allowlist/denylist und UI-Einstellungen können Referenzsuche nur einschränken, nicht übersteuern."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-029",
+      "title": "Agent Context Packaging: Evidenz statt Anweisung",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-012",
+        "XERJ-013",
+        "XERJ-024",
+        "XERJ-028"
+      ],
+      "details": "Externe Treffer in bestehenden Context Bundles mit source_class, citation, trust, license, index_version und rejected_reason; separate Abschnitte für lokales Ist-Verhalten vs externe Inspiration. Prompt-Auswahl budgetiert, sensible Quellen nie in Cloud-Prompts ohne Opt-in.",
+      "acceptance_criteria": [
+        "Agenten können lokale Implementierung und externe Vorlage zuverlässig unterscheiden.",
+        "Injected instructions aus externem Treffer dürfen keine Tools, Policies, Ziele oder System-Prompts beeinflussen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-030",
+      "title": "Agent Tool-/MCP-Oberflächen konsistent anbinden",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-014",
+        "XERJ-028",
+        "XERJ-029"
+      ],
+      "details": "Existing codecompass.search/retrieve, Worker tool-loop, MCP-Adapter und n8n API verwenden denselben autoritativen Service. Falls expliziter reference_search Tool erforderlich, ist er ein dünner Wrapper mit gleichen serverseitigen Constraints.",
+      "acceptance_criteria": [
+        "MCP/n8n/UI/Tool identische Scope-, Fehler-, Citation- und Budgetsemantik in Contracttests.",
+        "Kein Agent/Workflow erhält Rohzugriff auf XERJ Admin-/Corpus-Mutations-API."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-031",
+      "title": "Self-Development, ATS und Code-Agenten als getrennte Piloten",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-024",
+        "XERJ-029",
+        "XERJ-030"
+      ],
+      "details": "Ananta Coding-/Security-Agenten und Self-Development als erste Kandidaten; ATS CV/Job-Pipeline grundsätzlich ohne externe Referenzcode-Indizierung von personenbezogenen Dokumenten. Opt-in je Workflow/Skill, Review-Checkpoint für übernommene Lösung und Human Approval bei Sicherheitscode.",
+      "acceptance_criteria": [
+        "Piloten enthalten nachprüfbare Verwendung von Referenztests inklusive nachgelagerter lokaler Tests.",
+        "PII-/ATS-Workloads ohne gesondertes geprüftes Opt-in rufen weder Hub noch externe Reranking-Endpunkte auf."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-032",
+      "title": "Verknüpfung mit Agent Work Efficiency ohne falsche Savings",
+      "type": "M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-024",
+        "XERJ-029"
+      ],
+      "details": "Bestehende Trace-/Cost-/Efficiency-Todos verwenden: wiederholte Recherche, vermiedene Fixloops und tatsächliche Tool-/Token-Spuren vergleichen. Referenzretrieval gilt als zusätzliche Arbeit mit Kosten, nicht automatisch als ersparte Arbeit; keine ungesicherten Cache-hit Hochrechnungen.",
+      "acceptance_criteria": [
+        "Messung trennt Retrieval-Overhead von nachweislich vermiedenen Tool-Calls, Tests und Fehlversuchen.",
+        "Keine Test-Skip-Empfehlung ohne vorhandene Evidence, Validitäts- und Security-Gates."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-033",
+      "title": "Gold-Dataset aus realistischen Repositories und Query-Klassen",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-001",
+        "XERJ-004",
+        "XERJ-015",
+        "XERJ-021"
+      ],
+      "details": "Mehrere repo/language Profile (Python, TS/JS, Java, Rust, Docs und unbekannte Sprache) samt golden relevance labels und adversarial Queries erstellen. Enthält symbol/exact, config, Graphabhängigkeiten, Sprachmix, bugfix, Security, remote-reference und no-answer.",
+      "acceptance_criteria": [
+        "Goldlabels werden unabhängig und blind erstellt; Zweitreview/Disagreement und Labelqualität dokumentieren.",
+        "Fixtures enthalten positive/negative, seltene Symbole, sehr lange Dateien, gleiche Namen/andere Repos und Prompt-Injection."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-034",
+      "title": "Fairer Retrieval-A/B-Versuchsaufbau",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-004",
+        "XERJ-017",
+        "XERJ-033"
+      ],
+      "details": "Vergleich: Ananta baseline exact+BM25, vector, graph, existing full hybrid, SIRA; XERJ BM25, lexical hash, neural embeddings, XERJ hybrid RRF; als Plugin und als alternativer lokaler Store. Gleicher Quellstand, Chunking, Query Set, Embedding-Modelle, Hardware, Cache/Warmup und Relevanzlabels soweit algorithmisch sinnvoll.",
+      "acceptance_criteria": [
+        "Jeder Vergleich veröffentlicht Konfiguration, Quellcode-SHA, Daten-Digest, Embedding-Mode, Setup und run_id.",
+        "Lexical feature-hash wird nie als semantisches neuronales Modell oder gegenüber neural als fairer Qualitätsvergleich etikettiert."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-035",
+      "title": "Ranking-Qualitätsgate mit geschützten Query-Klassen",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-033",
+        "XERJ-034"
+      ],
+      "details": "Recall@5/10/50, Precision@K, nDCG@10, MRR, Evidence-Coverage, falsche Positivtreffer, zero-hit handling, citation validity und Fehlerklassifikation messen. Aggregat plus Sprache, Repository, Intent, Symbol und Sicherheitsklasse; paired bootstrap intervals und pre-registered Non-Regression Gate.",
+      "acceptance_criteria": [
+        "Report zeigt pro Modus und Klasse Rohdaten, Konfidenzintervall und geprüfte Labels statt nur Gesamtdurchschnitt.",
+        "No-answer/unauthorized/stale/source-poisoning dürfen nicht durch gute Durchschnittswerte verdeckt werden."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-036",
+      "title": "End-to-End Coding-Agent-Experiment statt nur Search-Metrik",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-024",
+        "XERJ-031",
+        "XERJ-033",
+        "XERJ-034"
+      ],
+      "details": "Blinde, randomisierte Aufgaben mit fixiertem Agentmodell, Prompt, Seed soweit möglich, Toolbudget und Zeitlimit: ohne Retrieval, CodeCompass, XERJ allein, CodeCompass+XERJ reference. Tests/Review auf funktionale Korrektheit, Security, Regressions, Fixloops, Codequalität und Datenabfluss.",
+      "acceptance_criteria": [
+        "Erfolgsquote/CI/test pass rates, sichere Lösungsqualität und unabhängige Reviewer-Evidence werden ausgewiesen.",
+        "Keine Übernahme von Herstellerclaims wie 2.7x Token-Reduction ohne reproduzierte unabhängige Resultate."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-037",
+      "title": "Latenz, Indexing- und Ressourcenbenchmarks",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-016",
+        "XERJ-020",
+        "XERJ-034"
+      ],
+      "details": "p50/p95/p99 Cold/Warm, concurrent queries, indexing docs/sec, incremental delta, startup, update-under-read, CPU/RAM/IO/disk/VRAM und Power/Hostklasse messen. XERJ local bin vs Container, Ananta Qdrant/FTS; faire Load-Profile mit gleichem Dataset und Reporting von OOM/Timeouts.",
+      "acceptance_criteria": [
+        "Reports enthalten Hostspec, Dateigrößen, Cachezustand, Warmups, Repeats und Konfidenzintervalle.",
+        "Stale Treffer oder defekte Indizes werden nicht als Performance-Erfolg gezählt."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-038",
+      "title": "Token-/Kostenrechnung und Energie des gesamten Workflows",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-032",
+        "XERJ-036",
+        "XERJ-037"
+      ],
+      "details": "Input/output/cache tokens, tool count, retrieval bytes, LLM provider fees, Reindexkosten, idle CPU/RAM und optional Energie messen; Zeit- und Kosteneinsparung gegenüber Baseline mit messbarer Attribution. Cloud/API Nutzung nur bei expliziter Zustimmung.",
+      "acceptance_criteria": [
+        "Token- und Zeitbilanz enthält XERJ-Suche, Netzwerk/Embedding, Reranking und zusätzliche Agent-Interaktionen.",
+        "Gemessene, geschätzte und unbekannte Werte sowie Parallel-Wallclock werden korrekt getrennt."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-039",
+      "title": "Ablationen und Generalisierungs-/Leakage-Kontrollen",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-035",
+        "XERJ-036",
+        "XERJ-038"
+      ],
+      "details": "RRF vs Fusion durch Ananta, graph on/off, SIRA on/off, query rewrite, source priors, chunking, reranker on/off und stale corpus separat testen. Evalset von Referenzcorpora disjunkt halten; keine impliziten gold labels aus Trefferquellen; blinded holdout auf fremden Repos.",
+      "acceptance_criteria": [
+        "Jeder behauptete Zugewinn hat eine isolierende Ablation und keine Duplicate-/Data-Leakage-Konfundierung.",
+        "Robustheitsbericht benennt negative Resultate und regressionskritische Untergruppen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-040",
+      "title": "Automatisierter reproduzierbarer Eval-/CI-Gate",
+      "type": "M6",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-034",
+        "XERJ-035",
+        "XERJ-036",
+        "XERJ-037"
+      ],
+      "details": "Bestehende scripts/evaluate_sira_retrieval.py, docs/benchmarks/codecompass-worker-retrieval.md und Test-Infrastruktur nutzen; Test-Node in isolierter CI, Fixture-Daten, Seed, versionsgebundene Outputs, JSON-Bericht, baseline diff; langsame echte Benchmarks getrennt vom schnellen offline CI.",
+      "acceptance_criteria": [
+        "PR-Gates führen Offline Contract-, Scope-, Index-, Adversarial- und Determinism-Tests ohne Provider-Key aus.",
+        "Echte Engine/Agent Benchmarks sind reproduzierbar aus Workflow und liefern machine-readable Evidence; verfehlte Gates blockieren Rollout."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-041",
+      "title": "Datenmodell für Observability und Trace-Korrelation",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-014",
+        "XERJ-019",
+        "XERJ-032"
+      ],
+      "details": "Bestehende TraceBundleV2/OTel-Cost Felder um provider, retrieval_mode, corpus_digest, query_class, latency, egress_allowed, cache_hit, rerank, context bytes, candidate provenance, failure reason ergänzen. Keine neuen Trace-Stores; PII/Query-Redaction.",
+      "acceptance_criteria": [
+        "Ein Agent Run kann seine Retrieval-Entscheidung und Source-Zuweisung revisionssicher nachvollziehen.",
+        "Default Logs enthalten weder Code-Snippets noch Query-Secrets, Lizenzpflichtiges oder Referenz-Personendaten."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-042",
+      "title": "Index Lifecycle, Recovery und Betrieb",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-016",
+        "XERJ-019",
+        "XERJ-020"
+      ],
+      "details": "Operational Runbook für Start/Stop, Health, Migration, Corruption Detection, Backup, Rebuild, Disk exhaustion, stale manifests, cleanup, key rotation und isolierte Upgrades. XERJ Datenverzeichnis niemals innerhalb des autoindexierten Wurzelverzeichnisses betreiben.",
+      "acceptance_criteria": [
+        "Crash/Migration/Backup-Restore-Tests inklusive degradiertem Betrieb und sauberem Rollback dokumentiert.",
+        "Retention/Deletion von Corpus und Testdaten sind tenant- und revisionssensitiv; keine versehentliche Self-Index-Schleife."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-043",
+      "title": "Sicherheitsaudit von Integrationsfläche und Upstream-Version",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-010",
+        "XERJ-011",
+        "XERJ-012",
+        "XERJ-020",
+        "XERJ-023",
+        "XERJ-029"
+      ],
+      "details": "Threat model mit untrusted README/pack, tool output prompt injection, poisoned code samples, SSRF, symlink escapes, index ACL, privilege escalation, dependency supply chain, malicious autoindex, network side-channel, egress, denial-of-service, malicious search API responses. Keine ungeprüfte externe CLI im Agent-Kontext.",
+      "acceptance_criteria": [
+        "Security-Testbericht enthält reproduzierbare Exploit-Fixtures und explizite Freigaben/Rest-Risiken.",
+        "Critical/High ungeklärte Findings verhindern Pilot und Aktivierung; Dokumentation verweist auf konkrete XERJ-Revision."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-044",
+      "title": "User- und Operator-Transparenz",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-028",
+        "XERJ-029",
+        "XERJ-041"
+      ],
+      "details": "Bestehende Control-Center-/TUI-Kontextansicht zeigt Retrieval-Modus, first-party/reference Mix, Quellen-Lizenz, Trust, stale, egress, fehlende Belege, Evidence-Budget und Warum-diese-Quelle. Keine zweite Such-UI bauen.",
+      "acceptance_criteria": [
+        "Nutzer kann externe Referenzen aus-/einschalten innerhalb der erlaubten Policy, ohne Rechte zu erweitern.",
+        "Jede angewendete Referenz hat nachvollziehbare Citation und Copy/Attribution-Hinweis."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-045",
+      "title": "Lizenz-, Datenschutz- und Community-Dokumentation",
+      "type": "M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-005",
+        "XERJ-022",
+        "XERJ-026",
+        "XERJ-043"
+      ],
+      "details": "Betrieb, Privacy, attribution, Open-Source-Kontribution, Lizenz- und Corpus-Provenance in passenden Docs/ADRs dokumentieren; keine implizite Einverständniserklärung gegenüber Dritten; optionale öffentliche Corpus-Beiträge separat genehmigen lassen.",
+      "acceptance_criteria": [
+        "Dokumentation erklärt Unterschiede Public repo indexing, local private indexing, public corpus publishing und third-party rerank.",
+        "Konkrete Konfigurationen für offline-only, local XERJ, approved Hub references und opt-in hosted services."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-046",
+      "title": "Featureflags und stufenweiser Pilot",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-019",
+        "XERJ-035",
+        "XERJ-040",
+        "XERJ-043"
+      ],
+      "details": "Phasen off (Default) -> shadow read-only -> allowlisted pilot -> opt-in active; Shadow-Ergebnisse nicht an Agent-Prompts oder Tools weiterreichen, keine Remote-Autoindexierung. Rollout über Hub Policy, getrennt je Tenant/Workspace/Agent/Profile; Kill-Switch sofort.",
+      "acceptance_criteria": [
+        "Featureflag aus bewahrt bitgleich bestehendes Retrieval-Verhalten in Golden-Tests.",
+        "Kill switch unterbricht Abrufe und neue Ingests sofort, räumt optionale Resources sicher auf und lässt CodeCompass bereit."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-047",
+      "title": "Shadow-Mode und Canary-Telemetrie",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-041",
+        "XERJ-046"
+      ],
+      "details": "Shadow-Queries nur auf vorab freigegebenen nicht-sensiblen Quellen; Vergleich von Qualität, Fehlermustern, Latenz, Speicher und Backpressure. Canary auf wenige Agents/Repositores mit kontrolliertem Opt-in; keine Daten in externen Service ohne Zustimmung.",
+      "acceptance_criteria": [
+        "Shadow speist keine untrusted Snippets in Agentkontext und beeinflusst keine Entscheidungen.",
+        "Canary-Rollback wird für Qualitäts-, Latenz-, Fehlerraten- und Security-Gates nachweisbar ausgelöst."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-048",
+      "title": "Aktivierungsentscheid aufgrund gemeinsamer Scorecard",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-004",
+        "XERJ-035",
+        "XERJ-036",
+        "XERJ-037",
+        "XERJ-038",
+        "XERJ-043",
+        "XERJ-047"
+      ],
+      "details": "Pre-registered scorecard bewertet Sicherheit zuerst (harte Ausschlusskriterien), dann Quality, Coding Success, p95/p99, Token/€, Ressourcen, Betriebsaufwand, Wartung und Lizenzen. Optionstabelle: reject, keep experimental, reference-only, provider in opt-in, replacement in Teilprofil (nur mit ADR).",
+      "acceptance_criteria": [
+        "Entscheid enthält Baseline/Delta/CI, negative Trade-offs, ungeklärte Fragen und explizite Freigabe.",
+        "Eine reine nDCG- oder Token-Verbesserung ohne Agent-Erfolg oder Sicherheit führt nicht automatisch zu Aktivierung."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-049",
+      "title": "Kompatibilität und Upgrade-Pfad absichern",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-020",
+        "XERJ-040",
+        "XERJ-048"
+      ],
+      "details": "Upstream API/Pack/CLI-Versionen per contract regression, schema snapshot und release-notes diff überwachen; upgrades erst nach Sicherheits-, Quality- und Rollback-Test. Inkompatible ES-Funktionen und XERJ Hub v2 werden capability-gated; existierende Clients und Ananta ohne XERJ weiter betriebsfähig.",
+      "acceptance_criteria": [
+        "Upgrade-/Downgrade-Tests für Indexschema und API bei unterstützten Versionen.",
+        "Kein Breaking Change an bestehenden CodeCompass MCP/n8n/Worker-Tool-Verträgen."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-050",
+      "title": "Release-Artefakte, ADR und Wartungsentscheidung",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-042",
+        "XERJ-045",
+        "XERJ-048",
+        "XERJ-049"
+      ],
+      "details": "Abschluss mit ADR, dokumentierter Quellcode- und Test-Evidence, JSON-Maschinenbericht, Security-Risks, SBOM, Betriebskosten, supported modes, Maintainer/Review-Verantwortung, Update-SLA und langfristiger Alternative. Bei negativem Resultat reproduzierbare Nichtintegration dokumentieren.",
+      "acceptance_criteria": [
+        "Ergebnis ist unabhängig von positiv/negativ nachvollziehbar und im Repo versioniert.",
+        "Markiere nur tatsächlich abgeschlossene Tasks als done, lösche keine negativen Benchmark-Resultate."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-051",
+      "title": "Optionaler öffentlicher XERJ-Corpus-Beitrag als getrennte Aktion",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-023",
+        "XERJ-026",
+        "XERJ-045",
+        "XERJ-048"
+      ],
+      "details": "Nur ausdrücklich freigegebene öffentliche Ananta-Codebeispiele und Tests als pin-/lizenzgebundenen Beitrag zu XERJ vorbereiten; keine privaten Repos, Secrets oder unberechtigt von Dritten kopierten Code veröffentlichen. Beitrag, Attribution und Maintainer-Rechte getrennt von lokalem XERJ-Pilot.",
+      "acceptance_criteria": [
+        "Contribution PR/Manifest muss SPDX, Ursprung, Revision, SHA, Notice, Tests und Consent/Scope dokumentieren.",
+        "Keine automatische Publikation durch Coding-Agenten oder durch das Aktivieren der Retrieval-Integration."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    },
+    {
+      "id": "XERJ-052",
+      "title": "Periodische Re-Evaluation und Upstream-Changes",
+      "type": "M8",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-048",
+        "XERJ-049"
+      ],
+      "details": "Änderungen von XERJ-Hub, Corpus-Source-Policy, API, Security Model, embedding/rerank egress, Lizenz, SBOM und Benchmark-Reproduzierbarkeit nach neuen Releases bewerten. Automatisches Monitoring darf nur Alerts/Reports erzeugen, keine fremde Änderung deployen.",
+      "acceptance_criteria": [
+        "Change-Detection meldet neue Sicherheits-/Kompatibilitätsbefunde mit genauen Versionen.",
+        "Verbindlicher Re-Eval-Prozess erneuert die Scorecard vor jeder wesentlichen Featureaktivierung."
+      ],
+      "deliverables": [
+        "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
+        "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 52,
+    "by_status": {
+      "todo": 52,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 32,
+      "P1": 17,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 14,
+      "high": 27,
+      "critical": 10
+    },
+    "critical_path": {
+      "total": 35,
+      "done": 0,
+      "remaining": 35
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 52,
+    "by_type": {
+      "M1": {
+        "total": 6,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M2": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M3": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M4": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M5": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M6": {
+        "total": 8,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 8,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M7": {
+        "total": 5,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "M8": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 52,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "This is a design/implementation backlog, not a claim of completed implementation or benchmark evidence.",
+    "No code, CI or bench changes are implied by the creation of this track.",
+    "Upstream features are pinned/rechecked by task XERJ-002 and XERJ-021; XERJ Corpus Hub v2 document is a plan, not shipping proof.",
+    "Do not merge external XERJ results into source-of-truth without the security, license and trust gates.",
+    "No new duplicate retrieval stack, re-ranker or memory/graph subsystem is authorized by this track."
+  ],
+  "definition_of_done": [
+    "Architecture gaps verified against runnable code and latest upstream pinned revision",
+    "New feature off by default, all scopes and network boundaries fail-closed",
+    "Canonical CodeCompass interfaces unchanged for existing clients; no duplicate fusion",
+    "Reproducible deterministic CI, adversarial security tests and separate real engine/agent benchmarks",
+    "Independent proof of higher utility for defined workload (or documented negative decision)",
+    "Supply chain/licensing/privacy/attribution verified and rollback tested",
+    "Final scorecard, runbook, ADR and maintained owner recorded"
+  ]
+}
