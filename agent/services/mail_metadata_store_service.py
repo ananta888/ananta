@@ -9,12 +9,12 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Mapping, TypeVar
 
+from agent.services.mail_migration_journal import MailFileLock
 from ananta_contracts.mail_contract_service import (
     MAIL_METADATA_STORE_SCHEMA,
     MailMessageMetadata,
     MailMessageRefV2,
 )
-from agent.services.mail_migration_journal import MailFileLock
 from ananta_contracts.mail_provider_ports import MailSyncCursor, VerifiedMailContentAccess
 
 R = TypeVar("R")

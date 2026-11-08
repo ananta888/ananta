@@ -17,24 +17,24 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from ananta_contracts.mail_contract_service import (
-    MailMessageMetadata,
-    MailMessageRefV2,
-)
 from agent.services.mail_metadata_store_service import (
     MailLocatorAlias,
     locator_alias_for_ref,
+)
+from agent.services.mail_sync_state_store import JmapSyncCheckpoint
+from agent.services.mail_sync_transaction_service import (
+    MailSyncTransactionRequest,
+    TransactionalMailSyncStateStore,
+)
+from ananta_contracts.mail_contract_service import (
+    MailMessageMetadata,
+    MailMessageRefV2,
 )
 from ananta_contracts.mail_provider_ports import (
     MailProviderResult,
     MailSyncCursor,
     MailSyncDelta,
     VerifiedMailContentAccess,
-)
-from agent.services.mail_sync_state_store import JmapSyncCheckpoint
-from agent.services.mail_sync_transaction_service import (
-    MailSyncTransactionRequest,
-    TransactionalMailSyncStateStore,
 )
 
 

@@ -12,10 +12,6 @@ from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
 from agent.services.imap_connector_service import ImapConnectorService
 from agent.services.imap_provider_adapter import ImapProviderAdapter
 from agent.services.jmap_auth_service import JmapAuthService
-from ananta_contracts.jmap_endpoint_policy import (
-    JmapEndpointPolicy,
-    JmapEndpointPolicyConfig,
-)
 from agent.services.jmap_http_transport import JmapHttpTransport
 from agent.services.jmap_provider_factory import (
     JmapProviderDependencies,
@@ -23,12 +19,6 @@ from agent.services.jmap_provider_factory import (
 )
 from agent.services.mail_account_service import MailAccountService
 from agent.services.mail_feature_policy import MailFeaturePolicy
-from ananta_contracts.mail_mutation_policy import (
-    MailMutationAuthorization,
-    MailMutationPolicy,
-    VerifiedIntentMutationAuthorizer,
-)
-from ananta_contracts.mail_provider_ports import MailProviderResult
 from agent.services.mail_provider_router import MailProviderRouter
 from agent.services.mail_runtime_policy import (
     get_mail_health_registry,
@@ -37,6 +27,16 @@ from agent.services.mail_runtime_policy import (
 from agent.services.mail_runtime_state_adapters import (
     PersistentMailboxLocatorStore,
 )
+from ananta_contracts.jmap_endpoint_policy import (
+    JmapEndpointPolicy,
+    JmapEndpointPolicyConfig,
+)
+from ananta_contracts.mail_mutation_policy import (
+    MailMutationAuthorization,
+    MailMutationPolicy,
+    VerifiedIntentMutationAuthorizer,
+)
+from ananta_contracts.mail_provider_ports import MailProviderResult
 from ananta_contracts.mail_secret_resolver import (
     EnvFileMailSecretResolver,
     MailAccountAuthResolver,

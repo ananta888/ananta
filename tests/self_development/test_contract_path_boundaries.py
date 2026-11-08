@@ -1,4 +1,5 @@
 """Boundary tests for self-development contract source path validation."""
+
 import pytest
 
 from agent.services.self_development.contracts import source_path
@@ -10,7 +11,7 @@ from agent.services.self_development.contracts import source_path
         "/etc/passwd",
         "../tests/self_development/test_example.py",
         "tests/./self_development/test_example.py",
-        "tests\self_development\test_example.py",
+        "tests\\self_development\test_example.py",
         "tests/*_example.py",
         "tests/secrets/key.txt",
         "tests/fixtures/example.json",

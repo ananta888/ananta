@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from agent.services.jmap_contract_service import JmapSessionDocument
-from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyError
 from agent.services.jmap_http_transport import JmapHttpTransport, JmapTransportError
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyError
 from ananta_contracts.mail_provider_ports import (
     MailAttachment,
     MailProviderResult,

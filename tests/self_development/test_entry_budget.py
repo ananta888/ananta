@@ -1,4 +1,5 @@
 """CMP-2701: Unit tests for agent.services.entry_budget helpers."""
+
 from __future__ import annotations
 
 import pytest

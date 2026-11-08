@@ -16,17 +16,17 @@ from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit, urlunsplit
 
-from ananta_contracts.restricted_inference_contract import (
-    RestrictedInferenceContractError,
-    RestrictedInferenceRequest,
-    RestrictedInferenceResponse,
-    validate_response_for_request,
-)
 from agent.services.restricted_inference_endpoint_policy import (
     AddressResolver,
     RestrictedInferenceEndpointResolutionError,
     pin_private_container_address,
     require_allowlisted_restricted_inference_endpoint,
+)
+from ananta_contracts.restricted_inference_contract import (
+    RestrictedInferenceContractError,
+    RestrictedInferenceRequest,
+    RestrictedInferenceResponse,
+    validate_response_for_request,
 )
 
 

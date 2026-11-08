@@ -6,13 +6,14 @@ from datetime import UTC, datetime
 import pytest
 
 from agent.services.mail_account_service import MailAccountService
+from agent.services.mail_metadata_store_service import MailMetadataStore
+from agent.services.mail_search_service import search_mail_metadata
 from ananta_contracts.mail_contract_service import (
     MailAccountV2,
     MailMessageMetadata,
     MailMessageRefV2,
     stable_mail_ref_id,
 )
-from agent.services.mail_metadata_store_service import MailMetadataStore
 from ananta_contracts.mail_provider_ports import (
     MailContentAccessDecision,
     MailContentAccessRequest,
@@ -20,7 +21,6 @@ from ananta_contracts.mail_provider_ports import (
     MailProviderResult,
     MailSyncCursor,
 )
-from agent.services.mail_search_service import search_mail_metadata
 
 
 class _Allow:

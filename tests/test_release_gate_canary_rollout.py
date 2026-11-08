@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 class TestNativeCoreGateCanaryRollout:
     """Verify that the Native-Core-Gate aggregates only its own sub-gates.

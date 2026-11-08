@@ -16,11 +16,6 @@ from agent.services.path_ai_mode_policy_service import (
     PathAiModePolicyService,
     PathAiModeRule,
 )
-from ananta_contracts.restricted_inference_contract import (
-    CONTRACT_VERSION,
-    RestrictedInferenceOperation,
-    RestrictedInferenceRequest,
-)
 from agent.services.restricted_inference_port import (
     ContractRestrictedInferencePort,
     HttpRestrictedInferenceTransport,
@@ -31,6 +26,11 @@ from agent.services.restricted_model_inference_service import (
     RestrictedInferenceRemoteError,
     RestrictedModelInferenceService,
     _port_from_environment,
+)
+from ananta_contracts.restricted_inference_contract import (
+    CONTRACT_VERSION,
+    RestrictedInferenceOperation,
+    RestrictedInferenceRequest,
 )
 
 INFERENCE_ENDPOINT = "http://restricted-inference:8091/internal/v1/restricted-inference"

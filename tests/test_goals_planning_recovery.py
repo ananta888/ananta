@@ -2,7 +2,6 @@ import time
 from types import SimpleNamespace
 
 import jwt
-import pytest
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB

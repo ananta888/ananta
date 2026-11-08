@@ -27,11 +27,11 @@ from agent.models import (
     RoleCreateRequest,
     TeamBlueprintInstantiateRequest,
     TeamCreateRequest,
+    TeamMemberUpdateRequest,
     TeamSetupScrumRequest,
     TeamTypeCreateRequest,
     TeamTypeRoleLinkCreateRequest,
     TeamTypeRoleLinkPatchRequest,
-    TeamMemberUpdateRequest,
     TeamUpdateRequest,
 )
 from agent.routes.blueprint_routes import _instantiate_blueprint

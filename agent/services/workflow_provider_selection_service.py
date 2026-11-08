@@ -8,14 +8,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
+from agent.services.model_selection_service import (
+    EffectiveModelRoutingService,
+    ModelConsumerRegistry,
+)
 from ananta_contracts.model_routing_contract import (
     MODEL_ROUTING_METADATA_KEY,
     ModelRoutingConfig,
     ModelRoutingContractError,
-)
-from agent.services.model_selection_service import (
-    EffectiveModelRoutingService,
-    ModelConsumerRegistry,
 )
 from ananta_contracts.model_selection import (
     ModelRoutingConfiguration,

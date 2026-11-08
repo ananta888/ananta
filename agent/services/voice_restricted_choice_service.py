@@ -27,16 +27,16 @@ from agent.services.restricted_inference_config_service import (
     TASK_CHOICE_SCORE,
     RestrictedInferenceConfigService,
 )
-from ananta_contracts.restricted_inference_contract import (
-    RestrictedInferenceOperation,
-    RestrictedInferenceRequest,
-    RestrictedInferenceStatus,
-)
 from agent.services.restricted_inference_port import (
     ContractRestrictedInferencePort,
     HttpRestrictedInferenceTransport,
     HubTaskQueueRestrictedInferencePort,
     RestrictedInferencePort,
+)
+from ananta_contracts.restricted_inference_contract import (
+    RestrictedInferenceOperation,
+    RestrictedInferenceRequest,
+    RestrictedInferenceStatus,
 )
 
 _CANDIDATE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")

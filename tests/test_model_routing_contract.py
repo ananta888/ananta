@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from agent.services.model_profile_loader import ALLOWED_MODEL_ROLES
+from agent.visual_process.models import ModelRoutingConfig as VisualModelRoutingConfig
 from ananta_contracts.model_routing_contract import (
     ModelRoutingConfig,
     ModelRoutingContractError,
@@ -14,7 +15,6 @@ from ananta_contracts.model_routing_contract import (
     has_model_routing_declaration,
     model_routing_policy_failure_metadata,
 )
-from agent.visual_process.models import ModelRoutingConfig as VisualModelRoutingConfig
 
 
 def test_visual_process_reexports_central_model_routing_contract() -> None:

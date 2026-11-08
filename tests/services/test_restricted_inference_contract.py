@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 import pytest
 
+from agent.services.restricted_inference_port import ContractRestrictedInferencePort
 from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceContractError,
@@ -15,7 +16,6 @@ from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceResponse,
     RestrictedInferenceStatus,
 )
-from agent.services.restricted_inference_port import ContractRestrictedInferencePort
 
 
 def _request() -> RestrictedInferenceRequest:

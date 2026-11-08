@@ -21,7 +21,9 @@ def test_decision_rules_test_file_exists():
 def test_scope_control_rule():
     doc = (WORKSPACE / "docs/hsm-003-comparison-criteria.md").read_text(encoding="utf-8")
     assert "Only declared files may be modified." in doc
-    assert "No commits, pushes, task creation, policy changes, Git metadata edits, or worker contact are allowed." in doc
+    assert (
+        "No commits, pushes, task creation, policy changes, Git metadata edits, or worker contact are allowed." in doc
+    )
 
 
 def test_reproducibility_rule():

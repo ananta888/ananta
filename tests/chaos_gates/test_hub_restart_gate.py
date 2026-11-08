@@ -1,5 +1,3 @@
-import subprocess
-import sys
 from pathlib import Path
 
 
@@ -12,6 +10,7 @@ def test_backpressure_soak_script_exists():
 def test_backpressure_soak_script_executable():
     script = Path(__file__).resolve().parents[2] / "scripts" / "gates" / "backpressure_soak.sh"
     import os
+
     assert os.access(script, os.X_OK), f"Backpressure soak script not executable: {script}"
 
 

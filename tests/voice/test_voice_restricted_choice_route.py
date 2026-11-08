@@ -4,13 +4,13 @@ from io import BytesIO
 from typing import Any, Mapping
 from unittest.mock import Mock
 
+from agent.services.restricted_inference_port import ContractRestrictedInferencePort
+from agent.services.voice_generative_judge_service import VoiceGenerativeJudgeOutcome
+from agent.services.voice_restricted_choice_service import VoiceRestrictedChoiceService
 from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceRequest,
 )
-from agent.services.restricted_inference_port import ContractRestrictedInferencePort
-from agent.services.voice_generative_judge_service import VoiceGenerativeJudgeOutcome
-from agent.services.voice_restricted_choice_service import VoiceRestrictedChoiceService
 from tests.voice.voice_route_seam import override_voice_route
 
 

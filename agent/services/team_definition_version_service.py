@@ -15,6 +15,7 @@ from agent.services.repository_registry import get_repository_registry
 # Token-/Speicher-/Laufzeitkosten sowie Datenbank-Erweiterungen sind in
 # docs/INSTALL_TEST_BETRIEB.md nachvollziehbar dokumentiert.
 
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 

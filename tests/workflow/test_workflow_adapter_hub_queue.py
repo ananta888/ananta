@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from ananta_contracts.model_routing_contract import ModelRoutingConfig
 from agent.services.workflow_adapter_control_facade import (
     WORKFLOW_ADAPTER_COMMAND_SCHEMA,
     WorkflowAdapterControlFacade,
@@ -30,6 +29,7 @@ from agent.services.workflow_runtime import (
     InMemoryReplayNonceStore,
     RuntimeAuthorizationEnvelope,
 )
+from ananta_contracts.model_routing_contract import ModelRoutingConfig
 from ananta_contracts.model_selection import (
     ModelAssignment,
     ModelFallbackCandidate,

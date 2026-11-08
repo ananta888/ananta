@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import sys
-
 
 def main() -> int:
     print("sfu-broadcast-fleet-gate: ok")

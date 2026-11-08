@@ -18,7 +18,6 @@ from agent.services.mail_application_service import (
 from agent.services.mail_operation_intent_service import (
     get_mail_operation_intent_service,
 )
-from ananta_contracts.mail_provider_ports import MailContentAccessRequest
 from agent.services.mail_runtime_policy import (
     get_mail_health_registry,
     get_mail_runtime_policy,
@@ -28,6 +27,7 @@ from agent.services.mail_task_service import (
     MailWorkspaceScope,
     get_mail_task_service,
 )
+from ananta_contracts.mail_provider_ports import MailContentAccessRequest
 
 mail_control_bp = Blueprint("mail_control", __name__, url_prefix="/api/mail")
 

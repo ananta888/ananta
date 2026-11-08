@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from agent.services.mail_account_mapper import MailAccountMapper
-from ananta_contracts.mail_contract_service import MailMessageMetadata, MailMessageRefV2
 from agent.services.mail_legacy_mapper import LegacyMailRecord, MailLegacyMapper
 from agent.services.mail_metadata_store_service import locator_alias_for_ref
 from agent.services.mail_migration_journal import MailFileLock, MailMigrationJournal, MailMultiFileTransaction
+from ananta_contracts.mail_contract_service import MailMessageMetadata, MailMessageRefV2
 
 
 @dataclass(frozen=True, slots=True)

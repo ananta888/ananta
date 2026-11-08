@@ -12,8 +12,8 @@ from typing import Any, Callable, Mapping, TypeVar
 
 from agent.artifacts.artifact_grants import is_grant_active
 from agent.artifacts.goal_artifact_service import GoalArtifactService
-from ananta_contracts.mail_contract_service import MailMessageRefV2
 from agent.services.mail_migration_journal import MailFileLock
+from ananta_contracts.mail_contract_service import MailMessageRefV2
 from ananta_contracts.mail_provider_ports import VerifiedMailContentAccess
 
 R = TypeVar("R")

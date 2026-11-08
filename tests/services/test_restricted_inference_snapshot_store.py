@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from agent.services.restricted_inference_snapshot_store import (
+    RemoteSnapshotPolicy,
+    SecureSnapshotStore,
+    SnapshotDownloadError,
+)
 from ananta_contracts.restricted_inference_contract import RestrictedInferenceOperation
 from ananta_contracts.restricted_inference_model_manifest import (
     ENGINE_HUGGINGFACE,
@@ -17,11 +22,6 @@ from ananta_contracts.restricted_inference_model_manifest import (
     ModelManifestFile,
     ModelManifestValidationError,
     RestrictedModelManifest,
-)
-from agent.services.restricted_inference_snapshot_store import (
-    RemoteSnapshotPolicy,
-    SecureSnapshotStore,
-    SnapshotDownloadError,
 )
 from worker.runtime.restricted_inference_admission import FilesystemSnapshotAdmission
 

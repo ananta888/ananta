@@ -5,6 +5,7 @@ configured, the test app's user-JWT admin login is not the authentication
 path these API tests exercise, and the requests fail unauthenticated. Tests
 must run self-contained regardless of ambient operator secrets.
 """
+
 from __future__ import annotations
 
 import pytest

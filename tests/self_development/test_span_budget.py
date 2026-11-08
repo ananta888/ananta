@@ -1,4 +1,5 @@
 """Unit tests for agent/services/span_budget."""
+
 from __future__ import annotations
 
 import pytest

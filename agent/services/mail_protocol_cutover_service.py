@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
 
 from agent.services.mail_account_service import MailAccountService
-from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_legacy_mapper import MailDedupeSummary
+from ananta_contracts.mail_contract_service import MailAccountV2
 from ananta_contracts.mail_provider_ports import MailProviderResult
 
 

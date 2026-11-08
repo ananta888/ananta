@@ -61,12 +61,6 @@ from agent.services.restricted_inference_config_service import (
     RestrictedInferenceConfig,
     RestrictedInferenceConfigService,
 )
-from ananta_contracts.restricted_inference_contract import (
-    RestrictedInferenceOperation,
-    RestrictedInferenceRequest,
-    RestrictedInferenceResponse,
-    RestrictedInferenceStatus,
-)
 from agent.services.restricted_inference_mock_adapter import MockInferenceAdapter
 from agent.services.restricted_inference_port import (
     ContractRestrictedInferencePort,
@@ -78,6 +72,12 @@ from agent.services.restricted_inference_result_guard import (
     RestrictedInferenceResultError,
     validate_choice_scores,
     validate_restricted_result,
+)
+from ananta_contracts.restricted_inference_contract import (
+    RestrictedInferenceOperation,
+    RestrictedInferenceRequest,
+    RestrictedInferenceResponse,
+    RestrictedInferenceStatus,
 )
 
 log = logging.getLogger(__name__)

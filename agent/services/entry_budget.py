@@ -4,6 +4,7 @@ Side-effect-free helpers used to bound how many context entries reach a
 model prompt and what marker should signal that the rest were omitted.
 No external dependencies; Python standard library only.
 """
+
 from __future__ import annotations
 
 OMISSION_MARKER = "..."

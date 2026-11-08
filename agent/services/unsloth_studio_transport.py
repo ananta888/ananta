@@ -21,12 +21,6 @@ from collections.abc import (
 from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
-from ananta_contracts.jmap_endpoint_policy import (
-    JmapEndpointPolicy,
-    JmapEndpointPolicyConfig,
-    JmapEndpointPolicyError,
-    ValidatedJmapEndpoint,
-)
 from agent.services.opaque_secret_reference_service import (
     OpaqueSecretReferenceError,
     OpaqueSecretReferenceService,
@@ -42,6 +36,12 @@ from agent.services.unsloth_studio_transport_contracts import (
     UnslothStudioHttpResponse,
     UnslothStudioTransportConfig,
     UnslothStudioTransportError,
+)
+from ananta_contracts.jmap_endpoint_policy import (
+    JmapEndpointPolicy,
+    JmapEndpointPolicyConfig,
+    JmapEndpointPolicyError,
+    ValidatedJmapEndpoint,
 )
 from ananta_contracts.unsloth_studio import (
     IncompatibleUnslothStudioContract,

@@ -140,9 +140,7 @@ class WorkerPoolSchedulerService:
                 ollama_decision = self._ollama.acquire_slot(
                     endpoint=endpoint,
                     model=model,
-                    max_parallel_requests=max(
-                        1, int(request.get("ollama_max_parallel_requests") or 4) - reserve
-                    ),
+                    max_parallel_requests=max(1, int(request.get("ollama_max_parallel_requests") or 4) - reserve),
                     queue_limit=max(1, int(request.get("ollama_queue_limit") or 64)),
                     lease_seconds=max(1, int(request.get("slot_lease_seconds") or 600)),
                     backpressure=str(request.get("ollama_backpressure") or "queue_then_reject"),

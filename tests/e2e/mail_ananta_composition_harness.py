@@ -13,7 +13,6 @@ from typing import Any, Mapping, Sequence
 
 from agent.services.jmap_http_transport import JmapHttpRequest, JmapHttpResponse
 from agent.services.mail_account_service import MailAccountService
-from ananta_contracts.mail_contract_service import MailAccountV2, MailMessageRefV2
 from agent.services.mail_migration_service import (
     MailMigrationCommand,
     MailMigrationService,
@@ -28,6 +27,7 @@ from agent.services.mail_task_service import (
     MailTaskService,
     MailWorkspaceScope,
 )
+from ananta_contracts.mail_contract_service import MailAccountV2, MailMessageRefV2
 from worker.mail_sync_transaction_adapter import SqliteMailMetadataStore
 from worker.mail_task_composition import build_production_mail_task_execution
 from worker.mail_task_execution import MailWorkerTaskHandler

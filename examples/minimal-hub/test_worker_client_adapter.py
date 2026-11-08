@@ -1,8 +1,19 @@
+import importlib.util
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
-# Assuming these imports are correctly structured in the workspace
-from examples.minimal-hub.core.worker_client_adapter import WorkerClientAdapter
+# The example package directory carries a hyphen, so it cannot be imported by
+# dotted path; load the adapter straight from its file location instead.
+_spec = importlib.util.spec_from_file_location(
+    "minimal_hub_worker_client_adapter",
+    Path(__file__).resolve().parent / "core" / "worker_client_adapter.py",
+)
+if _spec is None or _spec.loader is None:  # pragma: no cover - file sits next to this test
+    raise ImportError("minimal_hub_worker_client_adapter_unavailable")
+_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_module)
+WorkerClientAdapter = _module.WorkerClientAdapter
 
 
 class TestWorkerClientAdapter(unittest.TestCase):

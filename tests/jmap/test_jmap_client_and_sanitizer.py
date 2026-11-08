@@ -10,9 +10,9 @@ from agent.services.jmap_contract_service import (
     JmapMethodCall,
     JmapSessionDocument,
 )
-from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import JmapHttpResponse, JmapHttpTransport
 from agent.services.mail_html_sanitizer import MailHtmlSanitizer
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 
 
 class _Adapter:

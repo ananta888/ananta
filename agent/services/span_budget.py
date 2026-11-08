@@ -3,6 +3,7 @@
 Side-effect-free helpers that bound how many spans may appear in a prompt
 context and provide an omission marker indicating truncated content.
 """
+
 from __future__ import annotations
 
 OMISSION_MARKER = "..."

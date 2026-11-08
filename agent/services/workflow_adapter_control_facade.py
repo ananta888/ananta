@@ -13,10 +13,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from ananta_contracts.model_routing_contract import (
-    ModelRoutingConfig,
-    ModelRoutingContractError,
-)
 from agent.services.workflow_adapter_task_queue_service import (
     WORKFLOW_ADAPTER_CONTROL_SCHEMA,
     WorkflowAdapterQueueError,
@@ -41,6 +37,10 @@ from agent.services.workflow_runtime.streaming import (
     WorkflowStreamError,
     WorkflowStreamRequest,
     WorkflowStreamService,
+)
+from ananta_contracts.model_routing_contract import (
+    ModelRoutingConfig,
+    ModelRoutingContractError,
 )
 
 WORKFLOW_ADAPTER_COMMAND_SCHEMA = "ananta.workflow-adapter-command.v1"

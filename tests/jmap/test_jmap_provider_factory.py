@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections import deque
 
 from agent.services.jmap_auth_service import JmapAuthService
-from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
 from agent.services.jmap_http_transport import JmapHttpResponse, JmapHttpTransport
 from agent.services.jmap_provider_factory import JmapProviderDependencies, JmapProviderFactory
-from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_feature_policy import MailFeaturePolicy
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyConfig
+from ananta_contracts.mail_contract_service import MailAccountV2
 from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import MailAuthMaterial, MailProviderResult
 

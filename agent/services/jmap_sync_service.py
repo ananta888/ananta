@@ -6,21 +6,21 @@ from typing import Any, Callable, Mapping, Sequence
 
 from agent.services.jmap_client_service import JmapClient
 from agent.services.jmap_contract_service import JmapMethodResponse
-from ananta_contracts.mail_contract_service import stable_mail_ref_id
 from agent.services.mail_domain_mapper import MailDomainMapper
 from agent.services.mail_feature_policy import JmapRuntimeLimits
+from agent.services.mail_sync_state_store import (
+    JmapSyncCheckpoint,
+    MailSyncStateStore,
+    MailSyncStateStoreError,
+    query_fingerprint,
+)
+from ananta_contracts.mail_contract_service import stable_mail_ref_id
 from ananta_contracts.mail_provider_ports import (
     MailMessage,
     MailProviderResult,
     MailProviderSession,
     MailSyncCursor,
     MailSyncDelta,
-)
-from agent.services.mail_sync_state_store import (
-    JmapSyncCheckpoint,
-    MailSyncStateStore,
-    MailSyncStateStoreError,
-    query_fingerprint,
 )
 
 _SYNC_PROPERTIES = (

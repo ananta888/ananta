@@ -5,10 +5,10 @@ simulated failure -> rollback -> verification that the workspace is restored.
 
 Uses real git operations against a local bare repo (no docker, no hub process needed).
 """
+
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -112,9 +112,7 @@ def test_rollback_restores_previous_state(tmp_path: Path, bare_repo: Path, mutat
 
     # 6. Verify the workspace is back to its original state.
     restored_hash = _git("rev-parse", "HEAD", cwd=ws).stdout.strip()
-    assert restored_hash == before_hash, (
-        f"Workspace not restored: expected {before_hash}, got {restored_hash}"
-    )
+    assert restored_hash == before_hash, f"Workspace not restored: expected {before_hash}, got {restored_hash}"
 
     # 7. Verify file content is original.
     if target_path == "README.md":

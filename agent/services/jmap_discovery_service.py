@@ -15,11 +15,11 @@ from agent.services.jmap_auth_service import (
 )
 from agent.services.jmap_client_service import JmapClient
 from agent.services.jmap_contract_service import JmapContractError, JmapSessionDocument, normalize_jmap_session
-from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyError
 from agent.services.jmap_http_transport import JmapHttpTransport, JmapTransportError
 from agent.services.jmap_request_scheduler import JmapRequestScheduler
-from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_feature_policy import MailFeaturePolicy
+from ananta_contracts.jmap_endpoint_policy import JmapEndpointPolicy, JmapEndpointPolicyError
+from ananta_contracts.mail_contract_service import MailAccountV2
 from ananta_contracts.mail_provider_ports import (
     MailAuthMaterial,
     MailProviderCapabilities,

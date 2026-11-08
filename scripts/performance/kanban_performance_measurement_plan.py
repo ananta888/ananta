@@ -8,25 +8,23 @@ This module documents and validates the measurement workflow:
 It is intentionally a *plan* (no side effects) so it can be reviewed before
 any actual benchmark execution.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 # --- Paths (relative to repo root) ------------------------------------------
 BASELINE_CANDIDATE = Path("artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json")
-APPROVED_BASELINE = Path(
-    "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json"
-)
+APPROVED_BASELINE = Path("config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json")
 WORKLOAD_PROFILE = Path("config/test-profiles/kanban-model-dashboard/formal-performance.v1.json")
 ENVIRONMENT_SCRIPT = Path("scripts/performance/kanban_performance_environment.py")
 SUITE_SCRIPT = Path("scripts/performance/run_kanban_model_dashboard_performance_suite.py")
 
 # --- Thresholds ---------------------------------------------------------------
-REGRESSION_REJECT_PCT = 2.0   # reject if any check regresses > 2% vs baseline
-NOISE_STD_DEV_PCT = 10.0      # inconclusive if std dev across repeats > 10%
-MARGIN_PASS_PCT = 5.0         # require >= 5% margin for promotion
+REGRESSION_REJECT_PCT = 2.0  # reject if any check regresses > 2% vs baseline
+NOISE_STD_DEV_PCT = 10.0  # inconclusive if std dev across repeats > 10%
+MARGIN_PASS_PCT = 5.0  # require >= 5% margin for promotion
 
 
 @dataclass

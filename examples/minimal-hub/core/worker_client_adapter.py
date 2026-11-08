@@ -1,6 +1,11 @@
-from worker_engine import WorkerEngine
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from client_surfaces import ClientSurface
+
+if TYPE_CHECKING:  # worker_engine is an example-side stub, not an installed package
+    from worker_engine import WorkerEngine
 
 
 class WorkerClientAdapter:

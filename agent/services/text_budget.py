@@ -6,6 +6,7 @@ provide a short truncation marker that itself fits the remaining budget.
 Used by CMP-2502 as a deterministic, side-effect-free clamp for cutting
 prompt context to a fixed character budget.
 """
+
 from __future__ import annotations
 
 _TRUNCATION_MARKER = "..."

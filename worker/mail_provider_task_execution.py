@@ -8,11 +8,11 @@ from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from agent.services.mail_account_service import MailAccountService
+from agent.services.mail_metadata_store_service import MailMetadataStore
 from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
 )
-from agent.services.mail_metadata_store_service import MailMetadataStore
 from ananta_contracts.mail_provider_ports import (
     MailContentAccessRequest,
     MailContentAccessVerifier,

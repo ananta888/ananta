@@ -830,7 +830,6 @@ class InteractiveOperatorTui(
             return
         game["oidc_token"] = token
         set_share_oidc_token(token, rendezvous_base_url())
-        issuer = str(cached.get("issuer") or "")
         username = str(cached.get("username") or "")
         game["oidc_device_flow"] = {"status": "done", "user_code": "", "verification_uri": "", "error": ""}
         self.state = self.state.with_updates(

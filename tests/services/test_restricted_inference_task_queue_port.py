@@ -7,13 +7,13 @@ import uuid
 
 import pytest
 
+from agent.services.restricted_inference_port import HubTaskQueueRestrictedInferencePort
 from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
     RestrictedInferenceResponse,
 )
-from agent.services.restricted_inference_port import HubTaskQueueRestrictedInferencePort
 
 
 class _SuccessfulPort:

@@ -13,6 +13,7 @@ import re
 import stat
 from pathlib import Path
 
+from ananta_contracts.model_capability import ModelCapability, ModelStatus
 from ananta_contracts.restricted_inference_model_manifest import (
     ModelManifestValidationError,
     ModelSnapshotValidator,
@@ -20,7 +21,6 @@ from ananta_contracts.restricted_inference_model_manifest import (
     SnapshotValidationPolicy,
     VerifiedModelSnapshot,
 )
-from ananta_contracts.model_capability import ModelCapability, ModelStatus
 
 _MANIFEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,191}$")
 

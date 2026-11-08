@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_polling_scheduler import (
     MailPollingScheduler,
     MailPollingSchedulerConfig,
     PersistentMailPollingLease,
 )
+from ananta_contracts.mail_contract_service import MailAccountV2
 
 
 def _account(

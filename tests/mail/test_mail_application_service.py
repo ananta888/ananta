@@ -10,12 +10,12 @@ from agent.services.mail_application_service import (
     MailApplicationService,
     NullLegacyMailBridge,
 )
+from agent.services.mail_metadata_store_service import MailMetadataStore
 from ananta_contracts.mail_contract_service import (
     MailMessageMetadata,
     MailMessageRefV2,
     stable_mail_ref_id,
 )
-from agent.services.mail_metadata_store_service import MailMetadataStore
 
 
 def _service(tmp_path: Path) -> tuple[MailApplicationService, MailMetadataStore]:

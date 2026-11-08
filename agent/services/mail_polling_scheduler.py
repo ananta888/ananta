@@ -15,8 +15,8 @@ from typing import Any, Mapping, Protocol, Sequence
 import portalocker
 
 from agent.adapters.mail_metrics_adapter import MailMetricsAdapter
-from ananta_contracts.mail_contract_service import MailAccountV2
 from agent.services.mail_task_service import MailWorkspaceScope
+from ananta_contracts.mail_contract_service import MailAccountV2
 
 
 class MailPollingAccountPort(Protocol):

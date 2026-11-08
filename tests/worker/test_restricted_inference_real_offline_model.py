@@ -16,6 +16,7 @@ from agent.services.model_inference_adapters.sentence_transformers_adapter impor
     SentenceTransformerBiEncoderAdapter,
     SentenceTransformerCrossEncoderAdapter,
 )
+from agent.services.restricted_inference_snapshot_store import SecureSnapshotStore
 from ananta_contracts.restricted_inference_contract import (
     RestrictedInferenceOperation,
     RestrictedInferenceRequest,
@@ -32,7 +33,6 @@ from ananta_contracts.restricted_inference_model_manifest import (
     ModelManifestFile,
     RestrictedModelManifest,
 )
-from agent.services.restricted_inference_snapshot_store import SecureSnapshotStore
 from worker.runtime.restricted_inference_admission import FilesystemSnapshotAdmission
 from worker.runtime.restricted_inference_executor import build_default_executor
 from worker.runtime.restricted_inference_resources import ResourceBudget, ResourceLeaseManager

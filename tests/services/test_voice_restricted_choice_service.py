@@ -8,12 +8,12 @@ from agent.services.path_ai_mode_policy_service import (
     PathAiModePolicyService,
     PathAiModeRule,
 )
+from agent.services.restricted_inference_port import ContractRestrictedInferencePort
+from agent.services.voice_restricted_choice_service import VoiceRestrictedChoiceService
 from ananta_contracts.restricted_inference_contract import (
     CONTRACT_VERSION,
     RestrictedInferenceRequest,
 )
-from agent.services.restricted_inference_port import ContractRestrictedInferencePort
-from agent.services.voice_restricted_choice_service import VoiceRestrictedChoiceService
 
 
 class _Transport:

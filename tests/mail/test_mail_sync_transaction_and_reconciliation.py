@@ -10,6 +10,8 @@ from agent.services.jmap_contract_service import (
     JmapSessionDocument,
 )
 from agent.services.jmap_mail_mutation_provider import JmapMailMutationProvider
+from agent.services.mail_sync_state_store import JmapSyncCheckpoint, MailSyncStateStoreError
+from agent.services.mail_sync_transaction_service import TransactionalMailSyncStateStore
 from ananta_contracts.mail_contract_service import MailMessageRefV2, stable_mail_ref_id
 from ananta_contracts.mail_mutation_policy import MailMutationPolicy
 from ananta_contracts.mail_provider_ports import (
@@ -19,8 +21,6 @@ from ananta_contracts.mail_provider_ports import (
     MailSyncCursor,
     MailSyncDelta,
 )
-from agent.services.mail_sync_state_store import JmapSyncCheckpoint, MailSyncStateStoreError
-from agent.services.mail_sync_transaction_service import TransactionalMailSyncStateStore
 
 
 def _checkpoint() -> JmapSyncCheckpoint:
