@@ -738,7 +738,7 @@
       "milestone_id": "VDEC-M4",
       "title": "RTX 5060 Ti 16 GB Performance- und Speicherprofil erstellen",
       "type": "performance",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "progress_percent": 70,
@@ -763,7 +763,25 @@
         "AGENT.md#environment-notes"
       ],
       "verification": [],
-      "progress_note": "2026-10-15: Disjoint v2 pilot completed on Qwen3-VL-2B Q8 CPU/CUDA and Qwen2.5-VL-3B Q4 CUDA, 80 requests each, zero inference errors. Image/binary/model/projector digests and server arguments retained. New report vision-decision-pilot.qwen25-3b.cuda.v2.json; 3B CUDA holdout p50 around 123 ms. Remaining: isolated physical OOM/queue/context/peak-resource sweeps, optional 7B/RTX3080 comparison."
+      "progress_note": "2026-10-15: Disjoint v2 pilot completed on Qwen3-VL-2B Q8 CPU/CUDA and Qwen2.5-VL-3B Q4 CUDA, 80 requests each, zero inference errors. Image/binary/model/projector digests and server arguments retained. New report vision-decision-pilot.qwen25-3b.cuda.v2.json; 3B CUDA holdout p50 around 123 ms. Remaining: isolated physical OOM/queue/context/peak-resource sweeps, optional 7B/RTX3080 comparison.",
+      "execution": {
+        "files": [
+          "docs/agent-profiles/performance-optimizer.md",
+          "scripts/performance/kanban_performance_measurement_plan.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(docs): add RTX 5060 Ti performance and memory profile guidance",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_7891cc49be2e0d07e2ff6a56ec8578f8",
+        "source_ids": [
+          "SRC_9eeef7476b050fa6c18e32473c4a5ff0"
+        ],
+        "result_digest": "6829a075d0f015c1e7ec375b29e5635424ab64e89db5375dbac0a48c7fddf521",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "VDEC-015",

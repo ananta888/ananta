@@ -571,7 +571,7 @@
     {
       "id": "SEH-022",
       "title": "Security-/Red-Team-Suite speziell für Self-Modification bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 70,
@@ -582,7 +582,25 @@
         "Malicious Observation kann keine privilegierte Mutation auslösen",
         "Alle Red-Team-Fälle besitzen reproduzierbare Regressionstests"
       ],
-      "implementation_note": "Existing harness security/invariant/mutation/sandbox regressions supplemented with unknown evidence/model-revision/scope/resource rejection, provider schema/ID/symlink injection and no-activation lifecycle tests. Remaining: full admitted production benchmark tampering, reward-hacking and OS/container escape regression matrix."
+      "implementation_note": "Existing harness security/invariant/mutation/sandbox regressions supplemented with unknown evidence/model-revision/scope/resource rejection, provider schema/ID/symlink injection and no-activation lifecycle tests. Remaining: full admitted production benchmark tampering, reward-hacking and OS/container escape regression matrix.",
+      "execution": {
+        "files": [
+          "tests/security_red_team/self_modification_rejection.py",
+          "docs/security/red-team-suite.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(tests): add self-modification red-team suite for SEH-022",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_d1a7017d3d9fdb7abf2153c28b2f3461",
+        "source_ids": [
+          "SRC_3672167606cf02070a0d0e2766febfb9"
+        ],
+        "result_digest": "0affe425e220a7b350d886d80a80bce95f8ff108ddd144804d656b254d35c101",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-023",
@@ -796,7 +814,7 @@
     {
       "id": "SEH-036",
       "title": "Produktionsnahen End-to-End-Evolutionslauf und stufenweisen Rollout nachweisen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 0,
@@ -807,7 +825,25 @@
         "Kein Kandidat erhält Holdout- oder Promotion-Zugriff",
         "Rollback stellt exakt vorherigen zertifizierten Digest wieder her",
         "Runbook dokumentiert Aktivierung, Budgetierung, Kill-Switch, Recovery und schrittweise Freischaltung der mutierbaren Surfaces"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/evolution-rollout.md",
+          "agent/bootstrap/codecompass_sira_rollout.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(autopilot): add production E2E evolution rollout plan and bootstrap update",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_a804699a991e16a1fc7ad858eb47806d",
+        "source_ids": [
+          "SRC_d352bcc68cfcf6b9eeeeedd3f8f4ecd6"
+        ],
+        "result_digest": "64921eb47674809218c0c7d7791beaceef766f92f3dc1bb5cd9b23de3baf6eee",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-037",
@@ -881,7 +917,7 @@
     {
       "id": "SEH-041",
       "title": "EvoMap Memory Graph und Ananta Experiment-/Lineage-Store kontrolliert koppeln",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 30,
@@ -893,12 +929,31 @@
         "Retention/Deletion/Privacy-Regeln gelten auch für gespiegelt importierte Metadaten",
         "Ein historischer Evolutionspfad kann engine-übergreifend rekonstruiert werden"
       ],
-      "implementation_note": "Canonical ownership documented in operations runbook: Hub owns scoped runs/assets/audit, provider IDs remain unverified references and per-run provider workspace is temporary. Remaining: validated outcome/lineage mirrors, central retention/privacy deletion and historical cross-engine reconstruction."
+      "implementation_note": "Canonical ownership documented in operations runbook: Hub owns scoped runs/assets/audit, provider IDs remain unverified references and per-run provider workspace is temporary. Remaining: validated outcome/lineage mirrors, central retention/privacy deletion and historical cross-engine reconstruction.",
+      "execution": {
+        "files": [
+          "docs/decisions/ADR-evomap-memory-graph-ananta-lineage-store.md",
+          "agent/services/memory_audit_service.py",
+          "agent/services/hrm_experiments/artifact_store.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(self-development): couple EvoMap memory graph with Ananta lineage store",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_784a2032f5293e1fbf7e9c0010031261",
+        "source_ids": [
+          "SRC_f67f4c19dc173d135120f14f68f32cd5"
+        ],
+        "result_digest": "a53d829eb9b32a580203486803ab1904669af9e4a6a514c303a03bff570e4e80",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-042",
       "title": "EvoMap Strategy Presets und Mutationssignale in Ananta-Policies übersetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
@@ -909,12 +964,30 @@
         "Mutation und PersonalityState werden getrennt von Identität/Rollenrechten behandelt",
         "Benchmark zeigt, ob Strategy Presets gegenüber Ananta-eigener Auswahl messbaren Mehrwert liefern",
         "Nicht hilfreiche Presets können pro Modell/Task deaktiviert werden"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "agent/caseflow/policies.py",
+          "docs/ananta-game/domain-model.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(agent): add EvoMap strategy preset and mutation signal policy translations",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_2c31f71f1087c1c8046212d6109fdd55",
+        "source_ids": [
+          "SRC_626e001dfb41c4e8fbc542fb9b5af9d8"
+        ],
+        "result_digest": "45c4b6dff2d0ccf1d092b5d2b85c5be51f2be1bb0a7484191d9385d461a499fd",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-043",
       "title": "Verpflichtenden EvoMap Live-Compatibility- und Release-Gate etablieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 20,
@@ -925,7 +998,26 @@
         "Pinned Version/Commit und Image Digest erscheinen im Testartefakt",
         "Mindestens ein Gene-/Capsule- oder strukturierter GEP-Fall wird End-to-End geprüft",
         "Upgrade darf ohne grünes Compatibility-Gate nicht als Standardimage promoted werden"
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/testing/sfu-broadcast-release-gates.md",
+          "agent/routes/tasks/quality_gates.py",
+          "scripts/run_sfu_broadcast_fleet_gate.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(self-development): add mandatory EvoMap live compatibility and release gate checks",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_db1faf78ff5438926b935402ad977fc7",
+        "source_ids": [
+          "SRC_c284702f95c95638613726ec5d80f4af"
+        ],
+        "result_digest": "c0210391a4edb1be04972e3c21f3987845ecb351a50b097536a8985d2a19c42f",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "SEH-044",

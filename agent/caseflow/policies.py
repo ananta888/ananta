@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from agent.caseflow.actions import CRITICAL_ACTIONS, ApprovalRequest
 
+POLICY_VERSION = "1.0.0"
 REQUIRE_APPROVAL_ACTIONS = set(CRITICAL_ACTIONS)
 
 
@@ -18,6 +19,7 @@ class PolicyCheckResult:
     requires_approval: bool = False
     error_code: Optional[str] = None
     detail: Optional[str] = None
+    policy_version: str = POLICY_VERSION
 
 
 def check_policy(action: str, context: dict[str, Any] | None = None) -> PolicyCheckResult:

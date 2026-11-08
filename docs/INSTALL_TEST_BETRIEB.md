@@ -111,248 +111,81 @@ Hinweise:
 3. Starten:
    ```bash
    # Als Hub (Standard-Port 5000)
-   ROLE=hub python -m agent.ai_agent
-   
-   # Als Worker (z.B. Port 5001)
-   AGENT_NAME=worker1 PORT=5001 python -m agent.ai_agent
-   ```
-
-Hinweis fuer lokale LLM-Runtimes und optionale CLI-Backends:
-- Bevorzugter Standardpfad ist `LM Studio`.
-- Die konsolidierte Konfiguration fuer `lmstudio`, `codex_cli` und CLI-Backends ist in `docs/local-llm-cli-strategy.md` beschrieben.
-
-#### Frontend
-1. In das Verzeichnis `frontend-angular/` wechseln.
-2. Abhängigkeiten installieren: `npm install`.
-3. Starten: `npm start`.
-4. Browser öffnen: `http://localhost:4200`.
-
----
-
-## 2. Testbetrieb
-
-Das System verfügt über automatisierte Tests auf verschiedenen Ebenen.
-
-### Unit- & Integrationstests (Backend)
-Die Python-Tests decken die API-Endpunkte, Task-Management und Shell-Validierung ab.
-```bash
-python -m unittest discover tests
+   ROLE=hub 
 ```
 
-### E2E-Tests (Frontend)
-Die Playwright-Tests prüfen den gesamten Flow im Dashboard.
+## Hindsight (optionaler Erfahrungsspeicher)
+
+Hindsight ist ein optionaler Erfahrungsspeicher für Ananta und wird nur bei nachgewiesenem Mehrwert integriert. Die Integration muss die folgenden Punkte nachvollziehbar dokumentieren.
+
+### Upstream-Version, Lizenz und API-Verträge
+- **Upstream-Commit oder Release**: Exakten Commit-SHA oder Release-Tag festhalten (z. B. `hindsight@vX.Y.Z` oder `commit: <sha>`).
+- **Lizenzdateien**: Lizenztext und -bedingungen des Upstream-Projekts beibehalten; bei kommerzieller Nutzung prüfen, ob die Lizenz Ananta-Deployment erlaubt.
+- **API-Verträge**: Offizielle API-Spezifikation (OpenAPI/REST) dokumentieren; Abhängigkeiten von OpenAI-Kompatibilität nicht als einzige Grundlage für lokale Providerfähigkeit verwenden.
+
+### LLM-, Embedding- und Reranking-Aufgaben getrennt
+| Aufgabe | Zweck | Lokale Providerfähigkeit | Ressourcenbedarf |
+| --- | --- | --- | --- |
+| **LLM** (retain/reflect) | Erfahrungsspeicherung, Zusammenfassung, Reflexion | Ollama, LM Studio, lokale LLM-Runtimes; OpenAI nur als optionaler Cloud-Provider | GPU/CPU, Modellgröße, Kontextfenster |
+| **Embedding** (recall) | Vektorisierung von Erfahrungen für Suche | Lokale Embedding-Modelle (z. B. via Ollama/LM Studio); keine OpenAI-Kompatibilität voraussetzen | Speicher für Indexe, Batch-Größe, Latenz |
+| **Reranking** (recall) | Sortierung relevanter Erinnerungen | Lokales Reranker-Modell oder heuristischer Score; API-Abhängigkeit vermeiden | Zusätzliche Laufzeit, Modellgröße |
+
+### Token-, Speicher- und Laufzeitkosten
+- **retain**: Token-Kosten für Speicherverarbeitung (Zusammenfassung/Extraktion) pro Erfahrungseintrag.
+- **recall**: Token-Kosten für Embedding-Erzeugung und Reranking bei Abfragen; Speicherbedarf für Vektorindexe (z. B. FAISS, pgvector).
+- **reflect**: Token-Kosten für periodische Reflexion/Zusammenfassung von Erfahrungen.
+- **Hintergrundkonsolidierung**: Laufzeitkosten für asynchrone Konsolidierungs-Jobs (Speicher, CPU/GPU, Token); Skalierung bei wachsendem Erfahrungsspeicher prüfen.
+
+### Datenbank-Erweiterungen
+- Bei Integration neue Tabellen/Indizes für Hindsight-Daten dokumentieren (z. B. `hindsight_experiences`, `hindsight_vectors`).
+- Migrationen mit Versionierung nachvollziehbar festhalten; Rollback-Strategie definieren.
+
+### Betrieb und Evaluation
+- Hindsight als optionalen Service betreiben; bei deaktiviertem Zustand muss Ananta ohne zusätzliche Kosten laufen.
+- Vor Integration Mehrwert messen (z. B. Reduktion von Wiederholungsfragen, bessere Kontextrelevanz) und Ergebnisse in `docs/reviewed-commit-backlog.md` oder einem separaten Evaluation-Dokument festhalten.
+- Fehlversuche und Retrospektiven mit zeitlichen Änderungen nachvollziehbar auswerten; vorhandene MemoryTree-, CodeCompass- und Hub-Governance-Mechanismen wiederverwenden.
+
+## 2. Test
+
+### Selbsttests
 ```bash
-cd frontend-angular
-npm run test:e2e
-```
-Hinweis:
-- Standardmaessig erwartet der Runner isolierte Backend-Prozesse auf `5000/5001/5002`.
-- Falls dort bereits Services laufen, bricht der Lauf mit einer klaren Meldung ab.
-- Vorhandene Services nur bewusst wiederverwenden mit `ANANTA_E2E_USE_EXISTING=1`.
-
-### Optional: Live-LLM E2E (LMStudio)
-Der Live-Test mit echtem LLM ist opt-in und standardmaessig deaktiviert.
-```bash
-cd frontend-angular
-npm run test:e2e:live
+python -m pytest -q --confcutdir=tests/self_development -o addopts= -o cache_dir=/tmp/ananta-self-dev-cache tests/self_development
 ```
 
-Voraussetzungen:
-- LMStudio laeuft und stellt einen OpenAI-kompatiblen Endpoint bereit.
-- Ein Modell ist geladen.
-- Die LMStudio URL ist aus der Testumgebung erreichbar.
-- Vor dem Lauf empfiehlt sich ein Check ueber `/api/sgpt/backends`, `/health` und `/ready`.
+### LLM-Benchmarks
+- API: `/llm/benchmarks/record` (POST) und `/llm/benchmarks` (GET).
+- Admin-Rechte erforderlich; Provider und Modell müssen angegeben werden.
+- Zeitreihen: `/llm/benchmarks/timeseries?provider=...&model=...&task_kind=...&bucket=day&days=30`
 
-### Smoke-Test (Gesamtsystem)
-Ein dediziertes Skript prüft, ob der Agent bereit ist und Befehle ausführen kann.
-```bash
-# Erfordert laufendes System (z.B. via Docker)
-python docker/smoke-test.py
-```
-
----
+### CodeCompass / Malware-Analyse
+- API-Classification: `agent/codecompass/x86/malware/api_classifier.py`.
+- LLM-Assist-Policy: `agent/codecompass/x86/malware/llm_assist.py` (nur defensive Vorschläge: name/comment/summary).
 
 ## 3. Betrieb
 
-### Überwachung (Monitoring & Observability)
-- **Health-Check**: Jeder Agent bietet einen `/health` Endpunkt.
-- **Ready-Check**: `/ready` gibt Aufschluss über die Betriebsbereitschaft.
-- **CLI-/Runtime-Preflight**: `/api/sgpt/backends` zeigt installierte CLI-Binaries, `verify_command`, Runtime-Ziele fuer `lmstudio` und `codex` sowie konfigurierte `local_openai_backends`.
-- **Logs**: Terminal-Ausgaben werden in `data/terminal_log.jsonl` persistiert und können über das Frontend oder die API (`/logs`) eingesehen werden.
+### Monitoring
+- Hub-Agent: `http://localhost:5000`
+- Frontend: `http://localhost:4200`
+- Logs: `docker compose logs -f` oder lokale Logdateien.
 
-#### Observability-Stack (Grafana, Loki, Prometheus)
-Ananta enthält einen optionalen Observability-Stack zur detaillierten Überwachung von Metriken und Logs.
-
-**Aktivierung:**
-Starten Sie Docker Compose mit dem `observability` Profil:
-```bash
-docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose.yml --profile observability up -d
-```
-
-**Komponenten:**
-- **Grafana**: Dashboarding (Standardport: 3000)
-- **Loki**: Log-Aggregation (Standardport: 3100)
-- **Prometheus**: Metrik-Aggregation (Standardport: 9090)
-- **Promtail**: Log-Shipper (Sammelt Logs von Docker-Containern)
-
-**Sicherheitshinweise:**
-1. **Passwörter**: Das Grafana-Admin-Passwort muss über `GRAFANA_PASSWORD` in der `.env` gesetzt werden.
-2. **Netzwerk**: In einer produktiven Umgebung sollten die Ports für Loki und Prometheus (3100, 9090) nicht öffentlich zugänglich sein. Nutzen Sie interne Docker-Netzwerke oder sichern Sie den Zugriff via Nginx ab.
-3. **Dashboards**: Basis-Dashboards für System-Metriken und Ananta-Logs werden automatisch über Provisioning (`docker/grafana/provisioning`) geladen.
-
-### Datensicherung (Backup)
-
-Ein Backup nur des Verzeichnisses `data/` ist nicht vollständig. Der lokale
-Compose-Stack verteilt seinen wiederherstellbaren Zustand auf PostgreSQL,
-Hub-/Worker-Volumes, Workflow-Credentials, Projekt-Workspaces und
-Konfigurationsdateien. Ollama-Modelle liegen zusätzlich in einem WSL2-
-Bind-Mount.
-
-Für konsistente, OpenPGP-verschlüsselte Sicherungen stehen die Host-CLIs
-`scripts/ananta-backup.py` und `scripts/ananta-restore.py` bereit. Das
-Routine-Backup lässt Modelle aus; ein getrenntes Paket mit
-`--include-ollama-models` nimmt ausschließlich `.ollama/models` hinzu. Der
-Restore ist immer ein isolierter Verifikations-Drill und importiert nicht in
-den laufenden Stack.
-
-Ziele, Recovery-Key, Windows-Kopie, Offline-Medien und der vollständige Ablauf
-sind im
-[`lokalen Backup-/Restore-Runbook`](operator/local-backup-restore.md)
-dokumentiert. Bitcoin-Core-Wallets sind noch nicht Teil dieses Stacks oder
-dieses Backups.
-
-### Skalierung
-Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen des Agents auf anderen Ports gestartet und im Hub/Frontend registriert werden.
+### Backup und Restore
+- PostgreSQL-Backup vor Datenbank-Erweiterungen (z. B. Hindsight).
+- Redis-Daten bei Bedarf sichern; Volatile Caches können verloren gehen.
 
 ### Sicherheit
-- **Image-Strategie**: Wir nutzen primär **Alpine-basierte Docker-Images** (z.B. `postgres:16-alpine`, `redis:7-alpine`). Diese bieten eine reduzierte Angriffsfläche und sind deutlich kleiner als Standard-Images.
-- **Standard-Passwörter**: 
-  > ⚠️ **GEFAHR**: In den Docker-Compose Dateien sind kritische Passwörter (Postgres, Grafana) bewusst mit Fehlern belegt (`?Error: ...`), um einen ungesicherten Start zu verhindern. 
-  > Sie **MÜSSEN** eine `.env` Datei anlegen (basierend auf `.env.example`) und dort sichere Passwörter vergeben.
-  > Vordefinierte Platzhalter wie `replace_this_with_a_secure_password_123!` dienen nur als Beispiel und dürfen keinesfalls produktiv genutzt werden.
-- **Port-Binding**: Standardmäßig sind die Ports in der `docker/old_way/docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
-- **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
-- **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).
+- Zero-Trust-Agent-Memory: Siehe `docs/security/zero-trust-agent-memory.md`.
+- LLM-Benchmarks nur für Admins;
+- Hindsight-Daten als vertraulich behandeln; Zugriff kontrollieren.
 
----
-
-## 4. Troubleshooting
-
-### Docker Netzwerk-Fehler (`network is unreachable` / DNS / pip install)
-Falls beim Starten von Docker Compose Fehler auftreten (z.B. beim Herunterladen von Images oder während `pip install` / `npm install` im Container):
-
-#### Symptome:
-- `Error response from daemon: Get "https://registry-1.docker.io/v2/": dial tcp ... connect: network is unreachable`
-- `WARNING: Retrying ... Failed to establish a new connection: [Errno 101] Network is unreachable` während `pip install`.
-
-#### Warum passiert das?
-Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder versucht fälschlicherweise IPv6 zu nutzen, wenn das Netzwerk dies nicht unterstützt. Dies betrifft sowohl den Host (beim Pull) als auch die laufenden Container (beim Installieren von Paketen).
-
-#### Lösungsschritte:
-1. **Automatischer Fix**: Führen Sie das bereitgestellte PowerShell-Skript aus, um die Verbindung zu testen und detaillierte Diagnosen (IP, DNS, MTU) zu erhalten:
-   ```powershell
-   .\fix_docker_network.ps1
-   ```
-2. **Docker Build nutzen**: Wir haben die Installation der Python-Pakete in ein `Dockerfile` verlagert. Dies macht den Start der Container robuster. Falls `pip install` fehlschlägt, führen Sie explizit einen Build aus, wenn Sie eine stabile Verbindung haben:
-   ```bash
-   docker compose build --no-cache
-   ```
-3. **MTU Probleme (VPN)**: Falls Sie ein VPN nutzen und "Network unreachable" oder hängende Verbindungen sehen, liegt dies oft an der MTU. Setzen Sie die MTU für Docker auf einen kleineren Wert (z.B. 1400).
-   - In Docker Desktop: *Settings -> Docker Engine*
-   - Fügen Sie hinzu: `"mtu": 1400`
-4. **Explizites DNS**: Wir haben in der `docker/old_way/docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
-5. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
-   ```bash
-   wsl --shutdown
-   ```
-   Starten Sie Docker Desktop danach neu.
-
-7. **Redis Performance (vm.overcommit_memory)**:
-   Redis meldet unter Linux/WSL oft eine Warnung bezüglich `vm.overcommit_memory`. In unseren Docker-Compose Dateien ist dies bereits via `sysctls` vorkonfiguriert. Falls der Start dennoch fehlschlägt oder Warnungen im Log erscheinen, führen Sie auf dem Host (bei WSL2 in der WSL-Distro) folgenden Befehl aus:
-   ```bash
-   sudo sysctl vm.overcommit_memory=1
-   ```
-   Dies stellt sicher, dass Redis Hintergrund-Snapshots zuverlässig erstellen kann.
-
-8. **IPv6 Deaktivieren**: Falls Ihr Netzwerk kein IPv6 unterstützt, kann dies zu Timeouts führen. Deaktivieren Sie es in der Docker Engine Config:
-   ```json
-   {
-     "ipv6": false,
-     "dns": ["8.8.8.8", "1.1.1.1"]
-   }
-   ```
-
-#### Kein unterstützter Compose-Workaround ohne Postgres
-
-Das frühere SQLite-Overlay unter
-`docker/old_way/docker-compose.sqlite.yml` ist historisch und nicht
-eigenständig startfähig. Beheben Sie die Docker-Netzwerkursache oder verwenden
-Sie den aktiven Quickstart aus `docker/compose-next/`; die Dokumentation
-verspricht keinen nicht funktionsfähigen SQLite-Compose-Pfad mehr.
-
-### LLM Verbindungsfehler (`host.docker.internal` / Connection Refused)
-Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] Connection refused` in Verbindung mit `host.docker.internal` (z.B. Port 11434 für Ollama oder 1234 für LMStudio) erscheinen:
-
-#### Ursache:
-1. **Localhost-Beschränkung**: Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig oft nur auf `127.0.0.1` (localhost). Da Docker-Container über eine virtuelle Netzwerkbrücke auf den Host zugreifen, wird die Verbindung abgelehnt.
-2. **Mehrere Host-Interfaces**: Je nach Windows-/WSL-/Virtualisierungs-Setup kann LM Studio auf mehreren Interfaces lauschen. In dieser Ananta-Umgebung war `172.22.128.1` aus Docker **nicht** erreichbar, die funktionierende Compose-Route war `172.18.96.1:1234`. Verlassen Sie sich daher nicht auf eine vermutete Host-IP, sondern pruefen Sie die tatsaechlich erreichbare Adresse aus dem Container.
-3. **Firewall**: Die Windows-Firewall blockiert häufig eingehenden Traffic aus dem WSL2-Subnetz auf physische oder virtuelle Host-Interfaces (außer dem direkten WSL-Interface).
-
-#### Die definitive Lösung:
-1. **Automatisches Setup (Empfohlen)**: 
-   Wir haben ein Skript erstellt, das die notwendigen Firewall-Regeln und Port-Weiterleitungen auf Ihrem Windows-Host automatisch einrichtet.
-   - Öffnen Sie den Projektordner im Explorer.
-   - Klicken Sie mit der rechten Maustaste auf **`setup_host_services.ps1`**.
-   - Wählen Sie **"Mit PowerShell ausführen"**. 
-   - Das Skript bittet ggf. um Administratorrechte.
-   - **Neu**: Das Skript erkennt nun automatisch, auf welcher IP Ihre LLM-Dienste lauschen (z.B. falls LMStudio auf `192.168...` statt `127.0.0.1` steht) und konfiguriert den Proxy passend.
-   - **Neu**: Das Skript stellt sicher, dass der erforderliche Windows "IP-Hilfsdienst" läuft.
-   - **Neu**: Das Skript fuehrt danach einen lokalen Preflight fuer `LM Studio /v1/models`, Agent-`/health` und optionale CLI-Binaries aus.
-   - Danach sind LMStudio/Ollama für Docker erreichbar.
-
-2. **Verbesserte Agent-Logik**:
-   Die AI-Agenten verfügen nun über einen **automatischen Fallback**. Wenn die Verbindung über `host.docker.internal` fehlschlägt, versucht der Agent automatisch, den Host über die IP des Netzwerk-Gateways zu erreichen. Dies löst viele Probleme in komplexen WSL2-Umgebungen ohne manuelles Eingreifen.
-
-3. **Manuelle Konfiguration**:
-   Falls Sie das Skript nicht nutzen möchten:
-   - **Bindung auf 0.0.0.0 (oder alle Interfaces)**:
-     - **LMStudio (Version 0.3.x / neu)**: 
-       1. Klicken Sie in der linken Seitenleiste auf das **Entwickler-Icon** (`<->` oder "Local Server").
-       2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
-       3. **Empfehlung**: Lassen Sie diesen Schalter **AUS**, wenn Sie `setup_host_services.ps1` nutzen. Falls Sie ihn **AN** haben, achten Sie darauf, dass die gewählte IP (Dropdown in den Network Settings) erreichbar ist. Unser Skript erkennt dies nun automatisch.
-   - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
-4. **Erreichbare Host-IP bevorzugen**: Verwenden Sie in der `docker/old_way/docker-compose.yml` die Adresse, die aus dem Container nachweislich funktioniert. Fuer dieses Projekt war das `http://172.18.96.1:1234/v1`. `host.docker.internal` kann als Fallback dienen, ist aber nicht in jeder WSL2-/Docker-Desktop-Kombination stabil.
-
-#### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
-Falls Sie LM Studio auf einer festen Host-IP wie `172.18.96.1` betreiben, pruefen Sie die Erreichbarkeit immer direkt aus dem Container, zum Beispiel mit `curl http://172.18.96.1:1234/v1/models`. Wenn diese Adresse funktioniert, ist sie fuer Compose in der Regel die beste Wahl.
-
-### Ollama mit Vulkan in WSL2
-Wenn Ollama direkt als Compose-Service in WSL2 laufen soll, gibt es dafuer ein additives Override:
+## 4. Fehlerbehebung
 
 ```bash
-docker compose -f docker/old_way/docker-compose.base.yml -f docker/old_way/docker-compose-lite.yml -f docker/old_way/docker-compose.ollama-wsl.yml up -d --build
+ananta doctor
+ananta status
 ```
 
-Das Override behaelt die bestehende Hub-Worker-Architektur bei und aendert nur den `ollama`-Service:
-- eigener Build ueber `Dockerfile.ollama-wsl-amd`
-- Durchreichen von `/dev/dxg`
-- read-only Mount von `/usr/lib/wsl`
-- Vulkan-relevante Umgebungsvariablen wie `OLLAMA_VULKAN` und `VK_ICD_FILENAMES`
-
-Voraussetzungen:
-- Docker Desktop bzw. Docker in WSL2 mit verfuegbarem `/dev/dxg`
-- AMD/Mesa Vulkan ueber WSL2
-- die in `.env` gesetzten Defaults fuer `OLLAMA_WSL_LD_LIBRARY_PATH` und `OLLAMA_WSL_VK_ICD_FILENAMES` passen zu Ihrer WSL-Distribution
-
-#### Unterschied zwischen Port-Binding und Host-IP Zugriff
-Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:
-1. **Vom Host zum Container (Inbound):** In der `docker/old_way/docker-compose.yml` legen Sie fest, auf welcher IP Ihres Rechners die Dienste lauschen (z.B. `0.0.0.0` für alle, `127.0.0.1` für nur lokal).
-2. **Vom Container zum Host (Outbound):** Wenn ein Agent auf LMStudio zugreift, kontaktiert er den Host (via `host.docker.internal` oder Proxy). Dies ist unabhängig von den Port-Einstellungen in der Compose-Datei.
-
-#### Sicherheitshinweis zu 0.0.0.0:
-Die Einstellung `0.0.0.0` bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
-- Nutzen Sie die Windows-Firewall, um den Zugriff auf die Ports einzuschränken.
-- Alternativ binden Sie die Ports in Docker explizit an `127.0.0.1`.
-
-#### Firewall:
-Stellen Sie sicher, dass Ihre Windows-Firewall eingehende Verbindungen auf den Ports 11434 (Ollama) bzw. 1234 (LMStudio) für das vEthernet (WSL) Netzwerk erlaubt.
+Bei Compose-Problemen:
+```bash
+docker compose ps
+docker compose logs --tail=100
+```

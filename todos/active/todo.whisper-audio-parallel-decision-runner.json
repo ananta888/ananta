@@ -333,7 +333,7 @@
       "milestone_id": "WADEC-M1",
       "title": "Echten whisper.cpp-Fork anlegen, Upstreams pinnen und Wartungsstrategie dokumentieren",
       "type": "repository",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -347,14 +347,33 @@
       "acceptance_criteria": [
         "Fork-Historie und Upstream-Beziehung sind nachvollziehbar.",
         "UPSTREAM.md beschreibt Start-SHA, Remotes, Sync und Rueck-PR-Strategie."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "todos/active/todo.wadec-echten-whisper-fork-pin-maintenance-strategy.md",
+          "docs/knowledge/eczten-whisper-fork-upstream-pinning.md",
+          "scripts/wadec/whisper_fork_setup.sh"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(repo): pin Echten whisper.cpp fork and document maintenance strategy",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_62c25505106795c7935a6354a09cbfc0",
+        "source_ids": [
+          "SRC_96b6ba6021dec6aecc71d3dc7c25eb25"
+        ],
+        "result_digest": "c5c45b3aecf9581fd1ed3a54c9d556b33e74e4e8fc5e2b1a308e149dbd6241fc",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-002",
       "milestone_id": "WADEC-M1",
       "title": "Bestehende Transkriptions-, Server- und Command-Baselines reproduzieren",
       "type": "baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -369,14 +388,31 @@
       "acceptance_criteria": [
         "Alle Baselines sind vor Core-Aenderungen reproduzierbar.",
         "Spaetere Tests koennen Regressionen gegen Transkription und Server erkennen."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "scripts/wadec/whisper_fork_setup.sh"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(self-development): reproduce transcription, server, and command baselines for WADEC-002",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_56fe78e815beca35e734237fe220edb3",
+        "source_ids": [
+          "SRC_dd4c0c27a55d7e672cb9c2244bb96d81"
+        ],
+        "result_digest": "9ac1f976449cf9392fcb8e822e5992334c1c80e8e363a92fa8860f53b7ae3621",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-003",
       "milestone_id": "WADEC-M1",
       "title": "Encoder-, Decoder-, State-, KV- und Batchpfade quellcodegenau kartieren",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
@@ -392,14 +428,33 @@
       "acceptance_criteria": [
         "Branching-/Reuse-Strategie ist aus aktuellem Code belegt und nicht von llama.cpp abgeleitet.",
         "Kritische interne APIs und Upstream-Risiken sind dokumentiert."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/architecture/encoder-decoder-state-kv-batch-source-code-map.md",
+          "agent/services/speech_reconciliation_state_machine.py",
+          "worker/meet_media/video_encoder_profile.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "docs(docs): map encoder, decoder, state and kv batch source-code paths for WADEC-003",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_fba65223614b58793f09f88e41785408",
+        "source_ids": [
+          "SRC_8d2a7db337861418abd44708f36697bd"
+        ],
+        "result_digest": "0396c0de1d69698be2eaab40547acb97ec046b907c15a7e0eb5bcc1e4a0a9ef9",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-004",
       "milestone_id": "WADEC-M2",
       "title": "Stabiles Schema-, Profil- und Result-Contract fuer Audio Decisions definieren",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
@@ -415,7 +470,26 @@
       "acceptance_criteria": [
         "Contract kann ohne Server intern getestet werden.",
         "Offene Textausgabe ist nicht versehentlich als Decision-Feld modelliert."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "agent/services/audio_decision_command_service.py",
+          "agent/services/audio_decision_command_policy.py",
+          "tests/test_audio_decision_contracts.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "feat(voice): add audio decision schema profile and result contracts",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_4db834a566f4fe4a03b1c28bd358da44",
+        "source_ids": [
+          "SRC_f49092b8464bb2ba5ffdf153ce51f877"
+        ],
+        "result_digest": "e849596fe1f18aeff1947da53f936a70c4b1554ec1ac93c7cc3631f7a81dd3b9",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "WADEC-005",

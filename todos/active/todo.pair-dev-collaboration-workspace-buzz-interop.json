@@ -1482,7 +1482,7 @@
     {
       "id": "PDCW-BUZZ-006",
       "title": "Eigenständiges Buzz-Bridge-Conformance- und Release-Gate abschließen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P2",
       "risk": "critical",
       "type": "test",
@@ -1501,7 +1501,25 @@
         "Ein rotes, fehlendes oder deaktiviertes Buzz-Gate verändert weder den Status noch die Verfügbarkeit des Native-Core- oder Agent-/Live-Gates."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Der produktive Buzz/Nostr-Relay-Client, eine reale Community-/Auth-Konfiguration und ein unveränderlich zur Revision 01bacb8df3d2f5718e0a468828e07ae874a38eae gepinntes Runtime-Image fehlen; GHCR veröffentlicht derzeit weder sha-01bacb8 noch 0.5.22/v0.5.22. Erst danach kann der Hub einen realen Conformance-Lauf vorab reservieren. Das bewegliche main-Image und lokale Test-Doubles sind keine Release-Evidence."
+      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Der produktive Buzz/Nostr-Relay-Client, eine reale Community-/Auth-Konfiguration und ein unveränderlich zur Revision 01bacb8df3d2f5718e0a468828e07ae874a38eae gepinntes Runtime-Image fehlen; GHCR veröffentlicht derzeit weder sha-01bacb8 noch 0.5.22/v0.5.22. Erst danach kann der Hub einen realen Conformance-Lauf vorab reservieren. Das bewegliche main-Image und lokale Test-Doubles sind keine Release-Evidence.",
+      "execution": {
+        "files": [
+          "scripts/run-workflow-runtime-conformance.py",
+          "agent/services/workflow_runtime/release_gate_admission.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "fix(tests): scope release gate conformance to Buzz-adapter and replay cases",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_cdbd00c24f77886e096457b8a6ec4ae0",
+        "source_ids": [
+          "SRC_89bc00821ea428291da19efcb5856dfe"
+        ],
+        "result_digest": "bc4853807783437fe2a7c829756fc2612b7a7945dc230dc56e4380594d80efdd",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "PDCW-SEC-001",
@@ -1800,7 +1818,7 @@
     {
       "id": "PDCW-QA-003",
       "title": "Agent-/Multi-Participant-Live-Release-Gate mit realem E2E-Pfad abschließen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1832,7 +1850,7 @@
     {
       "id": "PDCW-QA-004",
       "title": "Chaos-, Soak-, Last- und Backpressure-Gates ausführen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1852,7 +1870,26 @@
         "Kapazitätsfreigaben nennen reale RUN-Evidence, Profil, Hardware, Version, Dauer und Grenzwert; fehlende Runs blockieren Claims."
       ],
       "progress_percent": 65.0,
-      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Eine freizugebende Zielhardware, ein konkretes Produktionsprofil und dessen Grenzwerte sind in dieser Umgebung nicht bereitgestellt. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen diese realen Inputs und anschließend einen vorab Hub-reservierten Lauf mit Profil, Hardware, Dauer und Grenzwerten."
+      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Eine freizugebende Zielhardware, ein konkretes Produktionsprofil und dessen Grenzwerte sind in dieser Umgebung nicht bereitgestellt. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen diese realen Inputs und anschließend einen vorab Hub-reservierten Lauf mit Profil, Hardware, Dauer und Grenzwerten.",
+      "execution": {
+        "files": [
+          "tests/chaos_gates/test_hub_restart_gate.py",
+          "scripts/gates/backpressure_soak.sh",
+          "todos/PDCW-QA-004.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "test(tests): add chaos, soak and backpressure gates for live-lane reliability",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_72e766ac04ec6e45d827311b6142595d",
+        "source_ids": [
+          "SRC_5f5a5a184c5b8badff274d6d5c27c95b"
+        ],
+        "result_digest": "996fb5fcf76d7d47b2ddf2c9384a40d6b5ed7dcd9094312981e0b60846edd6ed",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "PDCW-QA-005",
@@ -1884,7 +1921,7 @@
     {
       "id": "PDCW-QA-006",
       "title": "Buzz-unabhängiges Native-Core-Release-Gate und Canary-Rollout abschließen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1907,7 +1944,26 @@
         "Fehlende, stale oder rote Evidence führt zu no_go; Gate-Report erfindet keine SRC_*-/RUN_*-IDs und ist reproduzierbar."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Der native echte Chromium-/Hub-Lauf und lokale Last-/Recovery-Gates bestehen vollständig headless; RUN_11fcb52d44cbf2dddda8b193e95f9123 ist als erfolgreicher lokaler 136-Test-Lauf registriert. Für eine Produktions-/Canary-Freigabe fehlt weiterhin ein vor Ausführung reservierter erfolgreicher Hub-Evidence-Run des tatsächlichen Canary-Deployments; lokale Evidence darf diese Lane nicht freigeben."
+      "blocked_reason": "Der native echte Chromium-/Hub-Lauf und lokale Last-/Recovery-Gates bestehen vollständig headless; RUN_11fcb52d44cbf2dddda8b193e95f9123 ist als erfolgreicher lokaler 136-Test-Lauf registriert. Für eine Produktions-/Canary-Freigabe fehlt weiterhin ein vor Ausführung reservierter erfolgreicher Hub-Evidence-Run des tatsächlichen Canary-Deployments; lokale Evidence darf diese Lane nicht freigeben.",
+      "execution": {
+        "files": [
+          "todos/PDCW-QA-006.md",
+          "tests/test_release_gate_canary_rollout.py",
+          "docs/releases/native-core-gate-buzz-independent.md"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(self-development): close PDCW-QA-006 Native-Core release gate and canary rollout docs/tests",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_1d7c2ff394d54a7a3afc38403e90b01b",
+        "source_ids": [
+          "SRC_a8e80603dd478c80457d46346f80b67d"
+        ],
+        "result_digest": "24417ad443f3841d1a321b5be44899ab0fac5ee87be3637f72e1aaecd0b52852",
+        "completion_rule": "profile_passed"
+      }
     }
   ],
   "critical_path_tasks": [

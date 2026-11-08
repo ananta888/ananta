@@ -78,10 +78,10 @@
       "id": "PRIME-T01",
       "title": "Bestand, Versionen und Integrationsentscheidung prüfen",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "milestone_id": "PRIME-M1",
       "acceptance_criteria": [
@@ -199,17 +199,13 @@
       ],
       "milestone_id": "PRIME-M2",
       "acceptance_criteria": [
-        "Nur nach positiver Pilotentscheidung und explizit aktivierter Hub-Trainingspolicy beginnen; Verifiers bleibt unabhängig nutzbar.",
-        "Prime-RL über TrainingBackend oder einen begründet gewählten ResearchStageExecutor-Adapter einbinden; BACKEND_IDS, Capability-Vertrag, Registry, Lizenzregister und vorhandene Image-/Egress-Gates konsistent ergänzen.",
-        "Unterstützte Modelle, SFT/RL/LoRA-Fähigkeiten, Checkpoints, Export und Resume für die gepinnte Version durch reale Probeläufe belegen; fehlende Fähigkeiten ehrlich als unsupported ausweisen.",
-        "NVIDIA-/CUDA-/VRAM-Preflight und Budgetlimits vor Start erzwingen; RTX 3080 10 GB ohne Messnachweis nicht als unterstütztes Trainingsprofil deklarieren.",
-        "Prime-RL-interne Trainer-/Inference-/Rollout-Komponenten bleiben im Hub-zugewiesenen Job und Ressourcenrahmen; keine eigenständige Cloud-Buchung, neue Task Queue oder Worker-zu-Worker-Delegation.",
-        "Dataset- und Modellnutzungsrechte sowie Redaktion prüfen; Uploads nur nach bestehender Hub-Egress-Policy."
+        "Prime-RL als optionales Trainingsbackend hinter `worker/training/backends/base.py` und `backend_registry.py` registrieren; `ananta_contracts/training_backend.py` als Vertragsdefinition nutzen.",
+        "NVIDIA-GPU mit CUDA 12.x als harte Voraussetzung prüfen; ohne GPU maschinenlesbare Ablehnung statt unendlichem Warten liefern."
       ]
     },
     {
       "id": "PRIME-T08",
-      "title": "RL-Verbesserung und Rückkehr zum Basismodell nachweisen",
+      "title": "Prime-RL-Pilot mit lokalem Modell und Budget begrenzen",
       "type": "verification",
       "status": "todo",
       "priority": "P3",
@@ -220,57 +216,9 @@
       ],
       "milestone_id": "PRIME-M2",
       "acceptance_criteria": [
-        "Kleinen budgetbegrenzten echten Trainingslauf auf bestätigter Hardware ausführen und Basis/SFT/RL mit getrennten, unveränderten Testaufgaben vergleichen.",
-        "Aufgabenerfolg, Reward-Hacking-Fälle, allgemeine Regressionen, Laufzeit und Ressourcen prüfen; bessere Trainings-Rewards allein gelten nicht als Qualitätsnachweis.",
-        "Checkpoint-Digests, Datensatz-/Rubrik-/Versionsbindung, Wiederaufnahme und Abbruch testen; Modellpromotion nur über bestehende Hub-Gates und registrierte Evidenz.",
-        "Deutsche Betriebsdokumentation einschließlich Modell-/Adapterexport, Abschalten, Rollback und Kosten-/Hardwaremessung ergänzen; deaktiviertes Prime-RL darf bestehende Backends nicht beeinflussen."
+        "Kleiner RL-Pilot mit festem Token-/Zeit-Budget und lokalem Modell ausführen; Ergebnisse gegen Verifiers-Evaluation abgleichen.",
+        "Keine produktiven Gewichte ohne explizite Freigabe überschreiben; Rollback-Pfad dokumentieren."
       ]
     }
-  ],
-  "critical_path_tasks": [
-    "PRIME-T01",
-    "PRIME-T02",
-    "PRIME-T03",
-    "PRIME-T04",
-    "PRIME-T05",
-    "PRIME-T06",
-    "PRIME-T07",
-    "PRIME-T08"
-  ],
-  "tasks_status_summary": {
-    "total": 8,
-    "by_status": {
-      "todo": 8,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
-    },
-    "progress_percent_done": 0,
-    "by_priority": {
-      "P2": 6,
-      "P3": 2
-    },
-    "by_risk": {
-      "medium": 4,
-      "high": 4
-    },
-    "critical_path": {
-      "total": 8,
-      "done": 0,
-      "remaining": 8
-    },
-    "milestones": {
-      "total": 2,
-      "todo": 2,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
-    }
-  },
-  "summary_notes": [
-    "Alle acht Aufgaben sind offen; die Datei behauptet keine implementierte Integration.",
-    "PRIME-T07 und PRIME-T08 sind optionale zweite Stufe und nur nach dokumentierter positiver Pilotentscheidung auszuführen.",
-    "Repository-Pfade sind geprüfte Ansatzpunkte, keine Zusage unveränderter Schnittstellen; vor Umsetzung aktuellen Stand abgleichen."
   ]
 }

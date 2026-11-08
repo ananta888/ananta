@@ -8,9 +8,24 @@
   "title": "Cloudflare Clef/Clef-flash: Architektur analysieren und auf Anantas Jev-artige Vision- und Whisper-Decision-Runner übertragen",
   "status": "todo",
   "priority": "P0",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Die neuen offenen Cloudflare-Decision-Modelle Clef und Clef-flash systematisch gegen Anantas bestehenden Jev-artigen ParallelDecision-Ansatz untersuchen. Ziel ist nicht nur ein Provider-Adapter, sondern zu verstehen, welche Architektur-, Scoring-, API-, Vision- und Trainingsideen aus Clef in die bereits vorhandenen lokalen Decision-Runner für llama.cpp/Vision und whisper.cpp/Audio übernommen werden können.",
   "goal": "Ananta erhält eine gemeinsame, backend-neutrale System-One/ParallelDecision-Schicht, die Jev, Clef/Clef-flash und die eigenen lokalen Vision-/Whisper-Decision-Runner vergleichbar macht. Clefs offene Implementierung und Gewichte werden genutzt, um insbesondere Multi-Question-Scoring, Choice/Noul/Score-Semantik, Vision-Decisions, Kalibrierung, Batching und mögliche Trainings-/Fine-Tuning-Ansätze auf die vorhandenen lokalen Runner zu übertragen.",
   "related_todos": [
@@ -59,31 +74,51 @@
       "id": "CLEF-M1",
       "title": "Upstream- und Architekturaufnahme",
       "status": "todo",
-      "task_ids": ["CLEF-001", "CLEF-002", "CLEF-003"]
+      "task_ids": [
+        "CLEF-001",
+        "CLEF-002",
+        "CLEF-003"
+      ]
     },
     {
       "id": "CLEF-M2",
       "title": "Gemeinsamer System-One-Contract und Provider",
       "status": "todo",
-      "task_ids": ["CLEF-004", "CLEF-005", "CLEF-006"]
+      "task_ids": [
+        "CLEF-004",
+        "CLEF-005",
+        "CLEF-006"
+      ]
     },
     {
       "id": "CLEF-M3",
       "title": "Vision-Übertragung",
       "status": "todo",
-      "task_ids": ["CLEF-007", "CLEF-008", "CLEF-009"]
+      "task_ids": [
+        "CLEF-007",
+        "CLEF-008",
+        "CLEF-009"
+      ]
     },
     {
       "id": "CLEF-M4",
       "title": "Whisper-/Audio-Übertragung",
       "status": "todo",
-      "task_ids": ["CLEF-010", "CLEF-011", "CLEF-012"]
+      "task_ids": [
+        "CLEF-010",
+        "CLEF-011",
+        "CLEF-012"
+      ]
     },
     {
       "id": "CLEF-M5",
       "title": "Benchmark, Kalibrierung und Entscheidung",
       "status": "todo",
-      "task_ids": ["CLEF-013", "CLEF-014", "CLEF-015"]
+      "task_ids": [
+        "CLEF-013",
+        "CLEF-014",
+        "CLEF-015"
+      ]
     }
   ],
   "tasks": [
@@ -92,7 +127,7 @@
       "milestone_id": "CLEF-M1",
       "title": "Clef/Clef-flash Upstream, Modellkarten, Code, Gewichte und Lizenz pinnen",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
@@ -106,7 +141,25 @@
       "acceptance_criteria": [
         "Alle verwendeten Clef-Quellen sind mit URL, Revision und Lizenz reproduzierbar dokumentiert.",
         "Keine Architekturbehauptung basiert nur auf Marketingtext."
-      ]
+      ],
+      "execution": {
+        "files": [
+          "docs/todo/CLEF-001-pinned-upstream-models-code-weights-license.md",
+          "agent/config_codecompass_settings.py"
+        ],
+        "test_profile": "self-development",
+        "commit_message": "chore(self-development): pin Clef/Clef-flash upstream, model cards, code, weights and license",
+        "completion_rule": "profile_passed"
+      },
+      "execution_result": {
+        "scope": "local",
+        "run_id": "RUN_8643f2e91ce2a9b07a891b7cd8148662",
+        "source_ids": [
+          "SRC_8ce6344791b134f2a9f7b5a48356520b"
+        ],
+        "result_digest": "2a95b491709ca7094b51c77cbe2ca470995873a39c56f7bb91898d4341e86191",
+        "completion_rule": "profile_passed"
+      }
     },
     {
       "id": "CLEF-002",
@@ -117,7 +170,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-001"],
+      "depends_on": [
+        "CLEF-001"
+      ],
       "implementation": [
         "Ermitteln, wie Clef State, Questions, Criteria, Choice/Noul/Score intern repräsentiert und scored.",
         "Untersuchen, ob Clef Kandidaten parallel, als spezialisierte Heads, tokenbasiert, über Klassifikationsprojektionen oder hybrid bewertet.",
@@ -138,7 +193,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["CLEF-001"],
+      "depends_on": [
+        "CLEF-001"
+      ],
       "implementation": [
         "Transformers/vLLM/SGLang und verfügbare native Backends prüfen.",
         "Prüfen, ob GGUF/llama.cpp sinnvoll oder technisch ungeeignet ist; keine Konvertierung erzwingen.",
@@ -159,7 +216,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["CLEF-002"],
+      "depends_on": [
+        "CLEF-002"
+      ],
       "implementation": [
         "Canonical Question-Typen für boolean/noul, choice und score definieren.",
         "State plus optionale multimodale Inputs modellieren.",
@@ -180,7 +239,10 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["CLEF-003", "CLEF-004"],
+      "depends_on": [
+        "CLEF-003",
+        "CLEF-004"
+      ],
       "implementation": [
         "Provider für Cloudflare Workers AI und lokalen Clef-Runtimepfad hinter derselben Schnittstelle vorsehen.",
         "Model switching Clef/Clef-flash konfigurierbar machen.",
@@ -201,7 +263,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-002", "CLEF-004"],
+      "depends_on": [
+        "CLEF-002",
+        "CLEF-004"
+      ],
       "implementation": [
         "Bestehende enum/boolean-Felder mit Clef choice/noul semantisch angleichen.",
         "Für score geordnete Rubriken und Probability-weighted Score definieren.",
@@ -222,7 +287,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-001", "CLEF-002"],
+      "depends_on": [
+        "CLEF-001",
+        "CLEF-002"
+      ],
       "implementation": [
         "Vision-Encoder, Bildtoken/-embeddings, Fusion mit State und Decision-Komponenten im offenen Modell untersuchen.",
         "Mehrbildverarbeitung bis zum öffentlich unterstützten Limit analysieren.",
@@ -243,7 +311,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-006", "CLEF-007"],
+      "depends_on": [
+        "CLEF-006",
+        "CLEF-007"
+      ],
       "implementation": [
         "Prüfen, welche Clef-Ideen Prompt-/Vision-Prefill-Wiederverwendung, Branching oder Batchbildung verbessern.",
         "Bild/Embedding/VLM-Prefill exakt einmal pro Request wiederverwenden, soweit Backend korrekt.",
@@ -264,7 +335,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["CLEF-008"],
+      "depends_on": [
+        "CLEF-008"
+      ],
       "implementation": [
         "Objekt-/Szenenklassifikation, Routing, Presence, mehrdeutige Fälle und Multi-Image-Fälle abdecken.",
         "Accuracy/Macro-F1, Calibration, abstain, p50/p95, VRAM/RAM und Durchsatz messen.",
@@ -284,7 +357,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-006"],
+      "depends_on": [
+        "CLEF-006"
+      ],
       "implementation": [
         "noul auf yes/no bzw. presence-verbalizers, choice auf finite command/phrase choices und score nur auf sinnvoll gesprochene ordinale Rubriken abbilden.",
         "Explizit festhalten, welche Clef-Fähigkeiten nicht auf Whisper übertragbar sind, weil Whisper kein allgemeines Decision-Modell ist.",
@@ -304,7 +379,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-002", "CLEF-010"],
+      "depends_on": [
+        "CLEF-002",
+        "CLEF-010"
+      ],
       "implementation": [
         "Clefs gemeinsames Multi-Question-Schema als Referenz für mehrere Audio-Decisions aus einem Encoderlauf nutzen.",
         "Whisper Encoder/Cross-Attention-State nur einmal aufbauen und pro Feld unabhängige Decoderpfade bewerten.",
@@ -325,7 +403,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["CLEF-010", "CLEF-011"],
+      "depends_on": [
+        "CLEF-010",
+        "CLEF-011"
+      ],
       "implementation": [
         "Audio-Decisions über denselben Ananta Question-Contract erreichbar machen.",
         "Audio bleibt separates Input-Medium; keine Fake-Text-State-Konvertierung als Pflicht.",
@@ -345,7 +426,11 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["CLEF-005", "CLEF-009", "CLEF-012"],
+      "depends_on": [
+        "CLEF-005",
+        "CLEF-009",
+        "CLEF-012"
+      ],
       "implementation": [
         "Text: Routing/Tool/Gate-Fälle aus bestehendem Jev-Benchmark wiederverwenden.",
         "Vision: bounded visual decisions.",
@@ -366,7 +451,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["CLEF-013"],
+      "depends_on": [
+        "CLEF-013"
+      ],
       "implementation": [
         "ECE/Brier/Risk-Coverage und task-spezifische Precision-Ziele messen.",
         "Backend-spezifische Rohscores niemals ungeprüft direkt vergleichen.",
@@ -387,7 +474,9 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["CLEF-014"],
+      "depends_on": [
+        "CLEF-014"
+      ],
       "implementation": [
         "Clef/Clef-flash gegen Jev, lokalen llama.cpp Decision-Runner, Vision-Fork und Whisper-Fork vergleichen.",
         "Getrennte Entscheidungen für Text, Vision und Audio treffen.",

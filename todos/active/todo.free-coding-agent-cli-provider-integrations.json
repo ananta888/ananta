@@ -400,7 +400,7 @@
       "id": "FCA-005",
       "title": "Qwen Code Provider Adapter implementieren",
       "type": "provider",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 95.0,

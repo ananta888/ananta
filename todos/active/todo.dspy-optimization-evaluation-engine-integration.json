@@ -1734,7 +1734,7 @@
     {
       "id": "DSPY-040",
       "title": "Produktionsabnahme mit Evidenzpaket und kontrolliertem Rollout abschliessen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "type": "release",

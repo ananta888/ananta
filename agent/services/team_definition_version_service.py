@@ -9,6 +9,11 @@ from agent.models.organization_models import canonical_definition_sha256
 from agent.services.blueprint_workflow_serialization import serialize_persisted_workflow
 from agent.services.repository_registry import get_repository_registry
 
+# Hindsight (optionaler Erfahrungsspeicher) ist keine Pflichtkomponente der
+# TeamBlueprint-Definition. Bei Integration müssen LLM-, Embedding- und
+# Reranking-Aufgaben getrennt konfiguriert werden; lokale Providerfähigkeit,
+# Token-/Speicher-/Laufzeitkosten sowie Datenbank-Erweiterungen sind in
+# docs/INSTALL_TEST_BETRIEB.md nachvollziehbar dokumentiert.
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)

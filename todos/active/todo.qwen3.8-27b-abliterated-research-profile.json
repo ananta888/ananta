@@ -350,7 +350,7 @@
       "title": "Runtime-Kompatibilität für llama.cpp, Ollama, LM Studio und Colibri prüfen",
       "type": "integration",
       "milestone_id": "M1",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 80,
@@ -715,7 +715,9 @@
       "scope": "local",
       "repository_revision": "473c11096a982b37ababd24f5b510f63696b3eed",
       "run_id": "RUN_3bca84895c7f04a6b253d7f8b09ec3ee",
-      "source_ids": ["SRC_d6988be93a2f59296211271c8776744b"],
+      "source_ids": [
+        "SRC_d6988be93a2f59296211271c8776744b"
+      ],
       "tests": 96,
       "failures": 0,
       "errors": 0,

@@ -230,7 +230,7 @@
       "milestone_id": "PDT-M3",
       "title": "Benchmark gegen klassisches Function Calling",
       "type": "test",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 80,

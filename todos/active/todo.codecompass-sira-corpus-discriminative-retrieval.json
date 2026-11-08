@@ -966,7 +966,7 @@
     {
       "id": "SIRA-020",
       "title": "Umfangreiche Qualitäts-, Kosten- und Robustheitsevaluation automatisieren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P0",
       "depends_on": [
         "SIRA-003",

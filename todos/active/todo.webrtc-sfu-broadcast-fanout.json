@@ -1948,7 +1948,7 @@
       "description": "Der private LiveKit-Room wird durch eine Factory als komponierte Session aus fokussierten Lifecycle-, Key-, Publication-, Data-, Subscription/Layer-, Stats- und Eventports bereitgestellt; der bestehende breite Port bleibt nur als zeitlich begrenzete Kompatibilitaetsfassade.",
       "type": "architecture",
       "milestone_id": "SFB-M3",
-      "status": "blocked",
+      "status": "todo",
       "progress_percent": 70,
       "blocked_reason": "Die Room-Session-Verantwortungen sind in kleine Ports und eine Composition Factory zerlegt; Backend- und Angular-Vertragstests sind gruen und die gepinnte LiveKit-Runtime ist Hub-attestiert. Offen bleibt ein realer Lauf durch genau diese produktive Angular-Session-/Legacy-Fassade, der doppelte Listener, Worker, Tracks und Timer ausschliesst.",
       "priority": "P0",
@@ -2788,7 +2788,7 @@
       "description": "Der in SFB-BASE-006 gewaehlte Modus wird als kleiner Hub-Control-Adapter oder als separat deployter mTLS Runtime-Agent umgesetzt; kein Code im Hub wird als SFU-Paketloop ausgegeben.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "blocked",
+      "status": "todo",
       "progress_percent": 70,
       "blocked_reason": "Die geschlossene Runtime-Control-Grenze fuer oeffentliche LiveKit-APIs ist implementiert, fail-closed getestet und ihre gepinnte reale Basis aus SFB-BASE-006 Hub-attestiert. Offen bleibt der task-spezifische Produktlauf fuer Rotation, Restart, Version-Skew, Oversize, Rate-Limit und die gegenseitig exklusive Mode-Matrix.",
       "priority": "P0",
@@ -3757,7 +3757,7 @@
       "description": "Die bestehenden Parent-Harnesses werden um reale Browser, den ausgewaehlten SFU-/TURN-Stack, Broadcast-Fixtures, Fault Injection und synthetische Empfaengerlast erweitert; kein paralleles zweites Harness-Framework entsteht.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "blocked",
+      "status": "todo",
       "progress_percent": 65,
       "blocked_reason": "Der Semantic-Media-Harness enthaelt Broadcast-Fixtures und fail-closed Auswertung; gepinnte LiveKit-, Coturn-, Chromium- und Firefox-Runtimes liefen unter Hub-Evidenz real. Offen bleiben der integrierte Hub-/Datenbank-Stack, die vollstaendige seedbare Fault-Matrix und deren gemeinsamer Cleanup-/Lease-Nachweis.",
       "priority": "P0",
@@ -4322,7 +4322,7 @@
         "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 92.5,
+        "progress_percent": 92.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4331,14 +4331,14 @@
           "done": 3
         }
       },
-    "release_gate": {
+      "release_gate": {
         "total": 7,
         "done": 2,
         "partial": 0,
         "blocked": 5,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 28.6,
+        "progress_percent": 28.6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4411,14 +4411,14 @@
           "done": 8
         }
       },
-    "testing": {
+      "testing": {
         "total": 7,
         "done": 2,
         "partial": 0,
         "blocked": 5,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 37.9,
+        "progress_percent": 37.9,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4450,7 +4450,7 @@
         "blocked": 7,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 65.5,
+        "progress_percent": 65.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4466,7 +4466,7 @@
         "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 65.0,
+        "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
