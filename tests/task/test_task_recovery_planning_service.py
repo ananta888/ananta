@@ -3793,6 +3793,12 @@ def test_task_mutation_advisory_lock_is_reentrant_per_thread():
         TaskMutationLockPort,
     )
 
+    class Row:
+        """Query result as SQLAlchemy exposes it: ``pg_try_advisory_lock`` -> bool."""
+
+        def scalar(self):
+            return True
+
     class Connection:
         def __init__(self):
             self.statements = []
@@ -3800,7 +3806,7 @@ def test_task_mutation_advisory_lock_is_reentrant_per_thread():
 
         def execute(self, statement, _parameters):
             self.statements.append(str(statement))
-            return Record()
+            return Row()
 
         def close(self):
             self.closed = True
@@ -3827,7 +3833,11 @@ def test_task_mutation_advisory_lock_is_reentrant_per_thread():
 
     assert engine.connect_calls == 1
     assert len(connection.statements) == 2
-    assert "pg_advisory_lock" in connection.statements[0]
+    # The port acquires with the NON-blocking try-variant in a bounded loop so a
+    # lock held by a stuck holder surfaces as acquired=False instead of parking
+    # this thread (reentrancy still resolves through the depth counter above, so
+    # the nested attempt issues no second statement).
+    assert "pg_try_advisory_lock" in connection.statements[0]
     assert "pg_advisory_unlock" in connection.statements[1]
     assert connection.closed is True
 
