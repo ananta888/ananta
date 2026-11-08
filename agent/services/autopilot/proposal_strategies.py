@@ -285,6 +285,36 @@ def _clear_stale_strategy_state(
     return True
 
 
+def _mark_propose_in_flight(
+    task: Any,
+    target_worker: Any,
+    *,
+    update_local_task_status: Callable[..., None],
+) -> None:
+    """Flag the task as propose-in-flight and start a FRESH output record.
+
+    Two invariants in one bounded write:
+
+    * duplicate concurrent dispatches are refused while the worker evaluates the
+      proposal;
+    * ``last_output`` belongs to the CURRENT attempt -- the stale-proposing sweep
+      skips any task that already carries output, so output left behind by an
+      earlier attempt would make requeueing a dead propose impossible forever
+      (observed: a lane task sitting in ``proposing`` with no worker job, no
+      reaper pickup and no report for hours).
+    """
+    update_local_task_status(
+        task.id,
+        "proposing",
+        assigned_agent_url=target_worker.url,
+        assigned_agent_token=target_worker.token,
+        last_output="",
+        event_type="autopilot_propose_started",
+        event_actor="autopilot_tick",
+        force=True,
+    )
+
+
 def run_proposal_strategies(
     ctx: DispatchContext,
     *,
@@ -465,17 +495,7 @@ def run_proposal_strategies(
                 runtime_provider=runtime_provider,
             )
             continue
-        # Mark propose-in-flight to avoid duplicate concurrent dispatches
-        # on the same task while the worker is evaluating the proposal.
-        update_local_task_status(
-            task.id,
-            "proposing",
-            assigned_agent_url=target_worker.url,
-            assigned_agent_token=target_worker.token,
-            event_type="autopilot_propose_started",
-            event_actor="autopilot_tick",
-            force=True,
-        )
+        _mark_propose_in_flight(task, target_worker, update_local_task_status=update_local_task_status)
         try:
             _propose_started = time.time()
             candidate_data = loop._forward_with_retry(

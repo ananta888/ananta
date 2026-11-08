@@ -86,3 +86,32 @@ def test_the_state_is_dropped_even_when_it_was_the_only_key():
     # empty values are not reported as cleared keys
     assert writes[0]["event_details"]["cleared_keys"] == ["attempt_count"]
     assert task.verification_status == {}
+
+
+def test_starting_a_propose_resets_the_previous_attempts_output():
+    """A dead propose must stay requeueable.
+
+    ``stale_task_recovery.reset_stale_proposing`` skips every task that already
+    carries ``last_output``. Output written by an EARLIER attempt would therefore
+    block the sweep forever -- the observed failure mode is a lane task sitting in
+    ``proposing`` with no worker job and no reaper pickup. Starting a propose must
+    start a fresh output record so the guard measures the current attempt only.
+    """
+    from agent.services.autopilot.proposal_strategies import _mark_propose_in_flight
+
+    writes: list = []
+    task = SimpleNamespace(id="t1")
+    worker = SimpleNamespace(url="http://worker:5000", token="tok")
+
+    _mark_propose_in_flight(
+        task,
+        worker,
+        update_local_task_status=lambda *args, **kwargs: writes.append((args, kwargs)),
+    )
+
+    assert len(writes) == 1
+    args, kwargs = writes[0]
+    assert args == ("t1", "proposing")
+    assert kwargs["last_output"] == ""
+    assert kwargs["assigned_agent_url"] == "http://worker:5000"
+    assert kwargs["event_type"] == "autopilot_propose_started"
