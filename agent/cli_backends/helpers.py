@@ -42,6 +42,10 @@ def _get_runtime_default_provider(*, backend_settings: Any | None = None) -> str
     return str(agent_cfg.get("default_provider") or backend_settings.default_provider or "").strip().lower()
 
 
+# Local endpoints run without credentials; they keep this literal no-auth token.
+_BEARER_PLACEHOLDER = "sk-no-key-needed"
+
+
 def _resolve_profile_api_key(profile_name: str | None) -> str | None:
     """Resolve a named API-key profile to its secret.
 
@@ -198,3 +202,35 @@ def _classify_runtime_target(url: str | None) -> str | None:
     if raw.startswith("http://") or raw.startswith("https://"):
         return "remote"
     return "unknown"
+
+
+def _resolve_api_key(base_url: str | None) -> str:
+    """Bearer token for the resolved endpoint.
+
+    A registered local backend entry owns its credentials (``api_key`` or
+    ``api_key_profile``); the shared OpenAI settings cover the default
+    endpoint. Endpoints without credentials keep the local no-auth placeholder.
+    """
+    normalized = _normalize_openai_base_url(base_url)
+    if not normalized:
+        return _BEARER_PLACEHOLDER
+    from agent.local_llm_backends import get_local_openai_backends
+
+    for entry in get_local_openai_backends(
+        agent_cfg=_get_agent_config(),
+        provider_urls=_get_runtime_provider_urls(),
+        default_provider=_get_runtime_default_provider(),
+    ):
+        if _normalize_openai_base_url(entry.get("base_url")) != normalized:
+            continue
+        key = str(entry.get("api_key") or "").strip()
+        if not key and entry.get("api_key_profile"):
+            key = (_resolve_profile_api_key(entry.get("api_key_profile")) or "").strip()
+        if key:
+            return key
+        return _BEARER_PLACEHOLDER
+    if _normalize_openai_base_url(getattr(settings, "openai_url", None)) == normalized:
+        key = str(getattr(settings, "openai_api_key", "") or "").strip()
+        if key:
+            return key
+    return _BEARER_PLACEHOLDER
