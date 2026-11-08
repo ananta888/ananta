@@ -265,3 +265,67 @@ def test_report_write_targets_cover_collector_and_runner_dirs(tmp_path):
     already = tmp_path / "self-dev-t-2"
     assert report_write_targets(already, "t-2") == [already]
     assert report_write_targets(primary, "") == [primary]
+
+
+def _git(root, *args):
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "-c", "safe.directory=" + str(root), *args], cwd=root, capture_output=True, check=True
+    )
+    return result.stdout.decode().strip()
+
+
+def test_prepare_round_workspace_reconstructs_from_revision_and_seal(tmp_path):
+    from types import SimpleNamespace
+
+    from agent.services.self_development.workspace import prepare_round_workspace
+
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    _git(checkout, "init", "-b", "round-source")
+    _git(checkout, "config", "user.name", "Test")
+    _git(checkout, "config", "user.email", "test@example.invalid")
+    (checkout / "app.py").write_text("def old():\n    return 0\n")
+    (checkout / "README.md").write_text("base\n")
+    _git(checkout, "add", ".")
+    _git(checkout, "commit", "-m", "base")
+    revision = _git(checkout, "rev-parse", "HEAD")
+
+    root = tmp_path / "control"
+    root.mkdir()
+    (root / "source-src-1.json").write_text(
+        json.dumps({"files": {"app.py": "h" * 64, "README.md": "r" * 64}}), encoding="utf-8"
+    )
+    seal = root / "sealed" / "src-1"
+    seal.mkdir(parents=True)
+    (seal / "app.py").write_text("def sealed_change():\n    pass\n", encoding="utf-8")
+    policy = SimpleNamespace(root=root, checkout=checkout, workspaces=tmp_path / "workers")
+
+    destination = policy.workspaces / "self-dev-new-1"
+    baseline = prepare_round_workspace(policy, source_task_id="src-1", revision=revision, destination=destination)
+
+    # Sealed bytes overlay the exact revision tree; baseline stays the admitted map.
+    assert baseline == {"app.py": "h" * 64, "README.md": "r" * 64}
+    assert (destination / "app.py").read_text() == "def sealed_change():\n    pass\n"
+    assert (destination / "README.md").read_text() == "base\n"
+    assert json.loads((destination / ".ananta" / "carried-baseline.json").read_text()) == baseline
+
+
+def test_prepare_round_workspace_fails_closed(tmp_path):
+    from types import SimpleNamespace
+
+    from agent.services.self_development.workspace import prepare_round_workspace
+
+    root = tmp_path / "control"
+    root.mkdir()
+    policy = SimpleNamespace(root=root, checkout=tmp_path / "checkout", workspaces=tmp_path / "workers")
+
+    with pytest.raises(ValueError, match="round_source_admission_missing"):
+        prepare_round_workspace(policy, source_task_id="x", revision="r", destination=tmp_path / "d1")
+
+    (root / "source-x.json").write_text(json.dumps({"files": {"a.py": "1" * 64}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="round_source_revision_missing"):
+        prepare_round_workspace(policy, source_task_id="x", revision="", destination=tmp_path / "d2")
+    with pytest.raises(ValueError, match="round_source_seal_missing"):
+        prepare_round_workspace(policy, source_task_id="x", revision="rev", destination=tmp_path / "d3")
