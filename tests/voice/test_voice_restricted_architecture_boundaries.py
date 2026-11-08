@@ -12,7 +12,7 @@ ANGULAR_VOICE = ROOT / "frontend-angular" / "src" / "app" / "features" / "voice"
 HUB_BOUNDARY_FILES = (
     *(ROOT / "agent" / "routes").glob("voice*.py"),
     *(ROOT / "agent" / "services").glob("voice_*.py"),
-    ROOT / "agent" / "services" / "restricted_inference_contract.py",
+    ROOT / "ananta_contracts" / "restricted_inference_contract.py",
     ROOT / "agent" / "services" / "restricted_inference_port.py",
     ROOT / "agent" / "services" / "generative_judge_worker_port.py",
     ROOT / "agent" / "services" / "generative_corrector_worker_port.py",
