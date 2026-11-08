@@ -360,6 +360,9 @@ def run_propose_orchestrator_path(
         not result.is_executable and terminal_model_signal is not None and configured_recovery and not policy_terminal
     )
     lane_runner_required = _requires_lane_runner(task_kind)
+    lane_report_raw: str | None = None
+    lane_fallback_rc: int | None = None
+    lane_cli_err: str = ""
     if (not result.is_executable or lane_runner_required) and not defer_to_hub_recovery and not policy_terminal:
         fallback_backend, fallback_reason = resolve_cli_backend(
             task_kind,
@@ -387,6 +390,10 @@ def run_propose_orchestrator_path(
                 workdir=_lane_runner_workdir(task) if lane_runner_required else None,
             )
             raw_res, _output_source = coalesce_cli_output(cli_out, cli_err)
+            lane_fallback_rc = int(rc)
+            lane_cli_err = str(cli_err or "")
+            if lane_runner_required:
+                lane_report_raw = str(raw_res or "")
             parsed = json.loads(str(raw_res or "{}"))
             fallback_command = str(parsed.get("command") or "").strip() or None
             fallback_tool_calls = parsed.get("tool_calls") if isinstance(parsed.get("tool_calls"), list) else []
@@ -506,6 +513,30 @@ def run_propose_orchestrator_path(
     from agent.services.task_scoped.propose_persist import resolve_declared_command_if_missing
 
     resolved_command = resolve_declared_command_if_missing(proposed_command, task)
+    from types import SimpleNamespace
+
+    from agent.services.task_scoped.propose_persist import _write_test_report_for_proposal
+
+    # Orchestrator proposals persist via this path, not persist_command_proposal;
+    # without this call the lane's report artifact (and its gate diagnostics) were
+    # never written -- the collector only ever saw missing reports.
+    try:
+        lane_workspace_dir = _lane_runner_workdir(task)
+    except Exception:
+        lane_workspace_dir = ""
+    _write_test_report_for_proposal(
+        SimpleNamespace(
+            rc=lane_fallback_rc if lane_fallback_rc is not None else 0,
+            task=task,
+            raw_res=lane_report_raw or "",
+            tid=tid,
+            workspace_dir=lane_workspace_dir,
+            base_prompt=base_prompt,
+            prompt_for_cli="",
+            task_kind=task_kind,
+            cli_err=lane_cli_err,
+        )
+    )
     _write_review_answer_artifact(task=tid, task_record=task, answer=resolved_reason)
     resolved_tool_calls = (
         list(result_dict.get("tool_calls") or [])
