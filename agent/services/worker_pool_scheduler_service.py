@@ -58,7 +58,13 @@ class WorkerPoolSchedulerService:
             worker_capacity = max(1, int(request.get("worker_capacity") or 1))
             runtime_capacity = max(1, int(request.get("runtime_capacity") or worker_capacity))
             security_cap = request.get("security_policy_cap")
-            max_parallel = self.compute_effective_concurrency_cap(security_cap, worker_capacity, runtime_capacity, None)
+            priority = str(request.get("priority") or "normal").strip().lower()
+            interactive = priority == "interactive"
+            reserve = 0 if interactive else max(0, int(request.get("interactive_reserve") or 0))
+            base_parallel = self.compute_effective_concurrency_cap(
+                security_cap, worker_capacity, runtime_capacity, None
+            )
+            max_parallel = max(1, base_parallel - reserve)
             now = time.time()
             active_for_worker = [
                 lease
@@ -89,6 +95,7 @@ class WorkerPoolSchedulerService:
                             lease_metadata={
                                 "policy_decision_ref": policy_decision_ref,
                                 "policy_decision_hash": policy_decision_hash,
+                                "priority": priority,
                             },
                         )
                     )
@@ -96,7 +103,7 @@ class WorkerPoolSchedulerService:
                         status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id
                     )
 
-                queue_position = len(queue_for_worker) + 1
+                queue_position = 1 if interactive else len(queue_for_worker) + 1
                 lease = worker_slot_lease_repo.save(
                     WorkerSlotLeaseDB(
                         lease_type="worker",
@@ -113,6 +120,7 @@ class WorkerPoolSchedulerService:
                         lease_metadata={
                             "policy_decision_ref": policy_decision_ref,
                             "policy_decision_hash": policy_decision_hash,
+                            "priority": priority,
                         },
                     )
                 )
@@ -132,7 +140,9 @@ class WorkerPoolSchedulerService:
                 ollama_decision = self._ollama.acquire_slot(
                     endpoint=endpoint,
                     model=model,
-                    max_parallel_requests=max(1, int(request.get("ollama_max_parallel_requests") or 4)),
+                    max_parallel_requests=max(
+                        1, int(request.get("ollama_max_parallel_requests") or 4) - reserve
+                    ),
                     queue_limit=max(1, int(request.get("ollama_queue_limit") or 64)),
                     lease_seconds=max(1, int(request.get("slot_lease_seconds") or 600)),
                     backpressure=str(request.get("ollama_backpressure") or "queue_then_reject"),
@@ -167,6 +177,7 @@ class WorkerPoolSchedulerService:
                                 "ollama_lease_id": ollama_decision.lease_id,
                                 "policy_decision_ref": policy_decision_ref,
                                 "policy_decision_hash": policy_decision_hash,
+                                "priority": priority,
                             },
                         )
                     )
@@ -196,10 +207,14 @@ class WorkerPoolSchedulerService:
                     worker_job_id=worker_job_id,
                     reason_code="slot_acquired",
                     deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
-                    lease_metadata={"ollama_lease_id": ollama_lease_id} if ollama_lease_id else {},
+                    lease_metadata={
+                        "priority": priority,
+                        **({"ollama_lease_id": ollama_lease_id} if ollama_lease_id else {}),
+                    },
                 )
             )
             md = dict(lease.lease_metadata or {})
+            md["priority"] = priority
             if policy_decision_ref:
                 md["policy_decision_ref"] = policy_decision_ref
             if policy_decision_hash:
