@@ -305,3 +305,47 @@ def test_task_bound_live_terminal_uses_governed_subprocess_without_capability(tm
     legacy.assert_not_called()
     output.assert_called()
     assert "ananta_codecompass" in json.loads(runner.calls[0][1]["environment"]["OPENCODE_CONFIG_CONTENT"])["mcp"]
+
+
+def test_no_mcp_tool_mode_skips_the_mcp_offer_but_keeps_the_native_setup(tmp_path):
+    """Test lanes: no in-process MCP (the child's handshake is the stall class),
+    but the provider config and native tool environment stay untouched."""
+    captured = {}
+    provider = {"provider": {"ollama": {"models": {"test": {}}}}, "model": "ollama/test"}
+
+    class Runner:
+        def run(self, _argv, **kwargs):
+            captured.update(kwargs)
+            config = json.loads(kwargs["environment"]["OPENCODE_CONFIG_CONTENT"])
+            assert config["provider"] == provider["provider"]
+            assert "ananta_codecompass" not in (config.get("mcp") or {})
+            return ProcessExecutionResult(0, "ok", "", "completed", 3)
+
+    with (
+        patch("agent.cli_backends.opencode.shutil.which", return_value="/opt/bin/opencode"),
+        patch("agent.cli_backends.opencode._acquire_backend_permit", _permit),
+        patch(
+            "agent.cli_backends.opencode.resolve_opencode_runtime_config", return_value={"provider_config": provider}
+        ),
+    ):
+        result = _run_opencode_subprocess(
+            prompt="inspect",
+            model=None,
+            timeout=10,
+            workdir=str(tmp_path),
+            output_format=None,
+            tool_mode="no_mcp",
+            process_runner=Runner(),
+        )
+    assert result[0] == 0
+    assert "mcp" not in json.loads(captured["environment"]["OPENCODE_CONFIG_CONTENT"]) or (
+        "ananta_codecompass" not in json.loads(captured["environment"]["OPENCODE_CONFIG_CONTENT"]).get("mcp", {})
+    )
+
+
+def test_normalize_keeps_the_no_mcp_tool_mode():
+    from agent.cli_backends.opencode_runtime_helpers import normalize_opencode_tool_mode
+
+    assert normalize_opencode_tool_mode("no_mcp") == "no_mcp"
+    assert normalize_opencode_tool_mode("protocol") == "protocol"
+    assert normalize_opencode_tool_mode("bogus") == "full"

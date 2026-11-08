@@ -385,6 +385,9 @@ def run_propose_orchestrator_path(
                     "policy_version": "v1",
                     "routing_reason": fallback_reason,
                     "fallback_backend": cli_backend,
+                    # Test lanes need native bash but never the in-process MCP:
+                    # the child's MCP handshake is the observed stall class.
+                    **({"opencode_tool_mode": "no_mcp"} if lane_runner_required else {}),
                 },
                 session=None,
                 workdir=_lane_runner_workdir(task) if lane_runner_required else None,

@@ -10,6 +10,7 @@ import os
 import subprocess
 import tarfile
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from agent.services.self_development.contracts import source_path
 
@@ -154,6 +155,46 @@ def carry_workspace(source: Path, destination: Path, baseline: dict) -> dict:
         copied += 1
     if not copied:
         raise ValueError("carry_source_empty")
+    marker = destination / ".ananta" / "carried-baseline.json"
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps(baseline, sort_keys=True), encoding="utf-8")
+    return dict(baseline)
+
+
+def prepare_round_workspace(policy: Any, *, source_task_id: str, revision: str, destination: Path) -> dict:
+    """Seed a round workspace from the source round: carry, or reconstruct from revision + seal.
+
+    Execution-scope cleanup can reclaim a source workspace while its item waits in
+    the test-fix queue. The durable state is the admitted revision plus the source
+    round's sealed change set, so the reconstruction exports the exact revision tree
+    and overlays the sealed bytes -- the round keeps testing the real changes instead
+    of an empty tree (observed: honest but useless ``tests does not exist`` reports
+    and a dead fix round).
+    """
+    admission_path = policy.root / ("source-" + source_task_id + ".json")
+    if not admission_path.is_file():
+        raise ValueError("round_source_admission_missing")
+    baseline = json.loads(admission_path.read_text(encoding="utf-8")).get("files") or {}
+    source_workspace = policy.workspaces / ("self-dev-" + source_task_id)
+    if source_workspace.is_dir():
+        return carry_workspace(source_workspace, destination, baseline)
+    if not revision:
+        raise ValueError("round_source_revision_missing")
+    seal_dir = policy.root / "sealed" / source_task_id
+    if not seal_dir.is_dir():
+        raise ValueError("round_source_seal_missing")
+    export_revision(policy.checkout, destination, revision)
+    for relative in sorted(baseline):
+        sealed = seal_dir / relative
+        if not sealed.is_file():
+            # The seal holds only the round's changed files; unchanged files
+            # keep the exact revision bytes the export just wrote.
+            continue
+        target = destination / relative
+        if target.is_symlink():
+            raise ValueError("carry_symlink_denied")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(read_source(seal_dir, relative))
     marker = destination / ".ananta" / "carried-baseline.json"
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text(json.dumps(baseline, sort_keys=True), encoding="utf-8")

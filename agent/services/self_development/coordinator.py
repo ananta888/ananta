@@ -675,20 +675,17 @@ class DevelopmentCoordinator:
         propose step (opencode, task_kind ``verification``) then reads a workspace that
         already exists, so the read-only rule holds by construction.
         """
-        from agent.services.self_development.workspace import carry_workspace
-
         item_key = str(item.get("key") or "")
         round_no = int(item.get("test_lane_round") or 0) + 1
         test_task_id = str(uuid.uuid4())
         source_task = str(item["task_id"])
-        source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
-        admission = self.policy.root / ("source-" + source_task + ".json")
-        if not source_workspace.is_dir() or not admission.is_file():
-            raise ValueError("test_lane_source_unavailable")
-        carry_workspace(
-            source_workspace,
-            self.policy.workspaces / ("self-dev-" + test_task_id),
-            json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
+        from agent.services.self_development.workspace import prepare_round_workspace
+
+        prepare_round_workspace(
+            self.policy,
+            source_task_id=source_task,
+            revision=str(item.get("revision") or ""),
+            destination=self.policy.workspaces / ("self-dev-" + test_task_id),
         )
         item.update(
             test_task_id=test_task_id,
@@ -762,21 +759,20 @@ class DevelopmentCoordinator:
                 # its stale proposal and assignment pin, and the dispatcher skips a new
                 # propose for it (observed: collect one second after selection, no worker
                 # propose at all).
-                from agent.services.self_development.workspace import carry_workspace
+                from agent.services.self_development.workspace import prepare_round_workspace
 
                 new_test_task_id = str(uuid.uuid4())
-                # The replacement vehicle needs the same carried snapshot as the
-                # original round: without it the runner resolves its per-agent
-                # directory (no changes, no tests) and can only fail again.
+                # The replacement vehicle needs the same round state as the original:
+                # carry when the source workspace lives, reconstruct from revision +
+                # seal when scope cleanup reclaimed it (raises loudly instead of
+                # minting a vehicle that can only report an empty tree).
                 source_task = str(item.get("task_id") or "")
-                source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
-                admission = self.policy.root / ("source-" + source_task + ".json")
-                if source_workspace.is_dir() and admission.is_file():
-                    carry_workspace(
-                        source_workspace,
-                        self.policy.workspaces / ("self-dev-" + new_test_task_id),
-                        json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
-                    )
+                prepare_round_workspace(
+                    self.policy,
+                    source_task_id=source_task,
+                    revision=str(item.get("revision") or ""),
+                    destination=self.policy.workspaces / ("self-dev-" + new_test_task_id),
+                )
                 item["test_task_id"] = new_test_task_id
                 item["status"] = "test_running"
                 item["reason"] = f"test_lane_round_{item.get('test_lane_round') or 1}"
@@ -836,19 +832,16 @@ class DevelopmentCoordinator:
         """Carry the tested workspace into an ananta-worker fix round with the failures as brief."""
         from agent.ports.task_dispatch import TaskDispatchResult
         from agent.services.self_development.test_fix_loop import failure_feedback, fix_description
-        from agent.services.self_development.workspace import carry_workspace
+        from agent.services.self_development.workspace import prepare_round_workspace
 
         item_key = str(item.get("key") or "")
         new_task_id = str(uuid.uuid4())
         source_task = str(item["task_id"])
-        source_workspace = self.policy.workspaces / ("self-dev-" + source_task)
-        admission = self.policy.root / ("source-" + source_task + ".json")
-        if not source_workspace.is_dir() or not admission.is_file():
-            raise ValueError("fix_round_source_unavailable")
-        carry_workspace(
-            source_workspace,
-            self.policy.workspaces / ("self-dev-" + new_task_id),
-            json.loads(admission.read_text(encoding="utf-8")).get("files") or {},
+        prepare_round_workspace(
+            self.policy,
+            source_task_id=source_task,
+            revision=str(item.get("revision") or ""),
+            destination=self.policy.workspaces / ("self-dev-" + new_task_id),
         )
         item["test_fix_feedback"] = failure_feedback(item, report)
         item.pop("test_task_id", None)

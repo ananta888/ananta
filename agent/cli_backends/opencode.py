@@ -407,6 +407,48 @@ def resolve_opencode_runtime_config(
     }
 
 
+_MCP_ENTER_BOUND_SECONDS = 15.0
+
+
+@contextlib.contextmanager
+def _bounded_mcp(cm, seconds: float = _MCP_ENTER_BOUND_SECONDS):
+    """Enter an MCP endpoint context with a hard bound; degrade to no MCP.
+
+    The snapshot/serve step has an unbounded stall class (observed: the backend
+    permit stayed held while no child ever spawned, and every later opencode run
+    starved behind it). On timeout or error the run continues WITHOUT the
+    ananta MCP: the child keeps its native tools (bash, tests) and only the
+    optional CodeCompass server is unavailable -- exactly what a test-runner
+    lane needs.
+    """
+    box: dict = {}
+
+    def _enter() -> None:
+        try:
+            box["ctx"] = cm.__enter__()
+        except BaseException as exc:  # noqa: BLE001 - degrade, never kill the run
+            box["exc"] = exc
+
+    worker = threading.Thread(target=_enter, name="opencode-mcp-enter", daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive() or "exc" in box or "ctx" not in box:
+        log.warning(
+            "opencode_mcp_enter_degraded alive=%s error=%s",
+            worker.is_alive(),
+            box.get("exc"),
+        )
+        yield None
+        return
+    try:
+        yield box["ctx"]
+    finally:
+        try:
+            cm.__exit__(None, None, None)
+        except Exception:  # pragma: no cover - shutdown must not fail the run
+            log.debug("opencode_mcp_exit_failed", exc_info=True)
+
+
 def run_opencode_command(
     prompt: str,
     model: str | None = None,
@@ -569,13 +611,13 @@ def _run_opencode_subprocess(
             # and cannot answer the protocol through native tools instead of them.
             mcp_context = (
                 contextlib.nullcontext(None)
-                if str(tool_mode or "").strip().lower() == "protocol"
+                if str(tool_mode or "").strip().lower() in {"protocol", "no_mcp"}
                 else opencode_codecompass_mcp(
                     workspace_dir=str(Path(workdir or os.getcwd()).resolve()),
                     task_id=task_id,
                 )
             )
-            with temp_dir_ctx as tmp_dir, mcp_context as mcp:
+            with temp_dir_ctx as tmp_dir, _bounded_mcp(mcp_context) as mcp:
                 if runtime_cfg.get("provider_config") and tmp_dir:
                     config_dir = os.path.join(tmp_dir, "opencode")
                     os.makedirs(config_dir, exist_ok=True)
