@@ -37,6 +37,16 @@ _REVIEW_FALLBACK_CRITERIA = (
     "The Hub-allowlisted verification command for this change passes.",
     "Changes stay within the contract's declared files and scope.",
 )
+# Item states that still owe the Autopilot work: queued for dispatch, an attempt
+# in flight, a test lane awaiting its report contract, or an acceptance review
+# awaiting its review task. Terminal states (published, failed, blocked, ...)
+# must NOT keep the loop armed -- and every state that only exists while work is
+# pending must be listed here, otherwise the rearm watchdog goes blind to it
+# (observed: a ``test_running`` item after a Hub restart left the loop dead, so
+# no report was collected and no stale propose was ever reaped).
+PENDING_ITEM_STATUSES = frozenset({"ready", "running", "test_running", "pending_review"})
+
+
 _TASK_REQUIREMENT_KEYS = (
     "todo_id",
     "title",

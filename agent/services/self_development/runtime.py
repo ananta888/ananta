@@ -268,11 +268,13 @@ def ensure_autopilot(app):
         return False
     if (coordinator.policy.root / "stop").exists():
         return False
+    from agent.services.self_development.coordinator import PENDING_ITEM_STATUSES
+
     try:
         state = coordinator.journal.read()
         if not session_active(coordinator.policy.value, state.get("session"), time.time()):
             return False
-        if not any(i["status"] in {"ready", "running"} for i in state["items"].values()):
+        if not any(i["status"] in PENDING_ITEM_STATUSES for i in state["items"].values()):
             return False
         from agent.services.autopilot.loop_manager import autonomous_loop
 
