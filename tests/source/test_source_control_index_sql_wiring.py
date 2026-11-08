@@ -395,7 +395,11 @@ def test_production_composition_job_service_survives_late_registry_rebuild(
         ingestion_service=object(),
     )
     monkeypatch.setattr(
-        "agent.services.service_registry.build_core_service_registry",
+        # initialize_core_services lives in the runtime module since the
+        # registry split (CLN-061); binding the shim's re-export leaves the
+        # name inside service_registry_runtime untouched, so the patch must
+        # target the module that actually calls it.
+        "agent.services.service_registry_runtime.build_core_service_registry",
         lambda app: rebuilt,
     )
 
