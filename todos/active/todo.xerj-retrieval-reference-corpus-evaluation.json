@@ -2,12 +2,12 @@
   "$schema": "../todo.track.schema.json",
   "id": "todo.xerj-retrieval-reference-corpus-evaluation",
   "title": "XERJ × Ananta/CodeCompass: sichere Hybrid-Retrieval-Evaluation, Corpus Hub und Reference Coding",
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "xerj-retrieval-reference-corpus-evaluation",
   "status": "todo",
   "created_at": "2026-11-03",
-  "updated_at": "2026-11-03",
+  "updated_at": "2026-11-13",
   "purpose": "XERJ als optionale lokale Rust-Suchengine und Quelle für quellverifizierte Code-Referenzen unabhängig evaluieren. Qualitäts-, Sicherheits- und Agentennutzen vor Integration messen, statt bestehenden Hybrid-Retrieval-Stack zu ersetzen oder nur Marketingclaims zu übernehmen.",
   "goal": "Eine dokumentierte, widerrufbare, lizenzkonforme und auditierbare Entscheidungsgrundlage inklusive optionalem read-only-Provider/approved_reference-corpus, ohne zusätzliche Control Plane, neue doppelte Fusion oder Scope-Eskalation.",
   "scope": {
@@ -17,20 +17,22 @@
       "Optionale XERJ Corpus-Packs/Reference-Coding und überprüfbare Quellen",
       "Security/Privacy/Licensing/Prompt-Injection",
       "Faire Retrieval- und Agent-E2E-A/B-Benchmarks",
-      "Observability, Rollout-Gates, Rollback und Community-Option"
+      "Observability, Rollout-Gates, Rollback und Community-Option",
+      "XERJ Reader-1: neurosymbolische typed answers, deterministische Programmausführung, Provenance, Abstention und JEV-Vergleich"
     ],
     "out": [
       "Sofortiger Ersatz von CodeCompass/GraphRAG/SIRA/Qdrant",
       "Automatisches Publizieren privater Quellen im Corpus Hub",
       "Freigabe ungeprüfter Remote-Reranker/Embeddings",
       "Neuer unabhängiger Agent-Orchestrator, Graph Store, Memory Store oder ein zweites Evidence System",
-      "Automatisches Kopieren fremder Codefragmente ohne Lizenz-/Security-Prüfung"
+      "Automatisches Kopieren fremder Codefragmente ohne Lizenz-/Security-Prüfung",
+      "Ungeprüfte Reader-1 Preview-Antworten als verifizierte Wahrheit oder produktive Entscheidungsgrundlage verwenden"
     ]
   },
   "source_review": {
     "date": "2026-11-03",
     "kind": "read-only repository architecture review",
-    "note": "Dokumentierte Fähigkeiten und einzelne Laufzeitmodule geprüft; kein XERJ-vs-Ananta Performance-Benchmark ausgeführt. Nie Marketingzahlen als bereits reproduziert behandeln.",
+    "note": "Dokumentierte Fähigkeiten und einzelne Laufzeitmodule geprüft; kein XERJ-vs-Ananta Performance-Benchmark ausgeführt. Nie Marketingzahlen als bereits reproduziert behandeln. Reader-1 Informationen vom 13.11.2026 stammen aus einer Anbieter-E-Mail und sind noch nicht unabhängig verifiziert.",
     "links": [
       "https://github.com/ananta888/ananta/blob/main/agent/services/codecompass_agentic_retrieval_service.py",
       "https://github.com/ananta888/ananta/blob/main/agent/services/codecompass_agentic_retrieval_planner.py",
@@ -41,7 +43,8 @@
       "https://github.com/xerj-org/xerj/blob/main/docs/SECURITY_MODEL.md",
       "https://github.com/xerj-org/xerj/blob/main/docs/RERANK.md",
       "https://github.com/xerj-org/xerj/blob/main/docs/CORPUS_PACKS.md",
-      "https://github.com/xerj-org/xerj/blob/main/docs/CORPUS_HUB_V2_IMPLEMENTATION.md"
+      "https://github.com/xerj-org/xerj/blob/main/docs/CORPUS_HUB_V2_IMPLEMENTATION.md",
+      "https://platform.xerj.ai"
     ]
   },
   "existing_reuse": {
@@ -302,6 +305,30 @@
       "status": "todo",
       "exit_criteria": [
         "Release ADR, Scorecard, optionaler Rollout und Rückbaupfad"
+      ]
+    },
+    {
+      "id": "M9",
+      "title": "XERJ Reader-1: neurosymbolische Dokumentantworten und JEV-Evaluation",
+      "task_ids": [
+        "XERJ-053",
+        "XERJ-054",
+        "XERJ-055",
+        "XERJ-056",
+        "XERJ-057",
+        "XERJ-058",
+        "XERJ-059",
+        "XERJ-060",
+        "XERJ-061",
+        "XERJ-062",
+        "XERJ-063",
+        "XERJ-064"
+      ],
+      "status": "todo",
+      "exit_criteria": [
+        "Symbolische Programme und Quellbelege unabhängig validiert",
+        "Reader-1 vs JEV mit adversarialen Benchmarks bewertet",
+        "Security, Privacy und Rollback als Go/No-Go dokumentiert"
       ]
     }
   ],
@@ -1523,12 +1550,257 @@
         "Implementierung bzw. dokumentierte Entscheidung mit reproduzierbaren Tests",
         "Maschinenlesbare Evidence einschließlich Negativ-/Fallback-Fällen"
       ]
+    },
+    {
+      "id": "XERJ-053",
+      "title": "Reader-1 Capability- und Vertragsprüfung",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "details": "Preview-Zugang, API/SDK, Modellversion, Datenspeicherung, Preismodell, Limits und reproduzierbare Testbedingungen klären; E-Mail-Aussagen als unbestätigte Anbieterclaims markieren.",
+      "acceptance_criteria": [
+        "Versionierte Capability-Matrix und dokumentierte Zugriffsbeschränkungen",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-054",
+      "title": "Typed Answer / Program / Evidence Contract",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-053"
+      ],
+      "details": "Schema für status, typed value, program AST, source spans, confidence, error, abstain und engine provenance; kompatibel zu Ananta/JEV Decision Runner, ohne vorhandenes Evidence-System zu duplizieren.",
+      "acceptance_criteria": [
+        "Schema-Validierung und Golden Fixtures für alle Antworttypen",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-055",
+      "title": "Symbolische Engine: sichere Ausführung",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-054"
+      ],
+      "details": "Nur allowlisted, typisierte AST-Operationen; kein eval, Shell, Netzwerk, Datei-I/O oder dynamische Imports. CPU/Memory/Time/Depth-Budgets, Overflow, Zeitzonen, Locale und Dezimalarithmetik testen.",
+      "acceptance_criteria": [
+        "Sandbox- und Fuzz-Tests blockieren beliebige Ausführung",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-056",
+      "title": "Provenance und Span-Verifikation",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-054"
+      ],
+      "details": "Exakte Offsets auf kanonischem Dokument, UTF-8/Unicode, OCR/PDF, Versionierung, zitierten Inhalt und Mehrfachfundstellen prüfen; Modellbehauptungen nicht ungeprüft übernehmen.",
+      "acceptance_criteria": [
+        "Jede verwendete Konstante ist nachweisbar auf gültige Spans rückführbar",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-057",
+      "title": "Semantik und falsche Programme adversarial testen",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-055",
+        "XERJ-056"
+      ],
+      "details": "Datumsdifferenzen inkl. signiert 22.10.2026 / wirksam 01.04.2027, inklusive/exklusive Tage, DST, Negationen, widersprüchliche Klauseln, Einheiten und Mehrdeutigkeiten mit Ground Truth testen.",
+      "acceptance_criteria": [
+        "Testset erkennt korrekt ausgeführte, aber semantisch falsche Programme",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-058",
+      "title": "Abstention und Confidence-Kalibrierung",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-056"
+      ],
+      "details": "Not-in-document, unanswerable, contradicting evidence, partial evidence und out-of-distribution testen; ECE/Brier, selective risk und coverage-vs-accuracy messen; 0.9994 nicht als garantierte Trefferwahrscheinlichkeit auslegen.",
+      "acceptance_criteria": [
+        "Kalibrierungsbericht mit vordefinierten Schwellen und Negativfällen",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-059",
+      "title": "JEV/Decision-Runner Adapter (read-only)",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-054",
+        "XERJ-055"
+      ],
+      "details": "Reader-1 nur über vorhandene Ananta Capability/Policy-Bindings an JEV anbinden; typed program und Belege als überprüfbare Artefakte, lokale symbolische Replay-Option sofern Format und Lizenz erlauben.",
+      "acceptance_criteria": [
+        "Feature-Flag, reproduzierbarer Replay und unveränderte bestehende Runner",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-060",
+      "title": "Vergleichsbenchmark Reader-1 vs JEV/LLM",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-057",
+        "XERJ-058",
+        "XERJ-059"
+      ],
+      "details": "Gleiche Dokumente, Fragen, Budgets und Ground Truth; Accuracy, Evidence Precision, Program Validity, Abstention, ECE, Latenz, Tokens, Kosten und Datenschutz separat auswerten.",
+      "acceptance_criteria": [
+        "Reproduzierbarer A/B-Bericht ohne ungeprüfte Marketingzahlen",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-061",
+      "title": "Prompt-Injection und Datenabfluss",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-055",
+        "XERJ-056"
+      ],
+      "details": "Untrusted Dokumente, Logs, versteckte Anweisungen, forged spans, malicious DSL payloads, API-Egress, personenbezogene Daten und Mandantentrennung prüfen; keine echten privaten Daten in Preview hochladen.",
+      "acceptance_criteria": [
+        "Red-Team-Testfälle und Egress-/Privacy-Gates bestanden",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-062",
+      "title": "Dokument- und Log-Testkorpus",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-053"
+      ],
+      "details": "Synthetische Verträge, Rechnungen, CVs, ATS- und n8n-Logs, OCR-Fehler, Tabellen und mehrsprachige Dokumente mit goldenen Werten, Spans, Operationen und Abstentionsfällen erstellen.",
+      "acceptance_criteria": [
+        "Versioniertes, lizenzsicheres Benchmark-Korpus",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-063",
+      "title": "Go/No-Go, Rollback und Feedback an Ivan",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-060",
+        "XERJ-061",
+        "XERJ-062"
+      ],
+      "details": "Befunde nach Severity und Repro-Schritten priorisieren, minimal reproduzierbare Beispiele ohne Geheimnisse an XERJ melden; Integrationsentscheidung nur nach Security- und Qualitätsgates.",
+      "acceptance_criteria": [
+        "ADR, reproduzierbarer Fehlerbericht und Rollback-Plan",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
+    },
+    {
+      "id": "XERJ-064",
+      "title": "Upstream-Versionierung und Regression",
+      "type": "M9",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "XERJ-063"
+      ],
+      "details": "API/DSL/Engine/Modellversionen pinnen, Regression nach Reader-1 Updates; Provider-Ausfall und Preview-Ende graceful behandeln.",
+      "acceptance_criteria": [
+        "Versionierte Fixtures und automatische Regressionsalarme",
+        "Tests liefern maschinenlesbare Evidence und dokumentieren Fehlermodi."
+      ],
+      "deliverables": [
+        "Testartefakte, ADR oder Implementierung mit reproduzierbaren Fixtures"
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 52,
+    "total": 64,
     "by_status": {
-      "todo": 52,
+      "todo": 64,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
@@ -1536,16 +1808,16 @@
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 32,
-      "P1": 17,
-      "P2": 3,
+      "P0": 40,
+      "P1": 20,
+      "P2": 4,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
-      "medium": 14,
-      "high": 27,
-      "critical": 10
+      "medium": 17,
+      "high": 33,
+      "critical": 13
     },
     "critical_path": {
       "total": 35,
@@ -1553,8 +1825,8 @@
       "remaining": 35
     },
     "milestones": {
-      "total": 8,
-      "todo": 8,
+      "total": 9,
+      "todo": 9,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
@@ -1679,7 +1951,7 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 52,
+    "todo_remaining": 64,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
@@ -1690,7 +1962,8 @@
     "No code, CI or bench changes are implied by the creation of this track.",
     "Upstream features are pinned/rechecked by task XERJ-002 and XERJ-021; XERJ Corpus Hub v2 document is a plan, not shipping proof.",
     "Do not merge external XERJ results into source-of-truth without the security, license and trust gates.",
-    "No new duplicate retrieval stack, re-ranker or memory/graph subsystem is authorized by this track."
+    "No new duplicate retrieval stack, re-ranker or memory/graph subsystem is authorized by this track.",
+    "2026-11-13: Reader-1 Evaluation als M9/XERJ-053..064 ergänzt; Anbieterclaims nicht unabhängig bestätigt."
   ],
   "definition_of_done": [
     "Architecture gaps verified against runnable code and latest upstream pinned revision",
