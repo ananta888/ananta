@@ -1,0 +1,530 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-11-15",
+  "updated_at": "2026-11-15",
+  "owner": "Ananta",
+  "track": "ananta_distillation_runpod_lora_vision_256k",
+  "title": "Ananta Training & Distillation: RunPod, LoRA/QLoRA, kleine Spezialisten, Vision und 256K auf 16 GiB",
+  "status": "planned",
+  "purpose": "Additive, budget-gated training and distillation on existing ML-Intern infrastructure, yielding auditable tiny local specialists and experimentally validated long-context inference.",
+  "goal": "Train small specialist models (<500MB router, mostly <2GB models), vision agents, and run 256K context feasibility tests on RTX 5060 Ti 16GB; allow optional pay-per-active-time RunPod for training only.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "existing_components": [
+    "docs/operations/lora-training.md",
+    "docs/integrations/research-training.md",
+    "docs/operations/training-backends.md",
+    "todos/active/todo.gate-benchmark-specialized-model-factory.json",
+    "todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json",
+    "todos/active/todo.moe-pretrained-expert-extraction-reduction.json"
+  ],
+  "invariants": [
+    "Do not duplicate Hub training orchestrator, Specialist Factory, approval, evidence or worker-leasing boundaries.",
+    "Do not claim entire 256K context fits 16 GiB without measured end-to-end weights, cache, overhead and quality.",
+    "Do not claim every under-2GB multimodal candidate fits until model weight, mmproj, image-token and KV allocation are measured.",
+    "RunPod cloud costs include compute, persistent storage, transfer, cold-start and possible idle fees; no guarantee of same GPU after stop.",
+    "Unapproved private data stays local; no background GPU reservation unless explicitly approved.",
+    "No automatic training or paid GPU provisioning without explicit per-job approval and a hard budget."
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Contracts und Bestandsaufnahme",
+      "task_ids": [
+        "ATDF-001",
+        "ATDF-002",
+        "ATDF-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "RunPod und Cost-safe Operations",
+      "task_ids": [
+        "ATDF-004",
+        "ATDF-005",
+        "ATDF-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Distillation und kleine Spezialisten",
+      "task_ids": [
+        "ATDF-007",
+        "ATDF-008",
+        "ATDF-009",
+        "ATDF-010",
+        "ATDF-011",
+        "ATDF-012"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Long-context und Inferenz",
+      "task_ids": [
+        "ATDF-013",
+        "ATDF-014",
+        "ATDF-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Qualität, Piloten, Rollout",
+      "task_ids": [
+        "ATDF-016",
+        "ATDF-017",
+        "ATDF-018",
+        "ATDF-019",
+        "ATDF-020"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ATDF-001",
+      "title": "Bestandsaufnahme und verbindliche Schnittstellen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [],
+      "milestone_id": "M1",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "acceptance_criteria": [
+        "Vorhandene ML-Intern-LoRA-, Research-Training-, Specialist-Factory- und Worker-Verträge mit Codepfaden und Teststatus kartieren.",
+        "Keine zweite Jobqueue, Registry, Approval-Logik oder Trainings-API erzeugen.",
+        "Bestands- und Lückenmatrix mit Architekturentscheidungen und Tests dokumentieren."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-002",
+      "title": "Trainings- und Distillation-Rezeptvertrag",
+      "type": "contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "ATDF-001"
+      ],
+      "milestone_id": "M1",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "acceptance_criteria": [
+        "Versioniertes Recipe für supervised teacher/student distillation, full fine-tuning kleiner Encoder/LLMs, LoRA/QLoRA sowie vision-language LoRA mit expliziten Capability-Gates.",
+        "Dataset-, Modell-, Template-, Lizenz-, Tokenizer-, Teacher-, Student- und Hyperparameter-Digests binden.",
+        "Train/validation/test, Seed, Optimizer, Seq-Length, Quantisierung, Adapterschlüssel und Exportmodus maschinenlesbar spezifizieren."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-003",
+      "title": "Providerneutraler GPU-Lease-/Job-Provider",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "Provider-Schnittstelle für local, RunPod und future providers mit preflight, provisioning, readiness, stop, terminate, costs, artifacts.",
+        "Hub bleibt alleinige Control-Plane; keine Worker-zu-Worker-Kommunikation oder unkontrollierte Shell-Execution.",
+        "Cloud-Einsatz explizit opt-in, lokal/default-off, abgeschottete Leases und idempotente Zustandsübergänge."
+      ],
+      "milestone_id": "M1",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-004",
+      "title": "RunPod GPU-Pod-Adapter",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "RunPod API nach aktueller offizieller Dokumentation versionieren; authentifizierte provision/start/stop/terminate/reconcile-Operationen mock- und live-testen.",
+        "GPU-SKUs, Verfügbarkeit, regionale Angebote, Spot/Community/secure-Angebote und Preisänderungen dynamisch lesen; kein fester USD-Preis als Zusicherung.",
+        "API-Schlüssel nur aus Vault/Secret-Referenz, niemals in Jobpayload/Logs; Berechtigungen minimieren; keine ungeprüften Images."
+      ],
+      "milestone_id": "M2",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-005",
+      "title": "Persistenter Speicher, Transfer und Cloud-Datenschutz",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "Pod-Volume vs. Network Volume, region-bound attach/mount und Kosten inklusive Leerlauf getrennt modellieren.",
+        "Artefakte verschlüsselt, content-addressed und hashverifiziert transportieren; Checkpoint vor Freigabe der GPU sichern.",
+        "Externen Transfer nur nach Dataset-Lizenz/DSGVO-Policy, Redaction, Consent und expliziter Freigabe; private Daten standardmäßig lokal."
+      ],
+      "milestone_id": "M2",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-006",
+      "title": "Kostenmodell, Budget und GPU-Abschaltung",
+      "type": "operations",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "Compute plus idle storage, network egress, Spot/preemption, cold start und Gebühren aus Anbieterpreisen kalkulieren und Ist-Werte abgleichen.",
+        "Preflight hard budget, laufendes soft/hard cap, Warnung, Abbruch und kill-switch; keinerlei unbemerkte Dauerberechnung.",
+        "Autotermination nach Checkpoint/Jobende, Crash- und Lease-Ablauf; Stop allein beendet nicht jede Speichergebühr."
+      ],
+      "milestone_id": "M2",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-007",
+      "title": "Teacher-Pool mit Qualitäts- und Rechts-Gates",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Lokale und explizit freigegebene API-Teacher mit versionierter Revision, Preis, Datenfreigabe, Aufgabenprofil und Lizenz aufnehmen.",
+        "Keine privaten Prompts ohne rechtliche Freigabe an externe Provider; keine Teacher-Selbstauswertung als Ground Truth.",
+        "Lehrer-Antworten von deterministischen Tests, human labels und unabhängigen Validators getrennt speichern."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-008",
+      "title": "Distillation-Datenpipeline",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "Teacher-Kandidaten mit task schemas, calibrated scores, evidence, difficulty tags und disagreement sampling erzeugen.",
+        "Unit-Tests, JSON-Schemas, symbolic checks, Anti-Leakage, near-duplicate cross-split detection, contaminated holdout und PII-Scanner.",
+        "Knowledge distillation als supervised response/labels oder optional offline-logit-KD nur bei zugänglichen Teacher-Logits kennzeichnen; keine implizite Logit-Verfügbarkeit."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-009",
+      "title": "Kleine Encoder und Klassifikatoren unter 500 MB",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "Router/Intent/NER/Sentiment/Risk als Encoder, Klassifikator oder sehr kleines generatives Modell gegeneinander benchmarken.",
+        "Full fine-tuning und Distillation mit faktischer Speichergröße (Quant + Tokenizer) und CPU/Vulkan-Laufzeit dokumentieren.",
+        "Abstention, Macro-F1, AUROC/Calibration, OOD und p95 Latenz als Release-Gates."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-010",
+      "title": "Tool-Calling- und Coding-Studenten unter 2 GB",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "0.5–3B-Basen mit kompatibler Inferenz-Quantisierung nach Gewichts-/KV-/Runtime-Budget auswählen.",
+        "SFT-Distillation plus PEFT-Adapter für Tool-Calls, strukturierte Entscheidungen und Coding mit echten Ausführungstests.",
+        "Schema correctness, safe tool-use, unit-test pass, latency und size vs teacher/base baseline reporten."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-011",
+      "title": "Vision-/VLM-Spezialisten",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Bild-/Screenshot-/Dokumentkorpus samt Lizenz und OCR-Label-Provenance aufnehmen.",
+        "Nur nach realem Backend-/Processor-/Projector-Support multimodales SFT/LoRA starten; supported attention/vision token budget prüfen.",
+        "Screenshots, UI-Grounding, VQA, OCR und Halluzinationen gegen untrainiertes Basismodell messen; Projektor-/Adapter-Export separat testen."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-012",
+      "title": "QLoRA, PEFT und optionale kleine Full-FT-Läufe",
+      "type": "ml",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Bestehendes PEFT/TRL-Training erweitern statt neu schreiben; versionsgebundene Backend-Capabilities incl. Flash Attention, quantization und multi-GPU.",
+        "RunPod Worker führt nur Hub-signed sealed recipes aus; Checks für checkpoint resume, timeout, OOM und GPU-spezifische Defaults.",
+        "Trainingslauf von Mock/CPU bis echter GPU mit nachvollziehbarem Model/Dataset/Container-Digest."
+      ],
+      "milestone_id": "M3",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-013",
+      "title": "256K-Kontext: Speichermodell und Benchmarks",
+      "type": "benchmark",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "4K/32K/128K/192K/256K bei 16 GiB GPU für Gewichte + KV-Cache + Runtime/Allocator + Vision-Tokens messen.",
+        "q8_0/q4 KV, flash attention, sliding window/rope, RoPE scaling und backend support explizit verifizieren; CPU-offload separat ausweisen.",
+        "Qualität via needle-in-haystack, multi-needle, cross-document retrieval, code navigation, long-context reasoning und throughput; behaupteter 256K-Support gilt nicht als bestandener Test."
+      ],
+      "milestone_id": "M4",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-014",
+      "title": "Mehrere spezialisierte lokale Runner",
+      "type": "runtime",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "Kleine Router auf Laptop-iGPU/Vulkan/CPU, 16-GB-eGPU-Hauptmodell, lazy-loaded Vision-Lane mit kompatiblen Modellen konfigurieren.",
+        "VRAM-Budget mit Adapter/Projector/KV, cold-start/eviction, model-swap, context isolation messen.",
+        "Fallback statt OOM/Thrash, echte p95 cold/warm latency; Ananta-Modellrouting-/Worker-Kontrakte wiederverwenden."
+      ],
+      "milestone_id": "M4",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-015",
+      "title": "Adapter/GGUF/Runtime-Export",
+      "type": "deployment",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Immutable Model+Adapter Registry, PEFT-native artifacts, optional merge und GGUF conversion mit tatsächlicher Backendunterstützung.",
+        "Vision-Projektor und Processor/Tokenizer sind eigenständig versioniert; merge/quantization nur nach Kompatibilitätsprüfung.",
+        "Trainiertes HF-Modell ≠ automatisch GGUF/llama.cpp-kompatibel; smoke tests auf RTX 5060 Ti und ggf. CPU/Vulkan."
+      ],
+      "milestone_id": "M4",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-016",
+      "title": "Automatische Bewertung, Promotion und Rollback",
+      "type": "quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "Vorhandene Specialist-Factory Gates und ML-Intern-Eval/Approval-Grenzen übernehmen, nicht umgehen.",
+        "Holdout/Testmanifeste, teacher/base/student A/B, safety, deterministische Checks, Regressionstoleranzen und calibrated abstention.",
+        "Nur freigegebene Revisionen deployen; Canary/Shadow plus digest-pinned Rollback und auditierbare Freigabe."
+      ],
+      "milestone_id": "M5",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-017",
+      "title": "Sichere Cloud-Operations und Recovery",
+      "type": "security",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Timeout, API-rate-limit, Pod-suspend, failure, spot preemption, lost heartbeat, duplicate completion und lost-checkpoint fault injection.",
+        "Fencing/idempotency und Lease-Reconcile verhindern Zombie-GPUs, doppelte Kosten oder doppelte Registry-Änderung.",
+        "Secrets, network policy, containers, immutable artifact provenance und dependency vulnerability gates durchgesetzt."
+      ],
+      "milestone_id": "M5",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-018",
+      "title": "End-to-End Pilot: 300-MB-Router",
+      "type": "pilot",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "Teacher-labelled und verifizierter Datensatz, local-vs-cloud training, Distillation + small-model fine-tuning vergleichen.",
+        "Release nur wenn definierte Router-Gates und <500 MB Artefakt erfüllt sind.",
+        "Training+Cloud+Storage Kosten und p95 Latenz mit bestehenden Ananta Gate-Modellen vergleichen."
+      ],
+      "milestone_id": "M5",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-019",
+      "title": "End-to-End Pilot: Vision und Coding",
+      "type": "pilot",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "Zwei reale Benchmarks: ein VLM unter 2 GB falls qualitätsfähig und ein Tool/Coding-Modell unter 2 GB.",
+        "VRAM, GGUF/PEFT-Integrität, Regression und Vision-E2E Tool-use für jeden Pilot messen.",
+        "Unpassende Größen-/Qualitätsziele ausdrücklich als no-go dokumentieren statt Scheinerfolg."
+      ],
+      "milestone_id": "M5",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    },
+    {
+      "id": "ATDF-020",
+      "title": "Betriebsanleitung, UI und CI-Verifikation",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "Angular Training Workbench zeigt estimated/actual costs, approval, job lifecycle, GPU und storage lease, artifact digests und 256K gates.",
+        "Offline fake RunPod für CI; optionale tatsächliche GPU-E2E nur mit freigegebenem Budget und gesetzten Secrets.",
+        "Migration/feature flags, rollback, operator guide, SBOM und Security Review dokumentieren."
+      ],
+      "milestone_id": "M5",
+      "implementation": [
+        "Extend existing Ananta Hub-owned training, specialist model factory and worker contracts without duplicated orchestration."
+      ],
+      "progress_percent": 0
+    }
+  ],
+  "critical_path_tasks": [
+    "ATDF-001",
+    "ATDF-002",
+    "ATDF-003",
+    "ATDF-004",
+    "ATDF-005",
+    "ATDF-006",
+    "ATDF-008",
+    "ATDF-013",
+    "ATDF-016",
+    "ATDF-018"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 10,
+      "P1": 10,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 6,
+      "high": 14
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "success_criteria": [
+    "RunPod opt-in training cleanly initializes and stops with reproducible actual billed cost, 0 unintended active pods after completed/cancelled job.",
+    "At least one sub-500-MB model graduates with evaluated/calibrated improvement or documented no-go.",
+    "At least one 500MB-2GB specialist and a vision candidate have reproducible native/converted inference evidence.",
+    "16GB 256K benchmark reports actual feasibility and accuracy, not merely config max.",
+    "All cloud data and model licenses, provenance, holdout isolation and fail-closed security gates validated."
+  ],
+  "related_existing_work": [
+    "todos/active/todo.gate-benchmark-specialized-model-factory.json",
+    "todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json",
+    "todos/active/todo.moe-pretrained-expert-extraction-reduction.json"
+  ],
+  "notes": [
+    "P0 tasks are a suggested implementation priority, not evidence of implementation.",
+    "RunPod pricing/provider details must be dynamically verified at implementation time.",
+    "LoRA/QLoRA adapters require compatible HF base; GGUF quantized inference artifacts are not trainable PEFT bases."
+  ]
+}
