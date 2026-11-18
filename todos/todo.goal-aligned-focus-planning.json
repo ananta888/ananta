@@ -1,0 +1,526 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-11-18",
+  "updated_at": "2026-11-18",
+  "owner": "Ananta",
+  "track": "goal_aligned_focus_planning",
+  "title": "Goal-aligned Daily Planning, Focus Sessions, Quest Hours und evidenzbasierte Reflexion",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Die sechs Daily-Planning-Prinzipien aus dem vom Nutzer bereitgestellten Transkript auf menschliche Arbeit und Hub-gesteuerte Multi-Agent-Ausführung übertragen.",
+  "goal": "Strategische Ziele mit bestehenden Goals und Tasks verbinden, menschlichen Fokus unterstützen, tatsächliche Arbeit getrennt messen und evidenzbasierte Reviews ermöglichen, ohne die Hub-Worker-Architektur oder Governance zu schwächen.",
+  "source_basis": [
+    "Nutzertranskript vom 2026-11-18: Daily Planning, Single-Task-Fokus, Zeitmessung, Done-Liste, wöchentliche Reflexion, Inputziele und vertikale Kohärenz; keine externe App-Implementierung übernommen.",
+    "Repository-Inspektion main: AGENTS.md, docs/planning-pipeline.md, todos/todo.track.schema.json, existierender Proposal-Track und Dateibaum; keine Runtime-Tests ausgeführt."
+  ],
+  "related_paths": [
+    "agent/services/goal_service.py",
+    "agent/services/goal_planning_intent_service.py",
+    "agent/services/task_queue_service.py",
+    "agent/services/goal_task_finalization.py",
+    "agent/services/planning_review_queue_service.py",
+    "frontend-angular/src/app/components/goal-detail.component.ts",
+    "frontend-angular/src/app/components/dashboard-goal-reporting.facade.ts",
+    "docs/planning-pipeline.md",
+    "todos/todo.proposal-unification-multi-agent-consensus.json"
+  ],
+  "architecture_decisions": [
+    "Additive strategische Schicht über bestehenden Goals/Tasks, kein zweites Orchestrierungssystem.",
+    "Ein menschlicher Fokus-Task pro Identität, parallele Worker unverändert; keine globale Single-Task-Policy.",
+    "Tagesplanung ordnet Aufgaben, Kalender protokolliert Ist-Zeit, fixe Termine und Fristen bleiben gültig.",
+    "Inputziele plus unabhängige Quality-Gates und Output-Evidenz; menschliche Zeit und Agentenressourcen strikt getrennt.",
+    "Hub kontrolliert sämtliche Dispatch-, Governance- und Mutationsentscheidungen; LLM-Vorschläge advisory.",
+    "Dockweave-Interop optional über versionierte Metadaten, keine harte Abhängigkeit."
+  ],
+  "non_goals": [
+    "Kopie proprietärer Quest-UI oder fremder Software.",
+    "Automatische Stundenoptimierung als Qualitätsersatz, Mitarbeiterüberwachung, Keylogging oder Screenshots.",
+    "Ersetzen bestehender Task Queue, Goal-Services, Approval- oder Policy-Mechanismen.",
+    "Erzwingen strategischer Zuordnung aller Routine- oder Incident-Aufgaben."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "GAFP-M0",
+      "title": "Bestandsaufnahme und Architektur",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-001",
+        "GAFP-002"
+      ]
+    },
+    {
+      "id": "GAFP-M1",
+      "title": "Strategische Kohärenz und Tagesplanung",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-003",
+        "GAFP-004",
+        "GAFP-005",
+        "GAFP-006"
+      ]
+    },
+    {
+      "id": "GAFP-M2",
+      "title": "Single-Task-Fokus und Ist-Zeit",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-007",
+        "GAFP-008",
+        "GAFP-009",
+        "GAFP-010"
+      ]
+    },
+    {
+      "id": "GAFP-M3",
+      "title": "Inputziele, Outcomes und Reflexion",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-011",
+        "GAFP-012",
+        "GAFP-013",
+        "GAFP-014"
+      ]
+    },
+    {
+      "id": "GAFP-M4",
+      "title": "Oberflächen und Integration",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-015",
+        "GAFP-016",
+        "GAFP-017",
+        "GAFP-018"
+      ]
+    },
+    {
+      "id": "GAFP-M5",
+      "title": "Qualität, Rollout und Betrieb",
+      "status": "todo",
+      "task_ids": [
+        "GAFP-019",
+        "GAFP-020",
+        "GAFP-021",
+        "GAFP-022"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "GAFP-001",
+      "title": "Bestandsaufnahme und Integrationsmatrix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Goal-, Task-, Queue-, Reporting-, Approval- und Zeitdatenpfade samt Tests und Zuständigkeiten dokumentieren; bestehende Features wiederverwenden.",
+        "Anhand echter Repository-Pfade Überschneidungen mit Planning, Autopilot und Proposal-Track prüfen; ADR mit minimalem Migrationspfad erstellen."
+      ]
+    },
+    {
+      "id": "GAFP-002",
+      "title": "Domänenvertrag und Invarianten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-001"
+      ],
+      "acceptance_criteria": [
+        "StrategicObjective, ObjectiveLink, DailyPlan, FocusSession, WorkEvent, InputTarget und ReviewSnapshot als versionierte Verträge definieren; bestehende Goal/Task-IDs referenzieren.",
+        "Hub bleibt alleinige Autorität; UI-Fokus ist keine globale Serialisierung; keine Pflicht für strategische Zuordnung operativer Tasks."
+      ]
+    },
+    {
+      "id": "GAFP-003",
+      "title": "Zielhierarchie und Zielbeziehungen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-002"
+      ],
+      "acceptance_criteria": [
+        "Optionale Ebenen Vision, Mehrjahres-, Jahres-, Quartals-, Monats- und Wochenziel mit stabilen IDs und gültigen Zeiträumen abbilden; bestehende Goals verknüpfen statt duplizieren.",
+        "Zyklen, unzulässige Querbeziehungen und verwaiste Referenzen verhindern; historische Zuordnungen bei Änderungen erhalten."
+      ]
+    },
+    {
+      "id": "GAFP-004",
+      "title": "Vertikale Kohärenz und Zielbeitrag",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-003"
+      ],
+      "acceptance_criteria": [
+        "Task-zu-Goal- und Objective-Verknüpfungen samt Begründung, Evidenz, explizit unzugeordneten operativen Aufgaben und optional gewichteter Mehrfachzuordnung bereitstellen.",
+        "Gewichte summieren sich auf höchstens 100%; ungeklärter Anteil bleibt sichtbar; kein doppeltes Zählen."
+      ]
+    },
+    {
+      "id": "GAFP-005",
+      "title": "Persistente Tageswarteschlange ohne Timeblocking",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-002"
+      ],
+      "acceptance_criteria": [
+        "DailyPlan pro autorisiertem Benutzer/Scope und lokalem Datum; Reihenfolge editierbar, verschiebbar, Backlog und Übertrag explizit; keine künstlichen Start-/Endzeiten.",
+        "Bestehende Task Queue bleibt Ausführungsautorität; blockierte, wartende, laufende und abgeschlossene Tasks korrekt projizieren; Revisionen und Konflikte behandeln."
+      ]
+    },
+    {
+      "id": "GAFP-006",
+      "title": "Deterministische Priorisierung mit erklärbaren Vorschlägen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-004",
+        "GAFP-005"
+      ],
+      "acceptance_criteria": [
+        "Zielbeitrag, Frist, Risiko, Abhängigkeiten, Aufwand, Aging und manuelle Priorität mit konfigurierbarer Policy auswerten; nachvollziehbare Begründung und stabile Tie-Breaks.",
+        "Sicherheits-/Incident-Aufgaben nie ausblenden oder durch strategischen Score verdrängen; keine Freigabe oder Dispatch durch Ranking."
+      ]
+    },
+    {
+      "id": "GAFP-007",
+      "title": "Focus-Session State Machine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-005"
+      ],
+      "acceptance_criteria": [
+        "Start, Pause, Resume, Switch, Complete, Skip und Cancel mit atomaren Übergängen, idempotenten Commands und höchstens einer aktiven menschlichen Session pro Identität.",
+        "Refresh, Neustart, konkurrierende Clients und Offline-Nachlieferung ohne doppelte Session; Task-Abschluss bleibt getrennt und unterliegt vorhandenen Gates."
+      ]
+    },
+    {
+      "id": "GAFP-008",
+      "title": "Arbeitszeit-Ledger und Kalender als Logbuch",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-007"
+      ],
+      "acceptance_criteria": [
+        "UTC-Ereignisse, lokale Zeitzone, monotone Dauer soweit verfügbar, Pausen, korrigierbare Ist-Intervalle und Audit-Historie erfassen; keine Tastatur-/Bildschirmüberwachung.",
+        "DST, Mitternacht, Clock-Skew und Crash-Recovery testen; Kalender zeigt tatsächliche Arbeit und getrennte Termine, keine vorausgefüllten Arbeitsblöcke."
+      ]
+    },
+    {
+      "id": "GAFP-009",
+      "title": "Worker-Telemetrie und Ressourcenbilanz",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-002"
+      ],
+      "acceptance_criteria": [
+        "Vorhandene Dispatch-/Lease-/Run-/Tool-Ereignisse und Provider-Usage dedupliziert korrelieren; Queue-Wartezeit, aktive Agentenlaufzeit, Wallclock, Tokens, Kosten, unbekannte Werte und Retry-/Rework-Aufwand unterscheiden.",
+        "Parallel laufende Worker als Summe der Agentenzeit und Union der Wallclock getrennt ausweisen; menschliche Fokuszeit nie additiv als gleiche Metrik behandeln; keine Worker-Selbstautorisierung."
+      ]
+    },
+    {
+      "id": "GAFP-010",
+      "title": "Done-Liste mit verifizierter Evidenz",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-005",
+        "GAFP-009"
+      ],
+      "acceptance_criteria": [
+        "Abgeschlossene menschliche Tasks und durch bestehende Task-/Quality-Gates bestätigte Agentenergebnisse mit Artefakten, Testnachweisen, Review und Status historisch darstellen.",
+        "Fehlversuche, Wiedereröffnung, Teilfortschritt und nicht verifizierte Ergebnisse klar unterscheiden; Timer-Ende erzeugt allein kein Done."
+      ]
+    },
+    {
+      "id": "GAFP-011",
+      "title": "Inputbudgets und Output-Meilensteine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-004",
+        "GAFP-008",
+        "GAFP-009",
+        "GAFP-010"
+      ],
+      "acceptance_criteria": [
+        "Wochenziele für menschliche strategische Fokuszeit und separat Agentenzeit, Tokens/Kosten je Objective mit optionalem Budgetlimit definieren.",
+        "Inputerfüllung und verifizierte Outputs getrennt zeigen; fehlende Kosten nicht als null behandeln; bestehende Hub-Budget- und Approval-Gates gelten unverändert."
+      ]
+    },
+    {
+      "id": "GAFP-012",
+      "title": "Quest-Hours und reproduzierbare Aggregationen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-011"
+      ],
+      "acceptance_criteria": [
+        "Zeit nach historischer Zielzuordnung gewichtet ausweisen; Tages-/Wochen-/Monatsaggregation und Anteil strategischer versus operativer Arbeit.",
+        "Golden Fixtures für Überlappung, Retries, Korrekturen, Zielwechsel, DST und unbekannte Zuordnung; Summen stimmen mit Ledger überein."
+      ]
+    },
+    {
+      "id": "GAFP-013",
+      "title": "Wöchentliches Review und Reflexionsritual",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-012"
+      ],
+      "acceptance_criteria": [
+        "Konfigurierbare Wochen-Review mit Soll/Ist, Outcomes, Blockern, Ablenkung durch operative Arbeit, Budget und Ursachen; Benutzerkommentar und nächste Schritte.",
+        "Versionierte Snapshot-Basis, optionaler Erinnerungsmechanismus über vorhandene Scheduling-Infrastruktur falls vorhanden; keine künstliche Produktivitätsbewertung."
+      ]
+    },
+    {
+      "id": "GAFP-014",
+      "title": "Agentengestützte Reflexion und Planvorschläge",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-013",
+        "GAFP-006"
+      ],
+      "acceptance_criteria": [
+        "Optionaler Hub-delegierter Review-Agent mit scopes, bounded context, Evidenzreferenzen, Unsicherheit, konkreten Verbesserungsvorschlägen und Gegenargumenten.",
+        "LLM darf keine Ziele, Budgets, Task-Status oder Berechtigungen eigenständig ändern; Änderungen ausschließlich über existierende Proposal-/Approval-/Mutation-Gates; Prompt-Injection-Tests."
+      ]
+    },
+    {
+      "id": "GAFP-015",
+      "title": "Angular Focus View und Today View",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-007",
+        "GAFP-010"
+      ],
+      "acceptance_criteria": [
+        "Minimalmodus zeigt genau einen aktuellen Task, Notizen, Timer und Bedienelemente; Today View separat mit Drag-Reorder, Backlog und sichtbaren Blockern.",
+        "Tastaturbedienung, mobile Nutzung, Pause/Resume und Unterbrechung ohne Verlust; kritische Sicherheitsmeldungen bleiben erreichbar."
+      ]
+    },
+    {
+      "id": "GAFP-016",
+      "title": "Goal Map, Ist-Kalender und Review Dashboard",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-012",
+        "GAFP-013",
+        "GAFP-015"
+      ],
+      "acceptance_criteria": [
+        "Zielbaum, Quest-Farben, Ist-Kalender, Done-Liste, Input/Output-Vergleich, Drilldown bis zu Evidenz und unzugeordneten Aufgaben.",
+        "Wiederverwendung vorhandener Goal-Dashboard-Komponenten; barrierefreie Darstellung, Zeitzone und klare Unterscheidung von Mensch/Agent."
+      ]
+    },
+    {
+      "id": "GAFP-017",
+      "title": "Versionierte API, CLI und optionales MCP",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-007",
+        "GAFP-011",
+        "GAFP-013"
+      ],
+      "acceptance_criteria": [
+        "Vorhandene API-/Auth-/Service-Patterns nutzen, scoped Read- und Mutation-Endpunkte sowie CLI-Adapter; optional MCP nur unter vorhandenen Tool-Policies.",
+        "Mandantentrennung, Rollen, Idempotency-Key, optimistic concurrency, pagination, Schema-/Contract-Tests; keine zusätzlichen Admin- oder Worker-Schreibpfade."
+      ]
+    },
+    {
+      "id": "GAFP-018",
+      "title": "Interoperabilität und Datenschutz",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-017"
+      ],
+      "acceptance_criteria": [
+        "Opt-in JSON/CSV-Export mit stabilen IDs, Herkunft, Zeitzone, Einheiten und Version; optional Dockweave-Adapter für ausdrücklich autorisierte Run-Metadaten, kein Zwang zur Kopplung.",
+        "Minimierung, Aufbewahrungs-/Löschpolitik, Zugriffskontrolle, keine Secrets, keine unautorisierten Workspace- oder Prompt-Inhalte; private Ziele niemals standardmäßig an Worker geben."
+      ]
+    },
+    {
+      "id": "GAFP-019",
+      "title": "Migration, Feature Flags und Rückwärtskompatibilität",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-002",
+        "GAFP-005",
+        "GAFP-008",
+        "GAFP-009"
+      ],
+      "acceptance_criteria": [
+        "Additive versionierte Migrationen und default-off Feature Flag; bestehende Goals/Tasks unverändert nutzbar, keine erfundenen historischen Zeiten.",
+        "Upgrade/Rollback und Reconciliation testen; kein Datenverlust oder doppelter Dispatch bei Deaktivierung."
+      ]
+    },
+    {
+      "id": "GAFP-020",
+      "title": "Deterministische Tests und Failure Injection",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-010",
+        "GAFP-012",
+        "GAFP-014",
+        "GAFP-017",
+        "GAFP-019"
+      ],
+      "acceptance_criteria": [
+        "Unit-, Contract-, Integration- und E2E-Tests für Fokusparallelität, Queue-Policy, Retry, Crash, Race, DST, Berechtigungen und Approval-Bypass.",
+        "Mindestens ein vollständiger Ablauf strategisches Ziel -> Task -> Fokus/Worker -> verifiziertes Done -> Wochenreview; Regression vorhandener Planning- und Queue-Tests."
+      ]
+    },
+    {
+      "id": "GAFP-021",
+      "title": "Benchmark und Anti-Goodhart-Evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-020"
+      ],
+      "acceptance_criteria": [
+        "Baseline gegen Feature-Modus messen: Zeit bis Task-Start, Anteil verifizierter Outcomes, Rework, Kosten je akzeptiertem Ergebnis, Queue-Latenz und Datenvollständigkeit.",
+        "Keine automatische Bewertung nach bloßen Stunden; numerische Performance-Gates erst nach reproduzierbarer Baseline festlegen, LLM-Overhead begrenzen."
+      ]
+    },
+    {
+      "id": "GAFP-022",
+      "title": "Dokumentation, Pilot und Rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "GAFP-016",
+        "GAFP-018",
+        "GAFP-020",
+        "GAFP-021"
+      ],
+      "acceptance_criteria": [
+        "ADR, Datenmodell, Bedienung, Datenschutz, Betriebs-/Recovery-Anleitung, Beispiel für Daily Planning und Wochenreview dokumentieren.",
+        "Pilot zuerst opt-in; beobachtete Abweichungen festhalten, CI grün, Rollback nachgewiesen; keine Umsetzung als done markieren ohne Evidenz."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "GAFP-001",
+    "GAFP-002",
+    "GAFP-003",
+    "GAFP-004",
+    "GAFP-005",
+    "GAFP-007",
+    "GAFP-008",
+    "GAFP-009",
+    "GAFP-010",
+    "GAFP-011",
+    "GAFP-019",
+    "GAFP-020"
+  ],
+  "tasks_status_summary": {
+    "total": 22,
+    "by_status": {
+      "todo": 22,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 12,
+      "P1": 10
+    },
+    "by_risk": {
+      "medium": 9,
+      "high": 13
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "P0 markiert Release-kritische Aufgaben, nicht die berechnete längste DAG-Dauer.",
+    "Alle Tasks sind geplant, keine Implementierung behauptet."
+  ]
+}
